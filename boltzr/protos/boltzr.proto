@@ -18,6 +18,8 @@ service BoltzR {
 
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
   rpc FetchInvoice (FetchInvoiceRequest) returns (FetchInvoiceResponse);
+
+  rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
 }
 
 message GetInfoRequest {}
@@ -194,4 +196,16 @@ message FetchInvoiceRequest {
 
 message FetchInvoiceResponse {
   string invoice = 1;
+}
+
+message ScanMempoolRequest {
+  repeated string symbols = 1;
+}
+
+message ScanMempoolResponse {
+  message Transactions {
+    repeated bytes raw = 1;
+  }
+
+  map<string, Transactions> transactions = 1;
 }

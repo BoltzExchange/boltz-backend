@@ -3,14 +3,15 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
+use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
 use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
     DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, SendMessageRequest,
-    SendMessageResponse, SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest,
-    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse,
-    SwapUpdateRequest, SwapUpdateResponse,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, ScanMempoolRequest,
+    ScanMempoolResponse, SendMessageRequest, SendMessageResponse, SendWebHookRequest,
+    SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -24,6 +25,7 @@ use lightning::offers::offer::Amount;
 use lightning::util::ser::Writeable;
 use lightning_invoice::Bolt11InvoiceDescription;
 use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
@@ -31,7 +33,7 @@ use tokio::sync::{mpsc, Mutex};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tonic::codegen::tokio_stream::Stream;
 use tonic::{Code, Request, Response, Status, Streaming};
-use tracing::{debug, error, instrument, trace};
+use tracing::{debug, error, info, instrument, trace};
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
@@ -521,6 +523,89 @@ where
             })),
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
         }
+    }
+
+    #[instrument(name = "grpc::scan_mempool", skip_all)]
+    async fn scan_mempool(
+        &self,
+        request: Request<ScanMempoolRequest>,
+    ) -> Result<Response<ScanMempoolResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+        let chain_clients = match params.symbols.is_empty() {
+            true => self
+                .currencies
+                .values()
+                .filter_map(|cur| cur.chain.clone())
+                .collect(),
+            false => {
+                let mut clients = Vec::new();
+                for symbol in params.symbols {
+                    match self.currencies.get(&symbol) {
+                        Some(cur) => match cur.chain.clone() {
+                            Some(client) => {
+                                clients.push(client);
+                            }
+                            None => {
+                                return Err(Status::new(
+                                    Code::NotFound,
+                                    format!("no chain client for currency {}", symbol),
+                                ))
+                            }
+                        },
+                        None => {
+                            return Err(Status::new(
+                                Code::NotFound,
+                                format!("no currency for {}", symbol),
+                            ))
+                        }
+                    }
+                }
+
+                clients
+            }
+        };
+
+        info!(
+            "Rescanning mempool of chains: {:?}",
+            chain_clients
+                .iter()
+                .map(|client| client.symbol())
+                .collect::<Vec<String>>()
+        );
+
+        let results = futures::future::join_all(chain_clients.iter().map(|client| async {
+            (
+                client.symbol(),
+                // TODO: fetch relevant inputs/outputs from db
+                client.scan_mempool(HashSet::new(), HashSet::new()).await,
+            )
+        }))
+        .await;
+
+        let mut transactions = HashMap::new();
+
+        for (symbol, result) in results {
+            match result {
+                Ok(txs) => {
+                    transactions.insert(
+                        symbol,
+                        Transactions {
+                            raw: txs.into_iter().map(|tx| tx.serialize()).collect(),
+                        },
+                    );
+                }
+                Err(err) => {
+                    return Err(Status::new(
+                        Code::Internal,
+                        format!("mempool rescan of {} failed: {}", symbol, err),
+                    ))
+                }
+            }
+        }
+
+        Ok(Response::new(ScanMempoolResponse { transactions }))
     }
 }
 

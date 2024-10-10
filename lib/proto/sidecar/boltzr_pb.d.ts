@@ -881,6 +881,76 @@ export namespace FetchInvoiceResponse {
     }
 }
 
+export class ScanMempoolRequest extends jspb.Message { 
+    clearSymbolsList(): void;
+    getSymbolsList(): Array<string>;
+    setSymbolsList(value: Array<string>): ScanMempoolRequest;
+    addSymbols(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ScanMempoolRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ScanMempoolRequest): ScanMempoolRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ScanMempoolRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ScanMempoolRequest;
+    static deserializeBinaryFromReader(message: ScanMempoolRequest, reader: jspb.BinaryReader): ScanMempoolRequest;
+}
+
+export namespace ScanMempoolRequest {
+    export type AsObject = {
+        symbolsList: Array<string>,
+    }
+}
+
+export class ScanMempoolResponse extends jspb.Message { 
+
+    getTransactionsMap(): jspb.Map<string, ScanMempoolResponse.Transactions>;
+    clearTransactionsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ScanMempoolResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ScanMempoolResponse): ScanMempoolResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ScanMempoolResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ScanMempoolResponse;
+    static deserializeBinaryFromReader(message: ScanMempoolResponse, reader: jspb.BinaryReader): ScanMempoolResponse;
+}
+
+export namespace ScanMempoolResponse {
+    export type AsObject = {
+
+        transactionsMap: Array<[string, ScanMempoolResponse.Transactions.AsObject]>,
+    }
+
+
+    export class Transactions extends jspb.Message { 
+        clearRawList(): void;
+        getRawList(): Array<Uint8Array | string>;
+        getRawList_asU8(): Array<Uint8Array>;
+        getRawList_asB64(): Array<string>;
+        setRawList(value: Array<Uint8Array | string>): Transactions;
+        addRaw(value: Uint8Array | string, index?: number): Uint8Array | string;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Transactions.AsObject;
+        static toObject(includeInstance: boolean, msg: Transactions): Transactions.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Transactions, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Transactions;
+        static deserializeBinaryFromReader(message: Transactions, reader: jspb.BinaryReader): Transactions;
+    }
+
+    export namespace Transactions {
+        export type AsObject = {
+            rawList: Array<Uint8Array | string>,
+        }
+    }
+
+}
+
 export enum Feature {
     BASIC_MPP = 0,
 }

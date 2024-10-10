@@ -7,6 +7,7 @@ use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 
 mod api;
+mod chain;
 mod config;
 mod currencies;
 mod db;
@@ -79,6 +80,7 @@ async fn main() {
         std::process::exit(1);
     });
 
+    // TODO: move to currencies
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
             evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
@@ -135,7 +137,7 @@ async fn main() {
         )),
     );
 
-    let currencies = match connect_nodes(config.currencies).await {
+    let currencies = match connect_nodes(config.currencies, config.liquid).await {
         Ok(currencies) => currencies,
         Err(err) => {
             error!("Could not connect to nodes: {}", err);

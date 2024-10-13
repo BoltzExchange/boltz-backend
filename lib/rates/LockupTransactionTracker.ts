@@ -111,6 +111,11 @@ class LockupTransactionTracker extends TypedEventEmitter<{
         this.logger.warn(
           `Could not find pending lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} (${transactionId}): ${formatError(e)}`,
         );
+
+        if (this.zeroConfAcceptedMap.get(chainClient.symbol) === false) {
+          continue;
+        }
+
         this.logger.warn(`Disabling 0-conf for ${chainClient.symbol}`);
         this.zeroConfAcceptedMap.set(chainClient.symbol, false);
         await this.rateProvider.setZeroConfAmount(chainClient.symbol, 0);

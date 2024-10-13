@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Utils stringify should stringify bigint 1`] = `
+"{
+  "big": "1"
+}"
+`;
+
+exports[`Utils stringify should stringify objects 1`] = `
+"{
+  "test": "data"
+}"
+`;

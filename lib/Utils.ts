@@ -50,7 +50,11 @@ export const generateSwapId = (version: SwapVersion): string =>
  * Stringify any object or array
  */
 export const stringify = (object: unknown): string => {
-  return JSON.stringify(object, undefined, 2);
+  return JSON.stringify(
+    object,
+    (_, value) => (typeof value === 'bigint' ? value.toString() : value),
+    2,
+  );
 };
 
 const sanitizeObject = (object: unknown): unknown => {
@@ -608,3 +612,5 @@ export const chunkArray = <T>(array: T[], size: number): T[][] => {
 
   return chunks.filter((chunk) => chunk.length !== 0);
 };
+
+export const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);

@@ -61,6 +61,7 @@ type BaseCurrencyConfig<T = ChainConfig> = {
 
   maxUnusedWalletBalance?: number;
 
+  maxZeroConfRisk?: number;
   maxZeroConfAmount: number;
 
   chain: T;

@@ -181,7 +181,7 @@ describe('UtxoNursery', () => {
   } as unknown as Blocks;
   const lockupTracker = {
     zeroConfAccepted: jest.fn().mockReturnValue(true),
-    addPendingTransactionToTrack: jest.fn(),
+    isAcceptable: jest.fn().mockResolvedValue(true),
   } as unknown as LockupTransactionTracker;
 
   const nursery = new UtxoNursery(
@@ -426,13 +426,36 @@ describe('UtxoNursery', () => {
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
     expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledTimes(1);
     expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledWith('BTC');
-    expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledTimes(1);
-    expect(lockupTracker.addPendingTransactionToTrack).toHaveBeenCalledWith(
+    expect(lockupTracker.isAcceptable).toHaveBeenCalledTimes(1);
+    expect(lockupTracker.isAcceptable).toHaveBeenCalledWith(
       mockGetSwapResult,
       transaction.toHex(),
     );
 
     expect(eventEmitted).toEqual(true);
+
+    jest.clearAllMocks();
+
+    // Should reject 0-conf when the risk is not acceptable
+    eventEmitted = false;
+
+    lockupTracker.isAcceptable = jest.fn().mockResolvedValue(false);
+
+    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+      expect(args.swap).toEqual(mockGetSwapResult);
+      expect(args.transaction).toEqual(transaction);
+      expect(args.reason).toEqual(
+        Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message,
+      );
+
+      eventEmitted = true;
+    });
+
+    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+
+    expect(eventEmitted).toEqual(true);
+
+    lockupTracker.isAcceptable = jest.fn().mockResolvedValue(true);
 
     jest.clearAllMocks();
 

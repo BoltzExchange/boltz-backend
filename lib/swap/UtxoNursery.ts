@@ -219,10 +219,6 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       this.logZeroConfAccepted(swap, transaction, swapOutput);
-      await this.lockupTransactionTracker.addPendingTransactionToTrack(
-        swap,
-        transaction.toHex(),
-      );
     }
 
     chainClient.removeOutputFilter(swapOutput.script);
@@ -787,10 +783,6 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       this.logZeroConfAccepted(swap, transaction, swapOutput);
-      await this.lockupTransactionTracker.addPendingTransactionToTrack(
-        swap,
-        transaction.toHex(),
-      );
     }
 
     chainClient.removeOutputFilter(swapOutput.script);
@@ -880,6 +872,15 @@ class UtxoNursery extends TypedEventEmitter<{
           return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
         }
       }
+    }
+
+    if (
+      !(await this.lockupTransactionTracker.isAcceptable(
+        swap,
+        transaction.toHex(),
+      ))
+    ) {
+      return Errors.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
     }
 
     return undefined;

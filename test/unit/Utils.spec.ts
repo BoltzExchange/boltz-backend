@@ -4,12 +4,14 @@ import os from 'os';
 import * as utils from '../../lib/Utils';
 import {
   TAPROOT_NOT_SUPPORTED,
+  bigIntMax,
   generateSwapId,
   getPubkeyHashFunction,
   getScriptHashFunction,
   mapToObject,
   objectMap,
   splitChannelPoint,
+  stringify,
 } from '../../lib/Utils';
 import commitHash from '../../lib/Version';
 import { OrderSide, SwapType, SwapVersion } from '../../lib/consts/Enums';
@@ -44,6 +46,16 @@ describe('Utils', () => {
       expect(generateSwapId(version)).toHaveLength(expectedLength);
     },
   );
+
+  describe('stringify', () => {
+    test('should stringify objects', () => {
+      expect(stringify({ test: 'data' })).toMatchSnapshot();
+    });
+
+    test('should stringify bigint', () => {
+      expect(stringify({ big: 1n })).toMatchSnapshot();
+    });
+  });
 
   test('should split derivation path', () => {
     const master = 'm';
@@ -421,5 +433,14 @@ describe('Utils', () => {
     const res = utils.chunkArray(data, size);
     expect(res.length).toEqual(chunks.length);
     expect(res).toEqual(chunks);
+  });
+
+  test.each`
+    a       | b      | expected
+    ${0n}   | ${1n}  | ${1n}
+    ${0n}   | ${-1n} | ${0n}
+    ${123n} | ${-1n} | ${123n}
+  `('should get maximal bigint', ({ a, b, expected }) => {
+    expect(bigIntMax(a, b)).toEqual(expected);
   });
 });

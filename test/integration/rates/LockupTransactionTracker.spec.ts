@@ -349,5 +349,32 @@ describe('LockupTransactionTracker', () => {
         0,
       );
     });
+
+    test('should not disable 0-conf multiple times', async () => {
+      expect(tracker.zeroConfAccepted('BTC')).toEqual(false);
+
+      const id = '123';
+      PendingLockupTransactionRepository.getForChain = jest
+        .fn()
+        .mockResolvedValue([{ swapId: id }]);
+      PendingLockupTransactionRepository.destroy = jest.fn();
+
+      const transactionId = getHexString(randomBytes(32));
+
+      SwapRepository.getSwaps = jest.fn().mockResolvedValue([
+        {
+          id,
+          type: SwapType.Submarine,
+          lockupTransactionId: transactionId,
+        },
+      ]);
+
+      await bitcoinClient.generate(1);
+      await wait(100);
+
+      expect(tracker.zeroConfAccepted('BTC')).toEqual(false);
+
+      expect(rateProvider.setZeroConfAmount).toHaveBeenCalledTimes(0);
+    });
   });
 });

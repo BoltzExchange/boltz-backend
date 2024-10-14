@@ -647,6 +647,12 @@ jest.mock('../../../lib/service/BalanceCheck', () => {
   }));
 });
 
+jest.mock('../../../lib/rates/LockupTransactionTracker', () => {
+  return jest.fn().mockImplementation(() => ({
+    init: jest.fn(),
+  }));
+});
+
 describe('Service', () => {
   const configPairs = [
     {
@@ -841,6 +847,8 @@ describe('Service', () => {
 
     expect(mockInitRateProvider).toHaveBeenCalledTimes(1);
     expect(mockInitRateProvider).toHaveBeenCalledWith(configPairs);
+
+    expect(service['lockupTransactionTracker'].init).toHaveBeenCalledTimes(1);
   });
 
   test.each`

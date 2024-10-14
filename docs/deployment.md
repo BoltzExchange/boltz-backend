@@ -240,7 +240,12 @@ symbol = "BTC"
 network = "bitcoinTestnet"
 minWalletBalance = 10_000_000
 minChannelBalance = 10_000_000
-maxZeroConfAmount = 10_000_000
+
+# Maximal 0-conf amount *per swap*
+maxZeroConfAmount = 100_000
+
+# Maximal 0-conf amount for the currency
+maxZeroConfRisk = 1_000_000
 
 # Onchain wallet provider
 # Options: "core" or "lnd"

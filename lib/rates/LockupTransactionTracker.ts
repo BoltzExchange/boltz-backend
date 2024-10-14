@@ -1,14 +1,20 @@
 import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
+import type { ConfigType } from '../Config';
 import Logger from '../Logger';
 import {
+  bigIntMax,
   formatError,
   getChainCurrency,
   getReceivingChain,
   isTxConfirmed,
+  mapToObject,
   splitPairId,
+  stringify,
 } from '../Utils';
 import { IChainClient } from '../chain/ChainClient';
+import ElementsClient from '../chain/ElementsClient';
+import DefaultMap from '../consts/DefaultMap';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import Swap from '../db/models/Swap';
@@ -17,6 +23,7 @@ import ChainSwapRepository, {
 } from '../db/repositories/ChainSwapRepository';
 import PendingLockupTransactionRepository from '../db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import ErrorsSwap from '../swap/Errors';
 import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import RateProvider from './RateProvider';
@@ -25,10 +32,15 @@ class LockupTransactionTracker extends TypedEventEmitter<{
   'zeroConf.disabled': string;
 }> {
   private readonly lock = new AsyncLock();
+
+  private readonly risk = new DefaultMap<string, bigint>(() => 0n);
+  private readonly maxRisk = new DefaultMap<string, bigint>(() => 0n);
+
   private readonly zeroConfAcceptedMap = new Map<string, boolean>();
 
   constructor(
     private readonly logger: Logger,
+    config: ConfigType,
     currencies: Map<string, Currency>,
     private readonly rateProvider: RateProvider,
   ) {
@@ -42,12 +54,68 @@ class LockupTransactionTracker extends TypedEventEmitter<{
       this.listenToBlocks(currency.chainClient);
       this.zeroConfAcceptedMap.set(currency.chainClient.symbol, true);
     }
+
+    for (const currency of config.currencies) {
+      this.maxRisk.set(
+        currency.symbol,
+        BigInt(currency.maxZeroConfRisk || currency.maxZeroConfAmount || 0),
+      );
+    }
+
+    if (config.liquid) {
+      this.maxRisk.set(
+        ElementsClient.symbol,
+        BigInt(
+          config.liquid.maxZeroConfRisk || config.liquid.maxZeroConfAmount || 0,
+        ),
+      );
+    }
+
+    this.logger.verbose(
+      `Max 0-conf risk limits: ${stringify(mapToObject(this.maxRisk))}`,
+    );
   }
+
+  public init = async () => {
+    for (const symbol of this.zeroConfAcceptedMap.keys()) {
+      const transactionSwapIds = (
+        await PendingLockupTransactionRepository.getForChain(symbol)
+      ).map((tx) => tx.swapId);
+      const swaps = await Promise.all([
+        SwapRepository.getSwaps({
+          id: {
+            [Op.in]: transactionSwapIds,
+          },
+        }),
+        ChainSwapRepository.getChainSwaps({
+          id: {
+            [Op.in]: transactionSwapIds,
+          },
+        }),
+      ]);
+
+      await this.lock.acquire(symbol, async () => {
+        for (const swap of swaps.flat()) {
+          this.risk.set(
+            symbol,
+            this.risk.get(symbol) + this.getReceivingAmount(swap),
+          );
+        }
+      });
+
+      const currentRisk = this.risk.get(symbol);
+      if (currentRisk > 0n) {
+        this.logger.verbose(
+          `${transactionSwapIds.length} ${symbol} transactions still in mempool with total risk of: ${String(currentRisk)}`,
+        );
+      }
+    }
+  };
 
   public zeroConfAccepted = (symbol: string): boolean =>
     this.zeroConfAcceptedMap.get(symbol) || false;
 
-  public addPendingTransactionToTrack = async (
+  public isAcceptable = async (
     swap: Swap | ChainSwapInfo,
     transactionHex: string,
   ) => {
@@ -61,11 +129,30 @@ class LockupTransactionTracker extends TypedEventEmitter<{
       throw Errors.SYMBOL_LOCKUPS_NOT_BEING_TRACKED(chainCurrency);
     }
 
-    await PendingLockupTransactionRepository.create(
-      swap.id,
-      chainCurrency,
-      transactionHex,
-    );
+    if (!this.zeroConfAccepted(chainCurrency)) {
+      throw ErrorsSwap.SWAP_DOES_NOT_ACCEPT_ZERO_CONF().message;
+    }
+
+    const isAcceptable = await this.lock.acquire(chainCurrency, async () => {
+      const risk = this.risk.get(chainCurrency) + this.getReceivingAmount(swap);
+      const isAcceptable = risk <= this.maxRisk.get(chainCurrency);
+
+      if (isAcceptable) {
+        this.risk.set(chainCurrency, risk);
+      }
+
+      return isAcceptable;
+    });
+
+    if (isAcceptable) {
+      await PendingLockupTransactionRepository.create(
+        swap.id,
+        chainCurrency,
+        transactionHex,
+      );
+    }
+
+    return isAcceptable;
   };
 
   private listenToBlocks = (chainClient: IChainClient) => {
@@ -106,6 +193,14 @@ class LockupTransactionTracker extends TypedEventEmitter<{
             `Pending lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} (${transactionId}) confirmed`,
           );
           await PendingLockupTransactionRepository.destroy(swap.id);
+
+          this.risk.set(
+            chainClient.symbol,
+            bigIntMax(
+              this.risk.get(chainClient.symbol) - this.getReceivingAmount(swap),
+              0n,
+            ),
+          );
         }
       } catch (e) {
         this.logger.warn(
@@ -121,6 +216,19 @@ class LockupTransactionTracker extends TypedEventEmitter<{
         await this.rateProvider.setZeroConfAmount(chainClient.symbol, 0);
         this.emit('zeroConf.disabled', chainClient.symbol);
       }
+    }
+  };
+
+  private getReceivingAmount = (swap: Swap | ChainSwapInfo) => {
+    switch (swap.type) {
+      case SwapType.Submarine:
+        return BigInt((swap as Swap).onchainAmount || 0);
+
+      case SwapType.Chain:
+        return BigInt((swap as ChainSwapInfo).receivingData.amount || 0);
+
+      default:
+        return 0n;
     }
   };
 }

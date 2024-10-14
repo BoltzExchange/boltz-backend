@@ -195,6 +195,7 @@ class Service {
 
     this.lockupTransactionTracker = new LockupTransactionTracker(
       this.logger,
+      config,
       this.currencies,
       this.rateProvider,
     );
@@ -281,6 +282,7 @@ class Service {
     await this.rateProvider.init(configPairs);
 
     await this.nodeInfo.init();
+    await this.lockupTransactionTracker.init();
   };
 
   public convertToPairAndSide = (

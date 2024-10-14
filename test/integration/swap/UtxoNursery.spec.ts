@@ -85,6 +85,17 @@ describe('UtxoNursery', () => {
   const blocks = new Blocks(Logger.disabledLogger, {});
   const lockupTracker = new LockupTransactionTracker(
     Logger.disabledLogger,
+    {
+      currencies: [
+        {
+          symbol: 'BTC',
+          maxZeroConfAmount: 10_000_000,
+        },
+      ],
+      liquid: {
+        maxZeroConfAmount: 10_000_000,
+      },
+    } as any,
     new Map<string, Currency>(currencies.map((cur) => [cur.symbol, cur])),
     {} as any,
   );
@@ -118,7 +129,6 @@ describe('UtxoNursery', () => {
     },
     lockupTracker,
     sidecar,
-    {} as any,
     {} as any,
   );
 

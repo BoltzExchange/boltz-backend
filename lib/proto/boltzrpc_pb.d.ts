@@ -828,6 +828,11 @@ export class RescanRequest extends jspb.Message {
     getStartHeight(): number;
     setStartHeight(value: number): RescanRequest;
 
+    hasIncludeMempool(): boolean;
+    clearIncludeMempool(): void;
+    getIncludeMempool(): boolean | undefined;
+    setIncludeMempool(value: boolean): RescanRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RescanRequest.AsObject;
     static toObject(includeInstance: boolean, msg: RescanRequest): RescanRequest.AsObject;
@@ -842,6 +847,7 @@ export namespace RescanRequest {
     export type AsObject = {
         symbol: string,
         startHeight: number,
+        includeMempool?: boolean,
     }
 }
 

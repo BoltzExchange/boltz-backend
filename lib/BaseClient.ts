@@ -3,7 +3,7 @@ import { racePromise } from './PromiseUtils';
 import { ClientStatus } from './consts/Enums';
 import TypedEventEmitter from './consts/TypedEventEmitter';
 
-type BaseClientEvents = { 'status.changed': ClientStatus };
+export type BaseClientEvents = { 'status.changed': ClientStatus };
 
 abstract class BaseClient<
   T extends BaseClientEvents = BaseClientEvents,

@@ -5,8 +5,10 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
+use crate::swap::manager::Manager;
 
 mod api;
+mod chain;
 mod config;
 mod currencies;
 mod db;
@@ -14,8 +16,10 @@ mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
+mod swap;
 mod tracing_setup;
 mod utils;
+mod wallet;
 mod webhook;
 mod ws;
 
@@ -79,6 +83,7 @@ async fn main() {
         std::process::exit(1);
     });
 
+    // TODO: move to currencies
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
             evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
@@ -135,7 +140,7 @@ async fn main() {
         )),
     );
 
-    let currencies = match connect_nodes(config.currencies).await {
+    let currencies = match connect_nodes(config.network, config.currencies, config.liquid).await {
         Ok(currencies) => currencies,
         Err(err) => {
             error!("Could not connect to nodes: {}", err);
@@ -149,7 +154,7 @@ async fn main() {
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
-        currencies,
+        Arc::new(Manager::new(currencies, db_pool.clone())),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,

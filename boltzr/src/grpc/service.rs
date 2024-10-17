@@ -1,20 +1,21 @@
-use crate::currencies::Currencies;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
+use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
 use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
     DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, SendMessageRequest,
-    SendMessageResponse, SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest,
-    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse,
-    SwapUpdateRequest, SwapUpdateResponse,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, ScanMempoolRequest,
+    ScanMempoolResponse, SendMessageRequest, SendMessageResponse, SendWebHookRequest,
+    SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
+use crate::swap::manager::SwapManager;
 use crate::webhook::caller::Caller;
 use crate::ws::types::SwapStatus;
 use alloy::primitives::{Address, FixedBytes};
@@ -24,6 +25,7 @@ use lightning::offers::offer::Amount;
 use lightning::util::ser::Writeable;
 use lightning_invoice::Bolt11InvoiceDescription;
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
@@ -37,10 +39,10 @@ pub mod boltzr {
     tonic::include_proto!("boltzr");
 }
 
-pub struct BoltzService<T> {
+pub struct BoltzService<M, T> {
     pub web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
 
-    currencies: Currencies,
+    manager: Arc<M>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_caller: Arc<Caller>,
@@ -52,9 +54,9 @@ pub struct BoltzService<T> {
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
 
-impl<T> BoltzService<T> {
+impl<M, T> BoltzService<M, T> {
     pub(crate) fn new(
-        currencies: Currencies,
+        manager: Arc<M>,
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
@@ -63,7 +65,7 @@ impl<T> BoltzService<T> {
         notification_client: Option<Arc<T>>,
     ) -> Self {
         BoltzService {
-            currencies,
+            manager,
             refund_signer,
             status_fetcher,
             web_hook_caller,
@@ -96,8 +98,9 @@ impl<'a> opentelemetry::propagation::Extractor for MetadataMap<'a> {
 }
 
 #[tonic::async_trait]
-impl<T> BoltzR for BoltzService<T>
+impl<M, T> BoltzR for BoltzService<M, T>
 where
+    M: SwapManager + Send + Sync + 'static,
     T: NotificationClient + Send + Sync + 'static,
 {
     #[instrument(name = "grpc::get_info", skip_all)]
@@ -375,27 +378,6 @@ where
         }))
     }
 
-    #[instrument(name = "grpc::fetch_invoice", skip_all)]
-    async fn fetch_invoice(
-        &self,
-        request: Request<FetchInvoiceRequest>,
-    ) -> Result<Response<FetchInvoiceResponse>, Status> {
-        extract_parent_context(&request);
-
-        let params = request.into_inner();
-
-        match self.currencies.get(&params.currency) {
-            Some(currency) => match currency.cln.clone() {
-                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
-                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
-                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
-                },
-                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
-            },
-            None => Err(Status::new(Code::NotFound, "currency not found")),
-        }
-    }
-
     #[instrument(name = "grpc::decode_invoice_or_offer", skip_all)]
     async fn decode_invoice_or_offer(
         &self,
@@ -522,6 +504,63 @@ where
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
         }
     }
+
+    #[instrument(name = "grpc::fetch_invoice", skip_all)]
+    async fn fetch_invoice(
+        &self,
+        request: Request<FetchInvoiceRequest>,
+    ) -> Result<Response<FetchInvoiceResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+
+        match self.manager.get_currency(&params.currency) {
+            Some(currency) => match currency.cln.clone() {
+                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
+                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
+                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+                },
+                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
+            },
+            None => Err(Status::new(Code::NotFound, "currency not found")),
+        }
+    }
+
+    #[instrument(name = "grpc::scan_mempool", skip_all)]
+    async fn scan_mempool(
+        &self,
+        request: Request<ScanMempoolRequest>,
+    ) -> Result<Response<ScanMempoolResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+        let res = match self
+            .manager
+            .scan_mempool(if params.symbols.is_empty() {
+                None
+            } else {
+                Some(params.symbols)
+            })
+            .await
+        {
+            Ok(transactions) => transactions,
+            Err(err) => return Err(Status::new(Code::Internal, err.to_string())),
+        };
+
+        let mut transaction_serialized = HashMap::new();
+        for (symbol, transactions) in res {
+            transaction_serialized.insert(
+                symbol,
+                Transactions {
+                    raw: transactions.iter().map(|tx| tx.serialize()).collect(),
+                },
+            );
+        }
+
+        Ok(Response::new(ScanMempoolResponse {
+            transactions: transaction_serialized,
+        }))
+    }
 }
 
 fn extract_parent_context<T>(request: &Request<T>) {
@@ -538,19 +577,10 @@ fn extract_parent_context<T>(request: &Request<T>) {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-    use std::error::Error;
-    use std::str::FromStr;
-    use std::sync::Arc;
-
-    use alloy::primitives::{Address, FixedBytes, Signature, U256};
-    use alloy::signers::k256;
-    use mockall::mock;
-    use rand::Rng;
-    use tokio_util::sync::CancellationToken;
-    use tonic::{Code, Request};
-
-    use crate::db::helpers::web_hook::{QueryResponse, WebHookHelper};
+    use crate::chain::utils::Transaction;
+    use crate::currencies::Currency;
+    use crate::db::helpers::web_hook::WebHookHelper;
+    use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::refund_signer::RefundSigner;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
@@ -561,8 +591,20 @@ mod test {
     };
     use crate::grpc::service::BoltzService;
     use crate::grpc::status_fetcher::StatusFetcher;
+    use crate::swap::manager::SwapManager;
     use crate::webhook::caller::{Caller, Config};
     use crate::ws;
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
+    use alloy::signers::k256;
+    use async_trait::async_trait;
+    use mockall::mock;
+    use rand::Rng;
+    use std::collections::HashMap;
+    use std::error::Error;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use tokio_util::sync::CancellationToken;
+    use tonic::{Code, Request};
 
     mock! {
         WebHookHelper {}
@@ -583,7 +625,7 @@ mod test {
     mock! {
         RefundSigner {}
 
-        #[tonic::async_trait]
+        #[async_trait]
         impl RefundSigner for RefundSigner {
             async fn sign(
                 &self,
@@ -592,6 +634,23 @@ mod test {
                 token_address: Option<Address>,
                 timeout: u64,
             ) -> Result<Signature, Box<dyn Error>>;
+        }
+    }
+
+    mock! {
+        Manager {}
+
+        impl Clone for Manager {
+            fn clone(&self) -> Self;
+        }
+
+        #[async_trait]
+        impl SwapManager for Manager {
+            fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            async fn scan_mempool(
+                &self,
+                symbols: Option<Vec<String>>,
+            ) -> anyhow::Result<HashMap<String, Vec<Transaction>>>;
         }
     }
 
@@ -867,7 +926,7 @@ mod test {
 
     fn make_service() -> (
         CancellationToken,
-        BoltzService<crate::notifications::mattermost::Client>,
+        BoltzService<MockManager, crate::notifications::mattermost::Client>,
     ) {
         let token = CancellationToken::new();
         let refund_signer = Arc::new(MockRefundSigner::new());
@@ -876,7 +935,7 @@ mod test {
         (
             token.clone(),
             BoltzService::new(
-                HashMap::new(),
+                Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),
@@ -918,5 +977,12 @@ mod test {
         hook_helper.expect_clone().returning(make_mock_hook_helper);
 
         hook_helper
+    }
+
+    fn make_mock_manager() -> MockManager {
+        let mut manager = MockManager::new();
+        manager.expect_clone().returning(make_mock_manager);
+
+        manager
     }
 }

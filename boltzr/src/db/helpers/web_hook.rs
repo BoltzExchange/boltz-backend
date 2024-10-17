@@ -1,14 +1,10 @@
-use std::error::Error;
-
-use diesel::prelude::*;
-use diesel::{insert_into, update};
-use tracing::{instrument, trace};
-
+use crate::db::helpers::QueryResponse;
 use crate::db::models::{WebHook, WebHookState};
 use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
 use crate::db::Pool;
-
-pub type QueryResponse<T> = Result<T, Box<dyn Error>>;
+use diesel::prelude::*;
+use diesel::{insert_into, update};
+use tracing::{instrument, trace};
 
 pub trait WebHookHelper {
     fn insert_web_hook(&self, hook: &WebHook) -> QueryResponse<usize>;
@@ -113,6 +109,25 @@ mod test {
     use rand::distributions::{Alphanumeric, DistString};
     use std::sync::{Mutex, OnceLock};
 
+    pub fn get_pool() -> Pool {
+        static POOL: OnceLock<Mutex<Pool>> = OnceLock::new();
+        POOL.get_or_init(|| {
+            Mutex::new(
+                connect(Config {
+                    host: "127.0.0.2".to_string(),
+                    port: 5432,
+                    database: "boltz_test".to_string(),
+                    username: "boltz".to_string(),
+                    password: "boltz".to_string(),
+                })
+                .unwrap(),
+            )
+        })
+        .lock()
+        .unwrap()
+        .clone()
+    }
+
     #[test]
     fn test_insert_web_hook() {
         let helper = WebHookHelperDatabase::new(get_pool());
@@ -163,24 +178,5 @@ mod test {
             failed_states.iter().find(|elem| elem.id == hook.id),
             Some(hook).as_ref()
         );
-    }
-
-    fn get_pool() -> Pool {
-        static POOL: OnceLock<Mutex<Pool>> = OnceLock::new();
-        POOL.get_or_init(|| {
-            Mutex::new(
-                connect(Config {
-                    host: "127.0.0.2".to_string(),
-                    port: 5432,
-                    database: "boltz_test".to_string(),
-                    username: "boltz".to_string(),
-                    password: "boltz".to_string(),
-                })
-                .unwrap(),
-            )
-        })
-        .lock()
-        .unwrap()
-        .clone()
     }
 }

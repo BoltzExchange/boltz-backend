@@ -54,7 +54,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 
   private compatibilityRescan = false;
 
-  // Because the event handlers that process the blocks are doing work asynchronously
+  // Because the event handlers that process the blocks are doing work asynchronously,
   // one has to use a lock to ensure the events get handled sequentially
   private blockHandleLock = new AsyncLock();
 

@@ -26,6 +26,7 @@ import {
 import { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import ElementsWrapper from '../chain/ElementsWrapper';
+import type { SomeTransaction } from '../chain/ZmqClient';
 import {
   CurrencyType,
   SwapType,
@@ -44,6 +45,7 @@ import SwapRepository from '../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import Blocks from '../service/Blocks';
+import Sidecar from '../sidecar/Sidecar';
 import Wallet from '../wallet/Wallet';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -106,6 +108,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
   constructor(
     private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly walletManager: WalletManager,
     private readonly blocks: Blocks,
     private readonly lockupTransactionTracker: LockupTransactionTracker,
@@ -226,12 +229,34 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private listenTransactions = (chainClient: IChainClient, wallet: Wallet) => {
-    chainClient.on('transaction', async ({ transaction, confirmed }) => {
-      await Promise.all([
+    const handleTransaction = (
+      transaction: SomeTransaction,
+      confirmed: boolean,
+    ) =>
+      Promise.all([
         this.checkSwapClaims(chainClient, transaction),
         this.checkOutputs(chainClient, wallet, transaction, confirmed),
       ]);
+
+    chainClient.on('transaction', async ({ transaction, confirmed }) => {
+      await handleTransaction(transaction, confirmed);
     });
+
+    this.sidecar.on(
+      'transactions',
+      async ({ symbol, confirmed, transactions }) => {
+        if (symbol !== chainClient.symbol) {
+          return;
+        }
+
+        for (const transactionRaw of transactions) {
+          await handleTransaction(
+            parseTransaction(chainClient.currencyType, transactionRaw),
+            confirmed,
+          );
+        }
+      },
+    );
   };
 
   private checkOutputs = async (

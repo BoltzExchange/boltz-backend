@@ -1,7 +1,7 @@
 import Exchange, { makeRequest } from '../Exchange';
 
 class CoinbasePro implements Exchange {
-  private static readonly API = 'https://api.pro.coinbase.com';
+  private static readonly API = 'https://api.exchange.coinbase.com';
 
   public async getPrice(
     baseAsset: string,

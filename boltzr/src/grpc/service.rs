@@ -378,27 +378,6 @@ where
         }))
     }
 
-    #[instrument(name = "grpc::fetch_invoice", skip_all)]
-    async fn fetch_invoice(
-        &self,
-        request: Request<FetchInvoiceRequest>,
-    ) -> Result<Response<FetchInvoiceResponse>, Status> {
-        extract_parent_context(&request);
-
-        let params = request.into_inner();
-
-        match self.manager.get_currency(&params.currency) {
-            Some(currency) => match currency.cln.clone() {
-                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
-                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
-                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
-                },
-                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
-            },
-            None => Err(Status::new(Code::NotFound, "currency not found")),
-        }
-    }
-
     #[instrument(name = "grpc::decode_invoice_or_offer", skip_all)]
     async fn decode_invoice_or_offer(
         &self,
@@ -523,6 +502,27 @@ where
                 },
             })),
             Err(err) => Err(Status::new(Code::InvalidArgument, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::fetch_invoice", skip_all)]
+    async fn fetch_invoice(
+        &self,
+        request: Request<FetchInvoiceRequest>,
+    ) -> Result<Response<FetchInvoiceResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+
+        match self.manager.get_currency(&params.currency) {
+            Some(currency) => match currency.cln.clone() {
+                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
+                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
+                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+                },
+                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
+            },
+            None => Err(Status::new(Code::NotFound, "currency not found")),
         }
     }
 

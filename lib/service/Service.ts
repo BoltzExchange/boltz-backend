@@ -86,6 +86,7 @@ import NodeSwitch from '../swap/NodeSwitch';
 import { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
+import type WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import BalanceCheck from './BalanceCheck';
 import Blocks from './Blocks';
@@ -770,7 +771,10 @@ class Service {
     const isSwapRelated = swapsFunded.length > 0 || swapsSpent.length > 0;
     const needsLowball =
       currency.type === CurrencyType.Liquid &&
-      ElementsClient.needsLowball(transaction as LiquidTransaction);
+      ElementsClient.needsLowball(
+        wallet as WalletLiquid,
+        transaction as LiquidTransaction,
+      );
 
     const relevantSwapIds = swapsSpent.concat(swapsFunded).map((r) => r.id);
 

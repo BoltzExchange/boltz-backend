@@ -83,6 +83,7 @@ describe('DeferredClaimer', () => {
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
     new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    Networks.bitcoinRegtest,
   );
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
@@ -161,7 +162,6 @@ describe('DeferredClaimer', () => {
 
   beforeAll(async () => {
     btcWallet.initKeyProvider(
-      Networks.bitcoinRegtest,
       'm/0/0',
       0,
       bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),

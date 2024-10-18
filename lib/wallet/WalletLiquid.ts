@@ -1,3 +1,4 @@
+import type { Network } from 'bitcoinjs-lib';
 import { address, networks, payments } from 'liquidjs-lib';
 import { Payment } from 'liquidjs-lib/src/payments';
 import { Slip77Interface } from 'slip77';
@@ -11,8 +12,17 @@ class WalletLiquid extends Wallet {
     logger: Logger,
     walletProvider: WalletProviderInterface,
     private readonly slip77: Slip77Interface,
+    network: Network,
   ) {
-    super(logger, CurrencyType.Liquid, walletProvider);
+    super(logger, CurrencyType.Liquid, walletProvider, network);
+
+    if (this.supportsDiscountCT) {
+      this.logger.info(`${this.serviceName()} wallet supports Discount CT`);
+    }
+  }
+
+  public get supportsDiscountCT(): boolean {
+    return this.network !== networks.liquid;
   }
 
   public deriveBlindingKeyFromScript = (outputScript: Buffer) => {

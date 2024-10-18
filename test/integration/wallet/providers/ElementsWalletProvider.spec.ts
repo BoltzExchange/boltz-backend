@@ -77,7 +77,9 @@ describe('ElementsWalletProvider', () => {
 
     if (feePerVbyte) {
       expect(
-        Math.round((sentTransaction.fee as number) / rawTransaction.vsize),
+        Math.round(
+          (sentTransaction.fee as number) / decodedTx.virtualSize(true),
+        ),
       ).toEqual(feePerVbyte);
     }
   };

@@ -153,11 +153,20 @@ class WalletManager {
 
       const wallet =
         currency.type !== CurrencyType.Liquid
-          ? new Wallet(this.logger, currency.type, walletProvider)
-          : new WalletLiquid(this.logger, walletProvider, this.slip77);
+          ? new Wallet(
+              this.logger,
+              currency.type,
+              walletProvider,
+              currency.network!,
+            )
+          : new WalletLiquid(
+              this.logger,
+              walletProvider,
+              this.slip77,
+              currency.network!,
+            );
 
       wallet.initKeyProvider(
-        currency.network!,
         keyProviderInfo.derivationPath,
         keyProviderInfo.highestUsedIndex,
         this.masterNode,

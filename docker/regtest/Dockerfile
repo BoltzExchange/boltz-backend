@@ -7,7 +7,7 @@ ARG LND_VERSION
 ARG C_LIGHTNING_VERSION
 
 FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
-FROM ghcr.io/vulpemventures/elements:${ELEMENTS_VERSION} AS elements-core
+FROM boltz/elements:${ELEMENTS_VERSION} AS elements-core
 
 FROM boltz/lnd:${LND_VERSION} AS lnd
 FROM boltz/c-lightning:${C_LIGHTNING_VERSION} AS cln
@@ -49,8 +49,8 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 COPY --from=bitcoin-core /bin/bitcoind /bin/
 COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 
-COPY --from=elements-core  /usr/local/bin/elementsd /bin/
-COPY --from=elements-core /usr/local/bin/elements-cli /bin/
+COPY --from=elements-core /bin/elementsd /bin/
+COPY --from=elements-core /bin/elements-cli /bin/
 
 # Copy the LND executables
 COPY --from=lnd /bin/lnd /bin/

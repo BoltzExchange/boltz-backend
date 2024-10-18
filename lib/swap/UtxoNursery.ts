@@ -209,6 +209,7 @@ class UtxoNursery extends TypedEventEmitter<{
     if (!confirmed) {
       const zeroConfRejectedReason = await this.acceptsZeroConf(
         swap,
+        wallet,
         chainClient,
         transaction,
       );
@@ -795,6 +796,7 @@ class UtxoNursery extends TypedEventEmitter<{
     if (!confirmed) {
       const zeroConfRejectedReason = await this.acceptsZeroConf(
         updatedSwap,
+        wallet,
         chainClient,
         transaction,
       );
@@ -849,6 +851,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
   private acceptsZeroConf = async (
     swap: Swap | ChainSwapInfo,
+    wallet: Wallet,
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
@@ -870,7 +873,12 @@ class UtxoNursery extends TypedEventEmitter<{
     ]);
 
     const transactionFeePerVbyte =
-      absoluteTransactionFee / transaction.virtualSize();
+      absoluteTransactionFee /
+      transaction.virtualSize(
+        wallet.symbol === ElementsClient.symbol
+          ? (wallet as WalletLiquid).supportsDiscountCT
+          : undefined,
+      );
 
     // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
     //
@@ -883,7 +891,10 @@ class UtxoNursery extends TypedEventEmitter<{
     // Make sure all clients accept the transaction
     if (
       chainClient.symbol === ElementsClient.symbol &&
-      !ElementsClient.needsLowball(transaction as LiquidTransaction)
+      !ElementsClient.needsLowball(
+        wallet as WalletLiquid,
+        transaction as LiquidTransaction,
+      )
     ) {
       if (chainClient instanceof ElementsWrapper) {
         const wrapper = chainClient as ElementsWrapper;

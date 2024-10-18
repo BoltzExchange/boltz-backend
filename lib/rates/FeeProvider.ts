@@ -20,6 +20,7 @@ import {
   swapTypeToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager from '../wallet/WalletManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import DataAggregator from './data/DataAggregator';
@@ -69,6 +70,7 @@ class FeeProvider {
   public static transactionSizes: {
     [CurrencyType.BitcoinLike]: TransactionSizes;
     [CurrencyType.Liquid]: TransactionSizes;
+    ['DiscountCT']: TransactionSizes;
   } = {
     [CurrencyType.BitcoinLike]: {
       [SwapVersion.Taproot]: {
@@ -100,6 +102,18 @@ class FeeProvider {
         normalClaim: 1333,
         reverseLockup: 2503,
         reverseClaim: 1378,
+      },
+    },
+    ['DiscountCT']: {
+      [SwapVersion.Taproot]: {
+        normalClaim: 181,
+        reverseLockup: 269,
+        reverseClaim: 193,
+      },
+      [SwapVersion.Legacy]: {
+        normalClaim: 216,
+        reverseLockup: 269,
+        reverseClaim: 229,
       },
     },
   };
@@ -321,10 +335,23 @@ class FeeProvider {
           },
         });
 
-        const sizes =
-          chainCurrency === ElementsClient.symbol
-            ? FeeProvider.transactionSizes[CurrencyType.Liquid]
-            : FeeProvider.transactionSizes[CurrencyType.BitcoinLike];
+        let sizes: TransactionSizes;
+
+        if (chainCurrency === ElementsClient.symbol) {
+          if (
+            (
+              this.walletManager.wallets.get(
+                ElementsClient.symbol,
+              ) as WalletLiquid
+            ).supportsDiscountCT
+          ) {
+            sizes = FeeProvider.transactionSizes['DiscountCT'];
+          } else {
+            sizes = FeeProvider.transactionSizes[CurrencyType.Liquid];
+          }
+        } else {
+          sizes = FeeProvider.transactionSizes[CurrencyType.BitcoinLike];
+        }
 
         this.minerFees.set(chainCurrency, {
           [SwapVersion.Taproot]: calculateMinerFeesForVersion(

@@ -4468,7 +4468,10 @@ export namespace WaitanyinvoiceRequest {
 export class WaitanyinvoiceResponse extends jspb.Message { 
     getLabel(): string;
     setLabel(value: string): WaitanyinvoiceResponse;
-    getDescription(): string;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
     setDescription(value: string): WaitanyinvoiceResponse;
     getPaymentHash(): Uint8Array | string;
     getPaymentHash_asU8(): Uint8Array;
@@ -4544,7 +4547,7 @@ export class WaitanyinvoiceResponse extends jspb.Message {
 export namespace WaitanyinvoiceResponse {
     export type AsObject = {
         label: string,
-        description: string,
+        description?: string,
         paymentHash: Uint8Array | string,
         status: WaitanyinvoiceResponse.WaitanyinvoiceStatus,
         expiresAt: number,
@@ -4615,7 +4618,10 @@ export namespace WaitinvoiceRequest {
 export class WaitinvoiceResponse extends jspb.Message { 
     getLabel(): string;
     setLabel(value: string): WaitinvoiceResponse;
-    getDescription(): string;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
     setDescription(value: string): WaitinvoiceResponse;
     getPaymentHash(): Uint8Array | string;
     getPaymentHash_asU8(): Uint8Array;
@@ -4691,7 +4697,7 @@ export class WaitinvoiceResponse extends jspb.Message {
 export namespace WaitinvoiceResponse {
     export type AsObject = {
         label: string,
-        description: string,
+        description?: string,
         paymentHash: Uint8Array | string,
         status: WaitinvoiceResponse.WaitinvoiceStatus,
         expiresAt: number,

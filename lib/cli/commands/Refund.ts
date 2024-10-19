@@ -6,7 +6,7 @@ import BuilderComponents from '../BuilderComponents';
 import { prepareTx } from '../Command';
 
 export const command =
-  'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
+  'refund <network> <privateKey> <timeoutBlockHeight> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey] [discountCT]';
 
 export const describe = 'refunds submarine or chain to chain swaps';
 
@@ -22,6 +22,7 @@ export const builder = {
   destinationAddress: BuilderComponents.destinationAddress,
   feePerVbyte: BuilderComponents.feePerVbyte,
   blindingKey: BuilderComponents.blindingKey,
+  discountCT: BuilderComponents.discountCT,
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {

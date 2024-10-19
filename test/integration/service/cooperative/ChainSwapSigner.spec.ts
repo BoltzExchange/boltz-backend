@@ -77,11 +77,13 @@ describe('ChainSwapSigner', () => {
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
     new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    Networks.bitcoinRegtest,
   );
   const liquidWallet = new WalletLiquid(
     Logger.disabledLogger,
     new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
     slip77.fromSeed(mnemonic),
+    LiquidNetworks.liquidRegtest,
   );
 
   const walletManager = {
@@ -103,13 +105,11 @@ describe('ChainSwapSigner', () => {
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     btcWallet.initKeyProvider(
-      Networks.bitcoinRegtest,
       'm/0/0',
       0,
       bip32.fromSeed(mnemonicToSeedSync(mnemonic)),
     );
     liquidWallet.initKeyProvider(
-      LiquidNetworks.liquidRegtest,
       'm/0/0',
       0,
       bip32.fromSeed(mnemonicToSeedSync(mnemonic)),

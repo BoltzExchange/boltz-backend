@@ -253,21 +253,25 @@ export const constructClaimTransaction = (
         );
       }
 
+      const walletLiquid = wallet as WalletLiquid;
       const liquidDetails = populateBlindingKeys(
-        wallet as WalletLiquid,
+        walletLiquid,
         claimDetails as LiquidClaimDetails[],
       );
       const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
-      return targetFee(feePerVbyte, (fee) =>
-        constructClaimTransactionLiquid(
-          liquidDetails,
-          decodedAddress.scriptPubKey!,
-          fee,
-          true,
-          wallet.network as LiquidNetwork,
-          decodedAddress.blindingKey,
-        ),
+      return targetFee(
+        feePerVbyte,
+        (fee) =>
+          constructClaimTransactionLiquid(
+            liquidDetails,
+            decodedAddress.scriptPubKey!,
+            fee,
+            true,
+            wallet.network as LiquidNetwork,
+            decodedAddress.blindingKey,
+          ),
+        walletLiquid.supportsDiscountCT,
       );
     });
   } finally {
@@ -282,35 +286,54 @@ export const constructRefundTransaction = (
   timeoutBlockHeight: number,
   feePerVbyte: number,
 ) => {
-  if (isBitcoin(wallet.type)) {
-    return targetFee(feePerVbyte, (fee) =>
-      constructRefundTransactionBitcoin(
-        refundDetails as RefundDetails[],
-        wallet.decodeAddress(destinationAddress),
-        timeoutBlockHeight,
-        fee,
-        true,
-      ),
-    );
+  const span = Tracing.tracer.startSpan('constructRefundTransaction', {
+    kind: SpanKind.INTERNAL,
+    attributes: {
+      type: currencyTypeToString(wallet.type),
+      'refundDetails.length': refundDetails.length,
+    },
+  });
+  const ctx = trace.setSpan(context.active(), span);
+
+  try {
+    return context.with(ctx, () => {
+      if (isBitcoin(wallet.type)) {
+        return targetFee(feePerVbyte, (fee) =>
+          constructRefundTransactionBitcoin(
+            refundDetails as RefundDetails[],
+            wallet.decodeAddress(destinationAddress),
+            timeoutBlockHeight,
+            fee,
+            true,
+          ),
+        );
+      }
+
+      const walletLiquid = wallet as WalletLiquid;
+      const liquidDetails = populateBlindingKeys(
+        walletLiquid,
+        refundDetails as LiquidRefundDetails[],
+      );
+      const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
+
+      return targetFee(
+        feePerVbyte,
+        (fee) =>
+          constructRefundTransactionLiquid(
+            liquidDetails,
+            decodedAddress.scriptPubKey!,
+            timeoutBlockHeight,
+            fee,
+            true,
+            wallet.network as LiquidNetwork,
+            decodedAddress.blindingKey,
+          ),
+        walletLiquid.supportsDiscountCT,
+      );
+    });
+  } finally {
+    span.end();
   }
-
-  const liquidDetails = populateBlindingKeys(
-    wallet as WalletLiquid,
-    refundDetails as LiquidRefundDetails[],
-  );
-  const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
-
-  return targetFee(feePerVbyte, (fee) =>
-    constructRefundTransactionLiquid(
-      liquidDetails,
-      decodedAddress.scriptPubKey!,
-      timeoutBlockHeight,
-      fee,
-      true,
-      wallet.network as LiquidNetwork,
-      decodedAddress.blindingKey,
-    ),
-  );
 };
 
 export const calculateTransactionFee = async (

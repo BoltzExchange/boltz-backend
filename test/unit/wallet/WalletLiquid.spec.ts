@@ -9,17 +9,39 @@ import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
+import WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
 
 describe('WalletLiquid', () => {
   const slip77 = SLIP77Factory(ecc).fromSeed(
     'test test test test test test test test test test test junk',
   );
-  const wallet = new WalletLiquid(Logger.disabledLogger, {} as any, slip77);
-  wallet.initKeyProvider(Networks.liquidRegtest, '', 0, {} as any);
+  const provider = {
+    serviceName: () => 'Elements',
+  } as WalletProviderInterface;
+
+  const wallet = new WalletLiquid(
+    Logger.disabledLogger,
+    provider,
+    slip77,
+    Networks.liquidRegtest,
+  );
+  wallet.initKeyProvider('', 0, {} as any);
 
   const publicKey = getHexBuffer(
     '03f0081c29011d63e741e4bfe2465a9e1bb203852d239f541d92dc8d9e40bdb3e6',
   );
+
+  test.each`
+    name         | network                   | support
+    ${'regtest'} | ${Networks.liquidRegtest} | ${true}
+    ${'testnet'} | ${Networks.liquidTestnet} | ${true}
+    ${'mainnet'} | ${Networks.liquidMainnet} | ${false}
+  `('should check if $name supports discount CT', ({ network, support }) => {
+    expect(
+      new WalletLiquid(Logger.disabledLogger, provider, slip77, network)
+        .supportsDiscountCT,
+    ).toEqual(support);
+  });
 
   test.each`
     addr

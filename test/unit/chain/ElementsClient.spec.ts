@@ -5,7 +5,7 @@ import ElementsClient from '../../../lib/chain/ElementsClient';
 describe('ElementsClient', () => {
   test.each`
     lowball  | expected
-    ${false} | ${0.11}
+    ${false} | ${0.1}
     ${true}  | ${0.01}
   `(
     'should set estimate sat/vbyte fee of $expected for lowball ($lowball)',
@@ -34,13 +34,18 @@ describe('ElementsClient', () => {
       'should determine if transaction needs lowball',
       ({ transactionHex, expected }) => {
         expect(
-          ElementsClient.needsLowball(Transaction.fromHex(transactionHex)),
+          ElementsClient.needsLowball(
+            { supportsDiscountCT: false } as any,
+            Transaction.fromHex(transactionHex),
+          ),
         ).toEqual(expected);
       },
     );
 
     test('should return false when no fee output can be found', () => {
-      expect(ElementsClient.needsLowball(new Transaction())).toEqual(false);
+      expect(ElementsClient.needsLowball({} as any, new Transaction())).toEqual(
+        false,
+      );
     });
   });
 });

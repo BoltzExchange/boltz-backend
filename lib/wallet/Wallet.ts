@@ -14,8 +14,6 @@ import WalletProviderInterface, {
 class Wallet implements BalancerFetcher {
   public readonly symbol: string;
 
-  public network!: Network;
-
   private derivationPath?: string;
   private highestUsedIndex?: number;
   private masterNode?: BIP32Interface;
@@ -24,9 +22,10 @@ class Wallet implements BalancerFetcher {
    * Wallet is a hierarchical deterministic wallet for a currency
    */
   constructor(
-    private logger: Logger,
+    protected readonly logger: Logger,
     public type: CurrencyType,
     public walletProvider: WalletProviderInterface,
+    public readonly network?: Network,
   ) {
     this.symbol = this.walletProvider.symbol;
   }
@@ -40,12 +39,10 @@ class Wallet implements BalancerFetcher {
    * This is only required (and possible) for UTXO based chains like Bitcoin
    */
   public initKeyProvider = (
-    network: Network,
     derivationPath: string,
     highestUsedIndex: number,
     masterNode: BIP32Interface,
   ): void => {
-    this.network = network;
     this.derivationPath = derivationPath;
     this.highestUsedIndex = highestUsedIndex;
     this.masterNode = masterNode;

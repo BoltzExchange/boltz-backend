@@ -66,9 +66,8 @@ describe('Core', () => {
   beforeAll(async () => {
     await Promise.all([setup(), database.init()]);
 
-    const initWallet = (w: Wallet, network: any) => {
+    const initWallet = (w: Wallet) => {
       w.initKeyProvider(
-        network,
         'm/0/0',
         0,
         bip32.fromSeed(
@@ -83,15 +82,17 @@ describe('Core', () => {
       Logger.disabledLogger,
       CurrencyType.BitcoinLike,
       new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+      Networks.bitcoinRegtest,
     );
-    initWallet(wallet, Networks.bitcoinRegtest);
+    initWallet(wallet);
 
     walletLiquid = new WalletLiquid(
       Logger.disabledLogger,
       new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
       slip77.fromSeed(generateMnemonic()),
+      networks.regtest,
     );
-    initWallet(walletLiquid, networks.regtest);
+    initWallet(walletLiquid);
 
     await bitcoinClient.connect();
     await elementsClient.connect();
@@ -154,6 +155,9 @@ describe('Core', () => {
     ).toEqual(outputAmount);
 
     // Wrong asset
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
@@ -161,6 +165,9 @@ describe('Core', () => {
         (transaction as LiquidTransaction).outs[vout!],
       ),
     ).toEqual(0);
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     walletLiquid['network'] = networks.regtest;
   });
 
@@ -168,7 +175,7 @@ describe('Core', () => {
     const script = toOutputScript(
       CurrencyType.Liquid,
       await walletLiquid.getAddress(''),
-      walletLiquid.network,
+      walletLiquid.network!,
     );
 
     const outputAmount = 1245412;
@@ -187,6 +194,9 @@ describe('Core', () => {
     ).toEqual(outputAmount);
 
     // Wrong asset hash
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     walletLiquid['network'] = networks.liquid;
     expect(
       getOutputValue(
@@ -194,6 +204,9 @@ describe('Core', () => {
         (transaction as LiquidTransaction).outs[vout!],
       ),
     ).toEqual(0);
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     walletLiquid['network'] = networks.regtest;
   });
 

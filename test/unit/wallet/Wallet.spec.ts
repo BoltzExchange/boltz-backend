@@ -85,9 +85,10 @@ describe('Wallet', () => {
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
     walletProvider,
+    network,
   );
 
-  wallet.initKeyProvider(network, derivationPath, highestUsedIndex, masterNode);
+  wallet.initKeyProvider(derivationPath, highestUsedIndex, masterNode);
 
   const incrementIndex = () => {
     highestUsedIndex = highestUsedIndex + 1;
@@ -101,14 +102,10 @@ describe('Wallet', () => {
     Logger.disabledLogger,
     walletProvider,
     slip77.fromSeed(mnemonic),
+    networkLiquid.liquid,
   );
 
-  walletLiquid.initKeyProvider(
-    networkLiquid.liquid,
-    derivationPath,
-    highestUsedIndex,
-    masterNode,
-  );
+  walletLiquid.initKeyProvider(derivationPath, highestUsedIndex, masterNode);
 
   beforeAll(async () => {
     await database.init();

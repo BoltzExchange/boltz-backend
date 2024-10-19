@@ -487,6 +487,7 @@ export enum ChannelTypeName {
     ANCHORS_ZERO_FEE_HTLC_TX_EVEN = 2,
     SCID_ALIAS_EVEN = 3,
     ZEROCONF_EVEN = 4,
+    ANCHORS_EVEN = 5,
 }
 
 export enum AutocleanSubsystem {

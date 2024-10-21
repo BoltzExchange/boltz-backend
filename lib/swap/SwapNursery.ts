@@ -501,13 +501,30 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       'chainSwap.lockup',
       async ({ swap, transaction, confirmed }) => {
         await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+          const fetchedSwap = await ChainSwapRepository.getChainSwap({
+            id: swap.id,
+          });
+          if (fetchedSwap === null) {
+            return;
+          }
+
+          if (
+            fetchedSwap.sendingData.transactionId !== null &&
+            fetchedSwap.sendingData.transactionId !== undefined
+          ) {
+            this.logger.warn(
+              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a second lockup transaction`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
-            swap,
             confirmed,
             transaction,
+            swap: fetchedSwap,
           });
 
-          await this.handleChainSwapLockup(swap);
+          await this.handleChainSwapLockup(fetchedSwap);
         });
       },
     );

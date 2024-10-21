@@ -4,6 +4,35 @@ import LokiTransport from 'winston-loki';
 import { name } from '../package.json';
 import { getTsString } from './Utils';
 
+enum LogLevel {
+  Error = 'error',
+  Warn = 'warn',
+  Info = 'info',
+  Verbose = 'verbose',
+  Debug = 'debug',
+  Silly = 'silly',
+}
+
+const levelToPriority = (level: LogLevel) => {
+  switch (level) {
+    case LogLevel.Error:
+      return 0;
+    case LogLevel.Warn:
+      return 1;
+    case LogLevel.Info:
+      return 2;
+    case LogLevel.Verbose:
+      return 3;
+    case LogLevel.Debug:
+      return 4;
+    case LogLevel.Silly:
+      return 5;
+
+    default:
+      throw 'invalid log level';
+  }
+};
+
 class Logger {
   public static readonly disabledLogger = new Logger(
     '',
@@ -13,6 +42,7 @@ class Logger {
     true,
   );
 
+  private level = 0;
   private readonly loki?: LokiTransport;
 
   constructor(
@@ -25,6 +55,8 @@ class Logger {
     if (disabled) {
       return;
     }
+
+    this.level = levelToPriority(level as LogLevel);
 
     const transports: winston.transport[] = [
       new winston.transports.Console({
@@ -63,8 +95,8 @@ class Logger {
     }
 
     winston.configure({
-      level,
       transports,
+      level: 'silly',
     });
 
     if (!lokiEnabled) {
@@ -81,6 +113,10 @@ class Logger {
     }
   };
 
+  public setLevel = (level: LogLevel) => {
+    this.level = levelToPriority(level);
+  };
+
   private getLogFormat = (colorize: boolean) => {
     return winston.format.printf(
       (info) =>
@@ -93,17 +129,17 @@ class Logger {
   private getLevel = (level: string, colorize: boolean) => {
     if (colorize) {
       switch (level) {
-        case 'error':
+        case LogLevel.Error:
           return red(level);
-        case 'warn':
+        case LogLevel.Warn:
           return yellow(level);
-        case 'info':
+        case LogLevel.Info:
           return green(level);
-        case 'verbose':
+        case LogLevel.Verbose:
           return cyan(level);
-        case 'debug':
+        case LogLevel.Debug:
           return blue(level);
-        case 'silly':
+        case LogLevel.Silly:
           return magenta(level);
       }
     }
@@ -111,34 +147,35 @@ class Logger {
   };
 
   public error = (message: string): void => {
-    this.log('error', message);
+    this.log(LogLevel.Error, message);
   };
 
   public warn = (message: string): void => {
-    this.log('warn', message);
+    this.log(LogLevel.Warn, message);
   };
 
   public info = (message: string): void => {
-    this.log('info', message);
+    this.log(LogLevel.Info, message);
   };
 
   public verbose = (message: string): void => {
-    this.log('verbose', message);
+    this.log(LogLevel.Verbose, message);
   };
 
   public debug = (message: string): void => {
-    this.log('debug', message);
+    this.log(LogLevel.Debug, message);
   };
 
   public silly = (message: string): void => {
-    this.log('silly', message);
+    this.log(LogLevel.Silly, message);
   };
 
-  private log = (level: string, message: string) => {
-    if (!this.disabled) {
+  private log = (level: LogLevel, message: string) => {
+    if (!this.disabled && this.level >= levelToPriority(level)) {
       winston.log(level, message);
     }
   };
 }
 
 export default Logger;
+export { LogLevel };

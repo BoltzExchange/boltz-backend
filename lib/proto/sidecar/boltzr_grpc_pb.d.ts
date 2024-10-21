@@ -9,6 +9,7 @@ import * as boltzr_pb from "./boltzr_pb";
 
 interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     getInfo: IBoltzRService_IGetInfo;
+    setLogLevel: IBoltzRService_ISetLogLevel;
     sendMessage: IBoltzRService_ISendMessage;
     getMessages: IBoltzRService_IGetMessages;
     swapUpdate: IBoltzRService_ISwapUpdate;
@@ -29,6 +30,15 @@ interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInf
     requestDeserialize: grpc.deserialize<boltzr_pb.GetInfoRequest>;
     responseSerialize: grpc.serialize<boltzr_pb.GetInfoResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.GetInfoResponse>;
+}
+interface IBoltzRService_ISetLogLevel extends grpc.MethodDefinition<boltzr_pb.SetLogLevelRequest, boltzr_pb.SetLogLevelResponse> {
+    path: "/boltzr.BoltzR/SetLogLevel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.SetLogLevelRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.SetLogLevelRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.SetLogLevelResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.SetLogLevelResponse>;
 }
 interface IBoltzRService_ISendMessage extends grpc.MethodDefinition<boltzr_pb.SendMessageRequest, boltzr_pb.SendMessageResponse> {
     path: "/boltzr.BoltzR/SendMessage";
@@ -125,6 +135,7 @@ export const BoltzRService: IBoltzRService;
 
 export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     getInfo: grpc.handleUnaryCall<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse>;
+    setLogLevel: grpc.handleUnaryCall<boltzr_pb.SetLogLevelRequest, boltzr_pb.SetLogLevelResponse>;
     sendMessage: grpc.handleUnaryCall<boltzr_pb.SendMessageRequest, boltzr_pb.SendMessageResponse>;
     getMessages: grpc.handleServerStreamingCall<boltzr_pb.GetMessagesRequest, boltzr_pb.GetMessagesResponse>;
     swapUpdate: grpc.handleBidiStreamingCall<boltzr_pb.SwapUpdateRequest, boltzr_pb.SwapUpdateResponse>;
@@ -141,6 +152,9 @@ export interface IBoltzRClient {
     getInfo(request: boltzr_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzr_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzr_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzr_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     sendMessage(request: boltzr_pb.SendMessageRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
@@ -177,6 +191,9 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public getInfo(request: boltzr_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzr_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzr_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzr_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzr_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public sendMessage(request: boltzr_pb.SendMessageRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     public sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;
     public sendMessage(request: boltzr_pb.SendMessageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendMessageResponse) => void): grpc.ClientUnaryCall;

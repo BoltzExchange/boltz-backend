@@ -6,6 +6,7 @@ use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
 use crate::swap::manager::SwapManager;
+use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
 use crate::ws::types::SwapStatus;
 use serde::{Deserialize, Serialize};
@@ -33,6 +34,8 @@ pub struct Config {
 pub struct Server<M, W, N> {
     config: Config,
 
+    log_reload_handler: ReloadHandler,
+
     manager: Arc<M>,
 
     web_hook_helper: Box<W>,
@@ -57,6 +60,7 @@ where
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
+        log_reload_handler: ReloadHandler,
         manager: Arc<M>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
@@ -71,6 +75,7 @@ where
             web_hook_helper,
             web_hook_caller,
             cancellation_token,
+            log_reload_handler,
             notification_client,
             swap_status_update_tx,
             status_fetcher: StatusFetcher::new(),
@@ -92,6 +97,7 @@ where
             Arc::new(Default::default());
 
         let service = BoltzService::new(
+            self.log_reload_handler.clone(),
             self.manager.clone(),
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
@@ -154,6 +160,7 @@ mod server_test {
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::swap::manager::SwapManager;
+    use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller;
     use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
@@ -230,6 +237,7 @@ mod server_test {
                 certificates: None,
                 disable_ssl: Some(true),
             },
+            ReloadHandler::new(),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
@@ -356,6 +364,7 @@ mod server_test {
                 certificates: Some(certs_dir.clone().to_str().unwrap().to_string()),
                 disable_ssl: Some(false),
             },
+            ReloadHandler::new(),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),

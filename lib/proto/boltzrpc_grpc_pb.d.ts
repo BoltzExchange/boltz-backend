@@ -24,6 +24,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     listSwaps: IBoltzService_IListSwaps;
     rescan: IBoltzService_IRescan;
     getLabel: IBoltzService_IGetLabel;
+    setLogLevel: IBoltzService_ISetLogLevel;
     devHeapDump: IBoltzService_IDevHeapDump;
 }
 
@@ -171,6 +172,15 @@ interface IBoltzService_IGetLabel extends grpc.MethodDefinition<boltzrpc_pb.GetL
     responseSerialize: grpc.serialize<boltzrpc_pb.GetLabelResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetLabelResponse>;
 }
+interface IBoltzService_ISetLogLevel extends grpc.MethodDefinition<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse> {
+    path: "/boltzrpc.Boltz/SetLogLevel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.SetLogLevelRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SetLogLevelRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SetLogLevelResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SetLogLevelResponse>;
+}
 interface IBoltzService_IDevHeapDump extends grpc.MethodDefinition<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse> {
     path: "/boltzrpc.Boltz/DevHeapDump";
     requestStream: false;
@@ -200,6 +210,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     listSwaps: grpc.handleUnaryCall<boltzrpc_pb.ListSwapsRequest, boltzrpc_pb.ListSwapsResponse>;
     rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
     getLabel: grpc.handleUnaryCall<boltzrpc_pb.GetLabelRequest, boltzrpc_pb.GetLabelResponse>;
+    setLogLevel: grpc.handleUnaryCall<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse>;
     devHeapDump: grpc.handleUnaryCall<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse>;
 }
 
@@ -252,6 +263,9 @@ export interface IBoltzClient {
     getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
@@ -307,6 +321,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
+    public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;

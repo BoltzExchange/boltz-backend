@@ -300,10 +300,10 @@ class TestChannelsHelper:
         )
 
     def test_get_route(self) -> None:
-        invoice = lnd(LndNode.One, "addinvoice 1")["payment_request"]
+        invoice = lnd(LndNode.Two, "addinvoice 1000")["payment_request"]
         dec = cln_con(f"decode {invoice}")
 
-        expected_routes = 3
+        expected_routes = 2
         routes_found = 0
 
         excludes = ExcludesPayment(Excludes())

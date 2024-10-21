@@ -1,5 +1,5 @@
-import bolt11, { RoutingInfo } from '@boltz/bolt11';
 import { Transaction } from 'bitcoinjs-lib';
+import bolt11, { RoutingInfo } from 'bolt11';
 import { detectSwap } from 'boltz-core';
 import { DataTypes, Op, Sequelize } from 'sequelize';
 import Logger from '../Logger';

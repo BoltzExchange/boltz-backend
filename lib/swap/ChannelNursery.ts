@@ -1,5 +1,5 @@
-import bolt11 from '@boltz/bolt11';
 import AsyncLock from 'async-lock';
+import bolt11 from 'bolt11';
 import { Op } from 'sequelize';
 import Logger from '../Logger';
 import {
@@ -163,10 +163,7 @@ class ChannelNursery extends TypedEventEmitter<{
       return;
     }
 
-    const { satoshis, payeeNodeKey } = bolt11.decode(
-      swap.invoice!,
-      lightningCurrency.network,
-    );
+    const { satoshis, payeeNodeKey } = bolt11.decode(swap.invoice!);
     this.logger.verbose(
       `Opening channel for Swap ${swap.id} to ${payeeNodeKey}`,
     );

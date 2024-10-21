@@ -7,15 +7,17 @@ use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
     DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, ScanMempoolRequest,
-    ScanMempoolResponse, SendMessageRequest, SendMessageResponse, SendWebHookRequest,
-    SendWebHookResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, LogLevel,
+    ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
+    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
+    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
     StartWebHookRetriesResponse, SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
 use crate::swap::manager::SwapManager;
+use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
 use crate::ws::types::SwapStatus;
 use alloy::primitives::{Address, FixedBytes};
@@ -40,7 +42,8 @@ pub mod boltzr {
 }
 
 pub struct BoltzService<M, T> {
-    pub web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
+    log_reload_handler: ReloadHandler,
+    web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
 
     manager: Arc<M>,
 
@@ -55,7 +58,9 @@ pub struct BoltzService<M, T> {
 }
 
 impl<M, T> BoltzService<M, T> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
+        log_reload_handler: ReloadHandler,
         manager: Arc<M>,
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
@@ -70,6 +75,7 @@ impl<M, T> BoltzService<M, T> {
             status_fetcher,
             web_hook_caller,
             web_hook_helper,
+            log_reload_handler,
             notification_client,
             swap_status_update_tx,
             web_hook_retry_handle: Arc::new(Default::default()),
@@ -113,6 +119,33 @@ where
         Ok(Response::new(GetInfoResponse {
             version: crate::utils::get_version(),
         }))
+    }
+
+    #[instrument(name = "grpc::set_log_level", skip_all)]
+    async fn set_log_level(
+        &self,
+        request: Request<SetLogLevelRequest>,
+    ) -> Result<Response<SetLogLevelResponse>, Status> {
+        extract_parent_context(&request);
+
+        let level_enum = match LogLevel::try_from(request.into_inner().level) {
+            Ok(level) => level,
+            Err(_) => return Err(Status::new(Code::InvalidArgument, "invalid log level")),
+        };
+        if let Err(err) = self.log_reload_handler.modify(match level_enum {
+            LogLevel::Error => "error",
+            LogLevel::Warn => "warn",
+            LogLevel::Info => "info",
+            LogLevel::Debug => "debug",
+            LogLevel::Trace => "trace",
+        }) {
+            return Err(Status::new(
+                Code::Internal,
+                format!("could not change log level: {}", err),
+            ));
+        }
+
+        Ok(Response::new(SetLogLevelResponse {}))
     }
 
     #[instrument(name = "grpc::send_message", skip_all)]
@@ -592,6 +625,7 @@ mod test {
     use crate::grpc::service::BoltzService;
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::swap::manager::SwapManager;
+    use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
     use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
@@ -935,6 +969,7 @@ mod test {
         (
             token.clone(),
             BoltzService::new(
+                ReloadHandler::new(),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,

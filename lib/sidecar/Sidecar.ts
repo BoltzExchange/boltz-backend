@@ -5,7 +5,7 @@ import path from 'path';
 import BaseClient from '../BaseClient';
 import type { BaseClientEvents } from '../BaseClient';
 import { ConfigType } from '../Config';
-import Logger from '../Logger';
+import Logger, { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
 import { formatError, getVersion } from '../Utils';
 import SwapInfos from '../api/SwapInfos';
@@ -174,6 +174,41 @@ class Sidecar extends BaseClient<
     if (!versionCompatible) {
       throw `sidecar version incompatible: ${info.version} vs ${getVersion()}`;
     }
+  };
+
+  public setLogLevel = async (level: LogLevel) => {
+    let lvl: sidecarrpc.LogLevel;
+
+    switch (level) {
+      case LogLevel.Error:
+        lvl = sidecarrpc.LogLevel.ERROR;
+        break;
+
+      case LogLevel.Warn:
+        lvl = sidecarrpc.LogLevel.WARN;
+        break;
+
+      case LogLevel.Info:
+      case LogLevel.Verbose:
+        lvl = sidecarrpc.LogLevel.INFO;
+        break;
+
+      case LogLevel.Debug:
+        lvl = sidecarrpc.LogLevel.DEBUG;
+        break;
+
+      case LogLevel.Silly:
+        lvl = sidecarrpc.LogLevel.TRACE;
+        break;
+    }
+
+    const req = new sidecarrpc.SetLogLevelRequest();
+    req.setLevel(lvl);
+
+    await this.unaryNodeCall<
+      sidecarrpc.SetLogLevelRequest,
+      sidecarrpc.SetLogLevelResponse.AsObject
+    >('setLogLevel', req);
   };
 
   public sendMessage = async (

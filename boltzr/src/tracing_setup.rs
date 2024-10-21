@@ -5,19 +5,49 @@ use std::fs::OpenOptions;
 use std::path::Path;
 use tracing::{debug, error, info, warn, Subscriber};
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
+use tracing_subscriber::reload::Handle;
+use tracing_subscriber::{fmt, reload, EnvFilter, Layer, Registry};
 
 #[cfg(feature = "otel")]
 use opentelemetry::trace::TracerProvider;
 
+#[derive(Clone)]
+pub struct ReloadHandler {
+    handles: Vec<(Handle<EnvFilter, Registry>, bool)>,
+}
+
+impl ReloadHandler {
+    pub fn new() -> Self {
+        Self {
+            handles: Vec::new(),
+        }
+    }
+
+    pub fn modify(&self, level: &str) -> anyhow::Result<()> {
+        info!("Setting log level to: {}", level);
+        for (handle, is_otel) in &self.handles {
+            handle.modify(|filter| *filter = env_filter(level.to_string(), *is_otel))?;
+        }
+
+        Ok(())
+    }
+
+    fn add(&mut self, handle: Handle<EnvFilter, Registry>, is_otel: bool) {
+        self.handles.push((handle, is_otel));
+    }
+}
+
 macro_rules! stdout_tracing {
-    ($level: expr) => {
-        fmt::layer()
+    ($level: expr) => {{
+        let (filter, reload) = get_filter($level, false);
+        let layer = fmt::layer()
             .compact()
             .with_file(true)
             .with_line_number(true)
-            .with_filter(get_filter($level, false))
-    };
+            .with_filter(filter);
+
+        (layer, reload)
+    }};
 }
 
 macro_rules! file_tracing {
@@ -38,22 +68,28 @@ macro_rules! file_tracing {
             });
 
         debug!("Logging to file: {}", $file);
-        fmt::layer()
-            .with_writer(file)
-            .with_filter(get_filter($level, false))
+        let (filter, reload) = get_filter($level, false);
+        let layer = fmt::layer().with_writer(file).with_filter(filter);
+
+        (layer, reload)
     }};
 }
 
 pub fn setup_startup_tracing(log_level: String) -> impl Subscriber {
-    Registry::default().with(stdout_tracing!(log_level.clone()))
+    // No need to reload the setup logger
+    let (layer, _) = stdout_tracing!(log_level.clone());
+    Registry::default().with(layer)
 }
 
-#[warn(unused_variables)]
-pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) {
-    let stdout_log = stdout_tracing!(log_level.clone());
+pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadHandler {
+    let mut reloader = ReloadHandler::new();
+
+    let (stdout_log, reload) = stdout_tracing!(log_level.clone());
+    reloader.add(reload, false);
 
     let log_file_path = config.sidecar.log_file.clone().unwrap();
-    let file_log = file_tracing!(log_level.clone(), log_file_path);
+    let (file_log, reload) = file_tracing!(log_level.clone(), log_file_path);
+    reloader.add(reload, false);
 
     let layers: Box<dyn Layer<_> + Send + Sync + 'static> = Box::new(stdout_log.and_then(file_log));
 
@@ -64,11 +100,14 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) {
             None
         });
         if let Some(tracer) = tracer {
+            let (filter, reload) = get_filter(log_level.clone(), true);
+            reloader.add(reload, true);
+
             Box::new(
                 layers.and_then(
                     tracing_opentelemetry::layer()
                         .with_tracer(tracer)
-                        .with_filter(get_filter(log_level.clone(), true)),
+                        .with_filter(filter),
                 ),
             )
         } else {
@@ -83,7 +122,10 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) {
             None
         });
         if let Some(loki_log) = loki_log {
-            Box::new(layers.and_then(loki_log.with_filter(get_filter(log_level, false))))
+            let (filter, reload) = get_filter(log_level, false);
+            reloader.add(reload, false);
+
+            Box::new(layers.and_then(loki_log.with_filter(filter)))
         } else {
             Box::new(layers)
         }
@@ -91,6 +133,8 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) {
 
     tracing::subscriber::set_global_default(Registry::default().with(layers))
         .unwrap_or_else(|e| panic!("Could not set tracing subscriber: {}", e));
+
+    reloader
 }
 
 #[cfg(feature = "loki")]
@@ -125,7 +169,9 @@ fn setup_loki(
 fn init_tracer(
     config: &GlobalConfig,
 ) -> Result<Option<opentelemetry_sdk::trace::Tracer>, opentelemetry::trace::TraceError> {
-    if config.otlp_endpoint.is_none() || config.otlp_endpoint.clone().unwrap() == "" {
+    let endpoint = config.otlp_endpoint.clone();
+
+    if endpoint.is_none() || endpoint.clone().unwrap() == "" {
         warn!("Not enabling OpenTelemetry because it was not configured");
         return Ok(None);
     }
@@ -161,14 +207,21 @@ fn init_tracer(
         .with_exporter(
             opentelemetry_otlp::new_exporter()
                 .tonic()
-                .with_endpoint("http://10.0.0.9:4317/v1/traces"),
+                .with_endpoint(endpoint.unwrap()),
         )
         .install_batch(runtime::Tokio)?;
 
     Ok(Some(tracer.tracer(built_info::PKG_NAME)))
 }
 
-fn get_filter(log_level: String, is_otel: bool) -> EnvFilter {
+fn get_filter<S>(
+    log_level: String,
+    is_otel: bool,
+) -> (reload::Layer<EnvFilter, S>, Handle<EnvFilter, S>) {
+    reload::Layer::<EnvFilter, S>::new(env_filter(log_level, is_otel))
+}
+
+fn env_filter(log_level: String, is_otel: bool) -> EnvFilter {
     EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         format!(
             "{}={}{}",

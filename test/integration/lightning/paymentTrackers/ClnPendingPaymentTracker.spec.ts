@@ -30,11 +30,11 @@ describe('ClnPendingPaymentTracker', () => {
       clnClient.connect(false),
       bitcoinLndClient.connect(false),
     ]);
-
-    await clnClient['mpay']?.resetPathMemory();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await clnClient['mpay']?.resetPathMemory();
+
     jest.resetAllMocks();
   });
 

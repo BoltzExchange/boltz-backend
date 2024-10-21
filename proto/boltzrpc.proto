@@ -44,6 +44,8 @@ service Boltz {
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
+  rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
+
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
 }
 
@@ -267,6 +269,21 @@ message PendingSweep {
   string swap_id = 1;
   uint64 onchain_amount = 2;
 }
+
+enum LogLevel {
+  ERROR = 0;
+  WARN = 1;
+  INFO = 2;
+  VERBOSE = 3;
+  DEBUG = 4;
+  SILLY = 5;
+}
+
+message SetLogLevelRequest {
+  LogLevel level = 1;
+}
+
+message SetLogLevelResponse {}
 
 message PendingSweeps {
   repeated PendingSweep pending_sweeps = 1;

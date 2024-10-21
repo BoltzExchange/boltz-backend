@@ -2,11 +2,12 @@ import { handleUnaryCall } from '@grpc/grpc-js';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import { parseTransaction } from '../Core';
 import { dumpHeap } from '../HeapDump';
-import Logger from '../Logger';
+import Logger, { LogLevel as BackendLevel } from '../Logger';
 import { getHexString, getUnixTime } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
+import { LogLevel } from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
 
 class GrpcService {
@@ -347,6 +348,45 @@ class GrpcService {
       response.setSymbol(label.symbol);
       response.setLabel(label.label);
       return response;
+    });
+  };
+
+  public setLogLevel: handleUnaryCall<
+    boltzrpc.SetLogLevelRequest,
+    boltzrpc.SetLogLevelResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      let level: BackendLevel;
+
+      switch (call.request.getLevel()) {
+        case LogLevel.ERROR:
+          level = BackendLevel.Error;
+          break;
+
+        case LogLevel.WARN:
+          level = BackendLevel.Warn;
+          break;
+
+        case LogLevel.INFO:
+          level = BackendLevel.Info;
+          break;
+
+        case LogLevel.VERBOSE:
+          level = BackendLevel.Verbose;
+          break;
+
+        case LogLevel.DEBUG:
+          level = BackendLevel.Debug;
+          break;
+
+        case LogLevel.SILLY:
+          level = BackendLevel.Silly;
+          break;
+      }
+
+      this.service.setLogLevel(level);
+
+      return new boltzrpc.SetLogLevelResponse();
     });
   };
 

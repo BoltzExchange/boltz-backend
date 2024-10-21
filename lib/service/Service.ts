@@ -4,7 +4,7 @@ import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op, Order } from 'sequelize';
 import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
-import Logger from '../Logger';
+import Logger, { LogLevel } from '../Logger';
 import {
   checkEvmAddress,
   createApiCredential,
@@ -305,6 +305,13 @@ class Service {
       pairId: pair[0],
       orderSide: pair[1] ? 'buy' : 'sell',
     };
+  };
+
+  public setLogLevel = async (level: LogLevel) => {
+    this.logger.info(`Setting log level to: ${level}`);
+
+    this.logger.setLevel(level);
+    await this.sidecar.setLogLevel(level);
   };
 
   /**

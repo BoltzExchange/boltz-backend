@@ -1109,6 +1109,43 @@ export namespace PendingSweep {
     }
 }
 
+export class SetLogLevelRequest extends jspb.Message { 
+    getLevel(): LogLevel;
+    setLevel(value: LogLevel): SetLogLevelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetLogLevelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetLogLevelRequest): SetLogLevelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetLogLevelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetLogLevelRequest;
+    static deserializeBinaryFromReader(message: SetLogLevelRequest, reader: jspb.BinaryReader): SetLogLevelRequest;
+}
+
+export namespace SetLogLevelRequest {
+    export type AsObject = {
+        level: LogLevel,
+    }
+}
+
+export class SetLogLevelResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetLogLevelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetLogLevelResponse): SetLogLevelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetLogLevelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetLogLevelResponse;
+    static deserializeBinaryFromReader(message: SetLogLevelResponse, reader: jspb.BinaryReader): SetLogLevelResponse;
+}
+
+export namespace SetLogLevelResponse {
+    export type AsObject = {
+    }
+}
+
 export class PendingSweeps extends jspb.Message { 
     clearPendingSweepsList(): void;
     getPendingSweepsList(): Array<PendingSweep>;
@@ -1174,4 +1211,13 @@ export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,
     LEGACY = 2,
+}
+
+export enum LogLevel {
+    ERROR = 0,
+    WARN = 1,
+    INFO = 2,
+    VERBOSE = 3,
+    DEBUG = 4,
+    SILLY = 5,
 }

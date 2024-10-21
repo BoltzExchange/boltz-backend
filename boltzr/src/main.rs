@@ -43,7 +43,7 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
-    let config = tracing::subscriber::with_default(
+    let (config, log_reload_handler) = tracing::subscriber::with_default(
         tracing_setup::setup_startup_tracing(args.log_level.clone()),
         || {
             trace!(
@@ -57,8 +57,10 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            tracing_setup::setup_global_tracing(args.log_level, &config);
-            config
+            (
+                config.clone(),
+                tracing_setup::setup_global_tracing(args.log_level, &config),
+            )
         },
     );
 
@@ -154,6 +156,7 @@ async fn main() {
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
+        log_reload_handler,
         Arc::new(Manager::new(currencies, db_pool.clone())),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),

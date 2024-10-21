@@ -39,6 +39,7 @@ class GrpcServer {
       getLockedFunds: grpcService.getLockedFunds,
       getPendingSweeps: grpcService.getPendingSweeps,
       getLabel: grpcService.getLabel,
+      setLogLevel: grpcService.setLogLevel,
     });
   }
 

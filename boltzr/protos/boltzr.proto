@@ -5,6 +5,8 @@ package boltzr;
 service BoltzR {
   rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
 
+  rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
+
   rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
   rpc GetMessages (GetMessagesRequest) returns (stream GetMessagesResponse);
 
@@ -26,6 +28,20 @@ message GetInfoRequest {}
 message GetInfoResponse {
   string version = 1;
 }
+
+enum LogLevel {
+  ERROR = 0;
+  WARN = 1;
+  INFO = 2;
+  DEBUG = 3;
+  TRACE = 4;
+}
+
+message SetLogLevelRequest {
+  LogLevel level = 1;
+}
+
+message SetLogLevelResponse {}
 
 message SendMessageRequest {
   string message = 1;

@@ -45,6 +45,8 @@ type ChainConfig = {
 };
 
 type LiquidChainConfig = ChainConfig & {
+  zeroConfWaitTime?: number;
+
   lowball?: ChainConfig;
 };
 

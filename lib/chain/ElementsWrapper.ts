@@ -16,7 +16,7 @@ class ElementsWrapper
   extends BaseClient<ChainClientEvents<Transaction>>
   implements IElementsClient
 {
-  private static readonly zeroConfCheckTime = 1_000;
+  private static readonly zeroConfCheckTimeDefault = 1_000;
   private static readonly zeroConfCheckAllowedErrors = [
     'min relay fee not met',
     'txn-already-in-mempool',
@@ -25,10 +25,13 @@ class ElementsWrapper
   public readonly currencyType = CurrencyType.Liquid;
 
   private readonly clients: ElementsClient[] = [];
+  private readonly zeroConfCheckTime: number;
 
   constructor(logger: Logger, config: LiquidChainConfig) {
     super(logger, ElementsClient.symbol);
 
+    this.zeroConfCheckTime =
+      config.zeroConfWaitTime || ElementsWrapper.zeroConfCheckTimeDefault;
     this.clients.push(new ElementsClient(this.logger, config, false));
 
     if (config.lowball !== undefined) {
@@ -67,7 +70,11 @@ class ElementsWrapper
           return;
         }
 
-        await sleep(ElementsWrapper.zeroConfCheckTime);
+        this.logger.silly(
+          `Waiting before accepting 0-conf transaction of ${this.symbol}: ${transaction.getId()}`,
+        );
+        await sleep(this.zeroConfCheckTime);
+
         try {
           const testResult = (
             await this.publicClient().testMempoolAccept([transaction.toHex()])
@@ -80,7 +87,7 @@ class ElementsWrapper
             )
           ) {
             this.logger.warn(
-              `Rejected ${this.symbol} 0-conf transaction: ${testResult['reject-reason']}`,
+              `Rejected ${this.symbol} 0-conf transaction (${transaction.getId()}): ${testResult['reject-reason']}`,
             );
             return;
           }

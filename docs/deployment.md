@@ -320,6 +320,8 @@ minSwapAmount = 10_000
 
 minWalletBalance = 100_000_000
 
+zeroConfWaitTime = 1_000
+
     [liquid.chain]
     host = "127.0.0.1"
     port = 18884

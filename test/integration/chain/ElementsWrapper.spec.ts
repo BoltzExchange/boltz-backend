@@ -132,7 +132,7 @@ describe('ElementsWrapper', () => {
         confirmed: false,
       });
 
-      await sleep(ElementsWrapper['zeroConfCheckTime'] * 2);
+      await sleep(wrapper['zeroConfCheckTime'] * 2);
     });
 
     test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configued', async () => {

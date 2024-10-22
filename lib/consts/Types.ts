@@ -212,3 +212,10 @@ export type WalletTransaction = {
   comment: string;
   hex: string;
 };
+
+export type MempoolAcceptResult = {
+  txid: string;
+  wtxid: string;
+  allowed?: boolean;
+  'reject-reason'?: string;
+};

@@ -192,11 +192,24 @@ describe('DeferredClaimer', () => {
     bitcoinLndClient2.disconnect();
   });
 
-  test('should init', async () => {
-    await claimer.init();
+  describe('init', () => {
+    test('should init', async () => {
+      await claimer.init();
 
-    expect(SwapRepository.getSwapsClaimable).toHaveBeenCalledTimes(1);
-    expect(claimer['batchClaimSchedule']).not.toBeUndefined();
+      expect(SwapRepository.getSwapsClaimable).toHaveBeenCalledTimes(1);
+      expect(claimer['batchClaimSchedule']).not.toBeUndefined();
+    });
+
+    test('should not crash when batch claim of leftovers fails', async () => {
+      claimer.close();
+
+      const original = claimer['batchClaimLeftovers'];
+      claimer['batchClaimLeftovers'] = jest.fn().mockRejectedValue('fails');
+
+      await claimer.init();
+
+      claimer['batchClaimLeftovers'] = original;
+    });
   });
 
   test('should close', () => {

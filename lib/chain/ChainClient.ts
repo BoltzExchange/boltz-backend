@@ -10,6 +10,7 @@ import {
   Block,
   BlockVerbose,
   BlockchainInfo,
+  MempoolAcceptResult,
   NetworkInfo,
   RawTransaction,
   UnspentUtxo,
@@ -67,6 +68,7 @@ interface IChainClient<T extends SomeTransaction = SomeTransaction>
   ): Promise<string>;
   getRawTransaction(transactionId: string): Promise<string>;
   getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
+  testMempoolAccept(transactionsHex: string[]): Promise<MempoolAcceptResult[]>;
 
   estimateFee(confTarget?: number): Promise<number>;
 
@@ -267,6 +269,12 @@ class ChainClient<T extends SomeTransaction = Transaction>
     } catch (error) {
       throw this.formatGetTransactionError(id, error);
     }
+  };
+
+  public testMempoolAccept = (
+    transactionsHex: string[],
+  ): Promise<MempoolAcceptResult[]> => {
+    return this.client.request('testmempoolaccept', [transactionsHex]);
   };
 
   public getWalletTransaction = (id: string): Promise<WalletTransaction> => {

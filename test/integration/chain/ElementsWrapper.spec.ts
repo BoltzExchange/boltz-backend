@@ -1,5 +1,6 @@
 import { Transaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
+import { sleep } from '../../../lib/PromiseUtils';
 import ElementsWrapper from '../../../lib/chain/ElementsWrapper';
 import { ClientStatus, CurrencyType } from '../../../lib/consts/Enums';
 import { elementsConfig } from '../Nodes';
@@ -105,19 +106,33 @@ describe('ElementsWrapper', () => {
     test('should emit unconfirmed transactions from lowball client', async () => {
       expect.assertions(2);
 
+      const tx = Transaction.fromHex(
+        await wrapper.getRawTransaction(
+          await wrapper.sendToAddress(
+            await wrapper.getNewAddress(''),
+            100_000,
+            undefined,
+            undefined,
+            '',
+          ),
+        ),
+      );
+
       wrapper.on('transaction', ({ transaction, confirmed }) => {
-        expect(transaction).toEqual(testTx);
+        expect(transaction).toEqual(tx);
         expect(confirmed).toEqual(false);
       });
 
       wrapper['publicClient']()['emit']('transaction', {
-        transaction: testTx,
+        transaction: tx,
         confirmed: false,
       });
       wrapper['lowballClient']()!['emit']('transaction', {
-        transaction: testTx,
+        transaction: tx,
         confirmed: false,
       });
+
+      await sleep(ElementsWrapper['zeroConfCheckTime'] * 2);
     });
 
     test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configued', async () => {

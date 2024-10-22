@@ -126,7 +126,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Service, 32),
   }),
   DESTINATION_BOLTZ_NODE: (): Error => ({
-    message: 'swap to Boltz lightning nodes are forbidden',
+    message: 'swaps to Boltz lightning nodes are forbidden',
     code: concatErrorCode(ErrorCodePrefix.Service, 33),
   }),
   UNSUPPORTED_SWAP_VERSION: (): Error => ({

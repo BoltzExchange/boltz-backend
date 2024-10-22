@@ -486,7 +486,12 @@ class ClnClient
       type: dec.itemType,
       cltvExpiry: dec.minFinalCltvExpiry || 0,
       value: msatToSat(dec.amountMsat?.msat || 0),
-      destination: getHexString(Buffer.from(dec.payee)),
+      destination: getHexString(
+        Buffer.from(
+          (dec.payee || dec.offerIssuerId || dec.invoiceNodeId || '') as string,
+          'base64',
+        ),
+      ),
       paymentHash: Buffer.from(dec.paymentHash as string, 'base64'),
     };
   };

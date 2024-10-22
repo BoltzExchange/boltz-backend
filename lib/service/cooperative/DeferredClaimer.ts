@@ -72,7 +72,11 @@ class DeferredClaimer extends CoopSignerBase<
       `Batch claim interval: ${this.config.batchClaimInterval} with expiry tolerance of ${this.config.expiryTolerance} minutes`,
     );
 
-    await this.batchClaimLeftovers();
+    try {
+      await this.batchClaimLeftovers();
+    } catch (e) {
+      this.logger.error(`Could not sweep leftovers: ${formatError(e)}`);
+    }
 
     this.batchClaimSchedule = scheduleJob(
       this.config.batchClaimInterval,

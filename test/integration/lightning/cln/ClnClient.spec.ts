@@ -216,32 +216,46 @@ describe('ClnClient', () => {
     await settledPromise;
   });
 
-  test('should decode invoices', async () => {
-    const mppInvoice =
-      'lnbcrt1m1pjdlsrqpp5jde4zp60f39rppkpq3fear0pqptqwpjp63m0v749sffmf0s3dxuqdqqcqzzsxqyz5vqsp5m6qqudhd3z8t2pqrpjekpfn44744zmkp3upafe9u46hx2n8lvr6q9qyyssqlvzl9f5a06m342mdvyl8vfltqt8arqusll7ce792pwyakcp3c0qsgaezprew08ejc2yshverayqjuhz5gtg09n6ffu9pll08n8y3vsqpqpt9f5';
-    let res = await clnClient.decodeInvoice(mppInvoice);
-    expect(res.features.size).toEqual(1);
-    expect(res.features.has(InvoiceFeature.MPP)).toBeTruthy();
-
-    const routingHintsInvoice =
-      'lnbc1pjwp5lvpp59kx6l0etkcdzfr33u4e6z2u6thty263w74svcfdgsh0k3svqkdxscqpjsp5emlemc9ehxkc9etwlue29arap0v23n2tfmj2nmu9l8lemn2ta8ls9q7sqqqqqqqqqqqqqqqqqqqsqqqqqysgqdqqmqz9gxqyjw5qrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glclll3zu949263tyqqqqlgqqqqqeqqjqqjmswn6zzycvcecrkwlg5cnrpxqr3v46dpsn20fm5g8x8hm8zqqx24t5szrelp6sxs5akftcd2cra8s5vnc4d4k9vkulzr5mwjqz2mqpfvcsyr';
-    res = await clnClient.decodeInvoice(routingHintsInvoice);
-    expect(res.routingHints.length).toEqual(1);
-    expect(res.routingHints[0].length).toEqual(1);
-    expect(res.routingHints[0][0]).toEqual({
-      nodeId:
-        '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f',
-      cltvExpiryDelta: 144,
-      feeBaseMsat: 1000,
-      chanId: '18442547286457930073',
-      feeProportionalMillionths: 100,
+  describe('decodeInvoice', () => {
+    test.each`
+      name                | data
+      ${'BOLT11 invoice'} | ${'lnbcrt10n1pn307v7sp5z8sv5xm8s5pzq0ce3acyaragy837p7eylhrnwcgfqsvqltqqw25qpp5ql2eyvs5ta0x0y2rad38vvkku3kdhxtvcyfwtz78czvpxfym7vtsdq8w3jhxaqxqyjw5qcqp2rzjqfvg48ucx4jzmz43lwqp3ukeekzm37e48nznwhc00avu4kr6vgfnvqqq0sqqqqgqqqqqqqlgqqqqqqgq2q9qxpqysgqsvv505kfm9q5yhjs5c6mw5nhqfzzh20620qlqgjv9d9vgny969r9vm2eamgjwy92kfqxwc0pyv7m4wpshm2fu6qkpkjux048jdv7tusq9jspfe'}
+      ${'BOLT12 offer'}   | ${'lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrckyyp6uwj68kzykhswug0ldtv7ntl8eqlvuww9kggmj6p5mpstd4ju2dc'}
+      ${'BOLT12 invoice'} | ${'lni1qqggmp4yg4wwy4qkscckjms6mlme7q3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy83vggr4ca950vyfd0qacsl76keaxh70jp7ecuutvs3h95rfkrqkmt9c5m4qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pafqyqlgtqss85jhv5707n4lz3zts5fmndmklklg85fvsg6wldv0p9hv4pqq4u325zvq8t36tg7cgj67pm3pla4dn6d0ulyran3eckeprwtgxnvxpdkkt3fhqguwqn4428t64fgd0lu89tfk4h07tflzhpfuc2vwwfun9kcsr5zs5qgzzuqz2k48ds0gxmq8284355qzaffhzk3tv77xvp00l6drg3utg39qqvjenf03h375smp7pyvnkks9afp6panls6ncysshxxhct9qhtncelnm9ymfw8rrwufd8w70hgft806dfdudzrsqqqqqqqqqqqqqqpgqqqqqqqqqqqqqayjedltzjqqqqqq9yq3n3075s4qs83cccjqyv2kem9wyusr2s9448g00vq3tcknxh9y9r4wdlj9ae7wa2qgp73vppqwhr5k3as394urhzrlm2m856le7g8m8rn3djzxuksdxcvzmdvhzn0uzqj82tst6prngzltpmul002rt7w0vjujw7reppms0wmks2rgyn6d77nzhdz9c7dmt8p0apmy6yjtsvrfkw9mj8yh7ztsf504uxpagry5c'}
+    `('should get destination of $name', async ({ data }) => {
+      const dec = await clnClient.decodeInvoice(data);
+      expect(dec.destination).toEqual(
+        '03ae3a5a3d844b5e0ee21ff6ad9e9afe7c83ece39c5b211b96834d860b6d65c537',
+      );
     });
 
-    // Throw for AMP invoices
-    await expect(
-      clnClient.decodeInvoice(
-        'lnbcrt1m1pjdl0y5pp5f4ljuqc3hphgadf0nqyw8hxn6klcupntynpggm487dcx2slhhndsdqqcqzzsxq9z0rgqsp59fkq9py9rzes0n4gyvwqktk6020cjzjt6lydkd2casxn4gwq00lq9q8pqqqssq4c42h37htf2w873jthvx9n8zfunl07fjvkv739xggy9uvht95crk08qdwqd59hffxryjfgcylkqlzx3hf8q2tkvnjnlkqqn768k5e5gprl27z9',
-      ),
-    ).rejects.toEqual(expect.anything());
+    test('should decode invoices', async () => {
+      const mppInvoice =
+        'lnbcrt1m1pjdlsrqpp5jde4zp60f39rppkpq3fear0pqptqwpjp63m0v749sffmf0s3dxuqdqqcqzzsxqyz5vqsp5m6qqudhd3z8t2pqrpjekpfn44744zmkp3upafe9u46hx2n8lvr6q9qyyssqlvzl9f5a06m342mdvyl8vfltqt8arqusll7ce792pwyakcp3c0qsgaezprew08ejc2yshverayqjuhz5gtg09n6ffu9pll08n8y3vsqpqpt9f5';
+      let res = await clnClient.decodeInvoice(mppInvoice);
+      expect(res.features.size).toEqual(1);
+      expect(res.features.has(InvoiceFeature.MPP)).toBeTruthy();
+
+      const routingHintsInvoice =
+        'lnbc1pjwp5lvpp59kx6l0etkcdzfr33u4e6z2u6thty263w74svcfdgsh0k3svqkdxscqpjsp5emlemc9ehxkc9etwlue29arap0v23n2tfmj2nmu9l8lemn2ta8ls9q7sqqqqqqqqqqqqqqqqqqqsqqqqqysgqdqqmqz9gxqyjw5qrzjqwryaup9lh50kkranzgcdnn2fgvx390wgj5jd07rwr3vxeje0glclll3zu949263tyqqqqlgqqqqqeqqjqqjmswn6zzycvcecrkwlg5cnrpxqr3v46dpsn20fm5g8x8hm8zqqx24t5szrelp6sxs5akftcd2cra8s5vnc4d4k9vkulzr5mwjqz2mqpfvcsyr';
+      res = await clnClient.decodeInvoice(routingHintsInvoice);
+      expect(res.routingHints.length).toEqual(1);
+      expect(res.routingHints[0].length).toEqual(1);
+      expect(res.routingHints[0][0]).toEqual({
+        nodeId:
+          '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f',
+        cltvExpiryDelta: 144,
+        feeBaseMsat: 1000,
+        chanId: '18442547286457930073',
+        feeProportionalMillionths: 100,
+      });
+
+      // Throw for AMP invoices
+      await expect(
+        clnClient.decodeInvoice(
+          'lnbcrt1m1pjdl0y5pp5f4ljuqc3hphgadf0nqyw8hxn6klcupntynpggm487dcx2slhhndsdqqcqzzsxq9z0rgqsp59fkq9py9rzes0n4gyvwqktk6020cjzjt6lydkd2casxn4gwq00lq9q8pqqqssq4c42h37htf2w873jthvx9n8zfunl07fjvkv739xggy9uvht95crk08qdwqd59hffxryjfgcylkqlzx3hf8q2tkvnjnlkqqn768k5e5gprl27z9',
+        ),
+      ).rejects.toEqual(expect.anything());
+    });
   });
 });

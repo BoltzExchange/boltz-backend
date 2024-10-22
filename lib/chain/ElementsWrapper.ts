@@ -2,9 +2,10 @@ import { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import { LiquidChainConfig } from '../Config';
 import Logger from '../Logger';
-import { allSettledFirst } from '../PromiseUtils';
+import { allSettledFirst, sleep } from '../PromiseUtils';
+import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
-import { UnspentUtxo } from '../consts/Types';
+import { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
 import { AddressType, ChainClientEvents } from './ChainClient';
 import ElementsClient, {
   IElementsClient,
@@ -15,6 +16,12 @@ class ElementsWrapper
   extends BaseClient<ChainClientEvents<Transaction>>
   implements IElementsClient
 {
+  private static readonly zeroConfCheckTime = 1_000;
+  private static readonly zeroConfCheckAllowedErrors = [
+    'min relay fee not met',
+    'txn-already-in-mempool',
+  ];
+
   public readonly currencyType = CurrencyType.Liquid;
 
   private readonly clients: ElementsClient[] = [];
@@ -53,13 +60,39 @@ class ElementsWrapper
       this.emit('transaction', { transaction, confirmed });
     });
 
-    this.lowballClient()?.on('transaction', ({ transaction, confirmed }) => {
-      if (confirmed) {
-        return;
-      }
+    this.lowballClient()?.on(
+      'transaction',
+      async ({ transaction, confirmed }) => {
+        if (confirmed) {
+          return;
+        }
 
-      this.emit('transaction', { transaction, confirmed });
-    });
+        await sleep(ElementsWrapper.zeroConfCheckTime);
+        try {
+          const testResult = (
+            await this.publicClient().testMempoolAccept([transaction.toHex()])
+          )[0];
+
+          if (
+            testResult['reject-reason'] !== undefined &&
+            !ElementsWrapper.zeroConfCheckAllowedErrors.includes(
+              testResult['reject-reason'],
+            )
+          ) {
+            this.logger.warn(
+              `Rejected ${this.symbol} 0-conf transaction: ${testResult['reject-reason']}`,
+            );
+            return;
+          }
+
+          this.emit('transaction', { transaction, confirmed });
+        } catch (e) {
+          this.logger.error(
+            `${this.symbol} 0-conf transaction check failed: ${formatError(e)}`,
+          );
+        }
+      },
+    );
   };
 
   public disconnect = () => this.clients.forEach((c) => c.disconnect());
@@ -115,6 +148,13 @@ class ElementsWrapper
   public getRawTransactionVerbose = (transactionId: string) =>
     allSettledFirst(
       this.clients.map((c) => c.getRawTransactionVerbose(transactionId)),
+    );
+
+  public testMempoolAccept = (
+    transactionsHex: string[],
+  ): Promise<MempoolAcceptResult[]> =>
+    allSettledFirst(
+      this.clients.map((c) => c.testMempoolAccept(transactionsHex)),
     );
 
   public estimateFee = () => this.walletClient().estimateFee();

@@ -31,13 +31,20 @@ describe('MempoolSpace', () => {
     mempool.stop();
 
     const expectedFee = 42;
+    const tipHeight = 213;
 
-    mempool['apis'][0]['latestFee'] = expectedFee - 12;
-    mempool['apis'][1]['latestFee'] = expectedFee;
+    mempool['apis'][0]['data'] = {
+      tipHeight,
+      fee: expectedFee - 12,
+    };
+    mempool['apis'][1]['data'] = {
+      tipHeight,
+      fee: expectedFee,
+    };
     expect(mempool.latestFee()).toEqual(expectedFee);
 
-    mempool['apis'][0]['latestFee'] = undefined;
-    mempool['apis'][1]['latestFee'] = expectedFee;
+    mempool['apis'][0]['data'] = undefined;
+    mempool['apis'][1]['data'] = { tipHeight, fee: expectedFee };
     expect(mempool.latestFee()).toEqual(expectedFee);
   });
 });
@@ -58,45 +65,47 @@ describe('MempoolSpaceClient', () => {
   });
 
   test('should init', async () => {
-    expect(mempoolSpace.latestFee).toBeUndefined();
+    expect(mempoolSpace.data).toBeUndefined();
     expect(mempoolSpace['fetchInterval']).toBeUndefined();
 
     await mempoolSpace.init();
 
-    expect(mempoolSpace.latestFee).not.toBeUndefined();
+    expect(mempoolSpace.data).not.toBeUndefined();
     expect(mempoolSpace['fetchInterval']).not.toBeUndefined();
   });
 
   test('should fetch new fee estimations on every interval iteration', async () => {
-    mempoolSpace.latestFee = undefined;
+    mempoolSpace.data = undefined;
 
     await wait(1500);
 
-    expect(mempoolSpace.latestFee).not.toBeUndefined();
-    expect(mempoolSpace.latestFee).toBeGreaterThan(0);
+    expect(mempoolSpace.data).not.toBeUndefined();
+    expect(mempoolSpace.data!.fee).toBeGreaterThan(0);
+    expect(mempoolSpace.data!.tipHeight).toBeGreaterThan(810_000);
   });
 
   test('should stop', () => {
-    expect(mempoolSpace.latestFee).not.toBeUndefined();
+    expect(mempoolSpace.data).not.toBeUndefined();
     expect(mempoolSpace['fetchInterval']).not.toBeUndefined();
 
     mempoolSpace.stop();
 
-    expect(mempoolSpace.latestFee).toBeUndefined();
+    expect(mempoolSpace.data).toBeUndefined();
     expect(mempoolSpace['fetchInterval']).toBeUndefined();
   });
 
   test('should fetch recommended fees', async () => {
-    mempoolSpace.latestFee = undefined;
+    mempoolSpace.data = undefined;
 
-    expect(mempoolSpace.latestFee).toBeUndefined();
+    expect(mempoolSpace.data).toBeUndefined();
 
     await mempoolSpace['fetchRecommendedFees']();
 
-    expect(mempoolSpace.latestFee).not.toBeUndefined();
-    expect(mempoolSpace.latestFee).toBeGreaterThan(0);
+    expect(mempoolSpace.data).not.toBeUndefined();
+    expect(mempoolSpace.data!.fee).toBeGreaterThan(0);
+    expect(mempoolSpace.data!.tipHeight).toBeGreaterThan(810_000);
 
-    mempoolSpace.latestFee = undefined;
+    mempoolSpace.data = undefined;
   });
 
   test('should handle failed requests', async () => {
@@ -107,11 +116,14 @@ describe('MempoolSpaceClient', () => {
     );
 
     const sanityCheckFailedHandling = async () => {
-      invalidMempoolSpace['latestFee'] = 1;
+      invalidMempoolSpace['data'] = {
+        fee: 21,
+        tipHeight: 123,
+      };
 
       await invalidMempoolSpace['fetchRecommendedFees']();
 
-      expect(invalidMempoolSpace['latestFee']).toBeUndefined();
+      expect(invalidMempoolSpace['data']).toBeUndefined();
     };
 
     // Invalid URL (Axios error)

@@ -30,7 +30,7 @@ const exitHandler = async (handler: Handler, arg: ExitArg) => {
     console.error('Exit handler threw', e);
   }
 
-  // eslint-disable-next-line no-process-exit
+  // eslint-disable-next-line n/no-process-exit
   process.exit(parseExitArg(arg));
 };
 

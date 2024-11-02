@@ -105,10 +105,11 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to EtherSwap claim events', async () => {
-    const tx = await contracts.etherSwap.connect(setup.etherBase)[
-      // eslint-disable-next-line no-unexpected-multiline
-      'claim(bytes32,uint256,address,uint256)'
-    ](preimage, amount, await setup.signer.getAddress(), timelock);
+    const tx = await contracts.etherSwap
+      .connect(setup.etherBase)
+      [
+        'claim(bytes32,uint256,address,uint256)'
+      ](preimage, amount, await setup.signer.getAddress(), timelock);
     transactions.etherSwap.claim = tx.hash;
 
     const claimPromise = new Promise<void>((resolve) => {
@@ -199,10 +200,11 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to ERC20Swap claim events', async () => {
-    const tx = await contracts.erc20Swap.connect(setup.etherBase)[
-      // eslint-disable-next-line no-unexpected-multiline
-      'claim(bytes32,uint256,address,address,uint256)'
-    ](preimage, amount, await contracts.token.getAddress(), await setup.signer.getAddress(), timelock);
+    const tx = await contracts.erc20Swap
+      .connect(setup.etherBase)
+      [
+        'claim(bytes32,uint256,address,address,uint256)'
+      ](preimage, amount, await contracts.token.getAddress(), await setup.signer.getAddress(), timelock);
     transactions.erc20Swap.claim = tx.hash;
 
     const claimPromise = new Promise<void>((resolve) => {

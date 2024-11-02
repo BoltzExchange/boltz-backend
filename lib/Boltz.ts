@@ -226,7 +226,8 @@ class Boltz {
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);
       Sidecar.stop().then();
-      // eslint-disable-next-line no-process-exit
+
+      // eslint-disable-next-line n/no-process-exit
       process.exit(1);
     }
   }
@@ -340,7 +341,8 @@ class Boltz {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);
       Sidecar.stop().then();
-      // eslint-disable-next-line no-process-exit
+
+      // eslint-disable-next-line n/no-process-exit
       process.exit(1);
     }
   };

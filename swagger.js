@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const fs = require('fs');
 const packageJson = require('./package.json');
 const swaggerJsdoc = require('swagger-jsdoc');

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const fs = require('fs');
 const childProcess = require('child_process');
 
@@ -21,7 +23,7 @@ try {
   // Delete the version file if it exists
   fs.unlinkSync(versionFilePath);
 } catch (error) {
-  /* empty */
+  console.error(`Could not delete file: ${versionFilePath}`, error);
 }
 
 const commitHash = getCommitHash();

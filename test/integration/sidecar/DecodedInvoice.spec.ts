@@ -108,28 +108,18 @@ describe('DecodedInvoice', () => {
 
   test('should decode routing info', async () => {
     const dec = await sidecar.decodeInvoiceOrOffer(
-      'lnbc1p023g0zpp5rrr09tcxfymsyxgywe0vpeqzt8ppc7dzlme9e0wa3qqch0fpt8tsdqqxqrrss9qy9qsqsp56xpafe94rfkt5qtc00lua7pwem9znvvq4en9sr2t24kmdq4ll2mqrzjqt3xwz3vyes6nm4p8d70mnwh74f0tydeaesw2eut02l80dle29hevz905gqqjdsqqqqqqqlgqqqqqeqqjqrzjqfsktpgyjffp7jkg40vmmqygzg6yd5fx7eyv5d0xp7ypwlwpf88tyzx0ccqq8msqqqqqqqlgqqqqqeqqjqtk44jdc0f78c6cg8jd02889jud0phxea7nxtj7sue7ft44daf9nye99ekujxxgkgw82t0kxfwetxp9vs5rt54lkfd35vjle0sexhv2qqpv7aq4',
+      'lnbcrt10n1pnjvncnpp5hguramzhrx50q5up3e92h2kkxctmeem5xtt2hh75cf66lm336nqsdqqcqzzsxqyz5vqrzjq03gty986tnezs8azr9x92wp3s76l789n9qy0tn3ttsgwdce7ya2cqqqjsqqqqgqqqqqqqlgqqqqqqgq2qsp5za8lwlcdpvw5xcnvjgx05rmt2kl37e4qdegs607nusq7zce7vr2s9p4gqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqysgq8hexd68jdvz0m4mqyy23evuuenygppqe9j4tgnvty6ea83mall68tar53zx9tllmk0jfg69f3nvxru34w8d76ksr8un3ua4ks9utuwgqudggxx',
     );
 
     expect(dec.routingHints).toEqual([
       [
         {
           feeBaseMsat: 1000,
-          cltvExpiryDelta: 144,
-          chanId: '625896994266021900',
-          feeProportionalMillionths: 100,
+          cltvExpiryDelta: 80,
+          chanId: '162727720976384',
+          feeProportionalMillionths: 1,
           nodeId:
-            '02e2670a2c2661a9eea13b7cfdcdd7f552f591b9ee60e5678b7abe77b7f9516f96',
-        },
-      ],
-      [
-        {
-          feeBaseMsat: 1000,
-          cltvExpiryDelta: 144,
-          chanId: '634943775850758100',
-          feeProportionalMillionths: 100,
-          nodeId:
-            '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2',
+            '03e28590a7d2e79140fd10ca62a9c18c3daff8e5994047ae715ae0873719f13aac',
         },
       ],
     ]);

@@ -39,8 +39,9 @@ class S3 implements BackupProvider {
     await this.client.putObject(this.bucket, path, Buffer.from(data, 'utf-8'));
   };
 
-  public uploadFile = (path: string, file: string): Promise<void> =>
-    this.client.fPutObject(this.bucket, path, file);
+  public uploadFile = async (path: string, file: string): Promise<void> => {
+    await this.client.fPutObject(this.bucket, path, file);
+  };
 }
 
 export default S3;

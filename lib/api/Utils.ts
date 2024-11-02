@@ -162,9 +162,13 @@ export const checkPreimageHashLength = (preimageHash: Buffer) => {
 
 export const markSwap = async (
   countryCodes: CountryCodes,
-  ip: string,
+  ip: string | undefined,
   swapId: string,
 ) => {
+  if (ip === undefined) {
+    return;
+  }
+
   if (!countryCodes.isRelevantCountry(countryCodes.getCountryCode(ip))) {
     return;
   }

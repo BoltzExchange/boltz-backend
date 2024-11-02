@@ -9,6 +9,7 @@ export const mockRequest = (
     body,
     query,
     params,
+    ip: '127.0.0.1',
   }) as Request;
 
 export const mockResponse = () => {

@@ -272,6 +272,7 @@ mod test {
                     (
                         String::from("BTC"),
                         Currency {
+                            network: Network::Regtest,
                             wallet: Arc::new(Bitcoin::new(Network::Regtest)),
                             chain: Some(Arc::new(Box::new(
                                 crate::chain::chain_client::test::get_client(),
@@ -282,6 +283,7 @@ mod test {
                     (
                         String::from("LTC"),
                         Currency {
+                            network: Network::Regtest,
                             wallet: Arc::new(Bitcoin::new(Network::Regtest)),
                             chain: None,
                             cln: None,
@@ -290,6 +292,7 @@ mod test {
                     (
                         String::from("L-BTC"),
                         Currency {
+                            network: Network::Regtest,
                             wallet: Arc::new(Elements::new(Network::Regtest)),
                             chain: Some(Arc::new(Box::new(
                                 crate::chain::elements_client::test::get_client().0,

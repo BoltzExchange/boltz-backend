@@ -418,7 +418,14 @@ where
     ) -> Result<Response<DecodeInvoiceOrOfferResponse>, Status> {
         extract_parent_context(&request);
 
-        match crate::lightning::invoice::decode(&request.into_inner().invoice_or_offer) {
+        let network = match self.manager.get_currency("BTC") {
+            Some(cur) => cur.network,
+            None => {
+                return Err(Status::new(Code::Internal, "BTC currency not configured"));
+            }
+        };
+
+        match crate::lightning::invoice::decode(network, &request.into_inner().invoice_or_offer) {
             Ok(dec) => Ok(Response::new(match dec {
                 Invoice::Bolt11(invoice) => DecodeInvoiceOrOfferResponse {
                     is_expired: invoice.is_expired(),

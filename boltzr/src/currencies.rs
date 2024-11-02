@@ -11,6 +11,8 @@ use tracing::{debug, warn};
 
 #[derive(Clone)]
 pub struct Currency {
+    pub network: wallet::Network,
+
     pub wallet: Arc<dyn Wallet + Send + Sync>,
 
     pub chain: Option<Arc<Box<dyn Client + Send + Sync>>>,
@@ -36,6 +38,7 @@ pub async fn connect_nodes(
                 curs.insert(
                     currency.symbol.clone(),
                     Currency {
+                        network,
                         wallet: Arc::new(wallet::Bitcoin::new(network)),
                         chain: match currency.chain {
                             Some(config) => {
@@ -78,6 +81,7 @@ pub async fn connect_nodes(
         curs.insert(
             crate::chain::elements_client::SYMBOL.to_string(),
             Currency {
+                network,
                 cln: None,
                 chain: Some(Arc::new(Box::new(chain))),
                 wallet: Arc::new(wallet::Elements::new(network)),

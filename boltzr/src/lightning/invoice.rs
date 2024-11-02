@@ -1,4 +1,6 @@
+use crate::wallet;
 use bech32::FromBase32;
+use bitcoin::constants::ChainHash;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -7,6 +9,7 @@ const BECH32_BOLT12_INVOICE_HRP: &str = "lni";
 
 #[derive(Debug, PartialEq)]
 pub enum InvoiceError {
+    InvalidNetwork,
     InvalidInvariant,
     DecodeError(String),
 }
@@ -14,6 +17,7 @@ pub enum InvoiceError {
 impl Display for InvoiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            InvoiceError::InvalidNetwork => write!(f, "invalid network"),
             InvoiceError::InvalidInvariant => write!(f, "invalid invariant"),
             InvoiceError::DecodeError(data) => write!(f, "could not parse invoice: {}", data),
         }
@@ -29,7 +33,36 @@ pub enum Invoice {
     Bolt12(Box<lightning::offers::invoice::Bolt12Invoice>),
 }
 
-pub fn decode(invoice_or_offer: &str) -> Result<Invoice, InvoiceError> {
+impl Invoice {
+    fn is_for_network(&self, network: wallet::Network) -> bool {
+        let chain_hash = Self::network_to_chain_hash(network);
+
+        match self {
+            Invoice::Bolt11(invoice) => invoice.network().chain_hash() == chain_hash,
+            Invoice::Offer(offer) => offer.supports_chain(chain_hash),
+            Invoice::Bolt12(invoice) => invoice.chain() == chain_hash,
+        }
+    }
+
+    fn network_to_chain_hash(network: wallet::Network) -> ChainHash {
+        match network {
+            wallet::Network::Mainnet => ChainHash::BITCOIN,
+            wallet::Network::Testnet => ChainHash::TESTNET,
+            wallet::Network::Regtest => ChainHash::REGTEST,
+        }
+    }
+}
+
+pub fn decode(network: wallet::Network, invoice_or_offer: &str) -> Result<Invoice, InvoiceError> {
+    let invoice = parse(invoice_or_offer)?;
+    if !invoice.is_for_network(network) {
+        return Err(InvoiceError::InvalidNetwork);
+    }
+
+    Ok(invoice)
+}
+
+fn parse(invoice_or_offer: &str) -> Result<Invoice, InvoiceError> {
     if let Ok(invoice) = decode_bolt11(invoice_or_offer) {
         return Ok(invoice);
     }
@@ -77,6 +110,7 @@ mod test {
     use crate::lightning::invoice::{
         decode, decode_bolt11, decode_bolt12_invoice, decode_bolt12_offer, Invoice, InvoiceError,
     };
+    use crate::wallet;
     use bech32::FromBase32;
     use std::str::FromStr;
 
@@ -87,21 +121,37 @@ mod test {
     #[test]
     fn test_decode() {
         assert_eq!(
-            decode(BOLT12_OFFER).unwrap(),
+            decode(wallet::Network::Regtest, BOLT12_OFFER).unwrap(),
             decode_bolt12_offer(BOLT12_OFFER).unwrap()
         );
         assert_eq!(
-            decode(BOLT12_INVOICE).unwrap(),
+            decode(wallet::Network::Regtest, BOLT12_INVOICE).unwrap(),
             decode_bolt12_invoice(BOLT12_INVOICE).unwrap()
         );
         assert_eq!(
-            decode(BOLT11_INVOICE).unwrap(),
+            decode(wallet::Network::Regtest, BOLT11_INVOICE).unwrap(),
             decode_bolt11(BOLT11_INVOICE).unwrap()
         );
 
         assert_eq!(
-            decode("invalid").err().unwrap(),
+            decode(wallet::Network::Regtest, "invalid").err().unwrap(),
             InvoiceError::InvalidInvariant
+        );
+    }
+
+    #[test]
+    fn test_decode_invalid_network() {
+        assert_eq!(
+            decode(wallet::Network::Regtest, "lno1qgsyxjtl6luzd9t3pr62xr7eemp6awnejusgf6gw45q75vcfqqqqqqqsespexwyy4tcadvgg89l9aljus6709kx235hhqrk6n8dey98uyuftzdqrvfp0pxcmv8l8txqssq8cm7hrd8ja0ucz0cexwg22l305307pxp3qyq7heen7fpurds7kqhm0h8pk5hghv84wz53rh3yfgmahp7ddlyv4gyqrx55lhnfh5ld0pf8gatyf9x4m50mg3zex4hkq4ehysrs7ptnh4j4mwc5qqrt9rlu78elnkly3qw4g0my8mtcz08jhsdk0a7vz2mx52hu6qxw7q86nhggm335n8ef39e5vrm9gd4xqqy8tm2ptwy2xw8scz3jl9djen0t6").err().unwrap(),
+            InvoiceError::InvalidNetwork,
+        );
+        assert_eq!(
+            decode(wallet::Network::Regtest, "lni1qqgzm8segjwvfcwp2a22ah30heyn6q3qgdyhl4lcy62hzz855v8annkr46a8n9eqsn5satgpagesjqqqqqqppnqrjvugf2h366csswt7tml9ep4u7tvv4rf0wq8d4xwmjg20cfcjky6qxcjz7zd3kc07wkvppqq03hawx6096lesyl3jvus54lzlfzluzvrzqgpa0nn8ujrcxmpavp0klwwrdfw3wc02u9fz80zgj3hmwru6m7ge2sgqxdffl0xn0f767zjw36kgj2dthglk3z9jdt0vptnwfq8puzh80t9tka3gqqxk28leu0nl8d7fzqa2slkg0khsy7090qmvlmucy4kdg40e5qvauq048ws3hrrfx0jnztngc8k2sm2vqqgwhk5zkug5vu0ps9r972m9nx7h55pqgdyhl4lcy62hzz855v8annkr46a8n9eqsn5satgpagesjqqqqqq9yqc0gfq9sggrhyqf72htl64lc7kr5g8zwuq4elrkr96zvtllvathlnxfvl86vjs6plgpngpexwyy4tcadvgg89l9aljus6709kx235hhqrk6n8dey98uyuftzdqz79jnp0yxdj3kqcajj9w0ept5m002j3lqkjszg2hc3qakcaafc6wsyqhfll8m4yx5l3nemd2taaslyuzvnjkqaw895yzllt0wpv5wg5z3msqy24sutfy7nvkg6rwqsxwgj60e3sa9vqa9lw8ffgnu8wwfdd2rxatgynm5xgy2zrs9l8wezyu3raenejlu453ln8xztjydnk8c7x0s4dgweq0gvmkq8hqgnt2w0jljkzq7x5nhcdju9zlg2xqgh3n8uz4t04syrm27dhlyqrxd3qeyetuvfkjhklsn64r2tc4ze3eswywvnr43g39mk0ayy9ldz6zwndlmgws0e5wfmfr2mzm0cqa4xwlyz7eqmfekykzka3fz3n5y9tyj5x33xalqn7hpl5k4y0u8fm64sfrdfzxtst4e9yxcrrexg5cfxmadc2jc2q36dqvl5896zj2le55ffyhva6jgm57wqh6nwua0fzhapjvy2r9zdn35qcfsj33tnl393ajzhp6q7mx3ck2wd3k5jkg82gru4v6ls9l9wkhtf5r24lj9pnk3c99zk7a5xncc870pcr6zm2uszk4d5avp97et68uvlv4ev73pcqqqq05qqqqqvsqjqqqqqqqqqqqraqqqqqqqqq0gfqqqqzjqgeexfx72vqcp2xq2sgzv7n8srl73msjm7zcp8sn6xx9fcgq7w3jk0fgehqct0s7cdm4u0j4qxr6zgzhqxqsqqzczzqneu4urdnl0nqjke4z4lxspnhsp75a6zxuvdye72vfwdrq7e2rdfncypw3kr7xnqf8xynne80kkz2sczhzm8gwq49r8e92h4jfpkzlwxcfaessde00f5k5c4z69pjqm0nq6rh70ru8kc4gm9tfrhj4zr7t7egms").err().unwrap(),
+            InvoiceError::InvalidNetwork,
+        );
+        assert_eq!(
+            decode(wallet::Network::Regtest, "lntb1101010n1pnjvjnzsp5ad9y769h0y6vge68cegs8ft62mh858228accp0zq0pqgjzw7756spp5snujw7nydyxu44sf6c79n0tzmd2g79nkfl5uwc53zrf9satrcplqdp6tddjyar90p6z7urvv95kug3vyfwzysn0d3685gr5v4ehgmn9w3wzygjat5xqyjw5qcqp2rzjqgjmhs48xsve8n2e94ascxzmhrrrt8xpm5fn096ud4qn2nj8qwlkgtzq7vqqppcqqqqqqqw0qqqqrncqqc9qxpqysgqfc9a554d2mg6ljxyg8axfwunejtfhglrw9m67e90pec6520jjukxpjnx8m8484fenusg2697w42ec4ypk7wk86z62rms5uym6l5vh0gq7t50m6").err().unwrap(),
+            InvoiceError::InvalidNetwork,
         );
     }
 

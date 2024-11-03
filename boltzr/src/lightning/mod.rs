@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 
 pub mod cln;
 pub mod invoice;
+pub mod lnd;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {

@@ -100,7 +100,6 @@
     "google-protobuf": "^3.21.4",
     "ip-address": "^10.0.1",
     "liquidjs-lib": "^6.0.2-liquid.36",
-    "minio": "^8.0.2",
     "node-forge": "^1.3.1",
     "node-schedule": "^2.1.1",
     "otplib": "^12.0.1",

@@ -7,12 +7,7 @@ import {
 import fs from 'fs';
 import BaseClient from '../BaseClient';
 import Logger from '../Logger';
-import {
-  formatError,
-  getHexBuffer,
-  getHexString,
-  splitChannelPoint,
-} from '../Utils';
+import { formatError, getHexBuffer, splitChannelPoint } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import { NodeType } from '../db/models/ReverseSwap';
 import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
@@ -77,7 +72,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
   private peerEventSubscription?: ClientReadableStream<lndrpc.PeerEvent>;
   private channelEventSubscription?: ClientReadableStream<lndrpc.ChannelEventUpdate>;
-  private channelBackupSubscription?: ClientReadableStream<lndrpc.ChanBackupSnapshot>;
 
   /**
    * Create an LND client
@@ -150,7 +144,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         if (startSubscriptions) {
           this.subscribePeerEvents();
           this.subscribeChannelEvents();
-          this.subscribeChannelBackups();
         }
 
         this.clearReconnectTimer();
@@ -191,7 +184,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
       this.subscribePeerEvents();
       this.subscribeChannelEvents();
-      this.subscribeChannelBackups();
 
       this.setClientStatus(ClientStatus.Connected);
       this.emit('subscription.reconnected', null);
@@ -224,11 +216,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     if (this.channelEventSubscription) {
       this.channelEventSubscription.cancel();
       this.channelEventSubscription = undefined;
-    }
-
-    if (this.channelBackupSubscription) {
-      this.channelBackupSubscription.cancel();
-      this.channelBackupSubscription = undefined;
     }
 
     if (this.lightning) {
@@ -1043,36 +1030,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       })
       .on('error', async (error) => {
         await this.handleSubscriptionError('channel event', error);
-      });
-  };
-
-  private subscribeChannelBackups = () => {
-    if (this.channelBackupSubscription) {
-      this.channelBackupSubscription.cancel();
-    }
-
-    this.channelBackupSubscription = this.lightning!.subscribeChannelBackups(
-      new lndrpc.ChannelBackupSubscription(),
-      this.meta,
-    )
-      .on('data', (backupSnapshot: lndrpc.ChanBackupSnapshot) => {
-        const multiBackup = backupSnapshot.getMultiChanBackup();
-
-        if (multiBackup) {
-          const decodedBackup = Buffer.from(
-            multiBackup.getMultiChanBackup_asB64(),
-            'base64',
-          );
-          this.emit('channel.backup', getHexString(decodedBackup));
-        }
-      })
-      .on('error', async (error) => {
-        this.logger.error(
-          `${LndClient.serviceName} ${
-            this.symbol
-          } channel backup subscription errored: ${formatError(error)}`,
-        );
-        this.emit('subscription.error', 'channel backup');
       });
   };
 }

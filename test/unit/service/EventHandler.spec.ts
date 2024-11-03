@@ -1,5 +1,5 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { Networks, OutputType } from 'boltz-core';
+import { OutputType } from 'boltz-core';
 import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
@@ -10,7 +10,6 @@ import Swap from '../../../lib/db/models/Swap';
 import { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import EventHandler from '../../../lib/service/EventHandler';
 import SwapNursery from '../../../lib/swap/SwapNursery';
-import { Currency } from '../../../lib/wallet/WalletManager';
 import { generateAddress } from '../../Utils';
 
 class StubEventEmitter extends EventEmitter {
@@ -56,28 +55,10 @@ const mockTransaction = () => {
 };
 
 describe('EventHandler', () => {
-  const symbol = 'BTC';
-
-  const currencies = new Map<string, Currency>([
-    [
-      symbol,
-      {
-        symbol,
-        chainClient: {} as any,
-        lndClient: new StubEventEmitter() as any,
-        network: Networks.bitcoinRegtest,
-      } as any as Currency,
-    ],
-  ]);
-
   const nursery = new StubEventEmitter();
   (nursery as any).channelNursery = new StubEventEmitter();
 
-  const eventHandler = new EventHandler(
-    Logger.disabledLogger,
-    currencies,
-    nursery as any,
-  );
+  const eventHandler = new EventHandler(Logger.disabledLogger, nursery as any);
 
   beforeEach(() => {
     eventHandler.removeAllListeners();
@@ -516,18 +497,5 @@ describe('EventHandler', () => {
     });
 
     nursery.emit('lockup.failed', toEmit);
-  });
-
-  test('should emit on channel backup', () => {
-    expect.assertions(2);
-
-    const backup = 'data';
-
-    eventHandler.once('channel.backup', ({ currency, channelBackup }) => {
-      expect(symbol).toEqual(currency);
-      expect(channelBackup).toEqual(backup);
-    });
-
-    currencies.get(symbol)!.lndClient!.emit('channel.backup', backup);
   });
 });

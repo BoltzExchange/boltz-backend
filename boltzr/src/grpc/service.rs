@@ -631,6 +631,7 @@ mod test {
     };
     use crate::grpc::service::BoltzService;
     use crate::grpc::status_fetcher::StatusFetcher;
+    use crate::notifications::commands::Commands;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
@@ -967,7 +968,7 @@ mod test {
 
     fn make_service() -> (
         CancellationToken,
-        BoltzService<MockManager, crate::notifications::mattermost::Client>,
+        BoltzService<MockManager, crate::notifications::mattermost::Client<Commands>>,
     ) {
         let token = CancellationToken::new();
         let refund_signer = Arc::new(MockRefundSigner::new());

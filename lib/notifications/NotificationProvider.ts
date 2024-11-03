@@ -9,7 +9,6 @@ import {
   minutesToMilliseconds,
   splitPairId,
 } from '../Utils';
-import BackupScheduler from '../backup/BackupScheduler';
 import {
   ClientStatus,
   CurrencyType,
@@ -49,7 +48,6 @@ class NotificationProvider {
     private readonly sidecar: Sidecar,
     private readonly service: Service,
     private readonly walletManager: WalletManager,
-    private readonly backup: BackupScheduler,
     private readonly config: NotificationConfig,
     private readonly client: NotificationClient,
     currencies: (BaseCurrencyConfig | undefined)[],
@@ -58,7 +56,7 @@ class NotificationProvider {
     this.listenToClient();
     this.listenToService();
 
-    new CommandHandler(this.logger, this.client, this.service, this.backup);
+    new CommandHandler(this.logger, this.client, this.service);
 
     this.balanceChecker = new BalanceChecker(
       this.logger,

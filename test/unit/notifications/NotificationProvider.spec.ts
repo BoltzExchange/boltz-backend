@@ -3,7 +3,6 @@ import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
@@ -82,16 +81,6 @@ jest.mock('../../../lib/service/Service', () => {
 
 const mockedService = <jest.Mock<Service>>(<any>Service);
 
-jest.mock('../../../lib/backup/BackupScheduler', () => {
-  return jest.fn().mockImplementation(() => {
-    return {};
-  });
-});
-
-const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
-  (<any>BackupScheduler)
-);
-
 const mockSendMessage = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/notifications/NotificationClient', () => {
@@ -164,7 +153,6 @@ describe('NotificationProvider', () => {
     sidecar,
     mockedService(),
     walletManager,
-    mockedBackupScheduler(),
     config,
     mockedNotificationClient(),
     [],

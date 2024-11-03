@@ -9,6 +9,7 @@ pub struct CurrencyConfig {
     pub symbol: String,
     pub chain: Option<crate::chain::Config>,
     pub cln: Option<crate::lightning::cln::Config>,
+    pub lnd: Option<crate::lightning::lnd::Config>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -51,14 +52,15 @@ pub struct GlobalConfig {
     #[serde(rename = "mnemonicpathEvm")]
     pub mnemonic_path_evm: Option<String>,
 
+    pub backup: Option<crate::backup::Config>,
+    pub notification: Option<crate::notifications::Config>,
+
+    pub sidecar: Config,
+
     pub postgres: crate::db::Config,
     pub currencies: Option<Vec<CurrencyConfig>>,
     pub liquid: Option<LiquidConfig>,
     pub rsk: Option<crate::evm::Config>,
-
-    pub notification: Option<crate::notifications::Config>,
-
-    pub sidecar: Config,
 }
 
 pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {

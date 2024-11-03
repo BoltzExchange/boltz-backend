@@ -3,10 +3,12 @@ use crate::chain::elements_client::ElementsClient;
 use crate::chain::Client;
 use crate::config::{CurrencyConfig, LiquidConfig};
 use crate::lightning::cln::Cln;
+use crate::lightning::lnd::Lnd;
 use crate::wallet;
 use crate::wallet::Wallet;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 #[derive(Clone)]
@@ -17,11 +19,13 @@ pub struct Currency {
 
     pub chain: Option<Arc<Box<dyn Client + Send + Sync>>>,
     pub cln: Option<Cln>,
+    pub lnd: Option<Lnd>,
 }
 
 pub type Currencies = HashMap<String, Currency>;
 
 pub async fn connect_nodes(
+    cancellation_token: CancellationToken,
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
@@ -60,6 +64,16 @@ pub async fn connect_nodes(
                             }
                             None => None,
                         },
+                        lnd: match currency.lnd {
+                            Some(config) => {
+                                let mut lnd =
+                                    Lnd::new(cancellation_token.clone(), &currency.symbol, config)
+                                        .await?;
+                                lnd.connect().await?;
+                                Some(lnd)
+                            }
+                            None => None,
+                        },
                     },
                 );
             }
@@ -83,6 +97,7 @@ pub async fn connect_nodes(
             Currency {
                 network,
                 cln: None,
+                lnd: None,
                 chain: Some(Arc::new(Box::new(chain))),
                 wallet: Arc::new(wallet::Elements::new(network)),
             },

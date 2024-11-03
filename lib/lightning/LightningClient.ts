@@ -91,7 +91,6 @@ type EventTypes = {
   'channel.active': lndrpc.ChannelPoint.AsObject;
   'htlc.accepted': string;
   'invoice.settled': string;
-  'channel.backup': string;
   'subscription.error': string | undefined;
   'subscription.reconnected': null;
 };

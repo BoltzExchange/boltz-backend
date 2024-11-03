@@ -1,6 +1,7 @@
 use clap::Parser;
 use serde::Serialize;
 use std::sync::Arc;
+use tokio::task;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::config::parse_config;
@@ -8,6 +9,7 @@ use crate::currencies::connect_nodes;
 use crate::swap::manager::Manager;
 
 mod api;
+mod backup;
 mod chain;
 mod config;
 mod currencies;
@@ -80,7 +82,7 @@ async fn main() {
         utils::built_info::TARGET
     );
 
-    let db_pool = db::connect(config.postgres).unwrap_or_else(|err| {
+    let db_pool = db::connect(config.postgres.clone()).unwrap_or_else(|err| {
         error!("Could not connect to database: {}", err);
         std::process::exit(1);
     });
@@ -117,8 +119,28 @@ async fn main() {
         }
     });
 
+    let backup_client = if let Some(backup_config) = config.backup {
+        match backup::Backup::new(cancellation_token.clone(), backup_config, config.postgres).await
+        {
+            Ok(b) => Some(b),
+            Err(err) => {
+                error!("Could not create backup client: {}", err);
+                None
+            }
+        }
+    } else {
+        warn!("Backup config is missing");
+        None
+    };
+
     let notification_client = if let Some(config) = config.notification {
-        match notifications::mattermost::Client::new(cancellation_token.clone(), config).await {
+        match notifications::mattermost::Client::<notifications::commands::Commands>::new(
+            cancellation_token.clone(),
+            config,
+            notifications::commands::Commands::new(backup_client.clone()),
+        )
+        .await
+        {
             Ok(c) => Some(c),
             Err(err) => {
                 error!("Could not create notification client: {}", err);
@@ -142,12 +164,31 @@ async fn main() {
         )),
     );
 
-    let currencies = match connect_nodes(config.network, config.currencies, config.liquid).await {
+    let currencies = match connect_nodes(
+        cancellation_token.clone(),
+        config.network,
+        config.currencies,
+        config.liquid,
+    )
+    .await
+    {
         Ok(currencies) => currencies,
         Err(err) => {
             error!("Could not connect to nodes: {}", err);
             std::process::exit(1);
         }
+    };
+
+    let backup_handle = if let Some(b) = backup_client {
+        let c = currencies.clone();
+
+        Some(task::spawn(async move {
+            if let Err(err) = b.start(c).await {
+                error!("Backup scheduler failed: {}", err);
+            };
+        }))
+    } else {
+        None
     };
 
     let (swap_status_update_tx, _swap_status_update_rx) =
@@ -219,6 +260,10 @@ async fn main() {
         error!("Could not register exit handler: {}", e);
         std::process::exit(1);
     });
+
+    if let Some(backup_handle) = backup_handle {
+        backup_handle.await.unwrap();
+    }
 
     api_handle.await.unwrap();
     grpc_handle.await.unwrap();

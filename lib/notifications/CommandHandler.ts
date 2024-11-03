@@ -4,7 +4,6 @@ import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
 import Tracing from '../Tracing';
 import { formatError, mapToObject, stringify } from '../Utils';
-import BackupScheduler from '../backup/BackupScheduler';
 import {
   FinalChainSwapEvents,
   FinalReverseSwapEvents,
@@ -70,7 +69,6 @@ class CommandHandler {
     private logger: Logger,
     private notificationClient: NotificationClient,
     private service: Service,
-    private backupScheduler: BackupScheduler,
   ) {
     this.commands = new Map<string, CommandInfo>([
       [
@@ -172,13 +170,6 @@ class CommandHandler {
         },
       ],
 
-      [
-        Command.Backup,
-        {
-          executor: this.backup,
-          description: 'uploads a backup of the databases',
-        },
-      ],
       [
         Command.GetAddress,
         {
@@ -562,20 +553,6 @@ class CommandHandler {
     await this.notificationClient.sendMessage(
       `${codeBlock}${stringify(await ReferralStats.getReferralFees())}${codeBlock}`,
     );
-  };
-
-  private backup = async () => {
-    try {
-      await this.backupScheduler.uploadDatabase(new Date());
-
-      await this.notificationClient.sendMessage(
-        'Uploaded backup of Boltz database',
-      );
-    } catch (error) {
-      await this.notificationClient.sendMessage(
-        `Could not upload backup: ${error}`,
-      );
-    }
   };
 
   private getAddress = async (args: string[]) => {

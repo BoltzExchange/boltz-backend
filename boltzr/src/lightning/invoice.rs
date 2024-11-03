@@ -47,7 +47,7 @@ impl Invoice {
     fn network_to_chain_hash(network: wallet::Network) -> ChainHash {
         match network {
             wallet::Network::Mainnet => ChainHash::BITCOIN,
-            wallet::Network::Testnet => ChainHash::TESTNET,
+            wallet::Network::Testnet => ChainHash::TESTNET3,
             wallet::Network::Regtest => ChainHash::REGTEST,
         }
     }

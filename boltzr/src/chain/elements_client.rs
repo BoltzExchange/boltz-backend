@@ -1,7 +1,7 @@
 use crate::chain::chain_client::ChainClient;
 use crate::chain::types::NetworkInfo;
 use crate::chain::utils::{Outpoint, Transaction};
-use crate::chain::{Client, LiquidConfig};
+use crate::chain::{BaseClient, Client, LiquidConfig};
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tracing::{debug, info, instrument, warn};
@@ -45,22 +45,30 @@ impl ElementsClient {
 }
 
 #[async_trait]
-impl Client for ElementsClient {
+impl BaseClient for ElementsClient {
+    fn kind(&self) -> String {
+        "Elements client".to_string()
+    }
+
     fn symbol(&self) -> String {
         SYMBOL.to_string()
     }
 
-    async fn connect(&self) -> anyhow::Result<()> {
+    async fn connect(&mut self) -> anyhow::Result<()> {
         self.client.connect().await?;
 
-        if let Some(lowball_client) = &self.lowball_client {
+        if let Some(mut lowball_client) = self.lowball_client.clone() {
             info!("Connecting to {} lowball client", SYMBOL);
             lowball_client.connect().await?;
+            self.lowball_client = Some(lowball_client);
         }
 
         Ok(())
     }
+}
 
+#[async_trait]
+impl Client for ElementsClient {
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,

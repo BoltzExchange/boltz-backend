@@ -1,4 +1,6 @@
+use crate::chain::BaseClient;
 use anyhow::anyhow;
+use async_trait::async_trait;
 use fedimint_tonic_lnd::lnrpc::{
     ChanBackupExportRequest, ChannelBackupSubscription, GetInfoRequest,
 };
@@ -50,44 +52,6 @@ impl Lnd {
         })
     }
 
-    pub async fn connect(&mut self) -> anyhow::Result<()> {
-        let info = self
-            .lnd
-            .lightning()
-            .get_info(GetInfoRequest {})
-            .await?
-            .into_inner();
-        info!(
-            "Connected to {} LND {} ({})",
-            self.symbol,
-            info.version,
-            if !info.alias.is_empty() {
-                info.alias
-            } else {
-                info.identity_pubkey
-            }
-        );
-
-        let mut self_sub = self.clone();
-        tokio::spawn(async move {
-            loop {
-                match self_sub.start_listeners().await {
-                    Ok(_) => break,
-                    Err(err) => {
-                        error!("LND subscriptions failed: {}", err);
-                        warn!(
-                            "Reconnecting to LND subscriptions in : {:?}",
-                            RECONNECT_INTERVAL
-                        );
-                        tokio::time::sleep(RECONNECT_INTERVAL).await;
-                    }
-                }
-            }
-        });
-
-        Ok(())
-    }
-
     pub async fn channel_backup(&mut self) -> anyhow::Result<Option<Vec<u8>>> {
         let res = self
             .lnd
@@ -136,5 +100,54 @@ impl Lnd {
                 }
             }
         }
+    }
+}
+
+#[async_trait]
+impl BaseClient for Lnd {
+    fn kind(&self) -> String {
+        "LND".to_string()
+    }
+
+    fn symbol(&self) -> String {
+        self.symbol.clone()
+    }
+
+    async fn connect(&mut self) -> anyhow::Result<()> {
+        let info = self
+            .lnd
+            .lightning()
+            .get_info(GetInfoRequest {})
+            .await?
+            .into_inner();
+        info!(
+            "Connected to {} LND {} ({})",
+            self.symbol,
+            info.version,
+            if !info.alias.is_empty() {
+                info.alias
+            } else {
+                info.identity_pubkey
+            }
+        );
+
+        let mut self_sub = self.clone();
+        tokio::spawn(async move {
+            loop {
+                match self_sub.start_listeners().await {
+                    Ok(_) => break,
+                    Err(err) => {
+                        error!("LND subscriptions failed: {}", err);
+                        warn!(
+                            "Reconnecting to LND subscriptions in : {:?}",
+                            RECONNECT_INTERVAL
+                        );
+                        tokio::time::sleep(RECONNECT_INTERVAL).await;
+                    }
+                }
+            }
+        });
+
+        Ok(())
     }
 }

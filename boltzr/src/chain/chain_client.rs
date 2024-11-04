@@ -1,7 +1,7 @@
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{NetworkInfo, RawMempool, RpcParam};
 use crate::chain::utils::{parse_transaction, Outpoint, Transaction};
-use crate::chain::{Client, Config};
+use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tracing::{debug, error, info, trace};
@@ -43,12 +43,16 @@ impl ChainClient {
 }
 
 #[async_trait]
-impl Client for ChainClient {
+impl BaseClient for ChainClient {
+    fn kind(&self) -> String {
+        "Chain client".to_string()
+    }
+
     fn symbol(&self) -> String {
         self.client.symbol.clone()
     }
 
-    async fn connect(&self) -> anyhow::Result<()> {
+    async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.network_info().await?;
         info!(
             "Connected to {} chain client: {}",
@@ -57,7 +61,10 @@ impl Client for ChainClient {
 
         Ok(())
     }
+}
 
+#[async_trait]
+impl Client for ChainClient {
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -190,7 +197,7 @@ pub mod test {
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::{parse_transaction, Transaction};
-    use crate::chain::{Client, Config};
+    use crate::chain::{BaseClient, Client, Config};
     use serial_test::serial;
     use std::collections::HashSet;
     use std::sync::OnceLock;
@@ -270,7 +277,7 @@ pub mod test {
 
     #[tokio::test]
     async fn test_connect() {
-        let client = get_client();
+        let mut client = get_client();
 
         client.connect().await.unwrap();
 

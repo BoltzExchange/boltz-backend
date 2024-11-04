@@ -129,7 +129,7 @@ async fn main() {
     {
         Ok(currencies) => currencies,
         Err(err) => {
-            error!("Could not connect to nodes: {}", err);
+            error!("Could not initialize currencies: {}", err);
             std::process::exit(1);
         }
     };

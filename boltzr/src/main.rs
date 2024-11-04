@@ -119,8 +119,29 @@ async fn main() {
         }
     });
 
+    let currencies = match connect_nodes(
+        cancellation_token.clone(),
+        config.network,
+        config.currencies,
+        config.liquid,
+    )
+    .await
+    {
+        Ok(currencies) => currencies,
+        Err(err) => {
+            error!("Could not connect to nodes: {}", err);
+            std::process::exit(1);
+        }
+    };
+
     let backup_client = if let Some(backup_config) = config.backup {
-        match backup::Backup::new(cancellation_token.clone(), backup_config, config.postgres).await
+        match backup::Backup::new(
+            cancellation_token.clone(),
+            backup_config,
+            config.postgres,
+            currencies.clone(),
+        )
+        .await
         {
             Ok(b) => Some(b),
             Err(err) => {
@@ -164,32 +185,13 @@ async fn main() {
         )),
     );
 
-    let currencies = match connect_nodes(
-        cancellation_token.clone(),
-        config.network,
-        config.currencies,
-        config.liquid,
-    )
-    .await
-    {
-        Ok(currencies) => currencies,
-        Err(err) => {
-            error!("Could not connect to nodes: {}", err);
-            std::process::exit(1);
-        }
-    };
-
-    let backup_handle = if let Some(b) = backup_client {
-        let c = currencies.clone();
-
-        Some(task::spawn(async move {
-            if let Err(err) = b.start(c).await {
+    let backup_handle = backup_client.map(|b| {
+        task::spawn(async move {
+            if let Err(err) = b.start().await {
                 error!("Backup scheduler failed: {}", err);
             };
-        }))
-    } else {
-        None
-    };
+        })
+    });
 
     let (swap_status_update_tx, _swap_status_update_rx) =
         tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);

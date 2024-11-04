@@ -4,12 +4,14 @@ use crate::lightning::lnd::Lnd;
 use alloy::hex;
 use anyhow::anyhow;
 use chrono::{Datelike, Timelike, Utc};
+use dashmap::DashSet;
 use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::ops::Sub;
 use std::process::Stdio;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::BufReader;
 use tokio::process::ChildStdout;
@@ -19,6 +21,7 @@ use tracing::{debug, error, info, instrument, trace};
 mod providers;
 
 const DEFAULT_INTERVAL: &str = "0 0 0 * * *";
+const SCB_RETRY_INTERVAL_SECONDS: u64 = 60;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Config {
@@ -28,7 +31,7 @@ pub struct Config {
     pub simple_storage: Option<providers::s3::Config>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Backup {
     cancellation_token: CancellationToken,
 
@@ -36,6 +39,9 @@ pub struct Backup {
     db_config: crate::db::Config,
 
     provider: providers::s3::S3,
+
+    currencies: Currencies,
+    to_retry: Arc<DashSet<String>>,
 }
 
 impl Backup {
@@ -43,10 +49,13 @@ impl Backup {
         cancellation_token: CancellationToken,
         config: Config,
         db_config: crate::db::Config,
+        currencies: Currencies,
     ) -> anyhow::Result<Self> {
         Ok(Backup {
             db_config,
+            currencies,
             cancellation_token,
+            to_retry: Arc::new(DashSet::new()),
             interval: config.interval.unwrap_or(DEFAULT_INTERVAL.to_string()),
             provider: if let Some(config) = config.simple_storage {
                 providers::s3::S3::new(&config).await?
@@ -56,8 +65,8 @@ impl Backup {
         })
     }
 
-    pub async fn start(&self, currencies: Currencies) -> anyhow::Result<()> {
-        for (symbol, cur) in currencies.into_iter() {
+    pub async fn start(&self) -> anyhow::Result<()> {
+        for (symbol, cur) in self.currencies.clone().into_iter() {
             if let Some(mut lnd) = cur.lnd {
                 let self_cp = self.clone();
                 let mut backup_stream = lnd.subscribe_channel_backups();
@@ -71,6 +80,7 @@ impl Backup {
                         while let Ok(backup) = backup_stream.recv().await {
                             if let Err(err) = self_cp.upload_lnd_backup(&symbol, &backup).await {
                                 error!("LND backup stream upload failed: {}", err);
+                                self_cp.to_retry.insert(symbol.to_string());
                             }
                         }
                     }
@@ -79,6 +89,13 @@ impl Backup {
         }
 
         self.database_backup().await?;
+
+        {
+            let self_cp = self.clone();
+            tokio::spawn(async move {
+                self_cp.retry_loop().await;
+            });
+        }
 
         info!("Running database backup on interval: {}", self.interval);
         let schedule = cron::Schedule::from_str(&self.interval)?;
@@ -104,7 +121,7 @@ impl Backup {
 
     #[instrument(name = "Backup::database_backup", skip_all)]
     pub async fn database_backup(&self) -> anyhow::Result<()> {
-        debug!("Uploading database backup");
+        info!("Uploading database backup");
 
         let path = format!("backend/database-{}.sql.zst", Self::format_date());
         let mut stdout = self.database_backup_stream()?;
@@ -113,6 +130,49 @@ impl Backup {
         trace!("Uploaded database backup");
 
         Ok(())
+    }
+
+    async fn retry_loop(self) {
+        let dur = Duration::from_secs(SCB_RETRY_INTERVAL_SECONDS);
+        debug!("Retrying failed backups every {:#?}", dur);
+        let mut interval = tokio::time::interval(dur);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = self.cancellation_token.cancelled() => {
+                    break;
+                }
+            }
+
+            for symbol in self
+                .to_retry
+                .iter()
+                .map(|s| s.key().clone())
+                .collect::<Vec<_>>()
+            {
+                debug!("Retrying SCB backup for LND {}", symbol);
+                let cur = match self.currencies.get(&symbol) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mut lnd = match &cur.lnd {
+                    Some(lnd) => lnd.clone(),
+                    None => continue,
+                };
+
+                match self.lnd_backup(&symbol, &mut lnd).await {
+                    Ok(_) => {
+                        debug!("Retry of SCB backup for LND {} succeeded", symbol);
+                        self.to_retry.remove(&symbol);
+                    }
+                    Err(err) => {
+                        error!("LND {} backup retry failed: {}", symbol, err);
+                        continue;
+                    }
+                };
+            }
+        }
     }
 
     #[instrument(name = "Backup::lnd_backup", skip(self, lnd))]
@@ -126,7 +186,7 @@ impl Backup {
     }
 
     async fn upload_lnd_backup(&self, symbol: &str, backup: &[u8]) -> anyhow::Result<()> {
-        debug!("Uploading LND {} channel backup", symbol);
+        info!("Uploading LND {} channel backup", symbol);
 
         let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::best());
         encoder.write_all(hex::encode(backup).as_bytes())?;
@@ -156,7 +216,7 @@ impl Backup {
             .arg("-p")
             .arg(format!("{}", self.db_config.port))
             .arg("-d")
-            .arg(self.db_config.password.clone())
+            .arg(self.db_config.database.clone())
             .stdout(Stdio::piped())
             .spawn()?;
 

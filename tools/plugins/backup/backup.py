@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import gzip
 import json
 import sys
 from abc import ABC, abstractmethod
@@ -27,7 +28,7 @@ class Provider(ABC):
     client: Any | None = None
 
     @abstractmethod
-    def upload_scb(self, file_name: str, data: object) -> None:
+    def upload_scb(self, file_name: str, data: bytes) -> None:
         pass
 
 
@@ -54,14 +55,14 @@ class S3(Provider):
         self.bucket = bucket
         self.path = f"{path.rstrip('/')}/"
 
-    def upload_scb(self, file_name: str, data: object) -> None:
-        to_upload = BytesIO(json.dumps(data).encode("utf-8"))
+    def upload_scb(self, file_name: str, data: bytes) -> None:
+        to_upload = BytesIO(data)
         self.client.put_object(
             self.bucket,
             f"{self.path}{file_name}",
             to_upload,
             len(to_upload.getvalue()),
-            "application/json",
+            "application/gzip",
         )
 
 
@@ -92,11 +93,13 @@ class Backup:
 
         scb = self.plugin.rpc.call("staticbackup")
         date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
-        file_name = f"scb-{date}.json"
+        file_name = f"scb-{date}.json.gz"
         self.plugin.log(f"Uploading SCB {file_name} with {len(scb['scb'])} channels")
 
+        data = gzip.compress(json.dumps(scb).encode("utf-8"), compresslevel=9)
+
         for provider in self.providers:
-            provider.upload_scb(file_name, scb)
+            provider.upload_scb(file_name, data)
 
 
 pl = Plugin()

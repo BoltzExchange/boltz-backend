@@ -3,6 +3,97 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.8.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.3..v3.8.0) - 2024-11-04
+
+### Bug Fixes
+
+- mattermost alert channel selection - ([14c9791](https://github.com/BoltzExchange/boltz-backend/commit/14c97918645ee1774ebffc643a9e813838b38e21))
+- revert axum prometheus collector update - ([ba95034](https://github.com/BoltzExchange/boltz-backend/commit/ba95034017b3cd7f9b980a92a44b900881dad4d3))
+- show lockup failure details only when status is lockup failed (#683) - ([6433170](https://github.com/BoltzExchange/boltz-backend/commit/643317054f48804ed6ba3618c8a8d05ff9b3331b))
+- set rate for Taproot only pairs (#686) - ([ebb3a18](https://github.com/BoltzExchange/boltz-backend/commit/ebb3a18dab77a3954e28b129f4e0fb08d9f0a238))
+- 0-conf disabled alerts triggering every block (#689) - ([3b7344c](https://github.com/BoltzExchange/boltz-backend/commit/3b7344c0880594a5ee6441d25ea06cafe52f3c6d))
+- race condition sending chain swap lockup twice - ([cefe35b](https://github.com/BoltzExchange/boltz-backend/commit/cefe35b39c3c804790e0a76ab92b41aa94c29940))
+- do not crash when leftover batch claim fails - ([94aa167](https://github.com/BoltzExchange/boltz-backend/commit/94aa167dc6d5f42fc566fd73cb9e2e3cc1d8ec0f))
+- CLN bolt12 invoice and offer destination parsing (#697) - ([9661cf0](https://github.com/BoltzExchange/boltz-backend/commit/9661cf09107d1410f81b7088623686880553170e))
+
+### Documentation
+
+- add missing status property to Webhook docs (#647) - ([54ba6b7](https://github.com/BoltzExchange/boltz-backend/commit/54ba6b70c2a8ba46895dd3f3e6c3ae24c6306ef4))
+- API v1 hint clarification (#681) - ([0351ee2](https://github.com/BoltzExchange/boltz-backend/commit/0351ee200521eaaf8183ba1132f19ad3c2bb128e))
+
+### Features
+
+- **(mpay)** add pagination to mpay-list (#650) - ([000fd5c](https://github.com/BoltzExchange/boltz-backend/commit/000fd5c390afded66f774deb4d3b3f3bbf9a829d))
+- add profiling for Node.js (#649) - ([23f5315](https://github.com/BoltzExchange/boltz-backend/commit/23f531591eecf9b7078ffe81798c08ca8b928303))
+- save full pending lockup transactions (#651) - ([28b2343](https://github.com/BoltzExchange/boltz-backend/commit/28b2343abbaa1c0002e621947b63228480e7e530))
+- check 0-conf transaction is accepted by all nodes - ([fba735c](https://github.com/BoltzExchange/boltz-backend/commit/fba735c0e1f98be0fb80218d8f3d8610eb4bdbe9))
+- pending sweeps CLI command (#655) - ([df32696](https://github.com/BoltzExchange/boltz-backend/commit/df32696fbb13aca6144e99a1c01bdfdd352742d6))
+- get paystatus from mpay plugin - ([5bc07c7](https://github.com/BoltzExchange/boltz-backend/commit/5bc07c7cddef5ce80244373e9ada7874f430111d))
+- add open SSE streams metric - ([7358989](https://github.com/BoltzExchange/boltz-backend/commit/735898975ea095c28fd1d2a6887b75e3adfa1d1b))
+- renegotiation of over- and underpaid chain swaps (#657) - ([b93f0e8](https://github.com/BoltzExchange/boltz-backend/commit/b93f0e8a0ef61c47b2160600d588294c75ae9d58))
+- chain swap creation with no amount (#659) - ([b4c4447](https://github.com/BoltzExchange/boltz-backend/commit/b4c44478d4074ba6df01651012505d420de2a65b))
+- check balance before creating swap (#663) - ([ce479fd](https://github.com/BoltzExchange/boltz-backend/commit/ce479fd1eb148bc90822c552b5e87a076c016199))
+- different seed for EVM based chains (#667) - ([c560000](https://github.com/BoltzExchange/boltz-backend/commit/c56000066a5606f1e88f23efb98623a79098f1e2))
+- custom invoice expiry for reverse swaps (#669) - ([d61eb05](https://github.com/BoltzExchange/boltz-backend/commit/d61eb05b6a0acc9520e74501605cd71565edbbdf))
+- bolt12 support in submarine swaps (#664) - ([e6d9318](https://github.com/BoltzExchange/boltz-backend/commit/e6d9318c0b2dafccbad8a941a43902bf86965dd1))
+- alerts via webhook call (#675) - ([4c98b7f](https://github.com/BoltzExchange/boltz-backend/commit/4c98b7f88c63607ea2acb8992ed0c8cafdbac9e8))
+- buffer fetching swap updates before backend connects - ([4d4ee00](https://github.com/BoltzExchange/boltz-backend/commit/4d4ee006ca039b061e45a7fa429c897b1b753ddd))
+- allow configuring pairs as legacy - ([1dec7eb](https://github.com/BoltzExchange/boltz-backend/commit/1dec7eb8a634962d2babb0940b64518b2c8a4fb3))
+- improve deferred claim sweep commands (#684) - ([3a98e1b](https://github.com/BoltzExchange/boltz-backend/commit/3a98e1b335159344a0ad824a671ec5d4c48691f4))
+- max 0-conf risk tolerance (#690) - ([d270edf](https://github.com/BoltzExchange/boltz-backend/commit/d270edf028a3a32bc377b04eb9a06de68b1d33a4))
+- mempool rescan - ([cd4f4fb](https://github.com/BoltzExchange/boltz-backend/commit/cd4f4fb0a3ebb18226e363c0e159a9c29e77e640))
+- Discount CT support (#691) - ([95e0f98](https://github.com/BoltzExchange/boltz-backend/commit/95e0f98d18d1ac2b51a953ba186473a85124ec3b))
+- gRPC to change log level (#693) - ([5c95151](https://github.com/BoltzExchange/boltz-backend/commit/5c9515187b687299c418514e6b1175d98f044381))
+- check mempool acceptance of public node for 0-conf - ([41fb616](https://github.com/BoltzExchange/boltz-backend/commit/41fb6166cbaa780305a6f51b57a7cbea0cc93a71))
+- mempool.space liveliness check (#699) - ([823e05c](https://github.com/BoltzExchange/boltz-backend/commit/823e05c315cb7eafb8a6a121135bc74a7893cc6c))
+- nicer invoice network check error (#704) - ([5719736](https://github.com/BoltzExchange/boltz-backend/commit/5719736b63ba6944fec36f98745bffe82be979bd))
+- retry failed LND SCB backups - ([f602da4](https://github.com/BoltzExchange/boltz-backend/commit/f602da4ffe6288f57fdb86e6503c0f93da05d9a6))
+
+### Miscellaneous Chores
+
+- add CHANGELOG for v3.7.3 - ([0b3f513](https://github.com/BoltzExchange/boltz-backend/commit/0b3f513c0a794084617c9676eda737ca9ac1875e))
+- bump elliptic from 6.5.6 to 6.5.7 (#646) - ([d0a6847](https://github.com/BoltzExchange/boltz-backend/commit/d0a6847e704ab152cb052a63ad9c1fa036379559))
+- update Rust dependencies - ([d6d333d](https://github.com/BoltzExchange/boltz-backend/commit/d6d333d2d34a68c0f6b21f3e82f25a1ecf3c14d8))
+- include libpq-dev in CLN image - ([d2d1236](https://github.com/BoltzExchange/boltz-backend/commit/d2d123645445cc97a43b7a148a432fb3e0e3ad54))
+- reduce verbosity of WebSocket logging - ([f6834f7](https://github.com/BoltzExchange/boltz-backend/commit/f6834f740904a3aceccfd3eddbd7e228e9ecc53b))
+- compile release script - ([03f2cf5](https://github.com/BoltzExchange/boltz-backend/commit/03f2cf5882ac0b8be57812f156755ca7cfbd48ce))
+- sidecar production env fixes - ([a5a3f4c](https://github.com/BoltzExchange/boltz-backend/commit/a5a3f4c4eb7be4b90ea305e64a90f0e9ccd0354d))
+- bump diesel from 2.2.2 to 2.2.3 in /boltzr (#654) - ([3808455](https://github.com/BoltzExchange/boltz-backend/commit/3808455f6679c26c458d2c5efbfa15620fd38b88))
+- bump CLN to v24.08 (#658) - ([96dfc8a](https://github.com/BoltzExchange/boltz-backend/commit/96dfc8a81e7db255f7757799240ddef96889f895))
+- minor dependency updates - ([8f0451e](https://github.com/BoltzExchange/boltz-backend/commit/8f0451ee5efe83d5443ed2507802295224330c54))
+- update ZeroMQ dependency - ([a98a871](https://github.com/BoltzExchange/boltz-backend/commit/a98a871405a16b1b00beff34bb9d74f18c863cc0))
+- bump express - ([e4568d1](https://github.com/BoltzExchange/boltz-backend/commit/e4568d14d53088d9cb71f7c478fde869796f096e))
+- bump LND to v0.18.3 (#665) - ([7caac56](https://github.com/BoltzExchange/boltz-backend/commit/7caac56da55d5fb216929866abd057345bbd0c39))
+- bump vulnerable dependencies (#666) - ([684d768](https://github.com/BoltzExchange/boltz-backend/commit/684d76843c0aad824a9a8dc77acf37969114668f))
+- update CLN to v24.08.1 (#670) - ([47636e7](https://github.com/BoltzExchange/boltz-backend/commit/47636e72c22dea2b888ebda5a0b2895865205d06))
+- bump tonic from 0.12.2 to 0.12.3 in /boltzr (#671) - ([3c898e7](https://github.com/BoltzExchange/boltz-backend/commit/3c898e7afdadf8bd0b35546a7ec7a1991802deab))
+- bump max invoice description length (#673) - ([611bbff](https://github.com/BoltzExchange/boltz-backend/commit/611bbff6fd74892c9dfddd78334adc5a4d0f0ab3))
+- bump Bitcoin Core to v28.0 (#676) - ([6e1e5d9](https://github.com/BoltzExchange/boltz-backend/commit/6e1e5d9f7d74fc837d2098ff6ec9e19734c9911d))
+- update Rust dependencies - ([3ad484d](https://github.com/BoltzExchange/boltz-backend/commit/3ad484dc99d28e2a049b43eed7252c4b4453ea44))
+- update NPM dependencies - ([8f5d97d](https://github.com/BoltzExchange/boltz-backend/commit/8f5d97dd51317229248530d1dede0500dc65bf35))
+- log when calling alert endpoint - ([8bc2f79](https://github.com/BoltzExchange/boltz-backend/commit/8bc2f795f2c36d0c9a9775154a8efd373fc4b979))
+- bump hold invoice plugin - ([45ba641](https://github.com/BoltzExchange/boltz-backend/commit/45ba6417923f82ae5127557a3357f82bdc09aa48))
+- update dependencies - ([13f5792](https://github.com/BoltzExchange/boltz-backend/commit/13f57922e3fffdc29e47ad8f464464d518cbdba8))
+- reorder boltzr gRPC service - ([20b9a74](https://github.com/BoltzExchange/boltz-backend/commit/20b9a74ea3ee8439ad266c61e7a3979831ec8d4b))
+- bump CLN to v24.08.2 (#692) - ([7d8f2aa](https://github.com/BoltzExchange/boltz-backend/commit/7d8f2aae6694f7d29a3c3e571f71ca4144ee346e))
+- switch to upstream bolt11 library (#694) - ([2109250](https://github.com/BoltzExchange/boltz-backend/commit/21092503b17b850ac25eb02756972f368d11d17f))
+- update anvil to fix contract deployment (#701) - ([d953560](https://github.com/BoltzExchange/boltz-backend/commit/d95356042abaa22656275682bfa783baacc23e59))
+- bump elliptic from 6.5.7 to 6.6.0 (#702) - ([e0fc15b](https://github.com/BoltzExchange/boltz-backend/commit/e0fc15b145a70a456b59e5b17ef3ad8117fadfe5))
+- migrate to ESLint v9 - ([544deea](https://github.com/BoltzExchange/boltz-backend/commit/544deeaf18f691e2ee1085543a7b267dfc26990e))
+- update NPM dependencies - ([3b6be88](https://github.com/BoltzExchange/boltz-backend/commit/3b6be8868315745053d6d8a93daa1561848d5589))
+- update Rust dependencies - ([49f5dcb](https://github.com/BoltzExchange/boltz-backend/commit/49f5dcbebf96bd2ccb5426bb515841aee6fc6fec))
+- bump version to v3.8.0 - ([5131797](https://github.com/BoltzExchange/boltz-backend/commit/5131797876e9b5899e0e0cdf70bc15d59d716a69))
+
+### Refactoring
+
+- use new hold plugin - ([b283e37](https://github.com/BoltzExchange/boltz-backend/commit/b283e37c81397ff2a2d6b34dd5b8986266236843))
+- move SSE swap update streams to sidecar - ([cf3071e](https://github.com/BoltzExchange/boltz-backend/commit/cf3071ea06fa2e8f3c0ae96faa4c989f4884066b))
+- cleanup shutdown (#677) - ([5592233](https://github.com/BoltzExchange/boltz-backend/commit/5592233ba1b8ab76e297f134d11d485f72fb685e))
+- configurable 0-conf wait time (#696) - ([27113a2](https://github.com/BoltzExchange/boltz-backend/commit/27113a25281986b9f4710a45f251a4c6111c33d6))
+- move backups to sidecar - ([a2c8a1b](https://github.com/BoltzExchange/boltz-backend/commit/a2c8a1b1ab6c261d76d3b5b1c7bad81f166abf7e))
+- allow node connections to fail on startup - ([30f7103](https://github.com/BoltzExchange/boltz-backend/commit/30f71039bf24b5110aeb2d1025c0a377750e21c2))
+
+---
 ## [3.7.3](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.2..v3.7.3) - 2024-08-16
 
 ### Bug Fixes

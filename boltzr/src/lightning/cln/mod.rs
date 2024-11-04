@@ -1,8 +1,10 @@
+use crate::chain::BaseClient;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListconfigsRequest,
     ListconfigsResponse,
 };
 use alloy::hex;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
@@ -56,34 +58,6 @@ impl Cln {
         })
     }
 
-    pub async fn connect(&mut self) -> anyhow::Result<()> {
-        let configs = self.list_configs().await?;
-        let experimental_offers = match configs.configs {
-            Some(config) => match config.experimental_offers {
-                Some(option) => option.set,
-                None => false,
-            },
-            None => false,
-        };
-
-        if !experimental_offers {
-            return Err(crate::lightning::Error::NoBolt12Support(
-                "experimental-offers not enabled".into(),
-            )
-            .into());
-        }
-
-        let info = self.get_info().await?;
-        info!(
-            "Connected to {} CLN {} ({})",
-            self.symbol,
-            info.version,
-            info.alias.unwrap_or(hex::encode(info.id))
-        );
-
-        Ok(())
-    }
-
     pub async fn fetch_invoice(
         &mut self,
         offer: String,
@@ -117,5 +91,44 @@ impl Cln {
             .list_configs(ListconfigsRequest { config: None })
             .await?;
         Ok(res.into_inner())
+    }
+}
+
+#[async_trait]
+impl BaseClient for Cln {
+    fn kind(&self) -> String {
+        "CLN".to_string()
+    }
+
+    fn symbol(&self) -> String {
+        self.symbol.clone()
+    }
+
+    async fn connect(&mut self) -> anyhow::Result<()> {
+        let configs = self.list_configs().await?;
+        let experimental_offers = match configs.configs {
+            Some(config) => match config.experimental_offers {
+                Some(option) => option.set,
+                None => false,
+            },
+            None => false,
+        };
+
+        if !experimental_offers {
+            return Err(crate::lightning::Error::NoBolt12Support(
+                "experimental-offers not enabled".into(),
+            )
+            .into());
+        }
+
+        let info = self.get_info().await?;
+        info!(
+            "Connected to {} CLN {} ({})",
+            self.symbol,
+            info.version,
+            info.alias.unwrap_or(hex::encode(info.id))
+        );
+
+        Ok(())
     }
 }

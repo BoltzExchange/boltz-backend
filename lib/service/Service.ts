@@ -223,11 +223,7 @@ class Service {
       this.balanceCheck,
     );
 
-    this.eventHandler = new EventHandler(
-      this.logger,
-      this.currencies,
-      this.swapManager.nursery,
-    );
+    this.eventHandler = new EventHandler(this.logger, this.swapManager.nursery);
 
     this.nodeInfo = new NodeInfo(this.logger, this.currencies);
     this.elementsService = new ElementsService(

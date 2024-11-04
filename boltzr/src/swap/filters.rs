@@ -278,6 +278,7 @@ mod test {
                                 crate::chain::chain_client::test::get_client(),
                             ))),
                             cln: None,
+                            lnd: None,
                         },
                     ),
                     (
@@ -287,6 +288,7 @@ mod test {
                             wallet: Arc::new(Bitcoin::new(Network::Regtest)),
                             chain: None,
                             cln: None,
+                            lnd: None,
                         },
                     ),
                     (
@@ -298,6 +300,7 @@ mod test {
                                 crate::chain::elements_client::test::get_client().0,
                             ))),
                             cln: None,
+                            lnd: None,
                         },
                     ),
                 ])

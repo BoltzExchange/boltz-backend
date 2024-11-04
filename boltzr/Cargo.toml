@@ -33,18 +33,18 @@ panic = "abort"
 
 [dependencies]
 axum = "0.7.7"
-bitcoin_hashes = "0.14.0"
-clap = { version = "4.5.19", features = ["derive"] }
+bitcoin_hashes = "0.15.0"
+clap = { version = "4.5.20", features = ["derive"] }
 crossbeam-channel = "0.5.13"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dirs = "5.0.1"
 num_cpus = "1.16.0"
 prost = "0.13.3"
 rcgen = { version = "0.13.1", features = ["x509-parser"] }
-reqwest = { version = "0.12.8", features = ["json"] }
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
-tokio = { version = "1.38.1", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.12.9", features = ["json"] }
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
+tokio = { version = "1.38.1", features = ["rt-multi-thread", "macros", "process"] }
 toml = "0.8.19"
 tonic = { version = "0.12.3", features = ["prost", "tls"] }
 tracing = "0.1.40"
@@ -68,22 +68,27 @@ opentelemetry_sdk = { version = "0.25.0", optional = true, features = ["rt-tokio
 opentelemetry-otlp = { version = "0.25.0", optional = true }
 tracing-opentelemetry = { version = "0.26.0", optional = true }
 diesel-tracing = { version = "0.3.0", optional = true, features = ["postgres", "r2d2", "statement-fields"] }
-alloy = { version = "0.4.2", features = ["reqwest", "sol-types", "serde", "eip712", "signer-local", "signer-mnemonic", "providers", "transports", "contract", "json"] }
-alloy-transport-http = "0.4.2"
+alloy = { version = "0.5.4", features = ["reqwest", "sol-types", "serde", "eip712", "signer-local", "signer-mnemonic", "providers", "transports", "contract", "json"] }
+alloy-transport-http = "0.5.4"
 async-tungstenite = { version = "0.28.0", features = ["tokio-native-tls", "tokio-runtime"] }
 async-trait = "0.1.83"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
-anyhow = "1.0.89"
-lightning = { version = "0.0.124", features = ["std"] }
+anyhow = "1.0.92"
+lightning = { version = "0.0.125", features = ["std"] }
 lightning-invoice = { version = "0.32.0", features = ["std"] }
 bech32 = "0.9.1"
-bitcoin = "0.32.3"
-elements = "0.25.0"
+bitcoin = "0.32.4"
+elements = "0.25.1"
 base64 = "0.22.1"
+rust-s3 = "0.35.1"
+cron = "0.12.1"
+chrono = "0.4.38"
+fedimint-tonic-lnd = { version = "0.2.0", features = ["lightningrpc"], default-features = false }
+flate2 = "1.0.34"
 
 [build-dependencies]
-built = { version = "0.7.4", features = ["git2"] }
+built = { version = "0.7.5", features = ["git2"] }
 tonic-build = "0.12.3"
 
 [dev-dependencies]

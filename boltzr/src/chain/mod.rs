@@ -30,11 +30,15 @@ pub struct LiquidConfig {
 }
 
 #[async_trait]
-pub trait Client {
+pub trait BaseClient {
+    fn kind(&self) -> String;
     fn symbol(&self) -> String;
 
-    async fn connect(&self) -> Result<()>;
+    async fn connect(&mut self) -> Result<()>;
+}
 
+#[async_trait]
+pub trait Client: BaseClient {
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,

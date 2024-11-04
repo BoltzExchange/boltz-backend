@@ -1,7 +1,6 @@
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, mapToObject, stringify } from '../../../lib/Utils';
-import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import { SwapType, swapTypeToString } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
@@ -169,22 +168,6 @@ jest.mock('../../../lib/service/Service', () => {
 
 const mockedService = <jest.Mock<Service>>(<any>Service);
 
-const mockUploadDatabase = jest
-  .fn()
-  .mockImplementation(() => Promise.resolve());
-
-jest.mock('../../../lib/backup/BackupScheduler', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      uploadDatabase: mockUploadDatabase,
-    };
-  });
-});
-
-const mockedBackupScheduler = <jest.Mock<BackupScheduler>>(
-  (<any>BackupScheduler)
-);
-
 FeeRepository.getFees = jest.fn().mockResolvedValue([
   {
     asset: 'BTC',
@@ -208,7 +191,6 @@ describe('CommandHandler', () => {
     Logger.disabledLogger,
     mockedNotificationClient(),
     service,
-    mockedBackupScheduler(),
   );
 
   beforeAll(async () => {
@@ -270,7 +252,6 @@ describe('CommandHandler', () => {
         '**pendingswaps**: gets a list of pending swaps\n' +
         '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
-        '**backup**: uploads a backup of the databases\n' +
         '**getaddress**: gets an address for a currency\n' +
         '**sweepswaps**: sweeps deferred swap claims\n' +
         '**togglereverse**: enables or disables reverse swaps',
@@ -538,18 +519,6 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `\`\`\`${stringify(referralStats)}\`\`\``,
-    );
-  });
-
-  test('should do a database backup', async () => {
-    sendMessage('backup');
-    await wait(5);
-
-    expect(mockUploadDatabase).toHaveBeenCalledTimes(1);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      'Uploaded backup of Boltz database',
     );
   });
 

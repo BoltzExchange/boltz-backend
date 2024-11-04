@@ -1,9 +1,8 @@
-use std::error::Error;
-
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 mod alerts;
+pub mod commands;
 pub mod mattermost;
 mod utils;
 
@@ -16,7 +15,7 @@ pub trait NotificationClient {
         message: &str,
         is_important: bool,
         send_alert: bool,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> anyhow::Result<()>;
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]

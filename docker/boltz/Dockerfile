@@ -46,7 +46,7 @@ RUN rm -rf node_modules && npm install --omit dev
 FROM node:${NODE_VERSION} AS final
 
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get -y install gnupg2 wget lsb-release && \
+    apt-get -y install gnupg2 wget lsb-release zstd && \
     sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     apt-get update && \

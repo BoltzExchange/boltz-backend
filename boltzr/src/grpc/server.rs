@@ -159,6 +159,7 @@ mod server_test {
     use crate::grpc::server::{Config, Server};
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
+    use crate::notifications::commands::Commands;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller;
@@ -229,7 +230,7 @@ mod server_test {
         let token = CancellationToken::new();
         let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
 
-        let server = Server::<_, _, crate::notifications::mattermost::Client>::new(
+        let server = Server::<_, _, crate::notifications::mattermost::Client<Commands>>::new(
             token.clone(),
             Config {
                 host: "127.0.0.1".to_string(),
@@ -347,7 +348,7 @@ mod server_test {
         port: u16,
     ) -> (
         PathBuf,
-        Server<MockManager, MockWebHookHelper, crate::notifications::mattermost::Client>,
+        Server<MockManager, MockWebHookHelper, crate::notifications::mattermost::Client<Commands>>,
         CancellationToken,
         JoinHandle<()>,
     ) {

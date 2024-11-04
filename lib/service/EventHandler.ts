@@ -12,7 +12,6 @@ import { AnySwap, IncorrectAmountDetails } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
-import { Currency } from '../wallet/WalletManager';
 
 type TransactionInfo = {
   eta?: number;
@@ -56,7 +55,6 @@ class EventHandler extends TypedEventEmitter<{
 }> {
   constructor(
     private logger: Logger,
-    private currencies: Map<string, Currency>,
     private nursery: SwapNursery,
   ) {
     super();
@@ -68,7 +66,6 @@ class EventHandler extends TypedEventEmitter<{
     this.subscribeInvoices();
     this.subscribeSwapEvents();
     this.subscribeTransactions();
-    this.subscribeChannelBackups();
   }
 
   public static formatTransaction = (
@@ -283,22 +280,6 @@ class EventHandler extends TypedEventEmitter<{
           failureDetails: swap.failureDetails,
         },
       });
-    });
-  };
-
-  /**
-   * Subscribes to a stream of channel backups
-   */
-  private subscribeChannelBackups = () => {
-    this.currencies.forEach((currency) => {
-      // TODO: also do backups for CLN here?
-      if (currency.lndClient) {
-        const { symbol, lndClient } = currency;
-
-        lndClient.on('channel.backup', (channelBackup: string) => {
-          this.emit('channel.backup', { channelBackup, currency: symbol });
-        });
-      }
     });
   };
 

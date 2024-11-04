@@ -1,13 +1,15 @@
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
-use crate::chain::Client;
+use crate::chain::BaseClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
 use crate::lightning::cln::Cln;
+use crate::lightning::lnd::Lnd;
 use crate::wallet;
 use crate::wallet::Wallet;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, warn};
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, warn};
 
 #[derive(Clone)]
 pub struct Currency {
@@ -15,13 +17,15 @@ pub struct Currency {
 
     pub wallet: Arc<dyn Wallet + Send + Sync>,
 
-    pub chain: Option<Arc<Box<dyn Client + Send + Sync>>>,
+    pub chain: Option<Arc<Box<dyn crate::chain::Client + Send + Sync>>>,
     pub cln: Option<Cln>,
+    pub lnd: Option<Lnd>,
 }
 
 pub type Currencies = HashMap<String, Currency>;
 
 pub async fn connect_nodes(
+    cancellation_token: CancellationToken,
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
@@ -42,21 +46,33 @@ pub async fn connect_nodes(
                         wallet: Arc::new(wallet::Bitcoin::new(network)),
                         chain: match currency.chain {
                             Some(config) => {
-                                let chain = ChainClient::new(
+                                #[allow(clippy::manual_map)]
+                                match connect_client(ChainClient::new(
                                     crate::chain::types::Type::Bitcoin,
                                     currency.symbol.clone(),
                                     config,
-                                )?;
-                                chain.connect().await?;
-                                Some(Arc::new(Box::new(chain)))
+                                ))
+                                .await
+                                {
+                                    Some(client) => Some(Arc::new(Box::new(client))),
+                                    None => None,
+                                }
                             }
                             None => None,
                         },
                         cln: match currency.cln {
                             Some(config) => {
-                                let mut cln = Cln::new(&currency.symbol, config).await?;
-                                cln.connect().await?;
-                                Some(cln)
+                                connect_client(Cln::new(&currency.symbol, config).await).await
+                            }
+                            None => None,
+                        },
+                        lnd: match currency.lnd {
+                            Some(config) => {
+                                connect_client(
+                                    Lnd::new(cancellation_token.clone(), &currency.symbol, config)
+                                        .await,
+                                )
+                                .await
                             }
                             None => None,
                         },
@@ -75,21 +91,44 @@ pub async fn connect_nodes(
             crate::chain::elements_client::SYMBOL
         );
 
-        let chain = ElementsClient::new(liquid.chain)?;
-        chain.connect().await?;
-
         curs.insert(
             crate::chain::elements_client::SYMBOL.to_string(),
             Currency {
                 network,
                 cln: None,
-                chain: Some(Arc::new(Box::new(chain))),
+                lnd: None,
                 wallet: Arc::new(wallet::Elements::new(network)),
+                #[allow(clippy::manual_map)]
+                chain: match connect_client(ElementsClient::new(liquid.chain)).await {
+                    Some(client) => Some(Arc::new(Box::new(client))),
+                    None => None,
+                },
             },
         );
     }
 
     Ok(curs)
+}
+
+async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {
+    match client {
+        Ok(mut client) => match client.connect().await {
+            Ok(_) => Some(client),
+            Err(err) => {
+                error!(
+                    "Could not connect to {} {}: {}",
+                    client.symbol(),
+                    client.kind(),
+                    err
+                );
+                None
+            }
+        },
+        Err(err) => {
+            error!("Could not create client: {}", err);
+            None
+        }
+    }
 }
 
 fn parse_network(network: Option<String>) -> anyhow::Result<wallet::Network> {

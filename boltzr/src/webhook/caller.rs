@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, fmt};
 
-use bitcoin_hashes::{sha256, Hash};
 use dashmap::DashMap;
 use futures::future;
 use reqwest::Url;
@@ -310,7 +309,7 @@ impl Caller {
             return id;
         }
 
-        let hash: sha256::Hash = Hash::hash(id.as_bytes());
+        let hash = bitcoin_hashes::Sha256::hash(id.as_bytes());
         hash.to_string()
     }
 }

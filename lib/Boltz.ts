@@ -11,7 +11,6 @@ import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
-import BackupScheduler from './backup/BackupScheduler';
 import ChainClient, {
   BlockChainInfoScanned,
   IChainClient,
@@ -44,7 +43,6 @@ class Boltz {
   private readonly config: ConfigType;
 
   private readonly service!: Service;
-  private readonly backup: BackupScheduler;
   private readonly walletManager: WalletManager;
 
   private readonly currencies: Map<string, Currency>;
@@ -178,20 +176,12 @@ class Boltz {
         this.sidecar,
       );
 
-      this.backup = new BackupScheduler(
-        this.logger,
-        this.config.postgres,
-        this.config.backup,
-        this.service.eventHandler,
-      );
-
       if (notificationClient !== undefined) {
         this.notifications = new NotificationProvider(
           this.logger,
           this.sidecar,
           this.service,
           this.walletManager,
-          this.backup,
           this.config.notification,
           notificationClient,
           [this.config.liquid].concat(this.config.currencies),

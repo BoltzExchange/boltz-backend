@@ -4,7 +4,6 @@ import path from 'path';
 import { Arguments } from 'yargs';
 import { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
-import { S3Config } from './backup/providers/S3';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
@@ -134,13 +133,6 @@ type RatesConfig = {
   interval: number;
 };
 
-type BackupConfig = {
-  // The interval has to be a cron schedule expression
-  interval: string;
-
-  simpleStorage?: S3Config;
-};
-
 type NotificationConfig = {
   mattermostUrl: string;
 
@@ -207,7 +199,6 @@ type ConfigType = {
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
-  backup: BackupConfig;
   notification: NotificationConfig;
 
   nodeSwitch?: NodeSwitchConfig;
@@ -291,10 +282,6 @@ class Config {
 
       rates: {
         interval: 1,
-      },
-
-      backup: {
-        interval: '0 0 * * *',
       },
 
       notification: {
@@ -534,7 +521,6 @@ export {
   SwapConfig,
   ChainConfig,
   TokenConfig,
-  BackupConfig,
   EthereumConfig,
   PostgresConfig,
   CurrencyConfig,

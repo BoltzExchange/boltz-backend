@@ -1,5 +1,7 @@
+use crate::notifications::commands::CommandHandler;
 use crate::notifications::utils::{contains_code_block, format_prefix, split_message, CODE_BLOCK};
 use crate::notifications::{Config, NotificationClient};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::Message;
 use futures::{SinkExt, StreamExt};
@@ -10,7 +12,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 const HEADER_AUTHORIZATION: &str = "Authorization";
 const HEADER_BEARER: &str = "BEARER";
@@ -85,7 +87,7 @@ enum WebSocketEvent {
 }
 
 #[derive(Clone, Debug)]
-pub struct Client {
+pub struct Client<C> {
     cancellation_token: CancellationToken,
 
     token: String,
@@ -99,15 +101,20 @@ pub struct Client {
 
     msg_tx: tokio::sync::broadcast::Sender<String>,
 
+    commands: C,
     alert_client: Option<crate::notifications::alerts::Client>,
 }
 
-impl Client {
+impl<C> Client<C>
+where
+    C: CommandHandler + Send + Sync,
+{
     #[instrument(name = "Mattermost::new", skip_all)]
     pub async fn new(
         cancellation_token: CancellationToken,
         config: Config,
-    ) -> Result<Self, Box<dyn Error>> {
+        commands: C,
+    ) -> anyhow::Result<Self> {
         let (msg_tx, _) = tokio::sync::broadcast::channel::<String>(128);
 
         let alert_client = match config.alert_webhook {
@@ -120,6 +127,7 @@ impl Client {
 
         let mut c = Client {
             msg_tx,
+            commands,
             alert_client,
             cancellation_token,
             token: config.token,
@@ -147,7 +155,12 @@ impl Client {
 
         c.channel_id = match Self::find_channel(&config.channel, &channels_res) {
             Some(chan) => chan,
-            None => return Err(Box::new(MattermostError::ChannelNotFound(config.channel))),
+            None => {
+                return Err(anyhow!(
+                    "{}",
+                    MattermostError::ChannelNotFound(config.channel)
+                ))
+            }
         }
         .id
         .clone();
@@ -187,7 +200,7 @@ impl Client {
         }
     }
 
-    async fn connect_websocket(&self, url: &String) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn connect_websocket(&self, url: &String) -> anyhow::Result<()> {
         let (mut ws_stream, _) = async_tungstenite::tokio::connect_async(url).await?;
         debug!("Connected to WebSocket");
 
@@ -224,7 +237,9 @@ impl Client {
                             _ => continue,
                         };
 
-                        self.handle_websocket_message(msg);
+                        if let Err(err) = self.handle_websocket_message(msg).await {
+                            error!("Handling message failed: {}", err);
+                        };
                     }
                 },
                 _ = self.cancellation_token.cancelled() => {
@@ -238,32 +253,42 @@ impl Client {
         }
     }
 
-    fn handle_websocket_message(&self, msg: String) {
+    async fn handle_websocket_message(&self, msg: String) -> anyhow::Result<()> {
         let msg = match serde_json::from_str::<WebSocketEvent>(&msg) {
             Ok(res) => res,
             // We just ignore messages we cannot parse
-            Err(_) => return,
+            Err(_) => return Ok(()),
         };
 
         let WebSocketEvent::Posted(posted) = msg;
         if posted.broadcast.channel_id != self.channel_id {
-            return;
+            return Ok(());
         }
 
         let post = match serde_json::from_str::<Post>(&posted.data.post) {
             Ok(post) => post,
-            Err(_) => return,
+            Err(_) => return Ok(()),
         };
         // Ignore our own messages
         if post.user_id.is_some() && post.user_id.unwrap() == self.user_id {
-            return;
+            return Ok(());
         }
 
         trace!("Got WebSocket message: {}", post.message);
-        self.msg_tx.send(post.message).unwrap();
+
+        let (handled, res) = self.commands.handle_message(&post.message).await?;
+        if let Some(res) = res {
+            self.send_message(&res, false, false).await?;
+        }
+
+        if !handled {
+            let _ = self.msg_tx.send(post.message);
+        }
+
+        Ok(())
     }
 
-    async fn send_get_request<T: DeserializeOwned>(&self, path: &str) -> Result<T, Box<dyn Error>> {
+    async fn send_get_request<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<T> {
         let client = reqwest::Client::new();
         Ok(client
             .get(self.format_endpoint(path))
@@ -278,7 +303,7 @@ impl Client {
         &self,
         path: &str,
         data: &S,
-    ) -> Result<T, Box<dyn Error>> {
+    ) -> anyhow::Result<T> {
         let client = reqwest::Client::new();
         Ok(client
             .post(self.format_endpoint(path))
@@ -290,11 +315,7 @@ impl Client {
             .await?)
     }
 
-    async fn send_raw_message(
-        &self,
-        message: String,
-        is_alert: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    async fn send_raw_message(&self, message: String, is_alert: bool) -> anyhow::Result<()> {
         match self
             .send_post_request::<_, Post>(
                 "posts",
@@ -338,7 +359,10 @@ impl Client {
 }
 
 #[async_trait]
-impl NotificationClient for Client {
+impl<C> NotificationClient for Client<C>
+where
+    C: CommandHandler + Send + Sync,
+{
     fn listen_to_messages(&self) -> tokio::sync::broadcast::Receiver<String> {
         self.msg_tx.subscribe()
     }
@@ -348,7 +372,7 @@ impl NotificationClient for Client {
         message: &str,
         is_alert: bool,
         send_alert: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> anyhow::Result<()> {
         if send_alert {
             if let Some(alert_client) = self.alert_client.clone() {
                 alert_client.send_alert("Boltz alert".to_string()).await?;
@@ -373,16 +397,16 @@ impl NotificationClient for Client {
                 message.to_string()
             };
 
-            return self
-                .send_raw_message(
-                    if let Some(prefix) = self.prefix.clone() {
-                        format!("{}{}", format_prefix(&prefix), message)
-                    } else {
-                        message
-                    },
-                    is_alert,
-                )
-                .await;
+            self.send_raw_message(
+                if let Some(prefix) = self.prefix.clone() {
+                    format!("{}{}", format_prefix(&prefix), message)
+                } else {
+                    message
+                },
+                is_alert,
+            )
+            .await?;
+            return Ok(());
         }
 
         if let Some(prefix) = self.prefix.clone() {

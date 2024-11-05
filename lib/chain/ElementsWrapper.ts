@@ -5,6 +5,7 @@ import Logger from '../Logger';
 import { allSettledFirst, sleep } from '../PromiseUtils';
 import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
+import { liquidSymbol } from '../consts/LiquidTypes';
 import { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
 import { AddressType, ChainClientEvents } from './ChainClient';
 import ElementsClient, {
@@ -32,6 +33,10 @@ class ElementsWrapper
 
     this.zeroConfCheckTime =
       config.zeroConfWaitTime || ElementsWrapper.zeroConfCheckTimeDefault;
+    this.logger.info(
+      `Waiting ${this.zeroConfCheckTime}ms before accepting ${liquidSymbol} transactions`,
+    );
+
     this.clients.push(new ElementsClient(this.logger, config, false));
 
     if (config.lowball !== undefined) {
@@ -70,7 +75,7 @@ class ElementsWrapper
           return;
         }
 
-        this.logger.silly(
+        this.logger.debug(
           `Waiting before accepting 0-conf transaction of ${this.symbol}: ${transaction.getId()}`,
         );
         await sleep(this.zeroConfCheckTime);

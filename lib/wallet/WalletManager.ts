@@ -73,7 +73,10 @@ class WalletManager {
     private currencies: Currency[],
     public ethereumManagers: EthereumManager[],
   ) {
+    this.logger.debug(`Loading mnemonic from: ${mnemonicPath}`);
     this.mnemonic = this.loadMnemonic(mnemonicPath);
+
+    this.logger.debug(`Loading EVM mnemonic from: ${mnemonicPathEvm}`);
     this.mnemonicEvm = this.loadMnemonic(mnemonicPathEvm);
 
     this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));

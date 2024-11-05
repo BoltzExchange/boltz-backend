@@ -423,8 +423,10 @@ class Config {
       this.config.configpath,
     );
 
+    let tomlConfig: any | undefined;
+
     if (fs.existsSync(boltzConfigFile)) {
-      const tomlConfig = this.parseTomlConfig(boltzConfigFile);
+      tomlConfig = this.parseTomlConfig(boltzConfigFile);
       deepMerge(this.config, tomlConfig);
     }
 
@@ -441,6 +443,8 @@ class Config {
       this.config.datadir = datadir;
       deepMerge(this.config, this.getDataDirPaths(this.config.datadir));
     }
+
+    deepMerge(this.config, tomlConfig);
 
     if (args.currencies) {
       const currencies = this.parseCurrency(

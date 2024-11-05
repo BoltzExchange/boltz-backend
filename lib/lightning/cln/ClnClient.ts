@@ -455,7 +455,12 @@ class ClnClient
 
   public decodeInvoice = async (
     invoice: string,
-  ): Promise<DecodedInvoice & { type: noderpc.DecodeResponse.DecodeType }> => {
+  ): Promise<
+    DecodedInvoice & {
+      type: noderpc.DecodeResponse.DecodeType;
+      valueMsat: number;
+    }
+  > => {
     // Just to make sure CLN can parse the invoice
     const req = new noderpc.DecodeRequest();
     req.setString(invoice);
@@ -480,12 +485,19 @@ class ClnClient
         })),
     );
 
+    const valueMsat =
+      dec.amountMsat?.msat ||
+      dec.invoiceAmountMsat?.msat ||
+      dec.invreqAmountMsat?.msat ||
+      0;
+
     return {
       features,
+      valueMsat,
       routingHints,
       type: dec.itemType,
+      value: msatToSat(valueMsat || 0),
       cltvExpiry: dec.minFinalCltvExpiry || 0,
-      value: msatToSat(dec.amountMsat?.msat || 0),
       destination: getHexString(
         Buffer.from(
           (dec.payee || dec.offerIssuerId || dec.invoiceNodeId || '') as string,
@@ -600,8 +612,7 @@ class ClnClient
     }
 
     const fee =
-      BigInt(res.getAmountSentMsat()!.getMsat()) -
-      BigInt(res.getAmountMsat()!.getMsat());
+      BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.valueMsat);
 
     return {
       feeMsat: Number(fee),

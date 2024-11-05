@@ -57,4 +57,12 @@ describe('Sidecar', () => {
       );
     });
   });
+
+  describe('trimDirtySuffix', () => {
+    test('should trim dirty suffix', () => {
+      const version = '3.8.0-1ec2944b';
+
+      expect(Sidecar['trimDirtySuffix'](`${version}-dirty`)).toEqual(version);
+    });
+  });
 });

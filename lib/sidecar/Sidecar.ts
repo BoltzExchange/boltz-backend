@@ -45,6 +45,7 @@ class Sidecar extends BaseClient<
   public static readonly symbol = 'Boltz';
   public static readonly serviceName = 'sidecar';
 
+  private static readonly dirtySuffix = '-dirty';
   private static readonly isProduction = process.env.NODE_ENV === 'production';
 
   private static childProcess?: child_process.ChildProcessWithoutNullStreams;
@@ -168,7 +169,8 @@ class Sidecar extends BaseClient<
     const ourVersion = getVersion();
 
     const versionCompatible = Sidecar.isProduction
-      ? info.version === ourVersion
+      ? Sidecar.trimDirtySuffix(info.version) ===
+        Sidecar.trimDirtySuffix(ourVersion)
       : info.version.split('-')[0] === ourVersion.split('-')[0];
 
     if (!versionCompatible) {
@@ -504,6 +506,11 @@ class Sidecar extends BaseClient<
       toObject,
     );
   };
+
+  private static trimDirtySuffix = (version: string): string =>
+    version.endsWith(Sidecar.dirtySuffix)
+      ? version.slice(0, -Sidecar.dirtySuffix.length)
+      : version;
 }
 
 export default Sidecar;

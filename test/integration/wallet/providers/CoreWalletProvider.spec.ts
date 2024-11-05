@@ -6,7 +6,7 @@ import Logger from '../../../../lib/Logger';
 import { AddressType } from '../../../../lib/chain/ChainClient';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
-import { bitcoinClient } from '../../Nodes';
+import { bitcoinClient, bitcoinLndClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
@@ -74,11 +74,15 @@ describe('CoreWalletProvider', () => {
 
   beforeAll(async () => {
     initEccLib(ecc);
-    await bitcoinClient.connect();
+    await Promise.all([
+      bitcoinClient.connect(),
+      bitcoinLndClient.connect(false),
+    ]);
   });
 
   afterAll(() => {
     bitcoinClient.disconnect();
+    bitcoinLndClient.disconnect();
   });
 
   beforeEach(async () => {
@@ -122,22 +126,36 @@ describe('CoreWalletProvider', () => {
     });
   });
 
-  it('should get balance', async () => {
-    const balance = await provider.getBalance();
+  describe('getBalance', () => {
+    it('should get confirmed balance', async () => {
+      const balance = await provider.getBalance();
 
-    expect(balance.confirmedBalance).toBeGreaterThan(0);
-  });
+      expect(balance.confirmedBalance).toBeGreaterThan(0);
+    });
 
-  it('should get unconfirmed balance correctly', async () => {
-    await provider.sendToAddress(
-      await provider.getAddress(''),
-      10000,
-      undefined,
-      '',
-    );
+    it('should get safe unconfirmed balance correctly', async () => {
+      await provider.sendToAddress(
+        await provider.getAddress(''),
+        10000,
+        undefined,
+        '',
+      );
 
-    const balance = await provider.getBalance();
-    expect(balance.unconfirmedBalance).toBeGreaterThan(0);
+      const balance = await provider.getBalance();
+      expect(balance.unconfirmedBalance).toEqual(0);
+    });
+
+    it('should get unsafe unconfirmed balance correctly', async () => {
+      await bitcoinLndClient.sendCoins(
+        await provider.getAddress(''),
+        10_000,
+        undefined,
+        '',
+      );
+
+      const balance = await provider.getBalance();
+      expect(balance.unconfirmedBalance).toBeGreaterThan(0);
+    });
   });
 
   it('should send transactions', async () => {

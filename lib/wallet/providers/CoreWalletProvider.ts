@@ -40,7 +40,8 @@ class CoreWalletProvider implements WalletProviderInterface {
     utxos.forEach((utxo) => {
       const amount = BigInt(Math.round(utxo.amount * ChainClient.decimals));
 
-      if (isTxConfirmed(utxo)) {
+      // Core considers its change as safe to spend, so should we
+      if (isTxConfirmed(utxo) || utxo.safe) {
         confirmed += amount;
       } else {
         unconfirmed += amount;

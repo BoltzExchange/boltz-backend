@@ -431,6 +431,49 @@ export namespace CancelResponse {
     }
 }
 
+export class CleanRequest extends jspb.Message { 
+
+    hasAge(): boolean;
+    clearAge(): void;
+    getAge(): number | undefined;
+    setAge(value: number): CleanRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CleanRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CleanRequest): CleanRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CleanRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CleanRequest;
+    static deserializeBinaryFromReader(message: CleanRequest, reader: jspb.BinaryReader): CleanRequest;
+}
+
+export namespace CleanRequest {
+    export type AsObject = {
+        age?: number,
+    }
+}
+
+export class CleanResponse extends jspb.Message { 
+    getCleaned(): number;
+    setCleaned(value: number): CleanResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CleanResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CleanResponse): CleanResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CleanResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CleanResponse;
+    static deserializeBinaryFromReader(message: CleanResponse, reader: jspb.BinaryReader): CleanResponse;
+}
+
+export namespace CleanResponse {
+    export type AsObject = {
+        cleaned: number,
+    }
+}
+
 export class TrackRequest extends jspb.Message { 
     getPaymentHash(): Uint8Array | string;
     getPaymentHash_asU8(): Uint8Array;
@@ -474,6 +517,12 @@ export namespace TrackResponse {
 }
 
 export class TrackAllRequest extends jspb.Message { 
+    clearPaymentHashesList(): void;
+    getPaymentHashesList(): Array<Uint8Array | string>;
+    getPaymentHashesList_asU8(): Array<Uint8Array>;
+    getPaymentHashesList_asB64(): Array<string>;
+    setPaymentHashesList(value: Array<Uint8Array | string>): TrackAllRequest;
+    addPaymentHashes(value: Uint8Array | string, index?: number): Uint8Array | string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TrackAllRequest.AsObject;
@@ -487,6 +536,7 @@ export class TrackAllRequest extends jspb.Message {
 
 export namespace TrackAllRequest {
     export type AsObject = {
+        paymentHashesList: Array<Uint8Array | string>,
     }
 }
 

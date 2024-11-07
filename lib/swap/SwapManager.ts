@@ -283,6 +283,14 @@ class SwapManager {
     await this.recreateFilters(pendingReverseSwaps, true);
     this.recreateChainSwapFilters(pendingChainSwaps);
 
+    for (const currency of this.currencies.values()) {
+      if (currency.clnClient === undefined) {
+        continue;
+      }
+
+      currency.clnClient.subscribeTrackHoldInvoices();
+    }
+
     await this.chainSwapSigner.init();
 
     this.logger.info(
@@ -1181,7 +1189,10 @@ class SwapManager {
       ) {
         const reverseSwap = swap as ReverseSwap;
 
-        const { lndClient } = this.currencies.get(lightningCurrency)!;
+        const lightningClient = NodeSwitch.getReverseSwapNode(
+          this.currencies.get(lightningCurrency)!,
+          reverseSwap,
+        );
 
         if (
           reverseSwap.node === NodeType.LND &&
@@ -1191,13 +1202,13 @@ class SwapManager {
           const decoded = await this.sidecar.decodeInvoiceOrOffer(
             reverseSwap.minerFeeInvoice,
           );
-          lndClient?.subscribeSingleInvoice(decoded.paymentHash!);
+          lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
         }
 
         const decoded = await this.sidecar.decodeInvoiceOrOffer(
           reverseSwap.invoice,
         );
-        lndClient?.subscribeSingleInvoice(decoded.paymentHash!);
+        lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
       } else if (
         (swap.status === SwapUpdateEvent.TransactionMempool ||
           swap.status === SwapUpdateEvent.TransactionConfirmed) &&

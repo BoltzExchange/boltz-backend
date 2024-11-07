@@ -13,6 +13,7 @@ interface IHoldService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     list: IHoldService_IList;
     settle: IHoldService_ISettle;
     cancel: IHoldService_ICancel;
+    clean: IHoldService_IClean;
     track: IHoldService_ITrack;
     trackAll: IHoldService_ITrackAll;
 }
@@ -62,6 +63,15 @@ interface IHoldService_ICancel extends grpc.MethodDefinition<hold_pb.CancelReque
     responseSerialize: grpc.serialize<hold_pb.CancelResponse>;
     responseDeserialize: grpc.deserialize<hold_pb.CancelResponse>;
 }
+interface IHoldService_IClean extends grpc.MethodDefinition<hold_pb.CleanRequest, hold_pb.CleanResponse> {
+    path: "/hold.Hold/Clean";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<hold_pb.CleanRequest>;
+    requestDeserialize: grpc.deserialize<hold_pb.CleanRequest>;
+    responseSerialize: grpc.serialize<hold_pb.CleanResponse>;
+    responseDeserialize: grpc.deserialize<hold_pb.CleanResponse>;
+}
 interface IHoldService_ITrack extends grpc.MethodDefinition<hold_pb.TrackRequest, hold_pb.TrackResponse> {
     path: "/hold.Hold/Track";
     requestStream: false;
@@ -89,6 +99,7 @@ export interface IHoldServer extends grpc.UntypedServiceImplementation {
     list: grpc.handleUnaryCall<hold_pb.ListRequest, hold_pb.ListResponse>;
     settle: grpc.handleUnaryCall<hold_pb.SettleRequest, hold_pb.SettleResponse>;
     cancel: grpc.handleUnaryCall<hold_pb.CancelRequest, hold_pb.CancelResponse>;
+    clean: grpc.handleUnaryCall<hold_pb.CleanRequest, hold_pb.CleanResponse>;
     track: grpc.handleServerStreamingCall<hold_pb.TrackRequest, hold_pb.TrackResponse>;
     trackAll: grpc.handleServerStreamingCall<hold_pb.TrackAllRequest, hold_pb.TrackAllResponse>;
 }
@@ -109,6 +120,9 @@ export interface IHoldClient {
     cancel(request: hold_pb.CancelRequest, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
     cancel(request: hold_pb.CancelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
     cancel(request: hold_pb.CancelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
+    clean(request: hold_pb.CleanRequest, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
+    clean(request: hold_pb.CleanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
+    clean(request: hold_pb.CleanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
     track(request: hold_pb.TrackRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     track(request: hold_pb.TrackRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     trackAll(request: hold_pb.TrackAllRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
@@ -132,6 +146,9 @@ export class HoldClient extends grpc.Client implements IHoldClient {
     public cancel(request: hold_pb.CancelRequest, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
     public cancel(request: hold_pb.CancelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
     public cancel(request: hold_pb.CancelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: hold_pb.CancelResponse) => void): grpc.ClientUnaryCall;
+    public clean(request: hold_pb.CleanRequest, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
+    public clean(request: hold_pb.CleanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
+    public clean(request: hold_pb.CleanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: hold_pb.CleanResponse) => void): grpc.ClientUnaryCall;
     public track(request: hold_pb.TrackRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     public track(request: hold_pb.TrackRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     public trackAll(request: hold_pb.TrackAllRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;

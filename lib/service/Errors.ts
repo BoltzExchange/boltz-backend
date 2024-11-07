@@ -28,7 +28,7 @@ export default {
     code: concatErrorCode(ErrorCodePrefix.Service, 5),
   }),
   EXCEED_MAXIMAL_AMOUNT: (amount: number, maximalAmount: number): Error => ({
-    message: `${amount} is exceeds maximal of ${maximalAmount}`,
+    message: `${amount} exceeds maximal of ${maximalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 6),
   }),
   BENEATH_MINIMAL_AMOUNT: (amount: number, minimalAmount: number): Error => ({

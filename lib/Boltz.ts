@@ -209,6 +209,7 @@ class Boltz {
 
       this.prometheus = new Prometheus(
         this.logger,
+        this.service,
         this.api,
         this.config.prometheus,
         this.config.pairs,

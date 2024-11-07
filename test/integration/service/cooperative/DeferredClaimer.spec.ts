@@ -170,10 +170,12 @@ describe('DeferredClaimer', () => {
     await Promise.all([
       setup(),
       bitcoinClient.connect(),
-      clnClient.connect(true),
+      clnClient.connect(),
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);
+
+    clnClient.subscribeTrackHoldInvoices();
 
     await bitcoinClient.generate(1);
   });

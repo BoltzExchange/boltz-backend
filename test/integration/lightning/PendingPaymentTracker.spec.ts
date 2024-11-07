@@ -57,7 +57,7 @@ describe('PendingPaymentTracker', () => {
     startSidecar();
     await Promise.all([
       db.init(),
-      clnClient.connect(true),
+      clnClient.connect(),
       bitcoinLndClient.connect(false),
       sidecar.connect(
         { on: jest.fn(), removeAllListeners: jest.fn() } as any,
@@ -65,6 +65,8 @@ describe('PendingPaymentTracker', () => {
         false,
       ),
     ]);
+
+    clnClient.subscribeTrackHoldInvoices();
 
     await PairRepository.addPair({
       id: 'BTC/BTC',

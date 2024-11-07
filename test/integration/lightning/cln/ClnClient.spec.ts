@@ -5,6 +5,7 @@ import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
+import { wait } from '../../../Utils';
 import {
   bitcoinClient,
   bitcoinLndClient,
@@ -38,6 +39,8 @@ describe('ClnClient', () => {
     expect(clnClient.isConnected()).toEqual(false);
     await clnClient.connect();
     expect(clnClient.isConnected()).toEqual(true);
+
+    clnClient.subscribeTrackHoldInvoices();
   });
 
   test('should parse node URIs in getinfo', async () => {
@@ -257,5 +260,37 @@ describe('ClnClient', () => {
         ),
       ).rejects.toEqual(expect.anything());
     });
+  });
+
+  test('should subscribe to single invoices', async () => {
+    expect.assertions(4);
+
+    const preimage = randomBytes(32);
+    const preimageHash = crypto.sha256(preimage);
+
+    const invoice = await clnClient.addHoldInvoice(1_000, preimageHash);
+
+    clnClient.disconnect();
+
+    clnClient.once('htlc.accepted', (acceptedInvoice) => {
+      expect(acceptedInvoice).toEqual(invoice);
+    });
+
+    const payPromise = bitcoinLndClient.sendPayment(invoice);
+    await wait(1_000);
+
+    clnClient.subscribeSingleInvoice(preimageHash);
+    expect(clnClient['holdInvoicesToSubscribe'].size).toEqual(1);
+    expect(clnClient['holdInvoicesToSubscribe'].has(preimageHash)).toEqual(
+      true,
+    );
+
+    await clnClient.connect();
+    clnClient.subscribeTrackHoldInvoices();
+
+    expect(clnClient['holdInvoicesToSubscribe'].size).toEqual(0);
+
+    await clnClient.settleHoldInvoice(preimage);
+    await payPromise;
   });
 });

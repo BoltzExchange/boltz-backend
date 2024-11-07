@@ -76,6 +76,7 @@ class ClnClient
   private readonly holdMeta = new Metadata();
 
   private trackAllSubscription?: ClientReadableStream<holdrpc.TrackAllResponse>;
+  private holdInvoicesToSubscribe: Set<Uint8Array> = new Set<Uint8Array>();
 
   constructor(
     logger: Logger,
@@ -138,7 +139,7 @@ class ClnClient
 
   public useMpay = () => this.mpay !== undefined && this.mpay.isConnected();
 
-  public connect = async (startSubscriptions = true): Promise<boolean> => {
+  public connect = async (): Promise<boolean> => {
     if (!this.isConnected()) {
       this.nodeClient = new NodeClient(this.nodeUri, this.nodeCreds, {
         ...grpcOptions,
@@ -154,11 +155,6 @@ class ClnClient
 
       try {
         await this.getInfo();
-
-        if (startSubscriptions) {
-          this.subscribeTrackHoldInvoices();
-        }
-
         this.setClientStatus(ClientStatus.Connected);
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
@@ -620,11 +616,14 @@ class ClnClient
     };
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public subscribeSingleInvoice = (_: Buffer): void => {
-    // Just here for interface compatibility;
-    // with CLN we can subscribe to all hold invoices with one gRPC subscription
-    return;
+  public subscribeSingleInvoice = (preimageHash: Buffer): void => {
+    // That call is only used to get the last update of relevant invoices
+    // when starting the subscription for *all* hold invoices
+    if (this.trackAllSubscription !== undefined) {
+      return;
+    }
+
+    this.holdInvoicesToSubscribe.add(preimageHash);
   };
 
   private static routingHintsToGrpc = (
@@ -771,14 +770,17 @@ class ClnClient
     return undefined;
   };
 
-  private subscribeTrackHoldInvoices = () => {
+  public subscribeTrackHoldInvoices = () => {
     if (this.trackAllSubscription) {
       this.trackAllSubscription.cancel();
     }
 
-    this.trackAllSubscription = this.holdClient!.trackAll(
-      new holdrpc.TrackAllRequest(),
-    );
+    const req = new holdrpc.TrackAllRequest();
+
+    req.setPaymentHashesList(Array.from(this.holdInvoicesToSubscribe.values()));
+    this.holdInvoicesToSubscribe.clear();
+
+    this.trackAllSubscription = this.holdClient!.trackAll(req);
 
     this.trackAllSubscription.on('data', (update: holdrpc.TrackAllResponse) => {
       switch (update.getState()) {

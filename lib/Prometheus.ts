@@ -5,6 +5,7 @@ import { getPairId } from './Utils';
 import Api from './api/Api';
 import { PairConfig } from './consts/Types';
 import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
+import Service from './service/Service';
 
 type PrometheusConfig = {
   host?: string;
@@ -22,6 +23,7 @@ class Prometheus {
 
   constructor(
     private readonly logger: Logger,
+    private readonly service: Service,
     private readonly api: Api,
     private readonly config: PrometheusConfig | undefined,
     pairs: PairConfig[],
@@ -164,6 +166,40 @@ class Prometheus {
       'swap_status_cache_count',
       'number of swap status messages cached',
       () => this.api.swapInfos.cacheSize,
+    );
+
+    const service = this.service;
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metric_prefix}zeroconf_risk`,
+        labelNames: ['symbol'],
+        help: '0-conf risk of a symbol',
+        collect: function () {
+          for (const {
+            symbol,
+            risk,
+          } of service.lockupTransactionTracker.risks()) {
+            this.set({ symbol }, Number(risk));
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metric_prefix}zeroconf_risk_max`,
+        labelNames: ['symbol'],
+        help: 'max 0-conf risk of a symbol',
+        collect: function () {
+          for (const {
+            symbol,
+            maxRisk,
+          } of service.lockupTransactionTracker.maxRisks()) {
+            this.set({ symbol }, Number(maxRisk));
+          }
+        },
+      }),
     );
   };
 

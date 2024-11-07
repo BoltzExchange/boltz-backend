@@ -112,6 +112,15 @@ class LockupTransactionTracker extends TypedEventEmitter<{
     }
   };
 
+  public maxRisks = () =>
+    Array.from(this.maxRisk.entries()).map(([symbol, maxRisk]) => ({
+      symbol,
+      maxRisk,
+    }));
+
+  public risks = () =>
+    Array.from(this.risk.entries()).map(([symbol, risk]) => ({ symbol, risk }));
+
   public zeroConfAccepted = (symbol: string): boolean =>
     this.zeroConfAcceptedMap.get(symbol) || false;
 

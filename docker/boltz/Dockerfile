@@ -62,4 +62,4 @@ EXPOSE 9000 9001
 
 ENV NODE_ENV=production
 
-ENTRYPOINT ["/boltz-backend/bin/boltzd"]
+ENTRYPOINT ["node", "--trace-deprecation", "/boltz-backend/bin/boltzd"]

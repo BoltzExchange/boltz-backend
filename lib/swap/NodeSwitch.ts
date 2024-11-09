@@ -26,6 +26,7 @@ class NodeSwitch {
   ) {
     this.clnAmountThreshold =
       cfg?.clnAmountThreshold || NodeSwitch.defaultClnAmountThreshold;
+    this.logger.info(`CLN invoice threshold: ${this.clnAmountThreshold} sat`);
 
     const swapNode =
       cfg?.swapNode !== undefined

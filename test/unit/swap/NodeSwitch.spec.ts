@@ -39,7 +39,7 @@ describe('NodeSwitch', () => {
     ${undefined}
     ${{}}
   `('should handle empty config', ({ config }) => {
-    const ns = new NodeSwitch(config);
+    const ns = new NodeSwitch(Logger.disabledLogger, config);
     expect(ns['clnAmountThreshold']).toEqual(
       NodeSwitch['defaultClnAmountThreshold'],
     );

@@ -135,34 +135,36 @@ structured like this:
 
 On EVM chains, a contract is used for enforcing swaps onchain. The source code
 of Boltz's contracts can be found
-[here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.0/contracts). To
+[here](https://github.com/BoltzExchange/boltz-core/tree/v2.1.3/contracts). To
 fetch the current addresses of Boltz's swap contracts, use
-`GET /chain/contracts`.
+[`GET /chain/contracts`](https://api.boltz.exchange/swagger#/Chain/get_chain_contracts).
 
 ### Submarine Swaps
 
 The `lock` function of the swap contract is used to lock up coins for a
-Submarine Swap. All parameter values are returned in the response when creating
-the swap.
+Submarine Swap. All values for the parameters required to call the function of
+the contract are returned in the API response when creating the swap.
 
 With the `refund` function of the contract, locked coins can be refunded in case
 the swap fails. This function takes similar parameters as `lock`, so the values
 from the response of the swap creation should be stored. If this information is
 not available, all parameters required for a refund can also be queried from the
 `Lockup` event logs of the contract. The event logs are indexed by
-`refundAddress`,which is the address with which the client locked the coins.
+`refundAddress`, which is the address with which the client locked the coins.
 
-To refund before the time lock of the swap expired, an EIP-712 signature can be
-requested from Boltz. Use `GET /swap/submarine/{id}/refund` to obtain this
-signature and use it in the `refundCooperative` function of the contract.
-Similarly to cooperative Taproot refunds, Boltz will only return such a
-signature if the swap has failed already.
+To refund before the time lock of the swap has expired, an EIP-712 signature can
+be requested from Boltz. Use
+[`GET /swap/submarine/{id}/refund`](https://api.boltz.exchange/swagger#/Submarine/get_swap_submarine__id__refund)
+to get this signature and use it in the `refundCooperative` function of the
+contract. Similarly to cooperative Taproot refunds, Boltz will only return such
+a signature if the swap has failed already.
 
 ### Reverse Swaps
 
 To claim coins locked in the contract, use the function `claim`. All parameters
 apart from the `preimage` are returned in the response when creating the swap.
-The API client is responsible for securely storing the preimage after the swap.
+The API client is responsible for securely storing the preimage after creating
+the swap.
 
 ## Legacy Swaps
 
@@ -213,7 +215,7 @@ refund.
 
 {% hint style="info" %} The concept of refunds exists for failed Normal
 Submarine Swaps and Chain Swaps. For failed Reverse Submarine Swaps, Lightning
-funds automatically bounce back to the user once the payment expired, no active
+funds automatically bounce back to the user once the payment expired; no active
 refunding is needed. {% endhint %}
 
 Refunding an output works just like claiming. Since the refund process doesn't
@@ -245,7 +247,7 @@ refund info stored by the API client is lost.
 
 All clients that offer the option for users to save refund files should format
 them in a standardized way. This is necessary for refunds to not only work in a
-client, but also but also with [Boltz](https://boltz.exchange/refund) directly.
+client, but also with [Boltz](https://boltz.exchange/refund) directly.
 
 The refund files Boltz Web App generates are `JSON` on Desktop and `PNG` QR
 codes on mobile (because iOS browsers don't allow any other files than images to
@@ -277,7 +279,7 @@ Example:
 }
 ```
 
-If a user lost all refund information, but still has access to the lightning
+If a user lost all refund information but still has access to the lightning
 invoice and can extract the preimage, this can be used to claim the locked
 bitcoin back to a user-controlled address. Feel free to
 [contact us](https://discord.gg/QBvZGcW) should you be in such a situation. We

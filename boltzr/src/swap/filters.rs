@@ -11,7 +11,7 @@ use anyhow::Result;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{trace, warn};
 
 pub type Filters = HashMap<String, (HashSet<Outpoint>, HashSet<Vec<u8>>)>;
 
@@ -164,7 +164,7 @@ where
             }
         }
         None => {
-            warn!(
+            trace!(
                 "Could not recreate filter for {} Swap {}: no currency for symbol {}",
                 swap.kind(),
                 swap.id(),

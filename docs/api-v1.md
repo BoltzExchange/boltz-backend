@@ -314,9 +314,6 @@ Response:
 
 ### Normal Swaps: EVM Chains
 
-{% hint style="info" %} Currently, Boltz only supports RSK Testnet.
-{% endhint %}
-
 Swaps from account-based EVM chains like RSK do not require a new address for
 every swap. `/createswap` takes the details of the swap (like lightning invoice
 and pair) and Boltz waits until the user locked e.g. RBTC in the contract. The
@@ -684,9 +681,6 @@ Response body:
 
 ### Reverse Swaps: EVM Chains
 
-{% hint style="info" %} Currently, Boltz only supports RSK Testnet.
-{% endhint %}
-
 For EVM chains, `/createswap` requests have to contain one additional parameter:
 
 - `claimAddress`: address from which the bitcoin will be claimed
@@ -953,9 +947,6 @@ Response:
 ```
 
 ## Swap Contracts
-
-{% hint style="info" %} Currently, Boltz only supports RSK Testnet.
-{% endhint %}
 
 To query the addresses of contracts used by Boltz for swaps on EVM chains like
 RSK, the following endpoint can be queried:

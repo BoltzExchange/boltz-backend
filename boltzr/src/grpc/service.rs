@@ -341,7 +341,9 @@ where
             .call_webhook(&hook, &params.status)
             .await
         {
-            Ok(ok) => Ok(Response::new(SendWebHookResponse { ok })),
+            Ok(res) => Ok(Response::new(SendWebHookResponse {
+                ok: res != crate::webhook::caller::CallResult::Failed,
+            })),
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }
     }

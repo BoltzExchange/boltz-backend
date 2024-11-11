@@ -331,7 +331,11 @@ class PaymentHandler {
 
     this.emit(
       'invoice.paid',
-      await SwapRepository.setInvoicePaid(swap, response.feeMsat),
+      await SwapRepository.setInvoicePaid(
+        swap,
+        response.feeMsat,
+        getHexString(response.preimage),
+      ),
     );
 
     return response.preimage;

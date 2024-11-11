@@ -29,6 +29,7 @@ type SwapType = {
   failureReason?: string;
 
   preimageHash: string;
+  preimage?: string;
   invoice?: string;
   invoiceAmount?: number;
 
@@ -63,6 +64,7 @@ class Swap extends Model implements SwapType {
   public failureReason?: string;
 
   public preimageHash!: string;
+  public preimage?: string;
   public invoice?: string;
   public invoiceAmount?: number;
 
@@ -111,6 +113,11 @@ class Swap extends Model implements SwapType {
         preimageHash: {
           type: new DataTypes.STRING(64),
           allowNull: false,
+          unique: true,
+        },
+        preimage: {
+          type: new DataTypes.STRING(64),
+          allowNull: true,
           unique: true,
         },
         invoice: {

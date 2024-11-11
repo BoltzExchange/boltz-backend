@@ -328,6 +328,8 @@ class Boltz {
       await Promise.all(rescanPromises);
       await this.sidecar.rescanMempool();
       this.logger.info('Finished rescanning');
+
+      await this.db.backFillMigrations(this.currencies);
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);

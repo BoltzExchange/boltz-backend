@@ -115,8 +115,10 @@ class SwapRepository {
   public static setInvoicePaid = (
     swap: Swap,
     routingFee: number,
+    preimage: string,
   ): Promise<Swap> => {
     return swap.update({
+      preimage,
       routingFee,
       status: SwapUpdateEvent.InvoicePaid,
     });

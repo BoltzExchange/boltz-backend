@@ -99,7 +99,7 @@ class NodeSwitch {
       this.switch(currency, holdInvoiceAmount, referralId),
     );
     this.logger.debug(
-      `Using node ${client.serviceName()} for Reverse Swap Swap ${id}`,
+      `Using node ${client.serviceName()} for Reverse Swap ${id}`,
     );
 
     return {

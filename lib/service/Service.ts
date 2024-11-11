@@ -627,6 +627,21 @@ class Service {
     };
   };
 
+  public getSubmarinePreimage = async (id: string): Promise<string> => {
+    const swap = await SwapRepository.getSwap({
+      id,
+    });
+    if (swap === null || swap === undefined) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (swap.preimage === null || swap.preimage === undefined) {
+      throw Errors.PREIMAGE_NOT_AVAILABLE();
+    }
+
+    return swap.preimage;
+  };
+
   public deriveKeys = (symbol: string, index: number): DeriveKeysResponse => {
     const wallet = this.walletManager.wallets.get(symbol.toUpperCase());
 

@@ -617,11 +617,7 @@ class Migration {
                 const res = await currency.lndClient.trackPayment(
                   getHexBuffer(payment.Swap.preimageHash),
                 );
-                if (
-                  res !== undefined &&
-                  res.paymentPreimage !== undefined &&
-                  res.paymentPreimage.length > 0
-                ) {
+                if (res?.paymentPreimage?.length > 0) {
                   preimage = res.paymentPreimage;
                 }
               } else if (

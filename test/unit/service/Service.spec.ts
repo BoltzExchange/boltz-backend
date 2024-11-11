@@ -1281,6 +1281,41 @@ describe('Service', () => {
     expect(res).toEqual(undefined);
   });
 
+  describe('getSubmarinePreimage', () => {
+    test('should throw when swap cannot be found', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+
+      const id = 'asdf';
+      await expect(service.getSubmarinePreimage(id)).rejects.toEqual(
+        Errors.SWAP_NOT_FOUND(id),
+      );
+    });
+
+    test('should throw when preimage is not set', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({});
+
+      await expect(service.getSubmarinePreimage('asdf')).rejects.toEqual(
+        Errors.PREIMAGE_NOT_AVAILABLE(),
+      );
+    });
+
+    test('should return preimage when it is set', async () => {
+      const preimage =
+        'ec74738cec448035204f5fcffc754096c11e75418b434eb3cc0b23d0aebab74f';
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        preimage,
+      });
+
+      const id = 'asdf';
+      await expect(service.getSubmarinePreimage(id)).resolves.toEqual(preimage);
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id,
+      });
+    });
+  });
+
   test('should derive keys', async () => {
     const response = service.deriveKeys('BTC', 123);
 

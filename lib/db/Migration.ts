@@ -8,19 +8,24 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
+  getHexString,
+  getLightningCurrency,
   splitPairId,
 } from '../Utils';
-import { SwapVersion } from '../consts/Enums';
+import { SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
-import LightningPayment from './models/LightningPayment';
+import LightningPayment, {
+  LightningPaymentStatus,
+} from './models/LightningPayment';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
 import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
+import LightningPaymentRepository from './repositories/LightningPaymentRepository';
 
 const coalesceInvoiceAmount = (
   decoded: bolt11.PaymentRequestObject,
@@ -88,7 +93,9 @@ const decodeInvoice = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 11;
+  private static latestSchemaVersion = 12;
+
+  private toBackFill: number[] = [];
 
   constructor(
     private logger: Logger,
@@ -553,9 +560,97 @@ class Migration {
         break;
       }
 
+      case 11: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Swap.tableName, 'preimage', {
+            type: new DataTypes.STRING(64),
+            allowNull: true,
+            unique: true,
+          });
+
+        this.toBackFill.push(11);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
+  };
+
+  public backFillMigrations = async (currencies: Map<string, Currency>) => {
+    for (const version of this.toBackFill) {
+      this.logger.info(
+        `Starting backfilling of migration of database schema version ${version}`,
+      );
+
+      switch (version) {
+        case 11: {
+          await this.logProgress(
+            Swap.tableName,
+            100,
+            await LightningPaymentRepository.findByStatus(
+              LightningPaymentStatus.Success,
+            ),
+            async (payment) => {
+              const { base, quote } = splitPairId(payment.Swap.pair);
+              const lightningSymbol = getLightningCurrency(
+                base,
+                quote,
+                payment.Swap.orderSide,
+                false,
+              );
+              const currency = currencies.get(lightningSymbol);
+              if (currency === undefined) {
+                this.logger.warn(
+                  `Could not get lightning currency ${lightningSymbol} for ${swapTypeToPrettyString(payment.Swap.type)} Swap ${payment.Swap.id}`,
+                );
+                return;
+              }
+
+              let preimage: string | undefined = undefined;
+              if (
+                payment.node === NodeType.LND &&
+                currency.lndClient !== undefined
+              ) {
+                const res = await currency.lndClient.trackPayment(
+                  getHexBuffer(payment.Swap.preimageHash),
+                );
+                if (res?.paymentPreimage?.length > 0) {
+                  preimage = res.paymentPreimage;
+                }
+              } else if (
+                payment.node === NodeType.CLN &&
+                currency.clnClient !== undefined
+              ) {
+                const res = await currency.clnClient.checkPayStatus(
+                  payment.Swap.invoice!,
+                );
+                if (res !== undefined) {
+                  preimage = getHexString(res.preimage);
+                }
+              }
+
+              if (preimage === undefined) {
+                this.logger.warn(
+                  `Could not get preimage for ${payment.Swap.id}`,
+                );
+                return;
+              }
+
+              await payment.Swap.update({ preimage });
+            },
+          );
+        }
+      }
+
+      this.logger.info(
+        `Finished backfilling of migration of database schema version ${version}`,
+      );
+    }
+
+    this.toBackFill = [];
   };
 
   private dropTable = async (table: string) => {

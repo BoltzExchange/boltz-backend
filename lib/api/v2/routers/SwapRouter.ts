@@ -422,6 +422,51 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * components:
+     *   schemas:
+     *     SubmarinePreimage:
+     *       type: object
+     *       properties:
+     *         preimage:
+     *           type: string
+     *           required: true
+     *           description: Preimage of the Submarine Swap
+     */
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/preimage:
+     *   get:
+     *     tags: [Submarine]
+     *     description: Get the preimage of a successful Submarine Swap
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     responses:
+     *       '200':
+     *         description: The preimage of a Submarine Swap
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SubmarinePreimage'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get(
+      '/submarine/:id/preimage',
+      this.handleError(this.getSubmarinePreimage),
+    );
+
+    /**
+     * @openapi
      * /swap/submarine/{id}/refund:
      *   get:
      *     tags: [Submarine]
@@ -1746,6 +1791,16 @@ class SwapRouter extends RouterBase {
       hex: transactionHex,
       timeoutBlockHeight,
       timeoutEta,
+    });
+  };
+
+  private getSubmarinePreimage = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      preimage: await this.service.getSubmarinePreimage(id),
     });
   };
 

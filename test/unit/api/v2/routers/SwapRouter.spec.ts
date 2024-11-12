@@ -136,6 +136,11 @@ describe('SwapRouter', () => {
       bip21: 'bip21',
       signature: 'bip21Sig',
     }),
+    getSubmarinePreimage: jest
+      .fn()
+      .mockResolvedValue(
+        '9a2f9ebe8d8d9e9beb9faba552b6203b89d0453a73fb8c768623b9e23ea5fd76',
+      ),
   } as unknown as Service;
 
   const swapInfosData = new Map([['swapId', { some: 'statusData' }]]);
@@ -171,7 +176,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(14);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(15);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
@@ -183,6 +188,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine/:id/transaction',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/submarine/:id/preimage',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -608,6 +617,42 @@ describe('SwapRouter', () => {
       hex: 'txHex',
       timeoutBlockHeight: 21,
       timeoutEta: 210987,
+    });
+  });
+
+  describe('getSubmarinePreimage', () => {
+    test.each`
+      error                        | params
+      ${'undefined parameter: id'} | ${{}}
+      ${'invalid parameter: id'}   | ${{ id: 1 }}
+    `(
+      'should not get preimage of submarine swaps with invalid parameters ($error)',
+      async ({ error, params }) => {
+        await expect(
+          swapRouter['getSubmarinePreimage'](
+            mockRequest(undefined, undefined, params),
+            mockResponse(),
+          ),
+        ).rejects.toEqual(error);
+      },
+    );
+
+    test('should get preimage of submarine swaps', async () => {
+      const id = 'asdf';
+
+      const res = mockResponse();
+      await swapRouter['getSubmarinePreimage'](
+        mockRequest(undefined, undefined, { id }),
+        res,
+      );
+
+      expect(service.getSubmarinePreimage).toHaveBeenCalledTimes(1);
+      expect(service.getSubmarinePreimage).toHaveBeenCalledWith(id);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        preimage: await service.getSubmarinePreimage(id),
+      });
     });
   });
 

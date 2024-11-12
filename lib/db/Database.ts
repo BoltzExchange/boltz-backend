@@ -115,6 +115,12 @@ class Database {
     await this.migration.migrate(currencies);
   };
 
+  public backFillMigrations = async (
+    currencies: Map<string, Currency>,
+  ): Promise<void> => {
+    await this.migration.backFillMigrations(currencies);
+  };
+
   public close = (): Promise<void> => {
     return Database.sequelize.close();
   };

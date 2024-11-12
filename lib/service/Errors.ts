@@ -201,4 +201,8 @@ export default {
     message: 'insufficient liquidity',
     code: concatErrorCode(ErrorCodePrefix.Service, 51),
   }),
+  PREIMAGE_NOT_AVAILABLE: (): Error => ({
+    message: 'preimage not available',
+    code: concatErrorCode(ErrorCodePrefix.Service, 52),
+  }),
 };

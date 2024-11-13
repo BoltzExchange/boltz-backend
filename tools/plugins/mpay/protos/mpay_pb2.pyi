@@ -177,15 +177,15 @@ class ResetPathMemoryResponse(_message.Message):
     def __init__(self, payments: _Optional[int] = ..., attempts: _Optional[int] = ..., hops: _Optional[int] = ...) -> None: ...
 
 class PayStatusRequest(_message.Message):
-    __slots__ = ("bolt11",)
-    BOLT11_FIELD_NUMBER: _ClassVar[int]
-    bolt11: str
-    def __init__(self, bolt11: _Optional[str] = ...) -> None: ...
+    __slots__ = ("invoice",)
+    INVOICE_FIELD_NUMBER: _ClassVar[int]
+    invoice: str
+    def __init__(self, invoice: _Optional[str] = ...) -> None: ...
 
 class PayStatusResponse(_message.Message):
     __slots__ = ("status",)
     class PayStatus(_message.Message):
-        __slots__ = ("bolt11", "amount_msat", "destination", "attempts")
+        __slots__ = ("bolt11", "bolt12", "amount_msat", "destination", "attempts")
         class Attempt(_message.Message):
             __slots__ = ("strategy", "start_time", "age_in_seconds", "end_time", "state", "success", "failure")
             class AttemptState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -241,14 +241,16 @@ class PayStatusResponse(_message.Message):
             failure: PayStatusResponse.PayStatus.Attempt.Failure
             def __init__(self, strategy: _Optional[str] = ..., start_time: _Optional[int] = ..., age_in_seconds: _Optional[int] = ..., end_time: _Optional[int] = ..., state: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.AttemptState, str]] = ..., success: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.Success, _Mapping]] = ..., failure: _Optional[_Union[PayStatusResponse.PayStatus.Attempt.Failure, _Mapping]] = ...) -> None: ...
         BOLT11_FIELD_NUMBER: _ClassVar[int]
+        BOLT12_FIELD_NUMBER: _ClassVar[int]
         AMOUNT_MSAT_FIELD_NUMBER: _ClassVar[int]
         DESTINATION_FIELD_NUMBER: _ClassVar[int]
         ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
         bolt11: str
+        bolt12: str
         amount_msat: int
         destination: str
         attempts: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus.Attempt]
-        def __init__(self, bolt11: _Optional[str] = ..., amount_msat: _Optional[int] = ..., destination: _Optional[str] = ..., attempts: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus.Attempt, _Mapping]]] = ...) -> None: ...
+        def __init__(self, bolt11: _Optional[str] = ..., bolt12: _Optional[str] = ..., amount_msat: _Optional[int] = ..., destination: _Optional[str] = ..., attempts: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus.Attempt, _Mapping]]] = ...) -> None: ...
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: _containers.RepeatedCompositeFieldContainer[PayStatusResponse.PayStatus]
     def __init__(self, status: _Optional[_Iterable[_Union[PayStatusResponse.PayStatus, _Mapping]]] = ...) -> None: ...

@@ -59,7 +59,8 @@ def pay_status_response_to_grpc(res: dict[str, Any]) -> PayStatusResponse:
     return PayStatusResponse(
         status=[
             PayStatusResponse.PayStatus(
-                bolt11=status["bolt11"],
+                bolt11=status.get("bolt11", None),
+                bolt12=status.get("bolt12", None),
                 amount_msat=int(status["amount_msat"]),
                 destination=status["destination"],
                 attempts=[_pay_status_attempt_to_grpc(attempt) for attempt in status["attempts"]],

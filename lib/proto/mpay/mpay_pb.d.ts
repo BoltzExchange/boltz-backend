@@ -504,10 +504,10 @@ export namespace ResetPathMemoryResponse {
 
 export class PayStatusRequest extends jspb.Message { 
 
-    hasBolt11(): boolean;
-    clearBolt11(): void;
-    getBolt11(): string | undefined;
-    setBolt11(value: string): PayStatusRequest;
+    hasInvoice(): boolean;
+    clearInvoice(): void;
+    getInvoice(): string | undefined;
+    setInvoice(value: string): PayStatusRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PayStatusRequest.AsObject;
@@ -521,7 +521,7 @@ export class PayStatusRequest extends jspb.Message {
 
 export namespace PayStatusRequest {
     export type AsObject = {
-        bolt11?: string,
+        invoice?: string,
     }
 }
 
@@ -548,8 +548,16 @@ export namespace PayStatusResponse {
 
 
     export class PayStatus extends jspb.Message { 
-        getBolt11(): string;
+
+        hasBolt11(): boolean;
+        clearBolt11(): void;
+        getBolt11(): string | undefined;
         setBolt11(value: string): PayStatus;
+
+        hasBolt12(): boolean;
+        clearBolt12(): void;
+        getBolt12(): string | undefined;
+        setBolt12(value: string): PayStatus;
         getAmountMsat(): number;
         setAmountMsat(value: number): PayStatus;
         getDestination(): string;
@@ -571,7 +579,8 @@ export namespace PayStatusResponse {
 
     export namespace PayStatus {
         export type AsObject = {
-            bolt11: string,
+            bolt11?: string,
+            bolt12?: string,
             amountMsat: number,
             destination: string,
             attemptsList: Array<PayStatusResponse.PayStatus.Attempt.AsObject>,

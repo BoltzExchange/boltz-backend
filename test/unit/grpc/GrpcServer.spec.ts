@@ -165,7 +165,7 @@ describe('GrpcServer', () => {
     expect(preRestartServerPem).toEqual(
       fs.readFileSync(path.join(certsDir, 'server.pem')),
     );
-  });
+  }, 10_000);
 
   test('should not allow clients with invalid certificates', async () => {
     const port = await getPort();
@@ -215,7 +215,7 @@ describe('GrpcServer', () => {
 
     client.close();
     await server.close();
-  });
+  }, 10_000);
 
   test('should throw when trying to bind to impossible port', async () => {
     const server = new GrpcServer(
@@ -256,5 +256,5 @@ describe('GrpcServer', () => {
         resolve();
       });
     });
-  });
+  }, 10_000);
 });

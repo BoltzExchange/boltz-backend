@@ -4,6 +4,8 @@ import { getHexString, getUnixTime } from '../../../../lib/Utils';
 import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
+import * as noderpc from '../../../../lib/proto/cln/node_pb';
+import * as primitivesrpc from '../../../../lib/proto/cln/primitives_pb';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { wait } from '../../../Utils';
 import {
@@ -190,6 +192,35 @@ describe('ClnClient', () => {
     expect(await clnClient.checkPayStatus(invoice)).toEqual(payRes);
 
     clnClient['mpay']!.setClientStatus(ClientStatus.Connected);
+  });
+
+  test('should not throw when getting pay status of BOLT12 invoices', async () => {
+    const offerReq = new noderpc.OfferRequest();
+    offerReq.setAmount('any');
+
+    const offer: noderpc.OfferResponse.AsObject = await clnClient[
+      'unaryNodeCall'
+    ]('offer', offerReq, true);
+
+    const invoiceReq = new noderpc.FetchinvoiceRequest();
+    invoiceReq.setOffer(offer.bolt12);
+
+    const amount = new primitivesrpc.Amount();
+    amount.setMsat(1_000);
+    invoiceReq.setAmountMsat(amount);
+
+    const invoice: noderpc.FetchinvoiceResponse.AsObject = await clnClient[
+      'unaryNodeCall'
+    ]('fetchInvoice', invoiceReq, true);
+
+    await expect(
+      clnClient.checkPayStatus(invoice.invoice),
+    ).resolves.toBeUndefined();
+
+    await clnClient.sendPayment(invoice.invoice);
+    await expect(
+      clnClient.checkPayStatus(invoice.invoice),
+    ).resolves.not.toBeUndefined();
   });
 
   test('should emit events for invoice acceptance and settlement', async () => {

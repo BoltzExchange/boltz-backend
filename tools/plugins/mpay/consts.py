@@ -9,6 +9,6 @@ class Network(StrEnum):
 
 
 PLUGIN_NAME = "mpay"
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 GRPC_HOST_REGTEST = "0.0.0.0"  # noqa: S104

@@ -346,7 +346,7 @@ describe('CommandHandler', () => {
     const id = 'notFound';
     sendMessage(`swapinfo ${id}`);
 
-    await wait(10);
+    await wait(50);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(5);
     expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);

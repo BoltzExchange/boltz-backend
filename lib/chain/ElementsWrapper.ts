@@ -2,40 +2,30 @@ import { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import { LiquidChainConfig } from '../Config';
 import Logger from '../Logger';
-import { allSettledFirst, sleep } from '../PromiseUtils';
+import { allSettledFirst } from '../PromiseUtils';
 import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
-import { liquidSymbol } from '../consts/LiquidTypes';
 import { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
 import { AddressType, ChainClientEvents } from './ChainClient';
 import ElementsClient, {
   IElementsClient,
   LiquidAddressType,
 } from './ElementsClient';
+import TestMempoolAccept from './elements/TestMempoolAccept';
+import { ZeroConfCheck } from './elements/ZeroConfCheck';
+import ZeroConfTool from './elements/ZeroConfTool';
 
 class ElementsWrapper
   extends BaseClient<ChainClientEvents<Transaction>>
   implements IElementsClient
 {
-  private static readonly zeroConfCheckTimeDefault = 1_000;
-  private static readonly zeroConfCheckAllowedErrors = [
-    'min relay fee not met',
-    'txn-already-in-mempool',
-  ];
-
   public readonly currencyType = CurrencyType.Liquid;
 
   private readonly clients: ElementsClient[] = [];
-  private readonly zeroConfCheckTime: number;
+  private readonly zeroConfCheck: ZeroConfCheck;
 
   constructor(logger: Logger, config: LiquidChainConfig) {
     super(logger, ElementsClient.symbol);
-
-    this.zeroConfCheckTime =
-      config.zeroConfWaitTime || ElementsWrapper.zeroConfCheckTimeDefault;
-    this.logger.info(
-      `Waiting ${this.zeroConfCheckTime}ms before accepting ${liquidSymbol} transactions`,
-    );
 
     this.clients.push(new ElementsClient(this.logger, config, false));
 
@@ -43,6 +33,21 @@ class ElementsWrapper
       this.logger.info(`Using lowball for ${this.clients[0].serviceName()}`);
       this.clients.push(new ElementsClient(this.logger, config.lowball, true));
     }
+
+    if (
+      config.zeroConfTool !== undefined &&
+      config.zeroConfTool.endpoint !== undefined
+    ) {
+      this.zeroConfCheck = new ZeroConfTool(this.logger, config.zeroConfTool);
+    } else {
+      this.zeroConfCheck = new TestMempoolAccept(
+        this.logger,
+        this.publicClient(),
+        config.zeroConfWaitTime,
+      );
+    }
+
+    this.logger.info(`Using 0-conf check ${this.zeroConfCheck.name}`);
   }
 
   public serviceName = () => 'ElementsWrapper';
@@ -75,29 +80,10 @@ class ElementsWrapper
           return;
         }
 
-        this.logger.debug(
-          `Waiting before accepting 0-conf transaction of ${this.symbol}: ${transaction.getId()}`,
-        );
-        await sleep(this.zeroConfCheckTime);
-
         try {
-          const testResult = (
-            await this.publicClient().testMempoolAccept([transaction.toHex()])
-          )[0];
-
-          if (
-            testResult['reject-reason'] !== undefined &&
-            !ElementsWrapper.zeroConfCheckAllowedErrors.includes(
-              testResult['reject-reason'],
-            )
-          ) {
-            this.logger.warn(
-              `Rejected ${this.symbol} 0-conf transaction (${transaction.getId()}): ${testResult['reject-reason']}`,
-            );
-            return;
+          if (await this.zeroConfCheck.checkTransaction(transaction)) {
+            this.emit('transaction', { transaction, confirmed });
           }
-
-          this.emit('transaction', { transaction, confirmed });
         } catch (e) {
           this.logger.error(
             `${this.symbol} 0-conf transaction check failed: ${formatError(e)}`,

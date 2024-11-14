@@ -686,6 +686,8 @@ class ClnClient
   public checkPayStatus = async (
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
+    const decoded = await this.decodeInvoice(invoice);
+
     const listPayReq = new noderpc.ListpaysRequest();
     listPayReq.setBolt11(invoice);
 
@@ -706,12 +708,7 @@ class ClnClient
           (sum, attempt) =>
             sum + BigInt(attempt.getAmountSentMsat()?.getMsat() || 0),
           0n,
-        ) -
-        completedAttempts.reduce(
-          (sum, attempt) =>
-            sum + BigInt(attempt.getAmountMsat()?.getMsat() || 0),
-          0n,
-        );
+        ) - BigInt(decoded.valueMsat);
 
       return {
         feeMsat: Number(fee),
@@ -750,15 +747,15 @@ class ClnClient
         noderpc.ListpeerchannelsResponse
       >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
 
-      const paymentHash = (await this.decodeInvoice(invoice)).paymentHash;
-
       const hasPendingHtlc = channels
         .getChannelsList()
         .some((channel) =>
           channel
             .getHtlcsList()
             .some((htlc) =>
-              paymentHash.equals(Buffer.from(htlc.getPaymentHash_asU8())),
+              decoded.paymentHash.equals(
+                Buffer.from(htlc.getPaymentHash_asU8()),
+              ),
             ),
         );
 

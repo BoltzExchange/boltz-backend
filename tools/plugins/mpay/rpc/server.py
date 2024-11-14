@@ -145,7 +145,7 @@ class MpayService(MpayServicer):
         context: grpc.ServicerContext,  # noqa: ARG002
     ) -> PayStatusResponse:
         return pay_status_response_to_grpc(
-            self._mpay.pl.rpc.paystatus(request.bolt11 if request.bolt11 != "" else None)
+            self._mpay.pl.rpc.paystatus(request.invoice if request.invoice != "" else None)
         )
 
 

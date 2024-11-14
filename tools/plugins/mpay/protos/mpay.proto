@@ -117,7 +117,7 @@ message ResetPathMemoryResponse {
 }
 
 message PayStatusRequest {
-  optional string bolt11 = 1;
+  optional string invoice = 1;
 }
 
 message PayStatusResponse {
@@ -157,7 +157,9 @@ message PayStatusResponse {
       optional Failure failure = 7;
     }
 
-    string bolt11 = 1;
+    optional string bolt11 = 1;
+    optional string bolt12 = 5;
+
     uint64 amount_msat = 2;
     string destination = 3;
     repeated Attempt attempts = 4;

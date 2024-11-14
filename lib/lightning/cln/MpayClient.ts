@@ -79,7 +79,7 @@ class Mpay extends BaseClient {
 
   public payStatus = (invoice: string) => {
     const req = new mpayrpc.PayStatusRequest();
-    req.setBolt11(invoice);
+    req.setInvoice(invoice);
 
     return this.unaryNodeCall<
       mpayrpc.PayStatusRequest,

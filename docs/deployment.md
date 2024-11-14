@@ -320,7 +320,21 @@ minSwapAmount = 10_000
 
 minWalletBalance = 100_000_000
 
+# Time to wait in milliseconds before accepting a lowball 0-conf transaction
+# and checking "testmempoolaccept" on the public node
 zeroConfWaitTime = 1_000
+
+    # API endpoint to check for reliable 0-conf acceptance
+    # Disables "zeroConfWaitTime"
+    [liquid.zeroConfTool]
+    endpoint = ""
+
+    # Interval in milliseconds at which calls to the endpoint should be retried
+    # interval = 100
+
+    # How often calls to the endpoint should be retried before
+    # giving up 0-conf for that transaction
+    # maxRetries = 60
 
     [liquid.chain]
     host = "127.0.0.1"

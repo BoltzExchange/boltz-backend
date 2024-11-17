@@ -436,6 +436,19 @@ describe('Utils', () => {
   });
 
   test.each`
+    data            | count | chunks
+    ${[0, 1]}       | ${1}  | ${[[0], [1]]}
+    ${[0, 1, 2, 3]} | ${1}  | ${[[0], [1], [2], [3]]}
+    ${[0, 1, 2, 3]} | ${2}  | ${[[0, 1], [2, 3]]}
+    ${[0, 1, 2, 3]} | ${3}  | ${[[0, 1, 2], [3]]}
+    ${[0, 1, 2, 3]} | ${4}  | ${[[0, 1, 2, 3]]}
+    ${[0, 1, 2, 3]} | ${5}  | ${[[0, 1, 2, 3]]}
+    ${[0, 1, 2, 3]} | ${21} | ${[[0, 1, 2, 3]]}
+  `('should chunk array into pieces', ({ data, count, chunks }) => {
+    expect(utils.arrayToChunks(data, count)).toEqual(chunks);
+  });
+
+  test.each`
     a       | b      | expected
     ${0n}   | ${1n}  | ${1n}
     ${0n}   | ${-1n} | ${0n}

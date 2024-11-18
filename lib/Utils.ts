@@ -613,4 +613,18 @@ export const chunkArray = <T>(array: T[], size: number): T[][] => {
   return chunks.filter((chunk) => chunk.length !== 0);
 };
 
+export const arrayToChunks = <T>(array: T[], chunkSize: number): T[][] => {
+  if (chunkSize <= 0) {
+    throw 'invalid chunk size';
+  }
+
+  const chunks: T[][] = [];
+
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+
+  return chunks;
+};
+
 export const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);

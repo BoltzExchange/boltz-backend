@@ -9,6 +9,7 @@ import {
 } from '../../Core';
 import Logger from '../../Logger';
 import {
+  arrayToChunks,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -40,6 +41,8 @@ class DeferredClaimer extends CoopSignerBase<
 > {
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
+
+  private static readonly maxBatchClaimChunk = 15;
 
   private readonly lock = new AsyncLock();
 
@@ -225,7 +228,7 @@ class DeferredClaimer extends CoopSignerBase<
     });
   };
 
-  private batchClaim = async (symbol: string) => {
+  private batchClaim = async (symbol: string): Promise<string[]> => {
     let swapsToClaim: SwapToClaimPreimage[] = [];
 
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
@@ -238,30 +241,45 @@ class DeferredClaimer extends CoopSignerBase<
       swaps.clear();
     });
 
-    try {
-      if (swapsToClaim.length === 0) {
-        this.logger.silly(
-          `Not batch claiming swaps for currency ${symbol}: no swaps to claim`,
-        );
-        return [];
-      }
-
-      this.logger.verbose(`Batch claiming swaps for currency: ${symbol}`);
-      return await this.broadcastClaim(symbol, swapsToClaim);
-    } catch (e) {
-      this.logger.warn(
-        `Batch claim for currency ${symbol} failed: ${formatError(e)}`,
+    if (swapsToClaim.length === 0) {
+      this.logger.silly(
+        `Not batch claiming swaps for currency ${symbol}: no swaps to claim`,
       );
-      await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
-        const map = this.swapsToClaim.get(symbol)!;
-
-        for (const toClaim of swapsToClaim) {
-          map.set(toClaim.swap.id, toClaim);
-        }
-      });
-
-      throw e;
+      return [];
     }
+    this.logger.verbose(`Batch claiming swaps for currency: ${symbol}`);
+
+    let claimed: string[] = [];
+    let lastError: unknown;
+
+    for (const toClaimChunk of arrayToChunks(
+      swapsToClaim,
+      DeferredClaimer.maxBatchClaimChunk,
+    )) {
+      try {
+        claimed = claimed.concat(
+          ...(await this.broadcastClaim(symbol, toClaimChunk)),
+        );
+      } catch (e) {
+        lastError = e;
+        this.logger.error(
+          `Batch claim for currency ${symbol} failed: ${formatError(e)}`,
+        );
+        await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
+          const map = this.swapsToClaim.get(symbol)!;
+
+          for (const toClaim of toClaimChunk) {
+            map.set(toClaim.swap.id, toClaim);
+          }
+        });
+      }
+    }
+
+    if (claimed.length === 0 && lastError !== undefined) {
+      throw lastError;
+    }
+
+    return claimed;
   };
 
   private broadcastClaim = async (

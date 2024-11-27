@@ -255,6 +255,10 @@ maxZeroConfRisk = 1_000_000
 # Can be set to alert about the balance of an unused wallet being more than a certain threshold
 # maxUnusedWalletBalance = 100_000
 
+# Public keys of Lightning nodes on the network of the currency
+# to which we cannot route reliably
+noRoute = ["02588a9f9835642d8ab1fb8018f2d9cd85b8fb353cc5375f0f7f59cad87a62133f"]
+
     [currencies.chain]
     host = "127.0.0.1"
     port = 18_332

@@ -1,5 +1,7 @@
 import { Job, scheduleJob } from 'node-schedule';
+import { CurrencyConfig } from '../Config';
 import Logger from '../Logger';
+import { stringify } from '../Utils';
 import {
   ChannelInfo,
   NodeInfo as INodeInfo,
@@ -28,13 +30,29 @@ class NodeInfo {
   public readonly uris = new Map<string, Map<string, LightningNodeInfo>>();
 
   private readonly pubkeys = new Set<string>();
+  private readonly noRoutes = new Map<string, Set<string>>();
 
   private job?: Job;
 
   constructor(
     private logger: Logger,
     private currencies: Map<string, Currency>,
-  ) {}
+    currencyConfigs: CurrencyConfig[],
+  ) {
+    for (const currency of currencyConfigs) {
+      const noRouteList = (currency.noRoute || []).map((pubkey) =>
+        pubkey.toLowerCase(),
+      );
+      if (noRouteList.length === 0) {
+        continue;
+      }
+
+      this.logger.verbose(
+        `No route list for ${currency.symbol}: ${stringify(noRouteList)}`,
+      );
+      this.noRoutes.set(currency.symbol, new Set(noRouteList));
+    }
+  }
 
   public init = () => {
     this.job = scheduleJob('0 0 * * *', async () => {
@@ -53,6 +71,15 @@ class NodeInfo {
   };
 
   public isOurNode = (pubkey: string): boolean => this.pubkeys.has(pubkey);
+
+  public isNoRoute = (symbol: string, pubkey: string): boolean => {
+    const noRouteList = this.noRoutes.get(symbol);
+    if (noRouteList === undefined || pubkey === undefined) {
+      return false;
+    }
+
+    return noRouteList.has(pubkey.toLowerCase());
+  };
 
   private update = async () => {
     for (const [symbol, currency] of this.currencies) {

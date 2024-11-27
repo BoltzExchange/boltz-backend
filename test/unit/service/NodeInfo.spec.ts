@@ -1,3 +1,4 @@
+import { CurrencyConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -94,7 +95,26 @@ describe('NodeInfo', () => {
     ],
     ['NEITHER', {}],
   ] as [string, Currency][]);
-  const nodeInfo = new NodeInfo(Logger.disabledLogger, currencies);
+
+  const currencyConfigs = [
+    {
+      symbol: 'BTC',
+      noRoute: ['a', 'b'],
+    },
+    {
+      symbol: 'L-BTC',
+      noRoute: ['C'],
+    },
+    {
+      symbol: 'R-BTC',
+    },
+  ] as CurrencyConfig[];
+
+  const nodeInfo = new NodeInfo(
+    Logger.disabledLogger,
+    currencies,
+    currencyConfigs,
+  );
 
   afterAll(() => {
     nodeInfo.stopSchedule();
@@ -283,4 +303,19 @@ describe('NodeInfo', () => {
     );
     expect(nodeInfo.isOurNode(pubkey)).toEqual(isOurs);
   });
+
+  test.each`
+    symbol     | pubkey | noRoute
+    ${'BTC'}   | ${'a'} | ${true}
+    ${'BTC'}   | ${'A'} | ${true}
+    ${'BTC'}   | ${'b'} | ${true}
+    ${'BTC'}   | ${'c'} | ${false}
+    ${'L-BTC'} | ${'c'} | ${true}
+    ${'RBTC'}  | ${'c'} | ${false}
+  `(
+    'should check if $symbol node $pubkey is not routable',
+    async ({ symbol, pubkey, noRoute }) => {
+      expect(nodeInfo.isNoRoute(symbol, pubkey)).toEqual(noRoute);
+    },
+  );
 });

@@ -914,6 +914,43 @@ export namespace SetSwapStatusResponse {
     }
 }
 
+export class AllowRefundRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): AllowRefundRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AllowRefundRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AllowRefundRequest): AllowRefundRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AllowRefundRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AllowRefundRequest;
+    static deserializeBinaryFromReader(message: AllowRefundRequest, reader: jspb.BinaryReader): AllowRefundRequest;
+}
+
+export namespace AllowRefundRequest {
+    export type AsObject = {
+        id: string,
+    }
+}
+
+export class AllowRefundResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AllowRefundResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AllowRefundResponse): AllowRefundResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AllowRefundResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AllowRefundResponse;
+    static deserializeBinaryFromReader(message: AllowRefundResponse, reader: jspb.BinaryReader): AllowRefundResponse;
+}
+
+export namespace AllowRefundResponse {
+    export type AsObject = {
+    }
+}
+
 export class GetLabelRequest extends jspb.Message { 
     getTxId(): string;
     setTxId(value: string): GetLabelRequest;

@@ -30,6 +30,9 @@ service Boltz {
   /* Modifies the status of a swap */
   rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
 
+  /* Disables safety checks to allow for a cooperative refund for a swap */
+  rpc AllowRefund (AllowRefundRequest) returns (AllowRefundResponse);
+
   /* Gets funds locked by the server for swaps */
   rpc GetLockedFunds (GetLockedFundsRequest) returns (GetLockedFundsResponse);
 
@@ -234,6 +237,12 @@ message SetSwapStatusRequest {
 }
 
 message SetSwapStatusResponse {}
+
+message AllowRefundRequest {
+  string id = 1;
+}
+
+message AllowRefundResponse {}
 
 message GetLabelRequest {
   string tx_id = 1;

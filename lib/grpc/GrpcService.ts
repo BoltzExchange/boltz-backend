@@ -195,6 +195,18 @@ class GrpcService {
     });
   };
 
+  public allowRefund: handleUnaryCall<
+    boltzrpc.AllowRefundRequest,
+    boltzrpc.AllowRefundResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { id } = call.request.toObject();
+      await this.service.allowRefund(id);
+
+      return new boltzrpc.AllowRefundResponse();
+    });
+  };
+
   public getLockedFunds: handleUnaryCall<
     boltzrpc.GetLockedFundsRequest,
     boltzrpc.GetLockedFundsResponse

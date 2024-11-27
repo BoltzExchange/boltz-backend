@@ -952,6 +952,10 @@ class Service {
     );
   };
 
+  public allowRefund = async (id: string) => {
+    await this.musigSigner.allowRefund(id);
+  };
+
   public getLockedFunds = async (): Promise<
     Map<string, { reverseSwaps: ReverseSwap[]; chainSwaps: ChainSwapInfo[] }>
   > => {

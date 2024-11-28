@@ -3,6 +3,47 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.8.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.8.0..v3.8.1) - 2024-11-28
+
+### Bug Fixes
+
+- config parsing with defaults - ([c0886a9](https://github.com/BoltzExchange/boltz-backend/commit/c0886a95ddfa6b80c3a90b0fecc9619184fb7c7f))
+- Core wallet unconfirmed classification - ([09c70c5](https://github.com/BoltzExchange/boltz-backend/commit/09c70c555655809392a04647aa5e8bff6abd4645))
+- wording of limit exceeded error - ([be0786b](https://github.com/BoltzExchange/boltz-backend/commit/be0786ba77a2d0926c012e833d5dcc342c704f80))
+- abandon failed Webhooks when status is not included (#717) - ([54223af](https://github.com/BoltzExchange/boltz-backend/commit/54223afb85ecef187dcda633325400dbddcc14e3))
+- bolt12 invoice pay status (#722) - ([8dca13c](https://github.com/BoltzExchange/boltz-backend/commit/8dca13c3daa8891b9ceea6a17230aef85ca507fd))
+- chunk batch claim transactions (#725) - ([c1372b9](https://github.com/BoltzExchange/boltz-backend/commit/c1372b93373d045cc85039d5ba75c9b811f36ab5))
+
+### Documentation
+
+- BOLT12 offer and BIP-353 fetching (#711) - ([cddd661](https://github.com/BoltzExchange/boltz-backend/commit/cddd661aa1cb1a5760e37d3749c6a176045fc90b))
+- BOLT12 misc enhancements (#712) - ([1ab9de7](https://github.com/BoltzExchange/boltz-backend/commit/1ab9de795a692785a22654e86a5f797456d4e63d))
+- EVM clarifications - ([fc0f47b](https://github.com/BoltzExchange/boltz-backend/commit/fc0f47b62fe74b5052e5145328f61c8d207c110d))
+- remove "RSK Testnet Only" hint (#718) - ([0b24836](https://github.com/BoltzExchange/boltz-backend/commit/0b2483625ddb64223676ca35bb01584e8394020b))
+
+### Features
+
+- gzip compression for CLN SCB backups (#706) - ([42d1330](https://github.com/BoltzExchange/boltz-backend/commit/42d1330f25faf7605bf66c71cbc0c9346460a903))
+- 0-conf Prometheus metrics (#713) - ([bb1a42f](https://github.com/BoltzExchange/boltz-backend/commit/bb1a42fc9adba2fcfc8c86d7cbedbfee7f8490a3))
+- get status of pending CLN invoices on startup (#714) - ([776613d](https://github.com/BoltzExchange/boltz-backend/commit/776613dc1fbbe45ad8193d90e3b27cc73ee7f233))
+- save preimage of Submarine Swaps in database - ([2357297](https://github.com/BoltzExchange/boltz-backend/commit/235729740e18bdff1a128773f1a1583ae5e6368e))
+- preimage endpoint for Submarine Swaps - ([2638f0a](https://github.com/BoltzExchange/boltz-backend/commit/2638f0ae675e8a355ee5986c8abfe5e2df8ed3bd))
+- Liquid 0-conf checks via API (#721) - ([69511de](https://github.com/BoltzExchange/boltz-backend/commit/69511de1c6a794a18582ca780cec3517fe984a10))
+- un-route-able nodes config - ([43e5c48](https://github.com/BoltzExchange/boltz-backend/commit/43e5c483d3f1e5c15c5072f28763e2bf839ce3a9))
+- allow cooperative refunds with pending payments - ([ea4c827](https://github.com/BoltzExchange/boltz-backend/commit/ea4c827f254f3af3ac64b1d94a599aa6308d6b0e))
+
+### Miscellaneous Chores
+
+- update changelog for v3.8.0 - ([6131ab9](https://github.com/BoltzExchange/boltz-backend/commit/6131ab92dfeb6c9497929725c737edc15fffec53))
+- fix fee clalculation for BOLT12 invoices - ([2aa6820](https://github.com/BoltzExchange/boltz-backend/commit/2aa6820fc4db4314faaff35560300085ab292793))
+- more verbose logging in ElementsWrapper - ([3408300](https://github.com/BoltzExchange/boltz-backend/commit/3408300e52e67831fb0e4c57ae25e256d2fc717a))
+- relax sidecar production version check - ([26262e4](https://github.com/BoltzExchange/boltz-backend/commit/26262e43e2733b44e37ed26446a2e081020c4795))
+- trace deprecations in Docker container - ([607331c](https://github.com/BoltzExchange/boltz-backend/commit/607331c2524116080be956950c1f13b4f83f6b07))
+- minor logging improvements - ([3c9e311](https://github.com/BoltzExchange/boltz-backend/commit/3c9e3113015fa9f9060204af31c3ab0282d44542))
+- bump cross-spawn from 7.0.3 to 7.0.6 (#726) - ([41979d9](https://github.com/BoltzExchange/boltz-backend/commit/41979d989622606809ff55acac7a86718a2f78d8))
+- fix minor logging typo - ([c6b0f09](https://github.com/BoltzExchange/boltz-backend/commit/c6b0f097efc58204da9a577c4fd3a2200750db7f))
+
+---
 ## [3.8.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.3..v3.8.0) - 2024-11-04
 
 ### Bug Fixes

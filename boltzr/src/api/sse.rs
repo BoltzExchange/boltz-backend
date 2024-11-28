@@ -1,5 +1,5 @@
+use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
-use crate::ws::status::SwapInfos;
 use async_stream::try_stream;
 use axum::response::sse::{Event, Sse};
 use axum::{extract::Query, Extension};
@@ -75,7 +75,7 @@ where
 #[cfg(test)]
 mod test {
     use crate::api::test::start;
-    use crate::ws::types::SwapStatus;
+    use crate::api::ws::types::SwapStatus;
     use eventsource_client::{Client, SSE};
     use futures_util::StreamExt;
 

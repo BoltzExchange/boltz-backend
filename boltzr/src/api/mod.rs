@@ -1,6 +1,4 @@
 use crate::api::sse::sse_handler;
-use crate::ws::status::SwapInfos;
-use crate::ws::types::SwapStatus;
 use axum::routing::get;
 use axum::{Extension, Router};
 use serde::{Deserialize, Serialize};
@@ -8,11 +6,14 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
+use ws::status::SwapInfos;
+use ws::types::SwapStatus;
 
 #[cfg(feature = "metrics")]
 use crate::metrics::server::MetricsLayer;
 
 mod sse;
+pub mod ws;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
@@ -100,9 +101,9 @@ where
 
 #[cfg(test)]
 mod test {
+    use crate::api::ws::status::SwapInfos;
+    use crate::api::ws::types::SwapStatus;
     use crate::api::{Config, Server};
-    use crate::ws::status::SwapInfos;
-    use crate::ws::types::SwapStatus;
     use async_trait::async_trait;
     use reqwest::StatusCode;
     use std::time::Duration;

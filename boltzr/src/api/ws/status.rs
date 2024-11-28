@@ -10,8 +10,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::ws::types::SwapStatus;
-use crate::ws::Config;
+use crate::api::ws::types::SwapStatus;
+use crate::api::ws::Config;
 
 const PING_INTERVAL_MS: u64 = 15_000;
 
@@ -43,25 +43,47 @@ enum SubscriptionChannel {
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct SubscribeMessage {
+struct SubscribeRequest {
     channel: SubscriptionChannel,
     args: Vec<String>,
+}
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    timestamp: Option<String>,
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct UnsubscribeRequest {
+    channel: SubscriptionChannel,
+    args: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "op")]
 enum WsRequest {
     #[serde(rename = "subscribe")]
-    Subscribe(SubscribeMessage),
+    Subscribe(SubscribeRequest),
+    #[serde(rename = "unsubscribe")]
+    Unsubscribe(UnsubscribeRequest),
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct UpdateMessage {
+struct SubscribeResponse {
+    channel: SubscriptionChannel,
+    args: Vec<String>,
+
+    timestamp: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct UnsubscribeResponse {
+    channel: SubscriptionChannel,
+    args: Vec<String>,
+
+    timestamp: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct UpdateResponse {
     channel: SubscriptionChannel,
     args: Vec<SwapStatus>,
+
     timestamp: String,
 }
 
@@ -69,9 +91,11 @@ struct UpdateMessage {
 #[serde(tag = "event")]
 enum WsResponse {
     #[serde(rename = "subscribe")]
-    Subscribe(SubscribeMessage),
+    Subscribe(SubscribeResponse),
+    #[serde(rename = "unsubscribe")]
+    Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
-    Update(UpdateMessage),
+    Update(UpdateResponse),
 }
 
 #[derive(Debug, Clone)]
@@ -224,7 +248,7 @@ where
                                 }
                             };
 
-                            let msg = match serde_json::to_string(&WsResponse::Update(UpdateMessage {
+                            let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
                                 timestamp,
                                 channel: SubscriptionChannel::SwapUpdate,
                                 args: relevant_updates,
@@ -276,38 +300,48 @@ where
         };
         trace!("Got message: {:?}", msg);
 
+        let get_timestamp = || match Self::get_timestamp() {
+            Ok(res) => Some(res),
+            Err(err) => {
+                error!("Could not get UNIX time: {}", err);
+                None
+            }
+        };
+
         match msg {
             WsRequest::Subscribe(sub) => match sub.channel {
                 SubscriptionChannel::SwapUpdate => {
-                    self.subscribe_swap_updates(subscribed_ids, &sub.args).await;
+                    for id in &sub.args {
+                        subscribed_ids.insert(id.clone());
+                    }
 
-                    let timestamp = match Self::get_timestamp() {
-                        Ok(res) => res,
-                        Err(err) => {
-                            error!("Could not get UNIX time: {}", err);
-                            return Ok(None);
-                        }
-                    };
-                    Ok(Some(WsResponse::Subscribe(SubscribeMessage {
-                        timestamp: Some(timestamp),
-                        channel: SubscriptionChannel::SwapUpdate,
+                    self.swap_infos.fetch_status_info(&sub.args).await;
+
+                    Ok(Some(WsResponse::Subscribe(SubscribeResponse {
+                        timestamp: match get_timestamp() {
+                            Some(time) => time,
+                            None => return Ok(None),
+                        },
                         args: sub.args,
+                        channel: SubscriptionChannel::SwapUpdate,
                     })))
                 }
             },
-        }
-    }
+            WsRequest::Unsubscribe(unsub) => {
+                for id in &unsub.args {
+                    subscribed_ids.remove(id);
+                }
 
-    async fn subscribe_swap_updates(
-        &self,
-        subscribed_ids: &mut HashSet<String>,
-        ids: &Vec<String>,
-    ) {
-        for id in ids {
-            subscribed_ids.insert(id.clone());
+                Ok(Some(WsResponse::Unsubscribe(UnsubscribeResponse {
+                    timestamp: match get_timestamp() {
+                        Some(time) => time,
+                        None => return Ok(None),
+                    },
+                    channel: SubscriptionChannel::SwapUpdate,
+                    args: subscribed_ids.iter().cloned().collect(),
+                })))
+            }
         }
-
-        self.swap_infos.fetch_status_info(ids).await;
     }
 
     fn get_timestamp() -> Result<String, SystemTimeError> {
@@ -320,9 +354,11 @@ where
 
 #[cfg(test)]
 mod status_test {
-    use crate::ws::status::{ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse};
-    use crate::ws::types::SwapStatus;
-    use crate::ws::Config;
+    use crate::api::ws::status::{
+        ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
+    };
+    use crate::api::ws::types::SwapStatus;
+    use crate::api::ws::Config;
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
     use futures::{SinkExt, StreamExt};
@@ -479,7 +515,7 @@ mod status_test {
                         assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                         assert_eq!(res.args, vec!["some".to_string(), "ids".to_string(),]);
                         assert!(
-                            res.timestamp.unwrap().parse::<u128>().unwrap()
+                            res.timestamp.parse::<u128>().unwrap()
                                 <= SystemTime::now()
                                     .duration_since(UNIX_EPOCH)
                                     .unwrap()
@@ -550,7 +586,7 @@ mod status_test {
                     "ids".into(),
                     "invoice.set".into(),
                 )])
-                .unwrap()
+                .unwrap();
         });
 
         let mut count = 0;
@@ -590,6 +626,99 @@ mod status_test {
         }
 
         cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_unsubscribe() {
+        let port = 12_006;
+        let (cancel, update_tx) = create_server(port).await;
+
+        let (client, _) =
+            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
+                .await
+                .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::Text(
+                json!({
+                    "op": "subscribe",
+                    "channel": "swap.update",
+                    "args": vec!["some", "ids"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+
+            update_tx
+                .send(vec![SwapStatus::default(
+                    "ids".into(),
+                    "invoice.set".into(),
+                )])
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+
+            tx.send(Message::Text(
+                json!({
+                    "op": "unsubscribe",
+                    "channel": "swap.update",
+                    "args": vec!["ids"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+
+            update_tx
+                .send(vec![SwapStatus::default(
+                    "ids".into(),
+                    "transaction.mempool".into(),
+                )])
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(50)).await;
+
+            cancel.cancel();
+        });
+
+        let mut update_count = 0;
+        let mut unsubscribe_sent = false;
+
+        loop {
+            let msg = match rx.next().await {
+                Some(msg) => match msg {
+                    Ok(msg) => msg,
+                    Err(_) => break,
+                },
+                None => continue,
+            };
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+
+            match res {
+                WsResponse::Update(_) => {
+                    update_count += 1;
+                }
+                WsResponse::Unsubscribe(msg) => {
+                    assert_eq!(msg.channel, SubscriptionChannel::SwapUpdate);
+                    assert_eq!(msg.args, vec!["some".to_string()]);
+
+                    unsubscribe_sent = true;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(unsubscribe_sent);
+
+        // One for the initial update and one for the update that was sent before the unsubscribe
+        assert_eq!(update_count, 2);
     }
 
     async fn create_server(port: u16) -> (CancellationToken, Sender<Vec<SwapStatus>>) {

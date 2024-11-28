@@ -91,8 +91,8 @@ export const parseTransaction = <T extends Transaction | LiquidTransaction>(
       : (LiquidTransaction.fromBuffer(rawTx) as T);
   } else {
     return isBitcoin(type)
-      ? (Transaction.fromHex(rawTx) as T)
-      : (LiquidTransaction.fromHex(rawTx) as T);
+      ? (Transaction.fromHex(rawTx as string) as T)
+      : (LiquidTransaction.fromHex(rawTx as string) as T);
   }
 };
 

@@ -1,6 +1,3 @@
-use std::error::Error;
-use std::fs;
-
 use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
@@ -11,6 +8,8 @@ use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
 use alloy::signers::{Signature, Signer};
 use alloy::sol_types::SolStruct;
+use std::error::Error;
+use std::fs;
 use tracing::{debug, info, instrument};
 
 use crate::evm::contracts::erc20_swap::ERC20SwapContract;
@@ -131,7 +130,8 @@ impl RefundSigner for LocalRefundSigner {
             .eip712_signing_hash(self.ether_swap.eip712_domain())
         };
 
-        Ok(self.signer.sign_hash(&hash).await?)
+        let sig = self.signer.sign_hash(&hash).await?;
+        Ok(Signature::from_bytes_and_parity(&sig.as_bytes(), sig.v())?)
     }
 }
 

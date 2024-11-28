@@ -43,7 +43,9 @@ enum RefundRejectionReason {
 class MusigSigner {
   private static readonly reverseSwapClaimSignatureLock =
     'reverseSwapClaimSignature';
+
   private readonly lock = new AsyncLock();
+  private readonly allowedRefunds = new Set<string>();
 
   constructor(
     private readonly logger: Logger,
@@ -51,6 +53,18 @@ class MusigSigner {
     private readonly walletManager: WalletManager,
     private readonly nursery: SwapNursery,
   ) {}
+
+  public allowRefund = async (id: string) => {
+    // Check if the swap actually exists
+    if ((await SwapRepository.getSwap({ id })) === null) {
+      throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    this.logger.info(
+      `Allowing refund of ${swapTypeToPrettyString(SwapType.Submarine)} Swap: ${id}`,
+    );
+    this.allowedRefunds.add(id);
+  };
 
   public signRefund = async (
     swapId: string,
@@ -72,20 +86,7 @@ class MusigSigner {
       throw Errors.CURRENCY_NOT_UTXO_BASED();
     }
 
-    {
-      const rejectionReason = await MusigSigner.refundNonEligibilityReason(
-        swap,
-        this.currencies.get(
-          getLightningCurrency(base, quote, swap.orderSide, false),
-        )!,
-      );
-      if (rejectionReason !== undefined) {
-        this.logger.verbose(
-          `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
-        );
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
-      }
-    }
+    await this.validateEligibility(swap);
 
     this.logger.debug(
       `Creating partial signature for refund of Swap ${swap.id}`,
@@ -207,6 +208,31 @@ class MusigSigner {
     }
 
     return undefined;
+  };
+
+  private validateEligibility = async (swap: Swap) => {
+    const { base, quote } = splitPairId(swap.pair);
+    const rejectionReason = await MusigSigner.refundNonEligibilityReason(
+      swap,
+      this.currencies.get(
+        getLightningCurrency(base, quote, swap.orderSide, false),
+      )!,
+    );
+    if (rejectionReason === undefined) {
+      return;
+    }
+
+    if (this.allowedRefunds.has(swap.id)) {
+      this.logger.info(
+        `Allowing cooperative refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} despite rejection reason (${rejectionReason}) because it was allowed explicitly`,
+      );
+      return;
+    }
+
+    this.logger.verbose(
+      `Not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+    );
+    throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
   };
 
   private static hasPendingOrSuccessfulLightningPayment = async (

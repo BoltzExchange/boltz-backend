@@ -18,6 +18,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
     addReferral: IBoltzService_IAddReferral;
     setSwapStatus: IBoltzService_ISetSwapStatus;
+    allowRefund: IBoltzService_IAllowRefund;
     getLockedFunds: IBoltzService_IGetLockedFunds;
     getPendingSweeps: IBoltzService_IGetPendingSweeps;
     sweepSwaps: IBoltzService_ISweepSwaps;
@@ -118,6 +119,15 @@ interface IBoltzService_ISetSwapStatus extends grpc.MethodDefinition<boltzrpc_pb
     responseSerialize: grpc.serialize<boltzrpc_pb.SetSwapStatusResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SetSwapStatusResponse>;
 }
+interface IBoltzService_IAllowRefund extends grpc.MethodDefinition<boltzrpc_pb.AllowRefundRequest, boltzrpc_pb.AllowRefundResponse> {
+    path: "/boltzrpc.Boltz/AllowRefund";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.AllowRefundRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.AllowRefundRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.AllowRefundResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.AllowRefundResponse>;
+}
 interface IBoltzService_IGetLockedFunds extends grpc.MethodDefinition<boltzrpc_pb.GetLockedFundsRequest, boltzrpc_pb.GetLockedFundsResponse> {
     path: "/boltzrpc.Boltz/GetLockedFunds";
     requestStream: false;
@@ -204,6 +214,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
     addReferral: grpc.handleUnaryCall<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse>;
     setSwapStatus: grpc.handleUnaryCall<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse>;
+    allowRefund: grpc.handleUnaryCall<boltzrpc_pb.AllowRefundRequest, boltzrpc_pb.AllowRefundResponse>;
     getLockedFunds: grpc.handleUnaryCall<boltzrpc_pb.GetLockedFundsRequest, boltzrpc_pb.GetLockedFundsResponse>;
     getPendingSweeps: grpc.handleUnaryCall<boltzrpc_pb.GetPendingSweepsRequest, boltzrpc_pb.GetPendingSweepsResponse>;
     sweepSwaps: grpc.handleUnaryCall<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse>;
@@ -245,6 +256,9 @@ export interface IBoltzClient {
     setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    allowRefund(request: boltzrpc_pb.AllowRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
+    allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
+    allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;
     getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;
     getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;
@@ -303,6 +317,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
     public setSwapStatus(request: boltzrpc_pb.SetSwapStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetSwapStatusResponse) => void): grpc.ClientUnaryCall;
+    public allowRefund(request: boltzrpc_pb.AllowRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
+    public allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
+    public allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     public getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;
     public getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;
     public getLockedFunds(request: boltzrpc_pb.GetLockedFundsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLockedFundsResponse) => void): grpc.ClientUnaryCall;

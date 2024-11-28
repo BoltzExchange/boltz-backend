@@ -85,7 +85,7 @@ describe('MusigSigner', () => {
     await Promise.all([
       setup(),
       bitcoinClient.connect(),
-      clnClient.connect(true),
+      clnClient.connect(),
       bitcoinLndClient.connect(true),
       bitcoinLndClient2.connect(true),
     ]);
@@ -104,6 +104,15 @@ describe('MusigSigner', () => {
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
     bitcoinLndClient2.disconnect();
+  });
+
+  test('should throw when allowing refund for a swap that does not exist', async () => {
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+
+    const id = 'notFound';
+    await expect(signer.allowRefund(id)).rejects.toEqual(
+      Errors.SWAP_NOT_FOUND(id),
+    );
   });
 
   test('should create refund signature for failed swaps', async () => {
@@ -313,6 +322,41 @@ describe('MusigSigner', () => {
       await expect(payPromise).rejects.toEqual(expect.anything());
     },
   );
+
+  test('should allow refunds for swaps with pending payments when explicitly allowed', async () => {
+    const preimageHash = randomBytes(32);
+    const holdInvoice = await bitcoinLndClient2.addHoldInvoice(
+      1_000,
+      preimageHash,
+    );
+    const payPromise = bitcoinLndClient.sendPayment(holdInvoice);
+
+    const swap = {
+      pair: 'BTC/BTC',
+      id: 'refundable',
+      invoice: holdInvoice,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexString(preimageHash),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    } as Swap;
+
+    await waitForFunctionToBeTrue(
+      () =>
+        MusigSigner['hasPendingOrSuccessfulLightningPayment'](
+          btcCurrency,
+          swap,
+        ),
+      100,
+    );
+
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    await signer.allowRefund(swap.id);
+    await signer['validateEligibility'](swap);
+
+    await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
+    await expect(payPromise).rejects.toEqual(expect.anything());
+  });
 
   test('should create claim signature for reverse swaps', async () => {
     const claimKeys = ECPair.makeRandom();

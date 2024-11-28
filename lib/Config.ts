@@ -78,6 +78,7 @@ type RoutingOffsetException = {
 type CurrencyConfig = BaseCurrencyConfig & {
   lnd?: LndConfig;
   cln?: ClnConfig;
+  noRoute?: string[];
   routingOffsetExceptions?: RoutingOffsetException[];
 
   // Max fee ratio for LND's sendPayment

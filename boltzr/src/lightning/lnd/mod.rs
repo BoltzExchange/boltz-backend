@@ -139,7 +139,7 @@ impl BaseClient for Lnd {
                     Err(err) => {
                         error!("LND subscriptions failed: {}", err);
                         warn!(
-                            "Reconnecting to LND subscriptions in : {:?}",
+                            "Reconnecting to LND subscriptions in: {:?}",
                             RECONNECT_INTERVAL
                         );
                         tokio::time::sleep(RECONNECT_INTERVAL).await;

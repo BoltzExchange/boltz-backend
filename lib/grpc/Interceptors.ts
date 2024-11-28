@@ -6,7 +6,7 @@ export const loggingInterceptor =
   (methodDescriptor, call) =>
     new ServerInterceptingCall(call, {
       start: (next) => {
-        logger.debug(`Got gRPC call ${methodDescriptor.path}`);
+        logger.debug(`Got gRPC call: ${methodDescriptor.path}`);
         return next();
       },
     });

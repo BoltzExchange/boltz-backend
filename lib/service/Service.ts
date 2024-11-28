@@ -54,6 +54,7 @@ import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintR
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
+import LightningErrors from '../lightning/Errors';
 import {
   HopHint,
   InvoiceFeature,
@@ -225,7 +226,11 @@ class Service {
 
     this.eventHandler = new EventHandler(this.logger, this.swapManager.nursery);
 
-    this.nodeInfo = new NodeInfo(this.logger, this.currencies);
+    this.nodeInfo = new NodeInfo(
+      this.logger,
+      this.currencies,
+      config.currencies,
+    );
     this.elementsService = new ElementsService(
       this.currencies,
       this.walletManager,
@@ -947,6 +952,10 @@ class Service {
     );
   };
 
+  public allowRefund = async (id: string) => {
+    await this.musigSigner.allowRefund(id);
+  };
+
   public getLockedFunds = async (): Promise<
     Map<string, { reverseSwaps: ReverseSwap[]; chainSwaps: ChainSwapInfo[] }>
   > => {
@@ -1339,6 +1348,10 @@ class Service {
 
     if (this.nodeInfo.isOurNode(destination)) {
       throw Errors.DESTINATION_BOLTZ_NODE();
+    }
+
+    if (this.nodeInfo.isNoRoute(lightningCurrency, destination)) {
+      throw LightningErrors.NO_ROUTE();
     }
 
     // TODO: check this still works

@@ -44,6 +44,7 @@ import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRo
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { satToMsat } from '../../../lib/lightning/ChannelUtils';
+import LightningErrors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
@@ -2040,6 +2041,27 @@ describe('Service', () => {
     await expect(
       service.setInvoice(mockGetSwapResult.id, invoice),
     ).rejects.toEqual(Errors.DESTINATION_BOLTZ_NODE());
+
+    decodedInvoice.destination = undefined;
+  });
+
+  test('should not set swap invoice if it is from an un-route-able node', async () => {
+    mockGetSwapResult = {
+      id: 'swapOurPubkey',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    const noRouteKey = 'asdf';
+    service['nodeInfo']['noRoutes'].set('BTC', new Set([noRouteKey]));
+    decodedInvoice.destination = noRouteKey;
+
+    const invoice =
+      'lnbcrt1230n1pjw20v9pp5k4hlsgl93azhjkz5zxs3zsgnvksz2r6yee83av2r2jjncwrc0upsdqqcqzzsxq9z0rgqsp5ce7wh3ff7kz5f8sxfulcp48982gyqy935m6fzvrqr8547kh8rz2s9q8pqqqssq2u68l700shh7gzfeuetugp3h5kh80c40g5tsx7awwruy06309gy4ehwrw2h7vd7cwevc0p60td0wk22p5ldfp84nlueka8ft7kng0lsqwqjjq9';
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(LightningErrors.NO_ROUTE());
 
     decodedInvoice.destination = undefined;
   });

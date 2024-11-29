@@ -1,12 +1,12 @@
+use crate::config::parse_config;
+use crate::currencies::connect_nodes;
+use crate::swap::manager::Manager;
+use api::ws;
 use clap::Parser;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task;
 use tracing::{debug, error, info, trace, warn};
-
-use crate::config::parse_config;
-use crate::currencies::connect_nodes;
-use crate::swap::manager::Manager;
 
 mod api;
 mod backup;
@@ -23,7 +23,6 @@ mod tracing_setup;
 mod utils;
 mod wallet;
 mod webhook;
-mod ws;
 
 #[cfg(feature = "metrics")]
 mod metrics;

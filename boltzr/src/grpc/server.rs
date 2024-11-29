@@ -1,3 +1,4 @@
+use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::refund_signer::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
@@ -8,7 +9,6 @@ use crate::notifications::NotificationClient;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
-use crate::ws::types::SwapStatus;
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::error::Error;
@@ -150,6 +150,7 @@ where
 
 #[cfg(test)]
 mod server_test {
+    use crate::api::ws;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
@@ -163,7 +164,6 @@ mod server_test {
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller;
-    use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use async_trait::async_trait;
     use mockall::{mock, predicate::*};

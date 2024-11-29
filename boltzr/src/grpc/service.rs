@@ -1,3 +1,4 @@
+use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::refund_signer::RefundSigner;
@@ -19,7 +20,6 @@ use crate::notifications::NotificationClient;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
-use crate::ws::types::SwapStatus;
 use alloy::primitives::{Address, FixedBytes};
 use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
@@ -619,6 +619,7 @@ fn extract_parent_context<T>(request: &Request<T>) {
 
 #[cfg(test)]
 mod test {
+    use crate::api::ws;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
@@ -637,7 +638,6 @@ mod test {
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
-    use crate::ws;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use alloy::signers::k256;
     use async_trait::async_trait;

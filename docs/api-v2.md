@@ -45,6 +45,9 @@ After the initial subscription confirmation message and whenever a swap status
 is updated, Boltz API will send a message containing details about the status
 update.
 
+`args` is a list of objects. These objects correspond to responses of
+`GET /swap/{id}`, but additionally contain the id of the swap.
+
 ```json
 {
   "event": "update",
@@ -58,8 +61,27 @@ update.
 }
 ```
 
-`args` is a list of objects. These objects correspond to responses of
-`GET /swap/{id}`, but additionally contain the id of the swap.
+To unsubscribe from the updates of one or more swaps, send an `unsubscribe`
+message.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "swap.update",
+  "args": ["swap id 1"]
+}
+```
+
+The backend will respond with a message that contains all swap ids the WebSocket
+is still subscribed to.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "swap.update",
+  "args": ["swap id 2"]
+}
+```
 
 ## Examples
 

@@ -28,13 +28,12 @@ class NodesRouter extends RouterBase {
      *   schemas:
      *     NodeInfo:
      *       type: object
+     *       required: ["publicKey", "uris"]
      *       properties:
      *         publicKey:
      *           type: string
-     *           required: true
      *         uris:
      *           type: array
-     *           required: true
      *           items:
      *             type: string
      */
@@ -68,19 +67,16 @@ class NodesRouter extends RouterBase {
      *   schemas:
      *     NodeStats:
      *       type: object
+     *       required: ["capacity", "channels", "peers", "oldestChannel"]
      *       properties:
      *         capacity:
      *           type: integer
-     *           required: true
      *         channels:
      *           type: integer
-     *           required: true
      *         peers:
      *           type: integer
-     *           required: true
      *         oldestChannel:
      *           type: integer
-     *           required: true
      *           description: UNIX timestamp of the block in which the funding transaction of the oldest channel was included
      */
 

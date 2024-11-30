@@ -43,14 +43,13 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SwapTreeLeaf:
      *       type: object
+     *       required: ["version", "output"]
      *       properties:
      *         version:
      *           type: number
-     *           required: true
      *           description: Tapscript version
      *         output:
      *           type: string
-     *           required: true
      *           description: Script encoded as HEX
      */
 
@@ -60,6 +59,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SwapTree:
      *       type: object
+     *       required: ["claimLeaf", "refundLeaf"]
      *       properties:
      *         claimLeaf:
      *           $ref: '#/components/schemas/SwapTreeLeaf'
@@ -82,41 +82,36 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarinePair:
      *       type: object
+     *       required: ["hash", "rate", "limits", "fees"]
      *       properties:
      *         hash:
      *           type: string
-     *           required: true
      *           description: Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date
      *         rate:
      *           type: number
-     *           required: true
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
+     *           required: ["minimal", "maximal", "maximalZeroConf"]
      *           properties:
      *             minimal:
      *               type: number
-     *               required: true
      *               description: Minimal amount that can be swapped in satoshis
      *             maximal:
      *               type: number
-     *               required: true
      *               description: Maximal amount that can be swapped in satoshis
      *             maximalZeroConf:
      *               type: number
-     *               required: true
      *               description: Maximal amount that will be accepted 0-conf in satoshis
      *         fees:
      *           type: object
-     *           required: true
+     *           required: ["percentage", "minerFees"]
      *           properties:
      *             percentage:
      *               type: number
-     *               required: true
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: number
-     *               required: true
      *               description: Absolute miner fee that will be charged in satoshis
      */
 
@@ -149,10 +144,10 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     WebhookData:
      *       type: object
+     *       required: ["url"]
      *       properties:
      *         url:
      *           type: string
-     *           required: true
      *           description: URL that should be called. Only HTTPS is allowed
      *         hashSwapId:
      *           type: boolean
@@ -172,14 +167,13 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineRequest:
      *       type: object
+     *       required: ["from", "to"]
      *       properties:
      *         from:
      *           type: string
-     *           required: true
      *           description: The asset that is sent onchain
      *         to:
      *           type: string
-     *           required: true
      *           description: The asset that is received on lightning
      *         invoice:
      *           type: string
@@ -189,7 +183,6 @@ class SwapRouter extends RouterBase {
      *           description: Preimage hash of an invoice that will be set later
      *         refundPublicKey:
      *           type: string
-     *           required: true
      *           description: Public key with which the Submarine Swap can be refunded encoded as HEX
      *         pairHash:
      *           type: string
@@ -207,10 +200,10 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineResponse:
      *       type: object
+     *       required: ["id", "timeoutBlockHeight", "expectedAmount"]
      *       properties:
      *         id:
      *           type: string
-     *           required: true
      *           description: ID of the created Submarine Swap
      *         bip21:
      *           type: string
@@ -225,14 +218,12 @@ class SwapRouter extends RouterBase {
      *           description: Public key of Boltz that will be used to sweep the onchain HTLC
      *         timeoutBlockHeight:
      *           type: number
-     *           required: true
      *           description: Timeout block height of the onchain HTLC
      *         acceptZeroConf:
      *           type: boolean
      *           description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
      *         expectedAmount:
      *           type: number
-     *           required: true
      *           description: Amount that is expected to be sent to the onchain HTLC address in satoshis
      *         blindingKey:
      *           type: string
@@ -289,10 +280,10 @@ class SwapRouter extends RouterBase {
      *         application/json:
      *           schema:
      *             type: object
+     *             required: ["invoice"]
      *             properties:
      *               invoice:
      *                 type: string
-     *                 required: true
      *                 description: BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap
      *               pairHash:
      *                 type: string
@@ -303,18 +294,16 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["bip21", "expectedAmount", "acceptZeroConf"]
      *               properties:
      *                 bip21:
      *                   type: string
-     *                   required: true
      *                   description: BIP21 for the onchain payment request
      *                 expectedAmount:
      *                   type: number
-     *                   required: true
      *                   description: Amount that is expected to be sent to the onchain HTLC address in satoshis
      *                 acceptZeroConf:
      *                   type: boolean
-     *                   required: true
      *                   description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
      *       '400':
      *         description: Error that caused the request to fail
@@ -348,10 +337,10 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["invoiceAmount"]
      *               properties:
      *                 invoiceAmount:
      *                   type: number
-     *                   required: true
      *                   description: Expected amount of the invoice
      *       '400':
      *         description: Error that caused the request to fail
@@ -371,17 +360,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineTransaction:
      *       type: object
+     *       required: ["id", "timeoutBlockHeight"]
      *       properties:
      *         id:
      *           type: string
-     *           required: true
      *           description: ID the lockup transaction
      *         hex:
      *           type: string
      *           description: Lockup transaction as raw HEX
      *         timeoutBlockHeight:
      *           type: number
-     *           required: true
      *           description: Block height at which the time-lock expires
      *         timeoutEta:
      *           type: number
@@ -426,10 +414,10 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarinePreimage:
      *       type: object
+     *       required: ["preimage"]
      *       properties:
      *         preimage:
      *           type: string
-     *           required: true
      *           description: Preimage of the Submarine Swap
      */
 
@@ -484,10 +472,11 @@ class SwapRouter extends RouterBase {
      *         content:
      *           application/json:
      *             schema:
+     *               type: object
+     *               required: ["signature"]
      *               properties:
      *                 signature:
      *                   type: string
-     *                   required: true
      *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
      *       '400':
      *         description: Error that caused signature request to fail
@@ -504,18 +493,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     RefundRequest:
      *       type: object
+     *       required: ["pubNonce", "transaction", "index"]
      *       properties:
      *         pubNonce:
      *           type: string
-     *           required: true
      *           description: Public nonce of the client for the session encoded as HEX
      *         transaction:
      *           type: string
-     *           required: true
      *           description: Transaction which should be signed encoded as HEX
      *         index:
      *           type: number
-     *           required: true
      *           description: Index of the input of the transaction that should be signed
      */
 
@@ -525,14 +512,13 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     PartialSignature:
      *       type: object
+     *       required: ["pubNonce", "partialSignature"]
      *       properties:
      *         pubNonce:
      *           type: string
-     *           required: true
      *           description: Public nonce encoded as HEX
      *         partialSignature:
      *           type: string
-     *           required: true
      *           description: Partial signature encoded as HEX
      */
 
@@ -586,22 +572,19 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineClaimDetails:
      *       type: object
+     *       required: ["preimage", "pubNonce", "publicKey", "transactionHash"]
      *       properties:
      *         preimage:
      *           type: string
-     *           required: true
      *           description: Preimage of the invoice for the Submarine Swap encoded as HEX
      *         pubNonce:
      *           type: string
-     *           required: true
      *           description: Public nonce of Boltz encoded as HEX
      *         publicKey:
      *           type: string
-     *           required: true
      *           description: Public key of Boltz encoded as HEX
      *         transactionHash:
      *           type: string
-     *           required: true
      *           description: Hash of the transaction that should be signed
      */
 
@@ -697,43 +680,40 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReversePair:
      *       type: object
+     *       required: ["hash", "rate", "limits", "fees"]
      *       properties:
      *         hash:
      *           type: string
-     *           required: true
      *           description: Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date
      *         rate:
      *           type: number
-     *           required: true
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
+     *           required: ["minimal", "maximal"]
      *           properties:
      *             minimal:
      *               type: number
-     *               required: true
      *               description: Minimal amount that can be swapped in satoshis
      *             maximal:
      *               type: number
-     *               required: true
      *               description: Maximal amount that can be swapped in satoshis
      *         fees:
      *           type: object
+     *           required: ["percentage", "minerFees"]
      *           properties:
      *             percentage:
      *               type: number
-     *               required: true
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: object
+     *               required: ["lockup", "claim"]
      *               properties:
      *                 lockup:
      *                   type: number
-     *                   required: true
      *                   description: Absolute miner fee that will be charged in satoshis
      *                 claim:
      *                   type: number
-     *                   required: true
      *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
      */
 
@@ -766,18 +746,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseRequest:
      *       type: object
+     *       required: ["from", "to", "preimageHash"]
      *       properties:
      *         from:
      *           type: string
-     *           required: true
      *           description: The asset that is sent on lightning
      *         to:
      *           type: string
-     *           required: true
      *           description: The asset that is received onchain
      *         preimageHash:
      *           type: string
-     *           required: true
      *           description: SHA-256 hash of the preimage of the Reverse Swap encoded as HEX
      *         claimPublicKey:
      *           type: string
@@ -825,14 +803,13 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseResponse:
      *       type: object
+     *       required: ["id", "invoice", "timeoutBlockHeight"]
      *       properties:
      *         id:
      *           type: string
-     *           required: true
      *           description: ID of the created Reverse Swap
      *         invoice:
      *           type: string
-     *           required: true
      *           description: Hold invoice of the Reverse Swap
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -844,7 +821,6 @@ class SwapRouter extends RouterBase {
      *           description: Public key of Boltz that will be used to refund the onchain HTLC
      *         timeoutBlockHeight:
      *           type: number
-     *           required: true
      *           description: Timeout block height of the onchain HTLC
      *         onchainAmount:
      *           type: number
@@ -891,17 +867,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseTransaction:
      *       type: object
+     *       required: ["id", "timeoutBlockHeight"]
      *       properties:
      *         id:
      *           type: string
-     *           required: true
      *           description: ID the lockup transaction
      *         hex:
      *           type: string
      *           description: Lockup transaction as raw HEX
      *         timeoutBlockHeight:
      *           type: number
-     *           required: true
      *           description: Block height at which the time-lock expires
      */
 
@@ -943,22 +918,19 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseClaimRequest:
      *       type: object
+     *       required: ["preimage", "pubNonce", "transaction", "index"]
      *       properties:
      *         preimage:
      *           type: string
-     *           required: true
      *           description: Preimage of the Reverse Swap encoded as HEX
      *         pubNonce:
      *           type: string
-     *           required: true
      *           description: Public nonce of the client for the session encoded as HEX
      *         transaction:
      *           type: string
-     *           required: true
      *           description: Transaction which should be signed encoded as HEX
      *         index:
      *           type: number
-     *           required: true
      *           description: Index of the input of the transaction that should be signed
      */
 
@@ -1006,14 +978,13 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseBip21:
      *       type: object
+     *       required: ["bip12", "signature"]
      *       properties:
      *         bip21:
      *           type: string
-     *           required: true
      *           description: BIP-21 for the Reverse Swap
      *         signature:
      *           type: string
-     *           required: true
      *           description: Signature of the address in the BIP-21 of the public key in the routing hint
      */
 
@@ -1068,43 +1039,40 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainPair:
      *       type: object
+     *       required: ["hash", "rate", "limits", "fees"]
      *       properties:
      *         hash:
      *           type: string
-     *           required: true
      *           description: Hash of the pair that can be used when creating the Chain Swap to ensure the information of the client is up-to-date
      *         rate:
      *           type: number
-     *           required: true
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
+     *           required: ["minimal", "maximal"]
      *           properties:
      *             minimal:
      *               type: number
-     *               required: true
      *               description: Minimal amount that can be swapped in satoshis
      *             maximal:
      *               type: number
-     *               required: true
      *               description: Maximal amount that can be swapped in satoshis
      *         fees:
      *           type: object
+     *           required: ["percentage", "minerFees"]
      *           properties:
      *             percentage:
      *               type: number
-     *               required: true
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: object
+     *               required: ["lockup", "claim"]
      *               properties:
      *                 lockup:
      *                   type: number
-     *                   required: true
      *                   description: Absolute miner fee that will be charged in satoshis
      *                 claim:
      *                   type: number
-     *                   required: true
      *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
      */
 
@@ -1137,18 +1105,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainRequest:
      *       type: object
+     *       required: ["from", "to", "preimageHash"]
      *       properties:
      *         from:
      *           type: string
-     *           required: true
      *           description: The asset that is sent on lightning
      *         to:
      *           type: string
-     *           required: true
      *           description: The asset that is received onchain
      *         preimageHash:
      *           type: string
-     *           required: true
      *           description: SHA-256 hash of the preimage of the Chain Swap encoded as HEX
      *         claimPublicKey:
      *           type: string
@@ -1181,23 +1147,21 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainSwapData:
      *       type: object
+     *       required: ["swapTree", "timeoutBlockHeight", "amount"]
      *       properties:
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
      *         lockupAddress:
      *           type: string
-     *           required: true
      *           description: HTLC address in which coins will be locked
      *         serverPublicKey:
      *           type: string
      *           description: Public key of Boltz that is used in the aggregated public key
      *         timeoutBlockHeight:
      *           type: number
-     *           required: true
      *           description: Timeout block height of the onchain HTLC
      *         amount:
      *           type: number
-     *           required: true
      *           description: Amount that is supposed to be locked in the onchain HTLC
      *         blindingKey:
      *           type: string
@@ -1216,10 +1180,10 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainResponse:
      *       type: object
+     *       required: ["id", "claimDetails", "lockupDetails"]
      *       properties:
      *         id:
      *           type: string
-     *           required: true
      *           description: ID of the created Reverse Swap
      *         referralId:
      *           type: string
@@ -1264,23 +1228,24 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainSwapTransaction:
      *       type: object
+     *       required: ["transaction"]
      *       properties:
      *         transaction:
      *           type: object
+     *           required: ["id"]
      *           properties:
      *             id:
      *               type: string
-     *               required: true
      *               description: ID of the transaction
      *             hex:
      *               type: string
      *               description: The transaction encoded as HEX; set for UTXO based chains
      *         timeout:
      *           type: object
+     *           required: ["blockHeight"]
      *           properties:
      *             blockHeight:
      *               type: number
-     *               required: true
      *               description: Timeout block height of the onchain HTLC
      *             eta:
      *               type: number
@@ -1339,18 +1304,16 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainSwapSigningDetails:
      *       type: object
+     *       required: ["pubNonce", "publicKey", "transactionHash"]
      *       properties:
      *         pubNonce:
      *           type: string
-     *           required: true
      *           description: Public nonce of the client for the session, encoded as HEX
      *         publicKey:
      *           type: string
-     *           required: true
      *           description: Public key of the server that was used in the aggregated public key
      *         transactionHash:
      *           type: string
-     *           required: true
      *           description: Transaction hash which should be signed, encoded as HEX
      */
 
@@ -1406,18 +1369,16 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/PartialSignature'
      *         toSign:
      *           type: object
+     *           required: ["pubNonce", "transaction", "index"]
      *           properties:
      *             pubNonce:
      *               type: string
-     *               required: true
      *               description: Public nonce of the client for the session encoded as HEX
      *             transaction:
      *               type: string
-     *               required: true
      *               description: Transaction which should be signed encoded as HEX
      *             index:
      *               type: number
-     *               required: true
      *               description: Index of the input of the transaction that should be signed
      */
 
@@ -1481,10 +1442,11 @@ class SwapRouter extends RouterBase {
      *         content:
      *           application/json:
      *             schema:
+     *               type: object
+     *               required: ["signature"]
      *               properties:
      *                 signature:
      *                   type: string
-     *                   required: true
      *                   description: EIP-712 signature with which a cooperative refund can be executed onchain
      *       '400':
      *         description: Error that caused signature request to fail
@@ -1545,6 +1507,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     Quote:
      *       type: object
+     *       required: ["amount"]
      *       properties:
      *         amount:
      *           type: number
@@ -1639,10 +1602,10 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SwapStatus:
      *       type: object
+     *       required: ["status"]
      *       properties:
      *         status:
      *           type: string
-     *           required: true
      *           description: Status of the Swap
      *         zeroConfRejected:
      *           type: boolean

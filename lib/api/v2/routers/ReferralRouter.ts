@@ -54,10 +54,10 @@ class ReferralRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["id"]
      *               properties:
      *                 id:
      *                   type: string
-     *                   required: true
      *                   description: The referral ID for your API-KEY
      *       '401':
      *         description: Unauthorized in case of an unknown API-KEY or bad HMAC

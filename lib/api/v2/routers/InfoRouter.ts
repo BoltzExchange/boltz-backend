@@ -31,14 +31,15 @@ class InfoRouter extends RouterBase {
      *     tags: [Info]
      *     responses:
      *       '200':
+     *         description: Version information
      *         content:
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["version"]
      *               properties:
      *                 version:
      *                   type: string
-     *                   required: true
      */
     router.get('/version', this.handleError(this.getVersion));
 
@@ -50,6 +51,7 @@ class InfoRouter extends RouterBase {
      *     tags: [Info]
      *     responses:
      *       '200':
+     *         description: Configuration information
      *         content:
      *           application/json:
      *             schema:
@@ -67,6 +69,7 @@ class InfoRouter extends RouterBase {
      *     tags: [Info]
      *     responses:
      *       '200':
+     *         description: Service warnings
      *         content:
      *           application/json:
      *             schema:

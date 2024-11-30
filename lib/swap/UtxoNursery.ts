@@ -29,6 +29,7 @@ import ElementsWrapper from '../chain/ElementsWrapper';
 import type { SomeTransaction } from '../chain/ZmqClient';
 import {
   CurrencyType,
+  SuccessSwapUpdateEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -689,6 +690,13 @@ class UtxoNursery extends TypedEventEmitter<{
           : (swap as ChainSwapInfo).sendingData.lockupAddress,
       ),
     );
+    if (SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)) {
+      this.logger.debug(
+        `Not acting on confirmed server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it succeeded already`,
+      );
+      return;
+    }
+
     this.emit('server.lockup.confirmed', {
       transaction,
       swap: await WrappedSwapRepository.setStatus(

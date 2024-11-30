@@ -21,10 +21,10 @@ abstract class RouterBase {
    *   schemas:
    *     ErrorResponse:
    *       type: object
+   *       required: ["error"]
    *       properties:
    *         error:
    *           type: string
-   *           required: true
    *           description: Description of the error that caused the request to fail
    */
   public abstract getRouter: () => Router;

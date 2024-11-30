@@ -125,10 +125,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "fee"
+                  ],
                   "properties": {
                     "fee": {
                       "type": "number",
-                      "required": true,
                       "description": "Fee estimation in sat/vbyte or GWEI"
                     }
                   }
@@ -173,10 +175,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "height"
+                  ],
                   "properties": {
                     "height": {
                       "type": "number",
-                      "required": true,
                       "description": "Block height of the chain"
                     }
                   }
@@ -230,10 +234,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "hex"
+                  ],
                   "properties": {
                     "hex": {
                       "type": "string",
-                      "required": true,
                       "description": "The transaction encoded as HEX"
                     }
                   }
@@ -277,10 +283,12 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "hex"
+                ],
                 "properties": {
                   "hex": {
                     "type": "string",
-                    "required": true,
                     "description": "The transaction to broadcast as raw HEX"
                   }
                 }
@@ -295,10 +303,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "id"
+                  ],
                   "properties": {
                     "id": {
                       "type": "string",
-                      "required": true,
                       "description": "ID of the broadcast transaction"
                     }
                   }
@@ -383,14 +393,17 @@
         ],
         "responses": {
           "200": {
+            "description": "Version information",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "version"
+                  ],
                   "properties": {
                     "version": {
-                      "type": "string",
-                      "required": true
+                      "type": "string"
                     }
                   }
                 }
@@ -408,6 +421,7 @@
         ],
         "responses": {
           "200": {
+            "description": "Configuration information",
             "content": {
               "application/json": {
                 "schema": {
@@ -430,6 +444,7 @@
         ],
         "responses": {
           "200": {
+            "description": "Service warnings",
             "content": {
               "application/json": {
                 "schema": {
@@ -467,15 +482,17 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "offer",
+                  "amount"
+                ],
                 "properties": {
                   "offer": {
                     "type": "string",
-                    "required": true,
                     "description": "A BOLT12 offer"
                   },
                   "amount": {
                     "type": "number",
-                    "required": true,
                     "description": "Amount of the invoice that should be fetched in satoshis"
                   }
                 }
@@ -490,10 +507,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "invoice"
+                  ],
                   "properties": {
                     "invoice": {
                       "type": "string",
-                      "required": true,
                       "description": "A BOLT12 invoice"
                     }
                   }
@@ -623,10 +642,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "id"
+                  ],
                   "properties": {
                     "id": {
                       "type": "string",
-                      "required": true,
                       "description": "The referral ID for your API-KEY"
                     }
                   }
@@ -932,10 +953,12 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "invoice"
+                ],
                 "properties": {
                   "invoice": {
                     "type": "string",
-                    "required": true,
                     "description": "BOLT11 invoice that should be paid. The preimage hash has to match the one specified when creating the swap"
                   },
                   "pairHash": {
@@ -953,20 +976,22 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "bip21",
+                    "expectedAmount",
+                    "acceptZeroConf"
+                  ],
                   "properties": {
                     "bip21": {
                       "type": "string",
-                      "required": true,
                       "description": "BIP21 for the onchain payment request"
                     },
                     "expectedAmount": {
                       "type": "number",
-                      "required": true,
                       "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis"
                     },
                     "acceptZeroConf": {
                       "type": "boolean",
-                      "required": true,
                       "description": "Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee"
                     }
                   }
@@ -1011,10 +1036,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "invoiceAmount"
+                  ],
                   "properties": {
                     "invoiceAmount": {
                       "type": "number",
-                      "required": true,
                       "description": "Expected amount of the invoice"
                     }
                   }
@@ -1140,10 +1167,13 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "object",
+                  "required": [
+                    "signature"
+                  ],
                   "properties": {
                     "signature": {
                       "type": "string",
-                      "required": true,
                       "description": "EIP-712 signature with which a cooperative refund can be executed onchain"
                     }
                   }
@@ -1788,10 +1818,13 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "object",
+                  "required": [
+                    "signature"
+                  ],
                   "properties": {
                     "signature": {
                       "type": "string",
-                      "required": true,
                       "description": "EIP-712 signature with which a cooperative refund can be executed onchain"
                     }
                   }
@@ -1997,26 +2030,32 @@
     "schemas": {
       "Contracts": {
         "type": "object",
+        "required": [
+          "network",
+          "swapContracts",
+          "tokens"
+        ],
         "properties": {
           "network": {
             "type": "object",
             "description": "Information about the network",
+            "required": [
+              "chainId",
+              "name"
+            ],
             "properties": {
               "chainId": {
                 "type": "number",
-                "required": true,
                 "description": "ID of the chain"
               },
               "name": {
                 "type": "string",
-                "required": true,
                 "description": "Name of the chain if applicable"
               }
             }
           },
           "swapContracts": {
             "type": "object",
-            "required": true,
             "description": "Mapping of the names of swap contracts to their address",
             "properties": {
               "EtherSwap": {
@@ -2031,7 +2070,6 @@
           },
           "tokens": {
             "type": "object",
-            "required": true,
             "description": "Mapping of the symbol of tokens to their address",
             "additionalProperties": {
               "type": "string",
@@ -2042,14 +2080,16 @@
       },
       "NodeInfo": {
         "type": "object",
+        "required": [
+          "publicKey",
+          "uris"
+        ],
         "properties": {
           "publicKey": {
-            "type": "string",
-            "required": true
+            "type": "string"
           },
           "uris": {
             "type": "array",
-            "required": true,
             "items": {
               "type": "string"
             }
@@ -2058,53 +2098,63 @@
       },
       "NodeStats": {
         "type": "object",
+        "required": [
+          "capacity",
+          "channels",
+          "peers",
+          "oldestChannel"
+        ],
         "properties": {
           "capacity": {
-            "type": "integer",
-            "required": true
+            "type": "integer"
           },
           "channels": {
-            "type": "integer",
-            "required": true
+            "type": "integer"
           },
           "peers": {
-            "type": "integer",
-            "required": true
+            "type": "integer"
           },
           "oldestChannel": {
             "type": "integer",
-            "required": true,
             "description": "UNIX timestamp of the block in which the funding transaction of the oldest channel was included"
           }
         }
       },
       "ErrorResponse": {
         "type": "object",
+        "required": [
+          "error"
+        ],
         "properties": {
           "error": {
             "type": "string",
-            "required": true,
             "description": "Description of the error that caused the request to fail"
           }
         }
       },
       "SwapTreeLeaf": {
         "type": "object",
+        "required": [
+          "version",
+          "output"
+        ],
         "properties": {
           "version": {
             "type": "number",
-            "required": true,
             "description": "Tapscript version"
           },
           "output": {
             "type": "string",
-            "required": true,
             "description": "Script encoded as HEX"
           }
         }
       },
       "SwapTree": {
         "type": "object",
+        "required": [
+          "claimLeaf",
+          "refundLeaf"
+        ],
         "properties": {
           "claimLeaf": {
             "$ref": "#/components/schemas/SwapTreeLeaf"
@@ -2116,49 +2166,56 @@
       },
       "SubmarinePair": {
         "type": "object",
+        "required": [
+          "hash",
+          "rate",
+          "limits",
+          "fees"
+        ],
         "properties": {
           "hash": {
             "type": "string",
-            "required": true,
             "description": "Hash of the pair that can be used when creating the Submarine Swap to ensure the information of the client is up-to-date"
           },
           "rate": {
             "type": "number",
-            "required": true,
             "description": "Exchange rate of the pair"
           },
           "limits": {
             "type": "object",
+            "required": [
+              "minimal",
+              "maximal",
+              "maximalZeroConf"
+            ],
             "properties": {
               "minimal": {
                 "type": "number",
-                "required": true,
                 "description": "Minimal amount that can be swapped in satoshis"
               },
               "maximal": {
                 "type": "number",
-                "required": true,
                 "description": "Maximal amount that can be swapped in satoshis"
               },
               "maximalZeroConf": {
                 "type": "number",
-                "required": true,
                 "description": "Maximal amount that will be accepted 0-conf in satoshis"
               }
             }
           },
           "fees": {
             "type": "object",
-            "required": true,
+            "required": [
+              "percentage",
+              "minerFees"
+            ],
             "properties": {
               "percentage": {
                 "type": "number",
-                "required": true,
                 "description": "Relative fee that will be charged in percent"
               },
               "minerFees": {
                 "type": "number",
-                "required": true,
                 "description": "Absolute miner fee that will be charged in satoshis"
               }
             }
@@ -2167,10 +2224,12 @@
       },
       "WebhookData": {
         "type": "object",
+        "required": [
+          "url"
+        ],
         "properties": {
           "url": {
             "type": "string",
-            "required": true,
             "description": "URL that should be called. Only HTTPS is allowed"
           },
           "hashSwapId": {
@@ -2190,15 +2249,17 @@
       },
       "SubmarineRequest": {
         "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
         "properties": {
           "from": {
             "type": "string",
-            "required": true,
             "description": "The asset that is sent onchain"
           },
           "to": {
             "type": "string",
-            "required": true,
             "description": "The asset that is received on lightning"
           },
           "invoice": {
@@ -2211,7 +2272,6 @@
           },
           "refundPublicKey": {
             "type": "string",
-            "required": true,
             "description": "Public key with which the Submarine Swap can be refunded encoded as HEX"
           },
           "pairHash": {
@@ -2229,10 +2289,14 @@
       },
       "SubmarineResponse": {
         "type": "object",
+        "required": [
+          "id",
+          "timeoutBlockHeight",
+          "expectedAmount"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "required": true,
             "description": "ID of the created Submarine Swap"
           },
           "bip21": {
@@ -2252,7 +2316,6 @@
           },
           "timeoutBlockHeight": {
             "type": "number",
-            "required": true,
             "description": "Timeout block height of the onchain HTLC"
           },
           "acceptZeroConf": {
@@ -2261,7 +2324,6 @@
           },
           "expectedAmount": {
             "type": "number",
-            "required": true,
             "description": "Amount that is expected to be sent to the onchain HTLC address in satoshis"
           },
           "blindingKey": {
@@ -2276,10 +2338,13 @@
       },
       "SubmarineTransaction": {
         "type": "object",
+        "required": [
+          "id",
+          "timeoutBlockHeight"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "required": true,
             "description": "ID the lockup transaction"
           },
           "hex": {
@@ -2288,7 +2353,6 @@
           },
           "timeoutBlockHeight": {
             "type": "number",
-            "required": true,
             "description": "Block height at which the time-lock expires"
           },
           "timeoutEta": {
@@ -2299,121 +2363,140 @@
       },
       "SubmarinePreimage": {
         "type": "object",
+        "required": [
+          "preimage"
+        ],
         "properties": {
           "preimage": {
             "type": "string",
-            "required": true,
             "description": "Preimage of the Submarine Swap"
           }
         }
       },
       "RefundRequest": {
         "type": "object",
+        "required": [
+          "pubNonce",
+          "transaction",
+          "index"
+        ],
         "properties": {
           "pubNonce": {
             "type": "string",
-            "required": true,
             "description": "Public nonce of the client for the session encoded as HEX"
           },
           "transaction": {
             "type": "string",
-            "required": true,
             "description": "Transaction which should be signed encoded as HEX"
           },
           "index": {
             "type": "number",
-            "required": true,
             "description": "Index of the input of the transaction that should be signed"
           }
         }
       },
       "PartialSignature": {
         "type": "object",
+        "required": [
+          "pubNonce",
+          "partialSignature"
+        ],
         "properties": {
           "pubNonce": {
             "type": "string",
-            "required": true,
             "description": "Public nonce encoded as HEX"
           },
           "partialSignature": {
             "type": "string",
-            "required": true,
             "description": "Partial signature encoded as HEX"
           }
         }
       },
       "SubmarineClaimDetails": {
         "type": "object",
+        "required": [
+          "preimage",
+          "pubNonce",
+          "publicKey",
+          "transactionHash"
+        ],
         "properties": {
           "preimage": {
             "type": "string",
-            "required": true,
             "description": "Preimage of the invoice for the Submarine Swap encoded as HEX"
           },
           "pubNonce": {
             "type": "string",
-            "required": true,
             "description": "Public nonce of Boltz encoded as HEX"
           },
           "publicKey": {
             "type": "string",
-            "required": true,
             "description": "Public key of Boltz encoded as HEX"
           },
           "transactionHash": {
             "type": "string",
-            "required": true,
             "description": "Hash of the transaction that should be signed"
           }
         }
       },
       "ReversePair": {
         "type": "object",
+        "required": [
+          "hash",
+          "rate",
+          "limits",
+          "fees"
+        ],
         "properties": {
           "hash": {
             "type": "string",
-            "required": true,
             "description": "Hash of the pair that can be used when creating the Reverse Swap to ensure the information of the client is up-to-date"
           },
           "rate": {
             "type": "number",
-            "required": true,
             "description": "Exchange rate of the pair"
           },
           "limits": {
             "type": "object",
+            "required": [
+              "minimal",
+              "maximal"
+            ],
             "properties": {
               "minimal": {
                 "type": "number",
-                "required": true,
                 "description": "Minimal amount that can be swapped in satoshis"
               },
               "maximal": {
                 "type": "number",
-                "required": true,
                 "description": "Maximal amount that can be swapped in satoshis"
               }
             }
           },
           "fees": {
             "type": "object",
+            "required": [
+              "percentage",
+              "minerFees"
+            ],
             "properties": {
               "percentage": {
                 "type": "number",
-                "required": true,
                 "description": "Relative fee that will be charged in percent"
               },
               "minerFees": {
                 "type": "object",
+                "required": [
+                  "lockup",
+                  "claim"
+                ],
                 "properties": {
                   "lockup": {
                     "type": "number",
-                    "required": true,
                     "description": "Absolute miner fee that will be charged in satoshis"
                   },
                   "claim": {
                     "type": "number",
-                    "required": true,
                     "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
                   }
                 }
@@ -2424,20 +2507,22 @@
       },
       "ReverseRequest": {
         "type": "object",
+        "required": [
+          "from",
+          "to",
+          "preimageHash"
+        ],
         "properties": {
           "from": {
             "type": "string",
-            "required": true,
             "description": "The asset that is sent on lightning"
           },
           "to": {
             "type": "string",
-            "required": true,
             "description": "The asset that is received onchain"
           },
           "preimageHash": {
             "type": "string",
-            "required": true,
             "description": "SHA-256 hash of the preimage of the Reverse Swap encoded as HEX"
           },
           "claimPublicKey": {
@@ -2496,15 +2581,18 @@
       },
       "ReverseResponse": {
         "type": "object",
+        "required": [
+          "id",
+          "invoice",
+          "timeoutBlockHeight"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "required": true,
             "description": "ID of the created Reverse Swap"
           },
           "invoice": {
             "type": "string",
-            "required": true,
             "description": "Hold invoice of the Reverse Swap"
           },
           "swapTree": {
@@ -2520,7 +2608,6 @@
           },
           "timeoutBlockHeight": {
             "type": "number",
-            "required": true,
             "description": "Timeout block height of the onchain HTLC"
           },
           "onchainAmount": {
@@ -2539,10 +2626,13 @@
       },
       "ReverseTransaction": {
         "type": "object",
+        "required": [
+          "id",
+          "timeoutBlockHeight"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "required": true,
             "description": "ID the lockup transaction"
           },
           "hex": {
@@ -2551,98 +2641,112 @@
           },
           "timeoutBlockHeight": {
             "type": "number",
-            "required": true,
             "description": "Block height at which the time-lock expires"
           }
         }
       },
       "ReverseClaimRequest": {
         "type": "object",
+        "required": [
+          "preimage",
+          "pubNonce",
+          "transaction",
+          "index"
+        ],
         "properties": {
           "preimage": {
             "type": "string",
-            "required": true,
             "description": "Preimage of the Reverse Swap encoded as HEX"
           },
           "pubNonce": {
             "type": "string",
-            "required": true,
             "description": "Public nonce of the client for the session encoded as HEX"
           },
           "transaction": {
             "type": "string",
-            "required": true,
             "description": "Transaction which should be signed encoded as HEX"
           },
           "index": {
             "type": "number",
-            "required": true,
             "description": "Index of the input of the transaction that should be signed"
           }
         }
       },
       "ReverseBip21": {
         "type": "object",
+        "required": [
+          "bip12",
+          "signature"
+        ],
         "properties": {
           "bip21": {
             "type": "string",
-            "required": true,
             "description": "BIP-21 for the Reverse Swap"
           },
           "signature": {
             "type": "string",
-            "required": true,
             "description": "Signature of the address in the BIP-21 of the public key in the routing hint"
           }
         }
       },
       "ChainPair": {
         "type": "object",
+        "required": [
+          "hash",
+          "rate",
+          "limits",
+          "fees"
+        ],
         "properties": {
           "hash": {
             "type": "string",
-            "required": true,
             "description": "Hash of the pair that can be used when creating the Chain Swap to ensure the information of the client is up-to-date"
           },
           "rate": {
             "type": "number",
-            "required": true,
             "description": "Exchange rate of the pair"
           },
           "limits": {
             "type": "object",
+            "required": [
+              "minimal",
+              "maximal"
+            ],
             "properties": {
               "minimal": {
                 "type": "number",
-                "required": true,
                 "description": "Minimal amount that can be swapped in satoshis"
               },
               "maximal": {
                 "type": "number",
-                "required": true,
                 "description": "Maximal amount that can be swapped in satoshis"
               }
             }
           },
           "fees": {
             "type": "object",
+            "required": [
+              "percentage",
+              "minerFees"
+            ],
             "properties": {
               "percentage": {
                 "type": "number",
-                "required": true,
                 "description": "Relative fee that will be charged in percent"
               },
               "minerFees": {
                 "type": "object",
+                "required": [
+                  "lockup",
+                  "claim"
+                ],
                 "properties": {
                   "lockup": {
                     "type": "number",
-                    "required": true,
                     "description": "Absolute miner fee that will be charged in satoshis"
                   },
                   "claim": {
                     "type": "number",
-                    "required": true,
                     "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
                   }
                 }
@@ -2653,20 +2757,22 @@
       },
       "ChainRequest": {
         "type": "object",
+        "required": [
+          "from",
+          "to",
+          "preimageHash"
+        ],
         "properties": {
           "from": {
             "type": "string",
-            "required": true,
             "description": "The asset that is sent on lightning"
           },
           "to": {
             "type": "string",
-            "required": true,
             "description": "The asset that is received onchain"
           },
           "preimageHash": {
             "type": "string",
-            "required": true,
             "description": "SHA-256 hash of the preimage of the Chain Swap encoded as HEX"
           },
           "claimPublicKey": {
@@ -2704,13 +2810,17 @@
       },
       "ChainSwapData": {
         "type": "object",
+        "required": [
+          "swapTree",
+          "timeoutBlockHeight",
+          "amount"
+        ],
         "properties": {
           "swapTree": {
             "$ref": "#/components/schemas/SwapTree"
           },
           "lockupAddress": {
             "type": "string",
-            "required": true,
             "description": "HTLC address in which coins will be locked"
           },
           "serverPublicKey": {
@@ -2719,12 +2829,10 @@
           },
           "timeoutBlockHeight": {
             "type": "number",
-            "required": true,
             "description": "Timeout block height of the onchain HTLC"
           },
           "amount": {
             "type": "number",
-            "required": true,
             "description": "Amount that is supposed to be locked in the onchain HTLC"
           },
           "blindingKey": {
@@ -2743,10 +2851,14 @@
       },
       "ChainResponse": {
         "type": "object",
+        "required": [
+          "id",
+          "claimDetails",
+          "lockupDetails"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "required": true,
             "description": "ID of the created Reverse Swap"
           },
           "referralId": {
@@ -2763,13 +2875,18 @@
       },
       "ChainSwapTransaction": {
         "type": "object",
+        "required": [
+          "transaction"
+        ],
         "properties": {
           "transaction": {
             "type": "object",
+            "required": [
+              "id"
+            ],
             "properties": {
               "id": {
                 "type": "string",
-                "required": true,
                 "description": "ID of the transaction"
               },
               "hex": {
@@ -2780,10 +2897,12 @@
           },
           "timeout": {
             "type": "object",
+            "required": [
+              "blockHeight"
+            ],
             "properties": {
               "blockHeight": {
                 "type": "number",
-                "required": true,
                 "description": "Timeout block height of the onchain HTLC"
               },
               "eta": {
@@ -2807,20 +2926,22 @@
       },
       "ChainSwapSigningDetails": {
         "type": "object",
+        "required": [
+          "pubNonce",
+          "publicKey",
+          "transactionHash"
+        ],
         "properties": {
           "pubNonce": {
             "type": "string",
-            "required": true,
             "description": "Public nonce of the client for the session, encoded as HEX"
           },
           "publicKey": {
             "type": "string",
-            "required": true,
             "description": "Public key of the server that was used in the aggregated public key"
           },
           "transactionHash": {
             "type": "string",
-            "required": true,
             "description": "Transaction hash which should be signed, encoded as HEX"
           }
         }
@@ -2837,20 +2958,22 @@
           },
           "toSign": {
             "type": "object",
+            "required": [
+              "pubNonce",
+              "transaction",
+              "index"
+            ],
             "properties": {
               "pubNonce": {
                 "type": "string",
-                "required": true,
                 "description": "Public nonce of the client for the session encoded as HEX"
               },
               "transaction": {
                 "type": "string",
-                "required": true,
                 "description": "Transaction which should be signed encoded as HEX"
               },
               "index": {
                 "type": "number",
-                "required": true,
                 "description": "Index of the input of the transaction that should be signed"
               }
             }
@@ -2859,6 +2982,9 @@
       },
       "Quote": {
         "type": "object",
+        "required": [
+          "amount"
+        ],
         "properties": {
           "amount": {
             "type": "number",
@@ -2871,10 +2997,12 @@
       },
       "SwapStatus": {
         "type": "object",
+        "required": [
+          "status"
+        ],
         "properties": {
           "status": {
             "type": "string",
-            "required": true,
             "description": "Status of the Swap"
           },
           "zeroConfRejected": {

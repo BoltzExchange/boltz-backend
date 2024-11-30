@@ -78,22 +78,21 @@ class ChainRouter extends RouterBase {
      *   schemas:
      *     Contracts:
      *       type: object
+     *       required: ["network", "swapContracts", "tokens"]
      *       properties:
      *         network:
      *           type: object
      *           description: Information about the network
+     *           required: ["chainId", "name"]
      *           properties:
      *             chainId:
      *               type: number
-     *               required: true
      *               description: ID of the chain
      *             name:
      *               type: string
-     *               required: true
      *               description: Name of the chain if applicable
      *         swapContracts:
      *           type: object
-     *           required: true
      *           description: Mapping of the names of swap contracts to their address
      *           properties:
      *             EtherSwap:
@@ -104,7 +103,6 @@ class ChainRouter extends RouterBase {
      *               description: Address of the ERC20 contract
      *         tokens:
      *           type: object
-     *           required: true
      *           description: Mapping of the symbol of tokens to their address
      *           additionalProperties:
      *             type: string
@@ -158,10 +156,10 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["fee"]
      *               properties:
      *                 fee:
      *                   type: number
-     *                   required: true
      *                   description: Fee estimation in sat/vbyte or GWEI
      *       '400':
      *         description: Error that caused the request to fail
@@ -192,10 +190,10 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["height"]
      *               properties:
      *                 height:
      *                   type: number
-     *                   required: true
      *                   description: Block height of the chain
      *       '400':
      *         description: Error that caused the request to fail
@@ -232,10 +230,10 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["hex"]
      *               properties:
      *                 hex:
      *                   type: string
-     *                   required: true
      *                   description: The transaction encoded as HEX
      *       '400':
      *         description: Error that caused the query for the transaction to fail
@@ -268,10 +266,10 @@ class ChainRouter extends RouterBase {
      *         application/json:
      *           schema:
      *             type: object
+     *             required: ["hex"]
      *             properties:
      *               hex:
      *                 type: string
-     *                 required: true
      *                 description: The transaction to broadcast as raw HEX
      *     responses:
      *       '201':
@@ -280,10 +278,10 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["id"]
      *               properties:
      *                 id:
      *                   type: string
-     *                   required: true
      *                   description: ID of the broadcast transaction
      *       '400':
      *         description: Error that caused the broadcast of the transaction to fail

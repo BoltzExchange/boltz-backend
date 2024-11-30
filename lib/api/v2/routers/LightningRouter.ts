@@ -41,14 +41,13 @@ class LightningRouter extends RouterBase {
      *         application/json:
      *           schema:
      *             type: object
+     *             required: ["offer", "amount"]
      *             properties:
      *               offer:
      *                 type: string
-     *                 required: true
      *                 description: A BOLT12 offer
      *               amount:
      *                 type: number
-     *                 required: true
      *                 description: Amount of the invoice that should be fetched in satoshis
      *     responses:
      *       '201':
@@ -57,10 +56,10 @@ class LightningRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
+     *               required: ["invoice"]
      *               properties:
      *                 invoice:
      *                   type: string
-     *                   required: true
      *                   description: A BOLT12 invoice
      *       '400':
      *         description: Error that caused the broadcast of the transaction to fail

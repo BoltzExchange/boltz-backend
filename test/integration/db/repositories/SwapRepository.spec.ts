@@ -125,4 +125,32 @@ describe('SwapRepository', () => {
       expect(swap.failureReason).toEqual(failureReason);
     });
   });
+
+  describe('setInvoicePaid', () => {
+    test('should set failureReason to null', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+      expect(swap.failureReason).toBeUndefined();
+
+      const failureReason = 'denied';
+      await SwapRepository.setSwapStatus(
+        swap,
+        SwapUpdateEvent.InvoiceFailedToPay,
+        failureReason,
+      );
+      await swap.reload();
+
+      expect(swap.failureReason).toEqual(failureReason);
+
+      const routingFee = 123;
+      const preimage = 'abab';
+      await SwapRepository.setInvoicePaid(swap, routingFee, preimage);
+
+      await swap.reload();
+
+      expect(swap.preimage).toEqual(preimage);
+      expect(swap.failureReason).toEqual(null);
+      expect(swap.routingFee).toEqual(routingFee);
+      expect(swap.status).toEqual(SwapUpdateEvent.InvoicePaid);
+    });
+  });
 });

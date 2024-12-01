@@ -120,6 +120,7 @@ class SwapRepository {
     return swap.update({
       preimage,
       routingFee,
+      failureReason: null,
       status: SwapUpdateEvent.InvoicePaid,
     });
   };

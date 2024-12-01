@@ -18,6 +18,7 @@ import {
 } from '../consts/Types';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import MempoolSpace from './MempoolSpace';
+import Rebroadcaster from './Rebroadcaster';
 import RpcClient from './RpcClient';
 import ZmqClient, {
   SomeTransaction,
@@ -88,7 +89,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   implements IChainClient<T>
 {
   public static readonly serviceName = 'Core';
-  public static readonly decimals = 100000000;
+  public static readonly decimals = 100_000_000;
 
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
 
@@ -97,6 +98,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   protected feeFloor = 2;
 
   private readonly mempoolSpace?: MempoolSpace;
+  private readonly rebroadcaster: Rebroadcaster;
 
   constructor(
     logger: Logger,
@@ -107,6 +109,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
     this.client = new RpcClient(logger, symbol, this.config);
     this.zmqClient = new ZmqClient(symbol, logger, this, config.host);
+    this.rebroadcaster = new Rebroadcaster(this.logger, this);
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(
@@ -246,8 +249,20 @@ class ChainClient<T extends SomeTransaction = Transaction>
     await this.zmqClient.rescanChain(startHeight);
   };
 
-  public sendRawTransaction = (rawTransaction: string): Promise<string> => {
-    return this.client.request<string>('sendrawtransaction', [rawTransaction]);
+  public sendRawTransaction = async (
+    rawTransaction: string,
+  ): Promise<string> => {
+    try {
+      return await this.client.request<string>('sendrawtransaction', [
+        rawTransaction,
+      ]);
+    } catch (e) {
+      if (Rebroadcaster.isReasonToRebroadcast(formatError(e))) {
+        await this.rebroadcaster.save(rawTransaction);
+      }
+
+      throw e;
+    }
   };
 
   public getRawTransaction = async (id: string): Promise<string> => {

@@ -1,5 +1,6 @@
 import { OutputType } from 'boltz-core';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
+import Rebroadcaster from '../../../lib/chain/Rebroadcaster';
 import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
 import { generateAddress, wait, waitForFunctionToBeTrue } from '../../Utils';
 import { bitcoinClient } from '../Nodes';
@@ -245,6 +246,22 @@ describe('ChainClient', () => {
       const { comment } =
         await bitcoinClient.getWalletTransaction(transactionId);
       expect(comment).toEqual(label);
+    });
+  });
+
+  describe('sendRawTransaction', () => {
+    test('should save rebroadcast for relevant errors', async () => {
+      Rebroadcaster.isReasonToRebroadcast = jest.fn().mockReturnValue(true);
+      bitcoinClient['rebroadcaster'].save = jest.fn();
+
+      const rawTx = 'tx';
+      await expect(bitcoinClient.sendRawTransaction(rawTx)).rejects.toEqual(
+        expect.anything(),
+      );
+
+      expect(Rebroadcaster.isReasonToRebroadcast).toHaveBeenCalledTimes(1);
+      expect(bitcoinClient['rebroadcaster'].save).toHaveBeenCalledTimes(1);
+      expect(bitcoinClient['rebroadcaster'].save).toHaveBeenCalledWith(rawTx);
     });
   });
 });

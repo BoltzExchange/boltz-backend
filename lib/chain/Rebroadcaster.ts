@@ -33,7 +33,7 @@ class Rebroadcaster {
   };
 
   private rebroadcast = async () => {
-    this.logger.debug(`Rebroadcasting for ${this.client.symbol}`);
+    this.logger.silly(`Rebroadcasting for ${this.client.symbol}`);
 
     for (const { rawTransaction } of await RebroadcastRepository.getForSymbol(
       this.client.symbol,

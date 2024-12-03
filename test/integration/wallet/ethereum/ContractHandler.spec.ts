@@ -10,9 +10,12 @@ import { AnySwap } from '../../../../lib/consts/Types';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
-import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
+import ContractHandler, {
+  BatchClaimValues,
+} from '../../../../lib/wallet/ethereum/ContractHandler';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { wait } from '../../../Utils';
 import {
   EthereumSetup,
   fundSignerWallet,
@@ -148,6 +151,10 @@ describe('ContractHandler', () => {
     await database.close();
   });
 
+  afterEach(async () => {
+    await wait(150);
+  });
+
   test('should lockup Ether', async () => {
     const tx = await lockupEther(swap);
 
@@ -174,7 +181,7 @@ describe('ContractHandler', () => {
       await setup.provider.getBalance(await randomWallet.getAddress()),
     ).toEqual(BigInt(0));
 
-    const amountPrepay = BigInt(1);
+    const amountPrepay = BigInt(123);
 
     const transaction = await contractHandler.lockupEtherPrepayMinerfee(
       swap,
@@ -185,14 +192,15 @@ describe('ContractHandler', () => {
       timelock,
     );
     await transaction.wait(1);
+    await wait(150);
 
     // Sanity check the gas limit
     expect(Number(transaction.gasLimit)).toBeLessThan(150000);
 
     // Check that the prepay amount was forwarded to the claim address
-    expect(
-      await setup.provider.getBalance(await randomWallet.getAddress()),
-    ).toEqual(amountPrepay);
+    expect(await setup.provider.getBalance(randomWallet.address)).toEqual(
+      amountPrepay,
+    );
 
     // Make sure the funds were locked in the contract
     expect(
@@ -233,6 +241,87 @@ describe('ContractHandler', () => {
     expect(label!.id).toEqual(transaction!.hash);
     expect(label!.symbol).toEqual(Ethereum.symbol);
     expect(label!.label).toEqual(TransactionLabelRepository.claimLabel(swap));
+  });
+
+  test('should batch claim Ether', async () => {
+    const values: BatchClaimValues[] = [
+      {
+        amount: 21n,
+        timelock: 1,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+      {
+        amount: 42n,
+        timelock: 2,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+      {
+        amount: 50n,
+        timelock: 3,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+      {
+        amount: 2121n,
+        timelock: 21,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+      {
+        amount: 2142n,
+        timelock: 32,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+    ];
+    const valuesWithPreimageHash = values.map((v) => ({
+      ...v,
+      preimageHash: crypto.sha256(v.preimage),
+    }));
+
+    let nonce = await setup.signer.getNonce();
+    for (const v of valuesWithPreimageHash) {
+      const tx = await etherSwap.lock(
+        v.preimageHash,
+        await setup.signer.getAddress(),
+        v.timelock,
+        {
+          nonce,
+          value: v.amount,
+        },
+      );
+      await tx.wait(1);
+
+      nonce += 1;
+    }
+
+    await wait(150);
+    const tx = await contractHandler.claimBatchEther([swap.id], values);
+    await tx.wait(1);
+
+    for (const v of valuesWithPreimageHash) {
+      await expect(
+        etherSwap.swaps(
+          await etherSwap.hashValues(
+            v.preimageHash,
+            v.amount,
+            await setup.signer.getAddress(),
+            v.refundAddress,
+            v.timelock,
+          ),
+        ),
+      ).resolves.toEqual(false);
+    }
+
+    const label = await TransactionLabelRepository.getLabel(tx!.hash);
+    expect(label!).not.toBeNull();
+    expect(label!.id).toEqual(tx!.hash);
+    expect(label!.symbol).toEqual(Ethereum.symbol);
+    expect(label!.label).toEqual(
+      TransactionLabelRepository.claimBatchLabel([swap.id]),
+    );
   });
 
   test('should refund Ether', async () => {
@@ -368,9 +457,89 @@ describe('ContractHandler', () => {
     expect(label!.label).toEqual(TransactionLabelRepository.claimLabel(swap));
   });
 
+  test('should batch claim ERC20 tokens', async () => {
+    const values: BatchClaimValues[] = [
+      {
+        amount: 21n,
+        timelock: 1,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+      {
+        amount: 42n,
+        timelock: 2,
+        preimage: randomBytes(32),
+        refundAddress: await setup.signer.getAddress(),
+      },
+    ];
+    const valuesWithPreimageHash = values.map((v) => ({
+      ...v,
+      preimageHash: crypto.sha256(v.preimage),
+    }));
+
+    let nonce = await setup.signer.getNonce();
+    const approveTx = await tokenContract.approve(
+      await erc20Swap.getAddress(),
+      values.reduce((sum, { amount }) => sum + amount, 0n),
+      {
+        nonce,
+      },
+    );
+    await approveTx.wait(1);
+    nonce += 1;
+
+    for (const v of valuesWithPreimageHash) {
+      const tx = await erc20Swap.lock(
+        v.preimageHash,
+        v.amount,
+        await tokenContract.getAddress(),
+        await setup.signer.getAddress(),
+        v.timelock,
+        {
+          nonce,
+        },
+      );
+      await tx.wait(1);
+
+      nonce += 1;
+    }
+
+    await wait(150);
+    const tx = await contractHandler.claimBatchToken(
+      [swap.id],
+      erc20WalletProvider,
+      values,
+    );
+    await tx.wait(1);
+
+    for (const v of valuesWithPreimageHash) {
+      await expect(
+        erc20Swap.swaps(
+          await erc20Swap.hashValues(
+            v.preimageHash,
+            v.amount,
+            await tokenContract.getAddress(),
+            await setup.signer.getAddress(),
+            v.refundAddress,
+            v.timelock,
+          ),
+        ),
+      ).resolves.toEqual(false);
+    }
+
+    const label = await TransactionLabelRepository.getLabel(tx!.hash);
+    expect(label!).not.toBeNull();
+    expect(label!.id).toEqual(tx!.hash);
+    expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
+    expect(label!.label).toEqual(
+      TransactionLabelRepository.claimBatchLabel([swap.id]),
+    );
+  });
+
   test('should refund ERC20 tokens', async () => {
     // Lockup again and sanity check
     await lockupErc20(swap);
+    await wait(150);
 
     expect(
       await querySwap(

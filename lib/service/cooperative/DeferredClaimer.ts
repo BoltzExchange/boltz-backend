@@ -10,13 +10,21 @@ import {
 import Logger from '../../Logger';
 import {
   arrayToChunks,
+  calculateEthereumTransactionFee,
   formatError,
   getChainCurrency,
   getHexBuffer,
-  getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import { SwapType, SwapUpdateEvent, SwapVersion } from '../../consts/Enums';
+import ElementsClient from '../../chain/ElementsClient';
+import DefaultMap from '../../consts/DefaultMap';
+import {
+  CurrencyType,
+  SwapType,
+  SwapUpdateEvent,
+  SwapVersion,
+} from '../../consts/Enums';
+import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import ChannelCreation from '../../db/models/ChannelCreation';
 import Swap from '../../db/models/Swap';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
@@ -24,6 +32,11 @@ import SwapRepository from '../../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import SwapOutputType from '../../swap/SwapOutputType';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
+import {
+  queryERC20SwapValuesFromLock,
+  queryEtherSwapValuesFromLock,
+} from '../../wallet/ethereum/ContractUtils';
+import ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
 import CoopSignerBase, { SwapToClaim } from './CoopSignerBase';
@@ -42,7 +55,10 @@ class DeferredClaimer extends CoopSignerBase<
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
-  private static readonly maxBatchClaimChunk = 15;
+  private static readonly maxBatchClaimChunk = new DefaultMap(
+    () => 100,
+    [[ElementsClient.symbol, 15]],
+  );
 
   private readonly lock = new AsyncLock();
 
@@ -97,10 +113,9 @@ class DeferredClaimer extends CoopSignerBase<
   public pendingSweeps = () => {
     const transformMap = (map: Map<string, Map<string, any>>) =>
       new Map<string, string[]>(
-        Array.from(map.entries()).map(([currency, swaps]) => [
-          currency,
-          Array.from(swaps.keys()),
-        ]),
+        Array.from(map.entries())
+          .filter(([, swaps]) => swaps.size > 0)
+          .map(([currency, swaps]) => [currency, Array.from(swaps.keys())]),
       );
 
     return {
@@ -110,10 +125,9 @@ class DeferredClaimer extends CoopSignerBase<
 
   public pendingSweepsValues() {
     return new Map<string, SwapToClaimPreimage[]>(
-      Array.from(this.swapsToClaim.entries()).map(([currency, swaps]) => [
-        currency,
-        Array.from(swaps.values()),
-      ]),
+      Array.from(this.swapsToClaim.entries())
+        .filter(([, swaps]) => swaps.size > 0)
+        .map(([currency, swaps]) => [currency, Array.from(swaps.values())]),
     );
   }
 
@@ -254,7 +268,7 @@ class DeferredClaimer extends CoopSignerBase<
 
     for (const toClaimChunk of arrayToChunks(
       swapsToClaim,
-      DeferredClaimer.maxBatchClaimChunk,
+      DeferredClaimer.maxBatchClaimChunk.get(symbol),
     )) {
       try {
         claimed = claimed.concat(
@@ -283,42 +297,126 @@ class DeferredClaimer extends CoopSignerBase<
   };
 
   private broadcastClaim = async (
-    currency: string,
+    symbol: string,
     swaps: SwapToClaimPreimage[],
   ) => {
-    const chainClient = this.currencies.get(currency)!.chainClient!;
-    const wallet = this.walletManager.wallets.get(currency)!;
+    let transactionFee: number;
+    let claimTransactionId: string;
 
-    const claimDetails = (await Promise.all(
-      swaps.map((swap) =>
-        this.constructClaimDetails(chainClient, wallet, swap, swap.preimage),
-      ),
-    )) as ClaimDetails[] | LiquidClaimDetails[];
+    const currency = this.currencies.get(symbol)!;
 
-    const claimTransaction = constructClaimTransaction(
-      wallet,
-      claimDetails,
-      await wallet.getAddress(
-        TransactionLabelRepository.claimBatchLabel(
-          SwapType.Submarine,
+    switch (currency.type) {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid: {
+        const wallet = this.walletManager.wallets.get(symbol)!;
+        const chainClient = currency!.chainClient!;
+
+        const claimDetails = (await Promise.all(
+          swaps.map((swap) =>
+            this.constructClaimDetails(
+              chainClient,
+              wallet,
+              swap,
+              swap.preimage,
+            ),
+          ),
+        )) as ClaimDetails[] | LiquidClaimDetails[];
+
+        const claimTransaction = constructClaimTransaction(
+          wallet,
+          claimDetails,
+          await wallet.getAddress(
+            TransactionLabelRepository.claimBatchLabel(
+              swaps.map((s) => s.swap.id),
+            ),
+          ),
+          await chainClient.estimateFee(),
+        );
+
+        claimTransactionId = claimTransaction.getId();
+        transactionFee = await calculateTransactionFee(
+          chainClient,
+          claimTransaction,
+        );
+
+        await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
+        break;
+      }
+
+      case CurrencyType.Ether: {
+        const manager = this.getEthereumManager(symbol);
+
+        const swapValues: EtherSwapValues[] = [];
+        for (const swap of swaps) {
+          swapValues.push(
+            await queryEtherSwapValuesFromLock(
+              manager.provider,
+              manager.etherSwap,
+              swap.swap.lockupTransactionId!,
+            ),
+          );
+        }
+
+        const tx = await manager.contractHandler.claimBatchEther(
           swaps.map((s) => s.swap.id),
-        ),
-      ),
-      await chainClient.estimateFee(),
-    );
+          swaps
+            .map((s, i) => ({ swap: s, values: swapValues[i] }))
+            .map(({ swap, values }) => ({
+              amount: values.amount,
+              preimage: swap.preimage,
+              timelock: values.timelock,
+              refundAddress: values.refundAddress,
+            })),
+        );
 
-    const transactionFeePerSwap = Math.ceil(
-      (await calculateTransactionFee(chainClient, claimTransaction)) /
-        swaps.length,
-    );
+        claimTransactionId = tx.hash;
+        transactionFee = calculateEthereumTransactionFee(tx);
 
-    await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
+        break;
+      }
+
+      case CurrencyType.ERC20: {
+        const manager = this.getEthereumManager(symbol);
+
+        const swapValues: ERC20SwapValues[] = [];
+        for (const swap of swaps) {
+          swapValues.push(
+            await queryERC20SwapValuesFromLock(
+              manager.provider,
+              manager.erc20Swap,
+              swap.swap.lockupTransactionId!,
+            ),
+          );
+        }
+
+        const tx = await manager.contractHandler.claimBatchToken(
+          swaps.map((s) => s.swap.id),
+          this.walletManager.wallets.get(symbol)!
+            .walletProvider as ERC20WalletProvider,
+          swaps
+            .map((s, i) => ({ swap: s, values: swapValues[i] }))
+            .map(({ swap, values }) => ({
+              amount: values.amount,
+              preimage: swap.preimage,
+              timelock: values.timelock,
+              refundAddress: values.refundAddress,
+            })),
+        );
+
+        claimTransactionId = tx.hash;
+        transactionFee = calculateEthereumTransactionFee(tx);
+
+        break;
+      }
+    }
 
     this.logger.info(
-      `Claimed ${wallet.symbol} of Swaps ${swaps
+      `Claimed ${symbol} of Swaps ${swaps
         .map((toClaim) => toClaim.swap.id)
-        .join(', ')} in: ${claimTransaction.getId()}`,
+        .join(', ')} in: ${claimTransactionId}`,
     );
+
+    const transactionFeePerSwap = Math.ceil(transactionFee / swaps.length);
 
     for (const toClaim of swaps) {
       this.emit('claim', {
@@ -354,12 +452,24 @@ class DeferredClaimer extends CoopSignerBase<
   };
 
   private expiryTooSoon = async (chainCurrency: string, swap: Swap) => {
-    const chainClient = this.currencies.get(chainCurrency)!.chainClient!;
-    const { blocks } = await chainClient.getBlockchainInfo();
+    let blockHeight: number;
+
+    const currency = this.currencies.get(chainCurrency)!;
+    switch (currency.type) {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
+        blockHeight = (await currency.chainClient!.getBlockchainInfo()).blocks;
+        break;
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        blockHeight = await currency.provider!.getBlockNumber();
+        break;
+    }
 
     const minutesLeft =
       TimeoutDeltaProvider.blockTimes.get(chainCurrency)! *
-      (swap.timeoutBlockHeight - blocks);
+      (swap.timeoutBlockHeight - blockHeight);
 
     return minutesLeft <= this.config.expiryTolerance;
   };
@@ -371,43 +481,17 @@ class DeferredClaimer extends CoopSignerBase<
   private batchClaimLeftovers = async () => {
     const swapsToClaim = await SwapRepository.getSwapsClaimable();
 
-    for (const swap of swapsToClaim) {
-      const { base, quote } = splitPairId(swap.pair);
-      const { lndClient, clnClient } = this.currencies.get(
-        getLightningCurrency(base, quote, swap.orderSide, false),
-      )!;
-
-      const paymentRes = (
-        await Promise.allSettled([
-          lndClient
-            ?.trackPayment(getHexBuffer(swap.preimageHash))
-            .then((res) => getHexBuffer(res.paymentPreimage)),
-          clnClient?.checkPayStatus(swap.invoice!).then((res) => res?.preimage),
-        ])
-      )
-        .filter(
-          (res): res is PromiseFulfilledResult<Buffer | undefined> =>
-            res.status === 'fulfilled',
-        )
-        .map((res) => res.value)
-        .filter((res): res is Buffer => res !== undefined);
-
-      if (paymentRes.length === 0) {
-        this.logger.warn(
-          `Could not prepare claim of Swap ${swap.id}: no lightning client has preimage`,
-        );
-        continue;
-      }
-
-      await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
+    await this.lock.acquire(DeferredClaimer.swapsToClaimLock, () => {
+      for (const swap of swapsToClaim) {
+        const { base, quote } = splitPairId(swap.pair);
         this.swapsToClaim
           .get(getChainCurrency(base, quote, swap.orderSide, false))!
           .set(swap.id, {
             swap,
-            preimage: paymentRes[0],
+            preimage: getHexBuffer(swap.preimage!),
           });
-      });
-    }
+      }
+    });
 
     await this.sweep();
   };
@@ -417,6 +501,16 @@ class DeferredClaimer extends CoopSignerBase<
     const chainCurrency = this.currencies.get(
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
+
+    // EVM based currencies cannot be claimed cooperatively
+    if (
+      chainCurrency.type !== CurrencyType.BitcoinLike &&
+      chainCurrency.type !== CurrencyType.Liquid
+    ) {
+      return {
+        chainCurrency,
+      };
+    }
 
     let toClaim: SwapToClaimPreimage | undefined;
     await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
@@ -428,6 +522,9 @@ class DeferredClaimer extends CoopSignerBase<
       chainCurrency,
     };
   };
+
+  private getEthereumManager = (symbol: string) =>
+    this.walletManager.ethereumManagers.find((m) => m.hasSymbol(symbol))!;
 }
 
 export default DeferredClaimer;

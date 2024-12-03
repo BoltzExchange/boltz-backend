@@ -304,7 +304,7 @@ class EthereumNursery extends TypedEventEmitter<{
       return;
     }
 
-    if (erc20SwapValues.tokenAddress !== erc20Wallet.getTokenAddress()) {
+    if (erc20SwapValues.tokenAddress !== erc20Wallet.tokenAddress) {
       this.emit('lockup.failed', {
         swap,
         reason: Errors.INVALID_TOKEN_LOCKED(

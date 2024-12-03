@@ -621,6 +621,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ? (swap as Swap).lockupTransactionId
         : (swap as ChainSwapInfo).receivingData.transactionId;
 
+    if (
+      swap.type === SwapType.Submarine &&
+      (await this.claimer.deferClaim(swap as Swap, payRes.preimage))
+    ) {
+      this.emit('claim.pending', swap as Swap);
+      return;
+    }
+
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {

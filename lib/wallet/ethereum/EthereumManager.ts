@@ -31,8 +31,8 @@ type Network = {
 
 class EthereumManager {
   private static supportedContractVersions = {
-    EtherSwap: 3,
-    ERC20Swap: 3,
+    EtherSwap: 4,
+    ERC20Swap: 4,
   };
 
   public readonly provider: InjectedProvider;

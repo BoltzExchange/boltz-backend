@@ -15,6 +15,7 @@ import MarkedSwap from './models/MarkedSwap';
 import Pair from './models/Pair';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
+import Rebroadcast from './models/Rebroadcast';
 import Referral from './models/Referral';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
@@ -95,6 +96,7 @@ class Database {
       ChainTip.sync(),
       Referral.sync(),
       KeyProvider.sync(),
+      Rebroadcast.sync(),
       DatabaseVersion.sync(),
       TransactionLabel.sync(),
       PendingEthereumTransaction.sync(),
@@ -142,6 +144,7 @@ class Database {
     ReverseRoutingHint.load(Database.sequelize);
     PendingLockupTransaction.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
+    Rebroadcast.load(Database.sequelize);
   };
 }
 

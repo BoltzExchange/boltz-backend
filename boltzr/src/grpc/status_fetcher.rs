@@ -85,7 +85,7 @@ mod test {
         let (tx, mut rx) = mpsc::channel(128);
         fetcher.set_sender(tx).await;
 
-        let ids = vec!["1", "21", "n"]
+        let ids = ["1", "21", "n"]
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
@@ -105,7 +105,7 @@ mod test {
     async fn test_buffered_ids() {
         let fetcher = StatusFetcher::new();
 
-        let mut ids = vec!["2", "12", "i"]
+        let mut ids = ["2", "12", "i"]
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<String>>();

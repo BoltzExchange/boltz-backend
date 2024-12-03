@@ -108,16 +108,16 @@ mod tls_test {
     #[test]
     fn test_load_certificates() {
         let certs_dir = "test-certs-all";
-        assert_eq!(Path::new(certs_dir).exists(), false);
+        assert!(!Path::new(certs_dir).exists());
 
         let (_, cert) = load_certificates(certs_dir.to_string()).unwrap();
-        assert_eq!(Path::new(certs_dir).exists(), true);
+        assert!(Path::new(certs_dir).exists());
 
-        for file in vec!["ca", "client", "server"]
+        for file in ["ca", "client", "server"]
             .iter()
             .flat_map(|entry| vec![format!("{}.pem", entry), format!("{}-key.pem", entry)])
         {
-            assert_eq!(Path::new(certs_dir).join(file).exists(), true);
+            assert!(Path::new(certs_dir).join(file).exists());
         }
 
         let (_, cert_loaded) = load_certificates(certs_dir.to_string()).unwrap();
@@ -128,7 +128,7 @@ mod tls_test {
 
     #[test]
     fn test_generate_or_load_certificate() {
-        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs-load".to_string());
+        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs-load");
         fs::create_dir(certs_dir.clone()).unwrap();
 
         let (created_key, created_cert) =
@@ -144,7 +144,7 @@ mod tls_test {
 
     #[test]
     fn test_generate_certificate_ca() {
-        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs1".to_string());
+        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs1");
         fs::create_dir(certs_dir.clone()).unwrap();
 
         let key_path = certs_dir.clone().join("key.pem");
@@ -160,7 +160,7 @@ mod tls_test {
 
     #[test]
     fn test_generate_certificate() {
-        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs2".to_string());
+        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-certs2");
         fs::create_dir(certs_dir.clone()).unwrap();
 
         let (ca_key, ca_cert) = generate_certificate(

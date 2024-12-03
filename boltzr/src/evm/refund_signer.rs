@@ -249,7 +249,7 @@ pub mod test {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.status(), true);
+        assert!(receipt.status());
     }
 
     #[tokio::test]
@@ -336,7 +336,7 @@ pub mod test {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.status(), true);
+        assert!(receipt.status());
     }
 
     pub async fn setup() -> (

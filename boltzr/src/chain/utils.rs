@@ -116,10 +116,7 @@ mod test {
             ]
         );
 
-        assert!(match tx {
-            Transaction::Bitcoin(_) => true,
-            _ => false,
-        });
+        assert!(matches!(tx, Transaction::Bitcoin(_)));
     }
 
     #[test]
@@ -151,9 +148,6 @@ mod test {
             ]
         );
 
-        assert!(match tx {
-            Transaction::Elements(_) => true,
-            _ => false,
-        });
+        assert!(matches!(tx, Transaction::Elements(_)));
     }
 }

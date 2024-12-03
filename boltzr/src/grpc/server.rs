@@ -385,7 +385,6 @@ mod server_test {
         let mut server_cp = server.clone();
         let server_thread = tokio::spawn(async move {
             server_cp.start().await.unwrap();
-            ()
         });
         tokio::time::sleep(Duration::from_millis(100)).await;
 

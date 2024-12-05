@@ -342,28 +342,32 @@ class ClnClient
   };
 
   public stop = (): void => {
-    // Just here for interface compatibility;
+    // Just here for interface compatibility
   };
 
   public routingHints = async (node: string): Promise<HopHint[][]> => {
     const req = new noderpc.ListpeerchannelsRequest();
-    req.setId(node);
+    req.setId(getHexBuffer(node));
 
     const channels = await this.unaryNodeCall<
       noderpc.ListpeerchannelsRequest,
-      noderpc.ListpeerchannelsResponse.AsObject
-    >('listPeerChannels', req, true);
+      noderpc.ListpeerchannelsResponse
+    >('listPeerChannels', req, false);
 
-    return channels.channelsList
-      .filter((chan) => chan.pb_private)
+    return channels
+      .getChannelsList()
+      .filter((chan) => chan.getPrivate())
       .map((channel) => [
         {
           nodeId: node,
-          chanId: scidClnToLnd(getHexString(Buffer.from(channel.channelId))),
-          feeBaseMsat: channel.updates!.remote!.feeBaseMsat!.msat,
+          chanId: scidClnToLnd(channel.getShortChannelId()!),
+          feeBaseMsat:
+            channel.getUpdates()?.getRemote()?.getFeeBaseMsat()?.getMsat() || 0,
           feeProportionalMillionths:
-            channel.updates!.remote!.feeProportionalMillionths,
-          cltvExpiryDelta: channel.updates!.remote!.cltvExpiryDelta,
+            channel.getUpdates()?.getRemote()?.getFeeProportionalMillionths() ||
+            0,
+          cltvExpiryDelta:
+            channel.getUpdates()?.getRemote()?.getCltvExpiryDelta() || 0,
         },
       ]);
   };

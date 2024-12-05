@@ -324,4 +324,18 @@ describe('ClnClient', () => {
     await clnClient.settleHoldInvoice(preimage);
     await payPromise;
   });
+
+  test('should get routing hints', async () => {
+    await expect(
+      clnClient.routingHints(
+        '02588a9f9835642d8ab1fb8018f2d9cd85b8fb353cc5375f0f7f59cad87a621336',
+      ),
+    ).resolves.toEqual([]);
+
+    const channels = await clnClient.listChannels(false, true);
+    expect(channels.length).toBeGreaterThan(0);
+
+    const routingHints = await clnClient.routingHints(channels[0].remotePubkey);
+    expect(routingHints).toHaveLength(1);
+  });
 });

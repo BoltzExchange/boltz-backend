@@ -87,7 +87,7 @@ impl<M, T> BoltzService<M, T> {
 struct MetadataMap<'a>(&'a tonic::metadata::MetadataMap);
 
 #[cfg(feature = "otel")]
-impl<'a> opentelemetry::propagation::Extractor for MetadataMap<'a> {
+impl opentelemetry::propagation::Extractor for MetadataMap<'_> {
     fn get(&self, key: &str) -> Option<&str> {
         self.0.get(key).and_then(|metadata| metadata.to_str().ok())
     }

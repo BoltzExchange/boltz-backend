@@ -4,6 +4,7 @@ import { Network } from 'bitcoinjs-lib';
 import { Provider } from 'ethers';
 import fs from 'fs';
 import { IElementsClient } from 'lib/chain/ElementsClient';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { SLIP77Factory, Slip77Interface } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
 import { CurrencyConfig } from '../Config';
@@ -166,7 +167,7 @@ class WalletManager {
               this.logger,
               walletProvider,
               this.slip77,
-              currency.network!,
+              currency.network! as LiquidNetwork,
             );
 
       wallet.initKeyProvider(

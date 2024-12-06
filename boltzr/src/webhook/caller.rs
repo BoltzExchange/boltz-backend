@@ -698,36 +698,26 @@ mod caller_test {
         caller.retry_calls().await.unwrap();
 
         assert_eq!(received_calls.lock().unwrap().len(), 2);
-        assert!(received_calls
-            .lock()
-            .unwrap()
-            .iter()
-            .find(|entry| {
-                **entry
-                    == WebHookCallParams {
-                        event: WebHookEvent::SwapUpdate,
-                        data: WebHookCallData {
-                            id: id.to_string(),
-                            status: status.to_string(),
-                        },
-                    }
-            })
-            .is_some());
-        assert!(received_calls
-            .lock()
-            .unwrap()
-            .iter()
-            .find(|entry| {
-                **entry
-                    == WebHookCallParams {
-                        event: WebHookEvent::SwapUpdate,
-                        data: WebHookCallData {
-                            id: Caller::format_swap_id(id_two.to_string(), true),
-                            status: status_two.to_string(),
-                        },
-                    }
-            })
-            .is_some());
+        assert!(received_calls.lock().unwrap().iter().any(|entry| {
+            *entry
+                == WebHookCallParams {
+                    event: WebHookEvent::SwapUpdate,
+                    data: WebHookCallData {
+                        id: id.to_string(),
+                        status: status.to_string(),
+                    },
+                }
+        }));
+        assert!(received_calls.lock().unwrap().iter().any(|entry| {
+            *entry
+                == WebHookCallParams {
+                    event: WebHookEvent::SwapUpdate,
+                    data: WebHookCallData {
+                        id: Caller::format_swap_id(id_two.to_string(), true),
+                        status: status_two.to_string(),
+                    },
+                }
+        }));
 
         cancel_token.cancel();
     }

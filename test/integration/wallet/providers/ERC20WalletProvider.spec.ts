@@ -61,7 +61,7 @@ describe('ERC20WalletProvider', () => {
   });
 
   test('should get contract address', () => {
-    expect(wallet.getTokenAddress()).toEqual(token.address);
+    expect(wallet.tokenAddress).toEqual(token.address);
   });
 
   test('should get address', async () => {

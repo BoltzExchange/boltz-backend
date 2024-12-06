@@ -55,7 +55,6 @@ const MockedEtherWalletProvider = <jest.Mock<EtherWalletProvider>>(
 );
 
 const mockTokenAddress = '0xdac17f958d2ee523a2206206994597c13d831ec7';
-const mockGetTokenAddress = jest.fn().mockReturnValue(mockTokenAddress);
 
 const mockNormalizeTokenAmount = jest
   .fn()
@@ -72,7 +71,7 @@ jest.mock('../../../lib/wallet/providers/ERC20WalletProvider', () => {
     symbol,
     type: CurrencyType.ERC20,
     walletProvider: {
-      getTokenAddress: mockGetTokenAddress,
+      tokenAddress: mockTokenAddress,
       formatTokenAmount: mockFormatTokenAmount,
       normalizeTokenAmount: mockNormalizeTokenAmount,
     },
@@ -658,8 +657,6 @@ describe('EthereumNursery', () => {
       10,
       true,
     );
-
-    expect(mockGetTokenAddress).toHaveBeenCalledTimes(1);
 
     expect(mockFormatTokenAmount).toHaveBeenCalledTimes(1);
     expect(mockFormatTokenAmount).toHaveBeenCalledWith(

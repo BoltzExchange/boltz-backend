@@ -26,9 +26,9 @@ class ERC20WalletProvider implements WalletProviderInterface {
     return 'Wallet';
   };
 
-  public getTokenAddress = (): string => {
+  public get tokenAddress(): string {
     return this.token.address;
-  };
+  }
 
   public getAddress = (): Promise<string> => {
     return this.signer.getAddress();

@@ -9,6 +9,13 @@ import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import { getGasPrices } from './EthereumUtils';
 import { NetworkDetails } from './EvmNetworks';
 
+export type BatchClaimValues = {
+  preimage: Buffer;
+  amount: bigint;
+  refundAddress: string;
+  timelock: number;
+};
+
 class ContractHandler {
   private provider!: Provider;
 
@@ -103,6 +110,24 @@ class ContractHandler {
       ),
     );
 
+  public claimBatchEther = async (
+    swapsIds: string[],
+    values: BatchClaimValues[],
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.claimBatchLabel(swapsIds),
+      this.networkDetails.symbol,
+      this.etherSwap.claimBatch(
+        values.map((v) => v.preimage),
+        values.map((v) => v.amount),
+        values.map((v) => v.refundAddress),
+        values.map((v) => v.timelock),
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
+    );
+
   public refundEther = async (
     swap: AnySwap,
     preimageHash: Buffer,
@@ -132,7 +157,7 @@ class ContractHandler {
       this.erc20Swap.lock(
         preimageHash,
         amount,
-        token.getTokenAddress(),
+        token.tokenAddress,
         claimAddress,
         timeLock,
         {
@@ -154,7 +179,7 @@ class ContractHandler {
       await this.erc20Swap.lock.estimateGas(
         preimageHash,
         amount,
-        token.getTokenAddress(),
+        token.tokenAddress,
         claimAddress,
         timeLock,
       );
@@ -165,7 +190,7 @@ class ContractHandler {
       this.erc20Swap.lockPrepayMinerfee(
         preimageHash,
         amount,
-        token.getTokenAddress(),
+        token.tokenAddress,
         claimAddress,
         timeLock,
         {
@@ -192,9 +217,29 @@ class ContractHandler {
       this.erc20Swap['claim(bytes32,uint256,address,address,uint256)'](
         preimage,
         amount,
-        token.getTokenAddress(),
+        token.tokenAddress,
         refundAddress,
         timeLock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
+    );
+
+  public claimBatchToken = async (
+    swapsIds: string[],
+    token: ERC20WalletProvider,
+    values: BatchClaimValues[],
+  ): Promise<ContractTransactionResponse> =>
+    this.annotateLabel(
+      TransactionLabelRepository.claimBatchLabel(swapsIds),
+      token.symbol,
+      this.erc20Swap.claimBatch(
+        token.tokenAddress,
+        values.map((v) => v.preimage),
+        values.map((v) => v.amount),
+        values.map((v) => v.refundAddress),
+        values.map((v) => v.timelock),
         {
           ...(await getGasPrices(this.provider)),
         },
@@ -215,7 +260,7 @@ class ContractHandler {
       this.erc20Swap.refund(
         preimageHash,
         amount,
-        token.getTokenAddress(),
+        token.tokenAddress,
         claimAddress,
         timeLock,
         {

@@ -25,8 +25,8 @@ describe('ElementsService', () => {
     Logger.disabledLogger,
     new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
     slip77,
+    networks.regtest,
   );
-  wallet['network'] = networks.regtest;
 
   const es = new ElementsService(
     new Map<string, Currency>([
@@ -91,8 +91,8 @@ describe('ElementsService', () => {
       Logger.disabledLogger,
       new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
       SLIP77Factory(ecc).fromSeed(mnemonicToSeedSync(generateMnemonic())),
+      networks.regtest,
     );
-    secondWallet['network'] = networks.regtest;
 
     const script = secondWallet.decodeAddress(
       await secondWallet.getAddress(''),

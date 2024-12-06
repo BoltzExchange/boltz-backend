@@ -95,47 +95,32 @@ mod test {
 
         let mut stream = client.stream();
         while let Some(ev) = stream.next().await {
-            match ev.unwrap() {
-                SSE::Event(ev) => {
-                    if count == 0 {
-                        assert_eq!(
-                            serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
+            if let SSE::Event(ev) = ev.unwrap() {
+                if count == 0 {
+                    assert_eq!(
+                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
+                        SwapStatus {
+                            id: id.to_string(),
+                            status: "swap.created".to_string(),
+                            zero_conf_rejected: None,
+                            transaction: None,
+                            failure_reason: None,
+                            failure_details: None,
+                            channel_info: None,
+                        }
+                    );
+
+                    status_tx
+                        .send(vec![
                             SwapStatus {
-                                id: id.to_string(),
-                                status: "swap.created".to_string(),
+                                id: "ignored".to_string(),
+                                status: "ignored".to_string(),
                                 zero_conf_rejected: None,
                                 transaction: None,
                                 failure_reason: None,
                                 failure_details: None,
                                 channel_info: None,
-                            }
-                        );
-
-                        status_tx
-                            .send(vec![
-                                SwapStatus {
-                                    id: "ignored".to_string(),
-                                    status: "ignored".to_string(),
-                                    zero_conf_rejected: None,
-                                    transaction: None,
-                                    failure_reason: None,
-                                    failure_details: None,
-                                    channel_info: None,
-                                },
-                                SwapStatus {
-                                    id: id.to_string(),
-                                    status: "new.status".to_string(),
-                                    zero_conf_rejected: None,
-                                    transaction: None,
-                                    failure_reason: None,
-                                    failure_details: None,
-                                    channel_info: None,
-                                },
-                            ])
-                            .unwrap();
-                    } else if count == 1 {
-                        assert_eq!(
-                            serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
+                            },
                             SwapStatus {
                                 id: id.to_string(),
                                 status: "new.status".to_string(),
@@ -144,14 +129,26 @@ mod test {
                                 failure_reason: None,
                                 failure_details: None,
                                 channel_info: None,
-                            }
-                        );
-                        break;
-                    }
-
-                    count += 1;
+                            },
+                        ])
+                        .unwrap();
+                } else if count == 1 {
+                    assert_eq!(
+                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
+                        SwapStatus {
+                            id: id.to_string(),
+                            status: "new.status".to_string(),
+                            zero_conf_rejected: None,
+                            transaction: None,
+                            failure_reason: None,
+                            failure_details: None,
+                            channel_info: None,
+                        }
+                    );
+                    break;
                 }
-                _ => {}
+
+                count += 1;
             }
         }
 

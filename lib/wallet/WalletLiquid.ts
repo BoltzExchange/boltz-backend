@@ -1,5 +1,5 @@
-import type { Network } from 'bitcoinjs-lib';
 import { address, networks, payments } from 'liquidjs-lib';
+import type { Network } from 'liquidjs-lib/src/networks';
 import { Payment } from 'liquidjs-lib/src/payments';
 import { Slip77Interface } from 'slip77';
 import Logger from '../Logger';
@@ -22,7 +22,9 @@ class WalletLiquid extends Wallet {
   }
 
   public get supportsDiscountCT(): boolean {
-    return this.network !== networks.liquid;
+    return !(this.network as Network).genesisBlockHash.equals(
+      networks.liquid.genesisBlockHash,
+    );
   }
 
   public deriveBlindingKeyFromScript = (outputScript: Buffer) => {

@@ -523,7 +523,7 @@ mod status_test {
                         );
                     }
                     _ => {
-                        assert!(false);
+                        panic!();
                     }
                 };
             } else {
@@ -546,7 +546,7 @@ mod status_test {
                         );
                     }
                     _ => {
-                        assert!(false);
+                        panic!();
                     }
                 };
                 break;
@@ -619,7 +619,7 @@ mod status_test {
                     );
                 }
                 _ => {
-                    assert!(false);
+                    panic!();
                 }
             };
             break;

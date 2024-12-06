@@ -59,3 +59,6 @@ export const sleep = (time: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, time);
   });
+
+export const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));

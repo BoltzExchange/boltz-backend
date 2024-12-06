@@ -3,6 +3,8 @@ syntax = "proto3";
 package boltzrpc;
 
 service Boltz {
+  rpc Stop (StopRequest) returns (StopResponse);
+
   /* Gets general information about this Boltz instance and the nodes it is connected to */
   rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
 
@@ -57,6 +59,9 @@ enum OutputType {
   COMPATIBILITY = 1;
   LEGACY = 2;
 }
+
+message StopRequest {}
+message StopResponse {}
 
 message GetInfoRequest {}
 message GetInfoResponse {

@@ -8,6 +8,7 @@ import * as grpc from "@grpc/grpc-js";
 import * as boltzrpc_pb from "./boltzrpc_pb";
 
 interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
+    stop: IBoltzService_IStop;
     getInfo: IBoltzService_IGetInfo;
     getBalance: IBoltzService_IGetBalance;
     deriveKeys: IBoltzService_IDeriveKeys;
@@ -29,6 +30,15 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     devHeapDump: IBoltzService_IDevHeapDump;
 }
 
+interface IBoltzService_IStop extends grpc.MethodDefinition<boltzrpc_pb.StopRequest, boltzrpc_pb.StopResponse> {
+    path: "/boltzrpc.Boltz/Stop";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.StopRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.StopRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.StopResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.StopResponse>;
+}
 interface IBoltzService_IGetInfo extends grpc.MethodDefinition<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse> {
     path: "/boltzrpc.Boltz/GetInfo";
     requestStream: false;
@@ -204,6 +214,7 @@ interface IBoltzService_IDevHeapDump extends grpc.MethodDefinition<boltzrpc_pb.D
 export const BoltzService: IBoltzService;
 
 export interface IBoltzServer extends grpc.UntypedServiceImplementation {
+    stop: grpc.handleUnaryCall<boltzrpc_pb.StopRequest, boltzrpc_pb.StopResponse>;
     getInfo: grpc.handleUnaryCall<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse>;
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     deriveKeys: grpc.handleUnaryCall<boltzrpc_pb.DeriveKeysRequest, boltzrpc_pb.DeriveKeysResponse>;
@@ -226,6 +237,9 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
 }
 
 export interface IBoltzClient {
+    stop(request: boltzrpc_pb.StopRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
+    stop(request: boltzrpc_pb.StopRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
+    stop(request: boltzrpc_pb.StopRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzrpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
@@ -287,6 +301,9 @@ export interface IBoltzClient {
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
     constructor(address: string, credentials: grpc.ChannelCredentials, options?: Partial<grpc.ClientOptions>);
+    public stop(request: boltzrpc_pb.StopRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
+    public stop(request: boltzrpc_pb.StopRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
+    public stop(request: boltzrpc_pb.StopRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.StopResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzrpc_pb.GetInfoRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;
     public getInfo(request: boltzrpc_pb.GetInfoRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetInfoResponse) => void): grpc.ClientUnaryCall;

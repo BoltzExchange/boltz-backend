@@ -1,20 +1,34 @@
 import { handleUnaryCall } from '@grpc/grpc-js';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
+import process from 'process';
 import { parseTransaction } from '../Core';
 import { dumpHeap } from '../HeapDump';
 import Logger, { LogLevel as BackendLevel } from '../Logger';
+import { wait } from '../PromiseUtils';
 import { getHexString, getUnixTime } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
 import Service from '../service/Service';
+import Sidecar from '../sidecar/Sidecar';
 
 class GrpcService {
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
   ) {}
+
+  public stop: handleUnaryCall<boltzrpc.StopRequest, boltzrpc.StopRequest> =
+    async (_, callback) => {
+      callback(null, new boltzrpc.StopResponse());
+
+      await Sidecar.stop();
+      await wait(500);
+
+      // eslint-disable-next-line n/no-process-exit
+      process.exit(0);
+    };
 
   public getInfo: handleUnaryCall<
     boltzrpc.GetInfoRequest,
@@ -396,7 +410,7 @@ class GrpcService {
           break;
       }
 
-      this.service.setLogLevel(level);
+      await this.service.setLogLevel(level);
 
       return new boltzrpc.SetLogLevelResponse();
     });

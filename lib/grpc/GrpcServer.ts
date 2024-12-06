@@ -22,6 +22,7 @@ class GrpcServer {
     });
 
     this.server.addService(BoltzService, {
+      stop: grpcService.stop,
       getInfo: grpcService.getInfo,
       getBalance: grpcService.getBalance,
       deriveKeys: grpcService.deriveKeys,

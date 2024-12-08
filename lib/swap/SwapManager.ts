@@ -1335,10 +1335,11 @@ class SwapManager {
     const ethereumManager = this.walletManager.ethereumManagers.find(
       (manager) => manager.hasSymbol(symbol),
     )!;
+    const contracts = ethereumManager.highestContractsVersion();
 
     return type === CurrencyType.Ether
-      ? ethereumManager.etherSwap.getAddress()
-      : ethereumManager.erc20Swap.getAddress();
+      ? contracts.etherSwap.getAddress()
+      : contracts.erc20Swap.getAddress();
   };
 }
 

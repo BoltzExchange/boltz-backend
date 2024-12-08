@@ -104,8 +104,10 @@ class ERC20WalletProvider implements WalletProviderInterface {
   public approve = async (
     spender: string,
     amount: bigint,
+    nonce?: number,
   ): Promise<SentTransaction> => {
     const transaction = await this.token.contract.approve(spender, amount, {
+      nonce,
       ...(await getGasPrices(this.signer.provider!)),
     });
 

@@ -41,8 +41,11 @@ import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
-import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import Contracts, {
+  Feature,
+} from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../Utils';
@@ -268,18 +271,37 @@ describe('DeferredClaimer', () => {
 
     const contractHandler = new ContractHandler(Ethereum);
     contractHandler.init(
+      new Set<Feature>([Feature.BatchClaim]),
       ethereumSetup.provider,
       contracts.etherSwap,
       contracts.erc20Swap,
     );
 
+    const cts = {
+      contractHandler,
+      version: Contracts.maxVersion,
+      etherSwap: contracts.etherSwap,
+      erc20Swap: contracts.erc20Swap,
+    };
+
     walletManager.ethereumManagers = [
       {
         contractHandler,
-        etherSwap: contracts.etherSwap,
-        erc20Swap: contracts.erc20Swap,
         provider: ethereumSetup.provider,
         hasSymbol: jest.fn().mockReturnValue(true),
+        contractsForAddress: jest
+          .fn()
+          .mockImplementation(async (address: string) => {
+            if (address == 'outdated') {
+              return {
+                ...cts,
+                version: Contracts.maxVersion - 1n,
+              };
+            } else {
+              return cts;
+            }
+          }),
+        highestContractsVersion: jest.fn().mockReturnValue(cts),
       } as any,
     ];
     claimer['currencies'].set('RBTC', {
@@ -426,6 +448,19 @@ describe('DeferredClaimer', () => {
       const preimage = randomBytes(32);
 
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
+    });
+
+    test('should not defer claim transactions of swaps to outdated contracts', async () => {
+      const swap = {
+        pair: 'RBTC/BTC',
+        orderSide: OrderSide.SELL,
+        version: SwapVersion.Taproot,
+        lockupAddress: 'outdated',
+      } as Partial<Swap> as Swap;
+
+      await expect(claimer.deferClaim(swap, randomBytes(32))).resolves.toEqual(
+        false,
+      );
     });
   });
 

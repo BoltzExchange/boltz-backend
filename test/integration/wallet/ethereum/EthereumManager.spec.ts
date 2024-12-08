@@ -1,4 +1,3 @@
-import { generateMnemonic } from 'bip39';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
@@ -6,6 +5,7 @@ import Errors from '../../../../lib/wallet/Errors';
 import Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import Contracts from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import {
   EthereumSetup,
@@ -31,6 +31,20 @@ describe('EthereumManager', () => {
   let manager: EthereumManager;
   let wallets: Map<string, Wallet>;
 
+  const oldContracts = {
+    version: 1,
+    etherSwap: {
+      getAddress: jest
+        .fn()
+        .mockResolvedValue('0x8F78a4f8A9931FE8F7CBc6B5fD4976dcBe8f1832'),
+    },
+    erc20Swap: {
+      getAddress: jest
+        .fn()
+        .mockResolvedValue('0xBf074e2a0b85c975b41F33C99b14992EFba62776'),
+    },
+  } as unknown as Contracts;
+
   beforeAll(async () => {
     database = new Database(Logger.disabledLogger, Database.memoryDatabase);
     await database.init();
@@ -42,8 +56,12 @@ describe('EthereumManager', () => {
     manager = new EthereumManager(Logger.disabledLogger, false, {
       providerEndpoint,
       networkName: 'Anvil',
-      etherSwapAddress: await contracts.etherSwap.getAddress(),
-      erc20SwapAddress: await contracts.erc20Swap.getAddress(),
+      contracts: [
+        {
+          etherSwap: await contracts.etherSwap.getAddress(),
+          erc20Swap: await contracts.erc20Swap.getAddress(),
+        },
+      ],
       tokens: [
         {
           symbol: Ethereum.symbol,
@@ -57,6 +75,8 @@ describe('EthereumManager', () => {
         },
       ],
     });
+    manager['contracts'].push(oldContracts);
+
     wallets = await manager.init(setup.mnemonic);
   });
 
@@ -79,48 +99,6 @@ describe('EthereumManager', () => {
     ).toThrow(Errors.MISSING_SWAP_CONTRACTS().message);
   });
 
-  test.each`
-    versions | isEtherSwap
-    ${{
-  EtherSwap: 2,
-  ERC20Swap: 3,
-}} | ${true}
-    ${{
-  EtherSwap: 5,
-  ERC20Swap: 3,
-}} | ${true}
-    ${{
-  EtherSwap: 4,
-  ERC20Swap: 2,
-}} | ${false}
-    ${{
-  EtherSwap: 4,
-  ERC20Swap: 5,
-}} | ${false}
-  `(
-    'should throw for invalid contract versions $versions',
-    async ({ versions, isEtherSwap }) => {
-      EthereumManager['supportedContractVersions'] = versions;
-      const throwManager = new EthereumManager(Logger.disabledLogger, false, {
-        providerEndpoint,
-        tokens: [],
-        etherSwapAddress: await manager.etherSwap.getAddress(),
-        erc20SwapAddress: await manager.erc20Swap.getAddress(),
-      });
-
-      await expect(throwManager.init(generateMnemonic())).rejects.toEqual(
-        Errors.UNSUPPORTED_CONTRACT_VERSION(
-          `${Ethereum.name} ${isEtherSwap ? 'EtherSwap' : 'ERC20Swap'}`,
-          await (
-            isEtherSwap ? manager.etherSwap : manager.erc20Swap
-          ).getAddress(),
-          BigInt(4),
-          isEtherSwap ? versions.EtherSwap : versions.ERC20Swap,
-        ),
-      );
-    },
-  );
-
   test('should use network name in config', async () => {
     expect((await manager.getContractDetails()).network).toEqual({
       name: manager['config'].networkName,
@@ -132,7 +110,9 @@ describe('EthereumManager', () => {
     expect(
       await (
         wallets.get('USDT')!.walletProvider as ERC20WalletProvider
-      ).getAllowance(await manager.erc20Swap.getAddress()),
+      ).getAllowance(
+        await manager.highestContractsVersion().erc20Swap.getAddress(),
+      ),
     ).toEqual(MaxUint256);
   });
 
@@ -144,5 +124,32 @@ describe('EthereumManager', () => {
     ${'WBTC'}          | ${false}
   `('should have symbol $symbol -> $expected', ({ symbol, expected }) => {
     expect(manager.hasSymbol(symbol)).toEqual(expected);
+  });
+
+  test('should get highest contracts version', async () => {
+    expect(manager.highestContractsVersion()).not.toEqual(oldContracts);
+    expect(manager.highestContractsVersion()).toEqual(manager['contracts'][1]);
+  });
+
+  test('should get contracts for address', async () => {
+    await expect(
+      manager.contractsForAddress(
+        await manager.highestContractsVersion().etherSwap.getAddress(),
+      ),
+    ).resolves.toEqual(manager['contracts'][1]);
+    await expect(
+      manager.contractsForAddress(
+        await manager.highestContractsVersion().erc20Swap.getAddress(),
+      ),
+    ).resolves.toEqual(manager['contracts'][1]);
+
+    await expect(
+      manager.contractsForAddress(await oldContracts.etherSwap.getAddress()),
+    ).resolves.toEqual(oldContracts);
+    await expect(
+      manager.contractsForAddress(await oldContracts.erc20Swap.getAddress()),
+    ).resolves.toEqual(oldContracts);
+
+    await expect(manager.contractsForAddress('0x')).resolves.toBeUndefined();
   });
 });

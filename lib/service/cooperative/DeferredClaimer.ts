@@ -35,7 +35,8 @@ import WalletManager, { Currency } from '../../wallet/WalletManager';
 import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
-} from '../../wallet/ethereum/ContractUtils';
+} from '../../wallet/ethereum/contracts/ContractUtils';
+import Contracts from '../../wallet/ethereum/contracts/Contracts';
 import ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
@@ -161,7 +162,7 @@ class DeferredClaimer extends CoopSignerBase<
   ): Promise<boolean> => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
-    if (!this.shouldBeDeferred(chainCurrency, swap)) {
+    if (!(await this.shouldBeDeferred(chainCurrency, swap))) {
       return false;
     }
 
@@ -345,19 +346,20 @@ class DeferredClaimer extends CoopSignerBase<
 
       case CurrencyType.Ether: {
         const manager = this.getEthereumManager(symbol);
+        const contracts = manager.highestContractsVersion();
 
         const swapValues: EtherSwapValues[] = [];
         for (const swap of swaps) {
           swapValues.push(
             await queryEtherSwapValuesFromLock(
               manager.provider,
-              manager.etherSwap,
+              contracts.etherSwap,
               swap.swap.lockupTransactionId!,
             ),
           );
         }
 
-        const tx = await manager.contractHandler.claimBatchEther(
+        const tx = await contracts.contractHandler.claimBatchEther(
           swaps.map((s) => s.swap.id),
           swaps
             .map((s, i) => ({ swap: s, values: swapValues[i] }))
@@ -377,19 +379,20 @@ class DeferredClaimer extends CoopSignerBase<
 
       case CurrencyType.ERC20: {
         const manager = this.getEthereumManager(symbol);
+        const contracts = manager.highestContractsVersion();
 
         const swapValues: ERC20SwapValues[] = [];
         for (const swap of swaps) {
           swapValues.push(
             await queryERC20SwapValuesFromLock(
               manager.provider,
-              manager.erc20Swap,
+              contracts.erc20Swap,
               swap.swap.lockupTransactionId!,
             ),
           );
         }
 
-        const tx = await manager.contractHandler.claimBatchToken(
+        const tx = await contracts.contractHandler.claimBatchToken(
           swaps.map((s) => s.swap.id),
           this.walletManager.wallets.get(symbol)!
             .walletProvider as ERC20WalletProvider,
@@ -434,7 +437,7 @@ class DeferredClaimer extends CoopSignerBase<
     return swaps.map((toClaim) => toClaim.swap.id);
   };
 
-  private shouldBeDeferred = (chainCurrency: string, swap: Swap) => {
+  private shouldBeDeferred = async (chainCurrency: string, swap: Swap) => {
     if (!this.config.deferredClaimSymbols.includes(chainCurrency)) {
       this.logNotDeferringReason(
         swap,
@@ -446,6 +449,22 @@ class DeferredClaimer extends CoopSignerBase<
     if (swap.version !== SwapVersion.Taproot) {
       this.logNotDeferringReason(swap, 'version is legacy');
       return false;
+    }
+
+    const currency = this.currencies.get(chainCurrency)!;
+    if (
+      currency.type === CurrencyType.Ether ||
+      currency.type === CurrencyType.ERC20
+    ) {
+      const manager = this.getEthereumManager(chainCurrency);
+      const contracts = (await manager.contractsForAddress(
+        swap.lockupAddress,
+      ))!;
+
+      if (contracts.version !== Contracts.maxVersion) {
+        this.logNotDeferringReason(swap, 'not using the latest contracts');
+        return false;
+      }
     }
 
     return true;

@@ -1,20 +1,21 @@
-use alloy::primitives::{Address, FixedBytes, U256};
+use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::network::{AnyNetwork, EthereumWallet};
-use alloy::providers::{Provider, ProviderBuilder, RootProvider};
-use alloy::signers::local::coins_bip39::English;
-use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
-use alloy::signers::{Signature, Signer};
+use alloy::providers::RootProvider;
+use alloy::signers::local::PrivateKeySigner;
+use alloy::signers::Signer;
 use alloy::sol_types::SolStruct;
-use std::error::Error;
-use std::fs;
-use tracing::{debug, info, instrument};
+use anyhow::anyhow;
+use tracing::info;
 
 use crate::evm::contracts::erc20_swap::ERC20SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwapContract;
-use crate::evm::contracts::{erc20_swap, ether_swap};
+use crate::evm::contracts::{erc20_swap, ether_swap, SwapContract};
+
+const MIN_VERSION: u8 = 3;
+const MAX_VERSION: u8 = 4;
 
 type AlloyTransport = alloy_transport_http::Http<reqwest::Client>;
 type AlloyProvider = FillProvider<
@@ -30,78 +31,62 @@ type AlloyProvider = FillProvider<
     AnyNetwork,
 >;
 
-#[tonic::async_trait]
-pub trait RefundSigner {
-    async fn sign(
-        &self,
-        preimage_hash: FixedBytes<32>,
-        amount: U256,
-        token_address: Option<Address>,
-        timeout: u64,
-    ) -> Result<Signature, Box<dyn Error>>;
-}
-
 pub struct LocalRefundSigner {
-    signer: PrivateKeySigner,
+    version: u8,
 
     ether_swap: EtherSwapContract<AlloyTransport, AlloyProvider, AnyNetwork>,
     erc20_swap: ERC20SwapContract<AlloyTransport, AlloyProvider, AnyNetwork>,
 }
 
 impl LocalRefundSigner {
-    pub async fn new_mnemonic_file(
-        mnemonic_path: String,
-        config: &crate::evm::Config,
-    ) -> Result<Self, Box<dyn Error>> {
-        let mnemonic = fs::read_to_string(mnemonic_path)?;
-        debug!("Read mnemonic");
-
-        let signer = MnemonicBuilder::<English>::default()
-            .phrase(mnemonic.strip_suffix("\n").unwrap_or(mnemonic.as_str()))
-            .index(0)?
-            .build()?;
-
-        Self::new(signer, config).await
-    }
-
-    #[instrument(name = "RefundSigner::new", skip_all)]
     pub async fn new(
-        signer: PrivateKeySigner,
-        config: &crate::evm::Config,
-    ) -> Result<Self, Box<dyn Error>> {
-        info!("Using address: {}", signer.address());
+        provider: AlloyProvider,
+        config: &crate::evm::ContractAddresses,
+    ) -> anyhow::Result<Self> {
+        let (ether_swap, erc20_swap) = match tokio::try_join!(
+            EtherSwapContract::new(config.ether_swap.parse()?, provider.clone()),
+            ERC20SwapContract::new(config.erc20_swap.parse()?, provider)
+        ) {
+            Ok(res) => res,
+            Err(err) => return Err(anyhow!("{}", err)),
+        };
 
-        let provider = ProviderBuilder::new()
-            .network::<AnyNetwork>()
-            .with_recommended_fillers()
-            .wallet(EthereumWallet::from(signer.clone()))
-            .on_http(config.provider_endpoint.parse()?);
+        if ether_swap.version() != erc20_swap.version() {
+            return Err(anyhow::anyhow!(
+                "EtherSwap and ERC20Swap contracts have different versions"
+            ));
+        }
 
-        let chain_id = provider.get_chain_id().await?;
-        info!("Connected to EVM chain with id: {}", chain_id);
-
-        let (ether_swap, erc20_swap) = tokio::try_join!(
-            EtherSwapContract::new(config.ether_swap_address.parse()?, provider.clone()),
-            ERC20SwapContract::new(config.erc20_swap_address.parse()?, provider)
-        )?;
+        if ether_swap.version() < MIN_VERSION || ether_swap.version() > MAX_VERSION {
+            return Err(anyhow::anyhow!(
+                "unsupported contract version {}",
+                ether_swap.version()
+            ));
+        }
 
         Ok(LocalRefundSigner {
-            signer,
+            version: ether_swap.version(),
             ether_swap,
             erc20_swap,
         })
     }
-}
 
-#[tonic::async_trait]
-impl RefundSigner for LocalRefundSigner {
-    async fn sign(
+    pub fn addresses(&self) -> (&Address, &Address) {
+        (self.ether_swap.address(), self.erc20_swap.address())
+    }
+
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    pub async fn sign(
         &self,
+        signer: &PrivateKeySigner,
         preimage_hash: FixedBytes<32>,
         amount: U256,
         token_address: Option<Address>,
         timeout: u64,
-    ) -> Result<Signature, Box<dyn Error>> {
+    ) -> anyhow::Result<Signature> {
         info!(
             "Signing cooperative {} refund",
             if token_address.is_none() {
@@ -116,7 +101,7 @@ impl RefundSigner for LocalRefundSigner {
                 amount,
                 preimageHash: preimage_hash,
                 tokenAddress: token_address,
-                claimAddress: self.signer.address(),
+                claimAddress: signer.address(),
                 timeout: U256::from(timeout),
             }
             .eip712_signing_hash(self.erc20_swap.eip712_domain())
@@ -124,13 +109,13 @@ impl RefundSigner for LocalRefundSigner {
             ether_swap::Refund {
                 amount,
                 preimageHash: preimage_hash,
-                claimAddress: self.signer.address(),
+                claimAddress: signer.address(),
                 timeout: U256::from(timeout),
             }
             .eip712_signing_hash(self.ether_swap.eip712_domain())
         };
 
-        let sig = self.signer.sign_hash(&hash).await?;
+        let sig = signer.sign_hash(&hash).await?;
         Ok(Signature::from_bytes_and_parity(&sig.as_bytes(), sig.v())?)
     }
 }
@@ -139,8 +124,9 @@ impl RefundSigner for LocalRefundSigner {
 pub mod test {
     use crate::evm::contracts::erc20_swap::ERC20Swap;
     use crate::evm::contracts::ether_swap::EtherSwap;
-    use crate::evm::refund_signer::{AlloyProvider, LocalRefundSigner, RefundSigner};
-    use crate::evm::Config;
+    use crate::evm::contracts::SwapContract;
+    use crate::evm::refund_signer::{AlloyProvider, LocalRefundSigner};
+    use crate::evm::ContractAddresses;
     use alloy::primitives::{Address, FixedBytes, U256};
     use alloy::providers::network::{AnyNetwork, EthereumWallet, ReceiptResponse};
     use alloy::providers::{Provider, ProviderBuilder};
@@ -149,11 +135,9 @@ pub mod test {
     use alloy::sol;
     use rand::Rng;
     use serial_test::serial;
-    use std::fs;
-    use std::path::Path;
 
-    const MNEMONIC: &str = "test test test test test test test test test test test junk";
-    const PROVIDER: &str = "http://127.0.0.1:8545";
+    pub const MNEMONIC: &str = "test test test test test test test test test test test junk";
+    pub const PROVIDER: &str = "http://127.0.0.1:8545";
 
     pub const ETHER_SWAP_ADDRESS: &str = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
     pub const ERC20_SWAP_ADDRESS: &str = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
@@ -167,39 +151,24 @@ pub mod test {
     );
 
     #[tokio::test]
-    async fn test_new_mnemonic_file() {
-        let config = Config {
-            provider_endpoint: PROVIDER.to_string(),
-            ether_swap_address: ETHER_SWAP_ADDRESS.to_string(),
-            erc20_swap_address: ERC20_SWAP_ADDRESS.to_string(),
-        };
-        let expected_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-            .parse::<Address>()
-            .unwrap();
+    async fn test_addresses() {
+        let (_, _, signer, _) = setup().await;
 
-        let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
-        fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
+        assert_eq!(
+            signer.addresses().0,
+            &ETHER_SWAP_ADDRESS.parse::<Address>().unwrap()
+        );
+        assert_eq!(
+            signer.addresses().1,
+            &ERC20_SWAP_ADDRESS.parse::<Address>().unwrap()
+        );
+    }
 
-        let signer = LocalRefundSigner::new_mnemonic_file(
-            mnemonic_file.to_str().unwrap().to_string(),
-            &config,
-        )
-        .await
-        .unwrap();
-        assert_eq!(signer.signer.address(), expected_address);
+    #[tokio::test]
+    async fn test_version() {
+        let (_, _, signer, _) = setup().await;
 
-        // With a trailing newline
-        fs::write(mnemonic_file.clone(), format!("{}\n", MNEMONIC)).unwrap();
-
-        let signer = LocalRefundSigner::new_mnemonic_file(
-            mnemonic_file.to_str().unwrap().to_string(),
-            &config,
-        )
-        .await
-        .unwrap();
-        assert_eq!(signer.signer.address(), expected_address);
-
-        fs::remove_file(mnemonic_file.clone()).unwrap();
+        assert_eq!(signer.version(), signer.ether_swap.version());
     }
 
     #[tokio::test]
@@ -225,7 +194,10 @@ pub mod test {
             .await
             .unwrap();
 
-        let refund_sig = signer.sign(preimage_hash, amount, None, 1).await.unwrap();
+        let refund_sig = signer
+            .sign(&claim_keys, preimage_hash, amount, None, 1)
+            .await
+            .unwrap();
 
         let refund_tx_hash = contract
             .refundCooperative(
@@ -309,7 +281,13 @@ pub mod test {
             .unwrap();
 
         let refund_sig = signer
-            .sign(preimage_hash, amount, Some(*token.address()), 1)
+            .sign(
+                &claim_keys,
+                preimage_hash,
+                amount,
+                Some(*token.address()),
+                1,
+            )
             .await
             .unwrap();
 
@@ -348,11 +326,14 @@ pub mod test {
         let mnemonic_builder = MnemonicBuilder::<English>::default().phrase(MNEMONIC);
         let claim_keys = mnemonic_builder.clone().index(0).unwrap().build().unwrap();
         let signer = LocalRefundSigner::new(
-            claim_keys.clone(),
-            &Config {
-                provider_endpoint: PROVIDER.to_string(),
-                ether_swap_address: ETHER_SWAP_ADDRESS.to_string(),
-                erc20_swap_address: ERC20_SWAP_ADDRESS.to_string(),
+            ProviderBuilder::new()
+                .network::<AnyNetwork>()
+                .with_recommended_fillers()
+                .wallet(EthereumWallet::from(claim_keys.clone()))
+                .on_http(PROVIDER.parse().unwrap()),
+            &ContractAddresses {
+                ether_swap: ETHER_SWAP_ADDRESS.to_string(),
+                erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
             },
         )
         .await

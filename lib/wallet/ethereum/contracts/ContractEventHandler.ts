@@ -1,46 +1,54 @@
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ContractEventPayload, Transaction, TransactionResponse } from 'ethers';
-import Logger from '../../Logger';
-import TypedEventEmitter from '../../consts/TypedEventEmitter';
-import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
+import Logger from '../../../Logger';
+import TypedEventEmitter from '../../../consts/TypedEventEmitter';
+import { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
+import { parseBuffer } from '../EthereumUtils';
+import { NetworkDetails } from '../EvmNetworks';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
-import { parseBuffer } from './EthereumUtils';
-import { NetworkDetails } from './EvmNetworks';
 
 type Events = {
   // EtherSwap contract events
   'eth.lockup': {
+    version: bigint;
     transaction: Transaction | TransactionResponse;
     etherSwapValues: EtherSwapValues;
   };
   'eth.claim': {
+    version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
     preimage: Buffer;
   };
   'eth.refund': {
+    version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
   };
 
   // ERC20Swap contract events
   'erc20.lockup': {
+    version: bigint;
     transaction: Transaction | TransactionResponse;
     erc20SwapValues: ERC20SwapValues;
   };
   'erc20.claim': {
+    version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
     preimage: Buffer;
   };
   'erc20.refund': {
+    version: bigint;
     transactionHash: string;
     preimageHash: Buffer;
   };
 };
 
 class ContractEventHandler extends TypedEventEmitter<Events> {
+  private version!: bigint;
+
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
@@ -49,10 +57,12 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
   }
 
   public init = async (
+    version: bigint,
     networkDetails: NetworkDetails,
     etherSwap: EtherSwap,
     erc20Swap: ERC20Swap,
   ): Promise<void> => {
+    this.version = version;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
 
@@ -72,6 +82,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of etherLockups) {
       this.emit('eth.lockup', {
+        version: this.version,
         transaction: await event.getTransaction(),
         etherSwapValues: formatEtherSwapValues(event.args!),
       });
@@ -79,6 +90,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of etherClaims) {
       this.emit('eth.claim', {
+        version: this.version,
         transactionHash: event.transactionHash,
         preimageHash: parseBuffer(event.topics[1]),
         preimage: parseBuffer(event.args!.preimage),
@@ -87,6 +99,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of etherRefunds) {
       this.emit('eth.refund', {
+        version: this.version,
         transactionHash: event.transactionHash,
         preimageHash: parseBuffer(event.topics[1]),
       });
@@ -100,6 +113,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of erc20Lockups) {
       this.emit('erc20.lockup', {
+        version: this.version,
         transaction: await event.getTransaction(),
         erc20SwapValues: formatERC20SwapValues(event.args!),
       });
@@ -107,6 +121,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of erc20Claims) {
       this.emit('erc20.claim', {
+        version: this.version,
         transactionHash: event.transactionHash,
         preimageHash: parseBuffer(event.topics[1]),
         preimage: parseBuffer(event.args!.preimage),
@@ -115,6 +130,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
     for (const event of erc20Refunds) {
       this.emit('erc20.refund', {
+        version: this.version,
         transactionHash: event.transactionHash,
         preimageHash: parseBuffer(event.topics[1]),
       });
@@ -133,6 +149,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         event: ContractEventPayload,
       ) => {
         this.emit('eth.lockup', {
+          version: this.version,
           transaction: await event.log.getTransaction(),
           etherSwapValues: {
             amount,
@@ -149,6 +166,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
         this.emit('eth.claim', {
+          version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
           preimage: parseBuffer(preimage),
@@ -160,6 +178,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       'Refund' as any,
       (preimageHash: string, event: ContractEventPayload) => {
         this.emit('eth.refund', {
+          version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
         });
@@ -178,6 +197,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         event: ContractEventPayload,
       ) => {
         this.emit('erc20.lockup', {
+          version: this.version,
           transaction: await event.log.getTransaction(),
           erc20SwapValues: {
             amount,
@@ -195,6 +215,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       'Claim' as any,
       (preimageHash: string, preimage: string, event: ContractEventPayload) => {
         this.emit('erc20.claim', {
+          version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
           preimage: parseBuffer(preimage),
@@ -206,6 +227,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       'Refund' as any,
       (preimageHash: string, event: ContractEventPayload) => {
         this.emit('erc20.refund', {
+          version: this.version,
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
         });
@@ -215,3 +237,4 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 }
 
 export default ContractEventHandler;
+export { Events };

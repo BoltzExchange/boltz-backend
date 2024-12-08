@@ -193,8 +193,9 @@ lokiNetwork = "someNetwork"
 [rsk]
 providerEndpoint = "http://127.0.0.1:8545"
 
-etherSwapAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  [[rsk.contracts]]
+  etherSwap = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  erc20Swap = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
 [sidecar]
   [sidecar.grpc]
@@ -242,8 +243,10 @@ erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
             config.rsk.unwrap(),
             crate::evm::Config {
                 provider_endpoint: "http://127.0.0.1:8545".to_string(),
-                ether_swap_address: "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string(),
-                erc20_swap_address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
+                contracts: vec![crate::evm::ContractAddresses {
+                    ether_swap: "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string(),
+                    erc20_swap: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
+                }],
             }
         );
 

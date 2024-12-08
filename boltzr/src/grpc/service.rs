@@ -1,9 +1,10 @@
 use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
-use crate::evm::refund_signer::RefundSigner;
+use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
+use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
@@ -395,8 +396,40 @@ where
             None => None,
         };
 
+        let contract_version = match params.contract {
+            Some(contract) => match contract {
+                Contract::Address(address) => match address.parse::<Address>() {
+                    Ok(address) => match refund_signer.version_for_address(&address) {
+                        Ok(version) => version,
+                        Err(err) => {
+                            return Err(Status::new(
+                                Code::NotFound,
+                                format!("no refund signer for contract: {}", err),
+                            ));
+                        }
+                    },
+                    Err(err) => {
+                        return Err(Status::new(
+                            Code::InvalidArgument,
+                            format!("could not parse contract address: {}", err),
+                        ));
+                    }
+                },
+                Contract::Version(version) => version as u8,
+            },
+            None => {
+                return Err(Status::new(Code::InvalidArgument, "contract not specified"));
+            }
+        };
+
         let signature = match refund_signer
-            .sign(preimage_hash, amount, token_address, params.timeout)
+            .sign_cooperative_refund(
+                contract_version,
+                preimage_hash,
+                amount,
+                token_address,
+                params.timeout,
+            )
             .await
         {
             Ok(res) => res,
@@ -625,8 +658,9 @@ mod test {
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
-    use crate::evm::refund_signer::RefundSigner;
+    use crate::evm::RefundSigner;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
+    use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
     use crate::grpc::service::boltzr::{
         CreateWebHookRequest, CreateWebHookResponse, GetInfoRequest, GetInfoResponse,
         SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, StartWebHookRetriesRequest,
@@ -639,12 +673,11 @@ mod test {
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
-    use alloy::signers::k256;
+    use anyhow::anyhow;
     use async_trait::async_trait;
     use mockall::mock;
     use rand::Rng;
     use std::collections::HashMap;
-    use std::error::Error;
     use std::str::FromStr;
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
@@ -671,13 +704,16 @@ mod test {
 
         #[async_trait]
         impl RefundSigner for RefundSigner {
-            async fn sign(
+            fn version_for_address(&self, contract_address: &Address) -> anyhow::Result<u8>;
+
+            async fn sign_cooperative_refund(
                 &self,
+                contract_version: u8,
                 preimage_hash: FixedBytes<32>,
                 amount: U256,
                 token_address: Option<Address>,
                 timeout: u64,
-            ) -> Result<Signature, Box<dyn Error>>;
+            ) -> anyhow::Result<Signature>;
         }
     }
 
@@ -828,13 +864,16 @@ mod test {
             amount: "321".to_string(),
             token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
             timeout: 123,
+            contract: Some(Contract::Version(4)),
         };
 
         let mut signer = MockRefundSigner::new();
         let sig_str = "0xd247cfedc0c62ea93f4f3093a3b2941c329773f140ab0cdc04a641376982d34e0aa7152cb2dd9036fad543646a3fdc8b22c8d83e62e13684d61f630afdd08b0f1c";
         signer
-            .expect_sign()
-            .returning(|_, _, _, _| Ok(alloy::signers::Signature::from_str(sig_str).unwrap()));
+            .expect_sign_cooperative_refund()
+            .returning(
+                |_, _, _, _, _| Ok(alloy::primitives::Signature::from_str(sig_str).unwrap()),
+            );
         svc.refund_signer = Some(Arc::new(signer));
 
         let res = svc
@@ -864,17 +903,18 @@ mod test {
             amount: "321".to_string(),
             token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
             timeout: 123,
+            contract: Some(Contract::Version(4)),
         };
 
         let mut signer = MockRefundSigner::new();
         signer
-            .expect_sign()
-            .returning(|_, _, _, _| Err(Box::new(k256::ecdsa::Error::new())));
+            .expect_sign_cooperative_refund()
+            .returning(|_, _, _, _, _| Err(anyhow!("fail")));
         svc.refund_signer = Some(Arc::new(signer));
 
         let err = svc.sign_evm_refund(Request::new(req)).await.err().unwrap();
         assert_eq!(err.code(), Code::Internal);
-        assert_eq!(err.message(), "signing failed: signature error");
+        assert_eq!(err.message(), "signing failed: fail");
     }
 
     #[tokio::test]
@@ -888,6 +928,7 @@ mod test {
                 amount: "".to_string(),
                 token_address: None,
                 timeout: 0,
+                contract: Some(Contract::Version(4)),
             }))
             .await
             .err()
@@ -909,6 +950,7 @@ mod test {
                 amount: "".to_string(),
                 token_address: None,
                 timeout: 0,
+                contract: Some(Contract::Version(4)),
             }))
             .await
             .err()
@@ -933,6 +975,7 @@ mod test {
                 amount: "-1".to_string(),
                 token_address: None,
                 timeout: 0,
+                contract: Some(Contract::Version(4)),
             }))
             .await
             .err()
@@ -957,6 +1000,7 @@ mod test {
                 amount: "21".to_string(),
                 token_address: Some("clearly not an address".to_string()),
                 timeout: 0,
+                contract: Some(Contract::Version(4)),
             }))
             .await
             .err()

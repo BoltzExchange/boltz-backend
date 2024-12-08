@@ -89,7 +89,7 @@ async fn main() {
     // TODO: move to currencies
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
-            evm::refund_signer::LocalRefundSigner::new_mnemonic_file(
+            evm::manager::Manager::from_mnemonic_file(
                 config.mnemonic_path_evm.unwrap(),
                 &rsk_config,
             )

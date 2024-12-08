@@ -5,8 +5,8 @@ import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
-import ContractEventHandler from '../../../../lib/wallet/ethereum/ContractEventHandler';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import ContractEventHandler from '../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
 import {
   EthereumSetup,
   fundSignerWallet,

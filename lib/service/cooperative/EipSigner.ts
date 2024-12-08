@@ -72,7 +72,13 @@ class EipSigner {
           ? (swap as Swap).onchainAmount
           : (swap as ChainSwapInfo).receivingData.amount;
 
+      const contractAddress =
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).lockupAddress
+          : (swap as ChainSwapInfo).receivingData.lockupAddress;
+
       const sidecarRes = await this.sidecar.signEvmRefund(
+        contractAddress,
         getHexBuffer(swap.preimageHash),
         isEtherSwap
           ? BigInt(onchainAmount!) * etherDecimals

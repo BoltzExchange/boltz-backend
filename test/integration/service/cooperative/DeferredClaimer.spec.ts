@@ -41,8 +41,8 @@ import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
-import ContractHandler from '../../../../lib/wallet/ethereum/ContractHandler';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../Utils';

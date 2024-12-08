@@ -52,15 +52,8 @@ export const getContracts = (
 
   const contracts: any = {};
 
+  // TODO: handle contracts
   Object.entries({
-    etherSwap: {
-      abi: ContractABIs.EtherSwap,
-      address: config.etherSwapAddress,
-    },
-    erc20Swap: {
-      abi: ContractABIs.ERC20Swap,
-      address: config.erc20SwapAddress,
-    },
     token: {
       abi: ContractABIs.ERC20,
       address: config.tokens.find(

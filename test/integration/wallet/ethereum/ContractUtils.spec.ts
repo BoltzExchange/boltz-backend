@@ -9,7 +9,7 @@ import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValues,
   queryEtherSwapValuesFromLock,
-} from '../../../../lib/wallet/ethereum/ContractUtils';
+} from '../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import { EthereumSetup, getContracts, getSigner } from '../EthereumTools';
 
 describe('ContractUtils', () => {

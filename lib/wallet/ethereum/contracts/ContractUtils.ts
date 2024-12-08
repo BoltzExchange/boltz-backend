@@ -7,9 +7,9 @@ import {
   LockupEvent as EtherSwapLockupEvent,
 } from 'boltz-core/typechain/EtherSwap';
 import { Provider, Result } from 'ethers';
-import { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
-import Errors from './Errors';
-import { parseBuffer } from './EthereumUtils';
+import { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
+import Errors from '../Errors';
+import { parseBuffer } from '../EthereumUtils';
 
 // TODO: what happens if the hash doesn't exist or the transaction isn't confirmed yet?
 

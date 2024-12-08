@@ -1,13 +1,15 @@
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { ContractTransactionResponse, Provider } from 'ethers';
-import { ethereumPrepayMinerFeeGasLimit } from '../../consts/Consts';
-import { swapTypeToPrettyString } from '../../consts/Enums';
-import { AnySwap } from '../../consts/Types';
-import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
-import ERC20WalletProvider from '../providers/ERC20WalletProvider';
-import { getGasPrices } from './EthereumUtils';
-import { NetworkDetails } from './EvmNetworks';
+import { ethereumPrepayMinerFeeGasLimit } from '../../../consts/Consts';
+import { swapTypeToPrettyString } from '../../../consts/Enums';
+import { AnySwap } from '../../../consts/Types';
+import TransactionLabelRepository from '../../../db/repositories/TransactionLabelRepository';
+import ERC20WalletProvider from '../../providers/ERC20WalletProvider';
+import Errors from '../Errors';
+import { getGasPrices } from '../EthereumUtils';
+import { NetworkDetails } from '../EvmNetworks';
+import { Feature } from './Contracts';
 
 export type BatchClaimValues = {
   preimage: Buffer;
@@ -22,13 +24,17 @@ class ContractHandler {
   public etherSwap!: EtherSwap;
   public erc20Swap!: ERC20Swap;
 
+  private features: Set<Feature> = new Set();
+
   constructor(private readonly networkDetails: NetworkDetails) {}
 
   public init = (
+    features: Set<Feature>,
     provider: Provider,
     etherSwap: EtherSwap,
     erc20Swap: ERC20Swap,
   ): void => {
+    this.features = features;
     this.provider = provider;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
@@ -113,8 +119,12 @@ class ContractHandler {
   public claimBatchEther = async (
     swapsIds: string[],
     values: BatchClaimValues[],
-  ): Promise<ContractTransactionResponse> =>
-    this.annotateLabel(
+  ): Promise<ContractTransactionResponse> => {
+    if (!this.features.has(Feature.BatchClaim)) {
+      throw Errors.NOT_SUPPORTED_BY_CONTRACT_VERSION();
+    }
+
+    return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       this.networkDetails.symbol,
       this.etherSwap.claimBatch(
@@ -127,6 +137,7 @@ class ContractHandler {
         },
       ),
     );
+  };
 
   public refundEther = async (
     swap: AnySwap,
@@ -230,8 +241,12 @@ class ContractHandler {
     swapsIds: string[],
     token: ERC20WalletProvider,
     values: BatchClaimValues[],
-  ): Promise<ContractTransactionResponse> =>
-    this.annotateLabel(
+  ): Promise<ContractTransactionResponse> => {
+    if (!this.features.has(Feature.BatchClaim)) {
+      throw Errors.NOT_SUPPORTED_BY_CONTRACT_VERSION();
+    }
+
+    return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       token.symbol,
       this.erc20Swap.claimBatch(
@@ -245,6 +260,7 @@ class ContractHandler {
         },
       ),
     );
+  };
 
   public refundToken = async (
     swap: AnySwap,

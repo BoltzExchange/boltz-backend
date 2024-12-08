@@ -10,10 +10,10 @@ import { AnySwap } from '../../../../lib/consts/Types';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler, {
   BatchClaimValues,
-} from '../../../../lib/wallet/ethereum/ContractHandler';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+} from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../Utils';
 import {

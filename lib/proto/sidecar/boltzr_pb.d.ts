@@ -483,6 +483,18 @@ export class SignEvmRefundRequest extends jspb.Message {
     getTimeout(): number;
     setTimeout(value: number): SignEvmRefundRequest;
 
+    hasAddress(): boolean;
+    clearAddress(): void;
+    getAddress(): string;
+    setAddress(value: string): SignEvmRefundRequest;
+
+    hasVersion(): boolean;
+    clearVersion(): void;
+    getVersion(): number;
+    setVersion(value: number): SignEvmRefundRequest;
+
+    getContractCase(): SignEvmRefundRequest.ContractCase;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SignEvmRefundRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SignEvmRefundRequest): SignEvmRefundRequest.AsObject;
@@ -499,7 +511,16 @@ export namespace SignEvmRefundRequest {
         amount: string,
         tokenAddress?: string,
         timeout: number,
+        address: string,
+        version: number,
     }
+
+    export enum ContractCase {
+        CONTRACT_NOT_SET = 0,
+        ADDRESS = 5,
+        VERSION = 6,
+    }
+
 }
 
 export class SignEvmRefundResponse extends jspb.Message { 

@@ -104,12 +104,16 @@ type EthProviderServiceConfig = {
   apiKey: string;
 };
 
+type ContractsConfig = {
+  etherSwap: string;
+  erc20Swap: string;
+};
+
 type RskConfig = {
   networkName?: string;
   providerEndpoint: string;
 
-  etherSwapAddress: string;
-  erc20SwapAddress: string;
+  contracts: ContractsConfig[];
 
   tokens: TokenConfig[];
 };
@@ -407,8 +411,7 @@ class Config {
           network: 'rinkeby',
         },
 
-        etherSwapAddress: '',
-        erc20SwapAddress: '',
+        contracts: [],
 
         tokens: [],
       },
@@ -531,6 +534,7 @@ export {
   EthereumConfig,
   PostgresConfig,
   CurrencyConfig,
+  ContractsConfig,
   PreferredWallet,
   OverPaymentConfig,
   LiquidChainConfig,

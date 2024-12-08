@@ -118,6 +118,11 @@ message SignEvmRefundRequest {
   // When populated, an ERC20 refund signature will be signed
   optional string token_address = 3;
   uint64 timeout = 4;
+
+  oneof contract {
+    string address = 5;
+    uint64 version = 6;
+  }
 }
 
 message SignEvmRefundResponse {

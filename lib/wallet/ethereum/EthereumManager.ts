@@ -1,7 +1,5 @@
 import { ContractABIs } from 'boltz-core';
 import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import {
   Contract,
   Wallet as EthersWallet,
@@ -18,11 +16,11 @@ import Errors from '../Errors';
 import Wallet from '../Wallet';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
-import ContractEventHandler from './ContractEventHandler';
-import ContractHandler from './ContractHandler';
+import ConsolidatedEventHandler from './ConsolidatedEventHandler';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
+import Contracts from './contracts/Contracts';
 
 type Network = {
   name: string;
@@ -30,18 +28,8 @@ type Network = {
 };
 
 class EthereumManager {
-  private static supportedContractVersions = {
-    EtherSwap: 3,
-    ERC20Swap: 3,
-  };
-
   public readonly provider: InjectedProvider;
-
-  public readonly contractHandler: ContractHandler;
-  public readonly contractEventHandler: ContractEventHandler;
-
-  public etherSwap: EtherSwap;
-  public erc20Swap: ERC20Swap;
+  public readonly contractEventHandler = new ConsolidatedEventHandler();
 
   public signer!: Signer;
   public address!: string;
@@ -49,6 +37,8 @@ class EthereumManager {
   public readonly networkDetails: NetworkDetails;
 
   public readonly tokenAddresses = new Map<string, string>();
+
+  private contracts: Contracts[] = [];
 
   constructor(
     private readonly logger: Logger,
@@ -58,9 +48,8 @@ class EthereumManager {
     if (
       config === null ||
       config === undefined ||
-      [config.etherSwapAddress, config.erc20SwapAddress].some(
-        (value) => value === undefined || value === '',
-      )
+      config.contracts === undefined ||
+      config.contracts.length === 0
     ) {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
@@ -80,26 +69,6 @@ class EthereumManager {
         `${this.networkDetails.name} network name not configured`,
       );
     }
-
-    this.logger.debug(
-      `Using ${this.networkDetails.name} EtherSwap contract: ${this.config.etherSwapAddress}`,
-    );
-    this.logger.debug(
-      `Using ${this.networkDetails.name} ERC20Swap contract: ${this.config.erc20SwapAddress}`,
-    );
-
-    this.etherSwap = new Contract(
-      config.etherSwapAddress,
-      ContractABIs.EtherSwap as any,
-    ) as any as EtherSwap;
-
-    this.erc20Swap = new Contract(
-      config.erc20SwapAddress,
-      ContractABIs.ERC20Swap as any,
-    ) as any as ERC20Swap;
-
-    this.contractHandler = new ContractHandler(this.networkDetails);
-    this.contractEventHandler = new ContractEventHandler(this.logger);
   }
 
   public init = async (mnemonic: string): Promise<Map<string, Wallet>> => {
@@ -115,22 +84,6 @@ class EthereumManager {
     this.signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);
     this.address = await this.signer.getAddress();
 
-    this.etherSwap = this.etherSwap.connect(this.signer) as EtherSwap;
-    this.erc20Swap = this.erc20Swap.connect(this.signer) as ERC20Swap;
-
-    await Promise.all([
-      this.checkContractVersion(
-        `${this.networkDetails.name} EtherSwap`,
-        this.etherSwap,
-        BigInt(EthereumManager.supportedContractVersions.EtherSwap),
-      ),
-      this.checkContractVersion(
-        `${this.networkDetails.name} ERC20Swap`,
-        this.erc20Swap,
-        BigInt(EthereumManager.supportedContractVersions.ERC20Swap),
-      ),
-    ]);
-
     this.logger.verbose(
       `Using ${this.networkDetails.name} signer: ${this.address}`,
     );
@@ -139,13 +92,6 @@ class EthereumManager {
     const chainTip = await ChainTipRepository.findOrCreateTip(
       this.networkDetails.symbol,
       currentBlock,
-    );
-
-    this.contractHandler.init(this.provider, this.etherSwap, this.erc20Swap);
-    await this.contractEventHandler.init(
-      this.networkDetails,
-      this.etherSwap,
-      this.erc20Swap,
     );
 
     this.logger.verbose(
@@ -161,6 +107,12 @@ class EthereumManager {
       this.provider,
       this.signer,
     );
+
+    for (const contracts of this.config.contracts) {
+      const c = new Contracts(this.logger, this.networkDetails, contracts);
+      await c.init(this.provider, this.signer, this.contractEventHandler);
+      this.contracts.push(c);
+    }
 
     await transactionTracker.init();
 
@@ -200,7 +152,18 @@ class EthereumManager {
               new Wallet(this.logger, CurrencyType.ERC20, provider),
             );
 
-            await this.checkERC20Allowance(provider);
+            let nonce = await this.signer.getNonce();
+            for (const c of this.contracts) {
+              if (
+                await this.checkERC20Allowance(
+                  provider,
+                  await c.erc20Swap.getAddress(),
+                  nonce,
+                )
+              ) {
+                nonce += 1;
+              }
+            }
           } else {
             throw Errors.INVALID_ETHEREUM_CONFIGURATION(
               `duplicate ${token.symbol} token config`,
@@ -247,6 +210,8 @@ class EthereumManager {
   };
 
   public getContractDetails = async () => {
+    const bestContracts = this.highestContractsVersion();
+
     return {
       network: {
         chainId: Number(this.network.chainId),
@@ -254,8 +219,8 @@ class EthereumManager {
       },
       tokens: this.tokenAddresses,
       swapContracts: new Map<string, string>([
-        ['EtherSwap', await this.etherSwap.getAddress()],
-        ['ERC20Swap', await this.erc20Swap.getAddress()],
+        ['EtherSwap', await bestContracts.etherSwap.getAddress()],
+        ['ERC20Swap', await bestContracts.erc20Swap.getAddress()],
       ]),
     };
   };
@@ -263,44 +228,52 @@ class EthereumManager {
   public hasSymbol = (symbol: string): boolean =>
     this.networkDetails.symbol === symbol || this.tokenAddresses.has(symbol);
 
-  private checkERC20Allowance = async (erc20Wallet: ERC20WalletProvider) => {
-    const allowance = await erc20Wallet.getAllowance(
-      this.config.erc20SwapAddress,
+  public highestContractsVersion = (): Contracts =>
+    this.contracts.reduce(
+      (max, c) => (max.version > c.version ? max : c),
+      this.contracts[0],
     );
+
+  public contractsForAddress = async (address: string) => {
+    for (const c of this.contracts) {
+      if (
+        (await c.etherSwap.getAddress()) === address ||
+        (await c.erc20Swap.getAddress()) === address
+      ) {
+        return c;
+      }
+    }
+
+    return undefined;
+  };
+
+  private checkERC20Allowance = async (
+    erc20Wallet: ERC20WalletProvider,
+    erc20SwapAddress: string,
+    nonce: number,
+  ) => {
+    const allowance = await erc20Wallet.getAllowance(erc20SwapAddress);
 
     this.logger.debug(
-      `Allowance of ${erc20Wallet.symbol} is ${allowance.toString()}`,
+      `Allowance of ${erc20Wallet.symbol} for ${erc20SwapAddress} is ${allowance.toString()}`,
     );
 
-    if (allowance == BigInt(0)) {
+    if (allowance == 0n) {
       this.logger.verbose(`Setting allowance of ${erc20Wallet.symbol}`);
 
       const { transactionId } = await erc20Wallet.approve(
-        this.config.erc20SwapAddress,
+        erc20SwapAddress,
         MaxUint256,
+        nonce,
       );
 
       this.logger.info(
-        `Set allowance of token ${erc20Wallet.symbol}: ${transactionId}`,
+        `Set allowance of token ${erc20Wallet.symbol} for ${erc20SwapAddress}: ${transactionId}`,
       );
+      return true;
     }
-  };
 
-  private checkContractVersion = async (
-    name: string,
-    contract: EtherSwap | ERC20Swap,
-    supportedVersion: bigint,
-  ) => {
-    const contractVersion = await contract.version();
-
-    if (contractVersion !== supportedVersion) {
-      throw Errors.UNSUPPORTED_CONTRACT_VERSION(
-        name,
-        await contract.getAddress(),
-        contractVersion,
-        supportedVersion,
-      );
-    }
+    return false;
   };
 }
 

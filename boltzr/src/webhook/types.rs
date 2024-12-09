@@ -26,7 +26,7 @@ impl<'de> Deserialize<'de> for WebHookEvent {
     {
         struct StringVisitor;
 
-        impl<'de> Visitor<'de> for StringVisitor {
+        impl Visitor<'_> for StringVisitor {
             type Value = WebHookEvent;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

@@ -35,18 +35,27 @@ import {
 } from '../../../../lib/consts/Enums';
 import Swap from '../../../../lib/db/models/Swap';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import Errors from '../../../../lib/service/Errors';
 import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import Contracts, {
+  Feature,
+} from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
+import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import { wait } from '../../../Utils';
+import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
 import {
-  bitcoinClient,
-  bitcoinLndClient,
-  bitcoinLndClient2,
-  clnClient,
-} from '../../Nodes';
+  EthereumSetup,
+  fundSignerWallet,
+  getContracts,
+  getSigner,
+} from '../../wallet/EthereumTools';
 
 jest.mock('../../../../lib/db/repositories/ChannelCreationRepository');
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
@@ -69,6 +78,9 @@ jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
 }));
 
 describe('DeferredClaimer', () => {
+  let ethereumSetup: EthereumSetup;
+  let contracts: Awaited<ReturnType<typeof getContracts>>;
+
   const bip32 = BIP32Factory(ecc);
 
   const btcCurrency = {
@@ -85,6 +97,7 @@ describe('DeferredClaimer', () => {
     new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
     Networks.bitcoinRegtest,
   );
+
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
   } as WalletManager;
@@ -95,7 +108,7 @@ describe('DeferredClaimer', () => {
     walletManager,
     new SwapOutputType(OutputType.Bech32),
     {
-      deferredClaimSymbols: ['BTC', 'DOGE'],
+      deferredClaimSymbols: ['BTC', 'RBTC', 'TRC', 'DOGE'],
       expiryTolerance: 10,
       batchClaimInterval: '*/15 * * * *',
     },
@@ -123,6 +136,7 @@ describe('DeferredClaimer', () => {
     } as Partial<Swap> as Swap;
 
     preimage = preimage || randomBytes(32);
+    swap.preimage = getHexString(preimage);
     swap.preimageHash = getHexString(crypto.sha256(preimage));
     const claimKeys = btcWallet.getNewKeys();
     swap.keyIndex = claimKeys.index;
@@ -160,6 +174,80 @@ describe('DeferredClaimer', () => {
     return { swap, preimage, refundKeys };
   };
 
+  const lockupEther = async (nonce: number) => {
+    const swap = {
+      pair: 'RBTC/BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      version: SwapVersion.Taproot,
+      id: generateSwapId(SwapVersion.Taproot),
+      preimage: getHexString(randomBytes(32)),
+      timeoutBlockHeight:
+        (await ethereumSetup.provider.getBlockNumber()) + 21_21_21,
+    } as Partial<Swap> as Swap;
+
+    swap.preimageHash = getHexString(
+      crypto.sha256(getHexBuffer(swap.preimage!)),
+    );
+
+    const tx = await contracts.etherSwap.lock(
+      getHexBuffer(swap.preimageHash),
+      await ethereumSetup.signer.getAddress(),
+      swap.timeoutBlockHeight,
+      {
+        nonce,
+        value: 100_000,
+      },
+    );
+    await tx.wait(1);
+
+    swap.lockupTransactionId = tx.hash;
+    return { swap, preimage: getHexBuffer(swap.preimage!) };
+  };
+
+  const lockupToken = async (nonce: number) => {
+    const swap = {
+      pair: 'TRC/BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      version: SwapVersion.Taproot,
+      id: generateSwapId(SwapVersion.Taproot),
+      preimage: getHexString(randomBytes(32)),
+      timeoutBlockHeight:
+        (await ethereumSetup.provider.getBlockNumber()) + 21_21_21,
+    } as Partial<Swap> as Swap;
+
+    swap.preimageHash = getHexString(
+      crypto.sha256(getHexBuffer(swap.preimage!)),
+    );
+
+    const amount = 100_000n;
+
+    const approveTx = await contracts.token.approve(
+      await contracts.erc20Swap.getAddress(),
+      amount,
+      {
+        nonce,
+      },
+    );
+    await approveTx.wait(1);
+
+    const tx = await contracts.erc20Swap.lock(
+      getHexBuffer(swap.preimageHash),
+      amount,
+      await contracts.token.getAddress(),
+      await ethereumSetup.signer.getAddress(),
+      swap.timeoutBlockHeight,
+      {
+        nonce: nonce + 1,
+      },
+    );
+    await tx.wait(1);
+
+    swap.lockupTransactionId = tx.hash;
+    return { swap, preimage: getHexBuffer(swap.preimage!) };
+  };
+
   beforeAll(async () => {
     btcWallet.initKeyProvider(
       'm/0/0',
@@ -167,17 +255,78 @@ describe('DeferredClaimer', () => {
       bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),
     );
 
+    ethereumSetup = await getSigner();
+    contracts = await getContracts(ethereumSetup.signer);
+
+    await Promise.all([setup(), bitcoinClient.connect()]);
+
     await Promise.all([
-      setup(),
-      bitcoinClient.connect(),
-      clnClient.connect(),
-      bitcoinLndClient.connect(false),
-      bitcoinLndClient2.connect(false),
+      bitcoinClient.generate(1),
+      fundSignerWallet(
+        ethereumSetup.signer,
+        ethereumSetup.etherBase,
+        contracts.token,
+      ),
     ]);
 
-    clnClient.subscribeTrackHoldInvoices();
+    const contractHandler = new ContractHandler(Ethereum);
+    contractHandler.init(
+      new Set<Feature>([Feature.BatchClaim]),
+      ethereumSetup.provider,
+      contracts.etherSwap,
+      contracts.erc20Swap,
+    );
 
-    await bitcoinClient.generate(1);
+    const cts = {
+      contractHandler,
+      version: Contracts.maxVersion,
+      etherSwap: contracts.etherSwap,
+      erc20Swap: contracts.erc20Swap,
+    };
+
+    walletManager.ethereumManagers = [
+      {
+        contractHandler,
+        provider: ethereumSetup.provider,
+        hasSymbol: jest.fn().mockReturnValue(true),
+        contractsForAddress: jest
+          .fn()
+          .mockImplementation(async (address: string) => {
+            if (address == 'outdated') {
+              return {
+                ...cts,
+                version: Contracts.maxVersion - 1n,
+              };
+            } else {
+              return cts;
+            }
+          }),
+        highestContractsVersion: jest.fn().mockReturnValue(cts),
+      } as any,
+    ];
+    claimer['currencies'].set('RBTC', {
+      type: CurrencyType.Ether,
+      provider: ethereumSetup.provider,
+    } as any);
+
+    claimer['currencies'].set('TRC', {
+      type: CurrencyType.ERC20,
+      provider: ethereumSetup.provider,
+    } as any);
+
+    const erc20WalletProvider = new ERC20WalletProvider(
+      Logger.disabledLogger,
+      ethereumSetup.signer,
+      {
+        decimals: 18,
+        symbol: 'TRC',
+        contract: contracts.token,
+        address: await contracts.token.getAddress(),
+      },
+    );
+    walletManager.wallets.set('TRC', {
+      walletProvider: erc20WalletProvider,
+    } as any);
   });
 
   beforeEach(async () => {
@@ -189,9 +338,18 @@ describe('DeferredClaimer', () => {
     claimer.close();
 
     bitcoinClient.disconnect();
-    clnClient.disconnect();
-    bitcoinLndClient.disconnect();
-    bitcoinLndClient2.disconnect();
+  });
+
+  test.each`
+    symbol     | chunkSize
+    ${'L-BTC'} | ${15}
+    ${'BTC'}   | ${100}
+    ${'RBTC'}  | ${100}
+    ${'SMTHG'} | ${100}
+  `('should get max batch chunk size of $symbol', ({ symbol, chunkSize }) => {
+    expect(DeferredClaimer['maxBatchClaimChunk'].get(symbol)).toEqual(
+      chunkSize,
+    );
   });
 
   describe('init', () => {
@@ -220,75 +378,90 @@ describe('DeferredClaimer', () => {
     expect(claimer['batchClaimSchedule']).toBeUndefined();
   });
 
-  test('should defer claim transactions', async () => {
-    const swap = {
-      id: 'swapId',
-      pair: 'L-BTC/BTC',
-      orderSide: OrderSide.BUY,
-      version: SwapVersion.Taproot,
-    } as Partial<Swap> as Swap;
-    const preimage = randomBytes(32);
+  describe('deferClaim', () => {
+    test('should defer claim transactions', async () => {
+      const swap = {
+        id: 'swapId',
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+      } as Partial<Swap> as Swap;
+      const preimage = randomBytes(32);
 
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
 
-    expect(SwapRepository.setSwapStatus).toHaveBeenCalledTimes(1);
-    expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
-      swap,
-      SwapUpdateEvent.TransactionClaimPending,
-    );
+      expect(SwapRepository.setSwapStatus).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
+        swap,
+        SwapUpdateEvent.TransactionClaimPending,
+      );
 
-    expect(claimer['swapsToClaim'].get('BTC')!.size).toEqual(1);
-    expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toEqual({
-      preimage,
-      swap: {
-        ...swap,
-        status: SwapUpdateEvent.TransactionClaimPending,
-      },
-    });
-  });
-
-  test('should trigger sweep when deferring claim transaction with close expiry', async () => {
-    const { swap, preimage } = await createClaimableOutput(
-      (await bitcoinClient.getBlockchainInfo()).blocks,
-    );
-
-    expect.assertions(4);
-
-    claimer.once('claim', (args) => {
-      expect(args.swap).toEqual({
-        ...swap,
-        minerFee: expect.anything(),
-        status: SwapUpdateEvent.TransactionClaimed,
+      expect(claimer['swapsToClaim'].get('BTC')!.size).toEqual(1);
+      expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toEqual({
+        preimage,
+        swap: {
+          ...swap,
+          status: SwapUpdateEvent.TransactionClaimPending,
+        },
       });
-      expect(args.channelCreation).toBeUndefined();
     });
 
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+    test('should trigger sweep when deferring claim transaction with close expiry', async () => {
+      const { swap, preimage } = await createClaimableOutput(
+        (await bitcoinClient.getBlockchainInfo()).blocks,
+      );
 
-    expect(
-      claimer.pendingSweeps()[SwapType.Submarine].get('BTC')!.length,
-    ).toEqual(0);
-  });
+      expect.assertions(4);
 
-  test('should not defer claim transactions on chains that were not configured', async () => {
-    const swap = {
-      pair: 'L-BTC/BTC',
-      orderSide: OrderSide.SELL,
-    } as Partial<Swap> as Swap;
-    const preimage = randomBytes(32);
+      claimer.once('claim', (args) => {
+        expect(args.swap).toEqual({
+          ...swap,
+          minerFee: expect.anything(),
+          status: SwapUpdateEvent.TransactionClaimed,
+        });
+        expect(args.channelCreation).toBeUndefined();
+      });
 
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
-  });
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
 
-  test('should not defer claim transactions of legacy swaps', async () => {
-    const swap = {
-      pair: 'BTC/BTC',
-      orderSide: OrderSide.SELL,
-      version: SwapVersion.Legacy,
-    } as Partial<Swap> as Swap;
-    const preimage = randomBytes(32);
+      expect(
+        claimer.pendingSweeps()[SwapType.Submarine].get('BTC'),
+      ).toBeUndefined();
+    });
 
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
+    test('should not defer claim transactions on chains that were not configured', async () => {
+      const swap = {
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.SELL,
+      } as Partial<Swap> as Swap;
+      const preimage = randomBytes(32);
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
+    });
+
+    test('should not defer claim transactions of legacy swaps', async () => {
+      const swap = {
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.SELL,
+        version: SwapVersion.Legacy,
+      } as Partial<Swap> as Swap;
+      const preimage = randomBytes(32);
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
+    });
+
+    test('should not defer claim transactions of swaps to outdated contracts', async () => {
+      const swap = {
+        pair: 'RBTC/BTC',
+        orderSide: OrderSide.SELL,
+        version: SwapVersion.Taproot,
+        lockupAddress: 'outdated',
+      } as Partial<Swap> as Swap;
+
+      await expect(claimer.deferClaim(swap, randomBytes(32))).resolves.toEqual(
+        false,
+      );
+    });
   });
 
   test('should get ids of pending sweeps', async () => {
@@ -303,14 +476,11 @@ describe('DeferredClaimer', () => {
     await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
 
     expect(claimer.pendingSweeps()).toEqual({
-      [SwapType.Submarine]: new Map<string, string[]>([
-        ['DOGE', []],
-        ['BTC', [swap.id]],
-      ]),
+      [SwapType.Submarine]: new Map<string, string[]>([['BTC', [swap.id]]]),
     });
 
     const pendingSweepValues = claimer.pendingSweepsValues();
-    expect(pendingSweepValues.get('DOGE')).toEqual([]);
+    expect(pendingSweepValues.get('DOGE')).toBeUndefined();
     const btcPendingSweeps = pendingSweepValues.get('BTC')!;
     expect(btcPendingSweeps.length).toEqual(1);
     expect(
@@ -318,102 +488,173 @@ describe('DeferredClaimer', () => {
     ).toBeTruthy();
   });
 
-  test('should sweep all configured currencies', async () => {
-    const spy = jest.spyOn(claimer, 'sweepSymbol');
-    await expect(claimer.sweep()).resolves.toEqual(new Map());
+  describe('sweep', () => {
+    test('should sweep all configured currencies', async () => {
+      const spy = jest.spyOn(claimer, 'sweepSymbol');
+      await expect(claimer.sweep()).resolves.toEqual(new Map());
 
-    expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy).toHaveBeenCalledWith('BTC');
-    expect(spy).toHaveBeenCalledWith('DOGE');
-  });
+      expect(spy).toHaveBeenCalledTimes(4);
+      expect(spy).toHaveBeenCalledWith('BTC');
+      expect(spy).toHaveBeenCalledWith('RBTC');
+      expect(spy).toHaveBeenCalledWith('DOGE');
+    });
 
-  test('should sweep multiple swaps of a currency', async () => {
-    await bitcoinClient.generate(1);
-    const swaps = await Promise.all([
-      createClaimableOutput(),
-      createClaimableOutput(),
-    ]);
+    test('should keep pending swaps in map when claim fails', async () => {
+      const rejection = 'no good';
+      const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
+      btcCurrency.chainClient!.sendRawTransaction = jest
+        .fn()
+        .mockRejectedValue(rejection);
 
-    for (const { swap, preimage } of swaps) {
+      const { swap, preimage } = await createClaimableOutput();
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    }
 
-    await claimer.sweepSymbol('BTC');
+      await expect(claimer.sweep()).rejects.toEqual(rejection);
+      expect(claimer['swapsToClaim'].get('BTC')!.size).toEqual(1);
+      expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toEqual({
+        preimage,
+        swap: {
+          ...swap,
+          status: SwapUpdateEvent.TransactionClaimPending,
+        },
+      });
 
-    const lockupTxs = swaps.map(({ swap }) => swap.lockupTransactionId!);
-    const claimTx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        (await bitcoinClient.getRawMempool()).find(
-          (txId) => !lockupTxs.includes(txId),
-        )!,
-      ),
-    );
-
-    expect(claimTx.ins.length).toEqual(swaps.length);
-    expect(claimTx.outs.length).toEqual(1);
-
-    const addressInfo = await bitcoinClient.getAddressInfo(
-      address.fromOutputScript(claimTx.outs[0].script, Networks.bitcoinRegtest),
-    );
-    expect(addressInfo.ismine).toEqual(true);
-    expect(addressInfo.labels).toEqual([
-      `Batch claim of Submarine Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
-    ]);
+      btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
+    });
   });
 
-  test('should sweep currency with no pending swaps', async () => {
-    await expect(claimer.sweepSymbol('BTC')).resolves.toEqual([]);
-  });
+  describe('sweepSymbol', () => {
+    test('should sweep multiple swaps of a currency', async () => {
+      await bitcoinClient.generate(1);
+      const swaps = await Promise.all([
+        createClaimableOutput(),
+        createClaimableOutput(),
+      ]);
 
-  test('should sweep currency that is not configured', async () => {
-    await expect(claimer.sweepSymbol('notConfigured')).resolves.toEqual([]);
+      for (const { swap, preimage } of swaps) {
+        await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      }
+
+      await claimer.sweepSymbol('BTC');
+
+      const lockupTxs = swaps.map(({ swap }) => swap.lockupTransactionId!);
+      const claimTx = Transaction.fromHex(
+        await bitcoinClient.getRawTransaction(
+          (await bitcoinClient.getRawMempool()).find(
+            (txId) => !lockupTxs.includes(txId),
+          )!,
+        ),
+      );
+
+      expect(claimTx.ins.length).toEqual(swaps.length);
+      expect(claimTx.outs.length).toEqual(1);
+
+      const addressInfo = await bitcoinClient.getAddressInfo(
+        address.fromOutputScript(
+          claimTx.outs[0].script,
+          Networks.bitcoinRegtest,
+        ),
+      );
+      expect(addressInfo.ismine).toEqual(true);
+      expect(addressInfo.labels).toEqual([
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      ]);
+    });
+
+    test('should sweep Ether like currencies', async () => {
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [await lockupEther(nonce), await lockupEther(nonce + 1)];
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      // Wait for nonce update
+      await wait(150);
+
+      await claimer.sweepSymbol('RBTC');
+      // Wait for confirmation
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.etherSwap.queryFilter(
+            contracts.etherSwap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      expect(claimReceipt!.logs).toHaveLength(swaps.length);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'ETH',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+    });
+
+    test('should sweep ERC20 like currencies', async () => {
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [await lockupToken(nonce), await lockupToken(nonce + 2)];
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      // Wait for nonce update
+      await wait(150);
+
+      await claimer.sweepSymbol('TRC');
+      // Wait for confirmation
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.erc20Swap.queryFilter(
+            contracts.erc20Swap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      // One event for the token transfer
+      expect(claimReceipt!.logs).toHaveLength(swaps.length + 1);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'TRC',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+    });
+
+    test('should sweep currency with no pending swaps', async () => {
+      await expect(claimer.sweepSymbol('BTC')).resolves.toEqual([]);
+    });
+
+    test('should sweep currency that is not configured', async () => {
+      await expect(claimer.sweepSymbol('notConfigured')).resolves.toEqual([]);
+    });
   });
 
   test('should claim leftovers on startup', async () => {
     await bitcoinClient.generate(1);
 
-    // Wait for CLN to catch up with the chain
-    await new Promise<void>((resolve) => {
-      const timeout = setInterval(async () => {
-        if (
-          (await bitcoinClient.getBlockchainInfo()).blocks ===
-          (await clnClient.getInfo()).blockHeight
-        ) {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-    });
-
-    const clnInvoicePreimage = randomBytes(32);
-    const clnInvoice = await btcCurrency.clnClient!.addHoldInvoice(
-      10_000,
-      crypto.sha256(clnInvoicePreimage),
-    );
-    btcCurrency.clnClient!.once('htlc.accepted', async () => {
-      await btcCurrency.clnClient!.settleHoldInvoice(clnInvoicePreimage);
-    });
-
-    await btcCurrency.lndClient!.sendPayment(clnInvoice);
-
-    const lndInvoice = await btcCurrency.lndClient!.addInvoice(10_00);
-    const clnPayRes = await btcCurrency.clnClient!.sendPayment(
-      lndInvoice.paymentRequest,
-      100,
-      lndInvoice.paymentRequest,
-    );
-
     const lndPaidSwap = await createClaimableOutput(
       undefined,
-      clnInvoicePreimage,
+      randomBytes(32),
       'BTC/BTC',
-      clnInvoice,
     );
     const clnPaidSwap = await createClaimableOutput(
       undefined,
-      clnPayRes.preimage,
+      randomBytes(32),
       'BTC/BTC',
-      lndInvoice.paymentRequest,
     );
 
     SwapRepository.getSwapsClaimable = jest
@@ -436,178 +677,165 @@ describe('DeferredClaimer', () => {
     expect(claimTx.ins.length).toEqual(2);
   });
 
-  test('should keep pending swaps in map when claim fails', async () => {
-    const rejection = 'no good';
-    const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
-    btcCurrency.chainClient!.sendRawTransaction = jest
-      .fn()
-      .mockRejectedValue(rejection);
+  describe('getCooperativeDetails', () => {
+    test('should get cooperative details', async () => {
+      const { swap, preimage } = await createClaimableOutput();
 
-    const { swap, preimage } = await createClaimableOutput();
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      const details = await claimer.getCooperativeDetails(swap);
+      const toClaim = claimer['swapsToClaim'].get('BTC')!.get(swap.id)!;
 
-    await expect(claimer.sweep()).rejects.toEqual(rejection);
-    expect(claimer['swapsToClaim'].get('BTC')!.size).toEqual(1);
-    expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toEqual({
-      preimage,
-      swap: {
-        ...swap,
-        status: SwapUpdateEvent.TransactionClaimPending,
-      },
+      expect(toClaim.cooperative).not.toBeUndefined();
+      expect(toClaim.cooperative!.musig).not.toBeUndefined();
+      expect(toClaim.cooperative!.transaction).not.toBeUndefined();
+      expect(toClaim.cooperative!.sweepAddress).not.toBeUndefined();
+      expect(toClaim.cooperative!.transaction.ins).toHaveLength(1);
+      expect(toClaim.cooperative!.transaction.ins[0].witness).toHaveLength(1);
+      expect(toClaim.cooperative!.transaction.outs).toHaveLength(1);
+      expect(toClaim.cooperative!.transaction.outs[0].script).toEqual(
+        btcWallet.decodeAddress(toClaim.cooperative!.sweepAddress),
+      );
+
+      expect(details.preimage).toEqual(preimage);
+      expect(details.publicKey).toEqual(
+        btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
+      );
+      expect(details.pubNonce).toEqual(
+        Buffer.from(toClaim.cooperative!.musig.getPublicNonce()),
+      );
+      expect(details.transactionHash).toEqual(
+        await hashForWitnessV1(
+          btcCurrency,
+          toClaim.cooperative!.transaction,
+          0,
+        ),
+      );
     });
 
-    btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
-  });
+    test('should keep same address for multiple cooperative details calls', async () => {
+      const { swap, preimage } = await createClaimableOutput();
 
-  test('should get cooperative details', async () => {
-    const { swap, preimage } = await createClaimableOutput();
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      await claimer.getCooperativeDetails(swap);
+      const coop = claimer['swapsToClaim']
+        .get('BTC')!
+        .get(swap.id)!.cooperative!;
 
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    const details = await claimer.getCooperativeDetails(swap);
-    const toClaim = claimer['swapsToClaim'].get('BTC')!.get(swap.id)!;
+      await claimer.getCooperativeDetails(swap);
+      const newCoop = claimer['swapsToClaim']
+        .get('BTC')!
+        .get(swap.id)!.cooperative!;
 
-    expect(toClaim.cooperative).not.toBeUndefined();
-    expect(toClaim.cooperative!.musig).not.toBeUndefined();
-    expect(toClaim.cooperative!.transaction).not.toBeUndefined();
-    expect(toClaim.cooperative!.sweepAddress).not.toBeUndefined();
-    expect(toClaim.cooperative!.transaction.ins).toHaveLength(1);
-    expect(toClaim.cooperative!.transaction.ins[0].witness).toHaveLength(1);
-    expect(toClaim.cooperative!.transaction.outs).toHaveLength(1);
-    expect(toClaim.cooperative!.transaction.outs[0].script).toEqual(
-      btcWallet.decodeAddress(toClaim.cooperative!.sweepAddress),
-    );
+      // Same address and transaction
+      expect(newCoop.sweepAddress).toEqual(coop.sweepAddress);
+      expect(newCoop.transaction.toHex()).toEqual(coop.transaction.toHex());
 
-    expect(details.preimage).toEqual(preimage);
-    expect(details.publicKey).toEqual(
-      btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-    );
-    expect(details.pubNonce).toEqual(
-      Buffer.from(toClaim.cooperative!.musig.getPublicNonce()),
-    );
-    expect(details.transactionHash).toEqual(
-      await hashForWitnessV1(btcCurrency, toClaim.cooperative!.transaction, 0),
-    );
-  });
-
-  test('should keep same address for multiple cooperative details calls', async () => {
-    const { swap, preimage } = await createClaimableOutput();
-
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    await claimer.getCooperativeDetails(swap);
-    const coop = claimer['swapsToClaim'].get('BTC')!.get(swap.id)!.cooperative!;
-
-    await claimer.getCooperativeDetails(swap);
-    const newCoop = claimer['swapsToClaim']
-      .get('BTC')!
-      .get(swap.id)!.cooperative!;
-
-    // Same address and transaction
-    expect(newCoop.sweepAddress).toEqual(coop.sweepAddress);
-    expect(newCoop.transaction.toHex()).toEqual(coop.transaction.toHex());
-
-    // Different musig
-    expect(newCoop.musig).not.toEqual(coop.musig);
-    expect(newCoop.musig.getPublicNonce()).not.toEqual(
-      coop.musig.getPublicNonce(),
-    );
-  });
-
-  test('should throw when getting cooperative details for swap that is not claimable', async () => {
-    await expect(
-      claimer.getCooperativeDetails({
-        id: 'notFound',
-        pair: 'BTC/BTC',
-        orderSide: OrderSide.BUY,
-      } as any),
-    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
-  });
-
-  test('should broadcast submarine swaps cooperatively', async () => {
-    expect.assertions(7);
-
-    await bitcoinClient.generate(1);
-    const { swap, preimage, refundKeys } = await createClaimableOutput();
-
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    const details = await claimer.getCooperativeDetails(swap);
-
-    const musig = new Musig(secp, refundKeys, randomBytes(32), [
-      btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-      refundKeys.publicKey,
-    ]);
-    tweakMusig(
-      CurrencyType.BitcoinLike,
-      musig,
-      SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!),
-    );
-    musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
-    musig.initializeSession(details.transactionHash);
-
-    claimer.once('claim', ({ swap, channelCreation }) => {
-      expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
-      expect(swap.minerFee).toBeGreaterThan(0);
-      expect(channelCreation).toBeUndefined();
+      // Different musig
+      expect(newCoop.musig).not.toEqual(coop.musig);
+      expect(newCoop.musig.getPublicNonce()).not.toEqual(
+        coop.musig.getPublicNonce(),
+      );
     });
 
-    await claimer.broadcastCooperative(
-      swap,
-      Buffer.from(musig.getPublicNonce()),
-      Buffer.from(musig.signPartial()),
-    );
-
-    expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toBeUndefined();
-
-    const claimTx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        (await bitcoinClient.getRawMempool()).find(
-          (txId) => txId !== swap.lockupTransactionId,
-        )!,
-      ),
-    );
-    expect(claimTx.ins).toHaveLength(1);
-    expect(claimTx.outs).toHaveLength(1);
-  });
-
-  test('should throw when cooperatively broadcasting a submarine swap with invalid partial signature', async () => {
-    await bitcoinClient.generate(1);
-    const { swap, preimage, refundKeys } = await createClaimableOutput();
-
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
-    await claimer.getCooperativeDetails(swap);
-
-    const musig = new Musig(secp, refundKeys, randomBytes(32), [
-      btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-      refundKeys.publicKey,
-    ]);
-    await expect(
-      claimer.broadcastCooperative(
-        swap,
-        Buffer.from(musig.getPublicNonce()),
-        randomBytes(32),
-      ),
-    ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());
-  });
-
-  test('should throw when cooperatively broadcasting a submarine swap that does not exist', async () => {
-    await expect(
-      claimer.broadcastCooperative(
-        {
+    test('should throw when getting cooperative details for swap that is not claimable', async () => {
+      await expect(
+        claimer.getCooperativeDetails({
           id: 'notFound',
           pair: 'BTC/BTC',
           orderSide: OrderSide.BUY,
-        } as any,
-        Buffer.alloc(0),
-        Buffer.alloc(0),
-      ),
-    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST());
+        } as any),
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+    });
   });
 
-  test('should throw when cooperatively broadcasting a submarine swap that was not initialized for it', async () => {
-    const { swap, preimage } = await createClaimableOutput();
-    await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+  describe('broadcastCooperative', () => {
+    test('should broadcast submarine swaps cooperatively', async () => {
+      expect.assertions(7);
 
-    await expect(
-      claimer.broadcastCooperative(swap, Buffer.alloc(0), Buffer.alloc(0)),
-    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST());
+      await bitcoinClient.generate(1);
+      const { swap, preimage, refundKeys } = await createClaimableOutput();
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      const details = await claimer.getCooperativeDetails(swap);
+
+      const musig = new Musig(secp, refundKeys, randomBytes(32), [
+        btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
+        refundKeys.publicKey,
+      ]);
+      tweakMusig(
+        CurrencyType.BitcoinLike,
+        musig,
+        SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!),
+      );
+      musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
+      musig.initializeSession(details.transactionHash);
+
+      claimer.once('claim', ({ swap, channelCreation }) => {
+        expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
+        expect(swap.minerFee).toBeGreaterThan(0);
+        expect(channelCreation).toBeUndefined();
+      });
+
+      await claimer.broadcastCooperative(
+        swap,
+        Buffer.from(musig.getPublicNonce()),
+        Buffer.from(musig.signPartial()),
+      );
+
+      expect(claimer['swapsToClaim'].get('BTC')!.get(swap.id)).toBeUndefined();
+
+      const claimTx = Transaction.fromHex(
+        await bitcoinClient.getRawTransaction(
+          (await bitcoinClient.getRawMempool()).find(
+            (txId) => txId !== swap.lockupTransactionId,
+          )!,
+        ),
+      );
+      expect(claimTx.ins).toHaveLength(1);
+      expect(claimTx.outs).toHaveLength(1);
+    });
+
+    test('should throw when cooperatively broadcasting a submarine swap with invalid partial signature', async () => {
+      await bitcoinClient.generate(1);
+      const { swap, preimage, refundKeys } = await createClaimableOutput();
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      await claimer.getCooperativeDetails(swap);
+
+      const musig = new Musig(secp, refundKeys, randomBytes(32), [
+        btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
+        refundKeys.publicKey,
+      ]);
+      await expect(
+        claimer.broadcastCooperative(
+          swap,
+          Buffer.from(musig.getPublicNonce()),
+          randomBytes(32),
+        ),
+      ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());
+    });
+
+    test('should throw when cooperatively broadcasting a submarine swap that does not exist', async () => {
+      await expect(
+        claimer.broadcastCooperative(
+          {
+            id: 'notFound',
+            pair: 'BTC/BTC',
+            orderSide: OrderSide.BUY,
+          } as any,
+          Buffer.alloc(0),
+          Buffer.alloc(0),
+        ),
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST());
+    });
+
+    test('should throw when cooperatively broadcasting a submarine swap that was not initialized for it', async () => {
+      const { swap, preimage } = await createClaimableOutput();
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+
+      await expect(
+        claimer.broadcastCooperative(swap, Buffer.alloc(0), Buffer.alloc(0)),
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST());
+    });
   });
 });

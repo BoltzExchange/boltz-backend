@@ -69,12 +69,13 @@ import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import Sidecar from '../sidecar/Sidecar';
 import Wallet from '../wallet/Wallet';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import ContractHandler from '../wallet/ethereum/ContractHandler';
+import EthereumManager from '../wallet/ethereum/EthereumManager';
+import ContractHandler from '../wallet/ethereum/contracts/ContractHandler';
 import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
-} from '../wallet/ethereum/ContractUtils';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
+} from '../wallet/ethereum/contracts/ContractUtils';
+import Contracts from '../wallet/ethereum/contracts/Contracts';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
@@ -621,6 +622,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ? (swap as Swap).lockupTransactionId
         : (swap as ChainSwapInfo).receivingData.transactionId;
 
+    if (
+      swap.type === SwapType.Submarine &&
+      (await this.claimer.deferClaim(swap as Swap, payRes.preimage))
+    ) {
+      this.emit('claim.pending', swap as Swap);
+      return;
+    }
+
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
@@ -642,13 +651,19 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         const manager = this.findEthereumNursery(
           currency.symbol,
         )!.ethereumManager;
+        const lockupAddress =
+          swap.type === SwapType.Submarine
+            ? (swap as Swap).lockupAddress
+            : (swap as ChainSwapInfo).receivingData.lockupAddress;
+        const contracts = (await manager.contractsForAddress(lockupAddress))!;
 
         await this.claimEther(
           manager,
+          contracts,
           swap,
           await queryEtherSwapValuesFromLock(
             manager.provider,
-            manager.etherSwap,
+            contracts.etherSwap,
             txToClaim!,
           ),
           payRes.preimage,
@@ -661,13 +676,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         const manager = this.findEthereumNursery(
           currency.symbol,
         )!.ethereumManager;
+        const lockupAddress =
+          swap.type === SwapType.Submarine
+            ? (swap as Swap).lockupAddress
+            : (swap as ChainSwapInfo).receivingData.lockupAddress;
+        const contracts = (await manager.contractsForAddress(lockupAddress))!;
 
         await this.claimERC20(
-          manager.contractHandler,
+          contracts.contractHandler,
           swap,
           await queryERC20SwapValuesFromLock(
             manager.provider,
-            manager.erc20Swap,
+            contracts.erc20Swap,
             txToClaim!,
           ),
           payRes.preimage,
@@ -995,11 +1015,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   ) => {
     try {
       const nursery = this.findEthereumNursery(wallet.symbol)!;
-
       const lockupDetails =
         swap.type === SwapType.ReverseSubmarine
           ? (swap as ReverseSwap)
           : (swap as ChainSwapInfo).sendingData;
+      const contracts = (await nursery.ethereumManager.contractsForAddress(
+        lockupDetails.lockupAddress,
+      ))!;
 
       let contractTransaction: ContractTransactionResponse;
 
@@ -1008,7 +1030,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         (swap as ReverseSwap).minerFeeOnchainAmount
       ) {
         contractTransaction =
-          await nursery.ethereumManager.contractHandler.lockupEtherPrepayMinerfee(
+          await contracts.contractHandler.lockupEtherPrepayMinerfee(
             swap,
             getHexBuffer(swap.preimageHash),
             BigInt(lockupDetails.expectedAmount) * etherDecimals,
@@ -1018,14 +1040,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             lockupDetails.timeoutBlockHeight,
           );
       } else {
-        contractTransaction =
-          await nursery.ethereumManager.contractHandler.lockupEther(
-            swap,
-            getHexBuffer(swap.preimageHash),
-            BigInt(lockupDetails.expectedAmount) * etherDecimals,
-            lockupDetails.claimAddress!,
-            lockupDetails.timeoutBlockHeight,
-          );
+        contractTransaction = await contracts.contractHandler.lockupEther(
+          swap,
+          getHexBuffer(swap.preimageHash),
+          BigInt(lockupDetails.expectedAmount) * etherDecimals,
+          lockupDetails.claimAddress!,
+          lockupDetails.timeoutBlockHeight,
+        );
       }
 
       nursery.listenContractTransaction(swap, contractTransaction);
@@ -1068,6 +1089,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         swap.type === SwapType.ReverseSubmarine
           ? (swap as ReverseSwap)
           : (swap as ChainSwapInfo).sendingData;
+      const contracts = (await nursery.ethereumManager.contractsForAddress(
+        lockupDetails.lockupAddress,
+      ))!;
 
       let contractTransaction: ContractTransactionResponse;
 
@@ -1076,7 +1100,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         (swap as ReverseSwap).minerFeeOnchainAmount
       ) {
         contractTransaction =
-          await nursery.ethereumManager.contractHandler.lockupTokenPrepayMinerfee(
+          await contracts.contractHandler.lockupTokenPrepayMinerfee(
             swap,
             walletProvider,
             getHexBuffer(swap.preimageHash),
@@ -1087,15 +1111,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             lockupDetails.timeoutBlockHeight,
           );
       } else {
-        contractTransaction =
-          await nursery.ethereumManager.contractHandler.lockupToken(
-            swap,
-            walletProvider,
-            getHexBuffer(swap.preimageHash),
-            walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
-            lockupDetails.claimAddress!,
-            lockupDetails.timeoutBlockHeight,
-          );
+        contractTransaction = await contracts.contractHandler.lockupToken(
+          swap,
+          walletProvider,
+          getHexBuffer(swap.preimageHash),
+          walletProvider.formatTokenAmount(lockupDetails.expectedAmount),
+          lockupDetails.claimAddress!,
+          lockupDetails.timeoutBlockHeight,
+        );
       }
 
       nursery.listenContractTransaction(swap, contractTransaction);
@@ -1207,12 +1230,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private claimEther = async (
     manager: EthereumManager,
+    contracts: Contracts,
     swap: Swap | ChainSwapInfo,
     etherSwapValues: EtherSwapValues,
     preimage: Buffer,
     channelCreation?: ChannelCreation | null,
   ) => {
-    const contractTransaction = await manager.contractHandler.claimEther(
+    const contractTransaction = await contracts.contractHandler.claimEther(
       swap,
       preimage,
       etherSwapValues.amount,
@@ -1555,6 +1579,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     chainSymbol: string,
   ) => {
     const nursery = this.findEthereumNursery(chainSymbol)!;
+    const contracts = (await nursery.ethereumManager.contractsForAddress(
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap).lockupAddress
+        : (swap as ChainSwapInfo).sendingData.lockupAddress,
+    ))!;
 
     const lockupTransactionId =
       swap.type === SwapType.ReverseSubmarine
@@ -1563,17 +1592,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const etherSwapValues = await queryEtherSwapValuesFromLock(
       nursery.ethereumManager!.provider,
-      nursery.ethereumManager.etherSwap,
+      contracts.etherSwap,
       lockupTransactionId!,
     );
-    const contractTransaction =
-      await nursery.ethereumManager.contractHandler.refundEther(
-        swap,
-        getHexBuffer(swap.preimageHash),
-        etherSwapValues.amount,
-        etherSwapValues.claimAddress,
-        etherSwapValues.timelock,
-      );
+    const contractTransaction = await contracts.contractHandler.refundEther(
+      swap,
+      getHexBuffer(swap.preimageHash),
+      etherSwapValues.amount,
+      etherSwapValues.claimAddress,
+      etherSwapValues.timelock,
+    );
 
     this.logger.info(
       `Refunded ${nursery.ethereumManager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
@@ -1594,6 +1622,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     chainSymbol: string,
   ) => {
     const nursery = this.findEthereumNursery(chainSymbol)!;
+    const contracts = (await nursery.ethereumManager.contractsForAddress(
+      swap.type === SwapType.ReverseSubmarine
+        ? (swap as ReverseSwap).lockupAddress
+        : (swap as ChainSwapInfo).sendingData.lockupAddress,
+    ))!;
+
     const walletProvider = this.walletManager.wallets.get(chainSymbol)!
       .walletProvider as ERC20WalletProvider;
 
@@ -1604,18 +1638,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const erc20SwapValues = await queryERC20SwapValuesFromLock(
       nursery.ethereumManager.provider,
-      nursery.ethereumManager.erc20Swap,
+      contracts.erc20Swap,
       lockupTransactionId!,
     );
-    const contractTransaction =
-      await nursery.ethereumManager.contractHandler.refundToken(
-        swap,
-        walletProvider,
-        getHexBuffer(swap.preimageHash),
-        erc20SwapValues.amount,
-        erc20SwapValues.claimAddress,
-        erc20SwapValues.timelock,
-      );
+    const contractTransaction = await contracts.contractHandler.refundToken(
+      swap,
+      walletProvider,
+      getHexBuffer(swap.preimageHash),
+      erc20SwapValues.amount,
+      erc20SwapValues.claimAddress,
+      erc20SwapValues.timelock,
+    );
 
     this.logger.info(
       `Refunded ${chainSymbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,

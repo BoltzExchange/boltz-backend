@@ -55,11 +55,11 @@ export const getContracts = (
   Object.entries({
     etherSwap: {
       abi: ContractABIs.EtherSwap,
-      address: config.etherSwapAddress,
+      address: config.contracts[0].etherSwap,
     },
     erc20Swap: {
       abi: ContractABIs.ERC20Swap,
-      address: config.erc20SwapAddress,
+      address: config.contracts[0].erc20Swap,
     },
     token: {
       abi: ContractABIs.ERC20,

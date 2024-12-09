@@ -40,7 +40,7 @@ mod test {
     #[case("BTC/L-BTC/BTC")]
     fn test_split_pair_invalid(#[case] pair: &str) {
         assert_eq!(
-            split_pair(&pair).unwrap_err().to_string(),
+            split_pair(pair).unwrap_err().to_string(),
             format!("invalid pair: {}", pair)
         );
     }

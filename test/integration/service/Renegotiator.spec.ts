@@ -22,6 +22,7 @@ import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import Contracts from '../../../lib/wallet/ethereum/contracts/Contracts';
 import { bitcoinClient } from '../Nodes';
 import { getContracts, getSigner } from '../wallet/EthereumTools';
 
@@ -43,6 +44,7 @@ describe('Renegotiator', () => {
     wallets: new Map<string, any>([['BTC', { the: 'BTC wallet' }]]),
   } as any as WalletManager;
 
+  const contracts = {} as Contracts;
   const swapNursery = {
     utxoNursery: {
       checkChainSwapTransaction: jest.fn().mockImplementation(async () => {}),
@@ -51,6 +53,7 @@ describe('Renegotiator', () => {
       {
         ethereumManager: {
           hasSymbol: jest.fn().mockReturnValue(true),
+          contractsForAddress: jest.fn().mockResolvedValue(contracts),
         },
 
         checkEtherSwapLockup: jest.fn(),
@@ -150,11 +153,9 @@ describe('Renegotiator', () => {
 
     (swapNursery.ethereumNurseries[0].ethereumManager as any).provider =
       provider;
-    (swapNursery.ethereumNurseries[0].ethereumManager as any).contractHandler =
-      {
-        etherSwap,
-        erc20Swap,
-      };
+
+    contracts.etherSwap = etherSwap;
+    contracts.erc20Swap = erc20Swap;
 
     await bitcoinClient.connect();
   });

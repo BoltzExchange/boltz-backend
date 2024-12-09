@@ -32,8 +32,8 @@ class TransactionLabelRepository {
   public static claimCooperativeLabel = (swap: AnySwap) =>
     `Cooperative claim for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`;
 
-  public static claimBatchLabel = (type: SwapType, ids: string[]) =>
-    `Batch claim of ${swapTypeToPrettyString(type)} Swaps ${ids.join(', ')}`;
+  public static claimBatchLabel = (ids: string[]) =>
+    `Batch claim of Swaps ${ids.join(', ')}`;
 
   public static refundLabel = (swap: AnySwap) =>
     `Refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`;

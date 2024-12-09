@@ -256,12 +256,14 @@ class Sidecar extends BaseClient<
   };
 
   public signEvmRefund = async (
+    contractAddress: string,
     preimageHash: Buffer,
     amount: bigint,
     tokenAddress: string | undefined,
     timeout: number,
   ) => {
     const req = new sidecarrpc.SignEvmRefundRequest();
+    req.setAddress(contractAddress);
     req.setPreimageHash(preimageHash);
     req.setAmount(amount.toString());
     req.setTimeout(timeout);

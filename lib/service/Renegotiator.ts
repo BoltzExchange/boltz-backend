@@ -18,10 +18,11 @@ import RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
 import SwapNursery from '../swap/SwapNursery';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import EthereumErrors from '../wallet/ethereum/Errors';
 import {
   formatERC20SwapValues,
   formatEtherSwapValues,
-} from '../wallet/ethereum/ContractUtils';
+} from '../wallet/ethereum/contracts/ContractUtils';
 import BalanceCheck from './BalanceCheck';
 import Errors from './Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
@@ -107,11 +108,15 @@ class Renegotiator {
           }
 
           const isEther = receivingCurrency.type === CurrencyType.Ether;
+          const contracts = await nursery.ethereumManager.contractsForAddress(
+            swap.receivingData.lockupAddress,
+          );
+          if (contracts === undefined) {
+            throw EthereumErrors.UNSUPPORTED_CONTRACT();
+          }
 
           const topicHash = (
-            isEther
-              ? nursery.ethereumManager.contractHandler.etherSwap
-              : nursery.ethereumManager.contractHandler.erc20Swap
+            isEther ? contracts.etherSwap : contracts.erc20Swap
           ).interface.getEvent('Lockup').topicHash;
           const lockupEvent = receipt.logs.find(
             (log) => log.topics.length > 0 && log.topics[0] === topicHash,
@@ -121,12 +126,11 @@ class Renegotiator {
           }
 
           if (isEther) {
-            const values =
-              nursery.ethereumManager.contractHandler.etherSwap.interface.decodeEventLog(
-                'Lockup',
-                lockupEvent.data,
-                lockupEvent.topics,
-              );
+            const values = contracts.etherSwap.interface.decodeEventLog(
+              'Lockup',
+              lockupEvent.data,
+              lockupEvent.topics,
+            );
 
             await nursery.checkEtherSwapLockup(
               await ChainSwapRepository.setExpectedAmounts(
@@ -139,12 +143,11 @@ class Renegotiator {
               formatEtherSwapValues(values),
             );
           } else {
-            const values =
-              nursery.ethereumManager.contractHandler.erc20Swap.interface.decodeEventLog(
-                'Lockup',
-                lockupEvent.data,
-                lockupEvent.topics,
-              );
+            const values = contracts.erc20Swap.interface.decodeEventLog(
+              'Lockup',
+              lockupEvent.data,
+              lockupEvent.topics,
+            );
 
             await nursery.checkErc20SwapLockup(
               await ChainSwapRepository.setExpectedAmounts(

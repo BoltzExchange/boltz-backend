@@ -5,7 +5,7 @@ import { getHexBuffer } from '../../../Utils';
 import {
   queryERC20SwapValues,
   queryEtherSwapValues,
-} from '../../../wallet/ethereum/ContractUtils';
+} from '../../../wallet/ethereum/contracts/ContractUtils';
 import BuilderComponents from '../../BuilderComponents';
 import {
   connectEthereum,

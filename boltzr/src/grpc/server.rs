@@ -1,6 +1,6 @@
 use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
-use crate::evm::refund_signer::RefundSigner;
+use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::service::BoltzService;
 use crate::grpc::status_fetcher::StatusFetcher;
@@ -156,7 +156,7 @@ mod server_test {
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
-    use crate::evm::refund_signer::RefundSigner;
+    use crate::evm::RefundSigner;
     use crate::grpc::server::{Config, Server};
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
@@ -168,7 +168,6 @@ mod server_test {
     use async_trait::async_trait;
     use mockall::{mock, predicate::*};
     use std::collections::HashMap;
-    use std::error::Error;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -198,13 +197,16 @@ mod server_test {
 
         #[async_trait]
         impl RefundSigner for RefundSigner {
-            async fn sign(
+            fn version_for_address(&self, contract_address: &Address) -> anyhow::Result<u8>;
+
+            async fn sign_cooperative_refund(
                 &self,
+                contract_version: u8,
                 preimage_hash: FixedBytes<32>,
                 amount: U256,
                 token_address: Option<Address>,
                 timeout: u64,
-            ) -> Result<Signature, Box<dyn Error>>;
+            ) -> anyhow::Result<Signature>;
         }
     }
 

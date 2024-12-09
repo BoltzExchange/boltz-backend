@@ -4,24 +4,26 @@ import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Wallet } from 'ethers';
-import Logger from '../../../../lib/Logger';
-import { SwapType } from '../../../../lib/consts/Enums';
-import { AnySwap } from '../../../../lib/consts/Types';
-import Database from '../../../../lib/db/Database';
-import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
-import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import Logger from '../../../../../lib/Logger';
+import { SwapType } from '../../../../../lib/consts/Enums';
+import { AnySwap } from '../../../../../lib/consts/Types';
+import Database from '../../../../../lib/db/Database';
+import TransactionLabel from '../../../../../lib/db/models/TransactionLabel';
+import TransactionLabelRepository from '../../../../../lib/db/repositories/TransactionLabelRepository';
+import Errors from '../../../../../lib/wallet/ethereum/Errors';
+import { Ethereum } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler, {
   BatchClaimValues,
-} from '../../../../lib/wallet/ethereum/ContractHandler';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
-import { wait } from '../../../Utils';
+} from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
+import ERC20WalletProvider from '../../../../../lib/wallet/providers/ERC20WalletProvider';
+import { wait } from '../../../../Utils';
 import {
   EthereumSetup,
   fundSignerWallet,
   getContracts,
   getSigner,
-} from '../EthereumTools';
+} from '../../EthereumTools';
 
 describe('ContractHandler', () => {
   let database: Database;
@@ -130,8 +132,11 @@ describe('ContractHandler', () => {
       },
     );
 
-    contractHandler.init(setup.provider, etherSwap, erc20Swap);
+    const features = new Set<Feature>([Feature.BatchClaim]);
+
+    contractHandler.init(features, setup.provider, etherSwap, erc20Swap);
     contractHandlerEtherBase.init(
+      features,
       setup.provider,
       etherSwap.connect(setup.etherBase) as EtherSwap,
       erc20Swap.connect(setup.etherBase) as ERC20Swap,
@@ -243,85 +248,96 @@ describe('ContractHandler', () => {
     expect(label!.label).toEqual(TransactionLabelRepository.claimLabel(swap));
   });
 
-  test('should batch claim Ether', async () => {
-    const values: BatchClaimValues[] = [
-      {
-        amount: 21n,
-        timelock: 1,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-      {
-        amount: 42n,
-        timelock: 2,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-      {
-        amount: 50n,
-        timelock: 3,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-      {
-        amount: 2121n,
-        timelock: 21,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-      {
-        amount: 2142n,
-        timelock: 32,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-    ];
-    const valuesWithPreimageHash = values.map((v) => ({
-      ...v,
-      preimageHash: crypto.sha256(v.preimage),
-    }));
-
-    let nonce = await setup.signer.getNonce();
-    for (const v of valuesWithPreimageHash) {
-      const tx = await etherSwap.lock(
-        v.preimageHash,
-        await setup.signer.getAddress(),
-        v.timelock,
+  describe('claimBatchEther', () => {
+    test('should batch claim Ether', async () => {
+      const values: BatchClaimValues[] = [
         {
-          nonce,
-          value: v.amount,
+          amount: 21n,
+          timelock: 1,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
         },
-      );
+        {
+          amount: 42n,
+          timelock: 2,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+        {
+          amount: 50n,
+          timelock: 3,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+        {
+          amount: 2121n,
+          timelock: 21,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+        {
+          amount: 2142n,
+          timelock: 32,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+      ];
+      const valuesWithPreimageHash = values.map((v) => ({
+        ...v,
+        preimageHash: crypto.sha256(v.preimage),
+      }));
+
+      let nonce = await setup.signer.getNonce();
+      for (const v of valuesWithPreimageHash) {
+        const tx = await etherSwap.lock(
+          v.preimageHash,
+          await setup.signer.getAddress(),
+          v.timelock,
+          {
+            nonce,
+            value: v.amount,
+          },
+        );
+        await tx.wait(1);
+
+        nonce += 1;
+      }
+
+      await wait(150);
+      const tx = await contractHandler.claimBatchEther([swap.id], values);
       await tx.wait(1);
 
-      nonce += 1;
-    }
-
-    await wait(150);
-    const tx = await contractHandler.claimBatchEther([swap.id], values);
-    await tx.wait(1);
-
-    for (const v of valuesWithPreimageHash) {
-      await expect(
-        etherSwap.swaps(
-          await etherSwap.hashValues(
-            v.preimageHash,
-            v.amount,
-            await setup.signer.getAddress(),
-            v.refundAddress,
-            v.timelock,
+      for (const v of valuesWithPreimageHash) {
+        await expect(
+          etherSwap.swaps(
+            await etherSwap.hashValues(
+              v.preimageHash,
+              v.amount,
+              await setup.signer.getAddress(),
+              v.refundAddress,
+              v.timelock,
+            ),
           ),
-        ),
-      ).resolves.toEqual(false);
-    }
+        ).resolves.toEqual(false);
+      }
 
-    const label = await TransactionLabelRepository.getLabel(tx!.hash);
-    expect(label!).not.toBeNull();
-    expect(label!.id).toEqual(tx!.hash);
-    expect(label!.symbol).toEqual(Ethereum.symbol);
-    expect(label!.label).toEqual(
-      TransactionLabelRepository.claimBatchLabel([swap.id]),
-    );
+      const label = await TransactionLabelRepository.getLabel(tx!.hash);
+      expect(label!).not.toBeNull();
+      expect(label!.id).toEqual(tx!.hash);
+      expect(label!.symbol).toEqual(Ethereum.symbol);
+      expect(label!.label).toEqual(
+        TransactionLabelRepository.claimBatchLabel([swap.id]),
+      );
+    });
+
+    test('should not batch claim when contract does not support it', async () => {
+      const handler = new ContractHandler(Ethereum);
+      handler.init(new Set(), setup.provider, etherSwap, erc20Swap);
+
+      await expect(handler.claimBatchEther([], [])).rejects.toEqual(
+        Errors.NOT_SUPPORTED_BY_CONTRACT_VERSION(),
+      );
+    });
   });
 
   test('should refund Ether', async () => {
@@ -457,83 +473,94 @@ describe('ContractHandler', () => {
     expect(label!.label).toEqual(TransactionLabelRepository.claimLabel(swap));
   });
 
-  test('should batch claim ERC20 tokens', async () => {
-    const values: BatchClaimValues[] = [
-      {
-        amount: 21n,
-        timelock: 1,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-      {
-        amount: 42n,
-        timelock: 2,
-        preimage: randomBytes(32),
-        refundAddress: await setup.signer.getAddress(),
-      },
-    ];
-    const valuesWithPreimageHash = values.map((v) => ({
-      ...v,
-      preimageHash: crypto.sha256(v.preimage),
-    }));
+  describe('claimBatchToken', () => {
+    test('should batch claim ERC20 tokens', async () => {
+      const values: BatchClaimValues[] = [
+        {
+          amount: 21n,
+          timelock: 1,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+        {
+          amount: 42n,
+          timelock: 2,
+          preimage: randomBytes(32),
+          refundAddress: await setup.signer.getAddress(),
+        },
+      ];
+      const valuesWithPreimageHash = values.map((v) => ({
+        ...v,
+        preimageHash: crypto.sha256(v.preimage),
+      }));
 
-    let nonce = await setup.signer.getNonce();
-    const approveTx = await tokenContract.approve(
-      await erc20Swap.getAddress(),
-      values.reduce((sum, { amount }) => sum + amount, 0n),
-      {
-        nonce,
-      },
-    );
-    await approveTx.wait(1);
-    nonce += 1;
-
-    for (const v of valuesWithPreimageHash) {
-      const tx = await erc20Swap.lock(
-        v.preimageHash,
-        v.amount,
-        await tokenContract.getAddress(),
-        await setup.signer.getAddress(),
-        v.timelock,
+      let nonce = await setup.signer.getNonce();
+      const approveTx = await tokenContract.approve(
+        await erc20Swap.getAddress(),
+        values.reduce((sum, { amount }) => sum + amount, 0n),
         {
           nonce,
         },
       );
+      await approveTx.wait(1);
+      nonce += 1;
+
+      for (const v of valuesWithPreimageHash) {
+        const tx = await erc20Swap.lock(
+          v.preimageHash,
+          v.amount,
+          await tokenContract.getAddress(),
+          await setup.signer.getAddress(),
+          v.timelock,
+          {
+            nonce,
+          },
+        );
+        await tx.wait(1);
+
+        nonce += 1;
+      }
+
+      await wait(150);
+      const tx = await contractHandler.claimBatchToken(
+        [swap.id],
+        erc20WalletProvider,
+        values,
+      );
       await tx.wait(1);
 
-      nonce += 1;
-    }
-
-    await wait(150);
-    const tx = await contractHandler.claimBatchToken(
-      [swap.id],
-      erc20WalletProvider,
-      values,
-    );
-    await tx.wait(1);
-
-    for (const v of valuesWithPreimageHash) {
-      await expect(
-        erc20Swap.swaps(
-          await erc20Swap.hashValues(
-            v.preimageHash,
-            v.amount,
-            await tokenContract.getAddress(),
-            await setup.signer.getAddress(),
-            v.refundAddress,
-            v.timelock,
+      for (const v of valuesWithPreimageHash) {
+        await expect(
+          erc20Swap.swaps(
+            await erc20Swap.hashValues(
+              v.preimageHash,
+              v.amount,
+              await tokenContract.getAddress(),
+              await setup.signer.getAddress(),
+              v.refundAddress,
+              v.timelock,
+            ),
           ),
-        ),
-      ).resolves.toEqual(false);
-    }
+        ).resolves.toEqual(false);
+      }
 
-    const label = await TransactionLabelRepository.getLabel(tx!.hash);
-    expect(label!).not.toBeNull();
-    expect(label!.id).toEqual(tx!.hash);
-    expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
-    expect(label!.label).toEqual(
-      TransactionLabelRepository.claimBatchLabel([swap.id]),
-    );
+      const label = await TransactionLabelRepository.getLabel(tx!.hash);
+      expect(label!).not.toBeNull();
+      expect(label!.id).toEqual(tx!.hash);
+      expect(label!.symbol).toEqual(erc20WalletProvider.symbol);
+      expect(label!.label).toEqual(
+        TransactionLabelRepository.claimBatchLabel([swap.id]),
+      );
+    });
+
+    test('should not batch claim when contract does not support it', async () => {
+      const handler = new ContractHandler(Ethereum);
+      handler.init(new Set(), setup.provider, etherSwap, erc20Swap);
+
+      await expect(
+        handler.claimBatchToken([], erc20WalletProvider, []),
+      ).rejects.toEqual(Errors.NOT_SUPPORTED_BY_CONTRACT_VERSION());
+    });
   });
 
   test('should refund ERC20 tokens', async () => {

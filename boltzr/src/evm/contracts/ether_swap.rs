@@ -1,9 +1,9 @@
 use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
+use crate::evm::contracts::SwapContract;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::sol;
 use alloy::sol_types::Eip712Domain;
-use std::error::Error;
 use tracing::{debug, info};
 
 sol!(
@@ -28,6 +28,7 @@ pub struct EtherSwapContract<T, P, N> {
     #[allow(dead_code)]
     contract: EtherSwapInstance<T, P, N>,
 
+    version: u8,
     eip712domain: Eip712Domain,
 }
 
@@ -37,15 +38,28 @@ impl<
         N: alloy::providers::network::Network,
     > EtherSwapContract<T, P, N>
 {
-    pub async fn new(address: Address, provider: P) -> Result<Self, Box<dyn Error>> {
-        info!("Using {}: {}", NAME, address.to_string());
+    pub async fn new(address: Address, provider: P) -> anyhow::Result<Self> {
+        debug!("Using {}: {}", NAME, address.to_string());
+        let code = provider.get_code_at(address).await?;
+        if code.is_empty() {
+            return Err(anyhow::anyhow!(
+                "no contract at address: {}",
+                address.to_string()
+            ));
+        }
 
         let ether_swap = EtherSwap::new(address, provider.clone());
         let chain_id = provider.get_chain_id().await?;
         let version = ether_swap.version().call().await?._0;
-        debug!("Found {} version: {}", NAME, version);
+        info!(
+            "Found {} ({}) version: {}",
+            NAME,
+            address.to_string(),
+            version
+        );
 
         Ok(EtherSwapContract {
+            version,
             contract: ether_swap,
             eip712domain: Eip712Domain::new(
                 Some(NAME.into()),
@@ -56,8 +70,23 @@ impl<
             ),
         })
     }
+}
 
-    pub fn eip712_domain(&self) -> &Eip712Domain {
+impl<
+        T: alloy::transports::Transport + Sync + Send + Clone,
+        P: Provider<T, N> + Clone + 'static,
+        N: alloy::providers::network::Network,
+    > SwapContract for EtherSwapContract<T, P, N>
+{
+    fn address(&self) -> &Address {
+        self.contract.address()
+    }
+
+    fn version(&self) -> u8 {
+        self.version
+    }
+
+    fn eip712_domain(&self) -> &Eip712Domain {
         &self.eip712domain
     }
 }
@@ -65,7 +94,35 @@ impl<
 #[cfg(test)]
 mod test {
     use crate::evm::contracts::ether_swap::EtherSwapContract;
+    use crate::evm::contracts::SwapContract;
     use crate::evm::refund_signer::test::ETHER_SWAP_ADDRESS;
+    use alloy::primitives::Address;
+
+    #[tokio::test]
+    async fn test_address() {
+        let (_, _, _, provider) = crate::evm::refund_signer::test::setup().await;
+        let contract = EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            contract.address(),
+            &ETHER_SWAP_ADDRESS.parse::<Address>().unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_version() {
+        let (_, _, _, provider) = crate::evm::refund_signer::test::setup().await;
+        let contract = EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            contract.version(),
+            contract.contract.version().call().await.unwrap()._0
+        );
+    }
 
     #[tokio::test]
     async fn test_eip712_domain() {

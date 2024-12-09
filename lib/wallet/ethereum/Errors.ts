@@ -33,4 +33,12 @@ export default {
     message: `requests to all providers failed:\n - ${errors.join('\n - ')}`,
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 4),
   }),
+  NOT_SUPPORTED_BY_CONTRACT_VERSION: (): Error => ({
+    message: 'not supported by contract version',
+    code: concatErrorCode(ErrorCodePrefix.Ethereum, 5),
+  }),
+  UNSUPPORTED_CONTRACT: (): Error => ({
+    message: 'unsupported contract',
+    code: concatErrorCode(ErrorCodePrefix.Ethereum, 6),
+  }),
 };

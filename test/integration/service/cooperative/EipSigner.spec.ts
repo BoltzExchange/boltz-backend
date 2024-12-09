@@ -141,8 +141,10 @@ describe('EipSigner', () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10) ** BigInt(17);
     const timelock = (await setup.provider.getBlockNumber()) + 21;
+    const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      lockupAddress,
       orderSide: 1,
       pair: 'RBTC/BTC',
       type: SwapType.Submarine,
@@ -157,6 +159,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      lockupAddress,
       preimageHash,
       amount,
       undefined,
@@ -167,6 +170,7 @@ describe('EipSigner', () => {
   test('should refund chain EtherSwap cooperatively', async () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10) ** BigInt(17);
+    const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
     const id = 'asdf';
@@ -177,6 +181,7 @@ describe('EipSigner', () => {
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
       receivingData: {
+        lockupAddress,
         symbol: 'RBTC',
         timeoutBlockHeight: timelock,
         amount: Number(amount / etherDecimals),
@@ -188,6 +193,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      lockupAddress,
       preimageHash,
       amount,
       undefined,
@@ -205,9 +211,11 @@ describe('EipSigner', () => {
   test('should refund submarine ERC20Swap cooperatively', async () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10);
+    const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      lockupAddress,
       orderSide: 1,
       pair: 'TOKEN/BTC',
       type: SwapType.Submarine,
@@ -222,6 +230,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      lockupAddress,
       preimageHash,
       amount,
       await token.getAddress(),
@@ -232,6 +241,7 @@ describe('EipSigner', () => {
   test('should refund chain ERC20Swap cooperatively', async () => {
     const preimageHash = randomBytes(32);
     const amount = BigInt(10);
+    const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
     const id = 'erc20';
@@ -242,6 +252,7 @@ describe('EipSigner', () => {
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
       receivingData: {
+        lockupAddress,
         symbol: 'TOKEN',
         amount: Number(amount),
         timeoutBlockHeight: timelock,
@@ -253,6 +264,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      lockupAddress,
       preimageHash,
       amount,
       await token.getAddress(),

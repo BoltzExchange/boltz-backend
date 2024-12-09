@@ -1162,6 +1162,8 @@ export class PendingSweep extends jspb.Message {
     setSwapId(value: string): PendingSweep;
     getOnchainAmount(): number;
     setOnchainAmount(value: number): PendingSweep;
+    getType(): string;
+    setType(value: string): PendingSweep;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PendingSweep.AsObject;
@@ -1177,6 +1179,7 @@ export namespace PendingSweep {
     export type AsObject = {
         swapId: string,
         onchainAmount: number,
+        type: string,
     }
 }
 

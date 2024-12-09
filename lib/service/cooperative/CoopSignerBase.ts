@@ -17,6 +17,7 @@ import { getHexBuffer } from '../../Utils';
 import { IChainClient } from '../../chain/ChainClient';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
+import { AnySwap } from '../../consts/Types';
 import ChainSwapData from '../../db/models/ChainSwapData';
 import Swap from '../../db/models/Swap';
 import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
@@ -82,7 +83,7 @@ abstract class CoopSignerBase<
           await this.constructClaimDetails(
             chainCurrency.chainClient!,
             wallet,
-            toClaim,
+            toClaim.swap,
           ),
         ] as ClaimDetails[] | LiquidClaimDetails[],
         address,
@@ -104,17 +105,16 @@ abstract class CoopSignerBase<
   /**
    * Cooperative when the preimage is undefined
    */
-  protected constructClaimDetails = async (
+  protected constructClaimDetails = async <T extends AnySwap>(
     chainClient: IChainClient,
     wallet: Wallet,
-    toClaim: SwapToClaim<T>,
+    toClaim: T,
     preimage?: Buffer,
   ): Promise<ClaimDetails | LiquidClaimDetails> => {
-    const { swap } = toClaim;
     const details =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap)
-        : (swap as ChainSwapInfo).receivingData;
+      toClaim.type === SwapType.Submarine
+        ? (toClaim as Swap)
+        : (toClaim as ChainSwapInfo).receivingData;
 
     const tx = parseTransaction(
       wallet.type,

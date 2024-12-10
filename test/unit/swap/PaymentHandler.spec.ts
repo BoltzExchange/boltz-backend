@@ -9,6 +9,7 @@ import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
+import swapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
 import { Currency } from '../../../lib/wallet/WalletManager';
@@ -211,14 +212,34 @@ describe('PaymentHandler', () => {
     expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
     expect(handler['lastResetMissionControl']).toEqual(lastCallBefore);
 
-    // After interval, it is called again
+    // After interval, it is not called again for the same swap
     jest.useFakeTimers();
     jest.advanceTimersByTime(PaymentHandler['resetMissionControlInterval'] + 1);
 
     await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
       undefined,
     );
+    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
+    expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
+    expect(swap.update).toHaveBeenCalledTimes(1);
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: swapErrors.INVOICE_COULD_NOT_BE_PAID().message,
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
+
+    // After interval, it is called again for different swap
+    const newSwap = {
+      ...swap,
+      id: 'newTest',
+      preimageHash: 'newPreimageHash',
+    } as any as Swap;
+
+    await expect(handler.payInvoice(newSwap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+
     expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(2);
     expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
+    expect(swap.update).toHaveBeenCalledTimes(1);
   });
 });

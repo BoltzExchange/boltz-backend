@@ -75,6 +75,7 @@ class PaymentHandler {
   private static readonly errCltvTooSmall = 'CLTV limit too small';
 
   private lastResetMissionControl: number | undefined = undefined;
+  private missionControlResetTriggers: Map<string, boolean> = new Map();
 
   constructor(
     private readonly logger: Logger,
@@ -256,10 +257,18 @@ class PaymentHandler {
       Date.now() - this.lastResetMissionControl >=
         PaymentHandler.resetMissionControlInterval
     ) {
+      if (this.hasPreviouslyTriggeredMissionControlReset(swap.preimageHash)) {
+        this.logger.debug(
+          `Canceling swap ${swap.id} because it has already triggered mission control reset`,
+        );
+        await this.abandonSwap(swap, errorMessage);
+        return undefined;
+      }
       this.logger.debug(
         `Resetting ${lndClient.symbol} ${LndClient.serviceName} mission control`,
       );
       this.lastResetMissionControl = Date.now();
+      this.missionControlResetTriggers.set(swap.preimageHash, true);
       await lndClient.resetMissionControl();
     } else {
       this.logger.debug(
@@ -346,6 +355,17 @@ class PaymentHandler {
       `Could not pay invoice of Swap ${swap.id} because: ${errorMessage}`,
     );
   };
+
+  private hasPreviouslyTriggeredMissionControlReset(
+    preimageHash: string,
+  ): boolean {
+    const previouslyTriggered =
+      this.missionControlResetTriggers.has(preimageHash);
+    if (previouslyTriggered) {
+      this.missionControlResetTriggers.delete(preimageHash);
+    }
+    return previouslyTriggered;
+  }
 }
 
 export default PaymentHandler;

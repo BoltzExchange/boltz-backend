@@ -145,7 +145,9 @@ describe('ContractEventHandler', () => {
     );
     await claimTx.wait(1);
 
-    const tx = await contracts.etherSwap.refund(
+    const tx = await contracts.etherSwap[
+      'refund(bytes32,uint256,address,uint256)'
+    ](
       crypto.sha256(preimage),
       amount,
       await setup.etherBase.getAddress(),
@@ -242,7 +244,9 @@ describe('ContractEventHandler', () => {
     );
     await claimTx.wait(1);
 
-    const tx = await contracts.erc20Swap.refund(
+    const tx = await contracts.erc20Swap[
+      'refund(bytes32,uint256,address,address,uint256)'
+    ](
       crypto.sha256(preimage),
       amount,
       await contracts.token.getAddress(),

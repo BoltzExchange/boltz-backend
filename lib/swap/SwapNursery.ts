@@ -617,18 +617,15 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
+    if (await this.claimer.deferClaim(swap, payRes.preimage)) {
+      this.emit('claim.pending', swap);
+      return;
+    }
+
     const txToClaim =
       swap.type === SwapType.Submarine
         ? (swap as Swap).lockupTransactionId
         : (swap as ChainSwapInfo).receivingData.transactionId;
-
-    if (
-      swap.type === SwapType.Submarine &&
-      (await this.claimer.deferClaim(swap as Swap, payRes.preimage))
-    ) {
-      this.emit('claim.pending', swap as Swap);
-      return;
-    }
 
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
@@ -1179,11 +1176,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
-    if (
-      swap.type === SwapType.Submarine &&
-      (await this.claimer.deferClaim(swap as Swap, preimage))
-    ) {
-      this.emit('claim.pending', swap as Swap);
+    if (await this.claimer.deferClaim(swap, preimage)) {
+      this.emit('claim.pending', swap);
       return;
     }
 

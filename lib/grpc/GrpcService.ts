@@ -6,7 +6,7 @@ import { dumpHeap } from '../HeapDump';
 import Logger, { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import { getHexString, getUnixTime } from '../Utils';
-import { CurrencyType } from '../consts/Enums';
+import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
@@ -271,8 +271,9 @@ class GrpcService {
         swapToClaim
           .map((toClaim) => {
             const pendingSweep = new boltzrpc.PendingSweep();
-            pendingSweep.setSwapId(toClaim.swap.id);
-            pendingSweep.setOnchainAmount(toClaim.swap.onchainAmount || 0);
+            pendingSweep.setSwapId(toClaim.id);
+            pendingSweep.setOnchainAmount(toClaim.onchainAmount || 0);
+            pendingSweep.setType(swapTypeToPrettyString(toClaim.type));
             return pendingSweep;
           })
           .forEach((pendingSweep) =>

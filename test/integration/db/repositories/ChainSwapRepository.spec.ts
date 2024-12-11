@@ -478,6 +478,22 @@ describe('ChainSwapRepository', () => {
     expect(queried!.sendingData.expectedAmount).toEqual(serverLockAmount);
   });
 
+  test('should set claim pending', async () => {
+    const swap = await createChainSwap();
+
+    const preimage = randomBytes(32);
+
+    const queried = await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    });
+    expect(queried).not.toBeNull();
+
+    await ChainSwapRepository.setTransactionClaimPending(queried!, preimage);
+
+    expect(queried!.chainSwap.preimage).toEqual(getHexString(preimage));
+    expect(queried!.status).toEqual(SwapUpdateEvent.TransactionClaimPending);
+  });
+
   test('should set claim miner fee', async () => {
     const swap = await createChainSwap();
 

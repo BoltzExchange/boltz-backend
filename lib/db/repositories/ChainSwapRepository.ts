@@ -202,6 +202,11 @@ class ChainSwapRepository {
     return swaps.filter((s) => symbols.includes(s.sendingData.symbol));
   };
 
+  public static getChainSwapsClaimable = () =>
+    this.getChainSwaps({
+      status: SwapUpdateEvent.TransactionClaimPending,
+    });
+
   public static addChainSwap = (args: {
     chainSwap: ChainSwapType;
     sendingData: ChainSwapDataType;
@@ -317,6 +322,17 @@ class ChainSwapRepository {
 
       return swap;
     });
+
+  public static setTransactionClaimPending = async (
+    swap: ChainSwapInfo,
+    preimage: Buffer,
+  ) => {
+    swap.chainSwap = await swap.chainSwap.update({
+      preimage: getHexString(preimage),
+      status: SwapUpdateEvent.TransactionClaimPending,
+    });
+    return swap;
+  };
 
   public static setClaimMinerFee = async (
     swap: ChainSwapInfo,

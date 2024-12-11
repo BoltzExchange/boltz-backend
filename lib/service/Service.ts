@@ -101,7 +101,6 @@ import TimeoutDeltaProvider, {
 } from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
-import { SwapToClaimPreimage } from './cooperative/DeferredClaimer';
 import MusigSigner from './cooperative/MusigSigner';
 
 type NetworkContracts = {
@@ -999,7 +998,7 @@ class Service {
     return res;
   };
 
-  public getPendingSweeps = (): Map<string, SwapToClaimPreimage[]> => {
+  public getPendingSweeps = () => {
     return this.swapManager.deferredClaimer.pendingSweepsValues();
   };
 

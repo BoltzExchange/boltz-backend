@@ -149,9 +149,15 @@ class ContractHandler {
     this.annotateLabel(
       `Refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
       this.networkDetails.symbol,
-      this.etherSwap.refund(preimageHash, amount, claimAddress, timelock, {
-        ...(await getGasPrices(this.provider)),
-      }),
+      this.etherSwap['refund(bytes32,uint256,address,uint256)'](
+        preimageHash,
+        amount,
+        claimAddress,
+        timelock,
+        {
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
 
   public lockupToken = async (
@@ -273,7 +279,7 @@ class ContractHandler {
     this.annotateLabel(
       TransactionLabelRepository.refundLabel(swap),
       token.symbol,
-      this.erc20Swap.refund(
+      this.erc20Swap['refund(bytes32,uint256,address,address,uint256)'](
         preimageHash,
         amount,
         token.tokenAddress,

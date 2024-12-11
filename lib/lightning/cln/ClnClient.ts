@@ -566,7 +566,7 @@ class ClnClient
     const decoded = await this.decodeInvoice(invoice);
     const maxFee = satToMsat(
       calculatePaymentFee(
-        decoded.value,
+        satToMsat(decoded.value),
         this.maxPaymentFeeRatio,
         ClnClient.paymentMinFee,
       ),

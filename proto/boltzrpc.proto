@@ -282,6 +282,7 @@ message GetLockedFundsResponse {
 message PendingSweep {
   string swap_id = 1;
   uint64 onchain_amount = 2;
+  string type = 3;
 }
 
 enum LogLevel {

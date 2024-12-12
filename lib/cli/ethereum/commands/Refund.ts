@@ -42,7 +42,9 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
         argv.queryStartHeightDelta,
       ),
     );
-    transaction = await erc20Swap.refund(
+    transaction = await erc20Swap[
+      'refund(bytes32,uint256,address,address,uint256)'
+    ](
       preimageHash,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,
@@ -58,7 +60,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
         argv.queryStartHeightDelta,
       ),
     );
-    transaction = await etherSwap.refund(
+    transaction = await etherSwap['refund(bytes32,uint256,address,uint256)'](
       preimageHash,
       etherSwapValues.amount,
       etherSwapValues.claimAddress,

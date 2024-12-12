@@ -1736,7 +1736,7 @@
         }
       },
       "post": {
-        "description": "Gets the server claim transaction signing details",
+        "description": "Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return",
         "tags": [
           "Chain Swap"
         ],

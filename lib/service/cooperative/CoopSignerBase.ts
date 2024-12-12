@@ -45,7 +45,6 @@ type CooperativeClientDetails = {
 };
 
 abstract class CoopSignerBase<
-  T extends Swap | ChainSwapInfo,
   K extends Record<string | symbol, any>,
 > extends TypedEventEmitter<K> {
   protected constructor(
@@ -56,7 +55,7 @@ abstract class CoopSignerBase<
     super();
   }
 
-  protected createCoopDetails = async (
+  protected createCoopDetails = async <T extends Swap | ChainSwapInfo>(
     chainCurrency: Currency,
     toClaim: SwapToClaim<T>,
   ): Promise<CooperativeClientDetails> => {
@@ -131,6 +130,7 @@ abstract class CoopSignerBase<
   };
 
   protected broadcastCooperativeTransaction = async <
+    T extends Swap | ChainSwapInfo,
     J extends Transaction | LiquidTransaction,
   >(
     swap: T,

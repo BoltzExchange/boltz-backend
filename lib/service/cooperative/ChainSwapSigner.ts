@@ -30,10 +30,7 @@ type TheirSigningData = {
   index: number;
 };
 
-class ChainSwapSigner extends CoopSignerBase<
-  ChainSwapInfo,
-  { claim: ChainSwapInfo }
-> {
+class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   private static readonly swapsToClaimLock = 'swapsToClaim';
   private static readonly refundSignatureLock = 'refundSignature';
   private static readonly cooperativeBroadcastLock = 'cooperativeBroadcast';
@@ -148,8 +145,6 @@ class ChainSwapSigner extends CoopSignerBase<
       this.swapsToClaim.delete(id);
     });
   };
-
-  // TODO: coop claims when one side is EVM
 
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,

@@ -55,7 +55,7 @@ class MPay:
         max_delay: int | None = None,
     ) -> PaymentResult:
         self._invoice_checker.check(bolt11)
-        dec = self.pl.rpc.decodepay(bolt11)
+        dec = self.pl.rpc.decode(bolt11)
 
         amount = dec["amount_msat"]
         payment_hash = dec["payment_hash"]

@@ -10,11 +10,10 @@ fee-base=0
 fee-per-satoshi=1
 large-channels
 
+grpc-host=0.0.0.0
 grpc-port=9291
 
 developer
 dev-fast-gossip
 dev-fast-reconnect
 dev-bitcoind-poll=5
-
-experimental-offers

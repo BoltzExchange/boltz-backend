@@ -1386,7 +1386,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/chain/{id}/claim:
      *   post:
-     *     description: Gets the server claim transaction signing details
+     *     description: Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return
      *     tags: [Chain Swap]
      *     parameters:
      *       - in: path
@@ -2034,10 +2034,25 @@ class SwapRouter extends RouterBase {
       return;
     }
 
-    const details =
-      await this.service.swapManager.chainSwapSigner.getCooperativeDetails(
-        swap,
-      );
+    let details: Awaited<
+      ReturnType<
+        typeof this.service.swapManager.chainSwapSigner.getCooperativeDetails
+      >
+    >;
+
+    // Pending claims are handled in the DeferredClaimer
+    if (swap.status !== SwapUpdateEvent.TransactionClaimPending) {
+      details =
+        await this.service.swapManager.chainSwapSigner.getCooperativeDetails(
+          swap,
+        );
+    } else {
+      details =
+        await this.service.swapManager.deferredClaimer.getCooperativeDetails(
+          swap,
+        );
+    }
+
     successResponse(res, {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
@@ -2050,15 +2065,19 @@ class SwapRouter extends RouterBase {
       { name: 'id', type: 'string' },
     ]);
     const { preimage, toSign, signature } = validateRequest(req.body, [
-      { name: 'toSign', type: 'object' },
+      { name: 'toSign', type: 'object', optional: true },
       { name: 'signature', type: 'object', optional: true },
       { name: 'preimage', type: 'string', hex: true, optional: true },
     ]);
-    const toSignParsed = validateRequest(toSign, [
-      { name: 'index', type: 'number' },
-      { name: 'pubNonce', type: 'string', hex: true },
-      { name: 'transaction', type: 'string', hex: true },
-    ]);
+
+    let toSignParsed: any | undefined;
+    if (toSign !== undefined) {
+      toSignParsed = validateRequest(toSign, [
+        { name: 'index', type: 'number' },
+        { name: 'pubNonce', type: 'string', hex: true },
+        { name: 'transaction', type: 'string', hex: true },
+      ]);
+    }
 
     let partialSignatureParsed: PartialSignature | undefined;
     if (signature !== undefined) {
@@ -2080,16 +2099,34 @@ class SwapRouter extends RouterBase {
       return;
     }
 
-    const sig = await this.service.swapManager.chainSwapSigner.signClaim(
-      swap,
-      toSignParsed,
-      preimage,
-      partialSignatureParsed,
-    );
-    successResponse(res, {
-      pubNonce: getHexString(sig.pubNonce),
-      partialSignature: getHexString(sig.signature),
-    });
+    // Pending claims are handled in the DeferredClaimer
+    if (swap.status !== SwapUpdateEvent.TransactionClaimPending) {
+      if (toSignParsed === undefined) {
+        throw ApiErrors.UNDEFINED_PARAMETER('toSign');
+      }
+
+      const sig = await this.service.swapManager.chainSwapSigner.signClaim(
+        swap,
+        toSignParsed,
+        preimage,
+        partialSignatureParsed,
+      );
+      successResponse(res, {
+        pubNonce: getHexString(sig.pubNonce),
+        partialSignature: getHexString(sig.signature),
+      });
+    } else {
+      if (partialSignatureParsed === undefined) {
+        throw ApiErrors.UNDEFINED_PARAMETER('signature');
+      }
+
+      await this.service.swapManager.deferredClaimer.broadcastCooperative(
+        swap,
+        partialSignatureParsed.pubNonce,
+        partialSignatureParsed.signature,
+      );
+      successResponse(res, {});
+    }
   };
 
   private getChainSwapTransactions = async (req: Request, res: Response) => {

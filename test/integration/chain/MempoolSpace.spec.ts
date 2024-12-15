@@ -12,7 +12,7 @@ describe('MempoolSpace', () => {
   const mempool = new MempoolSpace(
     Logger.disabledLogger,
     'BTC',
-    'https://mempool.space/api,https://mempool.michael1011.at/api',
+    'https://mempool.space/api,https://mempool.michael1011.net/api',
   );
 
   afterAll(() => {

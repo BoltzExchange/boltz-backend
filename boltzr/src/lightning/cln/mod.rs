@@ -71,6 +71,7 @@ impl Cln {
                 timeout: None,
                 quantity: None,
                 payer_note: None,
+                payer_metadata: None,
                 recurrence_start: None,
                 recurrence_label: None,
                 recurrence_counter: None,
@@ -105,23 +106,27 @@ impl BaseClient for Cln {
     }
 
     async fn connect(&mut self) -> anyhow::Result<()> {
-        let configs = self.list_configs().await?;
-        let experimental_offers = match configs.configs {
-            Some(config) => match config.experimental_offers {
-                Some(option) => option.set,
-                None => false,
-            },
-            None => false,
-        };
+        let info = self.get_info().await?;
+        let version = info.version.split(".").collect::<Vec<&str>>();
 
-        if !experimental_offers {
-            return Err(crate::lightning::Error::NoBolt12Support(
-                "experimental-offers not enabled".into(),
-            )
-            .into());
+        if version[0] == "24" && version[1] == "08" {
+            let configs = self.list_configs().await?;
+            let experimental_offers = match configs.configs {
+                Some(config) => match config.experimental_offers {
+                    Some(option) => option.set,
+                    None => false,
+                },
+                None => false,
+            };
+
+            if !experimental_offers {
+                return Err(crate::lightning::Error::NoBolt12Support(
+                    "experimental-offers not enabled".into(),
+                )
+                .into());
+            }
         }
 
-        let info = self.get_info().await?;
         info!(
             "Connected to {} CLN {} ({})",
             self.symbol,

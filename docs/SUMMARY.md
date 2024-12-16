@@ -1,6 +1,7 @@
 # Table of contents
 
 - [👋 Introduction](README.md)
+- [📙 Libraries](libraries.md)
 - [🤖 REST API v2](api-v2.md)
 - [🤖 REST API v1 (deprecated)](api-v1.md)
 - [🔁 Swap Types & States](lifecycle.md)
@@ -12,6 +13,7 @@
 - [⚠️ Common Mistakes](common-mistakes.md)
 - [🪝 Webhooks](webhooks.md)
 - [⚡ BOLT12](bolt12.md)
+- [🤝 Referral Program](referral-program.md)
 - [🚢 Backend Deployment](deployment.md)
 - [🐳 Regtest Environment](regtest.md)
 - [🔙 Back to Docs Home](https://app.gitbook.com/o/SPM8mTvJyc7OIzGL3HD7/s/XUXMXrD8YTzvuqvAeom7/)

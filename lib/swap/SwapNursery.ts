@@ -39,7 +39,7 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
+import { AnySwap, ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseSwap, { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
@@ -1399,49 +1399,53 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     const chainCurrency = this.currencies.get(chainSymbol)!;
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
-    if (reverseSwap.transactionId) {
-      switch (chainCurrency.type) {
-        case CurrencyType.BitcoinLike:
-        case CurrencyType.Liquid:
-          await this.refundUtxo(chainCurrency, reverseSwap);
-          break;
-
-        case CurrencyType.Ether:
-          await this.refundEther(reverseSwap, chainSymbol);
-          break;
-
-        case CurrencyType.ERC20:
-          await this.refundERC20(reverseSwap, chainSymbol);
-          break;
-      }
-    } else {
-      this.emit(
-        'expiration',
-        await WrappedSwapRepository.setStatus(
-          reverseSwap,
-          SwapUpdateEvent.SwapExpired,
-          Errors.ONCHAIN_HTLC_TIMED_OUT().message,
-        ),
-      );
-    }
-
-    const lightningClient = NodeSwitch.getReverseSwapNode(
-      lightningCurrency,
-      reverseSwap,
-    );
-
     try {
-      await LightningNursery.cancelReverseInvoices(
-        lightningClient,
+      if (reverseSwap.transactionId) {
+        switch (chainCurrency.type) {
+          case CurrencyType.BitcoinLike:
+          case CurrencyType.Liquid:
+            await this.refundUtxo(chainCurrency, reverseSwap);
+            break;
+
+          case CurrencyType.Ether:
+            await this.refundEther(reverseSwap, chainSymbol);
+            break;
+
+          case CurrencyType.ERC20:
+            await this.refundERC20(reverseSwap, chainSymbol);
+            break;
+        }
+      } else {
+        this.emit(
+          'expiration',
+          await WrappedSwapRepository.setStatus(
+            reverseSwap,
+            SwapUpdateEvent.SwapExpired,
+            Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+          ),
+        );
+      }
+
+      const lightningClient = NodeSwitch.getReverseSwapNode(
+        lightningCurrency,
         reverseSwap,
-        true,
       );
+
+      try {
+        await LightningNursery.cancelReverseInvoices(
+          lightningClient,
+          reverseSwap,
+          true,
+        );
+      } catch (e) {
+        this.logger.debug(
+          `Could not cancel invoices of Reverse Swap ${
+            reverseSwap.id
+          } because: ${formatError(e)}`,
+        );
+      }
     } catch (e) {
-      this.logger.debug(
-        `Could not cancel invoices of Reverse Swap ${
-          reverseSwap.id
-        } because: ${formatError(e)}`,
-      );
+      await this.handleFailedRefund(reverseSwap, e);
     }
   };
 
@@ -1457,32 +1461,36 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const chainCurrency = this.currencies.get(chainSwap.sendingData.symbol)!;
 
-    if (chainSwap.sendingData.transactionId) {
-      switch (chainCurrency.type) {
-        case CurrencyType.BitcoinLike:
-        case CurrencyType.Liquid:
-          await this.chainSwapSigner.removeFromClaimable(chainSwap.id);
-          await this.refundUtxo(chainCurrency, chainSwap);
+    try {
+      if (chainSwap.sendingData.transactionId) {
+        switch (chainCurrency.type) {
+          case CurrencyType.BitcoinLike:
+          case CurrencyType.Liquid:
+            await this.chainSwapSigner.removeFromClaimable(chainSwap.id);
+            await this.refundUtxo(chainCurrency, chainSwap);
 
-          break;
+            break;
 
-        case CurrencyType.Ether:
-          await this.refundEther(chainSwap, chainCurrency.symbol);
-          break;
+          case CurrencyType.Ether:
+            await this.refundEther(chainSwap, chainCurrency.symbol);
+            break;
 
-        case CurrencyType.ERC20:
-          await this.refundERC20(chainSwap, chainCurrency.symbol);
-          break;
+          case CurrencyType.ERC20:
+            await this.refundERC20(chainSwap, chainCurrency.symbol);
+            break;
+        }
+      } else {
+        this.emit(
+          'expiration',
+          await WrappedSwapRepository.setStatus(
+            chainSwap,
+            SwapUpdateEvent.SwapExpired,
+            Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+          ),
+        );
       }
-    } else {
-      this.emit(
-        'expiration',
-        await WrappedSwapRepository.setStatus(
-          chainSwap,
-          SwapUpdateEvent.SwapExpired,
-          Errors.ONCHAIN_HTLC_TIMED_OUT().message,
-        ),
-      );
+    } catch (e) {
+      await this.handleFailedRefund(chainSwap, e);
     }
   };
 
@@ -1668,6 +1676,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
 
     return undefined;
+  };
+
+  private handleFailedRefund = async (swap: AnySwap, error: unknown) => {
+    const msg = `Refunding ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${formatError(error)}`;
+    this.logger.error(msg);
+    await this.notifications?.sendMessage(msg, true, true);
   };
 }
 

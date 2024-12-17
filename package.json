@@ -82,7 +82,7 @@
     "@opentelemetry/instrumentation-pg": "^0.49.0",
     "@opentelemetry/instrumentation-winston": "^0.43.0",
     "@opentelemetry/sdk-node": "^0.56.0",
-    "@pyroscope/nodejs": "^0.4.1",
+    "@pyroscope/nodejs": "^0.4.3",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
     "axios": "^1.7.9",
@@ -116,7 +116,7 @@
   },
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
-    "@eslint/js": "^9.16.0",
+    "@eslint/js": "^9.17.0",
     "@openzeppelin/contracts": "^5.1.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.0",
     "@types/async-lock": "^1.4.2",
@@ -128,7 +128,7 @@
     "@types/pg": "^8.11.10",
     "@types/yargs": "^17.0.33",
     "cross-os": "^1.5.0",
-    "eslint": "^9.16.0",
+    "eslint": "^9.17.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-jest": "^28.9.0",
     "eslint-plugin-n": "^17.15.0",
@@ -143,6 +143,6 @@
     "swagger-jsdoc": "^6.2.8",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.18.0"
+    "typescript-eslint": "^8.18.1"
   }
 }

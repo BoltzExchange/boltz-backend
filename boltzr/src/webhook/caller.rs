@@ -136,7 +136,7 @@ impl Caller {
     ) -> Result<CallResult, Box<dyn Error>> {
         if let Some(status_include) = &hook.status {
             if !status_include.contains(status) {
-                debug!("Not calling WebHook for swap {} because status update {} is not in include list", hook.id, status);
+                trace!("Not calling WebHook for swap {} because status update {} is not in include list", hook.id, status);
                 return Ok(CallResult::NotIncluded);
             }
         }

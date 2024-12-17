@@ -1,7 +1,8 @@
 ---
 description: >-
   Boltz exposes a RESTful HTTP API that can be used to query information like
-  supported pairs as well as to create and monitor swaps.
+  supported pairs as well as to create and monitor swaps. All swap clients, like
+  Boltz Web App, use Boltz API under the hood.
 cover: .gitbook/assets/boltz-backend_header.png
 coverY: 0
 ---
@@ -21,8 +22,9 @@ The corresponding REST APIs can be accessed at:
 - Mainnet via [Tor](https://www.torproject.org/):
   `http://boltzzzbnus4m7mta3cxmflnps4fp7dueu2tgurstbvrbt6xswzcocyd.onion/api/`
 
-We operate several lightning nodes on testnet and mainnet, for reliable swapping
-on testnet it's advisable to open a direct channel with us:
+## Lightning Nodes
+
+We operate several lightning nodes on testnet and mainnet:
 
 - Testnet:
   [CLN](https://mempool.space/testnet/lightning/node/029040945df331e634fba152ce6a21e3dfca87b68d275e078caeee4753f43e9acb)
@@ -33,5 +35,9 @@ on testnet it's advisable to open a direct channel with us:
   |
   [LND](https://mempool.space/lightning/node/026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2)
 
-In the following sections we'll describe the REST API, walk through swap types &
-states, how to craft transactions, handle refunds and more.
+For reliable swapping _on testnet_ it's advisable to open a direct channel with
+us.
+
+In the following sections we'll describe the available libraries for our API,
+the REST API itself, walk through swap types & states, how to craft
+transactions, handle refunds and more.

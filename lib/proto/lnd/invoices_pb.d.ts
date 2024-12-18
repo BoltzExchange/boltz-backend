@@ -242,6 +242,104 @@ export namespace LookupInvoiceMsg {
 
 }
 
+export class CircuitKey extends jspb.Message { 
+    getChanId(): number;
+    setChanId(value: number): CircuitKey;
+    getHtlcId(): number;
+    setHtlcId(value: number): CircuitKey;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CircuitKey.AsObject;
+    static toObject(includeInstance: boolean, msg: CircuitKey): CircuitKey.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CircuitKey, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CircuitKey;
+    static deserializeBinaryFromReader(message: CircuitKey, reader: jspb.BinaryReader): CircuitKey;
+}
+
+export namespace CircuitKey {
+    export type AsObject = {
+        chanId: number,
+        htlcId: number,
+    }
+}
+
+export class HtlcModifyRequest extends jspb.Message { 
+
+    hasInvoice(): boolean;
+    clearInvoice(): void;
+    getInvoice(): lnd_rpc_pb.Invoice | undefined;
+    setInvoice(value?: lnd_rpc_pb.Invoice): HtlcModifyRequest;
+
+    hasExitHtlcCircuitKey(): boolean;
+    clearExitHtlcCircuitKey(): void;
+    getExitHtlcCircuitKey(): CircuitKey | undefined;
+    setExitHtlcCircuitKey(value?: CircuitKey): HtlcModifyRequest;
+    getExitHtlcAmt(): number;
+    setExitHtlcAmt(value: number): HtlcModifyRequest;
+    getExitHtlcExpiry(): number;
+    setExitHtlcExpiry(value: number): HtlcModifyRequest;
+    getCurrentHeight(): number;
+    setCurrentHeight(value: number): HtlcModifyRequest;
+
+    getExitHtlcWireCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearExitHtlcWireCustomRecordsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): HtlcModifyRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: HtlcModifyRequest): HtlcModifyRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: HtlcModifyRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): HtlcModifyRequest;
+    static deserializeBinaryFromReader(message: HtlcModifyRequest, reader: jspb.BinaryReader): HtlcModifyRequest;
+}
+
+export namespace HtlcModifyRequest {
+    export type AsObject = {
+        invoice?: lnd_rpc_pb.Invoice.AsObject,
+        exitHtlcCircuitKey?: CircuitKey.AsObject,
+        exitHtlcAmt: number,
+        exitHtlcExpiry: number,
+        currentHeight: number,
+
+        exitHtlcWireCustomRecordsMap: Array<[number, Uint8Array | string]>,
+    }
+}
+
+export class HtlcModifyResponse extends jspb.Message { 
+
+    hasCircuitKey(): boolean;
+    clearCircuitKey(): void;
+    getCircuitKey(): CircuitKey | undefined;
+    setCircuitKey(value?: CircuitKey): HtlcModifyResponse;
+
+    hasAmtPaid(): boolean;
+    clearAmtPaid(): void;
+    getAmtPaid(): number | undefined;
+    setAmtPaid(value: number): HtlcModifyResponse;
+    getCancelSet(): boolean;
+    setCancelSet(value: boolean): HtlcModifyResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): HtlcModifyResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: HtlcModifyResponse): HtlcModifyResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: HtlcModifyResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): HtlcModifyResponse;
+    static deserializeBinaryFromReader(message: HtlcModifyResponse, reader: jspb.BinaryReader): HtlcModifyResponse;
+}
+
+export namespace HtlcModifyResponse {
+    export type AsObject = {
+        circuitKey?: CircuitKey.AsObject,
+        amtPaid?: number,
+        cancelSet: boolean,
+    }
+}
+
 export enum LookupModifier {
     DEFAULT = 0,
     HTLC_SET_ONLY = 1,

@@ -72,6 +72,9 @@ export class SendPaymentRequest extends jspb.Message {
     getCancelable(): boolean;
     setCancelable(value: boolean): SendPaymentRequest;
 
+    getFirstHopCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearFirstHopCustomRecordsMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendPaymentRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SendPaymentRequest): SendPaymentRequest.AsObject;
@@ -109,6 +112,8 @@ export namespace SendPaymentRequest {
         amp: boolean,
         timePref: number,
         cancelable: boolean,
+
+        firstHopCustomRecordsMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -227,6 +232,9 @@ export class SendToRouteRequest extends jspb.Message {
     getSkipTempErr(): boolean;
     setSkipTempErr(value: boolean): SendToRouteRequest;
 
+    getFirstHopCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearFirstHopCustomRecordsMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendToRouteRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SendToRouteRequest): SendToRouteRequest.AsObject;
@@ -242,6 +250,8 @@ export namespace SendToRouteRequest {
         paymentHash: Uint8Array | string,
         route?: lnd_rpc_pb.Route.AsObject,
         skipTempErr: boolean,
+
+        firstHopCustomRecordsMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -727,6 +737,9 @@ export class BuildRouteRequest extends jspb.Message {
     getPaymentAddr_asB64(): string;
     setPaymentAddr(value: Uint8Array | string): BuildRouteRequest;
 
+    getFirstHopCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearFirstHopCustomRecordsMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BuildRouteRequest.AsObject;
     static toObject(includeInstance: boolean, msg: BuildRouteRequest): BuildRouteRequest.AsObject;
@@ -744,6 +757,8 @@ export namespace BuildRouteRequest {
         outgoingChanId: string,
         hopPubkeysList: Array<Uint8Array | string>,
         paymentAddr: Uint8Array | string,
+
+        firstHopCustomRecordsMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -1125,6 +1140,9 @@ export class ForwardHtlcInterceptRequest extends jspb.Message {
     getAutoFailHeight(): number;
     setAutoFailHeight(value: number): ForwardHtlcInterceptRequest;
 
+    getInWireCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearInWireCustomRecordsMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ForwardHtlcInterceptRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ForwardHtlcInterceptRequest): ForwardHtlcInterceptRequest.AsObject;
@@ -1148,6 +1166,8 @@ export namespace ForwardHtlcInterceptRequest {
         customRecordsMap: Array<[number, Uint8Array | string]>,
         onionBlob: Uint8Array | string,
         autoFailHeight: number,
+
+        inWireCustomRecordsMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -1169,6 +1189,13 @@ export class ForwardHtlcInterceptResponse extends jspb.Message {
     setFailureMessage(value: Uint8Array | string): ForwardHtlcInterceptResponse;
     getFailureCode(): lnd_rpc_pb.Failure.FailureCode;
     setFailureCode(value: lnd_rpc_pb.Failure.FailureCode): ForwardHtlcInterceptResponse;
+    getInAmountMsat(): number;
+    setInAmountMsat(value: number): ForwardHtlcInterceptResponse;
+    getOutAmountMsat(): number;
+    setOutAmountMsat(value: number): ForwardHtlcInterceptResponse;
+
+    getOutWireCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
+    clearOutWireCustomRecordsMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ForwardHtlcInterceptResponse.AsObject;
@@ -1187,6 +1214,10 @@ export namespace ForwardHtlcInterceptResponse {
         preimage: Uint8Array | string,
         failureMessage: Uint8Array | string,
         failureCode: lnd_rpc_pb.Failure.FailureCode,
+        inAmountMsat: number,
+        outAmountMsat: number,
+
+        outWireCustomRecordsMap: Array<[number, Uint8Array | string]>,
     }
 }
 
@@ -1233,6 +1264,94 @@ export namespace UpdateChanStatusResponse {
     }
 }
 
+export class AddAliasesRequest extends jspb.Message { 
+    clearAliasMapsList(): void;
+    getAliasMapsList(): Array<lnd_rpc_pb.AliasMap>;
+    setAliasMapsList(value: Array<lnd_rpc_pb.AliasMap>): AddAliasesRequest;
+    addAliasMaps(value?: lnd_rpc_pb.AliasMap, index?: number): lnd_rpc_pb.AliasMap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AddAliasesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AddAliasesRequest): AddAliasesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AddAliasesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddAliasesRequest;
+    static deserializeBinaryFromReader(message: AddAliasesRequest, reader: jspb.BinaryReader): AddAliasesRequest;
+}
+
+export namespace AddAliasesRequest {
+    export type AsObject = {
+        aliasMapsList: Array<lnd_rpc_pb.AliasMap.AsObject>,
+    }
+}
+
+export class AddAliasesResponse extends jspb.Message { 
+    clearAliasMapsList(): void;
+    getAliasMapsList(): Array<lnd_rpc_pb.AliasMap>;
+    setAliasMapsList(value: Array<lnd_rpc_pb.AliasMap>): AddAliasesResponse;
+    addAliasMaps(value?: lnd_rpc_pb.AliasMap, index?: number): lnd_rpc_pb.AliasMap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AddAliasesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AddAliasesResponse): AddAliasesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AddAliasesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AddAliasesResponse;
+    static deserializeBinaryFromReader(message: AddAliasesResponse, reader: jspb.BinaryReader): AddAliasesResponse;
+}
+
+export namespace AddAliasesResponse {
+    export type AsObject = {
+        aliasMapsList: Array<lnd_rpc_pb.AliasMap.AsObject>,
+    }
+}
+
+export class DeleteAliasesRequest extends jspb.Message { 
+    clearAliasMapsList(): void;
+    getAliasMapsList(): Array<lnd_rpc_pb.AliasMap>;
+    setAliasMapsList(value: Array<lnd_rpc_pb.AliasMap>): DeleteAliasesRequest;
+    addAliasMaps(value?: lnd_rpc_pb.AliasMap, index?: number): lnd_rpc_pb.AliasMap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteAliasesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteAliasesRequest): DeleteAliasesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteAliasesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteAliasesRequest;
+    static deserializeBinaryFromReader(message: DeleteAliasesRequest, reader: jspb.BinaryReader): DeleteAliasesRequest;
+}
+
+export namespace DeleteAliasesRequest {
+    export type AsObject = {
+        aliasMapsList: Array<lnd_rpc_pb.AliasMap.AsObject>,
+    }
+}
+
+export class DeleteAliasesResponse extends jspb.Message { 
+    clearAliasMapsList(): void;
+    getAliasMapsList(): Array<lnd_rpc_pb.AliasMap>;
+    setAliasMapsList(value: Array<lnd_rpc_pb.AliasMap>): DeleteAliasesResponse;
+    addAliasMaps(value?: lnd_rpc_pb.AliasMap, index?: number): lnd_rpc_pb.AliasMap;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DeleteAliasesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DeleteAliasesResponse): DeleteAliasesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DeleteAliasesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DeleteAliasesResponse;
+    static deserializeBinaryFromReader(message: DeleteAliasesResponse, reader: jspb.BinaryReader): DeleteAliasesResponse;
+}
+
+export namespace DeleteAliasesResponse {
+    export type AsObject = {
+        aliasMapsList: Array<lnd_rpc_pb.AliasMap.AsObject>,
+    }
+}
+
 export enum FailureDetail {
     UNKNOWN = 0,
     NO_DETAIL = 1,
@@ -1273,6 +1392,7 @@ export enum ResolveHoldForwardAction {
     SETTLE = 0,
     FAIL = 1,
     RESUME = 2,
+    RESUME_MODIFIED = 3,
 }
 
 export enum ChanStatusAction {

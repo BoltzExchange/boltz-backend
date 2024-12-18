@@ -27,6 +27,8 @@ interface IRouterService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     trackPayment: IRouterService_ITrackPayment;
     htlcInterceptor: IRouterService_IHtlcInterceptor;
     updateChanStatus: IRouterService_IUpdateChanStatus;
+    xAddLocalChanAliases: IRouterService_IXAddLocalChanAliases;
+    xDeleteLocalChanAliases: IRouterService_IXDeleteLocalChanAliases;
 }
 
 interface IRouterService_ISendPaymentV2 extends grpc.MethodDefinition<lnd_router_pb.SendPaymentRequest, lnd_rpc_pb.Payment> {
@@ -191,6 +193,24 @@ interface IRouterService_IUpdateChanStatus extends grpc.MethodDefinition<lnd_rou
     responseSerialize: grpc.serialize<lnd_router_pb.UpdateChanStatusResponse>;
     responseDeserialize: grpc.deserialize<lnd_router_pb.UpdateChanStatusResponse>;
 }
+interface IRouterService_IXAddLocalChanAliases extends grpc.MethodDefinition<lnd_router_pb.AddAliasesRequest, lnd_router_pb.AddAliasesResponse> {
+    path: "/routerrpc.Router/XAddLocalChanAliases";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.AddAliasesRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.AddAliasesRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.AddAliasesResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.AddAliasesResponse>;
+}
+interface IRouterService_IXDeleteLocalChanAliases extends grpc.MethodDefinition<lnd_router_pb.DeleteAliasesRequest, lnd_router_pb.DeleteAliasesResponse> {
+    path: "/routerrpc.Router/XDeleteLocalChanAliases";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_router_pb.DeleteAliasesRequest>;
+    requestDeserialize: grpc.deserialize<lnd_router_pb.DeleteAliasesRequest>;
+    responseSerialize: grpc.serialize<lnd_router_pb.DeleteAliasesResponse>;
+    responseDeserialize: grpc.deserialize<lnd_router_pb.DeleteAliasesResponse>;
+}
 
 export const RouterService: IRouterService;
 
@@ -213,6 +233,8 @@ export interface IRouterServer extends grpc.UntypedServiceImplementation {
     trackPayment: grpc.handleServerStreamingCall<lnd_router_pb.TrackPaymentRequest, lnd_router_pb.PaymentStatus>;
     htlcInterceptor: grpc.handleBidiStreamingCall<lnd_router_pb.ForwardHtlcInterceptResponse, lnd_router_pb.ForwardHtlcInterceptRequest>;
     updateChanStatus: grpc.handleUnaryCall<lnd_router_pb.UpdateChanStatusRequest, lnd_router_pb.UpdateChanStatusResponse>;
+    xAddLocalChanAliases: grpc.handleUnaryCall<lnd_router_pb.AddAliasesRequest, lnd_router_pb.AddAliasesResponse>;
+    xDeleteLocalChanAliases: grpc.handleUnaryCall<lnd_router_pb.DeleteAliasesRequest, lnd_router_pb.DeleteAliasesResponse>;
 }
 
 export interface IRouterClient {
@@ -264,6 +286,12 @@ export interface IRouterClient {
     updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
     updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
     updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
+    xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
+    xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class RouterClient extends grpc.Client implements IRouterClient {
@@ -315,4 +343,10 @@ export class RouterClient extends grpc.Client implements IRouterClient {
     public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
     public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
     public updateChanStatus(request: lnd_router_pb.UpdateChanStatusRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.UpdateChanStatusResponse) => void): grpc.ClientUnaryCall;
+    public xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    public xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    public xAddLocalChanAliases(request: lnd_router_pb.AddAliasesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.AddAliasesResponse) => void): grpc.ClientUnaryCall;
+    public xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
+    public xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
+    public xDeleteLocalChanAliases(request: lnd_router_pb.DeleteAliasesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_router_pb.DeleteAliasesResponse) => void): grpc.ClientUnaryCall;
 }

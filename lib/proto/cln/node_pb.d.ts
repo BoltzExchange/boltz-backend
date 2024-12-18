@@ -1746,6 +1746,18 @@ export class CloseResponse extends jspb.Message {
     getTxid_asU8(): Uint8Array;
     getTxid_asB64(): string;
     setTxid(value: Uint8Array | string): CloseResponse;
+    clearTxsList(): void;
+    getTxsList(): Array<Uint8Array | string>;
+    getTxsList_asU8(): Array<Uint8Array>;
+    getTxsList_asB64(): Array<string>;
+    setTxsList(value: Array<Uint8Array | string>): CloseResponse;
+    addTxs(value: Uint8Array | string, index?: number): Uint8Array | string;
+    clearTxidsList(): void;
+    getTxidsList(): Array<Uint8Array | string>;
+    getTxidsList_asU8(): Array<Uint8Array>;
+    getTxidsList_asB64(): Array<string>;
+    setTxidsList(value: Array<Uint8Array | string>): CloseResponse;
+    addTxids(value: Uint8Array | string, index?: number): Uint8Array | string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CloseResponse.AsObject;
@@ -1762,6 +1774,8 @@ export namespace CloseResponse {
         itemType: CloseResponse.CloseType,
         tx: Uint8Array | string,
         txid: Uint8Array | string,
+        txsList: Array<Uint8Array | string>,
+        txidsList: Array<Uint8Array | string>,
     }
 
     export enum CloseType {
@@ -2649,6 +2663,94 @@ export class EmergencyrecoverResponse extends jspb.Message {
 export namespace EmergencyrecoverResponse {
     export type AsObject = {
         stubsList: Array<Uint8Array | string>,
+    }
+}
+
+export class GetemergencyrecoverdataRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetemergencyrecoverdataRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetemergencyrecoverdataRequest): GetemergencyrecoverdataRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetemergencyrecoverdataRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetemergencyrecoverdataRequest;
+    static deserializeBinaryFromReader(message: GetemergencyrecoverdataRequest, reader: jspb.BinaryReader): GetemergencyrecoverdataRequest;
+}
+
+export namespace GetemergencyrecoverdataRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetemergencyrecoverdataResponse extends jspb.Message { 
+    getFiledata(): Uint8Array | string;
+    getFiledata_asU8(): Uint8Array;
+    getFiledata_asB64(): string;
+    setFiledata(value: Uint8Array | string): GetemergencyrecoverdataResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetemergencyrecoverdataResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetemergencyrecoverdataResponse): GetemergencyrecoverdataResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetemergencyrecoverdataResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetemergencyrecoverdataResponse;
+    static deserializeBinaryFromReader(message: GetemergencyrecoverdataResponse, reader: jspb.BinaryReader): GetemergencyrecoverdataResponse;
+}
+
+export namespace GetemergencyrecoverdataResponse {
+    export type AsObject = {
+        filedata: Uint8Array | string,
+    }
+}
+
+export class ExposesecretRequest extends jspb.Message { 
+    getPassphrase(): string;
+    setPassphrase(value: string): ExposesecretRequest;
+
+    hasIdentifier(): boolean;
+    clearIdentifier(): void;
+    getIdentifier(): string | undefined;
+    setIdentifier(value: string): ExposesecretRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ExposesecretRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ExposesecretRequest): ExposesecretRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ExposesecretRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ExposesecretRequest;
+    static deserializeBinaryFromReader(message: ExposesecretRequest, reader: jspb.BinaryReader): ExposesecretRequest;
+}
+
+export namespace ExposesecretRequest {
+    export type AsObject = {
+        passphrase: string,
+        identifier?: string,
+    }
+}
+
+export class ExposesecretResponse extends jspb.Message { 
+    getIdentifier(): string;
+    setIdentifier(value: string): ExposesecretResponse;
+    getCodex32(): string;
+    setCodex32(value: string): ExposesecretResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ExposesecretResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ExposesecretResponse): ExposesecretResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ExposesecretResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ExposesecretResponse;
+    static deserializeBinaryFromReader(message: ExposesecretResponse, reader: jspb.BinaryReader): ExposesecretResponse;
+}
+
+export namespace ExposesecretResponse {
+    export type AsObject = {
+        identifier: string,
+        codex32: string,
     }
 }
 
@@ -5075,6 +5177,11 @@ export class KeysendRequest extends jspb.Message {
     getAmountMsat(): cln_primitives_pb.Amount | undefined;
     setAmountMsat(value?: cln_primitives_pb.Amount): KeysendRequest;
 
+    hasMaxfee(): boolean;
+    clearMaxfee(): void;
+    getMaxfee(): cln_primitives_pb.Amount | undefined;
+    setMaxfee(value?: cln_primitives_pb.Amount): KeysendRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): KeysendRequest.AsObject;
     static toObject(includeInstance: boolean, msg: KeysendRequest): KeysendRequest.AsObject;
@@ -5096,6 +5203,7 @@ export namespace KeysendRequest {
         routehints?: cln_primitives_pb.RoutehintList.AsObject,
         extratlvs?: cln_primitives_pb.TlvStream.AsObject,
         amountMsat?: cln_primitives_pb.Amount.AsObject,
+        maxfee?: cln_primitives_pb.Amount.AsObject,
     }
 }
 
@@ -7456,6 +7564,9 @@ export class DecodeOffer_paths extends jspb.Message {
     getFirstNodeId_asU8(): Uint8Array;
     getFirstNodeId_asB64(): string;
     setFirstNodeId(value: Uint8Array | string): DecodeOffer_paths;
+
+    hasBlinding(): boolean;
+    clearBlinding(): void;
     getBlinding(): Uint8Array | string;
     getBlinding_asU8(): Uint8Array;
     getBlinding_asB64(): string;
@@ -7470,6 +7581,13 @@ export class DecodeOffer_paths extends jspb.Message {
     clearFirstScid(): void;
     getFirstScid(): string | undefined;
     setFirstScid(value: string): DecodeOffer_paths;
+
+    hasFirstPathKey(): boolean;
+    clearFirstPathKey(): void;
+    getFirstPathKey(): Uint8Array | string;
+    getFirstPathKey_asU8(): Uint8Array;
+    getFirstPathKey_asB64(): string;
+    setFirstPathKey(value: Uint8Array | string): DecodeOffer_paths;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DecodeOffer_paths.AsObject;
@@ -7487,6 +7605,7 @@ export namespace DecodeOffer_paths {
         blinding: Uint8Array | string,
         firstScidDir?: number,
         firstScid?: string,
+        firstPathKey: Uint8Array | string,
     }
 }
 
@@ -7525,6 +7644,9 @@ export class DecodeInvreq_paths extends jspb.Message {
     clearFirstScidDir(): void;
     getFirstScidDir(): number | undefined;
     setFirstScidDir(value: number): DecodeInvreq_paths;
+
+    hasBlinding(): boolean;
+    clearBlinding(): void;
     getBlinding(): Uint8Array | string;
     getBlinding_asU8(): Uint8Array;
     getBlinding_asB64(): string;
@@ -7546,6 +7668,13 @@ export class DecodeInvreq_paths extends jspb.Message {
     setPathList(value: Array<DecodeInvreq_pathsPath>): DecodeInvreq_paths;
     addPath(value?: DecodeInvreq_pathsPath, index?: number): DecodeInvreq_pathsPath;
 
+    hasFirstPathKey(): boolean;
+    clearFirstPathKey(): void;
+    getFirstPathKey(): Uint8Array | string;
+    getFirstPathKey_asU8(): Uint8Array;
+    getFirstPathKey_asB64(): string;
+    setFirstPathKey(value: Uint8Array | string): DecodeInvreq_paths;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DecodeInvreq_paths.AsObject;
     static toObject(includeInstance: boolean, msg: DecodeInvreq_paths): DecodeInvreq_paths.AsObject;
@@ -7563,6 +7692,7 @@ export namespace DecodeInvreq_paths {
         firstNodeId: Uint8Array | string,
         firstScid?: string,
         pathList: Array<DecodeInvreq_pathsPath.AsObject>,
+        firstPathKey: Uint8Array | string,
     }
 }
 
@@ -8044,6 +8174,68 @@ export namespace DisableofferResponse {
     }
 }
 
+export class EnableofferRequest extends jspb.Message { 
+    getOfferId(): Uint8Array | string;
+    getOfferId_asU8(): Uint8Array;
+    getOfferId_asB64(): string;
+    setOfferId(value: Uint8Array | string): EnableofferRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EnableofferRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: EnableofferRequest): EnableofferRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EnableofferRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EnableofferRequest;
+    static deserializeBinaryFromReader(message: EnableofferRequest, reader: jspb.BinaryReader): EnableofferRequest;
+}
+
+export namespace EnableofferRequest {
+    export type AsObject = {
+        offerId: Uint8Array | string,
+    }
+}
+
+export class EnableofferResponse extends jspb.Message { 
+    getOfferId(): Uint8Array | string;
+    getOfferId_asU8(): Uint8Array;
+    getOfferId_asB64(): string;
+    setOfferId(value: Uint8Array | string): EnableofferResponse;
+    getActive(): boolean;
+    setActive(value: boolean): EnableofferResponse;
+    getSingleUse(): boolean;
+    setSingleUse(value: boolean): EnableofferResponse;
+    getBolt12(): string;
+    setBolt12(value: string): EnableofferResponse;
+    getUsed(): boolean;
+    setUsed(value: boolean): EnableofferResponse;
+
+    hasLabel(): boolean;
+    clearLabel(): void;
+    getLabel(): string | undefined;
+    setLabel(value: string): EnableofferResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EnableofferResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: EnableofferResponse): EnableofferResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EnableofferResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EnableofferResponse;
+    static deserializeBinaryFromReader(message: EnableofferResponse, reader: jspb.BinaryReader): EnableofferResponse;
+}
+
+export namespace EnableofferResponse {
+    export type AsObject = {
+        offerId: Uint8Array | string,
+        active: boolean,
+        singleUse: boolean,
+        bolt12: string,
+        used: boolean,
+        label?: string,
+    }
+}
+
 export class DisconnectRequest extends jspb.Message { 
     getId(): Uint8Array | string;
     getId_asU8(): Uint8Array;
@@ -8437,6 +8629,11 @@ export class FetchinvoiceRequest extends jspb.Message {
     getPayerNote(): string | undefined;
     setPayerNote(value: string): FetchinvoiceRequest;
 
+    hasPayerMetadata(): boolean;
+    clearPayerMetadata(): void;
+    getPayerMetadata(): string | undefined;
+    setPayerMetadata(value: string): FetchinvoiceRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): FetchinvoiceRequest.AsObject;
     static toObject(includeInstance: boolean, msg: FetchinvoiceRequest): FetchinvoiceRequest.AsObject;
@@ -8457,6 +8654,7 @@ export namespace FetchinvoiceRequest {
         recurrenceLabel?: string,
         timeout?: number,
         payerNote?: string,
+        payerMetadata?: string,
     }
 }
 
@@ -9478,6 +9676,95 @@ export namespace GetrouteRoute {
 
 }
 
+export class ListaddressesRequest extends jspb.Message { 
+
+    hasAddress(): boolean;
+    clearAddress(): void;
+    getAddress(): string | undefined;
+    setAddress(value: string): ListaddressesRequest;
+
+    hasStart(): boolean;
+    clearStart(): void;
+    getStart(): number | undefined;
+    setStart(value: number): ListaddressesRequest;
+
+    hasLimit(): boolean;
+    clearLimit(): void;
+    getLimit(): number | undefined;
+    setLimit(value: number): ListaddressesRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListaddressesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ListaddressesRequest): ListaddressesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListaddressesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListaddressesRequest;
+    static deserializeBinaryFromReader(message: ListaddressesRequest, reader: jspb.BinaryReader): ListaddressesRequest;
+}
+
+export namespace ListaddressesRequest {
+    export type AsObject = {
+        address?: string,
+        start?: number,
+        limit?: number,
+    }
+}
+
+export class ListaddressesResponse extends jspb.Message { 
+    clearAddressesList(): void;
+    getAddressesList(): Array<ListaddressesAddresses>;
+    setAddressesList(value: Array<ListaddressesAddresses>): ListaddressesResponse;
+    addAddresses(value?: ListaddressesAddresses, index?: number): ListaddressesAddresses;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListaddressesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ListaddressesResponse): ListaddressesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListaddressesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListaddressesResponse;
+    static deserializeBinaryFromReader(message: ListaddressesResponse, reader: jspb.BinaryReader): ListaddressesResponse;
+}
+
+export namespace ListaddressesResponse {
+    export type AsObject = {
+        addressesList: Array<ListaddressesAddresses.AsObject>,
+    }
+}
+
+export class ListaddressesAddresses extends jspb.Message { 
+    getKeyidx(): number;
+    setKeyidx(value: number): ListaddressesAddresses;
+
+    hasBech32(): boolean;
+    clearBech32(): void;
+    getBech32(): string | undefined;
+    setBech32(value: string): ListaddressesAddresses;
+
+    hasP2tr(): boolean;
+    clearP2tr(): void;
+    getP2tr(): string | undefined;
+    setP2tr(value: string): ListaddressesAddresses;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListaddressesAddresses.AsObject;
+    static toObject(includeInstance: boolean, msg: ListaddressesAddresses): ListaddressesAddresses.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListaddressesAddresses, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListaddressesAddresses;
+    static deserializeBinaryFromReader(message: ListaddressesAddresses, reader: jspb.BinaryReader): ListaddressesAddresses;
+}
+
+export namespace ListaddressesAddresses {
+    export type AsObject = {
+        keyidx: number,
+        bech32?: string,
+        p2tr?: string,
+    }
+}
+
 export class ListforwardsRequest extends jspb.Message { 
 
     hasStatus(): boolean;
@@ -9789,6 +10076,21 @@ export class ListpaysRequest extends jspb.Message {
     getStatus(): ListpaysRequest.ListpaysStatus | undefined;
     setStatus(value: ListpaysRequest.ListpaysStatus): ListpaysRequest;
 
+    hasIndex(): boolean;
+    clearIndex(): void;
+    getIndex(): ListpaysRequest.ListpaysIndex | undefined;
+    setIndex(value: ListpaysRequest.ListpaysIndex): ListpaysRequest;
+
+    hasStart(): boolean;
+    clearStart(): void;
+    getStart(): number | undefined;
+    setStart(value: number): ListpaysRequest;
+
+    hasLimit(): boolean;
+    clearLimit(): void;
+    getLimit(): number | undefined;
+    setLimit(value: number): ListpaysRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListpaysRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListpaysRequest): ListpaysRequest.AsObject;
@@ -9804,12 +10106,20 @@ export namespace ListpaysRequest {
         bolt11?: string,
         paymentHash: Uint8Array | string,
         status?: ListpaysRequest.ListpaysStatus,
+        index?: ListpaysRequest.ListpaysIndex,
+        start?: number,
+        limit?: number,
     }
 
     export enum ListpaysStatus {
     PENDING = 0,
     COMPLETE = 1,
     FAILED = 2,
+    }
+
+    export enum ListpaysIndex {
+    CREATED = 0,
+    UPDATED = 1,
     }
 
 }
@@ -9907,6 +10217,16 @@ export class ListpaysPays extends jspb.Message {
     getNumberOfParts(): number | undefined;
     setNumberOfParts(value: number): ListpaysPays;
 
+    hasCreatedIndex(): boolean;
+    clearCreatedIndex(): void;
+    getCreatedIndex(): number | undefined;
+    setCreatedIndex(value: number): ListpaysPays;
+
+    hasUpdatedIndex(): boolean;
+    clearUpdatedIndex(): void;
+    getUpdatedIndex(): number | undefined;
+    setUpdatedIndex(value: number): ListpaysPays;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListpaysPays.AsObject;
     static toObject(includeInstance: boolean, msg: ListpaysPays): ListpaysPays.AsObject;
@@ -9933,6 +10253,8 @@ export namespace ListpaysPays {
         completedAt?: number,
         preimage: Uint8Array | string,
         numberOfParts?: number,
+        createdIndex?: number,
+        updatedIndex?: number,
     }
 
     export enum ListpaysPaysStatus {
@@ -11355,6 +11677,21 @@ export class RenepayResponse extends jspb.Message {
     getDestination_asB64(): string;
     setDestination(value: Uint8Array | string): RenepayResponse;
 
+    hasBolt11(): boolean;
+    clearBolt11(): void;
+    getBolt11(): string | undefined;
+    setBolt11(value: string): RenepayResponse;
+
+    hasBolt12(): boolean;
+    clearBolt12(): void;
+    getBolt12(): string | undefined;
+    setBolt12(value: string): RenepayResponse;
+
+    hasGroupid(): boolean;
+    clearGroupid(): void;
+    getGroupid(): number | undefined;
+    setGroupid(value: number): RenepayResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RenepayResponse.AsObject;
     static toObject(includeInstance: boolean, msg: RenepayResponse): RenepayResponse.AsObject;
@@ -11375,6 +11712,9 @@ export namespace RenepayResponse {
         amountSentMsat?: cln_primitives_pb.Amount.AsObject,
         status: RenepayResponse.RenepayStatus,
         destination: Uint8Array | string,
+        bolt11?: string,
+        bolt12?: string,
+        groupid?: number,
     }
 
     export enum RenepayStatus {
@@ -12154,6 +12494,8 @@ export class Splice_signedResponse extends jspb.Message {
     clearOutnum(): void;
     getOutnum(): number | undefined;
     setOutnum(value: number): Splice_signedResponse;
+    getPsbt(): string;
+    setPsbt(value: string): Splice_signedResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Splice_signedResponse.AsObject;
@@ -12170,6 +12512,7 @@ export namespace Splice_signedResponse {
         tx: Uint8Array | string,
         txid: Uint8Array | string,
         outnum?: number,
+        psbt: string,
     }
 }
 
@@ -12204,6 +12547,11 @@ export class Splice_updateResponse extends jspb.Message {
     getCommitmentsSecured(): boolean;
     setCommitmentsSecured(value: boolean): Splice_updateResponse;
 
+    hasSignaturesSecured(): boolean;
+    clearSignaturesSecured(): void;
+    getSignaturesSecured(): boolean | undefined;
+    setSignaturesSecured(value: boolean): Splice_updateResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Splice_updateResponse.AsObject;
     static toObject(includeInstance: boolean, msg: Splice_updateResponse): Splice_updateResponse.AsObject;
@@ -12218,6 +12566,96 @@ export namespace Splice_updateResponse {
     export type AsObject = {
         psbt: string,
         commitmentsSecured: boolean,
+        signaturesSecured?: boolean,
+    }
+}
+
+export class DevspliceRequest extends jspb.Message { 
+    getScriptOrJson(): string;
+    setScriptOrJson(value: string): DevspliceRequest;
+
+    hasDryrun(): boolean;
+    clearDryrun(): void;
+    getDryrun(): boolean | undefined;
+    setDryrun(value: boolean): DevspliceRequest;
+
+    hasForceFeerate(): boolean;
+    clearForceFeerate(): void;
+    getForceFeerate(): boolean | undefined;
+    setForceFeerate(value: boolean): DevspliceRequest;
+
+    hasDebugLog(): boolean;
+    clearDebugLog(): void;
+    getDebugLog(): boolean | undefined;
+    setDebugLog(value: boolean): DevspliceRequest;
+
+    hasDevWetrun(): boolean;
+    clearDevWetrun(): void;
+    getDevWetrun(): boolean | undefined;
+    setDevWetrun(value: boolean): DevspliceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevspliceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DevspliceRequest): DevspliceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevspliceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevspliceRequest;
+    static deserializeBinaryFromReader(message: DevspliceRequest, reader: jspb.BinaryReader): DevspliceRequest;
+}
+
+export namespace DevspliceRequest {
+    export type AsObject = {
+        scriptOrJson: string,
+        dryrun?: boolean,
+        forceFeerate?: boolean,
+        debugLog?: boolean,
+        devWetrun?: boolean,
+    }
+}
+
+export class DevspliceResponse extends jspb.Message { 
+    clearDryrunList(): void;
+    getDryrunList(): Array<string>;
+    setDryrunList(value: Array<string>): DevspliceResponse;
+    addDryrun(value: string, index?: number): string;
+
+    hasPsbt(): boolean;
+    clearPsbt(): void;
+    getPsbt(): string | undefined;
+    setPsbt(value: string): DevspliceResponse;
+
+    hasTx(): boolean;
+    clearTx(): void;
+    getTx(): string | undefined;
+    setTx(value: string): DevspliceResponse;
+
+    hasTxid(): boolean;
+    clearTxid(): void;
+    getTxid(): string | undefined;
+    setTxid(value: string): DevspliceResponse;
+    clearLogList(): void;
+    getLogList(): Array<string>;
+    setLogList(value: Array<string>): DevspliceResponse;
+    addLog(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevspliceResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DevspliceResponse): DevspliceResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevspliceResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevspliceResponse;
+    static deserializeBinaryFromReader(message: DevspliceResponse, reader: jspb.BinaryReader): DevspliceResponse;
+}
+
+export namespace DevspliceResponse {
+    export type AsObject = {
+        dryrunList: Array<string>,
+        psbt?: string,
+        tx?: string,
+        txid?: string,
+        logList: Array<string>,
     }
 }
 
@@ -12994,6 +13432,11 @@ export class ListconfigsResponse extends jspb.Message {
     getCommitFeerateOffset(): number | undefined;
     setCommitFeerateOffset(value: number): ListconfigsResponse;
 
+    hasAutoconnectSeekerPeers(): boolean;
+    clearAutoconnectSeekerPeers(): void;
+    getAutoconnectSeekerPeers(): number | undefined;
+    setAutoconnectSeekerPeers(value: number): ListconfigsResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListconfigsResponse.AsObject;
     static toObject(includeInstance: boolean, msg: ListconfigsResponse): ListconfigsResponse.AsObject;
@@ -13076,6 +13519,7 @@ export namespace ListconfigsResponse {
         commitFee?: number,
         minEmergencyMsat?: cln_primitives_pb.Amount.AsObject,
         commitFeerateOffset?: number,
+        autoconnectSeekerPeers?: number,
     }
 }
 
@@ -13431,6 +13875,11 @@ export class ListconfigsConfigs extends jspb.Message {
     getCommitFeerateOffset(): ListconfigsConfigsCommitfeerateoffset | undefined;
     setCommitFeerateOffset(value?: ListconfigsConfigsCommitfeerateoffset): ListconfigsConfigs;
 
+    hasAutoconnectSeekerPeers(): boolean;
+    clearAutoconnectSeekerPeers(): void;
+    getAutoconnectSeekerPeers(): ListconfigsConfigsAutoconnectseekerpeers | undefined;
+    setAutoconnectSeekerPeers(value?: ListconfigsConfigsAutoconnectseekerpeers): ListconfigsConfigs;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListconfigsConfigs.AsObject;
     static toObject(includeInstance: boolean, msg: ListconfigsConfigs): ListconfigsConfigs.AsObject;
@@ -13513,6 +13962,7 @@ export namespace ListconfigsConfigs {
         requireConfirmedInputs?: ListconfigsConfigsRequireconfirmedinputs.AsObject,
         commitFee?: ListconfigsConfigsCommitfee.AsObject,
         commitFeerateOffset?: ListconfigsConfigsCommitfeerateoffset.AsObject,
+        autoconnectSeekerPeers?: ListconfigsConfigsAutoconnectseekerpeers.AsObject,
     }
 }
 
@@ -15203,6 +15653,29 @@ export namespace ListconfigsConfigsCommitfeerateoffset {
     }
 }
 
+export class ListconfigsConfigsAutoconnectseekerpeers extends jspb.Message { 
+    getValueInt(): number;
+    setValueInt(value: number): ListconfigsConfigsAutoconnectseekerpeers;
+    getSource(): string;
+    setSource(value: string): ListconfigsConfigsAutoconnectseekerpeers;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ListconfigsConfigsAutoconnectseekerpeers.AsObject;
+    static toObject(includeInstance: boolean, msg: ListconfigsConfigsAutoconnectseekerpeers): ListconfigsConfigsAutoconnectseekerpeers.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ListconfigsConfigsAutoconnectseekerpeers, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ListconfigsConfigsAutoconnectseekerpeers;
+    static deserializeBinaryFromReader(message: ListconfigsConfigsAutoconnectseekerpeers, reader: jspb.BinaryReader): ListconfigsConfigsAutoconnectseekerpeers;
+}
+
+export namespace ListconfigsConfigsAutoconnectseekerpeers {
+    export type AsObject = {
+        valueInt: number,
+        source: string,
+    }
+}
+
 export class ListconfigsPlugins extends jspb.Message { 
     getPath(): string;
     setPath(value: string): ListconfigsPlugins;
@@ -16368,6 +16841,306 @@ export namespace BkprlistincomeIncome_events {
     }
 }
 
+export class BkpreditdescriptionbypaymentidRequest extends jspb.Message { 
+    getPaymentId(): string;
+    setPaymentId(value: string): BkpreditdescriptionbypaymentidRequest;
+    getDescription(): string;
+    setDescription(value: string): BkpreditdescriptionbypaymentidRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbypaymentidRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbypaymentidRequest): BkpreditdescriptionbypaymentidRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbypaymentidRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbypaymentidRequest;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbypaymentidRequest, reader: jspb.BinaryReader): BkpreditdescriptionbypaymentidRequest;
+}
+
+export namespace BkpreditdescriptionbypaymentidRequest {
+    export type AsObject = {
+        paymentId: string,
+        description: string,
+    }
+}
+
+export class BkpreditdescriptionbypaymentidResponse extends jspb.Message { 
+    clearUpdatedList(): void;
+    getUpdatedList(): Array<BkpreditdescriptionbypaymentidUpdated>;
+    setUpdatedList(value: Array<BkpreditdescriptionbypaymentidUpdated>): BkpreditdescriptionbypaymentidResponse;
+    addUpdated(value?: BkpreditdescriptionbypaymentidUpdated, index?: number): BkpreditdescriptionbypaymentidUpdated;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbypaymentidResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbypaymentidResponse): BkpreditdescriptionbypaymentidResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbypaymentidResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbypaymentidResponse;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbypaymentidResponse, reader: jspb.BinaryReader): BkpreditdescriptionbypaymentidResponse;
+}
+
+export namespace BkpreditdescriptionbypaymentidResponse {
+    export type AsObject = {
+        updatedList: Array<BkpreditdescriptionbypaymentidUpdated.AsObject>,
+    }
+}
+
+export class BkpreditdescriptionbypaymentidUpdated extends jspb.Message { 
+    getAccount(): string;
+    setAccount(value: string): BkpreditdescriptionbypaymentidUpdated;
+    getItemType(): BkpreditdescriptionbypaymentidUpdated.BkpreditdescriptionbypaymentidUpdatedType;
+    setItemType(value: BkpreditdescriptionbypaymentidUpdated.BkpreditdescriptionbypaymentidUpdatedType): BkpreditdescriptionbypaymentidUpdated;
+    getTag(): string;
+    setTag(value: string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasCreditMsat(): boolean;
+    clearCreditMsat(): void;
+    getCreditMsat(): cln_primitives_pb.Amount | undefined;
+    setCreditMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbypaymentidUpdated;
+
+    hasDebitMsat(): boolean;
+    clearDebitMsat(): void;
+    getDebitMsat(): cln_primitives_pb.Amount | undefined;
+    setDebitMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbypaymentidUpdated;
+    getCurrency(): string;
+    setCurrency(value: string): BkpreditdescriptionbypaymentidUpdated;
+    getTimestamp(): number;
+    setTimestamp(value: number): BkpreditdescriptionbypaymentidUpdated;
+    getDescription(): string;
+    setDescription(value: string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasOutpoint(): boolean;
+    clearOutpoint(): void;
+    getOutpoint(): string | undefined;
+    setOutpoint(value: string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasBlockheight(): boolean;
+    clearBlockheight(): void;
+    getBlockheight(): number | undefined;
+    setBlockheight(value: number): BkpreditdescriptionbypaymentidUpdated;
+
+    hasOrigin(): boolean;
+    clearOrigin(): void;
+    getOrigin(): string | undefined;
+    setOrigin(value: string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasPaymentId(): boolean;
+    clearPaymentId(): void;
+    getPaymentId(): Uint8Array | string;
+    getPaymentId_asU8(): Uint8Array;
+    getPaymentId_asB64(): string;
+    setPaymentId(value: Uint8Array | string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasTxid(): boolean;
+    clearTxid(): void;
+    getTxid(): Uint8Array | string;
+    getTxid_asU8(): Uint8Array;
+    getTxid_asB64(): string;
+    setTxid(value: Uint8Array | string): BkpreditdescriptionbypaymentidUpdated;
+
+    hasFeesMsat(): boolean;
+    clearFeesMsat(): void;
+    getFeesMsat(): cln_primitives_pb.Amount | undefined;
+    setFeesMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbypaymentidUpdated;
+
+    hasIsRebalance(): boolean;
+    clearIsRebalance(): void;
+    getIsRebalance(): boolean | undefined;
+    setIsRebalance(value: boolean): BkpreditdescriptionbypaymentidUpdated;
+
+    hasPartId(): boolean;
+    clearPartId(): void;
+    getPartId(): number | undefined;
+    setPartId(value: number): BkpreditdescriptionbypaymentidUpdated;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbypaymentidUpdated.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbypaymentidUpdated): BkpreditdescriptionbypaymentidUpdated.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbypaymentidUpdated, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbypaymentidUpdated;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbypaymentidUpdated, reader: jspb.BinaryReader): BkpreditdescriptionbypaymentidUpdated;
+}
+
+export namespace BkpreditdescriptionbypaymentidUpdated {
+    export type AsObject = {
+        account: string,
+        itemType: BkpreditdescriptionbypaymentidUpdated.BkpreditdescriptionbypaymentidUpdatedType,
+        tag: string,
+        creditMsat?: cln_primitives_pb.Amount.AsObject,
+        debitMsat?: cln_primitives_pb.Amount.AsObject,
+        currency: string,
+        timestamp: number,
+        description: string,
+        outpoint?: string,
+        blockheight?: number,
+        origin?: string,
+        paymentId: Uint8Array | string,
+        txid: Uint8Array | string,
+        feesMsat?: cln_primitives_pb.Amount.AsObject,
+        isRebalance?: boolean,
+        partId?: number,
+    }
+
+    export enum BkpreditdescriptionbypaymentidUpdatedType {
+    CHAIN = 0,
+    CHANNEL = 1,
+    }
+
+}
+
+export class BkpreditdescriptionbyoutpointRequest extends jspb.Message { 
+    getOutpoint(): string;
+    setOutpoint(value: string): BkpreditdescriptionbyoutpointRequest;
+    getDescription(): string;
+    setDescription(value: string): BkpreditdescriptionbyoutpointRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbyoutpointRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbyoutpointRequest): BkpreditdescriptionbyoutpointRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbyoutpointRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbyoutpointRequest;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbyoutpointRequest, reader: jspb.BinaryReader): BkpreditdescriptionbyoutpointRequest;
+}
+
+export namespace BkpreditdescriptionbyoutpointRequest {
+    export type AsObject = {
+        outpoint: string,
+        description: string,
+    }
+}
+
+export class BkpreditdescriptionbyoutpointResponse extends jspb.Message { 
+    clearUpdatedList(): void;
+    getUpdatedList(): Array<BkpreditdescriptionbyoutpointUpdated>;
+    setUpdatedList(value: Array<BkpreditdescriptionbyoutpointUpdated>): BkpreditdescriptionbyoutpointResponse;
+    addUpdated(value?: BkpreditdescriptionbyoutpointUpdated, index?: number): BkpreditdescriptionbyoutpointUpdated;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbyoutpointResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbyoutpointResponse): BkpreditdescriptionbyoutpointResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbyoutpointResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbyoutpointResponse;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbyoutpointResponse, reader: jspb.BinaryReader): BkpreditdescriptionbyoutpointResponse;
+}
+
+export namespace BkpreditdescriptionbyoutpointResponse {
+    export type AsObject = {
+        updatedList: Array<BkpreditdescriptionbyoutpointUpdated.AsObject>,
+    }
+}
+
+export class BkpreditdescriptionbyoutpointUpdated extends jspb.Message { 
+    getAccount(): string;
+    setAccount(value: string): BkpreditdescriptionbyoutpointUpdated;
+    getItemType(): BkpreditdescriptionbyoutpointUpdated.BkpreditdescriptionbyoutpointUpdatedType;
+    setItemType(value: BkpreditdescriptionbyoutpointUpdated.BkpreditdescriptionbyoutpointUpdatedType): BkpreditdescriptionbyoutpointUpdated;
+    getTag(): string;
+    setTag(value: string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasCreditMsat(): boolean;
+    clearCreditMsat(): void;
+    getCreditMsat(): cln_primitives_pb.Amount | undefined;
+    setCreditMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbyoutpointUpdated;
+
+    hasDebitMsat(): boolean;
+    clearDebitMsat(): void;
+    getDebitMsat(): cln_primitives_pb.Amount | undefined;
+    setDebitMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbyoutpointUpdated;
+    getCurrency(): string;
+    setCurrency(value: string): BkpreditdescriptionbyoutpointUpdated;
+    getTimestamp(): number;
+    setTimestamp(value: number): BkpreditdescriptionbyoutpointUpdated;
+    getDescription(): string;
+    setDescription(value: string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasOutpoint(): boolean;
+    clearOutpoint(): void;
+    getOutpoint(): string | undefined;
+    setOutpoint(value: string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasBlockheight(): boolean;
+    clearBlockheight(): void;
+    getBlockheight(): number | undefined;
+    setBlockheight(value: number): BkpreditdescriptionbyoutpointUpdated;
+
+    hasOrigin(): boolean;
+    clearOrigin(): void;
+    getOrigin(): string | undefined;
+    setOrigin(value: string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasPaymentId(): boolean;
+    clearPaymentId(): void;
+    getPaymentId(): Uint8Array | string;
+    getPaymentId_asU8(): Uint8Array;
+    getPaymentId_asB64(): string;
+    setPaymentId(value: Uint8Array | string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasTxid(): boolean;
+    clearTxid(): void;
+    getTxid(): Uint8Array | string;
+    getTxid_asU8(): Uint8Array;
+    getTxid_asB64(): string;
+    setTxid(value: Uint8Array | string): BkpreditdescriptionbyoutpointUpdated;
+
+    hasFeesMsat(): boolean;
+    clearFeesMsat(): void;
+    getFeesMsat(): cln_primitives_pb.Amount | undefined;
+    setFeesMsat(value?: cln_primitives_pb.Amount): BkpreditdescriptionbyoutpointUpdated;
+
+    hasIsRebalance(): boolean;
+    clearIsRebalance(): void;
+    getIsRebalance(): boolean | undefined;
+    setIsRebalance(value: boolean): BkpreditdescriptionbyoutpointUpdated;
+
+    hasPartId(): boolean;
+    clearPartId(): void;
+    getPartId(): number | undefined;
+    setPartId(value: number): BkpreditdescriptionbyoutpointUpdated;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BkpreditdescriptionbyoutpointUpdated.AsObject;
+    static toObject(includeInstance: boolean, msg: BkpreditdescriptionbyoutpointUpdated): BkpreditdescriptionbyoutpointUpdated.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BkpreditdescriptionbyoutpointUpdated, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BkpreditdescriptionbyoutpointUpdated;
+    static deserializeBinaryFromReader(message: BkpreditdescriptionbyoutpointUpdated, reader: jspb.BinaryReader): BkpreditdescriptionbyoutpointUpdated;
+}
+
+export namespace BkpreditdescriptionbyoutpointUpdated {
+    export type AsObject = {
+        account: string,
+        itemType: BkpreditdescriptionbyoutpointUpdated.BkpreditdescriptionbyoutpointUpdatedType,
+        tag: string,
+        creditMsat?: cln_primitives_pb.Amount.AsObject,
+        debitMsat?: cln_primitives_pb.Amount.AsObject,
+        currency: string,
+        timestamp: number,
+        description: string,
+        outpoint?: string,
+        blockheight?: number,
+        origin?: string,
+        paymentId: Uint8Array | string,
+        txid: Uint8Array | string,
+        feesMsat?: cln_primitives_pb.Amount.AsObject,
+        isRebalance?: boolean,
+        partId?: number,
+    }
+
+    export enum BkpreditdescriptionbyoutpointUpdatedType {
+    CHAIN = 0,
+    CHANNEL = 1,
+    }
+
+}
+
 export class BlacklistruneRequest extends jspb.Message { 
 
     hasStart(): boolean;
@@ -16707,6 +17480,1502 @@ export namespace ShowrunesRunesRestrictionsAlternatives {
         value: string,
         condition: string,
         english: string,
+    }
+}
+
+export class AskreneunreserveRequest extends jspb.Message { 
+    clearPathList(): void;
+    getPathList(): Array<AskreneunreservePath>;
+    setPathList(value: Array<AskreneunreservePath>): AskreneunreserveRequest;
+    addPath(value?: AskreneunreservePath, index?: number): AskreneunreservePath;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneunreserveRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneunreserveRequest): AskreneunreserveRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneunreserveRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneunreserveRequest;
+    static deserializeBinaryFromReader(message: AskreneunreserveRequest, reader: jspb.BinaryReader): AskreneunreserveRequest;
+}
+
+export namespace AskreneunreserveRequest {
+    export type AsObject = {
+        pathList: Array<AskreneunreservePath.AsObject>,
+    }
+}
+
+export class AskreneunreserveResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneunreserveResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneunreserveResponse): AskreneunreserveResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneunreserveResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneunreserveResponse;
+    static deserializeBinaryFromReader(message: AskreneunreserveResponse, reader: jspb.BinaryReader): AskreneunreserveResponse;
+}
+
+export namespace AskreneunreserveResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskreneunreservePath extends jspb.Message { 
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): AskreneunreservePath;
+
+    hasShortChannelIdDir(): boolean;
+    clearShortChannelIdDir(): void;
+    getShortChannelIdDir(): string | undefined;
+    setShortChannelIdDir(value: string): AskreneunreservePath;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneunreservePath.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneunreservePath): AskreneunreservePath.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneunreservePath, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneunreservePath;
+    static deserializeBinaryFromReader(message: AskreneunreservePath, reader: jspb.BinaryReader): AskreneunreservePath;
+}
+
+export namespace AskreneunreservePath {
+    export type AsObject = {
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        shortChannelIdDir?: string,
+    }
+}
+
+export class AskrenelistlayersRequest extends jspb.Message { 
+
+    hasLayer(): boolean;
+    clearLayer(): void;
+    getLayer(): string | undefined;
+    setLayer(value: string): AskrenelistlayersRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersRequest): AskrenelistlayersRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersRequest;
+    static deserializeBinaryFromReader(message: AskrenelistlayersRequest, reader: jspb.BinaryReader): AskrenelistlayersRequest;
+}
+
+export namespace AskrenelistlayersRequest {
+    export type AsObject = {
+        layer?: string,
+    }
+}
+
+export class AskrenelistlayersResponse extends jspb.Message { 
+    clearLayersList(): void;
+    getLayersList(): Array<AskrenelistlayersLayers>;
+    setLayersList(value: Array<AskrenelistlayersLayers>): AskrenelistlayersResponse;
+    addLayers(value?: AskrenelistlayersLayers, index?: number): AskrenelistlayersLayers;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersResponse): AskrenelistlayersResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersResponse;
+    static deserializeBinaryFromReader(message: AskrenelistlayersResponse, reader: jspb.BinaryReader): AskrenelistlayersResponse;
+}
+
+export namespace AskrenelistlayersResponse {
+    export type AsObject = {
+        layersList: Array<AskrenelistlayersLayers.AsObject>,
+    }
+}
+
+export class AskrenelistlayersLayers extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenelistlayersLayers;
+    clearDisabledNodesList(): void;
+    getDisabledNodesList(): Array<Uint8Array | string>;
+    getDisabledNodesList_asU8(): Array<Uint8Array>;
+    getDisabledNodesList_asB64(): Array<string>;
+    setDisabledNodesList(value: Array<Uint8Array | string>): AskrenelistlayersLayers;
+    addDisabledNodes(value: Uint8Array | string, index?: number): Uint8Array | string;
+    clearCreatedChannelsList(): void;
+    getCreatedChannelsList(): Array<AskrenelistlayersLayersCreated_channels>;
+    setCreatedChannelsList(value: Array<AskrenelistlayersLayersCreated_channels>): AskrenelistlayersLayers;
+    addCreatedChannels(value?: AskrenelistlayersLayersCreated_channels, index?: number): AskrenelistlayersLayersCreated_channels;
+    clearConstraintsList(): void;
+    getConstraintsList(): Array<AskrenelistlayersLayersConstraints>;
+    setConstraintsList(value: Array<AskrenelistlayersLayersConstraints>): AskrenelistlayersLayers;
+    addConstraints(value?: AskrenelistlayersLayersConstraints, index?: number): AskrenelistlayersLayersConstraints;
+
+    hasPersistent(): boolean;
+    clearPersistent(): void;
+    getPersistent(): boolean | undefined;
+    setPersistent(value: boolean): AskrenelistlayersLayers;
+    clearDisabledChannelsList(): void;
+    getDisabledChannelsList(): Array<string>;
+    setDisabledChannelsList(value: Array<string>): AskrenelistlayersLayers;
+    addDisabledChannels(value: string, index?: number): string;
+    clearChannelUpdatesList(): void;
+    getChannelUpdatesList(): Array<AskrenelistlayersLayersChannel_updates>;
+    setChannelUpdatesList(value: Array<AskrenelistlayersLayersChannel_updates>): AskrenelistlayersLayers;
+    addChannelUpdates(value?: AskrenelistlayersLayersChannel_updates, index?: number): AskrenelistlayersLayersChannel_updates;
+    clearBiasesList(): void;
+    getBiasesList(): Array<AskrenelistlayersLayersBiases>;
+    setBiasesList(value: Array<AskrenelistlayersLayersBiases>): AskrenelistlayersLayers;
+    addBiases(value?: AskrenelistlayersLayersBiases, index?: number): AskrenelistlayersLayersBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersLayers.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersLayers): AskrenelistlayersLayers.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersLayers, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersLayers;
+    static deserializeBinaryFromReader(message: AskrenelistlayersLayers, reader: jspb.BinaryReader): AskrenelistlayersLayers;
+}
+
+export namespace AskrenelistlayersLayers {
+    export type AsObject = {
+        layer: string,
+        disabledNodesList: Array<Uint8Array | string>,
+        createdChannelsList: Array<AskrenelistlayersLayersCreated_channels.AsObject>,
+        constraintsList: Array<AskrenelistlayersLayersConstraints.AsObject>,
+        persistent?: boolean,
+        disabledChannelsList: Array<string>,
+        channelUpdatesList: Array<AskrenelistlayersLayersChannel_updates.AsObject>,
+        biasesList: Array<AskrenelistlayersLayersBiases.AsObject>,
+    }
+}
+
+export class AskrenelistlayersLayersCreated_channels extends jspb.Message { 
+    getSource(): Uint8Array | string;
+    getSource_asU8(): Uint8Array;
+    getSource_asB64(): string;
+    setSource(value: Uint8Array | string): AskrenelistlayersLayersCreated_channels;
+    getDestination(): Uint8Array | string;
+    getDestination_asU8(): Uint8Array;
+    getDestination_asB64(): string;
+    setDestination(value: Uint8Array | string): AskrenelistlayersLayersCreated_channels;
+    getShortChannelId(): string;
+    setShortChannelId(value: string): AskrenelistlayersLayersCreated_channels;
+
+    hasCapacityMsat(): boolean;
+    clearCapacityMsat(): void;
+    getCapacityMsat(): cln_primitives_pb.Amount | undefined;
+    setCapacityMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersCreated_channels;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersLayersCreated_channels.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersLayersCreated_channels): AskrenelistlayersLayersCreated_channels.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersLayersCreated_channels, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersLayersCreated_channels;
+    static deserializeBinaryFromReader(message: AskrenelistlayersLayersCreated_channels, reader: jspb.BinaryReader): AskrenelistlayersLayersCreated_channels;
+}
+
+export namespace AskrenelistlayersLayersCreated_channels {
+    export type AsObject = {
+        source: Uint8Array | string,
+        destination: Uint8Array | string,
+        shortChannelId: string,
+        capacityMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class AskrenelistlayersLayersChannel_updates extends jspb.Message { 
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenelistlayersLayersChannel_updates;
+
+    hasEnabled(): boolean;
+    clearEnabled(): void;
+    getEnabled(): boolean | undefined;
+    setEnabled(value: boolean): AskrenelistlayersLayersChannel_updates;
+
+    hasHtlcMinimumMsat(): boolean;
+    clearHtlcMinimumMsat(): void;
+    getHtlcMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMinimumMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersChannel_updates;
+
+    hasHtlcMaximumMsat(): boolean;
+    clearHtlcMaximumMsat(): void;
+    getHtlcMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMaximumMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersChannel_updates;
+
+    hasFeeBaseMsat(): boolean;
+    clearFeeBaseMsat(): void;
+    getFeeBaseMsat(): cln_primitives_pb.Amount | undefined;
+    setFeeBaseMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersChannel_updates;
+
+    hasFeeProportionalMillionths(): boolean;
+    clearFeeProportionalMillionths(): void;
+    getFeeProportionalMillionths(): number | undefined;
+    setFeeProportionalMillionths(value: number): AskrenelistlayersLayersChannel_updates;
+
+    hasCltvExpiryDelta(): boolean;
+    clearCltvExpiryDelta(): void;
+    getCltvExpiryDelta(): number | undefined;
+    setCltvExpiryDelta(value: number): AskrenelistlayersLayersChannel_updates;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersLayersChannel_updates.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersLayersChannel_updates): AskrenelistlayersLayersChannel_updates.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersLayersChannel_updates, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersLayersChannel_updates;
+    static deserializeBinaryFromReader(message: AskrenelistlayersLayersChannel_updates, reader: jspb.BinaryReader): AskrenelistlayersLayersChannel_updates;
+}
+
+export namespace AskrenelistlayersLayersChannel_updates {
+    export type AsObject = {
+        shortChannelIdDir: string,
+        enabled?: boolean,
+        htlcMinimumMsat?: cln_primitives_pb.Amount.AsObject,
+        htlcMaximumMsat?: cln_primitives_pb.Amount.AsObject,
+        feeBaseMsat?: cln_primitives_pb.Amount.AsObject,
+        feeProportionalMillionths?: number,
+        cltvExpiryDelta?: number,
+    }
+}
+
+export class AskrenelistlayersLayersConstraints extends jspb.Message { 
+
+    hasMaximumMsat(): boolean;
+    clearMaximumMsat(): void;
+    getMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setMaximumMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersConstraints;
+
+    hasMinimumMsat(): boolean;
+    clearMinimumMsat(): void;
+    getMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setMinimumMsat(value?: cln_primitives_pb.Amount): AskrenelistlayersLayersConstraints;
+
+    hasShortChannelIdDir(): boolean;
+    clearShortChannelIdDir(): void;
+    getShortChannelIdDir(): string | undefined;
+    setShortChannelIdDir(value: string): AskrenelistlayersLayersConstraints;
+
+    hasTimestamp(): boolean;
+    clearTimestamp(): void;
+    getTimestamp(): number | undefined;
+    setTimestamp(value: number): AskrenelistlayersLayersConstraints;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersLayersConstraints.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersLayersConstraints): AskrenelistlayersLayersConstraints.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersLayersConstraints, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersLayersConstraints;
+    static deserializeBinaryFromReader(message: AskrenelistlayersLayersConstraints, reader: jspb.BinaryReader): AskrenelistlayersLayersConstraints;
+}
+
+export namespace AskrenelistlayersLayersConstraints {
+    export type AsObject = {
+        maximumMsat?: cln_primitives_pb.Amount.AsObject,
+        minimumMsat?: cln_primitives_pb.Amount.AsObject,
+        shortChannelIdDir?: string,
+        timestamp?: number,
+    }
+}
+
+export class AskrenelistlayersLayersBiases extends jspb.Message { 
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenelistlayersLayersBiases;
+    getBias(): number;
+    setBias(value: number): AskrenelistlayersLayersBiases;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): AskrenelistlayersLayersBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistlayersLayersBiases.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistlayersLayersBiases): AskrenelistlayersLayersBiases.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistlayersLayersBiases, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistlayersLayersBiases;
+    static deserializeBinaryFromReader(message: AskrenelistlayersLayersBiases, reader: jspb.BinaryReader): AskrenelistlayersLayersBiases;
+}
+
+export namespace AskrenelistlayersLayersBiases {
+    export type AsObject = {
+        shortChannelIdDir: string,
+        bias: number,
+        description?: string,
+    }
+}
+
+export class AskrenecreatelayerRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenecreatelayerRequest;
+
+    hasPersistent(): boolean;
+    clearPersistent(): void;
+    getPersistent(): boolean | undefined;
+    setPersistent(value: boolean): AskrenecreatelayerRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerRequest): AskrenecreatelayerRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerRequest;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerRequest, reader: jspb.BinaryReader): AskrenecreatelayerRequest;
+}
+
+export namespace AskrenecreatelayerRequest {
+    export type AsObject = {
+        layer: string,
+        persistent?: boolean,
+    }
+}
+
+export class AskrenecreatelayerResponse extends jspb.Message { 
+    clearLayersList(): void;
+    getLayersList(): Array<AskrenecreatelayerLayers>;
+    setLayersList(value: Array<AskrenecreatelayerLayers>): AskrenecreatelayerResponse;
+    addLayers(value?: AskrenecreatelayerLayers, index?: number): AskrenecreatelayerLayers;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerResponse): AskrenecreatelayerResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerResponse;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerResponse, reader: jspb.BinaryReader): AskrenecreatelayerResponse;
+}
+
+export namespace AskrenecreatelayerResponse {
+    export type AsObject = {
+        layersList: Array<AskrenecreatelayerLayers.AsObject>,
+    }
+}
+
+export class AskrenecreatelayerLayers extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenecreatelayerLayers;
+    getPersistent(): boolean;
+    setPersistent(value: boolean): AskrenecreatelayerLayers;
+    clearDisabledNodesList(): void;
+    getDisabledNodesList(): Array<Uint8Array | string>;
+    getDisabledNodesList_asU8(): Array<Uint8Array>;
+    getDisabledNodesList_asB64(): Array<string>;
+    setDisabledNodesList(value: Array<Uint8Array | string>): AskrenecreatelayerLayers;
+    addDisabledNodes(value: Uint8Array | string, index?: number): Uint8Array | string;
+    clearDisabledChannelsList(): void;
+    getDisabledChannelsList(): Array<string>;
+    setDisabledChannelsList(value: Array<string>): AskrenecreatelayerLayers;
+    addDisabledChannels(value: string, index?: number): string;
+    clearCreatedChannelsList(): void;
+    getCreatedChannelsList(): Array<AskrenecreatelayerLayersCreated_channels>;
+    setCreatedChannelsList(value: Array<AskrenecreatelayerLayersCreated_channels>): AskrenecreatelayerLayers;
+    addCreatedChannels(value?: AskrenecreatelayerLayersCreated_channels, index?: number): AskrenecreatelayerLayersCreated_channels;
+    clearChannelUpdatesList(): void;
+    getChannelUpdatesList(): Array<AskrenecreatelayerLayersChannel_updates>;
+    setChannelUpdatesList(value: Array<AskrenecreatelayerLayersChannel_updates>): AskrenecreatelayerLayers;
+    addChannelUpdates(value?: AskrenecreatelayerLayersChannel_updates, index?: number): AskrenecreatelayerLayersChannel_updates;
+    clearConstraintsList(): void;
+    getConstraintsList(): Array<AskrenecreatelayerLayersConstraints>;
+    setConstraintsList(value: Array<AskrenecreatelayerLayersConstraints>): AskrenecreatelayerLayers;
+    addConstraints(value?: AskrenecreatelayerLayersConstraints, index?: number): AskrenecreatelayerLayersConstraints;
+    clearBiasesList(): void;
+    getBiasesList(): Array<AskrenecreatelayerLayersBiases>;
+    setBiasesList(value: Array<AskrenecreatelayerLayersBiases>): AskrenecreatelayerLayers;
+    addBiases(value?: AskrenecreatelayerLayersBiases, index?: number): AskrenecreatelayerLayersBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerLayers.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerLayers): AskrenecreatelayerLayers.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerLayers, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerLayers;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerLayers, reader: jspb.BinaryReader): AskrenecreatelayerLayers;
+}
+
+export namespace AskrenecreatelayerLayers {
+    export type AsObject = {
+        layer: string,
+        persistent: boolean,
+        disabledNodesList: Array<Uint8Array | string>,
+        disabledChannelsList: Array<string>,
+        createdChannelsList: Array<AskrenecreatelayerLayersCreated_channels.AsObject>,
+        channelUpdatesList: Array<AskrenecreatelayerLayersChannel_updates.AsObject>,
+        constraintsList: Array<AskrenecreatelayerLayersConstraints.AsObject>,
+        biasesList: Array<AskrenecreatelayerLayersBiases.AsObject>,
+    }
+}
+
+export class AskrenecreatelayerLayersCreated_channels extends jspb.Message { 
+    getSource(): Uint8Array | string;
+    getSource_asU8(): Uint8Array;
+    getSource_asB64(): string;
+    setSource(value: Uint8Array | string): AskrenecreatelayerLayersCreated_channels;
+    getDestination(): Uint8Array | string;
+    getDestination_asU8(): Uint8Array;
+    getDestination_asB64(): string;
+    setDestination(value: Uint8Array | string): AskrenecreatelayerLayersCreated_channels;
+    getShortChannelId(): string;
+    setShortChannelId(value: string): AskrenecreatelayerLayersCreated_channels;
+
+    hasCapacityMsat(): boolean;
+    clearCapacityMsat(): void;
+    getCapacityMsat(): cln_primitives_pb.Amount | undefined;
+    setCapacityMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersCreated_channels;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerLayersCreated_channels.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerLayersCreated_channels): AskrenecreatelayerLayersCreated_channels.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerLayersCreated_channels, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerLayersCreated_channels;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerLayersCreated_channels, reader: jspb.BinaryReader): AskrenecreatelayerLayersCreated_channels;
+}
+
+export namespace AskrenecreatelayerLayersCreated_channels {
+    export type AsObject = {
+        source: Uint8Array | string,
+        destination: Uint8Array | string,
+        shortChannelId: string,
+        capacityMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class AskrenecreatelayerLayersChannel_updates extends jspb.Message { 
+
+    hasHtlcMinimumMsat(): boolean;
+    clearHtlcMinimumMsat(): void;
+    getHtlcMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMinimumMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersChannel_updates;
+
+    hasHtlcMaximumMsat(): boolean;
+    clearHtlcMaximumMsat(): void;
+    getHtlcMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMaximumMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersChannel_updates;
+
+    hasFeeBaseMsat(): boolean;
+    clearFeeBaseMsat(): void;
+    getFeeBaseMsat(): cln_primitives_pb.Amount | undefined;
+    setFeeBaseMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersChannel_updates;
+
+    hasFeeProportionalMillionths(): boolean;
+    clearFeeProportionalMillionths(): void;
+    getFeeProportionalMillionths(): number | undefined;
+    setFeeProportionalMillionths(value: number): AskrenecreatelayerLayersChannel_updates;
+
+    hasDelay(): boolean;
+    clearDelay(): void;
+    getDelay(): number | undefined;
+    setDelay(value: number): AskrenecreatelayerLayersChannel_updates;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerLayersChannel_updates.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerLayersChannel_updates): AskrenecreatelayerLayersChannel_updates.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerLayersChannel_updates, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerLayersChannel_updates;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerLayersChannel_updates, reader: jspb.BinaryReader): AskrenecreatelayerLayersChannel_updates;
+}
+
+export namespace AskrenecreatelayerLayersChannel_updates {
+    export type AsObject = {
+        htlcMinimumMsat?: cln_primitives_pb.Amount.AsObject,
+        htlcMaximumMsat?: cln_primitives_pb.Amount.AsObject,
+        feeBaseMsat?: cln_primitives_pb.Amount.AsObject,
+        feeProportionalMillionths?: number,
+        delay?: number,
+    }
+}
+
+export class AskrenecreatelayerLayersConstraints extends jspb.Message { 
+    getShortChannelId(): string;
+    setShortChannelId(value: string): AskrenecreatelayerLayersConstraints;
+    getDirection(): number;
+    setDirection(value: number): AskrenecreatelayerLayersConstraints;
+
+    hasMaximumMsat(): boolean;
+    clearMaximumMsat(): void;
+    getMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setMaximumMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersConstraints;
+
+    hasMinimumMsat(): boolean;
+    clearMinimumMsat(): void;
+    getMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setMinimumMsat(value?: cln_primitives_pb.Amount): AskrenecreatelayerLayersConstraints;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerLayersConstraints.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerLayersConstraints): AskrenecreatelayerLayersConstraints.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerLayersConstraints, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerLayersConstraints;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerLayersConstraints, reader: jspb.BinaryReader): AskrenecreatelayerLayersConstraints;
+}
+
+export namespace AskrenecreatelayerLayersConstraints {
+    export type AsObject = {
+        shortChannelId: string,
+        direction: number,
+        maximumMsat?: cln_primitives_pb.Amount.AsObject,
+        minimumMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class AskrenecreatelayerLayersBiases extends jspb.Message { 
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenecreatelayerLayersBiases;
+    getBias(): number;
+    setBias(value: number): AskrenecreatelayerLayersBiases;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): AskrenecreatelayerLayersBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatelayerLayersBiases.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatelayerLayersBiases): AskrenecreatelayerLayersBiases.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatelayerLayersBiases, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatelayerLayersBiases;
+    static deserializeBinaryFromReader(message: AskrenecreatelayerLayersBiases, reader: jspb.BinaryReader): AskrenecreatelayerLayersBiases;
+}
+
+export namespace AskrenecreatelayerLayersBiases {
+    export type AsObject = {
+        shortChannelIdDir: string,
+        bias: number,
+        description?: string,
+    }
+}
+
+export class AskreneremovelayerRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskreneremovelayerRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneremovelayerRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneremovelayerRequest): AskreneremovelayerRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneremovelayerRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneremovelayerRequest;
+    static deserializeBinaryFromReader(message: AskreneremovelayerRequest, reader: jspb.BinaryReader): AskreneremovelayerRequest;
+}
+
+export namespace AskreneremovelayerRequest {
+    export type AsObject = {
+        layer: string,
+    }
+}
+
+export class AskreneremovelayerResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneremovelayerResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneremovelayerResponse): AskreneremovelayerResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneremovelayerResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneremovelayerResponse;
+    static deserializeBinaryFromReader(message: AskreneremovelayerResponse, reader: jspb.BinaryReader): AskreneremovelayerResponse;
+}
+
+export namespace AskreneremovelayerResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskrenereserveRequest extends jspb.Message { 
+    clearPathList(): void;
+    getPathList(): Array<AskrenereservePath>;
+    setPathList(value: Array<AskrenereservePath>): AskrenereserveRequest;
+    addPath(value?: AskrenereservePath, index?: number): AskrenereservePath;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenereserveRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenereserveRequest): AskrenereserveRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenereserveRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenereserveRequest;
+    static deserializeBinaryFromReader(message: AskrenereserveRequest, reader: jspb.BinaryReader): AskrenereserveRequest;
+}
+
+export namespace AskrenereserveRequest {
+    export type AsObject = {
+        pathList: Array<AskrenereservePath.AsObject>,
+    }
+}
+
+export class AskrenereserveResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenereserveResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenereserveResponse): AskrenereserveResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenereserveResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenereserveResponse;
+    static deserializeBinaryFromReader(message: AskrenereserveResponse, reader: jspb.BinaryReader): AskrenereserveResponse;
+}
+
+export namespace AskrenereserveResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskrenereservePath extends jspb.Message { 
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): AskrenereservePath;
+
+    hasShortChannelIdDir(): boolean;
+    clearShortChannelIdDir(): void;
+    getShortChannelIdDir(): string | undefined;
+    setShortChannelIdDir(value: string): AskrenereservePath;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenereservePath.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenereservePath): AskrenereservePath.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenereservePath, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenereservePath;
+    static deserializeBinaryFromReader(message: AskrenereservePath, reader: jspb.BinaryReader): AskrenereservePath;
+}
+
+export namespace AskrenereservePath {
+    export type AsObject = {
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        shortChannelIdDir?: string,
+    }
+}
+
+export class AskreneageRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskreneageRequest;
+    getCutoff(): number;
+    setCutoff(value: number): AskreneageRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneageRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneageRequest): AskreneageRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneageRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneageRequest;
+    static deserializeBinaryFromReader(message: AskreneageRequest, reader: jspb.BinaryReader): AskreneageRequest;
+}
+
+export namespace AskreneageRequest {
+    export type AsObject = {
+        layer: string,
+        cutoff: number,
+    }
+}
+
+export class AskreneageResponse extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskreneageResponse;
+    getNumRemoved(): number;
+    setNumRemoved(value: number): AskreneageResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneageResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneageResponse): AskreneageResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneageResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneageResponse;
+    static deserializeBinaryFromReader(message: AskreneageResponse, reader: jspb.BinaryReader): AskreneageResponse;
+}
+
+export namespace AskreneageResponse {
+    export type AsObject = {
+        layer: string,
+        numRemoved: number,
+    }
+}
+
+export class GetroutesRequest extends jspb.Message { 
+    getSource(): Uint8Array | string;
+    getSource_asU8(): Uint8Array;
+    getSource_asB64(): string;
+    setSource(value: Uint8Array | string): GetroutesRequest;
+    getDestination(): Uint8Array | string;
+    getDestination_asU8(): Uint8Array;
+    getDestination_asB64(): string;
+    setDestination(value: Uint8Array | string): GetroutesRequest;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): GetroutesRequest;
+    clearLayersList(): void;
+    getLayersList(): Array<string>;
+    setLayersList(value: Array<string>): GetroutesRequest;
+    addLayers(value: string, index?: number): string;
+
+    hasMaxfeeMsat(): boolean;
+    clearMaxfeeMsat(): void;
+    getMaxfeeMsat(): cln_primitives_pb.Amount | undefined;
+    setMaxfeeMsat(value?: cln_primitives_pb.Amount): GetroutesRequest;
+
+    hasFinalCltv(): boolean;
+    clearFinalCltv(): void;
+    getFinalCltv(): number | undefined;
+    setFinalCltv(value: number): GetroutesRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetroutesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetroutesRequest): GetroutesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetroutesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetroutesRequest;
+    static deserializeBinaryFromReader(message: GetroutesRequest, reader: jspb.BinaryReader): GetroutesRequest;
+}
+
+export namespace GetroutesRequest {
+    export type AsObject = {
+        source: Uint8Array | string,
+        destination: Uint8Array | string,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        layersList: Array<string>,
+        maxfeeMsat?: cln_primitives_pb.Amount.AsObject,
+        finalCltv?: number,
+    }
+}
+
+export class GetroutesResponse extends jspb.Message { 
+    getProbabilityPpm(): number;
+    setProbabilityPpm(value: number): GetroutesResponse;
+    clearRoutesList(): void;
+    getRoutesList(): Array<GetroutesRoutes>;
+    setRoutesList(value: Array<GetroutesRoutes>): GetroutesResponse;
+    addRoutes(value?: GetroutesRoutes, index?: number): GetroutesRoutes;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetroutesResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetroutesResponse): GetroutesResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetroutesResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetroutesResponse;
+    static deserializeBinaryFromReader(message: GetroutesResponse, reader: jspb.BinaryReader): GetroutesResponse;
+}
+
+export namespace GetroutesResponse {
+    export type AsObject = {
+        probabilityPpm: number,
+        routesList: Array<GetroutesRoutes.AsObject>,
+    }
+}
+
+export class GetroutesRoutes extends jspb.Message { 
+    getProbabilityPpm(): number;
+    setProbabilityPpm(value: number): GetroutesRoutes;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): GetroutesRoutes;
+    clearPathList(): void;
+    getPathList(): Array<GetroutesRoutesPath>;
+    setPathList(value: Array<GetroutesRoutesPath>): GetroutesRoutes;
+    addPath(value?: GetroutesRoutesPath, index?: number): GetroutesRoutesPath;
+
+    hasFinalCltv(): boolean;
+    clearFinalCltv(): void;
+    getFinalCltv(): number | undefined;
+    setFinalCltv(value: number): GetroutesRoutes;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetroutesRoutes.AsObject;
+    static toObject(includeInstance: boolean, msg: GetroutesRoutes): GetroutesRoutes.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetroutesRoutes, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetroutesRoutes;
+    static deserializeBinaryFromReader(message: GetroutesRoutes, reader: jspb.BinaryReader): GetroutesRoutes;
+}
+
+export namespace GetroutesRoutes {
+    export type AsObject = {
+        probabilityPpm: number,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        pathList: Array<GetroutesRoutesPath.AsObject>,
+        finalCltv?: number,
+    }
+}
+
+export class GetroutesRoutesPath extends jspb.Message { 
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): GetroutesRoutesPath;
+    getNextNodeId(): Uint8Array | string;
+    getNextNodeId_asU8(): Uint8Array;
+    getNextNodeId_asB64(): string;
+    setNextNodeId(value: Uint8Array | string): GetroutesRoutesPath;
+    getDelay(): number;
+    setDelay(value: number): GetroutesRoutesPath;
+
+    hasShortChannelIdDir(): boolean;
+    clearShortChannelIdDir(): void;
+    getShortChannelIdDir(): string | undefined;
+    setShortChannelIdDir(value: string): GetroutesRoutesPath;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetroutesRoutesPath.AsObject;
+    static toObject(includeInstance: boolean, msg: GetroutesRoutesPath): GetroutesRoutesPath.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetroutesRoutesPath, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetroutesRoutesPath;
+    static deserializeBinaryFromReader(message: GetroutesRoutesPath, reader: jspb.BinaryReader): GetroutesRoutesPath;
+}
+
+export namespace GetroutesRoutesPath {
+    export type AsObject = {
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        nextNodeId: Uint8Array | string,
+        delay: number,
+        shortChannelIdDir?: string,
+    }
+}
+
+export class AskrenedisablenodeRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenedisablenodeRequest;
+    getNode(): Uint8Array | string;
+    getNode_asU8(): Uint8Array;
+    getNode_asB64(): string;
+    setNode(value: Uint8Array | string): AskrenedisablenodeRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenedisablenodeRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenedisablenodeRequest): AskrenedisablenodeRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenedisablenodeRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenedisablenodeRequest;
+    static deserializeBinaryFromReader(message: AskrenedisablenodeRequest, reader: jspb.BinaryReader): AskrenedisablenodeRequest;
+}
+
+export namespace AskrenedisablenodeRequest {
+    export type AsObject = {
+        layer: string,
+        node: Uint8Array | string,
+    }
+}
+
+export class AskrenedisablenodeResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenedisablenodeResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenedisablenodeResponse): AskrenedisablenodeResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenedisablenodeResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenedisablenodeResponse;
+    static deserializeBinaryFromReader(message: AskrenedisablenodeResponse, reader: jspb.BinaryReader): AskrenedisablenodeResponse;
+}
+
+export namespace AskrenedisablenodeResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskreneinformchannelRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskreneinformchannelRequest;
+
+    hasShortChannelIdDir(): boolean;
+    clearShortChannelIdDir(): void;
+    getShortChannelIdDir(): string | undefined;
+    setShortChannelIdDir(value: string): AskreneinformchannelRequest;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): AskreneinformchannelRequest;
+
+    hasInform(): boolean;
+    clearInform(): void;
+    getInform(): AskreneinformchannelRequest.AskreneinformchannelInform | undefined;
+    setInform(value: AskreneinformchannelRequest.AskreneinformchannelInform): AskreneinformchannelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneinformchannelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneinformchannelRequest): AskreneinformchannelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneinformchannelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneinformchannelRequest;
+    static deserializeBinaryFromReader(message: AskreneinformchannelRequest, reader: jspb.BinaryReader): AskreneinformchannelRequest;
+}
+
+export namespace AskreneinformchannelRequest {
+    export type AsObject = {
+        layer: string,
+        shortChannelIdDir?: string,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        inform?: AskreneinformchannelRequest.AskreneinformchannelInform,
+    }
+
+    export enum AskreneinformchannelInform {
+    CONSTRAINED = 0,
+    UNCONSTRAINED = 1,
+    SUCCEEDED = 2,
+    }
+
+}
+
+export class AskreneinformchannelResponse extends jspb.Message { 
+    clearConstraintsList(): void;
+    getConstraintsList(): Array<AskreneinformchannelConstraints>;
+    setConstraintsList(value: Array<AskreneinformchannelConstraints>): AskreneinformchannelResponse;
+    addConstraints(value?: AskreneinformchannelConstraints, index?: number): AskreneinformchannelConstraints;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneinformchannelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneinformchannelResponse): AskreneinformchannelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneinformchannelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneinformchannelResponse;
+    static deserializeBinaryFromReader(message: AskreneinformchannelResponse, reader: jspb.BinaryReader): AskreneinformchannelResponse;
+}
+
+export namespace AskreneinformchannelResponse {
+    export type AsObject = {
+        constraintsList: Array<AskreneinformchannelConstraints.AsObject>,
+    }
+}
+
+export class AskreneinformchannelConstraints extends jspb.Message { 
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskreneinformchannelConstraints;
+    getLayer(): string;
+    setLayer(value: string): AskreneinformchannelConstraints;
+    getTimestamp(): number;
+    setTimestamp(value: number): AskreneinformchannelConstraints;
+
+    hasMaximumMsat(): boolean;
+    clearMaximumMsat(): void;
+    getMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setMaximumMsat(value?: cln_primitives_pb.Amount): AskreneinformchannelConstraints;
+
+    hasMinimumMsat(): boolean;
+    clearMinimumMsat(): void;
+    getMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setMinimumMsat(value?: cln_primitives_pb.Amount): AskreneinformchannelConstraints;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneinformchannelConstraints.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneinformchannelConstraints): AskreneinformchannelConstraints.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneinformchannelConstraints, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneinformchannelConstraints;
+    static deserializeBinaryFromReader(message: AskreneinformchannelConstraints, reader: jspb.BinaryReader): AskreneinformchannelConstraints;
+}
+
+export namespace AskreneinformchannelConstraints {
+    export type AsObject = {
+        shortChannelIdDir: string,
+        layer: string,
+        timestamp: number,
+        maximumMsat?: cln_primitives_pb.Amount.AsObject,
+        minimumMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class AskrenecreatechannelRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenecreatechannelRequest;
+    getSource(): Uint8Array | string;
+    getSource_asU8(): Uint8Array;
+    getSource_asB64(): string;
+    setSource(value: Uint8Array | string): AskrenecreatechannelRequest;
+    getDestination(): Uint8Array | string;
+    getDestination_asU8(): Uint8Array;
+    getDestination_asB64(): string;
+    setDestination(value: Uint8Array | string): AskrenecreatechannelRequest;
+    getShortChannelId(): string;
+    setShortChannelId(value: string): AskrenecreatechannelRequest;
+
+    hasCapacityMsat(): boolean;
+    clearCapacityMsat(): void;
+    getCapacityMsat(): cln_primitives_pb.Amount | undefined;
+    setCapacityMsat(value?: cln_primitives_pb.Amount): AskrenecreatechannelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatechannelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatechannelRequest): AskrenecreatechannelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatechannelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatechannelRequest;
+    static deserializeBinaryFromReader(message: AskrenecreatechannelRequest, reader: jspb.BinaryReader): AskrenecreatechannelRequest;
+}
+
+export namespace AskrenecreatechannelRequest {
+    export type AsObject = {
+        layer: string,
+        source: Uint8Array | string,
+        destination: Uint8Array | string,
+        shortChannelId: string,
+        capacityMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class AskrenecreatechannelResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenecreatechannelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenecreatechannelResponse): AskrenecreatechannelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenecreatechannelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenecreatechannelResponse;
+    static deserializeBinaryFromReader(message: AskrenecreatechannelResponse, reader: jspb.BinaryReader): AskrenecreatechannelResponse;
+}
+
+export namespace AskrenecreatechannelResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskreneupdatechannelRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskreneupdatechannelRequest;
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskreneupdatechannelRequest;
+
+    hasEnabled(): boolean;
+    clearEnabled(): void;
+    getEnabled(): boolean | undefined;
+    setEnabled(value: boolean): AskreneupdatechannelRequest;
+
+    hasHtlcMinimumMsat(): boolean;
+    clearHtlcMinimumMsat(): void;
+    getHtlcMinimumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMinimumMsat(value?: cln_primitives_pb.Amount): AskreneupdatechannelRequest;
+
+    hasHtlcMaximumMsat(): boolean;
+    clearHtlcMaximumMsat(): void;
+    getHtlcMaximumMsat(): cln_primitives_pb.Amount | undefined;
+    setHtlcMaximumMsat(value?: cln_primitives_pb.Amount): AskreneupdatechannelRequest;
+
+    hasFeeBaseMsat(): boolean;
+    clearFeeBaseMsat(): void;
+    getFeeBaseMsat(): cln_primitives_pb.Amount | undefined;
+    setFeeBaseMsat(value?: cln_primitives_pb.Amount): AskreneupdatechannelRequest;
+
+    hasFeeProportionalMillionths(): boolean;
+    clearFeeProportionalMillionths(): void;
+    getFeeProportionalMillionths(): number | undefined;
+    setFeeProportionalMillionths(value: number): AskreneupdatechannelRequest;
+
+    hasCltvExpiryDelta(): boolean;
+    clearCltvExpiryDelta(): void;
+    getCltvExpiryDelta(): number | undefined;
+    setCltvExpiryDelta(value: number): AskreneupdatechannelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneupdatechannelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneupdatechannelRequest): AskreneupdatechannelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneupdatechannelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneupdatechannelRequest;
+    static deserializeBinaryFromReader(message: AskreneupdatechannelRequest, reader: jspb.BinaryReader): AskreneupdatechannelRequest;
+}
+
+export namespace AskreneupdatechannelRequest {
+    export type AsObject = {
+        layer: string,
+        shortChannelIdDir: string,
+        enabled?: boolean,
+        htlcMinimumMsat?: cln_primitives_pb.Amount.AsObject,
+        htlcMaximumMsat?: cln_primitives_pb.Amount.AsObject,
+        feeBaseMsat?: cln_primitives_pb.Amount.AsObject,
+        feeProportionalMillionths?: number,
+        cltvExpiryDelta?: number,
+    }
+}
+
+export class AskreneupdatechannelResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskreneupdatechannelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskreneupdatechannelResponse): AskreneupdatechannelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskreneupdatechannelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskreneupdatechannelResponse;
+    static deserializeBinaryFromReader(message: AskreneupdatechannelResponse, reader: jspb.BinaryReader): AskreneupdatechannelResponse;
+}
+
+export namespace AskreneupdatechannelResponse {
+    export type AsObject = {
+    }
+}
+
+export class AskrenebiaschannelRequest extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenebiaschannelRequest;
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenebiaschannelRequest;
+    getBias(): number;
+    setBias(value: number): AskrenebiaschannelRequest;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): AskrenebiaschannelRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenebiaschannelRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenebiaschannelRequest): AskrenebiaschannelRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenebiaschannelRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenebiaschannelRequest;
+    static deserializeBinaryFromReader(message: AskrenebiaschannelRequest, reader: jspb.BinaryReader): AskrenebiaschannelRequest;
+}
+
+export namespace AskrenebiaschannelRequest {
+    export type AsObject = {
+        layer: string,
+        shortChannelIdDir: string,
+        bias: number,
+        description?: string,
+    }
+}
+
+export class AskrenebiaschannelResponse extends jspb.Message { 
+    clearBiasesList(): void;
+    getBiasesList(): Array<AskrenebiaschannelBiases>;
+    setBiasesList(value: Array<AskrenebiaschannelBiases>): AskrenebiaschannelResponse;
+    addBiases(value?: AskrenebiaschannelBiases, index?: number): AskrenebiaschannelBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenebiaschannelResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenebiaschannelResponse): AskrenebiaschannelResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenebiaschannelResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenebiaschannelResponse;
+    static deserializeBinaryFromReader(message: AskrenebiaschannelResponse, reader: jspb.BinaryReader): AskrenebiaschannelResponse;
+}
+
+export namespace AskrenebiaschannelResponse {
+    export type AsObject = {
+        biasesList: Array<AskrenebiaschannelBiases.AsObject>,
+    }
+}
+
+export class AskrenebiaschannelBiases extends jspb.Message { 
+    getLayer(): string;
+    setLayer(value: string): AskrenebiaschannelBiases;
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenebiaschannelBiases;
+    getBias(): number;
+    setBias(value: number): AskrenebiaschannelBiases;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): AskrenebiaschannelBiases;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenebiaschannelBiases.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenebiaschannelBiases): AskrenebiaschannelBiases.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenebiaschannelBiases, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenebiaschannelBiases;
+    static deserializeBinaryFromReader(message: AskrenebiaschannelBiases, reader: jspb.BinaryReader): AskrenebiaschannelBiases;
+}
+
+export namespace AskrenebiaschannelBiases {
+    export type AsObject = {
+        layer: string,
+        shortChannelIdDir: string,
+        bias: number,
+        description?: string,
+    }
+}
+
+export class AskrenelistreservationsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistreservationsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistreservationsRequest): AskrenelistreservationsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistreservationsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistreservationsRequest;
+    static deserializeBinaryFromReader(message: AskrenelistreservationsRequest, reader: jspb.BinaryReader): AskrenelistreservationsRequest;
+}
+
+export namespace AskrenelistreservationsRequest {
+    export type AsObject = {
+    }
+}
+
+export class AskrenelistreservationsResponse extends jspb.Message { 
+    clearReservationsList(): void;
+    getReservationsList(): Array<AskrenelistreservationsReservations>;
+    setReservationsList(value: Array<AskrenelistreservationsReservations>): AskrenelistreservationsResponse;
+    addReservations(value?: AskrenelistreservationsReservations, index?: number): AskrenelistreservationsReservations;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistreservationsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistreservationsResponse): AskrenelistreservationsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistreservationsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistreservationsResponse;
+    static deserializeBinaryFromReader(message: AskrenelistreservationsResponse, reader: jspb.BinaryReader): AskrenelistreservationsResponse;
+}
+
+export namespace AskrenelistreservationsResponse {
+    export type AsObject = {
+        reservationsList: Array<AskrenelistreservationsReservations.AsObject>,
+    }
+}
+
+export class AskrenelistreservationsReservations extends jspb.Message { 
+    getShortChannelIdDir(): string;
+    setShortChannelIdDir(value: string): AskrenelistreservationsReservations;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): AskrenelistreservationsReservations;
+    getAgeInSeconds(): number;
+    setAgeInSeconds(value: number): AskrenelistreservationsReservations;
+    getCommandId(): string;
+    setCommandId(value: string): AskrenelistreservationsReservations;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AskrenelistreservationsReservations.AsObject;
+    static toObject(includeInstance: boolean, msg: AskrenelistreservationsReservations): AskrenelistreservationsReservations.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AskrenelistreservationsReservations, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AskrenelistreservationsReservations;
+    static deserializeBinaryFromReader(message: AskrenelistreservationsReservations, reader: jspb.BinaryReader): AskrenelistreservationsReservations;
+}
+
+export namespace AskrenelistreservationsReservations {
+    export type AsObject = {
+        shortChannelIdDir: string,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        ageInSeconds: number,
+        commandId: string,
+    }
+}
+
+export class InjectpaymentonionRequest extends jspb.Message { 
+    getOnion(): Uint8Array | string;
+    getOnion_asU8(): Uint8Array;
+    getOnion_asB64(): string;
+    setOnion(value: Uint8Array | string): InjectpaymentonionRequest;
+    getPaymentHash(): Uint8Array | string;
+    getPaymentHash_asU8(): Uint8Array;
+    getPaymentHash_asB64(): string;
+    setPaymentHash(value: Uint8Array | string): InjectpaymentonionRequest;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): InjectpaymentonionRequest;
+    getCltvExpiry(): number;
+    setCltvExpiry(value: number): InjectpaymentonionRequest;
+    getPartid(): number;
+    setPartid(value: number): InjectpaymentonionRequest;
+    getGroupid(): number;
+    setGroupid(value: number): InjectpaymentonionRequest;
+
+    hasLabel(): boolean;
+    clearLabel(): void;
+    getLabel(): string | undefined;
+    setLabel(value: string): InjectpaymentonionRequest;
+
+    hasInvstring(): boolean;
+    clearInvstring(): void;
+    getInvstring(): string | undefined;
+    setInvstring(value: string): InjectpaymentonionRequest;
+
+    hasLocalinvreqid(): boolean;
+    clearLocalinvreqid(): void;
+    getLocalinvreqid(): Uint8Array | string;
+    getLocalinvreqid_asU8(): Uint8Array;
+    getLocalinvreqid_asB64(): string;
+    setLocalinvreqid(value: Uint8Array | string): InjectpaymentonionRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InjectpaymentonionRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InjectpaymentonionRequest): InjectpaymentonionRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InjectpaymentonionRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InjectpaymentonionRequest;
+    static deserializeBinaryFromReader(message: InjectpaymentonionRequest, reader: jspb.BinaryReader): InjectpaymentonionRequest;
+}
+
+export namespace InjectpaymentonionRequest {
+    export type AsObject = {
+        onion: Uint8Array | string,
+        paymentHash: Uint8Array | string,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        cltvExpiry: number,
+        partid: number,
+        groupid: number,
+        label?: string,
+        invstring?: string,
+        localinvreqid: Uint8Array | string,
+    }
+}
+
+export class InjectpaymentonionResponse extends jspb.Message { 
+    getCreatedAt(): number;
+    setCreatedAt(value: number): InjectpaymentonionResponse;
+    getCompletedAt(): number;
+    setCompletedAt(value: number): InjectpaymentonionResponse;
+    getCreatedIndex(): number;
+    setCreatedIndex(value: number): InjectpaymentonionResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InjectpaymentonionResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: InjectpaymentonionResponse): InjectpaymentonionResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InjectpaymentonionResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InjectpaymentonionResponse;
+    static deserializeBinaryFromReader(message: InjectpaymentonionResponse, reader: jspb.BinaryReader): InjectpaymentonionResponse;
+}
+
+export namespace InjectpaymentonionResponse {
+    export type AsObject = {
+        createdAt: number,
+        completedAt: number,
+        createdIndex: number,
+    }
+}
+
+export class XpayRequest extends jspb.Message { 
+    getInvstring(): string;
+    setInvstring(value: string): XpayRequest;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): XpayRequest;
+
+    hasMaxfee(): boolean;
+    clearMaxfee(): void;
+    getMaxfee(): cln_primitives_pb.Amount | undefined;
+    setMaxfee(value?: cln_primitives_pb.Amount): XpayRequest;
+    clearLayersList(): void;
+    getLayersList(): Array<string>;
+    setLayersList(value: Array<string>): XpayRequest;
+    addLayers(value: string, index?: number): string;
+
+    hasRetryFor(): boolean;
+    clearRetryFor(): void;
+    getRetryFor(): number | undefined;
+    setRetryFor(value: number): XpayRequest;
+
+    hasPartialMsat(): boolean;
+    clearPartialMsat(): void;
+    getPartialMsat(): cln_primitives_pb.Amount | undefined;
+    setPartialMsat(value?: cln_primitives_pb.Amount): XpayRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): XpayRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: XpayRequest): XpayRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: XpayRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): XpayRequest;
+    static deserializeBinaryFromReader(message: XpayRequest, reader: jspb.BinaryReader): XpayRequest;
+}
+
+export namespace XpayRequest {
+    export type AsObject = {
+        invstring: string,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        maxfee?: cln_primitives_pb.Amount.AsObject,
+        layersList: Array<string>,
+        retryFor?: number,
+        partialMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class XpayResponse extends jspb.Message { 
+    getPaymentPreimage(): Uint8Array | string;
+    getPaymentPreimage_asU8(): Uint8Array;
+    getPaymentPreimage_asB64(): string;
+    setPaymentPreimage(value: Uint8Array | string): XpayResponse;
+    getFailedParts(): number;
+    setFailedParts(value: number): XpayResponse;
+    getSuccessfulParts(): number;
+    setSuccessfulParts(value: number): XpayResponse;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): XpayResponse;
+
+    hasAmountSentMsat(): boolean;
+    clearAmountSentMsat(): void;
+    getAmountSentMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountSentMsat(value?: cln_primitives_pb.Amount): XpayResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): XpayResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: XpayResponse): XpayResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: XpayResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): XpayResponse;
+    static deserializeBinaryFromReader(message: XpayResponse, reader: jspb.BinaryReader): XpayResponse;
+}
+
+export namespace XpayResponse {
+    export type AsObject = {
+        paymentPreimage: Uint8Array | string,
+        failedParts: number,
+        successfulParts: number,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        amountSentMsat?: cln_primitives_pb.Amount.AsObject,
     }
 }
 

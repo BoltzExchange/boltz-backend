@@ -29,6 +29,8 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     delInvoice: INodeService_IDelInvoice;
     devForgetChannel: INodeService_IDevForgetChannel;
     emergencyRecover: INodeService_IEmergencyRecover;
+    getEmergencyRecoverData: INodeService_IGetEmergencyRecoverData;
+    exposeSecret: INodeService_IExposeSecret;
     recover: INodeService_IRecover;
     recoverChannel: INodeService_IRecoverChannel;
     invoice: INodeService_IInvoice;
@@ -63,6 +65,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     delPay: INodeService_IDelPay;
     delForward: INodeService_IDelForward;
     disableOffer: INodeService_IDisableOffer;
+    enableOffer: INodeService_IEnableOffer;
     disconnect: INodeService_IDisconnect;
     feerates: INodeService_IFeerates;
     fetchInvoice: INodeService_IFetchInvoice;
@@ -73,6 +76,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     getLog: INodeService_IGetLog;
     funderUpdate: INodeService_IFunderUpdate;
     getRoute: INodeService_IGetRoute;
+    listAddresses: INodeService_IListAddresses;
     listForwards: INodeService_IListForwards;
     listOffers: INodeService_IListOffers;
     listPays: INodeService_IListPays;
@@ -100,6 +104,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     splice_Init: INodeService_ISplice_Init;
     splice_Signed: INodeService_ISplice_Signed;
     splice_Update: INodeService_ISplice_Update;
+    devSplice: INodeService_IDevSplice;
     unreserveInputs: INodeService_IUnreserveInputs;
     upgradeWallet: INodeService_IUpgradeWallet;
     waitBlockHeight: INodeService_IWaitBlockHeight;
@@ -116,10 +121,27 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     bkprListAccountEvents: INodeService_IBkprListAccountEvents;
     bkprListBalances: INodeService_IBkprListBalances;
     bkprListIncome: INodeService_IBkprListIncome;
+    bkprEditDescriptionByPaymentId: INodeService_IBkprEditDescriptionByPaymentId;
+    bkprEditDescriptionByOutpoint: INodeService_IBkprEditDescriptionByOutpoint;
     blacklistRune: INodeService_IBlacklistRune;
     checkRune: INodeService_ICheckRune;
     createRune: INodeService_ICreateRune;
     showRunes: INodeService_IShowRunes;
+    askReneUnreserve: INodeService_IAskReneUnreserve;
+    askReneListLayers: INodeService_IAskReneListLayers;
+    askReneCreateLayer: INodeService_IAskReneCreateLayer;
+    askReneRemoveLayer: INodeService_IAskReneRemoveLayer;
+    askReneReserve: INodeService_IAskReneReserve;
+    askReneAge: INodeService_IAskReneAge;
+    getRoutes: INodeService_IGetRoutes;
+    askReneDisableNode: INodeService_IAskReneDisableNode;
+    askReneInformChannel: INodeService_IAskReneInformChannel;
+    askReneCreateChannel: INodeService_IAskReneCreateChannel;
+    askReneUpdateChannel: INodeService_IAskReneUpdateChannel;
+    askReneBiasChannel: INodeService_IAskReneBiasChannel;
+    askReneListReservations: INodeService_IAskReneListReservations;
+    injectPaymentOnion: INodeService_IInjectPaymentOnion;
+    xpay: INodeService_IXpay;
     subscribeBlockAdded: INodeService_ISubscribeBlockAdded;
     subscribeChannelOpenFailed: INodeService_ISubscribeChannelOpenFailed;
     subscribeChannelOpened: INodeService_ISubscribeChannelOpened;
@@ -306,6 +328,24 @@ interface INodeService_IEmergencyRecover extends grpc.MethodDefinition<cln_node_
     requestDeserialize: grpc.deserialize<cln_node_pb.EmergencyrecoverRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.EmergencyrecoverResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.EmergencyrecoverResponse>;
+}
+interface INodeService_IGetEmergencyRecoverData extends grpc.MethodDefinition<cln_node_pb.GetemergencyrecoverdataRequest, cln_node_pb.GetemergencyrecoverdataResponse> {
+    path: "/cln.Node/GetEmergencyRecoverData";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.GetemergencyrecoverdataRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.GetemergencyrecoverdataRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.GetemergencyrecoverdataResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.GetemergencyrecoverdataResponse>;
+}
+interface INodeService_IExposeSecret extends grpc.MethodDefinition<cln_node_pb.ExposesecretRequest, cln_node_pb.ExposesecretResponse> {
+    path: "/cln.Node/ExposeSecret";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.ExposesecretRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.ExposesecretRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.ExposesecretResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.ExposesecretResponse>;
 }
 interface INodeService_IRecover extends grpc.MethodDefinition<cln_node_pb.RecoverRequest, cln_node_pb.RecoverResponse> {
     path: "/cln.Node/Recover";
@@ -613,6 +653,15 @@ interface INodeService_IDisableOffer extends grpc.MethodDefinition<cln_node_pb.D
     responseSerialize: grpc.serialize<cln_node_pb.DisableofferResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.DisableofferResponse>;
 }
+interface INodeService_IEnableOffer extends grpc.MethodDefinition<cln_node_pb.EnableofferRequest, cln_node_pb.EnableofferResponse> {
+    path: "/cln.Node/EnableOffer";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.EnableofferRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.EnableofferRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.EnableofferResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.EnableofferResponse>;
+}
 interface INodeService_IDisconnect extends grpc.MethodDefinition<cln_node_pb.DisconnectRequest, cln_node_pb.DisconnectResponse> {
     path: "/cln.Node/Disconnect";
     requestStream: false;
@@ -702,6 +751,15 @@ interface INodeService_IGetRoute extends grpc.MethodDefinition<cln_node_pb.Getro
     requestDeserialize: grpc.deserialize<cln_node_pb.GetrouteRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.GetrouteResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.GetrouteResponse>;
+}
+interface INodeService_IListAddresses extends grpc.MethodDefinition<cln_node_pb.ListaddressesRequest, cln_node_pb.ListaddressesResponse> {
+    path: "/cln.Node/ListAddresses";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.ListaddressesRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.ListaddressesRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.ListaddressesResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.ListaddressesResponse>;
 }
 interface INodeService_IListForwards extends grpc.MethodDefinition<cln_node_pb.ListforwardsRequest, cln_node_pb.ListforwardsResponse> {
     path: "/cln.Node/ListForwards";
@@ -946,6 +1004,15 @@ interface INodeService_ISplice_Update extends grpc.MethodDefinition<cln_node_pb.
     responseSerialize: grpc.serialize<cln_node_pb.Splice_updateResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.Splice_updateResponse>;
 }
+interface INodeService_IDevSplice extends grpc.MethodDefinition<cln_node_pb.DevspliceRequest, cln_node_pb.DevspliceResponse> {
+    path: "/cln.Node/DevSplice";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.DevspliceRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.DevspliceRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.DevspliceResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.DevspliceResponse>;
+}
 interface INodeService_IUnreserveInputs extends grpc.MethodDefinition<cln_node_pb.UnreserveinputsRequest, cln_node_pb.UnreserveinputsResponse> {
     path: "/cln.Node/UnreserveInputs";
     requestStream: false;
@@ -1090,6 +1157,24 @@ interface INodeService_IBkprListIncome extends grpc.MethodDefinition<cln_node_pb
     responseSerialize: grpc.serialize<cln_node_pb.BkprlistincomeResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.BkprlistincomeResponse>;
 }
+interface INodeService_IBkprEditDescriptionByPaymentId extends grpc.MethodDefinition<cln_node_pb.BkpreditdescriptionbypaymentidRequest, cln_node_pb.BkpreditdescriptionbypaymentidResponse> {
+    path: "/cln.Node/BkprEditDescriptionByPaymentId";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.BkpreditdescriptionbypaymentidRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.BkpreditdescriptionbypaymentidRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.BkpreditdescriptionbypaymentidResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.BkpreditdescriptionbypaymentidResponse>;
+}
+interface INodeService_IBkprEditDescriptionByOutpoint extends grpc.MethodDefinition<cln_node_pb.BkpreditdescriptionbyoutpointRequest, cln_node_pb.BkpreditdescriptionbyoutpointResponse> {
+    path: "/cln.Node/BkprEditDescriptionByOutpoint";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.BkpreditdescriptionbyoutpointRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.BkpreditdescriptionbyoutpointRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.BkpreditdescriptionbyoutpointResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.BkpreditdescriptionbyoutpointResponse>;
+}
 interface INodeService_IBlacklistRune extends grpc.MethodDefinition<cln_node_pb.BlacklistruneRequest, cln_node_pb.BlacklistruneResponse> {
     path: "/cln.Node/BlacklistRune";
     requestStream: false;
@@ -1125,6 +1210,141 @@ interface INodeService_IShowRunes extends grpc.MethodDefinition<cln_node_pb.Show
     requestDeserialize: grpc.deserialize<cln_node_pb.ShowrunesRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.ShowrunesResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.ShowrunesResponse>;
+}
+interface INodeService_IAskReneUnreserve extends grpc.MethodDefinition<cln_node_pb.AskreneunreserveRequest, cln_node_pb.AskreneunreserveResponse> {
+    path: "/cln.Node/AskReneUnreserve";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskreneunreserveRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskreneunreserveRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskreneunreserveResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskreneunreserveResponse>;
+}
+interface INodeService_IAskReneListLayers extends grpc.MethodDefinition<cln_node_pb.AskrenelistlayersRequest, cln_node_pb.AskrenelistlayersResponse> {
+    path: "/cln.Node/AskReneListLayers";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenelistlayersRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenelistlayersRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenelistlayersResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenelistlayersResponse>;
+}
+interface INodeService_IAskReneCreateLayer extends grpc.MethodDefinition<cln_node_pb.AskrenecreatelayerRequest, cln_node_pb.AskrenecreatelayerResponse> {
+    path: "/cln.Node/AskReneCreateLayer";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenecreatelayerRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenecreatelayerRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenecreatelayerResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenecreatelayerResponse>;
+}
+interface INodeService_IAskReneRemoveLayer extends grpc.MethodDefinition<cln_node_pb.AskreneremovelayerRequest, cln_node_pb.AskreneremovelayerResponse> {
+    path: "/cln.Node/AskReneRemoveLayer";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskreneremovelayerRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskreneremovelayerRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskreneremovelayerResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskreneremovelayerResponse>;
+}
+interface INodeService_IAskReneReserve extends grpc.MethodDefinition<cln_node_pb.AskrenereserveRequest, cln_node_pb.AskrenereserveResponse> {
+    path: "/cln.Node/AskReneReserve";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenereserveRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenereserveRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenereserveResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenereserveResponse>;
+}
+interface INodeService_IAskReneAge extends grpc.MethodDefinition<cln_node_pb.AskreneageRequest, cln_node_pb.AskreneageResponse> {
+    path: "/cln.Node/AskReneAge";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskreneageRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskreneageRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskreneageResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskreneageResponse>;
+}
+interface INodeService_IGetRoutes extends grpc.MethodDefinition<cln_node_pb.GetroutesRequest, cln_node_pb.GetroutesResponse> {
+    path: "/cln.Node/GetRoutes";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.GetroutesRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.GetroutesRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.GetroutesResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.GetroutesResponse>;
+}
+interface INodeService_IAskReneDisableNode extends grpc.MethodDefinition<cln_node_pb.AskrenedisablenodeRequest, cln_node_pb.AskrenedisablenodeResponse> {
+    path: "/cln.Node/AskReneDisableNode";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenedisablenodeRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenedisablenodeRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenedisablenodeResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenedisablenodeResponse>;
+}
+interface INodeService_IAskReneInformChannel extends grpc.MethodDefinition<cln_node_pb.AskreneinformchannelRequest, cln_node_pb.AskreneinformchannelResponse> {
+    path: "/cln.Node/AskReneInformChannel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskreneinformchannelRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskreneinformchannelRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskreneinformchannelResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskreneinformchannelResponse>;
+}
+interface INodeService_IAskReneCreateChannel extends grpc.MethodDefinition<cln_node_pb.AskrenecreatechannelRequest, cln_node_pb.AskrenecreatechannelResponse> {
+    path: "/cln.Node/AskReneCreateChannel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenecreatechannelRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenecreatechannelRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenecreatechannelResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenecreatechannelResponse>;
+}
+interface INodeService_IAskReneUpdateChannel extends grpc.MethodDefinition<cln_node_pb.AskreneupdatechannelRequest, cln_node_pb.AskreneupdatechannelResponse> {
+    path: "/cln.Node/AskReneUpdateChannel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskreneupdatechannelRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskreneupdatechannelRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskreneupdatechannelResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskreneupdatechannelResponse>;
+}
+interface INodeService_IAskReneBiasChannel extends grpc.MethodDefinition<cln_node_pb.AskrenebiaschannelRequest, cln_node_pb.AskrenebiaschannelResponse> {
+    path: "/cln.Node/AskReneBiasChannel";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenebiaschannelRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenebiaschannelRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenebiaschannelResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenebiaschannelResponse>;
+}
+interface INodeService_IAskReneListReservations extends grpc.MethodDefinition<cln_node_pb.AskrenelistreservationsRequest, cln_node_pb.AskrenelistreservationsResponse> {
+    path: "/cln.Node/AskReneListReservations";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenelistreservationsRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenelistreservationsRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenelistreservationsResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenelistreservationsResponse>;
+}
+interface INodeService_IInjectPaymentOnion extends grpc.MethodDefinition<cln_node_pb.InjectpaymentonionRequest, cln_node_pb.InjectpaymentonionResponse> {
+    path: "/cln.Node/InjectPaymentOnion";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.InjectpaymentonionRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.InjectpaymentonionRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.InjectpaymentonionResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.InjectpaymentonionResponse>;
+}
+interface INodeService_IXpay extends grpc.MethodDefinition<cln_node_pb.XpayRequest, cln_node_pb.XpayResponse> {
+    path: "/cln.Node/Xpay";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.XpayRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.XpayRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.XpayResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.XpayResponse>;
 }
 interface INodeService_ISubscribeBlockAdded extends grpc.MethodDefinition<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification> {
     path: "/cln.Node/SubscribeBlockAdded";
@@ -1195,6 +1415,8 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     delInvoice: grpc.handleUnaryCall<cln_node_pb.DelinvoiceRequest, cln_node_pb.DelinvoiceResponse>;
     devForgetChannel: grpc.handleUnaryCall<cln_node_pb.DevforgetchannelRequest, cln_node_pb.DevforgetchannelResponse>;
     emergencyRecover: grpc.handleUnaryCall<cln_node_pb.EmergencyrecoverRequest, cln_node_pb.EmergencyrecoverResponse>;
+    getEmergencyRecoverData: grpc.handleUnaryCall<cln_node_pb.GetemergencyrecoverdataRequest, cln_node_pb.GetemergencyrecoverdataResponse>;
+    exposeSecret: grpc.handleUnaryCall<cln_node_pb.ExposesecretRequest, cln_node_pb.ExposesecretResponse>;
     recover: grpc.handleUnaryCall<cln_node_pb.RecoverRequest, cln_node_pb.RecoverResponse>;
     recoverChannel: grpc.handleUnaryCall<cln_node_pb.RecoverchannelRequest, cln_node_pb.RecoverchannelResponse>;
     invoice: grpc.handleUnaryCall<cln_node_pb.InvoiceRequest, cln_node_pb.InvoiceResponse>;
@@ -1229,6 +1451,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     delPay: grpc.handleUnaryCall<cln_node_pb.DelpayRequest, cln_node_pb.DelpayResponse>;
     delForward: grpc.handleUnaryCall<cln_node_pb.DelforwardRequest, cln_node_pb.DelforwardResponse>;
     disableOffer: grpc.handleUnaryCall<cln_node_pb.DisableofferRequest, cln_node_pb.DisableofferResponse>;
+    enableOffer: grpc.handleUnaryCall<cln_node_pb.EnableofferRequest, cln_node_pb.EnableofferResponse>;
     disconnect: grpc.handleUnaryCall<cln_node_pb.DisconnectRequest, cln_node_pb.DisconnectResponse>;
     feerates: grpc.handleUnaryCall<cln_node_pb.FeeratesRequest, cln_node_pb.FeeratesResponse>;
     fetchInvoice: grpc.handleUnaryCall<cln_node_pb.FetchinvoiceRequest, cln_node_pb.FetchinvoiceResponse>;
@@ -1239,6 +1462,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     getLog: grpc.handleUnaryCall<cln_node_pb.GetlogRequest, cln_node_pb.GetlogResponse>;
     funderUpdate: grpc.handleUnaryCall<cln_node_pb.FunderupdateRequest, cln_node_pb.FunderupdateResponse>;
     getRoute: grpc.handleUnaryCall<cln_node_pb.GetrouteRequest, cln_node_pb.GetrouteResponse>;
+    listAddresses: grpc.handleUnaryCall<cln_node_pb.ListaddressesRequest, cln_node_pb.ListaddressesResponse>;
     listForwards: grpc.handleUnaryCall<cln_node_pb.ListforwardsRequest, cln_node_pb.ListforwardsResponse>;
     listOffers: grpc.handleUnaryCall<cln_node_pb.ListoffersRequest, cln_node_pb.ListoffersResponse>;
     listPays: grpc.handleUnaryCall<cln_node_pb.ListpaysRequest, cln_node_pb.ListpaysResponse>;
@@ -1266,6 +1490,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     splice_Init: grpc.handleUnaryCall<cln_node_pb.Splice_initRequest, cln_node_pb.Splice_initResponse>;
     splice_Signed: grpc.handleUnaryCall<cln_node_pb.Splice_signedRequest, cln_node_pb.Splice_signedResponse>;
     splice_Update: grpc.handleUnaryCall<cln_node_pb.Splice_updateRequest, cln_node_pb.Splice_updateResponse>;
+    devSplice: grpc.handleUnaryCall<cln_node_pb.DevspliceRequest, cln_node_pb.DevspliceResponse>;
     unreserveInputs: grpc.handleUnaryCall<cln_node_pb.UnreserveinputsRequest, cln_node_pb.UnreserveinputsResponse>;
     upgradeWallet: grpc.handleUnaryCall<cln_node_pb.UpgradewalletRequest, cln_node_pb.UpgradewalletResponse>;
     waitBlockHeight: grpc.handleUnaryCall<cln_node_pb.WaitblockheightRequest, cln_node_pb.WaitblockheightResponse>;
@@ -1282,10 +1507,27 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     bkprListAccountEvents: grpc.handleUnaryCall<cln_node_pb.BkprlistaccounteventsRequest, cln_node_pb.BkprlistaccounteventsResponse>;
     bkprListBalances: grpc.handleUnaryCall<cln_node_pb.BkprlistbalancesRequest, cln_node_pb.BkprlistbalancesResponse>;
     bkprListIncome: grpc.handleUnaryCall<cln_node_pb.BkprlistincomeRequest, cln_node_pb.BkprlistincomeResponse>;
+    bkprEditDescriptionByPaymentId: grpc.handleUnaryCall<cln_node_pb.BkpreditdescriptionbypaymentidRequest, cln_node_pb.BkpreditdescriptionbypaymentidResponse>;
+    bkprEditDescriptionByOutpoint: grpc.handleUnaryCall<cln_node_pb.BkpreditdescriptionbyoutpointRequest, cln_node_pb.BkpreditdescriptionbyoutpointResponse>;
     blacklistRune: grpc.handleUnaryCall<cln_node_pb.BlacklistruneRequest, cln_node_pb.BlacklistruneResponse>;
     checkRune: grpc.handleUnaryCall<cln_node_pb.CheckruneRequest, cln_node_pb.CheckruneResponse>;
     createRune: grpc.handleUnaryCall<cln_node_pb.CreateruneRequest, cln_node_pb.CreateruneResponse>;
     showRunes: grpc.handleUnaryCall<cln_node_pb.ShowrunesRequest, cln_node_pb.ShowrunesResponse>;
+    askReneUnreserve: grpc.handleUnaryCall<cln_node_pb.AskreneunreserveRequest, cln_node_pb.AskreneunreserveResponse>;
+    askReneListLayers: grpc.handleUnaryCall<cln_node_pb.AskrenelistlayersRequest, cln_node_pb.AskrenelistlayersResponse>;
+    askReneCreateLayer: grpc.handleUnaryCall<cln_node_pb.AskrenecreatelayerRequest, cln_node_pb.AskrenecreatelayerResponse>;
+    askReneRemoveLayer: grpc.handleUnaryCall<cln_node_pb.AskreneremovelayerRequest, cln_node_pb.AskreneremovelayerResponse>;
+    askReneReserve: grpc.handleUnaryCall<cln_node_pb.AskrenereserveRequest, cln_node_pb.AskrenereserveResponse>;
+    askReneAge: grpc.handleUnaryCall<cln_node_pb.AskreneageRequest, cln_node_pb.AskreneageResponse>;
+    getRoutes: grpc.handleUnaryCall<cln_node_pb.GetroutesRequest, cln_node_pb.GetroutesResponse>;
+    askReneDisableNode: grpc.handleUnaryCall<cln_node_pb.AskrenedisablenodeRequest, cln_node_pb.AskrenedisablenodeResponse>;
+    askReneInformChannel: grpc.handleUnaryCall<cln_node_pb.AskreneinformchannelRequest, cln_node_pb.AskreneinformchannelResponse>;
+    askReneCreateChannel: grpc.handleUnaryCall<cln_node_pb.AskrenecreatechannelRequest, cln_node_pb.AskrenecreatechannelResponse>;
+    askReneUpdateChannel: grpc.handleUnaryCall<cln_node_pb.AskreneupdatechannelRequest, cln_node_pb.AskreneupdatechannelResponse>;
+    askReneBiasChannel: grpc.handleUnaryCall<cln_node_pb.AskrenebiaschannelRequest, cln_node_pb.AskrenebiaschannelResponse>;
+    askReneListReservations: grpc.handleUnaryCall<cln_node_pb.AskrenelistreservationsRequest, cln_node_pb.AskrenelistreservationsResponse>;
+    injectPaymentOnion: grpc.handleUnaryCall<cln_node_pb.InjectpaymentonionRequest, cln_node_pb.InjectpaymentonionResponse>;
+    xpay: grpc.handleUnaryCall<cln_node_pb.XpayRequest, cln_node_pb.XpayResponse>;
     subscribeBlockAdded: grpc.handleServerStreamingCall<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenFailedRequest, cln_node_pb.ChannelOpenFailedNotification>;
     subscribeChannelOpened: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenedRequest, cln_node_pb.ChannelOpenedNotification>;
@@ -1354,6 +1596,12 @@ export interface INodeClient {
     emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
     emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
     emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
+    getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    exposeSecret(request: cln_node_pb.ExposesecretRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
+    exposeSecret(request: cln_node_pb.ExposesecretRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
+    exposeSecret(request: cln_node_pb.ExposesecretRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
     recover(request: cln_node_pb.RecoverRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
     recover(request: cln_node_pb.RecoverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
     recover(request: cln_node_pb.RecoverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
@@ -1456,6 +1704,9 @@ export interface INodeClient {
     disableOffer(request: cln_node_pb.DisableofferRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
     disableOffer(request: cln_node_pb.DisableofferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
     disableOffer(request: cln_node_pb.DisableofferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
+    enableOffer(request: cln_node_pb.EnableofferRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
+    enableOffer(request: cln_node_pb.EnableofferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
+    enableOffer(request: cln_node_pb.EnableofferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
     disconnect(request: cln_node_pb.DisconnectRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
     disconnect(request: cln_node_pb.DisconnectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
     disconnect(request: cln_node_pb.DisconnectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
@@ -1486,6 +1737,9 @@ export interface INodeClient {
     getRoute(request: cln_node_pb.GetrouteRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
     getRoute(request: cln_node_pb.GetrouteRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
     getRoute(request: cln_node_pb.GetrouteRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
+    listAddresses(request: cln_node_pb.ListaddressesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
+    listAddresses(request: cln_node_pb.ListaddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
+    listAddresses(request: cln_node_pb.ListaddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
     listForwards(request: cln_node_pb.ListforwardsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
     listForwards(request: cln_node_pb.ListforwardsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
     listForwards(request: cln_node_pb.ListforwardsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
@@ -1567,6 +1821,9 @@ export interface INodeClient {
     splice_Update(request: cln_node_pb.Splice_updateRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
     splice_Update(request: cln_node_pb.Splice_updateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
     splice_Update(request: cln_node_pb.Splice_updateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
+    devSplice(request: cln_node_pb.DevspliceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
+    devSplice(request: cln_node_pb.DevspliceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
+    devSplice(request: cln_node_pb.DevspliceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
     unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
     unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
     unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
@@ -1615,6 +1872,12 @@ export interface INodeClient {
     bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
     bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
     bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
+    bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
     blacklistRune(request: cln_node_pb.BlacklistruneRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
     blacklistRune(request: cln_node_pb.BlacklistruneRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
     blacklistRune(request: cln_node_pb.BlacklistruneRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
@@ -1627,6 +1890,51 @@ export interface INodeClient {
     showRunes(request: cln_node_pb.ShowrunesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
     showRunes(request: cln_node_pb.ShowrunesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
     showRunes(request: cln_node_pb.ShowrunesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
+    askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    askReneReserve(request: cln_node_pb.AskrenereserveRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    askReneReserve(request: cln_node_pb.AskrenereserveRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    askReneReserve(request: cln_node_pb.AskrenereserveRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    askReneAge(request: cln_node_pb.AskreneageRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    askReneAge(request: cln_node_pb.AskreneageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    askReneAge(request: cln_node_pb.AskreneageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    getRoutes(request: cln_node_pb.GetroutesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    getRoutes(request: cln_node_pb.GetroutesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    getRoutes(request: cln_node_pb.GetroutesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    xpay(request: cln_node_pb.XpayRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;
@@ -1701,6 +2009,12 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
     public emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
     public emergencyRecover(request: cln_node_pb.EmergencyrecoverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EmergencyrecoverResponse) => void): grpc.ClientUnaryCall;
+    public getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    public getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    public getEmergencyRecoverData(request: cln_node_pb.GetemergencyrecoverdataRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetemergencyrecoverdataResponse) => void): grpc.ClientUnaryCall;
+    public exposeSecret(request: cln_node_pb.ExposesecretRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
+    public exposeSecret(request: cln_node_pb.ExposesecretRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
+    public exposeSecret(request: cln_node_pb.ExposesecretRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ExposesecretResponse) => void): grpc.ClientUnaryCall;
     public recover(request: cln_node_pb.RecoverRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
     public recover(request: cln_node_pb.RecoverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
     public recover(request: cln_node_pb.RecoverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.RecoverResponse) => void): grpc.ClientUnaryCall;
@@ -1803,6 +2117,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public disableOffer(request: cln_node_pb.DisableofferRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
     public disableOffer(request: cln_node_pb.DisableofferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
     public disableOffer(request: cln_node_pb.DisableofferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisableofferResponse) => void): grpc.ClientUnaryCall;
+    public enableOffer(request: cln_node_pb.EnableofferRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
+    public enableOffer(request: cln_node_pb.EnableofferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
+    public enableOffer(request: cln_node_pb.EnableofferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.EnableofferResponse) => void): grpc.ClientUnaryCall;
     public disconnect(request: cln_node_pb.DisconnectRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
     public disconnect(request: cln_node_pb.DisconnectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
     public disconnect(request: cln_node_pb.DisconnectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DisconnectResponse) => void): grpc.ClientUnaryCall;
@@ -1833,6 +2150,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public getRoute(request: cln_node_pb.GetrouteRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
     public getRoute(request: cln_node_pb.GetrouteRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
     public getRoute(request: cln_node_pb.GetrouteRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetrouteResponse) => void): grpc.ClientUnaryCall;
+    public listAddresses(request: cln_node_pb.ListaddressesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
+    public listAddresses(request: cln_node_pb.ListaddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
+    public listAddresses(request: cln_node_pb.ListaddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListaddressesResponse) => void): grpc.ClientUnaryCall;
     public listForwards(request: cln_node_pb.ListforwardsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
     public listForwards(request: cln_node_pb.ListforwardsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
     public listForwards(request: cln_node_pb.ListforwardsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListforwardsResponse) => void): grpc.ClientUnaryCall;
@@ -1914,6 +2234,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public splice_Update(request: cln_node_pb.Splice_updateRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
     public splice_Update(request: cln_node_pb.Splice_updateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
     public splice_Update(request: cln_node_pb.Splice_updateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Splice_updateResponse) => void): grpc.ClientUnaryCall;
+    public devSplice(request: cln_node_pb.DevspliceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
+    public devSplice(request: cln_node_pb.DevspliceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
+    public devSplice(request: cln_node_pb.DevspliceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DevspliceResponse) => void): grpc.ClientUnaryCall;
     public unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
     public unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
     public unreserveInputs(request: cln_node_pb.UnreserveinputsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.UnreserveinputsResponse) => void): grpc.ClientUnaryCall;
@@ -1962,6 +2285,12 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
     public bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
     public bkprListIncome(request: cln_node_pb.BkprlistincomeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkprlistincomeResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByPaymentId(request: cln_node_pb.BkpreditdescriptionbypaymentidRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbypaymentidResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
+    public bkprEditDescriptionByOutpoint(request: cln_node_pb.BkpreditdescriptionbyoutpointRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BkpreditdescriptionbyoutpointResponse) => void): grpc.ClientUnaryCall;
     public blacklistRune(request: cln_node_pb.BlacklistruneRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
     public blacklistRune(request: cln_node_pb.BlacklistruneRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
     public blacklistRune(request: cln_node_pb.BlacklistruneRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.BlacklistruneResponse) => void): grpc.ClientUnaryCall;
@@ -1974,6 +2303,51 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public showRunes(request: cln_node_pb.ShowrunesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
     public showRunes(request: cln_node_pb.ShowrunesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
     public showRunes(request: cln_node_pb.ShowrunesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ShowrunesResponse) => void): grpc.ClientUnaryCall;
+    public askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneUnreserve(request: cln_node_pb.AskreneunreserveRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneunreserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    public askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    public askReneListLayers(request: cln_node_pb.AskrenelistlayersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistlayersResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateLayer(request: cln_node_pb.AskrenecreatelayerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneRemoveLayer(request: cln_node_pb.AskreneremovelayerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneremovelayerResponse) => void): grpc.ClientUnaryCall;
+    public askReneReserve(request: cln_node_pb.AskrenereserveRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneReserve(request: cln_node_pb.AskrenereserveRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneReserve(request: cln_node_pb.AskrenereserveRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenereserveResponse) => void): grpc.ClientUnaryCall;
+    public askReneAge(request: cln_node_pb.AskreneageRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    public askReneAge(request: cln_node_pb.AskreneageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    public askReneAge(request: cln_node_pb.AskreneageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneageResponse) => void): grpc.ClientUnaryCall;
+    public getRoutes(request: cln_node_pb.GetroutesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    public getRoutes(request: cln_node_pb.GetroutesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    public getRoutes(request: cln_node_pb.GetroutesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.GetroutesResponse) => void): grpc.ClientUnaryCall;
+    public askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    public askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    public askReneDisableNode(request: cln_node_pb.AskrenedisablenodeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenedisablenodeResponse) => void): grpc.ClientUnaryCall;
+    public askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneInformChannel(request: cln_node_pb.AskreneinformchannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneinformchannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneCreateChannel(request: cln_node_pb.AskrenecreatechannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenecreatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneUpdateChannel(request: cln_node_pb.AskreneupdatechannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskreneupdatechannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
+    public injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    public injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    public injectPaymentOnion(request: cln_node_pb.InjectpaymentonionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.InjectpaymentonionResponse) => void): grpc.ClientUnaryCall;
+    public xpay(request: cln_node_pb.XpayRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    public xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    public xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;

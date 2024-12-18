@@ -14,6 +14,7 @@ interface IInvoicesService extends grpc.ServiceDefinition<grpc.UntypedServiceImp
     addHoldInvoice: IInvoicesService_IAddHoldInvoice;
     settleInvoice: IInvoicesService_ISettleInvoice;
     lookupInvoiceV2: IInvoicesService_ILookupInvoiceV2;
+    htlcModifier: IInvoicesService_IHtlcModifier;
 }
 
 interface IInvoicesService_ISubscribeSingleInvoice extends grpc.MethodDefinition<lnd_invoices_pb.SubscribeSingleInvoiceRequest, lnd_rpc_pb.Invoice> {
@@ -61,6 +62,15 @@ interface IInvoicesService_ILookupInvoiceV2 extends grpc.MethodDefinition<lnd_in
     responseSerialize: grpc.serialize<lnd_rpc_pb.Invoice>;
     responseDeserialize: grpc.deserialize<lnd_rpc_pb.Invoice>;
 }
+interface IInvoicesService_IHtlcModifier extends grpc.MethodDefinition<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest> {
+    path: "/invoicesrpc.Invoices/HtlcModifier";
+    requestStream: true;
+    responseStream: true;
+    requestSerialize: grpc.serialize<lnd_invoices_pb.HtlcModifyResponse>;
+    requestDeserialize: grpc.deserialize<lnd_invoices_pb.HtlcModifyResponse>;
+    responseSerialize: grpc.serialize<lnd_invoices_pb.HtlcModifyRequest>;
+    responseDeserialize: grpc.deserialize<lnd_invoices_pb.HtlcModifyRequest>;
+}
 
 export const InvoicesService: IInvoicesService;
 
@@ -70,6 +80,7 @@ export interface IInvoicesServer extends grpc.UntypedServiceImplementation {
     addHoldInvoice: grpc.handleUnaryCall<lnd_invoices_pb.AddHoldInvoiceRequest, lnd_invoices_pb.AddHoldInvoiceResp>;
     settleInvoice: grpc.handleUnaryCall<lnd_invoices_pb.SettleInvoiceMsg, lnd_invoices_pb.SettleInvoiceResp>;
     lookupInvoiceV2: grpc.handleUnaryCall<lnd_invoices_pb.LookupInvoiceMsg, lnd_rpc_pb.Invoice>;
+    htlcModifier: grpc.handleBidiStreamingCall<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
 }
 
 export interface IInvoicesClient {
@@ -87,6 +98,9 @@ export interface IInvoicesClient {
     lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
+    htlcModifier(): grpc.ClientDuplexStream<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
+    htlcModifier(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
+    htlcModifier(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
 }
 
 export class InvoicesClient extends grpc.Client implements IInvoicesClient {
@@ -105,4 +119,6 @@ export class InvoicesClient extends grpc.Client implements IInvoicesClient {
     public lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     public lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     public lookupInvoiceV2(request: lnd_invoices_pb.LookupInvoiceMsg, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
+    public htlcModifier(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
+    public htlcModifier(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<lnd_invoices_pb.HtlcModifyResponse, lnd_invoices_pb.HtlcModifyRequest>;
 }

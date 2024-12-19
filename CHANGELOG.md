@@ -3,6 +3,49 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.9.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.8.1..v3.9.0) - 2024-12-19
+
+### Bug Fixes
+
+- skip transaction confirmed swap update when succeeded - ([9098457](https://github.com/BoltzExchange/boltz-backend/commit/90984579e3ceed1926cf04d79b21c2fb5d964bfe))
+- valid use of required swagger properties - ([f766714](https://github.com/BoltzExchange/boltz-backend/commit/f7667149e032066cba57926ba4acc8156c7179f2))
+- set failureReason to null when invoice is paid (#733) - ([a5bdb00](https://github.com/BoltzExchange/boltz-backend/commit/a5bdb0005f65545db914f42151d2419b614605dd))
+- CLN routing hints (#736) - ([2adbe5e](https://github.com/BoltzExchange/boltz-backend/commit/2adbe5e5aa7bfef7c07117bdace63e0fba13c5e3))
+- CLN invoice payment fee (#742) - ([51e03ca](https://github.com/BoltzExchange/boltz-backend/commit/51e03cab16fcd7747e65f6d55876a6070499800b))
+
+### Documentation
+
+- add library and referral section (#745) - ([30f34d0](https://github.com/BoltzExchange/boltz-backend/commit/30f34d0bee8449bbeff6961d6a983f6eb5ad88a5))
+- minor rewording of library section description (#750) - ([8a03aa8](https://github.com/BoltzExchange/boltz-backend/commit/8a03aa89984b1f52082d46e0fca554c4b90364d9))
+
+### Features
+
+- unsubscribe from swap ids in WebSocket (#730) - ([d273c04](https://github.com/BoltzExchange/boltz-backend/commit/d273c04388478c0eab4c9cf61978a6fd8869d25f))
+- transaction rebroadcaster (#732) - ([bdf43a6](https://github.com/BoltzExchange/boltz-backend/commit/bdf43a6494c3ed9c59c5815d3ffbc23401c362b5))
+- gRPC stop command (#738) - ([2dc7b7d](https://github.com/BoltzExchange/boltz-backend/commit/2dc7b7df309ec044638f3f70bf158ea3b349e17e))
+- batch sweep EVM currencies - ([3eb8acb](https://github.com/BoltzExchange/boltz-backend/commit/3eb8acbfc5973c21ffc491e0532847847e5d25bd))
+- support multiple contract versions (#739) - ([4649072](https://github.com/BoltzExchange/boltz-backend/commit/4649072ab7445722f7153c8d453463fc7c0c577e))
+- batch claim Chain Swaps (#741) - ([8978a59](https://github.com/BoltzExchange/boltz-backend/commit/8978a592d501afed31fc0999ffd6c877c6a02557))
+- coop claim Chain Swaps that send on EVM (#743) - ([33f058c](https://github.com/BoltzExchange/boltz-backend/commit/33f058cb1fd805f867a9d9b6e8dc1167a1bd04b5))
+
+### Miscellaneous Chores
+
+- bump sidecar version to v3.8.1 - ([4c7063c](https://github.com/BoltzExchange/boltz-backend/commit/4c7063c218d974d1f0831baf284cf13e7612c011))
+- minor dependency updates (#729) - ([3e41c1c](https://github.com/BoltzExchange/boltz-backend/commit/3e41c1c2160c1400ac9e95f6f13cca9c5d60d54b))
+- bump swagger-ui version - ([ac9e1d0](https://github.com/BoltzExchange/boltz-backend/commit/ac9e1d0981ae850841a932d09961bf7f2f5933bc))
+- update Docker images (#735) - ([135f55b](https://github.com/BoltzExchange/boltz-backend/commit/135f55b62b4c917ea488194c3c8ab0de0908723a))
+- bump path-to-regexp and express (#737) - ([33f5bb4](https://github.com/BoltzExchange/boltz-backend/commit/33f5bb41d86dd5f28230d418843092324361e353))
+- minor clippy fixes - ([63ceb68](https://github.com/BoltzExchange/boltz-backend/commit/63ceb68866c89a02e9637350af5d6d6a0057e8f6))
+- bump CLN to v24.11 (#746) - ([99f44a7](https://github.com/BoltzExchange/boltz-backend/commit/99f44a728fd882fb9a60eb6c119b180bebce2f28))
+- bump max sidecar connect attempts - ([2e5fe24](https://github.com/BoltzExchange/boltz-backend/commit/2e5fe2440b54d0b6c864a0db7a9ce0506d06d59f))
+- minor dependency bumps - ([1629b7c](https://github.com/BoltzExchange/boltz-backend/commit/1629b7c9300ca7389ce20e3771ed27107b8bd8a3))
+- harden refunds - ([58aa2dc](https://github.com/BoltzExchange/boltz-backend/commit/58aa2dce6cf9831dbe1befeae62f75870fe4d71e))
+- bump LND to v0.18.4 (#748) - ([9d31d87](https://github.com/BoltzExchange/boltz-backend/commit/9d31d8793c2ba5fedc7517d862bf7c82a835fc48))
+- discount EVM server claims - ([938becc](https://github.com/BoltzExchange/boltz-backend/commit/938becc5e9cf7fb22ae671595807d7221c0b1f79))
+- bump version to v3.9.0 - ([ce97285](https://github.com/BoltzExchange/boltz-backend/commit/ce97285424c6c72c5382ff211944b2aa54bda483))
+- bump version in Swagger spec - ([0daed0d](https://github.com/BoltzExchange/boltz-backend/commit/0daed0d9f2d74348f26d46d69fbf6d7616bfdc91))
+
+---
 ## [3.8.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.8.0..v3.8.1) - 2024-11-28
 
 ### Bug Fixes
@@ -42,6 +85,7 @@ All notable changes to this project will be documented in this file. See [conven
 - minor logging improvements - ([3c9e311](https://github.com/BoltzExchange/boltz-backend/commit/3c9e3113015fa9f9060204af31c3ab0282d44542))
 - bump cross-spawn from 7.0.3 to 7.0.6 (#726) - ([41979d9](https://github.com/BoltzExchange/boltz-backend/commit/41979d989622606809ff55acac7a86718a2f78d8))
 - fix minor logging typo - ([c6b0f09](https://github.com/BoltzExchange/boltz-backend/commit/c6b0f097efc58204da9a577c4fd3a2200750db7f))
+- bump version to v3.8.1 - ([46b591c](https://github.com/BoltzExchange/boltz-backend/commit/46b591ca83c9c28a9966ac5818f6fa3731404692))
 
 ---
 ## [3.8.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.7.3..v3.8.0) - 2024-11-04

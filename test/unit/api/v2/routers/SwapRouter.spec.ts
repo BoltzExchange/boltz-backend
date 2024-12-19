@@ -47,21 +47,36 @@ describe('SwapRouter', () => {
     rateProvider: {
       providers: {
         [SwapVersion.Taproot]: {
-          submarinePairs: new Map<string, Map<string, any>>([
-            [
-              'L-BTC',
-              new Map<string, any>([['BTC', { some: 'submarine data' }]]),
-            ],
-          ]),
-          reversePairs: new Map<string, Map<string, any>>([
-            [
-              'BTC',
-              new Map<string, any>([['L-BTC', { some: 'reverse data' }]]),
-            ],
-          ]),
-          chainPairs: new Map<string, Map<string, any>>([
-            ['BTC', new Map<string, any>([['L-BTC', { some: 'chain data' }]])],
-          ]),
+          getSubmarinePairs: jest
+            .fn()
+            .mockReturnValue(
+              new Map<string, Map<string, any>>([
+                [
+                  'L-BTC',
+                  new Map<string, any>([['BTC', { some: 'submarine data' }]]),
+                ],
+              ]),
+            ),
+          getReversePairs: jest
+            .fn()
+            .mockReturnValue(
+              new Map<string, Map<string, any>>([
+                [
+                  'BTC',
+                  new Map<string, any>([['L-BTC', { some: 'reverse data' }]]),
+                ],
+              ]),
+            ),
+          getChainPairs: jest
+            .fn()
+            .mockReturnValue(
+              new Map<string, Map<string, any>>([
+                [
+                  'BTC',
+                  new Map<string, any>([['L-BTC', { some: 'chain data' }]]),
+                ],
+              ]),
+            ),
         },
       },
     },
@@ -325,14 +340,14 @@ describe('SwapRouter', () => {
     });
   });
 
-  test('should get submarine pairs', () => {
+  test('should get submarine pairs', async () => {
     const res = mockResponse();
-    swapRouter['getSubmarine'](mockRequest(), res);
+    await swapRouter['getSubmarine'](mockRequest(), res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].submarinePairs,
+        service.rateProvider.providers[SwapVersion.Taproot].getSubmarinePairs(),
       ),
     );
   });
@@ -915,14 +930,14 @@ describe('SwapRouter', () => {
     expect(res.json).toHaveBeenCalledWith({});
   });
 
-  test('should get reverse pairs', () => {
+  test('should get reverse pairs', async () => {
     const res = mockResponse();
-    swapRouter['getReverse'](mockRequest(), res);
+    await swapRouter['getReverse'](mockRequest(), res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].reversePairs,
+        service.rateProvider.providers[SwapVersion.Taproot].getReversePairs(),
       ),
     );
   });
@@ -1405,14 +1420,14 @@ describe('SwapRouter', () => {
     );
   });
 
-  test('should get chain swap pairs', () => {
+  test('should get chain swap pairs', async () => {
     const res = mockResponse();
-    swapRouter['getChain'](mockRequest(), res);
+    await swapRouter['getChain'](mockRequest(), res);
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
       RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].chainPairs,
+        service.rateProvider.providers[SwapVersion.Taproot].getChainPairs(),
       ),
     );
   });

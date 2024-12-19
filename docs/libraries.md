@@ -1,8 +1,8 @@
 ---
 description: >-
-  Integrating Boltz API directly is involved and not to be underestimated. To
-  save on time and resources, we highly recommend exploring the different
-  library options for Boltz API below.
+  Integrating Boltz API is involved and not to be underestimated. To save on
+  time and resources, we highly recommend exploring the different library
+  options for Boltz API below.
 ---
 
 # 📙 Libraries
@@ -60,5 +60,4 @@ Used by e.g.: [LNbits](https://github.com/lnbits/boltz)
 Supported currencies: Bitcoin, Lightning, Liquid
 
 {% hint style="info" %} Note: If Python is preferred, we recommend using the
-[Breez SDK - Liquid implementation](https://github.com/breez/breez-sdk-liquid)
-with Python bindings. {% endhint %}
+Breez SDK Liquid with Python bindings. {% endhint %}

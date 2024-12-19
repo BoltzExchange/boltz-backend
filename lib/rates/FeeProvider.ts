@@ -374,7 +374,8 @@ class FeeProvider {
         );
 
         const fees = {
-          normal: claimCost,
+          // We batch claims on the backend
+          normal: Math.ceil(claimCost / 2),
           reverse: {
             claim: claimCost,
             lockup: FeeProvider.calculateEtherGasCost(
@@ -409,7 +410,7 @@ class FeeProvider {
         );
 
         const fees = {
-          normal: claimCost,
+          normal: Math.ceil(claimCost / 2),
           reverse: {
             claim: claimCost,
             lockup: FeeProvider.calculateTokenGasCosts(

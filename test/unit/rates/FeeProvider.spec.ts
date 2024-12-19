@@ -276,14 +276,14 @@ describe('FeeProvider', () => {
 
     expect(feeProvider.minerFees.get('ETH')).toEqual({
       [SwapVersion.Taproot]: {
-        normal: 27416,
+        normal: 13708,
         reverse: {
           claim: 27416,
           lockup: 51106,
         },
       },
       [SwapVersion.Legacy]: {
-        normal: 27416,
+        normal: 13708,
         reverse: {
           claim: 27416,
           lockup: 51106,
@@ -293,14 +293,14 @@ describe('FeeProvider', () => {
 
     expect(feeProvider.minerFees.get('USDT')).toEqual({
       [SwapVersion.Taproot]: {
-        normal: 53948,
+        normal: 26974,
         reverse: {
           claim: 53948,
           lockup: 191356,
         },
       },
       [SwapVersion.Legacy]: {
-        normal: 53948,
+        normal: 26974,
         reverse: {
           claim: 53948,
           lockup: 191356,

@@ -1,4 +1,5 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
+import { SwapType } from '../../consts/Enums';
 
 type ReferralType = {
   id: string;
@@ -8,6 +9,10 @@ type ReferralType = {
 
   feeShare: number;
   routingNode?: string;
+
+  submarinePremium?: number;
+  reversePremium?: number;
+  chainPremium?: number;
 };
 
 class Referral extends Model implements ReferralType {
@@ -18,6 +23,10 @@ class Referral extends Model implements ReferralType {
 
   public feeShare!: number;
   public routingNode?: string;
+
+  public submarinePremium?: number;
+  public reversePremium?: number;
+  public chainPremium?: number;
 
   public static load = (sequelize: Sequelize): void => {
     Referral.init(
@@ -43,6 +52,9 @@ class Referral extends Model implements ReferralType {
           allowNull: true,
           unique: true,
         },
+        submarinePremium: { type: new DataTypes.INTEGER(), allowNull: true },
+        reversePremium: { type: new DataTypes.INTEGER(), allowNull: true },
+        chainPremium: { type: new DataTypes.INTEGER(), allowNull: true },
       },
       {
         sequelize,
@@ -59,6 +71,19 @@ class Referral extends Model implements ReferralType {
         ],
       },
     );
+  };
+
+  public premiumForType = (type: SwapType) => {
+    switch (type) {
+      case SwapType.Submarine:
+        return this.submarinePremium;
+
+      case SwapType.ReverseSubmarine:
+        return this.reversePremium;
+
+      case SwapType.Chain:
+        return this.chainPremium;
+    }
   };
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "boltzr"
-version = "3.8.1"
+version = "3.9.0"
 edition = "2021"
 license = "AGPL-3"
 authors = ["michael1011"]

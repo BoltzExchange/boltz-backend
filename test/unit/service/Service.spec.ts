@@ -504,9 +504,9 @@ jest.mock('../../../lib/rates/RateProvider', () => {
         }),
       },
       [SwapVersion.Taproot]: {
-        chainPairs: pairsTaprootChain,
-        reversePairs: pairsTaprootReverse,
-        submarinePairs: pairsTaprootSubmarine,
+        getChainPairs: jest.fn().mockReturnValue(pairsTaprootChain),
+        getReversePairs: jest.fn().mockReturnValue(pairsTaprootReverse),
+        getSubmarinePairs: jest.fn().mockReturnValue(pairsTaprootSubmarine),
         validatePairHash: jest.fn().mockImplementation((hash) => {
           if (['', 'wrongHash'].includes(hash)) {
             throw Errors.INVALID_PAIR_HASH();
@@ -1950,6 +1950,7 @@ describe('Service', () => {
       invoiceAmount,
       SwapType.Submarine,
       BaseFeeType.NormalClaim,
+      null,
     );
 
     expect(mockAcceptZeroConf).toHaveBeenCalledTimes(1);
@@ -2290,6 +2291,7 @@ describe('Service', () => {
       OrderSide.BUY,
       SwapType.ReverseSubmarine,
       PercentageFeeType.Calculation,
+      null,
     );
 
     expect(mockGetBaseFee).toHaveBeenCalledTimes(1);
@@ -2966,8 +2968,8 @@ describe('Service', () => {
         ${21_000} | ${OrderSide.SELL} | ${Errors.EXCEED_MAXIMAL_AMOUNT(21_000, 10)}
       `(
         'should throw when submarine amount is out of bounds',
-        ({ amount, side, error }) => {
-          expect(() =>
+        async ({ amount, side, error }) => {
+          await expect(
             verifyAmount(
               pair,
               rate,
@@ -2976,7 +2978,7 @@ describe('Service', () => {
               SwapVersion.Legacy,
               SwapType.Submarine,
             ),
-          ).toThrow(error.message);
+          ).rejects.toEqual(error);
         },
       );
 
@@ -3010,8 +3012,8 @@ describe('Service', () => {
         ${21_000} | ${OrderSide.BUY}  | ${Errors.EXCEED_MAXIMAL_AMOUNT(21_000, 10)}
       `(
         'should throw when reverse amount is out of bounds',
-        ({ amount, side, error }) => {
-          expect(() =>
+        async ({ amount, side, error }) => {
+          await expect(
             verifyAmount(
               pair,
               rate,
@@ -3020,7 +3022,7 @@ describe('Service', () => {
               SwapVersion.Legacy,
               SwapType.ReverseSubmarine,
             ),
-          ).toThrow(error.message);
+          ).rejects.toEqual(error);
         },
       );
     });
@@ -3051,8 +3053,8 @@ describe('Service', () => {
         ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 1_000_000)}
       `(
         'should throw when amount is out of bounds',
-        ({ amount, side, error }) => {
-          expect(() =>
+        async ({ amount, side, error }) => {
+          await expect(
             verifyAmount(
               'BTC/BTC',
               1,
@@ -3061,7 +3063,7 @@ describe('Service', () => {
               SwapVersion.Taproot,
               SwapType.Submarine,
             ),
-          ).toThrow(error.message);
+          ).rejects.toEqual(error);
         },
       );
     });
@@ -3093,8 +3095,8 @@ describe('Service', () => {
         ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 2_000_000)}
       `(
         'should throw when amount is out of bounds',
-        ({ amount, side, error }) => {
-          expect(() =>
+        async ({ amount, side, error }) => {
+          await expect(
             verifyAmount(
               'BTC/BTC',
               1,
@@ -3103,7 +3105,7 @@ describe('Service', () => {
               SwapVersion.Taproot,
               SwapType.ReverseSubmarine,
             ),
-          ).toThrow(error.message);
+          ).rejects.toEqual(error);
         },
       );
     });
@@ -3136,8 +3138,8 @@ describe('Service', () => {
         ${Number.MAX_SAFE_INTEGER} | ${Errors.EXCEED_MAXIMAL_AMOUNT(Number.MAX_SAFE_INTEGER, 5_000_000)}
       `(
         'should throw when amount is out of bounds',
-        ({ amount, side, error }) => {
-          expect(() =>
+        async ({ amount, side, error }) => {
+          await expect(
             verifyAmount(
               'BTC/BTC',
               1,
@@ -3146,15 +3148,15 @@ describe('Service', () => {
               SwapVersion.Taproot,
               SwapType.Chain,
             ),
-          ).toThrow(error.message);
+          ).rejects.toEqual(error);
         },
       );
     });
 
-    test('should throw when pair cannot be found', () => {
+    test('should throw when pair cannot be found', async () => {
       const notFound = 'notFound';
 
-      expect(() =>
+      await expect(
         verifyAmount(
           notFound,
           0,
@@ -3163,7 +3165,7 @@ describe('Service', () => {
           SwapVersion.Legacy,
           SwapType.Submarine,
         ),
-      ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+      ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
     });
   });
 
@@ -3248,10 +3250,13 @@ describe('Service', () => {
       ${OrderSide.SELL} | ${SwapType.Submarine}
       ${OrderSide.SELL} | ${SwapType.ReverseSubmarine}
       ${OrderSide.SELL} | ${SwapType.Chain}
-    `('should get legacy pair', ({ side, type }) => {
-      expect(getPair('BTC/BTC', side, SwapVersion.Legacy, type)).toEqual({
+    `('should get legacy pair', async ({ side, type }) => {
+      await expect(
+        getPair('BTC/BTC', side, SwapVersion.Legacy, type),
+      ).resolves.toEqual({
         base: 'BTC',
         quote: 'BTC',
+        referral: null,
         ...pairs.get('BTC/BTC'),
       });
     });
@@ -3264,25 +3269,28 @@ describe('Service', () => {
       ${OrderSide.SELL} | ${SwapType.Submarine}        | ${pairsTaprootSubmarine.get('BTC')!.get('BTC')}
       ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${pairsTaprootReverse.get('BTC')!.get('BTC')}
       ${OrderSide.SELL} | ${SwapType.Chain}            | ${pairsTaprootChain.get('BTC')!.get('BTC')}
-    `('should get taproot pair', ({ side, type, expected }) => {
-      expect(getPair('BTC/BTC', side, SwapVersion.Taproot, type)).toEqual({
+    `('should get taproot pair', async ({ side, type, expected }) => {
+      await expect(
+        getPair('BTC/BTC', side, SwapVersion.Taproot, type),
+      ).resolves.toEqual({
         base: 'BTC',
         quote: 'BTC',
+        referral: null,
         ...expected,
       });
     });
 
-    test('should throw when pair cannot be found', () => {
+    test('should throw when pair cannot be found', async () => {
       const notFound = 'notFound';
 
-      expect(() =>
+      await expect(
         getPair(
           notFound,
           OrderSide.BUY,
           SwapVersion.Legacy,
           SwapType.Submarine,
         ),
-      ).toThrow(Errors.PAIR_NOT_FOUND(notFound).message);
+      ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
     });
   });
 

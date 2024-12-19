@@ -15,6 +15,7 @@ import {
   SwapVersion,
 } from '../../consts/Enums';
 import { ChainSwapPairConfig, PairConfig } from '../../consts/Types';
+import Referral from '../../db/models/Referral';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
 import { Currency } from '../../wallet/WalletManager';
@@ -68,17 +69,17 @@ type SwapTypes =
   | ChainPairTypeTaproot;
 
 class RateProviderTaproot extends RateProviderBase<SwapTypes> {
-  public readonly submarinePairs = new Map<
+  private readonly submarinePairs = new Map<
     string,
     Map<string, SubmarinePairTypeTaproot>
   >();
 
-  public readonly reversePairs = new Map<
+  private readonly reversePairs = new Map<
     string,
     Map<string, ReversePairTypeTaproot>
   >();
 
-  public readonly chainPairs = new Map<
+  private readonly chainPairs = new Map<
     string,
     Map<string, ChainPairTypeTaproot>
   >();
@@ -92,6 +93,42 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   ) {
     super(currencies, feeProvider, minSwapSizeMultipliers);
   }
+
+  public getSubmarinePairs = (
+    referral?: Referral | null,
+  ): typeof this.submarinePairs => {
+    if (referral === null || referral === undefined) {
+      return this.submarinePairs;
+    }
+
+    return this.deepCloneWithPremium(
+      this.submarinePairs,
+      referral.submarinePremium,
+    );
+  };
+
+  public getReversePairs = (
+    referral?: Referral | null,
+  ): typeof this.reversePairs => {
+    if (referral === null || referral === undefined) {
+      return this.reversePairs;
+    }
+
+    return this.deepCloneWithPremium(
+      this.reversePairs,
+      referral.reversePremium,
+    );
+  };
+
+  public getChainPairs = (
+    referral?: Referral | null,
+  ): typeof this.chainPairs => {
+    if (referral === null || referral === undefined) {
+      return this.chainPairs;
+    }
+
+    return this.deepCloneWithPremium(this.chainPairs, referral.chainPremium);
+  };
 
   public static serializePairs = <T>(
     map: Map<string, Map<string, T>>,
@@ -345,6 +382,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
           orderSide,
           type,
           PercentageFeeType.Display,
+          null,
         ),
         minerFees,
       },
@@ -442,6 +480,40 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
 
     return cur.chainClient !== undefined || cur.provider !== undefined;
+  };
+
+  private deepCloneWithPremium = <
+    T extends
+      | SubmarinePairTypeTaproot
+      | ReversePairTypeTaproot
+      | ChainPairTypeTaproot,
+    K extends Map<string, Map<string, T>>,
+  >(
+    map: K,
+    premium?: number,
+  ): K => {
+    return new Map(
+      Array.from(map.entries()).map(([key, nested]) => [
+        key,
+        new Map(
+          Array.from(nested.entries()).map(([key, value]) => {
+            return [
+              key,
+              {
+                ...value,
+                fees: {
+                  ...value.fees,
+                  percentage: FeeProvider.addPremium(
+                    value.fees.percentage,
+                    premium,
+                  ),
+                },
+              },
+            ];
+          }),
+        ),
+      ]),
+    ) as K;
   };
 }
 

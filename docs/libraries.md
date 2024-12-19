@@ -1,8 +1,8 @@
 ---
 description: >-
   Integrating Boltz API directly is involved and not to be underestimated. To
-  save on time and resources, we highly recommend exploring the different Boltz
-  library options below.
+  save on time and resources, we highly recommend exploring the different
+  library options for Boltz API below.
 ---
 
 # 📙 Libraries

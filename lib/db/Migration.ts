@@ -93,7 +93,7 @@ const decodeInvoice = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 12;
+  private static latestSchemaVersion = 13;
 
   private toBackFill: number[] = [];
 
@@ -570,6 +570,32 @@ class Migration {
           });
 
         this.toBackFill.push(11);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 12: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Referral.tableName, 'submarinePremium', {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Referral.tableName, 'reversePremium', {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Referral.tableName, 'chainPremium', {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+          });
+
         await this.finishMigration(versionRow.version, currencies);
         break;
       }

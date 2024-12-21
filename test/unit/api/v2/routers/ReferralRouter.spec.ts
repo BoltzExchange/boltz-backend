@@ -131,16 +131,12 @@ describe('ReferralRouter', () => {
       some: 'data',
     };
 
+    const req = mockRequest();
     const res = mockResponse();
-    const referral = await referralRouter['checkAuthentication'](
-      mockRequest(),
-      res,
-    );
+    const referral = await referralRouter['checkAuthentication'](req, res);
     expect(referral).toEqual(mockValidateAuthResult);
 
-    expect(Bouncer.validateRequestAuthentication).toHaveBeenCalledWith(
-      mockRequest(),
-    );
+    expect(Bouncer.validateRequestAuthentication).toHaveBeenCalledWith(req);
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
@@ -149,12 +145,11 @@ describe('ReferralRouter', () => {
   test('should write error response with invalid authentication', async () => {
     mockValidateAuthResult = null;
 
+    const req = mockRequest();
     const res = mockResponse();
-    await referralRouter['checkAuthentication'](mockRequest(), res);
+    await referralRouter['checkAuthentication'](req, res);
 
-    expect(Bouncer.validateRequestAuthentication).toHaveBeenCalledWith(
-      mockRequest(),
-    );
+    expect(Bouncer.validateRequestAuthentication).toHaveBeenCalledWith(req);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: 'unauthorized' });

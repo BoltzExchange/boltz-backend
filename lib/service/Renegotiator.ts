@@ -10,9 +10,11 @@ import {
   SwapVersion,
   swapTypeToPrettyString,
 } from '../consts/Enums';
+import Referral from '../db/models/Referral';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../db/repositories/ChainSwapRepository';
+import ReferralRepository from '../db/repositories/ReferralRepository';
 import { ChainSwapMinerFees } from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
@@ -47,7 +49,7 @@ class Renegotiator {
     const { swap, receivingCurrency } = await this.getSwap(swapId);
     await this.validateEligibility(swap, receivingCurrency);
 
-    return this.calculateNewQuote(swap).serverLockAmount;
+    return (await this.calculateNewQuote(swap)).serverLockAmount;
   };
 
   // Do this in the refund signature lock to avoid creating refund signatures
@@ -59,7 +61,7 @@ class Renegotiator {
         await this.validateEligibility(swap, receivingCurrency);
 
         const { serverLockAmount, percentageFee } =
-          this.calculateNewQuote(swap);
+          await this.calculateNewQuote(swap);
         if (newQuote !== serverLockAmount) {
           throw Errors.INVALID_QUOTE();
         }
@@ -183,7 +185,11 @@ class Renegotiator {
     };
   };
 
-  public getFees = (pairId: string, side: OrderSide) => ({
+  public getFees = (
+    pairId: string,
+    side: OrderSide,
+    referral: Referral | null,
+  ) => ({
     baseFee: this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
       pairId,
       side,
@@ -195,11 +201,18 @@ class Renegotiator {
       side,
       SwapType.Chain,
       PercentageFeeType.Calculation,
+      referral,
     ),
   });
 
-  private calculateNewQuote = (swap: ChainSwapInfo) => {
-    const pair = this.rateProvider.providers[SwapVersion.Taproot].chainPairs
+  private calculateNewQuote = async (swap: ChainSwapInfo) => {
+    const referral =
+      swap.chainSwap.referral === null || swap.chainSwap.referral === undefined
+        ? null
+        : await ReferralRepository.getReferralById(swap.chainSwap.referral);
+
+    const pair = this.rateProvider.providers[SwapVersion.Taproot]
+      .getChainPairs(referral)
       .get(swap.receivingData.symbol)
       ?.get(swap.sendingData.symbol);
     if (pair === undefined) {
@@ -218,7 +231,11 @@ class Renegotiator {
       );
     }
 
-    const { baseFee, feePercent } = this.getFees(swap.pair, swap.orderSide);
+    const { baseFee, feePercent } = this.getFees(
+      swap.pair,
+      swap.orderSide,
+      referral,
+    );
 
     return this.calculateServerLockAmount(
       pair.rate,

@@ -42,6 +42,7 @@ import {
   SwapVersion,
 } from '../consts/Enums';
 import { AnySwap, PairConfig } from '../consts/Types';
+import Referral from '../db/models/Referral';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
@@ -1202,6 +1203,9 @@ class Service {
       swap.orderSide,
       SwapType.Submarine,
       PercentageFeeType.Calculation,
+      swap.referral !== undefined && swap.referral !== null
+        ? await ReferralRepository.getReferralById(swap.referral)
+        : null,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       onchainCurrency,
@@ -1217,13 +1221,14 @@ class Service {
       percentageFee,
     );
 
-    this.verifyAmount(
+    await this.verifyAmount(
       swap.pair,
       rate,
       invoiceAmount,
       swap.orderSide,
       swap.version,
       SwapType.Submarine,
+      swap.referral,
     );
 
     return {
@@ -1304,12 +1309,14 @@ class Service {
     const {
       base,
       quote,
+      referral,
       rate: pairRate,
-    } = this.getPair(
+    } = await this.getPair(
       swap.pair,
       swap.orderSide,
       swap.version,
       SwapType.Submarine,
+      swap.referral,
     );
 
     if (pairHash !== undefined) {
@@ -1359,13 +1366,14 @@ class Service {
     }
 
     const rate = swap.rate || getRate(pairRate, swap.orderSide, false);
-    this.verifyAmount(
+    await this.verifyAmount(
       swap.pair,
       rate,
       swap.invoiceAmount,
       swap.orderSide,
       swap.version,
       SwapType.Submarine,
+      swap.referral,
     );
 
     const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
@@ -1376,6 +1384,7 @@ class Service {
       swap.invoiceAmount,
       SwapType.Submarine,
       BaseFeeType.NormalClaim,
+      referral,
     );
 
     const expectedAmount =
@@ -1392,6 +1401,7 @@ class Service {
           swap.orderSide,
           SwapType.Submarine,
           PercentageFeeType.Calculation,
+          referral,
         ),
       );
 
@@ -1620,15 +1630,21 @@ class Service {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
+    const referralId = await this.getReferralId(
+      args.referralId,
+      args.routingNode,
+    );
     const {
       base,
       quote,
+      referral,
       rate: pairRate,
-    } = this.getPair(
+    } = await this.getPair(
       args.pairId,
       side,
       args.version,
       SwapType.ReverseSubmarine,
+      referralId,
     );
 
     if (args.pairHash !== undefined) {
@@ -1696,6 +1712,7 @@ class Service {
       side,
       SwapType.ReverseSubmarine,
       PercentageFeeType.Calculation,
+      referral,
     );
     const baseFee = this.rateProvider.feeProvider.getBaseFee(
       sendingCurrency.symbol,
@@ -1740,13 +1757,14 @@ class Service {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
-    this.verifyAmount(
+    await this.verifyAmount(
       args.pairId,
       rate,
       holdInvoiceAmount,
       side,
       args.version,
       SwapType.ReverseSubmarine,
+      referralId,
     );
     await this.balanceCheck.checkBalance(sendingCurrency.symbol, onchainAmount);
 
@@ -1810,10 +1828,6 @@ class Service {
       throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
     }
 
-    const referralId = await this.getReferralId(
-      args.referralId,
-      args.routingNode,
-    );
     const {
       id,
       invoice,
@@ -1908,11 +1922,19 @@ class Service {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
+    const referralId = await this.getReferralId(args.referralId);
     const {
       base,
       quote,
+      referral,
       rate: pairRate,
-    } = this.getPair(args.pairId, side, SwapVersion.Taproot, SwapType.Chain);
+    } = await this.getPair(
+      args.pairId,
+      side,
+      SwapVersion.Taproot,
+      SwapType.Chain,
+      referralId,
+    );
 
     if (base === quote) {
       throw Errors.PAIR_NOT_FOUND(args.pairId);
@@ -1985,6 +2007,7 @@ class Service {
     const { feePercent, baseFee } = this.swapManager.renegotiator.getFees(
       args.pairId,
       side,
+      referral,
     );
     let percentageFee: number;
 
@@ -2025,13 +2048,14 @@ class Service {
     }
 
     if (!isZeroAmount) {
-      this.verifyAmount(
+      await this.verifyAmount(
         args.pairId,
         rate,
         args.userLockAmount,
         side,
         SwapVersion.Taproot,
         SwapType.Chain,
+        referralId,
       );
       if (args.serverLockAmount < 1) {
         throw Errors.ONCHAIN_AMOUNT_TOO_LOW();
@@ -2043,7 +2067,6 @@ class Service {
       );
     }
 
-    const referralId = await this.getReferralId(args.referralId);
     const res = await this.swapManager.createChainSwap({
       referralId,
       percentageFee,
@@ -2158,13 +2181,14 @@ class Service {
   /**
    * Verifies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (
+  private verifyAmount = async (
     pairId: string,
     rate: number,
     amount: number,
     orderSide: OrderSide,
     version: SwapVersion,
     type: SwapType,
+    referralId?: string,
   ) => {
     if (
       (type === SwapType.Submarine && orderSide === OrderSide.BUY) ||
@@ -2173,7 +2197,13 @@ class Service {
       amount = Math.floor(amount * rate);
     }
 
-    const { limits } = this.getPair(pairId, orderSide, version, type);
+    const { limits } = await this.getPair(
+      pairId,
+      orderSide,
+      version,
+      type,
+      referralId,
+    );
 
     if (limits) {
       if (Math.floor(amount) > limits.maximal)
@@ -2241,15 +2271,19 @@ class Service {
     return Math.floor(((onchainAmount - baseFee) * rate) / (1 + percentageFee));
   };
 
-  private getPair = (
+  private getPair = async (
     pairId: string,
     orderSide: OrderSide,
     version: SwapVersion,
     type: SwapType,
-  ): { base: string; quote: string } & SomePair => {
+    referralId?: string,
+  ): Promise<
+    { base: string; quote: string; referral: Referral | null } & SomePair
+  > => {
     const { base, quote } = splitPairId(pairId);
 
     let pair: SomePair | undefined;
+    let referral: Referral | null = null;
 
     switch (version) {
       case SwapVersion.Taproot: {
@@ -2260,18 +2294,23 @@ class Service {
           orderSide,
         );
 
+        referral =
+          referralId !== undefined && referralId !== null
+            ? await ReferralRepository.getReferralById(referralId)
+            : null;
+
         let pairMap: Map<string, Map<string, SomePair>> | undefined;
         switch (type) {
           case SwapType.Submarine:
-            pairMap = provider.submarinePairs;
+            pairMap = provider.getSubmarinePairs(referral);
             break;
 
           case SwapType.ReverseSubmarine:
-            pairMap = provider.reversePairs;
+            pairMap = provider.getReversePairs(referral);
             break;
 
           case SwapType.Chain:
-            pairMap = provider.chainPairs;
+            pairMap = provider.getChainPairs(referral);
             break;
         }
 
@@ -2292,6 +2331,7 @@ class Service {
     return {
       base,
       quote,
+      referral,
       ...pair,
     };
   };

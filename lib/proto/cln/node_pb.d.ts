@@ -18840,6 +18840,11 @@ export class InjectpaymentonionRequest extends jspb.Message {
     getLocalinvreqid_asB64(): string;
     setLocalinvreqid(value: Uint8Array | string): InjectpaymentonionRequest;
 
+    hasDestinationMsat(): boolean;
+    clearDestinationMsat(): void;
+    getDestinationMsat(): cln_primitives_pb.Amount | undefined;
+    setDestinationMsat(value?: cln_primitives_pb.Amount): InjectpaymentonionRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InjectpaymentonionRequest.AsObject;
     static toObject(includeInstance: boolean, msg: InjectpaymentonionRequest): InjectpaymentonionRequest.AsObject;
@@ -18861,6 +18866,7 @@ export namespace InjectpaymentonionRequest {
         label?: string,
         invstring?: string,
         localinvreqid: Uint8Array | string,
+        destinationMsat?: cln_primitives_pb.Amount.AsObject,
     }
 }
 
@@ -18871,6 +18877,10 @@ export class InjectpaymentonionResponse extends jspb.Message {
     setCompletedAt(value: number): InjectpaymentonionResponse;
     getCreatedIndex(): number;
     setCreatedIndex(value: number): InjectpaymentonionResponse;
+    getPaymentPreimage(): Uint8Array | string;
+    getPaymentPreimage_asU8(): Uint8Array;
+    getPaymentPreimage_asB64(): string;
+    setPaymentPreimage(value: Uint8Array | string): InjectpaymentonionResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InjectpaymentonionResponse.AsObject;
@@ -18887,6 +18897,7 @@ export namespace InjectpaymentonionResponse {
         createdAt: number,
         completedAt: number,
         createdIndex: number,
+        paymentPreimage: Uint8Array | string,
     }
 }
 

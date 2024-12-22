@@ -124,11 +124,15 @@ describe('RateProviderLegacy', () => {
           'L-BTC/BTC',
           OrderSide.BUY,
           SwapType.ReverseSubmarine,
+          PercentageFeeType.Calculation,
+          null,
         ),
         percentageSwapIn: mockedFeeProvider.getPercentageFee(
           'L-BTC/BTC',
           OrderSide.BUY,
           SwapType.Submarine,
+          PercentageFeeType.Calculation,
+          null,
         ),
         minerFees: {
           baseAsset: {
@@ -154,12 +158,14 @@ describe('RateProviderLegacy', () => {
       OrderSide.BUY,
       SwapType.Submarine,
       PercentageFeeType.Display,
+      null,
     );
     expect(mockedFeeProvider.getPercentageFee).toHaveBeenCalledWith(
       'L-BTC/BTC',
       OrderSide.BUY,
       SwapType.ReverseSubmarine,
       PercentageFeeType.Display,
+      null,
     );
   });
 
@@ -176,11 +182,15 @@ describe('RateProviderLegacy', () => {
           'L-BTC/BTC',
           OrderSide.BUY,
           SwapType.ReverseSubmarine,
+          PercentageFeeType.Calculation,
+          null,
         ),
         percentageSwapIn: mockedFeeProvider.getPercentageFee(
           'L-BTC/BTC',
           OrderSide.BUY,
           SwapType.Submarine,
+          PercentageFeeType.Calculation,
+          null,
         ),
         minerFees: {
           baseAsset: {
@@ -216,11 +226,15 @@ describe('RateProviderLegacy', () => {
             'L-BTC/BTC',
             OrderSide.BUY,
             SwapType.ReverseSubmarine,
+            PercentageFeeType.Calculation,
+            null,
           ),
           percentageSwapIn: mockedFeeProvider.getPercentageFee(
             'L-BTC/BTC',
             OrderSide.BUY,
             SwapType.Submarine,
+            PercentageFeeType.Calculation,
+            null,
           ),
           minerFees: {
             baseAsset: {

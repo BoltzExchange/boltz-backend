@@ -67,12 +67,14 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
           OrderSide.BUY,
           SwapType.Submarine,
           PercentageFeeType.Display,
+          null,
         ),
         percentage: this.feeProvider.getPercentageFee(
           id,
           OrderSide.BUY,
           SwapType.ReverseSubmarine,
           PercentageFeeType.Display,
+          null,
         ),
         minerFees: {
           baseAsset: emptyMinerFees,
@@ -98,12 +100,14 @@ class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
           OrderSide.BUY,
           SwapType.Submarine,
           PercentageFeeType.Display,
+          null,
         ),
         percentage: this.feeProvider.getPercentageFee(
           pairId,
           OrderSide.BUY,
           SwapType.ReverseSubmarine,
           PercentageFeeType.Display,
+          null,
         ),
         minerFees: {
           baseAsset: this.feeProvider.minerFees.get(base)![SwapVersion.Legacy],

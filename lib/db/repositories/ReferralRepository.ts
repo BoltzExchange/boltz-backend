@@ -42,6 +42,14 @@ ORDER BY year, month;
     return Referral.findAll();
   };
 
+  public static getReferralById = (id: string): Promise<Referral | null> => {
+    return Referral.findOne({
+      where: {
+        id,
+      },
+    });
+  };
+
   public static getReferralByApiKey = (
     apiKey: string,
   ): Promise<Referral | null> => {

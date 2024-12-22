@@ -10,7 +10,8 @@ export const mockRequest = (
     query,
     params,
     ip: '127.0.0.1',
-  }) as Request;
+    header: jest.fn().mockReturnValue(undefined),
+  }) as unknown as Request;
 
 export const mockResponse = () => {
   const res = {} as any as Response;

@@ -20,6 +20,7 @@ import {
   swapTypeToString,
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
+import Referral from '../db/models/Referral';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager from '../wallet/WalletManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
@@ -132,6 +133,8 @@ class FeeProvider {
     },
   };
 
+  public static percentFeeDecimals = 2;
+
   private static readonly defaultFee = 1;
 
   // A map between the symbols of the pairs and their percentage fees
@@ -145,6 +148,16 @@ class FeeProvider {
     private dataAggregator: DataAggregator,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {}
+
+  public static addPremium = (fee: number, premium?: number): number => {
+    if (premium === null || premium === undefined) {
+      return fee;
+    }
+
+    return parseFloat(
+      (fee + premium / 100).toFixed(FeeProvider.percentFeeDecimals),
+    );
+  };
 
   public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
@@ -203,6 +216,7 @@ class FeeProvider {
     orderSide: OrderSide,
     type: SwapType,
     feeType: PercentageFeeType = PercentageFeeType.Calculation,
+    referral: Referral | null,
   ): number => {
     const percentages = this.percentageFees.get(pair);
     if (percentages === undefined) {
@@ -210,10 +224,12 @@ class FeeProvider {
     }
 
     const percentageType = percentages[type];
-    const percentage =
+    const percentage = FeeProvider.addPremium(
       typeof percentageType === 'number'
         ? percentageType
-        : percentageType[orderSide];
+        : percentageType[orderSide],
+      referral?.premiumForType(type),
+    );
 
     return feeType === PercentageFeeType.Calculation
       ? percentage / 100
@@ -228,6 +244,7 @@ class FeeProvider {
     amount: number,
     type: SwapType,
     feeType: BaseFeeType,
+    referral: Referral | null,
   ): {
     baseFee: number;
     percentageFee: number;
@@ -237,6 +254,7 @@ class FeeProvider {
       orderSide,
       type,
       PercentageFeeType.Calculation,
+      referral,
     );
 
     if (percentageFee !== 0) {

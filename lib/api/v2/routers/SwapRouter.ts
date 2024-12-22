@@ -3,6 +3,7 @@ import Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
+import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import CountryCodes from '../../../service/CountryCodes';
@@ -1654,13 +1655,17 @@ class SwapRouter extends RouterBase {
     return router;
   };
 
-  private getSubmarine = (_req: Request, res: Response) =>
+  private getSubmarine = async (req: Request, res: Response) => {
+    const referral = await this.getReferralFromHeader(req);
     successResponse(
       res,
       RateProviderTaproot.serializePairs(
-        this.service.rateProvider.providers[SwapVersion.Taproot].submarinePairs,
+        this.service.rateProvider.providers[
+          SwapVersion.Taproot
+        ].getSubmarinePairs(referral),
       ),
     );
+  };
 
   private createSubmarine = async (req: Request, res: Response) => {
     const { to, from, invoice, webhook, pairHash, refundPublicKey } =
@@ -1816,13 +1821,17 @@ class SwapRouter extends RouterBase {
     successResponse(res, {});
   };
 
-  private getReverse = (_req: Request, res: Response) =>
+  private getReverse = async (req: Request, res: Response) => {
+    const referral = await this.getReferralFromHeader(req);
     successResponse(
       res,
       RateProviderTaproot.serializePairs(
-        this.service.rateProvider.providers[SwapVersion.Taproot].reversePairs,
+        this.service.rateProvider.providers[
+          SwapVersion.Taproot
+        ].getReversePairs(referral),
       ),
     );
+  };
 
   private createReverse = async (req: Request, res: Response) => {
     const {
@@ -1960,13 +1969,17 @@ class SwapRouter extends RouterBase {
     });
   };
 
-  private getChain = (_req: Request, res: Response) =>
+  private getChain = async (req: Request, res: Response) => {
+    const referral = await this.getReferralFromHeader(req);
     successResponse(
       res,
       RateProviderTaproot.serializePairs(
-        this.service.rateProvider.providers[SwapVersion.Taproot].chainPairs,
+        this.service.rateProvider.providers[SwapVersion.Taproot].getChainPairs(
+          referral,
+        ),
       ),
     );
+  };
 
   // TODO: claim covenant
   private createChain = async (req: Request, res: Response) => {
@@ -2246,6 +2259,15 @@ class SwapRouter extends RouterBase {
     }
 
     return res;
+  };
+
+  private getReferralFromHeader = async (req: Request) => {
+    const referral = req.header('referral');
+    if (referral === undefined) {
+      return null;
+    }
+
+    return ReferralRepository.getReferralById(referral);
   };
 }
 

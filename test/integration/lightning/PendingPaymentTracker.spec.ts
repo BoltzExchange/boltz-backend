@@ -82,12 +82,10 @@ describe('PendingPaymentTracker', () => {
     await Swap.truncate();
 
     await tracker.init(currencies);
-    await clnClient['mpay']?.resetPathMemory();
   });
 
   afterAll(async () => {
     await db.close();
-    await clnClient['mpay']?.resetPathMemory();
 
     await Sidecar.stop();
 

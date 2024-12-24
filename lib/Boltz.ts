@@ -26,7 +26,6 @@ import GrpcService from './grpc/GrpcService';
 import { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
-import MpayClient from './lightning/cln/MpayClient';
 import NotificationClient from './notifications/NotificationClient';
 import NotificationProvider from './notifications/NotificationProvider';
 import Blocks from './service/Blocks';
@@ -411,19 +410,6 @@ class Boltz {
           client.symbol,
           holdInfo.version,
         );
-
-        if (client.useMpay()) {
-          const mpayInfo = await client.mpay!.getInfo();
-          this.logger.verbose(
-            `${client.symbol} ${MpayClient.serviceName} version: ${mpayInfo.version}`,
-          );
-
-          VersionCheck.checkLightningVersion(
-            MpayClient.serviceName,
-            client.symbol,
-            mpayInfo.version,
-          );
-        }
       }
 
       this.logStatus(service, info);

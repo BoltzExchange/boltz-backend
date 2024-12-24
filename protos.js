@@ -5,7 +5,6 @@ const childProcess = require('child_process');
 
 const protoDir = path.join(__dirname, 'proto');
 const protoDirHold = path.join(__dirname, 'hold/protos');
-const protoDirMpay = path.join(__dirname, 'tools/plugins/mpay/protos');
 const protoDirSidecar = path.join(__dirname, 'boltzr/protos');
 
 const libDir = path.join(__dirname, 'lib/proto');
@@ -21,10 +20,6 @@ const protoPaths = [
   [
     `--proto_path ${protoDirHold} ${protoDirHold}/*.proto`,
     path.join(libDir, 'hold'),
-  ],
-  [
-    `--proto_path ${protoDirMpay} ${protoDirMpay}/*.proto`,
-    path.join(libDir, 'mpay'),
   ],
   [
     `--proto_path ${protoDirSidecar} ${protoDirSidecar}/*.proto`,

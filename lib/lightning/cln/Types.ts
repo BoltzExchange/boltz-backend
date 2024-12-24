@@ -15,7 +15,6 @@ type ClnConfig = BaseConfig & {
   maxPaymentFeeRatio: number;
 
   hold: BaseConfig;
-  mpay?: BaseConfig;
 };
 
 const createSsl = (

@@ -8,7 +8,6 @@ jobs:
       matrix:
         platform: [ubuntu-latest]
         node-version: [20]
-        python-version: ['3.10']
         rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
@@ -25,14 +24,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Use Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Use Poetry
-        uses: abatilo/actions-poetry@v2
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
@@ -48,17 +39,11 @@ jobs:
       - name: Start PostgreSQL
         run: npm run db:start
 
-      - name: Install Python dependencies
-        run: npm run python:install
-
       - name: Start containers
         run: npm run docker:regtest && npm run docker:solidity
 
       - name: Deploy Ethereum contracts
         run: npm run docker:solidity:deploy
-
-      - name: Install Python dependencies in regtest container
-        run: docker exec regtest bash /root/poetry-install.sh
 
       - name: Compile
         run: npm run compile
@@ -69,29 +54,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Python lint
-        run: npm run python:lint
-
       - name: Start hold invoice plugin
         run: npm run docker:cln:hold
-
-      - name: Start mpay plugin
-        run: docker exec regtest lightning-cli plugin start /root/mpay.sh
 
       - name: Unit tests
         run: npm run test:unit
 
       - name: Integration tests
         run: node run-int.js
-
-      - name: Stop hold invoice plugin
-        run: docker exec regtest lightning-cli plugin stop /root/.lightning/plugins/hold
-
-      - name: Stop mpay plugin
-        run: docker exec regtest lightning-cli plugin stop /root/mpay.sh
-
-      - name: Python plugin tests
-        run: npm run python:test
 
   build-rust:
     strategy:

@@ -26,22 +26,15 @@ describe('ClnPendingPaymentTracker', () => {
   };
 
   beforeAll(async () => {
-    await Promise.all([
-      clnClient.connect(false),
-      bitcoinLndClient.connect(false),
-    ]);
+    await Promise.all([clnClient.connect(), bitcoinLndClient.connect(false)]);
   });
 
   beforeEach(async () => {
-    await clnClient['mpay']?.resetPathMemory();
-
     jest.resetAllMocks();
   });
 
   afterAll(async () => {
     tracker.stop();
-
-    await clnClient['mpay']?.resetPathMemory();
 
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
@@ -137,7 +130,7 @@ describe('ClnPendingPaymentTracker', () => {
     test.each`
       error                                                                                                                                                              | expected
       ${'InvoiceExpiredError()'}                                                                                                                                         | ${true}
-      ${'Permanent error WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS at node 1 (03c5fae1d507150bfb2f82b113e76f0ae2d05fde5b8463bffa15c4e0e4c3b6fc9f) in channel 124x1x0/0'} | ${true}
+      ${'permanent error WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS at node 1 (03c5fae1d507150bfb2f82b113e76f0ae2d05fde5b8463bffa15c4e0e4c3b6fc9f) in channel 124x1x0/0'} | ${true}
       ${'something that can be retried'}                                                                                                                                 | ${false}
     `(
       'should check if $error is a permanent error',

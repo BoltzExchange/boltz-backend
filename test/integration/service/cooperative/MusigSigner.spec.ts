@@ -94,8 +94,6 @@ describe('MusigSigner', () => {
   });
 
   beforeEach(async () => {
-    await clnClient['mpay']?.resetPathMemory();
-
     jest.clearAllMocks();
   });
 

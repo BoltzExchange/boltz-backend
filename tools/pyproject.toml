@@ -20,7 +20,6 @@ sqlalchemy = "^2.0.36"
 cachetools = "^5.5.0"
 pandas = "^2.2.3"
 strenum = "^0.4.15"
-minio = "^7.2.10"
 cryptography = "^41"
 
 [tool.poetry.group.test.dependencies]

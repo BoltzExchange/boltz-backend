@@ -1,15 +1,21 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import {
+  calculateEthereumTransactionFee,
+  calculateEthereumTransactionFeeWithReceipt,
   calculateLiquidTransactionFee,
   calculateUtxoTransactionFee,
   isTxConfirmed,
 } from '../../lib/Utils';
+import { etherDecimals } from '../../lib/consts/Consts';
 import { bitcoinClient, bitcoinLndClient, elementsClient } from './Nodes';
+import { getSigner } from './wallet/EthereumTools';
 
 jest.mock('../../lib/db/repositories/ChainTipRepository');
 
 describe('Utils', () => {
+  let ethSetup: Awaited<ReturnType<typeof getSigner>>;
+
   beforeAll(async () => {
     await Promise.all([
       bitcoinClient.connect(),
@@ -18,6 +24,8 @@ describe('Utils', () => {
     ]);
 
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
+
+    ethSetup = await getSigner();
   });
 
   afterAll(() => {
@@ -70,6 +78,33 @@ describe('Utils', () => {
     expect(calculateLiquidTransactionFee(tx)).toBeLessThanOrEqual(
       expectedFee + 5,
     );
+  });
+
+  describe('calculateEthereumTransactionFee', () => {
+    test('should calculate Ethereum transaction fee with transaction', async () => {
+      const tx = await ethSetup.etherBase.sendTransaction({
+        to: await ethSetup.etherBase.getAddress(),
+        value: 1,
+      });
+      await tx.wait(1);
+
+      expect(calculateEthereumTransactionFee(tx)).toEqual(
+        Number((tx.gasLimit * tx.maxFeePerGas!) / etherDecimals),
+      );
+    });
+
+    test('should calculate Ethereum transaction fee with receipt', async () => {
+      const tx = await ethSetup.etherBase.sendTransaction({
+        to: await ethSetup.etherBase.getAddress(),
+        value: 1,
+      });
+      await tx.wait(1);
+      const receipt = await ethSetup.provider.getTransactionReceipt(tx.hash);
+
+      expect(calculateEthereumTransactionFeeWithReceipt(receipt!)).toEqual(
+        Number((receipt!.gasUsed * receipt!.gasPrice!) / etherDecimals),
+      );
+    });
   });
 
   describe('isTxConfirmed', () => {

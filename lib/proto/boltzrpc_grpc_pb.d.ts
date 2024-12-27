@@ -26,6 +26,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     listSwaps: IBoltzService_IListSwaps;
     rescan: IBoltzService_IRescan;
     getLabel: IBoltzService_IGetLabel;
+    calculateTransactionFee: IBoltzService_ICalculateTransactionFee;
     setLogLevel: IBoltzService_ISetLogLevel;
     devHeapDump: IBoltzService_IDevHeapDump;
 }
@@ -192,6 +193,15 @@ interface IBoltzService_IGetLabel extends grpc.MethodDefinition<boltzrpc_pb.GetL
     responseSerialize: grpc.serialize<boltzrpc_pb.GetLabelResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.GetLabelResponse>;
 }
+interface IBoltzService_ICalculateTransactionFee extends grpc.MethodDefinition<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse> {
+    path: "/boltzrpc.Boltz/CalculateTransactionFee";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.CalculateTransactionFeeRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.CalculateTransactionFeeRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.CalculateTransactionFeeResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.CalculateTransactionFeeResponse>;
+}
 interface IBoltzService_ISetLogLevel extends grpc.MethodDefinition<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse> {
     path: "/boltzrpc.Boltz/SetLogLevel";
     requestStream: false;
@@ -232,6 +242,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     listSwaps: grpc.handleUnaryCall<boltzrpc_pb.ListSwapsRequest, boltzrpc_pb.ListSwapsResponse>;
     rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
     getLabel: grpc.handleUnaryCall<boltzrpc_pb.GetLabelRequest, boltzrpc_pb.GetLabelResponse>;
+    calculateTransactionFee: grpc.handleUnaryCall<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse>;
     setLogLevel: grpc.handleUnaryCall<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse>;
     devHeapDump: grpc.handleUnaryCall<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse>;
 }
@@ -291,6 +302,9 @@ export interface IBoltzClient {
     getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
+    calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
@@ -355,6 +369,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
+    public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;

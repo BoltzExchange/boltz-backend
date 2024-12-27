@@ -205,4 +205,8 @@ export default {
     message: 'preimage not available',
     code: concatErrorCode(ErrorCodePrefix.Service, 52),
   }),
+  NO_TRANSACTION: (id: string): Error => ({
+    message: `no transaction with id: ${id}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 53),
+  }),
 };

@@ -432,6 +432,30 @@ class GrpcService {
     });
   };
 
+  public calculateTransactionFee: handleUnaryCall<
+    boltzrpc.CalculateTransactionFeeRequest,
+    boltzrpc.CalculateTransactionFeeResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { symbol, transactionId } = call.request.toObject();
+
+      const { absolute, satPerVbyte, gwei } =
+        await this.service.calculateTransactionFee(symbol, transactionId);
+
+      const res = new boltzrpc.CalculateTransactionFeeResponse();
+      res.setAbsolute(absolute);
+
+      if (satPerVbyte !== undefined) {
+        res.setSatPerVbyte(satPerVbyte);
+      }
+      if (gwei !== undefined) {
+        res.setGwei(gwei);
+      }
+
+      return res;
+    });
+  };
+
   private handleCallback = async <R, T>(
     call: R,
     callback: (error: any, res: T | null) => void,

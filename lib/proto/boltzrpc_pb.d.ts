@@ -1183,6 +1183,70 @@ export namespace PendingSweep {
     }
 }
 
+export class CalculateTransactionFeeRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): CalculateTransactionFeeRequest;
+    getTransactionId(): string;
+    setTransactionId(value: string): CalculateTransactionFeeRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CalculateTransactionFeeRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CalculateTransactionFeeRequest): CalculateTransactionFeeRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CalculateTransactionFeeRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CalculateTransactionFeeRequest;
+    static deserializeBinaryFromReader(message: CalculateTransactionFeeRequest, reader: jspb.BinaryReader): CalculateTransactionFeeRequest;
+}
+
+export namespace CalculateTransactionFeeRequest {
+    export type AsObject = {
+        symbol: string,
+        transactionId: string,
+    }
+}
+
+export class CalculateTransactionFeeResponse extends jspb.Message { 
+    getAbsolute(): number;
+    setAbsolute(value: number): CalculateTransactionFeeResponse;
+
+    hasSatPerVbyte(): boolean;
+    clearSatPerVbyte(): void;
+    getSatPerVbyte(): number;
+    setSatPerVbyte(value: number): CalculateTransactionFeeResponse;
+
+    hasGwei(): boolean;
+    clearGwei(): void;
+    getGwei(): number;
+    setGwei(value: number): CalculateTransactionFeeResponse;
+
+    getRelativeCase(): CalculateTransactionFeeResponse.RelativeCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CalculateTransactionFeeResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CalculateTransactionFeeResponse): CalculateTransactionFeeResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CalculateTransactionFeeResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CalculateTransactionFeeResponse;
+    static deserializeBinaryFromReader(message: CalculateTransactionFeeResponse, reader: jspb.BinaryReader): CalculateTransactionFeeResponse;
+}
+
+export namespace CalculateTransactionFeeResponse {
+    export type AsObject = {
+        absolute: number,
+        satPerVbyte: number,
+        gwei: number,
+    }
+
+    export enum RelativeCase {
+        RELATIVE_NOT_SET = 0,
+        SAT_PER_VBYTE = 2,
+        GWEI = 3,
+    }
+
+}
+
 export class SetLogLevelRequest extends jspb.Message { 
     getLevel(): LogLevel;
     setLevel(value: LogLevel): SetLogLevelRequest;

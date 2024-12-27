@@ -1,3 +1,4 @@
+import { Transaction } from 'bitcoinjs-lib';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import { Provider } from 'ethers';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -6,6 +7,9 @@ import { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
 import Logger, { LogLevel } from '../Logger';
 import {
+  calculateEthereumTransactionFeeWithReceipt,
+  calculateLiquidTransactionFee,
+  calculateUtxoTransactionFee,
   checkEvmAddress,
   createApiCredential,
   formatError,
@@ -460,6 +464,61 @@ class Service {
     );
 
     return endHeight;
+  };
+
+  public calculateTransactionFee = async (
+    symbol: string,
+    transactionId: string,
+  ): Promise<{
+    absolute: number;
+    gwei?: number;
+    satPerVbyte?: number;
+  }> => {
+    const currency = getCurrency(this.currencies, symbol);
+    switch (currency.type) {
+      case CurrencyType.BitcoinLike: {
+        const tx = parseTransaction(
+          currency.type,
+          await currency.chainClient!.getRawTransaction(transactionId),
+        );
+        const absolute = await calculateUtxoTransactionFee(
+          currency.chainClient!,
+          tx as Transaction,
+        );
+
+        return {
+          absolute,
+          satPerVbyte: absolute / tx.virtualSize(),
+        };
+      }
+
+      case CurrencyType.Liquid: {
+        const wallet = this.walletManager.wallets.get(symbol)! as WalletLiquid;
+        const tx = parseTransaction(
+          currency.type,
+          await currency.chainClient!.getRawTransaction(transactionId),
+        ) as LiquidTransaction;
+        const absolute = calculateLiquidTransactionFee(tx);
+
+        return {
+          absolute,
+          satPerVbyte: absolute / tx.virtualSize(wallet.supportsDiscountCT),
+        };
+      }
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20: {
+        const receipt =
+          await currency.provider!.getTransactionReceipt(transactionId);
+        if (receipt === null) {
+          throw Errors.NO_TRANSACTION(transactionId);
+        }
+        return {
+          gwei: Number(receipt.gasPrice) / Number(gweiDecimals),
+          absolute: calculateEthereumTransactionFeeWithReceipt(receipt),
+        };
+      }
+    }
   };
 
   /**

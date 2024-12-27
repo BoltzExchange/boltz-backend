@@ -49,6 +49,8 @@ service Boltz {
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
+  rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
+
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
@@ -292,6 +294,19 @@ enum LogLevel {
   VERBOSE = 3;
   DEBUG = 4;
   SILLY = 5;
+}
+
+message CalculateTransactionFeeRequest {
+  string symbol = 1;
+  string transaction_id = 2;
+}
+
+message CalculateTransactionFeeResponse {
+  uint64 absolute = 1;
+  oneof relative {
+    double sat_per_vbyte = 2;
+    double gwei = 3;
+  }
 }
 
 message SetLogLevelRequest {

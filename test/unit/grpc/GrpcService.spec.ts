@@ -607,6 +607,74 @@ describe('GrpcService', () => {
     });
   });
 
+  describe('calculateTransactionFee', () => {
+    test('should calculate transaction fee in sat/vbyte', async () => {
+      const symbol = 'BTC';
+      const transactionId = 'tx';
+
+      service.calculateTransactionFee = jest.fn().mockResolvedValue({
+        absolute: 123321,
+        satPerVbyte: 21,
+      });
+
+      await new Promise<void>((resolve) => {
+        grpcService.calculateTransactionFee(
+          createCall({ symbol, transactionId }),
+          createCallback(
+            (error, response: boltzrpc.CalculateTransactionFeeResponse) => {
+              expect(error).toEqual(null);
+              expect(response.toObject()).toEqual({
+                gwei: 0,
+                absolute: 123321,
+                satPerVbyte: 21,
+              });
+              resolve();
+            },
+          ),
+        );
+      });
+
+      expect(service.calculateTransactionFee).toHaveBeenCalledTimes(1);
+      expect(service.calculateTransactionFee).toHaveBeenCalledWith(
+        symbol,
+        transactionId,
+      );
+    });
+
+    test('should calculate transaction fee in gwei', async () => {
+      const symbol = 'RBTC';
+      const transactionId = '0xtx';
+
+      service.calculateTransactionFee = jest.fn().mockResolvedValue({
+        gwei: 3.14,
+        absolute: 3210,
+      });
+
+      await new Promise<void>((resolve) => {
+        grpcService.calculateTransactionFee(
+          createCall({ symbol, transactionId }),
+          createCallback(
+            (error, response: boltzrpc.CalculateTransactionFeeResponse) => {
+              expect(error).toEqual(null);
+              expect(response.toObject()).toEqual({
+                gwei: 3.14,
+                absolute: 3210,
+                satPerVbyte: 0,
+              });
+              resolve();
+            },
+          ),
+        );
+      });
+
+      expect(service.calculateTransactionFee).toHaveBeenCalledTimes(1);
+      expect(service.calculateTransactionFee).toHaveBeenCalledWith(
+        symbol,
+        transactionId,
+      );
+    });
+  });
+
   test('should handle resolved callbacks', async () => {
     const call = randomBytes(32);
     const cb = jest.fn();

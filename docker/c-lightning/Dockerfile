@@ -39,6 +39,11 @@ WORKDIR /lightning
 RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
+RUN git remote add fork https://github.com/michael1011/lightning.git && git fetch fork
+RUN git config user.name buildkit && \
+    git config user.email root@buildkitsandbox && \
+    git cherry-pick b302d3b4a0230cc7774bc3a9c80784d96e54af42
+
 RUN ./configure
 RUN make install
 

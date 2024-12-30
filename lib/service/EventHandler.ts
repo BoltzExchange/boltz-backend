@@ -55,7 +55,7 @@ class EventHandler extends TypedEventEmitter<{
 }> {
   constructor(
     private logger: Logger,
-    private nursery: SwapNursery,
+    public nursery: SwapNursery,
   ) {
     super();
 

@@ -1,19 +1,24 @@
+use crate::api::ws::types::SwapStatus;
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::Pool;
+use crate::swap::expiry_checker::InvoiceExpiryChecker;
 use crate::swap::filters::get_input_output_filters;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
 #[async_trait]
 pub trait SwapManager {
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
+
+    fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
 
     async fn scan_mempool(
         &self,
@@ -23,7 +28,10 @@ pub trait SwapManager {
 
 #[derive(Clone)]
 pub struct Manager {
-    currencies: Currencies,
+    update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
+
+    currencies: Arc<Currencies>,
+    cancellation_token: CancellationToken,
 
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_repo: Arc<dyn ChainSwapHelper + Sync + Send>,
@@ -31,13 +39,32 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(currencies: Currencies, pool: Pool) -> Self {
+    pub fn new(cancellation_token: CancellationToken, currencies: Currencies, pool: Pool) -> Self {
+        let (update_tx, _) = tokio::sync::broadcast::channel::<SwapStatus>(128);
+
         Manager {
-            currencies,
+            update_tx,
+            cancellation_token,
+            currencies: Arc::new(currencies),
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool)),
         }
+    }
+
+    pub async fn start(&self) {
+        let expiry_checker = InvoiceExpiryChecker::new(
+            self.cancellation_token.clone(),
+            self.update_tx.clone(),
+            self.currencies.clone(),
+            self.swap_repo.clone(),
+        );
+
+        tokio::spawn(async move {
+            expiry_checker.start().await;
+        })
+        .await
+        .unwrap();
     }
 }
 
@@ -45,6 +72,10 @@ impl Manager {
 impl SwapManager for Manager {
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
+    }
+
+    fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
+        self.update_tx.subscribe()
     }
 
     async fn scan_mempool(

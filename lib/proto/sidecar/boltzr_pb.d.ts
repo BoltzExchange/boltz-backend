@@ -343,6 +343,46 @@ export namespace SwapUpdateResponse {
     }
 }
 
+export class SendSwapUpdateRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendSwapUpdateRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SendSwapUpdateRequest): SendSwapUpdateRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendSwapUpdateRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendSwapUpdateRequest;
+    static deserializeBinaryFromReader(message: SendSwapUpdateRequest, reader: jspb.BinaryReader): SendSwapUpdateRequest;
+}
+
+export namespace SendSwapUpdateRequest {
+    export type AsObject = {
+    }
+}
+
+export class SendSwapUpdateResponse extends jspb.Message { 
+
+    hasUpdate(): boolean;
+    clearUpdate(): void;
+    getUpdate(): SwapUpdate | undefined;
+    setUpdate(value?: SwapUpdate): SendSwapUpdateResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SendSwapUpdateResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SendSwapUpdateResponse): SendSwapUpdateResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SendSwapUpdateResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SendSwapUpdateResponse;
+    static deserializeBinaryFromReader(message: SendSwapUpdateResponse, reader: jspb.BinaryReader): SendSwapUpdateResponse;
+}
+
+export namespace SendSwapUpdateResponse {
+    export type AsObject = {
+        update?: SwapUpdate.AsObject,
+    }
+}
+
 export class StartWebHookRetriesRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;

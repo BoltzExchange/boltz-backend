@@ -30,4 +30,5 @@ pub trait SomeSwap {
 
 pub trait LightningSwap {
     fn chain_symbol(&self) -> anyhow::Result<String>;
+    fn lightning_symbol(&self) -> anyhow::Result<String>;
 }

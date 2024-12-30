@@ -38,6 +38,15 @@ impl LightningSwap for ReverseSwap {
             pair.quote
         })
     }
+
+    fn lightning_symbol(&self) -> anyhow::Result<String> {
+        let pair = split_pair(&self.pair)?;
+        Ok(if self.orderSide == OrderSide::Buy as i32 {
+            pair.quote
+        } else {
+            pair.base
+        })
+    }
 }
 
 #[cfg(test)]
@@ -70,6 +79,14 @@ mod test {
     fn test_chain_symbol(#[case] side: OrderSide, #[case] expected: &str) {
         let swap = create_swap(Some(side));
         assert_eq!(swap.chain_symbol().unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case(OrderSide::Buy, "BTC")]
+    #[case(OrderSide::Sell, "L-BTC")]
+    fn test_lightning_symbol(#[case] side: OrderSide, #[case] expected: &str) {
+        let swap = create_swap(Some(side));
+        assert_eq!(swap.lightning_symbol().unwrap(), expected);
     }
 
     fn create_swap(order_side: Option<OrderSide>) -> ReverseSwap {

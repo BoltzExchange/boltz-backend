@@ -11,6 +11,8 @@ pub struct Swap {
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
+    pub failureReason: Option<String>,
+    pub invoice: Option<String>,
     pub lockupAddress: String,
 }
 
@@ -35,6 +37,15 @@ impl LightningSwap for Swap {
             pair.quote
         } else {
             pair.base
+        })
+    }
+
+    fn lightning_symbol(&self) -> anyhow::Result<String> {
+        let pair = split_pair(&self.pair)?;
+        Ok(if self.orderSide == OrderSide::Buy as i32 {
+            pair.base
+        } else {
+            pair.quote
         })
     }
 }
@@ -71,6 +82,14 @@ mod test {
         assert_eq!(swap.chain_symbol().unwrap(), expected);
     }
 
+    #[rstest]
+    #[case(OrderSide::Buy, "L-BTC")]
+    #[case(OrderSide::Sell, "BTC")]
+    fn test_lightning_symbol(#[case] side: OrderSide, #[case] expected: &str) {
+        let swap = create_swap(Some(side));
+        assert_eq!(swap.lightning_symbol().unwrap(), expected);
+    }
+
     fn create_swap(order_side: Option<OrderSide>) -> Swap {
         Swap {
             id: "swap id".to_string(),
@@ -78,6 +97,8 @@ mod test {
             lockupAddress: "".to_string(),
             status: "transaction.mempool".to_string(),
             orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
+            invoice: None,
+            failureReason: None,
         }
     }
 }

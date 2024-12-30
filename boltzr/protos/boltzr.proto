@@ -11,6 +11,7 @@ service BoltzR {
   rpc GetMessages (GetMessagesRequest) returns (stream GetMessagesResponse);
 
   rpc SwapUpdate (stream SwapUpdateRequest) returns (stream SwapUpdateResponse);
+  rpc SendSwapUpdate (SendSwapUpdateRequest) returns (stream SendSwapUpdateResponse);
 
   rpc StartWebHookRetries (StartWebHookRetriesRequest) returns (StartWebHookRetriesResponse);
   rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
@@ -90,6 +91,11 @@ message SwapUpdateRequest {
 
 message SwapUpdateResponse {
   repeated string ids = 1;
+}
+
+message SendSwapUpdateRequest {}
+message SendSwapUpdateResponse {
+  SwapUpdate update = 1;
 }
 
 message StartWebHookRetriesRequest {}

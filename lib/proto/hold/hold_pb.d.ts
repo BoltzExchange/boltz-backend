@@ -304,6 +304,11 @@ export class Invoice extends jspb.Message {
     setState(value: InvoiceState): Invoice;
     getCreatedAt(): number;
     setCreatedAt(value: number): Invoice;
+
+    hasSettledAt(): boolean;
+    clearSettledAt(): void;
+    getSettledAt(): number | undefined;
+    setSettledAt(value: number): Invoice;
     clearHtlcsList(): void;
     getHtlcsList(): Array<Htlc>;
     setHtlcsList(value: Array<Htlc>): Invoice;
@@ -327,6 +332,7 @@ export namespace Invoice {
         bolt11: string,
         state: InvoiceState,
         createdAt: number,
+        settledAt?: number,
         htlcsList: Array<Htlc.AsObject>,
     }
 }

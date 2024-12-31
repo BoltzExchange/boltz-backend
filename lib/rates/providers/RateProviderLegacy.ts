@@ -41,6 +41,8 @@ const emptyMinerFees = {
   },
 };
 
+// TODO: different minimas for legacy swaps
+
 class RateProviderLegacy extends RateProviderBase<PairTypeLegacy> {
   public readonly pairs = new Map<string, PairTypeLegacy>();
 

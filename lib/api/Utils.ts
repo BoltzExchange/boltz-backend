@@ -19,6 +19,7 @@ export type ApiArgument = {
 const errorsNotToLog: any[] = [
   ServiceErrors.SWAP_NO_LOCKUP().message,
   ServiceErrors.ETHEREUM_NOT_ENABLED().message,
+  ServiceErrors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM().message,
 ];
 
 /**

@@ -137,6 +137,13 @@ class FeeProvider {
 
   private static readonly defaultFee = 1;
 
+  private static readonly batchDiscountFactors = {
+    [CurrencyType.BitcoinLike]: 0.75,
+    [CurrencyType.Liquid]: 0.75,
+    [CurrencyType.Ether]: 0.5,
+    [CurrencyType.ERC20]: 0.5,
+  };
+
   // A map between the symbols of the pairs and their percentage fees
   public percentageFees = new Map<string, PercentageFees>();
 
@@ -147,6 +154,7 @@ class FeeProvider {
     private walletManager: WalletManager,
     private dataAggregator: DataAggregator,
     private getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
+    public readonly batchThresholds: Map<string, number>,
   ) {}
 
   public static addPremium = (fee: number, premium?: number): number => {
@@ -301,7 +309,26 @@ class FeeProvider {
     orderSide: OrderSide,
     type: SwapType,
     version: SwapVersion,
+    withBatchDiscount: boolean,
   ): T => {
+    const applyBatchDiscount = (symbol: string, v: number): number => {
+      if (
+        !withBatchDiscount ||
+        // We are not batching legacy swaps
+        version !== SwapVersion.Taproot ||
+        !this.batchThresholds.has(symbol)
+      ) {
+        return v;
+      }
+
+      const wallet = this.walletManager.wallets.get(symbol);
+      if (wallet === undefined) {
+        return v;
+      }
+
+      return Math.ceil(v * FeeProvider.batchDiscountFactors[wallet.type]);
+    };
+
     const { base, quote } = splitPairId(pairId);
 
     if (type === SwapType.Chain) {
@@ -309,27 +336,34 @@ class FeeProvider {
         throw 'Chain Swaps only support version Taproot';
       }
 
-      const sendingMinerfees = this.minerFees.get(
+      const sendingMinerFees = this.minerFees.get(
         getSendingChain(base, quote, orderSide),
       )![SwapVersion.Taproot];
-      const receivingMinerFees = this.minerFees.get(
-        getReceivingChain(base, quote, orderSide),
-      )![SwapVersion.Taproot];
+
+      const receivingChain = getReceivingChain(base, quote, orderSide);
+      const receivingMinerFees =
+        this.minerFees.get(receivingChain)![SwapVersion.Taproot];
 
       return {
-        server: sendingMinerfees.reverse.lockup + receivingMinerFees.normal,
+        server:
+          sendingMinerFees.reverse.lockup +
+          applyBatchDiscount(receivingChain, receivingMinerFees.normal),
         user: {
-          claim: sendingMinerfees.reverse.claim,
+          claim: sendingMinerFees.reverse.claim,
           lockup: receivingMinerFees.reverse.lockup,
         },
       } as ChainSwapMinerFees as T;
     } else {
       const isReverse = type === SwapType.ReverseSubmarine;
 
-      const minerFeesObj = this.minerFees.get(
-        getChainCurrency(base, quote, orderSide, isReverse),
-      )![version];
-      return (isReverse ? minerFeesObj.reverse : minerFeesObj.normal) as T;
+      const chainSymbol = getChainCurrency(base, quote, orderSide, isReverse);
+      const minerFeesObj = this.minerFees.get(chainSymbol)![version];
+
+      return (
+        isReverse
+          ? minerFeesObj.reverse
+          : applyBatchDiscount(chainSymbol, minerFeesObj.normal)
+      ) as T;
     }
   };
 
@@ -393,7 +427,9 @@ class FeeProvider {
 
         const fees = {
           // We batch claims on the backend
-          normal: Math.ceil(claimCost / 2),
+          normal: Math.ceil(
+            claimCost * FeeProvider.batchDiscountFactors[CurrencyType.Ether],
+          ),
           reverse: {
             claim: claimCost,
             lockup: FeeProvider.calculateEtherGasCost(

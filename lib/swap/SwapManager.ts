@@ -190,6 +190,7 @@ class SwapManager {
       this.walletManager,
       this.swapOutputType,
       swapConfig,
+      rateProvider.feeProvider,
     );
 
     this.chainSwapSigner = new ChainSwapSigner(

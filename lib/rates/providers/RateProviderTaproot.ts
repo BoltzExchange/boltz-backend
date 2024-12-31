@@ -28,6 +28,8 @@ import RateProviderBase, { MinSwapSizeMultipliers } from './RateProviderBase';
 type PairLimits = {
   minimal: number;
   maximal: number;
+
+  batchThreshold?: number;
 };
 
 type PairTypeTaproot = {
@@ -44,6 +46,7 @@ type SubmarinePairTypeTaproot = PairTypeTaproot & {
   fees: {
     percentage: number;
     minerFees: number;
+    minerFeesBatch: number;
   };
 };
 
@@ -60,6 +63,7 @@ type ChainPairTypeTaproot = PairTypeTaproot & {
   fees: {
     percentage: number;
     minerFees: ChainSwapMinerFees;
+    minerFeesBatch: ChainSwapMinerFees;
   };
 };
 
@@ -86,7 +90,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
   constructor(
     currencies: Map<string, Currency>,
-    feeProvider: FeeProvider,
+    public readonly feeProvider: FeeProvider,
     minSwapSizeMultipliers: MinSwapSizeMultipliers,
     private readonly pairConfigs: Map<string, PairConfig>,
     private readonly zeroConfAmounts: Map<string, number>,
@@ -158,6 +162,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         SwapType.Submarine,
         rate,
         0,
+        0,
       );
       this.setPair<ReversePairTypeTaproot>(
         swapTypes,
@@ -176,6 +181,13 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         orderSide,
         SwapType.Chain,
         pair.rate!,
+        {
+          server: 0,
+          user: {
+            claim: 0,
+            lockup: 0,
+          },
+        },
         {
           server: 0,
           user: {
@@ -345,6 +357,9 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     type: SwapType,
     rate?: number,
     minerFees?: T['fees']['minerFees'],
+    minerFeesBatch?:
+      | SubmarinePairTypeTaproot['fees']['minerFeesBatch']
+      | ChainPairTypeTaproot['fees']['minerFeesBatch'],
   ) => {
     if (!swapTypes.includes(type)) {
       return;
@@ -369,6 +384,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         orderSide,
         type,
         SwapVersion.Taproot,
+        false,
       );
     }
 
@@ -385,8 +401,20 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
           null,
         ),
         minerFees,
+        minerFeesBatch,
       },
     } as T;
+
+    if (
+      type !== SwapType.ReverseSubmarine &&
+      this.feeProvider.batchThresholds.has(nested.fromAsset)
+    ) {
+      (
+        pair as SubmarinePairTypeTaproot | ChainPairTypeTaproot
+      ).fees.minerFeesBatch = this.feeProvider.getSwapBaseFees<
+        (SubmarinePairTypeTaproot | ChainPairTypeTaproot)['fees']['minerFees']
+      >(pairId, orderSide, type, SwapVersion.Taproot, true);
+    }
 
     pair.hash = this.hashPair(pair);
     nested.toMap.set(nested.toAsset, pair);
@@ -404,7 +432,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
 
     const { base, quote } = splitPairId(pair);
-    const result = {
+    const result: PairLimits = {
       maximal: this.getPairLimit('maxSwapAmount', config, type),
       minimal: this.adjustMinimaForFees(
         base,
@@ -421,6 +449,17 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     }
 
     const chainCurrency = getChainCurrency(base, quote, orderSide, false);
+
+    {
+      const batchThreshold =
+        this.feeProvider.batchThresholds.get(chainCurrency);
+
+      // When the threshold for the chain is less than minimal swap size,
+      // it makes no sense to show it
+      if (batchThreshold !== undefined && batchThreshold > result.minimal) {
+        result.batchThreshold = batchThreshold;
+      }
+    }
 
     return {
       ...result,

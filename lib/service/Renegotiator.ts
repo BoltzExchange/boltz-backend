@@ -1,6 +1,6 @@
 import { parseTransaction } from '../Core';
 import Logger from '../Logger';
-import { isTxConfirmed } from '../Utils';
+import { getReceivingChain, isTxConfirmed, splitPairId } from '../Utils';
 import {
   CurrencyType,
   OrderSide,
@@ -189,21 +189,34 @@ class Renegotiator {
     pairId: string,
     side: OrderSide,
     referral: Referral | null,
-  ) => ({
-    baseFee: this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
-      pairId,
-      side,
-      SwapType.Chain,
-      SwapVersion.Taproot,
-    ).server,
-    feePercent: this.rateProvider.feeProvider.getPercentageFee(
-      pairId,
-      side,
-      SwapType.Chain,
-      PercentageFeeType.Calculation,
-      referral,
-    ),
-  });
+    claimAmount?: number,
+  ) => {
+    const { base, quote } = splitPairId(pairId);
+    const withBatchDiscount =
+      claimAmount === null &&
+      claimAmount <
+        (this.rateProvider.feeProvider.batchThresholds.get(
+          getReceivingChain(base, quote, side),
+        ) || 0);
+
+    return {
+      baseFee:
+        this.rateProvider.feeProvider.getSwapBaseFees<ChainSwapMinerFees>(
+          pairId,
+          side,
+          SwapType.Chain,
+          SwapVersion.Taproot,
+          withBatchDiscount,
+        ).server,
+      feePercent: this.rateProvider.feeProvider.getPercentageFee(
+        pairId,
+        side,
+        SwapType.Chain,
+        PercentageFeeType.Calculation,
+        referral,
+      ),
+    };
+  };
 
   private calculateNewQuote = async (swap: ChainSwapInfo) => {
     const referral =
@@ -235,6 +248,7 @@ class Renegotiator {
       swap.pair,
       swap.orderSide,
       referral,
+      swap.claimAmount!,
     );
 
     return this.calculateServerLockAmount(

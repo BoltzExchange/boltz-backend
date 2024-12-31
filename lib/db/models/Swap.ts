@@ -195,6 +195,10 @@ class Swap extends Model implements SwapType {
     return getLightningCurrency(base, quote, this.orderSide, false);
   }
 
+  get claimAmount() {
+    return this.onchainAmount;
+  }
+
   get failureDetails(): IncorrectAmountDetails | undefined {
     if (
       this.status === SwapUpdateEvent.TransactionLockupFailed &&

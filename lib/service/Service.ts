@@ -187,7 +187,7 @@ class Service {
     this.rateProvider = new RateProvider(
       this.logger,
       config.rates.interval,
-      config.swap.minSwapSizeMultipliers,
+      config.swap,
       currencies,
       this.walletManager,
       this.getFeeEstimation,
@@ -2067,6 +2067,7 @@ class Service {
       args.pairId,
       side,
       referral,
+      args.userLockAmount,
     );
     let percentageFee: number;
 

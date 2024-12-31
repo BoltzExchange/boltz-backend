@@ -162,6 +162,13 @@ type MinSwapSizeMultipliersConfig = {
   chain?: number;
 };
 
+type BatchConfig = {
+  symbol: string;
+
+  // Only allow batch claims for all amounts smaller than this value
+  batchOnlyAmount?: number;
+};
+
 type SwapConfig = {
   deferredClaimSymbols: string[];
   batchClaimInterval: string;
@@ -170,6 +177,8 @@ type SwapConfig = {
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
 
   overpayment?: OverPaymentConfig;
+
+  batch?: BatchConfig[];
 };
 
 type ConfigType = {

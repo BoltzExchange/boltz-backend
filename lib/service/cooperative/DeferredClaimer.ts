@@ -14,7 +14,9 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
+  mapToObject,
   splitPairId,
+  stringify,
 } from '../../Utils';
 import ElementsClient from '../../chain/ElementsClient';
 import DefaultMap from '../../consts/DefaultMap';
@@ -34,6 +36,7 @@ import ChainSwapRepository, {
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
+import FeeProvider from '../../rates/FeeProvider';
 import SwapOutputType from '../../swap/SwapOutputType';
 import WalletManager, { Currency } from '../../wallet/WalletManager';
 import {
@@ -86,6 +89,7 @@ class DeferredClaimer extends CoopSignerBase<{
     walletManager: WalletManager,
     swapOutputType: SwapOutputType,
     private readonly config: SwapConfig,
+    private readonly feeProvider: FeeProvider,
   ) {
     super(logger, walletManager, swapOutputType);
 
@@ -105,6 +109,12 @@ class DeferredClaimer extends CoopSignerBase<{
     this.logger.verbose(
       `Batch claim interval: ${this.config.batchClaimInterval} with expiry tolerance of ${this.config.expiryTolerance} minutes`,
     );
+
+    if (this.feeProvider.batchThresholds.size > 0) {
+      this.logger.verbose(
+        `Batch threshold amounts: ${stringify(mapToObject(this.feeProvider.batchThresholds))}`,
+      );
+    }
 
     try {
       await this.batchClaimLeftovers();
@@ -679,6 +689,23 @@ class DeferredClaimer extends CoopSignerBase<{
         chainCurrency,
         toClaim: undefined,
       };
+    }
+
+    {
+      const batchThreshold = this.feeProvider.batchThresholds.get(
+        chainCurrency.symbol,
+      );
+
+      if (
+        batchThreshold !== undefined &&
+        swap.claimAmount !== undefined &&
+        swap.claimAmount < batchThreshold
+      ) {
+        return {
+          chainCurrency,
+          toClaim: undefined,
+        };
+      }
     }
 
     let toClaim: AnySwapWithPreimage<T> | undefined;

@@ -135,6 +135,19 @@ describe('DeferredClaimer', () => {
       deferredClaimSymbols: ['BTC', 'RBTC', 'TRC', 'DOGE'],
       expiryTolerance: 10,
       batchClaimInterval: '*/15 * * * *',
+      batch: [
+        {
+          symbol: 'TEST',
+          batchOnlyAmount: 21,
+        },
+        {
+          symbol: 'ZERO',
+          batchOnlyAmount: 0,
+        },
+        {
+          symbol: 'UNDEFINED',
+        },
+      ],
     },
   );
 
@@ -447,6 +460,9 @@ describe('DeferredClaimer', () => {
         1,
       );
       expect(claimer['batchClaimSchedule']).not.toBeUndefined();
+
+      expect(claimer['batchOnlyAmounts'].size).toEqual(1);
+      expect(claimer['batchOnlyAmounts'].get('TEST')).toEqual(21);
     });
 
     test('should not crash when batch claim of leftovers fails', async () => {
@@ -959,6 +975,18 @@ describe('DeferredClaimer', () => {
           orderSide: OrderSide.BUY,
         } as any),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+    });
+
+    test('should throw when getting cooperative details for a swap that is below threshold', async () => {
+      const { swap, preimage } = await createClaimableOutput();
+      (swap as any).claimAmount = 1;
+
+      claimer['batchOnlyAmounts'].set('BTC', 2);
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+      await expect(claimer.getCooperativeDetails(swap)).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(),
+      );
     });
   });
 

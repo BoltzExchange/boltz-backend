@@ -1,4 +1,4 @@
-import { MinSwapSizeMultipliersConfig } from '../Config';
+import { MinSwapSizeMultipliersConfig, SwapConfig } from '../Config';
 import Logger from '../Logger';
 import {
   getPairId,
@@ -58,21 +58,31 @@ class RateProvider {
   constructor(
     private readonly logger: Logger,
     private readonly rateUpdateInterval: number,
-    minSwapSizeMultipliersConfig: MinSwapSizeMultipliersConfig | undefined,
+    swapConfig: SwapConfig | undefined,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {
+    const batchThresholds = new Map<string, number>(
+      (swapConfig?.batch || [])
+        .filter(
+          (cfg) =>
+            cfg.batchOnlyAmount !== undefined && cfg.batchOnlyAmount !== 0,
+        )
+        .map((cfg) => [cfg.symbol, cfg.batchOnlyAmount!]),
+    );
+
     this.feeProvider = new FeeProvider(
       this.logger,
       walletManager,
       this.dataAggregator,
       getFeeEstimation,
+      batchThresholds,
     );
     this.parseCurrencies(Array.from(currencies.values()));
 
     const minSwapSizeMultipliers = RateProvider.parseMinSwapSizeMultipliers(
-      minSwapSizeMultipliersConfig,
+      swapConfig?.minSwapSizeMultipliers,
     );
     this.logger.debug(
       `Using minimal swap size limit multipliers: ${stringify(

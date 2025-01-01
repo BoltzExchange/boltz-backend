@@ -138,6 +138,10 @@ export const prepareTx = async (
     res.swapOutput = detectSwap(res.redeemScript, transaction);
   }
 
+  if (res.swapOutput === undefined) {
+    throw 'could not find swap output';
+  }
+
   return res;
 };
 

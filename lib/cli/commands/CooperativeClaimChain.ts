@@ -91,7 +91,7 @@ export const handler = async (
     claimType,
     claimTree,
     ECPair.fromPrivateKey(getHexBuffer(argv.claimKeys)),
-    extractRefundPublicKeyFromReverseSwapTree,
+    [extractRefundPublicKeyFromReverseSwapTree],
     lockupTx,
   );
   const claimTx = prepareCooperativeTransaction(
@@ -118,7 +118,7 @@ export const handler = async (
     theirClaimType,
     refundTree,
     ECPair.fromPrivateKey(getHexBuffer(argv.refundKeys)),
-    extractClaimPublicKeyFromReverseSwapTree,
+    [extractClaimPublicKeyFromReverseSwapTree],
     parseTransaction(
       theirClaimType,
       swapTransactions.userLock!.transaction.hex!,

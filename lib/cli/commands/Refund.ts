@@ -1,4 +1,7 @@
-import { extractClaimPublicKeyFromSwapTree } from 'boltz-core';
+import {
+  extractClaimPublicKeyFromReverseSwapTree,
+  extractClaimPublicKeyFromSwapTree,
+} from 'boltz-core';
 import { Arguments } from 'yargs';
 import { constructRefundTransaction } from '../../Core';
 import { stringify } from '../../Utils';
@@ -33,7 +36,10 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
     transaction,
     redeemScript,
     destinationAddress,
-  } = await prepareTx(argv, extractClaimPublicKeyFromSwapTree);
+  } = await prepareTx(argv, [
+    extractClaimPublicKeyFromSwapTree,
+    extractClaimPublicKeyFromReverseSwapTree,
+  ]);
 
   const refundTransaction = constructRefundTransaction(
     walletStub,

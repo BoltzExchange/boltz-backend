@@ -88,7 +88,7 @@ export const callback = <T extends GrpcResponse>(
 
 export const prepareTx = async (
   argv: Arguments<any>,
-  keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
+  keyExtractionFuncs: ((tree: Types.SwapTree) => Buffer)[],
 ) => {
   await setup();
 
@@ -122,7 +122,7 @@ export const prepareTx = async (
     const { musig, swapOutput } = musigFromExtractedKey(
       type,
       res.keys,
-      keyExtractionFunc(tree),
+      keyExtractionFuncs.map((fn) => fn(tree)),
       tree,
       transaction,
     );
@@ -184,31 +184,37 @@ export const printError = (error: Error): void => {
 export const musigFromExtractedKey = (
   type: CurrencyType,
   ourKeys: ECPairInterface,
-  theirPublicKey: Buffer,
+  possibleTheirPublicKeys: Buffer[],
   tree: Types.SwapTree,
   lockupTx: Transaction | LiquidTransaction,
 ) => {
-  for (const tieBreaker of ['02', '03']) {
-    const compressedKey = Buffer.concat([
-      getHexBuffer(tieBreaker),
-      theirPublicKey,
-    ]);
+  for (const theirPublicKey of possibleTheirPublicKeys) {
+    if (!Buffer.isBuffer(theirPublicKey)) {
+      continue;
+    }
 
-    for (const keys of [
-      [compressedKey, ourKeys.publicKey],
-      [ourKeys.publicKey, compressedKey],
-    ]) {
-      const musig = new Musig(zkp, ourKeys, randomBytes(32), keys);
-      const tweakedKey = tweakMusig(type, musig, tree);
+    for (const tieBreaker of ['02', '03']) {
+      const compressedKey = Buffer.concat([
+        getHexBuffer(tieBreaker),
+        theirPublicKey,
+      ]);
 
-      const swapOutput = detectSwap(tweakedKey, lockupTx);
-      if (swapOutput !== undefined) {
-        return {
-          musig,
-          tweakedKey,
-          swapOutput,
-          theirPublicKey: compressedKey,
-        };
+      for (const keys of [
+        [compressedKey, ourKeys.publicKey],
+        [ourKeys.publicKey, compressedKey],
+      ]) {
+        const musig = new Musig(zkp, ourKeys, randomBytes(32), keys);
+        const tweakedKey = tweakMusig(type, musig, tree);
+
+        const swapOutput = detectSwap(tweakedKey, lockupTx);
+        if (swapOutput !== undefined) {
+          return {
+            musig,
+            tweakedKey,
+            swapOutput,
+            theirPublicKey: compressedKey,
+          };
+        }
       }
     }
   }

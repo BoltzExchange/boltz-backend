@@ -1,5 +1,6 @@
 import {
   SwapTreeSerializer,
+  extractClaimPublicKeyFromReverseSwapTree,
   extractClaimPublicKeyFromSwapTree,
 } from 'boltz-core';
 import { Arguments } from 'yargs';
@@ -48,7 +49,10 @@ export const handler = async (
       currencyType,
       SwapTreeSerializer.deserializeSwapTree(argv.swapTree),
       ECPair.fromPrivateKey(getHexBuffer(argv.privateKey)),
-      extractClaimPublicKeyFromSwapTree,
+      [
+        extractClaimPublicKeyFromSwapTree,
+        extractClaimPublicKeyFromReverseSwapTree,
+      ],
       lockupTx,
     );
 

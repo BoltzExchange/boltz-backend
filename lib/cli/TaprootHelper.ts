@@ -25,26 +25,27 @@ export const setupCooperativeTransaction = async (
   currencyType: CurrencyType,
   swapTree: Types.SwapTree,
   keys: ECPairInterface,
-  keyExtractionFunc: (tree: Types.SwapTree) => Buffer,
+  keyExtractionFuncs: ((tree: Types.SwapTree) => Buffer)[],
   lockupTx: Transaction | LiquidTransaction,
 ) => {
   await setup();
 
-  const { musig, tweakedKey, theirPublicKey } = musigFromExtractedKey(
+  const foundOutput = musigFromExtractedKey(
     currencyType,
     keys,
-    keyExtractionFunc(swapTree),
+    keyExtractionFuncs.map((fn) => fn(swapTree)),
     swapTree,
     lockupTx,
   );
+  if (foundOutput === undefined) {
+    throw 'could not find swap output';
+  }
 
   return {
+    ...foundOutput,
     keys,
-    musig,
     network,
-    tweakedKey,
     currencyType,
-    theirPublicKey,
   };
 };
 

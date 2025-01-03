@@ -1,7 +1,6 @@
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { getHexString, getUnixTime } from '../../../../lib/Utils';
-import { ClientStatus } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
 import * as noderpc from '../../../../lib/proto/cln/node_pb';
@@ -112,6 +111,32 @@ describe('ClnClient', () => {
     });
   });
 
+  describe('sendPayment', () => {
+    test('should send payments', async () => {
+      const invoice = await bitcoinLndClient.addInvoice(100);
+
+      const res = await clnClient.sendPayment(invoice.paymentRequest);
+
+      expect(res.feeMsat).toEqual(0);
+      expect(getHexString(crypto.sha256(res.preimage))).toEqual(
+        getHexString(Buffer.from(invoice.rHash as string, 'base64')),
+      );
+    });
+
+    test('should handle payment failures', async () => {
+      const invoice = await bitcoinLndClient.addInvoice(100);
+      await bitcoinLndClient.cancelHoldInvoice(
+        Buffer.from(invoice.rHash as string, 'base64'),
+      );
+
+      await expect(
+        clnClient.sendPayment(invoice.paymentRequest),
+      ).rejects.toEqual(
+        "Destination said it doesn't know invoice: incorrect_or_unknown_payment_details",
+      );
+    });
+  });
+
   test('should fail settle for invalid states', async () => {
     await expect(clnClient.settleHoldInvoice(randomBytes(32))).rejects.toEqual(
       expect.anything(),
@@ -142,15 +167,7 @@ describe('ClnClient', () => {
     );
   });
 
-  test.each`
-    name      | useMpay
-    ${'mpay'} | ${true}
-    ${'pay'}  | ${false}
-  `('should detect pending payments with $name', async ({ useMpay }) => {
-    if (!useMpay) {
-      clnClient['mpay']!.setClientStatus(ClientStatus.Disconnected);
-    }
-
+  test('should detect pending payments', async () => {
     const preimage = randomBytes(32);
     const invoice = await bitcoinLndClient.addHoldInvoice(
       10_000,
@@ -173,25 +190,13 @@ describe('ClnClient', () => {
 
     await bitcoinLndClient.settleHoldInvoice(preimage);
     expect((await payPromise).preimage).toEqual(preimage);
-
-    clnClient['mpay']!.setClientStatus(ClientStatus.Connected);
   });
 
-  test.each`
-    name      | useMpay
-    ${'mpay'} | ${true}
-    ${'pay'}  | ${false}
-  `('should detect successful payments with $name', async ({ useMpay }) => {
-    if (!useMpay) {
-      clnClient['mpay']!.setClientStatus(ClientStatus.Disconnected);
-    }
-
+  test('should detect successful payments', async () => {
     const invoice = (await bitcoinLndClient.addInvoice(10_000)).paymentRequest;
 
     const payRes = await clnClient.sendPayment(invoice);
     expect(await clnClient.checkPayStatus(invoice)).toEqual(payRes);
-
-    clnClient['mpay']!.setClientStatus(ClientStatus.Connected);
   });
 
   test('should not throw when getting pay status of BOLT12 invoices', async () => {
@@ -337,5 +342,16 @@ describe('ClnClient', () => {
 
     const routingHints = await clnClient.routingHints(channels[0].remotePubkey);
     expect(routingHints).toHaveLength(1);
+  });
+
+  test.each`
+    error                        | expected
+    ${{
+  message: 'Error calling method Xpay: RpcError { code: Some(203), message: "Destination said it doesn\'t know invoice: incorrect_or_unknown_payment_details", data: None }',
+}} | ${"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"}
+    ${{ message: 'gRPC error' }} | ${'gRPC error'}
+    ${'fail'}                    | ${'fail'}
+  `('should parse error', ({ error, expected }) => {
+    expect(clnClient['parseError'](error)).toEqual(expected);
   });
 });

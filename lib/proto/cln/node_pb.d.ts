@@ -18246,6 +18246,11 @@ export class GetroutesRequest extends jspb.Message {
     getFinalCltv(): number | undefined;
     setFinalCltv(value: number): GetroutesRequest;
 
+    hasMaxdelay(): boolean;
+    clearMaxdelay(): void;
+    getMaxdelay(): number | undefined;
+    setMaxdelay(value: number): GetroutesRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetroutesRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetroutesRequest): GetroutesRequest.AsObject;
@@ -18264,6 +18269,7 @@ export namespace GetroutesRequest {
         layersList: Array<string>,
         maxfeeMsat?: cln_primitives_pb.Amount.AsObject,
         finalCltv?: number,
+        maxdelay?: number,
     }
 }
 
@@ -18929,6 +18935,11 @@ export class XpayRequest extends jspb.Message {
     getPartialMsat(): cln_primitives_pb.Amount | undefined;
     setPartialMsat(value?: cln_primitives_pb.Amount): XpayRequest;
 
+    hasMaxdelay(): boolean;
+    clearMaxdelay(): void;
+    getMaxdelay(): number | undefined;
+    setMaxdelay(value: number): XpayRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): XpayRequest.AsObject;
     static toObject(includeInstance: boolean, msg: XpayRequest): XpayRequest.AsObject;
@@ -18947,6 +18958,7 @@ export namespace XpayRequest {
         layersList: Array<string>,
         retryFor?: number,
         partialMsat?: cln_primitives_pb.Amount.AsObject,
+        maxdelay?: number,
     }
 }
 

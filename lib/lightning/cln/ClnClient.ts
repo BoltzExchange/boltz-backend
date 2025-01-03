@@ -10,15 +10,10 @@ import { ClientStatus } from '../../consts/Enums';
 import { NodeType } from '../../db/models/ReverseSwap';
 import { NodeClient } from '../../proto/cln/node_grpc_pb';
 import * as noderpc from '../../proto/cln/node_pb';
-import {
-  DecodeResponse,
-  ListfundsOutputs,
-  ListpaysPays,
-} from '../../proto/cln/node_pb';
+import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
 import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
-import * as mpayrpc from '../../proto/mpay/mpay_pb';
 import { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
 import Errors from '../Errors';
@@ -40,12 +35,10 @@ import {
   RoutingHintsProvider,
   calculatePaymentFee,
 } from '../LightningClient';
-import Mpay from './MpayClient';
 import { getRoute } from './Router';
 import { ClnConfig, createSsl } from './Types';
 
 import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
-import DecodeType = DecodeResponse.DecodeType;
 
 class ClnClient
   extends BaseClient<EventTypes>
@@ -56,8 +49,6 @@ class ClnClient
   public static readonly moddedVersionSuffix = '-modded';
 
   public static readonly paymentPendingError = 'payment already pending';
-
-  public readonly mpay?: Mpay;
 
   private static readonly paymentMinFee = 121;
   private static readonly paymentTimeout = 300;
@@ -93,17 +84,6 @@ class ClnClient
 
     this.nodeUri = `${config.host}:${config.port}`;
     this.holdUri = `${config.hold.host}:${config.hold.port}`;
-
-    if (config.mpay) {
-      this.logger.verbose(
-        `Using mpay for ${ClnClient.serviceName} ${this.symbol}`,
-      );
-      this.mpay = new Mpay(logger, this.symbol, config.mpay);
-    } else {
-      this.logger.warn(
-        `Mpay not configured for ${ClnClient.serviceName} ${this.symbol}; using pay`,
-      );
-    }
   }
 
   public get type() {
@@ -130,14 +110,15 @@ class ClnClient
   };
 
   public static errIsIncorrectPaymentDetails = (err: string): boolean => {
-    return err.includes('WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS');
+    return (
+      err.includes('WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS') ||
+      err.includes('incorrect_or_unknown_payment_details')
+    );
   };
 
   public serviceName = (): string => {
     return ClnClient.serviceName;
   };
-
-  public useMpay = () => this.mpay !== undefined && this.mpay.isConnected();
 
   public connect = async (): Promise<boolean> => {
     if (!this.isConnected()) {
@@ -150,8 +131,6 @@ class ClnClient
         ...grpcOptions,
         'grpc.ssl_target_name_override': 'hold',
       });
-
-      this.mpay?.connect();
 
       try {
         await this.getInfo();
@@ -190,8 +169,6 @@ class ClnClient
       this.holdClient.close();
       this.holdClient = undefined;
     }
-
-    this.mpay?.disconnect();
 
     this.removeAllListeners();
 
@@ -572,25 +549,9 @@ class ClnClient
       ),
     );
 
-    // TODO: mpay support for bolt12
-    const useMpay =
-      this.useMpay() && decoded.type !== DecodeType.BOLT12_INVOICE;
-    this.logger.verbose(
-      `Using ${useMpay ? 'mpay' : 'pay'} for ${ClnClient.serviceName} ${this.symbol} invoice payment`,
-    );
+    const req = new noderpc.XpayRequest();
 
-    if (useMpay) {
-      return this.mpay!.sendPayment(
-        invoice,
-        maxFee,
-        ClnClient.paymentTimeout,
-        cltvDelta,
-      );
-    }
-
-    const req = new noderpc.PayRequest();
-
-    req.setBolt11(invoice);
+    req.setInvstring(invoice);
     req.setRetryFor(ClnClient.paymentTimeout);
 
     const feeAmount = new primitivesrpc.Amount();
@@ -601,23 +562,22 @@ class ClnClient
       req.setMaxdelay(cltvDelta);
     }
 
-    const res = await this.unaryNodeCall<
-      noderpc.PayRequest,
-      noderpc.PayResponse
-    >('pay', req, false);
+    try {
+      const res = await this.unaryNodeCall<
+        noderpc.XpayRequest,
+        noderpc.XpayResponse
+      >('xpay', req, false);
 
-    if (res.getStatus() !== noderpc.PayResponse.PayStatus.COMPLETE) {
-      // TODO: error message?
-      throw 'payment failed';
+      const fee =
+        BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.valueMsat);
+
+      return {
+        feeMsat: Number(fee),
+        preimage: Buffer.from(res.getPaymentPreimage_asU8()),
+      };
+    } catch (e) {
+      throw this.parseError(e);
     }
-
-    const fee =
-      BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.valueMsat);
-
-    return {
-      feeMsat: Number(fee),
-      preimage: Buffer.from(res.getPaymentPreimage_asU8()),
-    };
   };
 
   public subscribeSingleInvoice = (preimageHash: Buffer): void => {
@@ -718,26 +678,6 @@ class ClnClient
         feeMsat: Number(fee),
         preimage: Buffer.from(completedAttempts[0].getPreimage_asU8()),
       };
-    }
-
-    // ... has failed...
-    if (this.mpay !== undefined) {
-      for (const payStatus of (await this.mpay.payStatus(invoice)).statusList) {
-        for (const attempt of payStatus.attemptsList) {
-          if (
-            attempt.state ===
-              mpayrpc.PayStatusResponse.PayStatus.Attempt.AttemptState
-                .ATTEMPT_PENDING ||
-            attempt.failure === undefined
-          ) {
-            continue;
-          }
-
-          if (ClnClient.errIsIncorrectPaymentDetails(attempt.failure.message)) {
-            throw attempt.failure.message;
-          }
-        }
-      }
     }
 
     // ... or is still pending
@@ -846,6 +786,27 @@ class ClnClient
       this.emit('subscription.error', subscriptionName);
       setTimeout(() => this.reconnect(), this.RECONNECT_INTERVAL);
     }
+  };
+
+  private parseError = (error: unknown) => {
+    if (
+      typeof error === 'object' &&
+      'message' in error! &&
+      typeof error.message === 'string'
+    ) {
+      const msg = error.message as string;
+      const messagePrefix = 'message: "';
+      const messageSuffix = '", data:';
+
+      if (msg.includes(messagePrefix)) {
+        return msg.slice(
+          msg.indexOf(messagePrefix) + messagePrefix.length,
+          msg.indexOf(messageSuffix),
+        );
+      }
+    }
+
+    return formatError(error);
   };
 }
 

@@ -63,7 +63,6 @@ export const clnDataPath = `${resolve(
 
 export const clnCertsPath = `${clnDataPath}/certs`;
 export const clnHoldPath = `${clnDataPath}/hold`;
-export const clnMpayPath = `${clnDataPath}/mpay`;
 
 export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
   host: host,
@@ -78,13 +77,6 @@ export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
     rootCertPath: `${clnHoldPath}/ca.pem`,
     privateKeyPath: `${clnHoldPath}/client-key.pem`,
     certChainPath: `${clnHoldPath}/client.pem`,
-  },
-  mpay: {
-    host: host,
-    port: 9293,
-    rootCertPath: `${clnMpayPath}/ca.pem`,
-    privateKeyPath: `${clnMpayPath}/client-key.pem`,
-    certChainPath: `${clnMpayPath}/client.pem`,
   },
 });
 

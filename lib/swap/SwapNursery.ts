@@ -108,7 +108,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private readonly pendingPaymentTracker: PendingPaymentTracker;
 
   // Maps
-  private currencies = new Map<string, Currency>();
+  public currencies = new Map<string, Currency>();
 
   // Locks
   public readonly lock = new AsyncLock({
@@ -128,7 +128,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private nodeSwitch: NodeSwitch,
     private rateProvider: RateProvider,
     timeoutDeltaProvider: TimeoutDeltaProvider,
-    private walletManager: WalletManager,
+    public walletManager: WalletManager,
     private swapOutputType: SwapOutputType,
     private retryInterval: number,
     blocks: Blocks,

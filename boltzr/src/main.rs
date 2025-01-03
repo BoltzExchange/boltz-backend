@@ -195,11 +195,17 @@ async fn main() {
     let (swap_status_update_tx, _swap_status_update_rx) =
         tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);
 
+    let swap_manager = Arc::new(Manager::new(
+        cancellation_token.clone(),
+        currencies,
+        db_pool.clone(),
+    ));
+
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
         log_reload_handler,
-        Arc::new(Manager::new(currencies, db_pool.clone())),
+        swap_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_caller,
@@ -253,6 +259,10 @@ async fn main() {
         }
     });
 
+    let swap_manager_handler = tokio::spawn(async move {
+        swap_manager.start().await;
+    });
+
     ctrlc::set_handler(move || {
         info!("Got shutdown signal");
         cancellation_token.cancel();
@@ -269,6 +279,7 @@ async fn main() {
     api_handle.await.unwrap();
     grpc_handle.await.unwrap();
     status_ws_handler.await.unwrap();
+    swap_manager_handler.await.unwrap();
     notification_listener_handle.await.unwrap();
 
     #[cfg(feature = "metrics")]

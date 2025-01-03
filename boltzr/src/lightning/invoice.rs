@@ -34,7 +34,15 @@ pub enum Invoice {
 }
 
 impl Invoice {
-    fn is_for_network(&self, network: wallet::Network) -> bool {
+    pub fn is_expired(&self) -> bool {
+        match self {
+            Invoice::Bolt11(invoice) => invoice.is_expired(),
+            Invoice::Offer(offer) => offer.is_expired(),
+            Invoice::Bolt12(invoice) => invoice.is_expired(),
+        }
+    }
+
+    pub fn is_for_network(&self, network: wallet::Network) -> bool {
         let chain_hash = Self::network_to_chain_hash(network);
 
         match self {
@@ -112,6 +120,7 @@ mod test {
     };
     use crate::wallet;
     use bech32::FromBase32;
+    use rstest::*;
     use std::str::FromStr;
 
     const BOLT12_OFFER: &str = "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2q3skgumxzcssyeyreggqmet8r4k6krvd3knppsx6c8v5g7tj8hcuq8lleta9ve5n";
@@ -211,5 +220,14 @@ mod test {
                     .into()
             )
         );
+    }
+
+    #[rstest]
+    #[case(BOLT11_INVOICE, true)]
+    #[case(BOLT12_INVOICE, true)]
+    #[case(BOLT12_OFFER, false)]
+    fn test_invoice_is_expired(#[case] invoice: &str, #[case] expected: bool) {
+        let res = decode(wallet::Network::Regtest, invoice).unwrap();
+        assert_eq!(res.is_expired(), expected);
     }
 }

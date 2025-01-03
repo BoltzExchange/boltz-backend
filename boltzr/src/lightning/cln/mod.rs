@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 #[allow(clippy::enum_variant_names)]
 mod cln_rpc {
@@ -67,7 +67,7 @@ impl Cln {
         let res = self
             .cln
             .fetch_invoice(FetchinvoiceRequest {
-                offer,
+                offer: offer.clone(),
                 amount_msat: Some(Amount { msat: amount_msat }),
                 timeout: None,
                 quantity: None,
@@ -79,6 +79,10 @@ impl Cln {
             })
             .await
             .map_err(Self::parse_error)?;
+        debug!(
+            "Fetched invoice for {}msat for offer {}",
+            amount_msat, offer
+        );
 
         Ok(res.into_inner().invoice)
     }

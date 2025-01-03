@@ -41,6 +41,7 @@ fn get_swap_filters(
             SwapUpdate::InvoicePending,
             SwapUpdate::InvoiceFailedToPay,
             SwapUpdate::TransactionClaimed,
+            SwapUpdate::TransactionClaimPending,
         ])),
     ))?;
 
@@ -231,6 +232,12 @@ mod test {
 
         impl SwapHelper for SwapHelper {
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
+            fn update_status(
+                &self,
+                id: &str,
+                status: SwapUpdate,
+                failure_reason: Option<String>,
+            ) -> QueryResponse<usize>;
         }
     }
 
@@ -322,6 +329,8 @@ mod test {
                     status: "".to_string(),
                     pair: "BTC/BTC".to_string(),
                     lockupAddress: address_bitcoin.to_string(),
+                    invoice: None,
+                    failureReason: None,
                 },
                 Swap {
                     orderSide: 1,
@@ -329,6 +338,8 @@ mod test {
                     status: "".to_string(),
                     pair: "L-BTC/BTC".to_string(),
                     lockupAddress: address_elements.to_string(),
+                    invoice: None,
+                    failureReason: None,
                 },
             ])
         });
@@ -527,6 +538,8 @@ mod test {
                 pair: "".to_string(),
                 status: "".to_string(),
                 lockupAddress: "".to_string(),
+                invoice: None,
+                failureReason: None,
             },
         );
         assert!(currency.cloned().is_some());
@@ -545,6 +558,8 @@ mod test {
                 pair: "".to_string(),
                 status: "".to_string(),
                 lockupAddress: "".to_string(),
+                invoice: None,
+                failureReason: None,
             }
         )
         .is_none());
@@ -562,6 +577,8 @@ mod test {
                 pair: "".to_string(),
                 status: "".to_string(),
                 lockupAddress: "".to_string(),
+                invoice: None,
+                failureReason: None,
             }
         )
         .is_none());
@@ -576,6 +593,8 @@ mod test {
             pair: "".to_string(),
             status: "".to_string(),
             lockupAddress: "".to_string(),
+            invoice: None,
+            failureReason: None,
         };
         let address = "bcrt1pjcv9r3jeug6xmgug6hu0p4lux7r9996yxk9m2xxammfqq4kxdvkqhdu0h5";
 
@@ -594,6 +613,8 @@ mod test {
             pair: "".to_string(),
             status: "".to_string(),
             lockupAddress: "".to_string(),
+            invoice: None,
+            failureReason: None,
         };
 
         assert_eq!(decode_script(&wallet, &swap, "invalid"), None);

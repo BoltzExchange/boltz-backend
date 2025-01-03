@@ -13,8 +13,12 @@ pub enum SwapUpdate {
     TransactionMempool,
     #[strum(serialize = "transaction.confirmed")]
     TransactionConfirmed,
+    #[strum(serialize = "transaction.claim.pending")]
+    TransactionClaimPending,
     #[strum(serialize = "transaction.claimed")]
     TransactionClaimed,
+    #[strum(serialize = "transaction.lockupFailed")]
+    TransactionLockupFailed,
 
     #[strum(serialize = "transaction.server.mempool")]
     TransactionServerMempool,

@@ -11,11 +11,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    #[allow(non_snake_case)]
     swaps (id) {
         id -> Text,
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
+        failureReason -> Nullable<Text>,
+        invoice -> Nullable<Text>,
         lockupAddress -> Text,
     }
 }

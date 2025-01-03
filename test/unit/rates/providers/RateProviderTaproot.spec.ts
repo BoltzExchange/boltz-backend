@@ -1,5 +1,6 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
+import Referral from '../../../../lib/db/models/Referral';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderTaproot from '../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../lib/service/Errors';
@@ -112,14 +113,20 @@ describe('RateProviderTaproot', () => {
         provider.getSubmarinePairs().get('L-BTC')!.get('BTC')!.fees.percentage,
       ).toEqual(0.1);
 
+      const referral = {
+        premiumForPairs: jest.fn().mockReturnValue(10),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
       expect(
-        provider
-          .getSubmarinePairs({
-            submarinePremium: 10,
-          } as any)
-          .get('L-BTC')!
-          .get('BTC')!.fees.percentage,
+        provider.getSubmarinePairs(referral).get('L-BTC')!.get('BTC')!.fees
+          .percentage,
       ).toEqual(0.2);
+
+      expect(referral.premiumForPairs).toHaveBeenCalledWith(
+        ['L-BTC/BTC', 'BTC/L-BTC'],
+        SwapType.Submarine,
+      );
 
       expect(
         provider.getSubmarinePairs().get('L-BTC')!.get('BTC')!.fees.percentage,
@@ -131,14 +138,20 @@ describe('RateProviderTaproot', () => {
         provider.getReversePairs().get('BTC')!.get('L-BTC')!.fees.percentage,
       ).toEqual(0.5);
 
+      const referral = {
+        premiumForPairs: jest.fn().mockReturnValue(15),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
       expect(
-        provider
-          .getReversePairs({
-            reversePremium: 15,
-          } as any)
-          .get('BTC')!
-          .get('L-BTC')!.fees.percentage,
+        provider.getReversePairs(referral).get('BTC')!.get('L-BTC')!.fees
+          .percentage,
       ).toEqual(0.65);
+
+      expect(referral.premiumForPairs).toHaveBeenCalledWith(
+        ['BTC/L-BTC', 'L-BTC/BTC'],
+        SwapType.ReverseSubmarine,
+      );
 
       expect(
         provider.getReversePairs().get('BTC')!.get('L-BTC')!.fees.percentage,
@@ -150,14 +163,20 @@ describe('RateProviderTaproot', () => {
         provider.getChainPairs().get('BTC')!.get('L-BTC')!.fees.percentage,
       ).toEqual(0.25);
 
+      const referral = {
+        premiumForPairs: jest.fn().mockReturnValue(-10),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
       expect(
-        provider
-          .getChainPairs({
-            chainPremium: -10,
-          } as any)
-          .get('BTC')!
-          .get('L-BTC')!.fees.percentage,
+        provider.getChainPairs(referral).get('BTC')!.get('L-BTC')!.fees
+          .percentage,
       ).toEqual(0.15);
+
+      expect(referral.premiumForPairs).toHaveBeenCalledWith(
+        ['L-BTC/BTC', 'BTC/L-BTC'],
+        SwapType.Chain,
+      );
 
       expect(
         provider.getChainPairs().get('BTC')!.get('L-BTC')!.fees.percentage,

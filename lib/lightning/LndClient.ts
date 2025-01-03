@@ -412,11 +412,13 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    * @param invoice an invoice for a payment within the Lightning Network
    * @param cltvDelta CLTV delta limit for the payment
    * @param outgoingChannelId channel through which the invoice should be paid
+   * @param maxPaymentFeeRatio max payment fee ratio to override the default of the client
    */
   public sendPayment = async (
     invoice: string,
     cltvDelta?: number,
     outgoingChannelId?: string,
+    maxPaymentFeeRatio?: number,
   ): Promise<PaymentResponse> => {
     const decoded = await this.decodeInvoice(invoice);
 
@@ -429,7 +431,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       request.setFeeLimitSat(
         calculatePaymentFee(
           satToMsat(decoded.value),
-          this.maxPaymentFeeRatio,
+          maxPaymentFeeRatio || this.maxPaymentFeeRatio,
           LndClient.paymentMinFee,
         ),
       );

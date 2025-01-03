@@ -58,6 +58,7 @@ export const createChainSwap = async (
     id: generateId(),
     pair: 'L-BTC/BTC',
     orderSide: OrderSide.BUY,
+    createdRefundSignature: false,
     preimageHash: getHexString(randomBytes(32)),
   };
 

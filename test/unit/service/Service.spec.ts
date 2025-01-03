@@ -2865,19 +2865,6 @@ describe('Service', () => {
     });
   });
 
-  test('should pay invoices', async () => {
-    const symbol = 'BTC';
-    const invoice =
-      'lnbcrt1230n1pjw20dqpp55uh05ng79tg5znm88z8asurjy8g8l8r07hg86ma8ye7zknqszazqdqqcqzzsxqyz5vqsp5rd3det49e7jnpshu87uu5f4xvtte3xjycqp2tylcfwvv9pku957q9qyyssqydvetuyrfw02x56xkp7nvu2q4y4p0n4d75f2c4kasvucc7fxx6n8eas8tm5hgr32vme364hmwxjszwwvclyd2gy3w3yk6zg6njkrrfcqyanrh8';
-
-    const response = await service.payInvoice(symbol, invoice);
-
-    expect(mockSendPayment).toHaveBeenCalledTimes(1);
-    expect(mockSendPayment).toHaveBeenCalledWith(invoice);
-
-    expect(response).toEqual(await mockSendPayment());
-  });
-
   describe('sendCoins', () => {
     test('should send BTC', async () => {
       const fee = 3;

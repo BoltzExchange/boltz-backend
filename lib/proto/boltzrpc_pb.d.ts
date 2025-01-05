@@ -1028,6 +1028,122 @@ export namespace GetLabelResponse {
     }
 }
 
+export class GetReferralsRequest extends jspb.Message { 
+
+    hasId(): boolean;
+    clearId(): void;
+    getId(): string | undefined;
+    setId(value: string): GetReferralsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetReferralsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetReferralsRequest): GetReferralsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetReferralsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetReferralsRequest;
+    static deserializeBinaryFromReader(message: GetReferralsRequest, reader: jspb.BinaryReader): GetReferralsRequest;
+}
+
+export namespace GetReferralsRequest {
+    export type AsObject = {
+        id?: string,
+    }
+}
+
+export class GetReferralsResponse extends jspb.Message { 
+    clearReferralList(): void;
+    getReferralList(): Array<GetReferralsResponse.Referral>;
+    setReferralList(value: Array<GetReferralsResponse.Referral>): GetReferralsResponse;
+    addReferral(value?: GetReferralsResponse.Referral, index?: number): GetReferralsResponse.Referral;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetReferralsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetReferralsResponse): GetReferralsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetReferralsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetReferralsResponse;
+    static deserializeBinaryFromReader(message: GetReferralsResponse, reader: jspb.BinaryReader): GetReferralsResponse;
+}
+
+export namespace GetReferralsResponse {
+    export type AsObject = {
+        referralList: Array<GetReferralsResponse.Referral.AsObject>,
+    }
+
+
+    export class Referral extends jspb.Message { 
+        getId(): string;
+        setId(value: string): Referral;
+
+        hasConfig(): boolean;
+        clearConfig(): void;
+        getConfig(): string | undefined;
+        setConfig(value: string): Referral;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Referral.AsObject;
+        static toObject(includeInstance: boolean, msg: Referral): Referral.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Referral, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Referral;
+        static deserializeBinaryFromReader(message: Referral, reader: jspb.BinaryReader): Referral;
+    }
+
+    export namespace Referral {
+        export type AsObject = {
+            id: string,
+            config?: string,
+        }
+    }
+
+}
+
+export class SetReferralRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): SetReferralRequest;
+
+    hasConfig(): boolean;
+    clearConfig(): void;
+    getConfig(): string | undefined;
+    setConfig(value: string): SetReferralRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetReferralRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetReferralRequest): SetReferralRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetReferralRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetReferralRequest;
+    static deserializeBinaryFromReader(message: SetReferralRequest, reader: jspb.BinaryReader): SetReferralRequest;
+}
+
+export namespace SetReferralRequest {
+    export type AsObject = {
+        id: string,
+        config?: string,
+    }
+}
+
+export class SetReferralResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetReferralResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetReferralResponse): SetReferralResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetReferralResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetReferralResponse;
+    static deserializeBinaryFromReader(message: SetReferralResponse, reader: jspb.BinaryReader): SetReferralResponse;
+}
+
+export namespace SetReferralResponse {
+    export type AsObject = {
+    }
+}
+
 export class DevHeapDumpRequest extends jspb.Message { 
 
     hasPath(): boolean;

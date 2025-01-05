@@ -7,6 +7,8 @@ import Logger, { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import { getHexString, getUnixTime } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
+import Referral, { ReferralConfig } from '../db/models/Referral';
+import ReferralRepository from '../db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
@@ -453,6 +455,72 @@ class GrpcService {
       }
 
       return res;
+    });
+  };
+
+  public getReferrals: handleUnaryCall<
+    boltzrpc.GetReferralsRequest,
+    boltzrpc.GetReferralsResponse
+  > = async (call, callback) => {
+    const formatReferral = (referral: Referral) => {
+      const ref = new boltzrpc.GetReferralsResponse.Referral();
+      ref.setId(referral.id);
+
+      if (referral.config !== null && referral.config !== undefined) {
+        ref.setConfig(JSON.stringify(referral.config));
+      }
+
+      return ref;
+    };
+
+    await this.handleCallback(call, callback, async () => {
+      const { id } = call.request.toObject();
+
+      if (id == undefined || id === '') {
+        const referrals = await ReferralRepository.getReferrals();
+
+        const res = new boltzrpc.GetReferralsResponse();
+        res.setReferralList(referrals.map(formatReferral));
+
+        return res;
+      } else {
+        const referral = await ReferralRepository.getReferralById(id);
+
+        if (referral === null) {
+          throw `could not find referral with id: ${id}`;
+        }
+
+        const res = new boltzrpc.GetReferralsResponse();
+        res.setReferralList([formatReferral(referral)]);
+
+        return res;
+      }
+    });
+  };
+
+  public setReferral: handleUnaryCall<
+    boltzrpc.SetReferralRequest,
+    boltzrpc.SetReferralResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { id, config } = call.request.toObject();
+
+      const referral = await ReferralRepository.getReferralById(id);
+      if (referral === null) {
+        throw `could not find referral with id: ${id}`;
+      }
+
+      let parsedConfig: ReferralConfig | null = null;
+      if (config !== null && config !== undefined && config !== '') {
+        parsedConfig = JSON.parse(config);
+        if (typeof parsedConfig !== 'object') {
+          throw 'config is not an object';
+        }
+      }
+
+      await ReferralRepository.setConfig(referral, parsedConfig);
+
+      return new boltzrpc.SetReferralResponse();
     });
   };
 

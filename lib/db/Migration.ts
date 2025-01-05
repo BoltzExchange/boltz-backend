@@ -1,7 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
 import bolt11, { RoutingInfo } from 'bolt11';
 import { detectSwap } from 'boltz-core';
-import { DataTypes, Op, Sequelize } from 'sequelize';
+import { DataTypes, Op, QueryTypes, Sequelize } from 'sequelize';
 import Logger from '../Logger';
 import {
   createApiCredential,
@@ -12,7 +12,7 @@ import {
   getLightningCurrency,
   splitPairId,
 } from '../Utils';
-import { SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
+import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
 import { Currency } from '../wallet/WalletManager';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
@@ -21,7 +21,7 @@ import LightningPayment, {
   LightningPaymentStatus,
 } from './models/LightningPayment';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
-import Referral from './models/Referral';
+import Referral, { ReferralConfig } from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
@@ -93,7 +93,7 @@ const decodeInvoice = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 13;
+  private static latestSchemaVersion = 14;
 
   private toBackFill: number[] = [];
 
@@ -595,6 +595,63 @@ class Migration {
             type: new DataTypes.INTEGER(),
             allowNull: true,
           });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 13: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Referral.tableName, 'config', {
+            type: new DataTypes.JSON(),
+            allowNull: true,
+          });
+
+        const refs: {
+          id: string;
+          submarinePremium: number;
+          reversePremium: number;
+          chainPremium: number;
+        }[] = await this.sequelize.query(
+          'SELECT id, "submarinePremium", "reversePremium", "chainPremium" FROM referrals',
+          {
+            type: QueryTypes.SELECT,
+          },
+        );
+
+        await this.sequelize.transaction(async (transaction) => {
+          for (const ref of refs) {
+            await Referral.update(
+              {
+                config: {
+                  premiums: {
+                    [SwapType.Submarine]: ref.submarinePremium || undefined,
+                    [SwapType.ReverseSubmarine]:
+                      ref.reversePremium || undefined,
+                    [SwapType.Chain]: ref.chainPremium || undefined,
+                  },
+                } as ReferralConfig,
+              },
+              {
+                transaction,
+                where: {
+                  id: ref.id,
+                },
+              },
+            );
+          }
+        });
+
+        await this.sequelize.query(
+          'ALTER TABLE referrals DROP COLUMN "submarinePremium"',
+        );
+        await this.sequelize.query(
+          'ALTER TABLE referrals DROP COLUMN "reversePremium"',
+        );
+        await this.sequelize.query(
+          'ALTER TABLE referrals DROP COLUMN "chainPremium"',
+        );
 
         await this.finishMigration(versionRow.version, currencies);
         break;

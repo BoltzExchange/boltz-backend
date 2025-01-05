@@ -138,4 +138,4 @@ class Referral extends Model implements ReferralType {
 }
 
 export default Referral;
-export { ReferralType };
+export { ReferralType, ReferralConfig };

@@ -21,18 +21,37 @@ describe('TransactionLabelRepository', () => {
     await database.close();
   });
 
-  test('should add labels', async () => {
-    const txId = 'id';
-    const symbol = 'BTC';
-    const label = 'important info';
+  describe('addLabel', () => {
+    test('should add labels', async () => {
+      const txId = 'id';
+      const symbol = 'BTC';
+      const label = 'important info';
 
-    await TransactionLabelRepository.addLabel(txId, symbol, label);
+      await TransactionLabelRepository.addLabel(txId, symbol, label);
 
-    const entry = await TransactionLabelRepository.getLabel(txId);
+      const entry = await TransactionLabelRepository.getLabel(txId);
 
-    expect(entry).not.toBeNull();
-    expect(entry!.id).toEqual(txId);
-    expect(entry!.symbol).toEqual(symbol);
-    expect(entry!.label).toEqual(label);
+      expect(entry).not.toBeNull();
+      expect(entry!.id).toEqual(txId);
+      expect(entry!.symbol).toEqual(symbol);
+      expect(entry!.label).toEqual(label);
+    });
+
+    test('should update existing labels', async () => {
+      const txId = 'id';
+      const symbol = 'BTC';
+      const originalLabel = 'original label';
+      const newLabel = 'updated label';
+
+      await TransactionLabelRepository.addLabel(txId, symbol, originalLabel);
+      await TransactionLabelRepository.addLabel(txId, symbol, newLabel);
+
+      const entry = await TransactionLabelRepository.getLabel(txId);
+
+      expect(entry).not.toBeNull();
+      expect(entry!.id).toEqual(txId);
+      expect(entry!.symbol).toEqual(symbol);
+      expect(entry!.label).toEqual(newLabel);
+    });
   });
 });

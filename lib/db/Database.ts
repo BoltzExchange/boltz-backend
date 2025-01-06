@@ -21,6 +21,7 @@ import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
 import TransactionLabel from './models/TransactionLabel';
+import TransactionLabelRepository from './repositories/TransactionLabelRepository';
 
 // To make sure that PostgreSQL types are parsed correctly
 types.setTypeParser(types.builtins.INT8, parseInt);
@@ -145,6 +146,8 @@ class Database {
     PendingLockupTransaction.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
     Rebroadcast.load(Database.sequelize);
+
+    TransactionLabelRepository.setLogger(this.logger);
   };
 }
 

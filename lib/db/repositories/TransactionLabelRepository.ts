@@ -1,14 +1,40 @@
+import Logger from '../../Logger';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
 import { AnySwap } from '../../consts/Types';
 import TransactionLabel from '../models/TransactionLabel';
 
 class TransactionLabelRepository {
-  public static addLabel = async (id: string, symbol: string, label: string) =>
-    TransactionLabel.create({
-      id,
-      label,
-      symbol,
-    });
+  public static logger?: Logger;
+
+  public static setLogger = (logger: Logger) => {
+    this.logger = logger;
+  };
+
+  public static addLabel = async (
+    id: string,
+    symbol: string,
+    label: string,
+  ) => {
+    try {
+      return await TransactionLabel.create({
+        id,
+        label,
+        symbol,
+      });
+    } catch (error) {
+      if ((error as any).name === 'SequelizeUniqueConstraintError') {
+        const existingLabel = await TransactionLabel.findOne({ where: { id } });
+        if (existingLabel) {
+          this.logger?.warn(
+            `Updating existing label for ${id} from "${existingLabel.label}" to "${label}"`,
+          );
+          return await existingLabel.update({ label });
+        }
+      }
+
+      throw error;
+    }
+  };
 
   public static getLabel = (id: string) =>
     TransactionLabel.findOne({

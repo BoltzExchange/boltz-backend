@@ -499,18 +499,6 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     type: SwapType,
     referral?: Referral | null,
   ): K => {
-    const applyLimitsOverride = (
-      compFunc: (...values: number[]) => number,
-      original: number,
-      override?: number,
-    ): number => {
-      if (override === undefined) {
-        return original;
-      }
-
-      return compFunc(original, override);
-    };
-
     return new Map(
       Array.from(map.entries()).map(([from, nested]) => [
         from,
@@ -530,12 +518,12 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
                 ...value,
                 limits: {
                   ...value.limits,
-                  minimal: applyLimitsOverride(
+                  minimal: this.applyOverride(
                     Math.max,
                     value.limits.minimal,
                     limits?.minimal,
                   ),
-                  maximal: applyLimitsOverride(
+                  maximal: this.applyOverride(
                     Math.min,
                     value.limits.maximal,
                     limits?.maximal,
@@ -554,6 +542,18 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         ),
       ]),
     ) as K;
+  };
+
+  private applyOverride = (
+    compFunc: (...values: number[]) => number,
+    original: number,
+    override?: number,
+  ): number => {
+    if (override === undefined) {
+      return original;
+    }
+
+    return compFunc(original, override);
   };
 }
 

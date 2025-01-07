@@ -919,7 +919,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseClaimRequest:
      *       type: object
-     *       required: ["preimage", "pubNonce", "transaction", "index"]
+     *       required: ["preimage"]
      *       properties:
      *         preimage:
      *           type: string
@@ -939,7 +939,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/reverse/{id}/claim:
      *   post:
-     *     description: Requests a partial signature for a cooperative Reverse Swap claim transaction
+     *     description: Requests a partial signature for a cooperative Reverse Swap claim transaction. To settle the invoice, but not claim the onchain HTLC (eg to create a batched claim in the future), only the preimage is required. If no transaction is provided, an empty object is returned as response.
      *     tags: [Reverse]
      *     parameters:
      *       - in: path
@@ -1948,25 +1948,42 @@ class SwapRouter extends RouterBase {
       req.body,
       [
         { name: 'id', type: 'string', optional: params.id !== undefined },
-        { name: 'index', type: 'number' },
         { name: 'preimage', type: 'string', hex: true },
-        { name: 'pubNonce', type: 'string', hex: true },
-        { name: 'transaction', type: 'string', hex: true },
+        { name: 'index', type: 'number', optional: true },
+        { name: 'pubNonce', type: 'string', hex: true, optional: true },
+        { name: 'transaction', type: 'string', hex: true, optional: true },
       ],
     );
+
+    const toSignParams = [pubNonce, index, transaction];
+    const allDefined = toSignParams.every((param) => param !== undefined);
+    const allUndefined = toSignParams.every((param) => param === undefined);
+
+    if (!allDefined && !allUndefined) {
+      throw 'pubNonce, index and transaction must be all set or all undefined';
+    }
 
     const sig = await this.service.musigSigner.signReverseSwapClaim(
       params.id || id,
       preimage,
-      pubNonce,
-      transaction,
-      index,
+      allDefined
+        ? {
+            index,
+            theirNonce: pubNonce,
+            rawTransaction: transaction,
+          }
+        : undefined,
     );
 
-    successResponse(res, {
-      pubNonce: getHexString(sig.pubNonce),
-      partialSignature: getHexString(sig.signature),
-    });
+    successResponse(
+      res,
+      sig !== undefined
+        ? {
+            pubNonce: getHexString(sig.pubNonce),
+            partialSignature: getHexString(sig.signature),
+          }
+        : {},
+    );
   };
 
   private getChain = async (req: Request, res: Response) => {

@@ -109,10 +109,12 @@ class MusigSigner {
   public signReverseSwapClaim = (
     swapId: string,
     preimage: Buffer,
-    theirNonce: Buffer,
-    rawTransaction: Buffer,
-    index: number,
-  ): Promise<PartialSignature> => {
+    toSign?: {
+      theirNonce: Buffer;
+      rawTransaction: Buffer;
+      index: number;
+    },
+  ): Promise<PartialSignature | undefined> => {
     return this.lock.acquire(
       MusigSigner.reverseSwapClaimSignatureLock,
       async () => {
@@ -154,6 +156,13 @@ class MusigSigner {
               await this.nursery.settleReverseSwapInvoice(swap, preimage);
             }
 
+            if (toSign === undefined) {
+              this.logger.debug(
+                `No transaction to sign for claim of Reverse Swap ${swap.id}`,
+              );
+              return undefined;
+            }
+
             this.logger.debug(
               `Creating partial signature for claim of Reverse Swap ${swap.id}`,
             );
@@ -175,9 +184,9 @@ class MusigSigner {
               swapTree,
               swap.keyIndex!,
               getHexBuffer(swap.claimPublicKey!),
-              theirNonce,
-              rawTransaction,
-              index,
+              toSign.theirNonce,
+              toSign.rawTransaction,
+              toSign.index,
             );
           },
         );

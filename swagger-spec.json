@@ -1465,7 +1465,7 @@
     },
     "/swap/reverse/{id}/claim": {
       "post": {
-        "description": "Requests a partial signature for a cooperative Reverse Swap claim transaction",
+        "description": "Requests a partial signature for a cooperative Reverse Swap claim transaction. To settle the invoice, but not claim the onchain HTLC (eg to create a batched claim in the future), only the preimage is required. If no transaction is provided, an empty object is returned as response.",
         "tags": [
           "Reverse"
         ],
@@ -2648,10 +2648,7 @@
       "ReverseClaimRequest": {
         "type": "object",
         "required": [
-          "preimage",
-          "pubNonce",
-          "transaction",
-          "index"
+          "preimage"
         ],
         "properties": {
           "preimage": {

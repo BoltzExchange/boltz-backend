@@ -356,207 +356,234 @@ describe('MusigSigner', () => {
     await expect(payPromise).rejects.toEqual(expect.anything());
   });
 
-  test('should create claim signature for reverse swaps', async () => {
-    const claimKeys = ECPair.makeRandom();
-    const refundKeys = ECPair.makeRandom();
-    const preimage = randomBytes(32);
+  describe('signReverseSwapClaim', () => {
+    test('should create claim signature for reverse swaps', async () => {
+      const claimKeys = ECPair.makeRandom();
+      const refundKeys = ECPair.makeRandom();
+      const preimage = randomBytes(32);
 
-    const tree = reverseSwapTree(
-      false,
-      crypto.sha256(preimage),
-      claimKeys.publicKey,
-      refundKeys.publicKey,
-      (await bitcoinClient.getBlockchainInfo()).blocks + 21,
-    );
+      const tree = reverseSwapTree(
+        false,
+        crypto.sha256(preimage),
+        claimKeys.publicKey,
+        refundKeys.publicKey,
+        (await bitcoinClient.getBlockchainInfo()).blocks + 21,
+      );
 
-    const musig = new Musig(zkp, claimKeys, randomBytes(32), [
-      refundKeys.publicKey,
-      claimKeys.publicKey,
-    ]);
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+      const musig = new Musig(zkp, claimKeys, randomBytes(32), [
+        refundKeys.publicKey,
+        claimKeys.publicKey,
+      ]);
+      const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
 
-    const swapOutputScript = Scripts.p2trOutput(tweakedKey);
+      const swapOutputScript = Scripts.p2trOutput(tweakedKey);
 
-    const lockupTx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
-          100_000,
-          undefined,
-          false,
-          '',
+      const lockupTx = Transaction.fromHex(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
+            100_000,
+            undefined,
+            false,
+            '',
+          ),
         ),
-      ),
-    );
+      );
 
-    const swapOutput = detectSwap(tweakedKey, lockupTx)!;
-    expect(swapOutput).not.toBeUndefined();
+      const swapOutput = detectSwap(tweakedKey, lockupTx)!;
+      expect(swapOutput).not.toBeUndefined();
 
-    const claimTx = constructClaimTransaction(
-      [
-        {
-          ...swapOutput,
-          preimage,
-          keys: refundKeys,
-          cooperative: true,
-          type: OutputType.Taproot,
-          txHash: lockupTx.getHash(),
-        },
-      ],
-      address.toOutputScript(
-        await bitcoinClient.getNewAddress(''),
-        Networks.bitcoinRegtest,
-      ),
-      300,
-      false,
-    );
-
-    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
-      keyIndex: 42,
-      pair: 'BTC/BTC',
-      version: SwapVersion.Taproot,
-      status: SwapUpdateEvent.TransactionConfirmed,
-      claimPublicKey: getHexString(claimKeys.publicKey),
-      preimageHash: getHexString(crypto.sha256(preimage)),
-      redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
-    });
-    WrappedSwapRepository.setPreimage = jest.fn();
-
-    btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
-
-    const boltzPartialSig = await signer.signReverseSwapClaim(
-      'claimable',
-      preimage,
-      Buffer.from(musig.getPublicNonce()),
-      claimTx.toBuffer(),
-      0,
-    );
-    expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledTimes(1);
-    expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledWith(
-      await ReverseSwapRepository.getReverseSwap({}),
-      preimage,
-    );
-    expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
-      expect.anything(),
-      preimage,
-    );
-
-    musig.aggregateNonces([[refundKeys.publicKey, boltzPartialSig.pubNonce]]);
-    musig.initializeSession(await hashForWitnessV1(btcCurrency, claimTx, 0));
-    musig.signPartial();
-    musig.addPartial(refundKeys.publicKey, boltzPartialSig.signature);
-
-    claimTx.setWitness(0, [musig.aggregatePartials()]);
-
-    await bitcoinClient.sendRawTransaction(claimTx.toHex());
-  });
-
-  test('should throw when creating claim signature for reverse swap that does not exist', async () => {
-    ReverseSwapRepository.getReverseSwap = jest
-      .fn()
-      .mockResolvedValue(undefined);
-
-    const id = 'notFound';
-    await expect(
-      signer.signReverseSwapClaim(
-        id,
-        Buffer.alloc(0),
-        Buffer.alloc(0),
-        Buffer.alloc(0),
-        0,
-      ),
-    ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
-
-    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
-    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({ id });
-  });
-
-  test.each`
-    status
-    ${SwapUpdateEvent.SwapCreated}
-    ${SwapUpdateEvent.TransactionFailed}
-  `(
-    'should throw when creating claim signature for reverse swap that has non claimable: $status',
-    async ({ status }) => {
-      ReverseSwapRepository.getReverseSwap = jest
-        .fn()
-        .mockResolvedValue({ status, version: SwapVersion.Taproot });
-
-      await expect(
-        signer.signReverseSwapClaim(
-          'nonClaimable',
-          Buffer.alloc(0),
-          Buffer.alloc(0),
-          Buffer.alloc(0),
-          0,
+      const claimTx = constructClaimTransaction(
+        [
+          {
+            ...swapOutput,
+            preimage,
+            keys: refundKeys,
+            cooperative: true,
+            type: OutputType.Taproot,
+            txHash: lockupTx.getHash(),
+          },
+        ],
+        address.toOutputScript(
+          await bitcoinClient.getNewAddress(''),
+          Networks.bitcoinRegtest,
         ),
-      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
-    },
-  );
-
-  test('should throw when creating claim signature for reverse swap with incorrect preimage', async () => {
-    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
-      version: SwapVersion.Taproot,
-      preimageHash: randomBytes(32),
-      status: SwapUpdateEvent.TransactionConfirmed,
-    });
-
-    await expect(
-      signer.signReverseSwapClaim(
-        'invalidPreimage',
-        randomBytes(32),
-        Buffer.alloc(0),
-        Buffer.alloc(0),
-        0,
-      ),
-    ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
-  });
-
-  test.each`
-    length
-    ${16}
-    ${31}
-    ${33}
-    ${64}
-  `(
-    'should throw when creating claim signature for reverse swap with preimage length $length',
-    async ({ length }) => {
-      const preimage = randomBytes(length);
+        300,
+        false,
+      );
 
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+        keyIndex: 42,
+        pair: 'BTC/BTC',
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.TransactionConfirmed,
+        claimPublicKey: getHexString(claimKeys.publicKey),
+        preimageHash: getHexString(crypto.sha256(preimage)),
+        redeemScript: JSON.stringify(
+          SwapTreeSerializer.serializeSwapTree(tree),
+        ),
+      });
+      WrappedSwapRepository.setPreimage = jest.fn();
+
+      btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
+
+      const boltzPartialSig = await signer.signReverseSwapClaim(
+        'claimable',
+        preimage,
+        {
+          index: 0,
+          rawTransaction: claimTx.toBuffer(),
+          theirNonce: Buffer.from(musig.getPublicNonce()),
+        },
+      );
+      expect(boltzPartialSig).toBeDefined();
+
+      expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledTimes(1);
+      expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledWith(
+        await ReverseSwapRepository.getReverseSwap({}),
+        preimage,
+      );
+      expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
+        expect.anything(),
+        preimage,
+      );
+
+      musig.aggregateNonces([
+        [refundKeys.publicKey, boltzPartialSig!.pubNonce],
+      ]);
+      musig.initializeSession(await hashForWitnessV1(btcCurrency, claimTx, 0));
+      musig.signPartial();
+      musig.addPartial(refundKeys.publicKey, boltzPartialSig!.signature);
+
+      claimTx.setWitness(0, [musig.aggregatePartials()]);
+
+      await bitcoinClient.sendRawTransaction(claimTx.toHex());
+    });
+
+    test('should just settle the swap when there is no transaction to sign', async () => {
+      const preimage = randomBytes(32);
+      const swap = {
+        id: 'claimable',
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.TransactionConfirmed,
         preimageHash: getHexString(crypto.sha256(preimage)),
+      } as Swap;
+
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(swap);
+
+      await expect(
+        signer.signReverseSwapClaim(swap.id, preimage),
+      ).resolves.toBeUndefined();
+
+      expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
+        swap,
+        preimage,
+      );
+
+      expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledTimes(1);
+      expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledWith(
+        swap,
+        preimage,
+      );
+    });
+
+    test('should throw when creating claim signature for reverse swap that does not exist', async () => {
+      ReverseSwapRepository.getReverseSwap = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      const id = 'notFound';
+      await expect(
+        signer.signReverseSwapClaim(id, Buffer.alloc(0), {
+          index: 0,
+          theirNonce: Buffer.alloc(0),
+          rawTransaction: Buffer.alloc(0),
+        }),
+      ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+
+      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({ id });
+    });
+
+    test.each`
+      status
+      ${SwapUpdateEvent.SwapCreated}
+      ${SwapUpdateEvent.TransactionFailed}
+    `(
+      'should throw when creating claim signature for reverse swap that has non claimable: $status',
+      async ({ status }) => {
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue({ status, version: SwapVersion.Taproot });
+
+        await expect(
+          signer.signReverseSwapClaim('nonClaimable', Buffer.alloc(0), {
+            index: 0,
+            theirNonce: Buffer.alloc(0),
+            rawTransaction: Buffer.alloc(0),
+          }),
+        ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+      },
+    );
+
+    test('should throw when creating claim signature for reverse swap with incorrect preimage', async () => {
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+        version: SwapVersion.Taproot,
+        preimageHash: randomBytes(32),
+        status: SwapUpdateEvent.TransactionConfirmed,
       });
 
       await expect(
-        signer.signReverseSwapClaim(
-          'invalidPreimage',
-          preimage,
-          Buffer.alloc(0),
-          Buffer.alloc(0),
-          0,
-        ),
+        signer.signReverseSwapClaim('invalidPreimage', randomBytes(32), {
+          index: 0,
+          theirNonce: Buffer.alloc(0),
+          rawTransaction: Buffer.alloc(0),
+        }),
       ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
-    },
-  );
-
-  test('should throw when creating claim signature for legacy reverse swap', async () => {
-    const id = 'id';
-    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
-      id,
-      version: SwapVersion.Legacy,
     });
 
-    await expect(
-      signer.signReverseSwapClaim(
+    test.each`
+      length
+      ${16}
+      ${31}
+      ${33}
+      ${64}
+    `(
+      'should throw when creating claim signature for reverse swap with preimage length $length',
+      async ({ length }) => {
+        const preimage = randomBytes(length);
+
+        ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.TransactionConfirmed,
+          preimageHash: getHexString(crypto.sha256(preimage)),
+        });
+
+        await expect(
+          signer.signReverseSwapClaim('invalidPreimage', preimage, {
+            index: 0,
+            theirNonce: Buffer.alloc(0),
+            rawTransaction: Buffer.alloc(0),
+          }),
+        ).rejects.toEqual(Errors.INCORRECT_PREIMAGE());
+      },
+    );
+
+    test('should throw when creating claim signature for legacy reverse swap', async () => {
+      const id = 'id';
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
         id,
-        randomBytes(32),
-        Buffer.alloc(0),
-        Buffer.alloc(0),
-        0,
-      ),
-    ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+        version: SwapVersion.Legacy,
+      });
+
+      await expect(
+        signer.signReverseSwapClaim(id, randomBytes(32), {
+          index: 0,
+          theirNonce: Buffer.alloc(0),
+          rawTransaction: Buffer.alloc(0),
+        }),
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+    });
   });
 
   describe('refundNonEligibilityReason', () => {

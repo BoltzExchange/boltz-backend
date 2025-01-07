@@ -23,5 +23,21 @@ export const handler = (
     req.setId(argv.id);
   }
 
-  loadBoltzClient(argv).getReferrals(req, callback());
+  loadBoltzClient(argv).getReferrals(
+    req,
+    callback((res) => {
+      const toPrint: Record<string, any> = {};
+
+      for (const entry of res.getReferralList()) {
+        toPrint[entry.getId()] = {
+          id: entry.getId(),
+          config: entry.hasConfig()
+            ? JSON.parse(entry.getConfig()!)
+            : undefined,
+        };
+      }
+
+      return toPrint;
+    }),
+  );
 };

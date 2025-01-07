@@ -60,11 +60,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import LightningErrors from '../lightning/Errors';
-import {
-  HopHint,
-  InvoiceFeature,
-  PaymentResponse,
-} from '../lightning/LightningClient';
+import { HopHint, InvoiceFeature } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import NotificationClient from '../notifications/NotificationClient';
@@ -2168,23 +2164,6 @@ class Service {
         ),
       },
     };
-  };
-
-  /**
-   * Pays a lightning invoice
-   */
-  public payInvoice = async (
-    symbol: string,
-    invoice: string,
-  ): Promise<PaymentResponse> => {
-    const currency = getCurrency(this.currencies, symbol);
-    const lightningClient = currency.lndClient || currency.clnClient;
-
-    if (lightningClient === undefined) {
-      throw SwapErrors.NO_LIGHTNING_SUPPORT(symbol);
-    }
-
-    return lightningClient.sendPayment(invoice);
   };
 
   /**

@@ -101,9 +101,10 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       return this.submarinePairs;
     }
 
-    return this.deepCloneWithPremium(
+    return this.deepCloneWithReferral(
       this.submarinePairs,
-      referral.submarinePremium,
+      SwapType.Submarine,
+      referral,
     );
   };
 
@@ -114,9 +115,10 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       return this.reversePairs;
     }
 
-    return this.deepCloneWithPremium(
+    return this.deepCloneWithReferral(
       this.reversePairs,
-      referral.reversePremium,
+      SwapType.ReverseSubmarine,
+      referral,
     );
   };
 
@@ -127,7 +129,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       return this.chainPairs;
     }
 
-    return this.deepCloneWithPremium(this.chainPairs, referral.chainPremium);
+    return this.deepCloneWithReferral(
+      this.chainPairs,
+      SwapType.Chain,
+      referral,
+    );
   };
 
   public static serializePairs = <T>(
@@ -482,7 +488,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     return cur.chainClient !== undefined || cur.provider !== undefined;
   };
 
-  private deepCloneWithPremium = <
+  private deepCloneWithReferral = <
     T extends
       | SubmarinePairTypeTaproot
       | ReversePairTypeTaproot
@@ -490,17 +496,39 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     K extends Map<string, Map<string, T>>,
   >(
     map: K,
-    premium?: number,
+    type: SwapType,
+    referral?: Referral | null,
   ): K => {
     return new Map(
-      Array.from(map.entries()).map(([key, nested]) => [
-        key,
+      Array.from(map.entries()).map(([from, nested]) => [
+        from,
         new Map(
-          Array.from(nested.entries()).map(([key, value]) => {
+          Array.from(nested.entries()).map(([to, value]) => {
+            const pairIds = [
+              [from, to],
+              [to, from],
+            ].map(([base, quote]) => getPairId({ base, quote }));
+
+            const premium = referral?.premiumForPairs(pairIds, type);
+            const limits = referral?.limitsForPairs(pairIds, type);
+
             return [
-              key,
+              to,
               {
                 ...value,
+                limits: {
+                  ...value.limits,
+                  minimal: this.applyOverride(
+                    Math.max,
+                    value.limits.minimal,
+                    limits?.minimal,
+                  ),
+                  maximal: this.applyOverride(
+                    Math.min,
+                    value.limits.maximal,
+                    limits?.maximal,
+                  ),
+                },
                 fees: {
                   ...value.fees,
                   percentage: FeeProvider.addPremium(
@@ -514,6 +542,18 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         ),
       ]),
     ) as K;
+  };
+
+  private applyOverride = (
+    compFunc: (...values: number[]) => number,
+    original: number,
+    override?: number,
+  ): number => {
+    if (override === undefined) {
+      return original;
+    }
+
+    return compFunc(original, override);
   };
 }
 

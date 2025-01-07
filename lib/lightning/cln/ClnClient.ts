@@ -532,8 +532,8 @@ class ClnClient
   public sendPayment = async (
     invoice: string,
     cltvDelta?: number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _?: string,
+    maxPaymentFeeRatio?: number,
   ): Promise<PaymentResponse> => {
     const payStatus = await this.checkPayStatus(invoice);
     if (payStatus !== undefined) {
@@ -544,7 +544,7 @@ class ClnClient
     const maxFee = satToMsat(
       calculatePaymentFee(
         satToMsat(decoded.value),
-        this.maxPaymentFeeRatio,
+        maxPaymentFeeRatio || this.maxPaymentFeeRatio,
         ClnClient.paymentMinFee,
       ),
     );

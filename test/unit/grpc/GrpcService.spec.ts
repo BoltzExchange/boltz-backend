@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
+import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
@@ -170,6 +171,10 @@ describe('GrpcService', () => {
   const service = mockedService();
 
   const grpcService = new GrpcService(Logger.disabledLogger, service);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   test('should handle GetInfo', () => {
     grpcService.getInfo(
@@ -557,7 +562,7 @@ describe('GrpcService', () => {
         );
       });
 
-      expect(service.rescan).toHaveBeenCalledTimes(2);
+      expect(service.rescan).toHaveBeenCalledTimes(1);
       expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight, true);
     });
   });
@@ -672,6 +677,199 @@ describe('GrpcService', () => {
         symbol,
         transactionId,
       );
+    });
+  });
+
+  describe('getReferrals', () => {
+    test('should get all referrals', async () => {
+      ReferralRepository.getReferrals = jest.fn().mockResolvedValue([
+        {
+          id: '1',
+        },
+        {
+          id: '2',
+          config: {
+            test: 'data',
+          },
+        },
+      ]);
+
+      const res = await new Promise<boltzrpc.GetReferralsResponse>(
+        (resolve, reject) => {
+          grpcService.getReferrals(createCall({}), (error, response) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(response!);
+            }
+          });
+        },
+      );
+
+      const list = res.getReferralList();
+      expect(list).toHaveLength(2);
+
+      expect(list[0].getId()).toEqual('1');
+      expect(list[0].hasConfig()).toEqual(false);
+
+      expect(list[1].getId()).toEqual('2');
+      expect(list[1].hasConfig()).toEqual(true);
+      expect(list[1].getConfig()).toEqual(JSON.stringify({ test: 'data' }));
+
+      expect(ReferralRepository.getReferrals).toHaveBeenCalledTimes(1);
+    });
+
+    test('should get referral by id', async () => {
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue({
+        id: 'ref',
+        config: {
+          data: 'test',
+        },
+      });
+
+      const res = await new Promise<boltzrpc.GetReferralsResponse>(
+        (resolve, reject) => {
+          grpcService.getReferrals(
+            createCall({ id: 'ref' }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        },
+      );
+
+      const list = res.getReferralList();
+      expect(list).toHaveLength(1);
+
+      expect(list[0].getId()).toEqual('ref');
+      expect(list[0].hasConfig()).toEqual(true);
+      expect(list[0].getConfig()).toEqual(JSON.stringify({ data: 'test' }));
+
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledTimes(1);
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledWith('ref');
+    });
+
+    test('should throw when no referral with id exists', async () => {
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        new Promise<boltzrpc.GetReferralsResponse>((resolve, reject) => {
+          grpcService.getReferrals(
+            createCall({ id: 'ref' }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        }),
+      ).rejects.toEqual({ message: 'could not find referral with id: ref' });
+    });
+  });
+
+  describe('setReferral', () => {
+    beforeAll(() => {
+      ReferralRepository.setConfig = jest.fn();
+    });
+
+    test('should set config', async () => {
+      const ref = { id: 'ref' };
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue(ref);
+
+      const config = {
+        some: 'new data',
+      };
+
+      await new Promise<boltzrpc.SetReferralResponse>((resolve, reject) => {
+        grpcService.setReferral(
+          createCall({ id: 'ref', config: JSON.stringify(config) }),
+          (error, response) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(response!);
+            }
+          },
+        );
+      });
+
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledTimes(1);
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledWith('ref');
+
+      expect(ReferralRepository.setConfig).toHaveBeenCalledTimes(1);
+      expect(ReferralRepository.setConfig).toHaveBeenCalledWith(ref, config);
+    });
+
+    test.each`
+      config
+      ${null}
+      ${undefined}
+    `('should set config to null', async ({ value }) => {
+      const ref = { id: 'ref' };
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue(ref);
+
+      await new Promise<boltzrpc.SetReferralResponse>((resolve, reject) => {
+        grpcService.setReferral(
+          createCall({ id: 'ref', config: value }),
+          (error, response) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(response!);
+            }
+          },
+        );
+      });
+
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledTimes(1);
+      expect(ReferralRepository.getReferralById).toHaveBeenCalledWith('ref');
+
+      expect(ReferralRepository.setConfig).toHaveBeenCalledTimes(1);
+      expect(ReferralRepository.setConfig).toHaveBeenCalledWith(ref, null);
+    });
+
+    test('should throw when new config is not an object', async () => {
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue({});
+
+      await expect(
+        new Promise<boltzrpc.SetReferralResponse>((resolve, reject) => {
+          grpcService.setReferral(
+            createCall({ id: 'ref', config: '"not an object"' }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        }),
+      ).rejects.toEqual({ message: 'config is not an object' });
+    });
+
+    test('should throw when no referral with id exists', async () => {
+      ReferralRepository.getReferralById = jest.fn().mockResolvedValue(null);
+
+      await expect(
+        new Promise<boltzrpc.SetReferralResponse>((resolve, reject) => {
+          grpcService.setReferral(
+            createCall({ id: 'ref' }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        }),
+      ).rejects.toEqual({ message: 'could not find referral with id: ref' });
     });
   });
 

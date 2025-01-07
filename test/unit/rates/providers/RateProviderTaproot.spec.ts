@@ -1,5 +1,6 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
+import Referral from '../../../../lib/db/models/Referral';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderTaproot from '../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../lib/service/Errors';
@@ -95,7 +96,7 @@ describe('RateProviderTaproot', () => {
     jest.clearAllMocks();
   });
 
-  describe('pairs with premium', () => {
+  describe('deepCloneWithReferral', () => {
     beforeEach(() => {
       provider.setHardcodedPair(
         {
@@ -107,62 +108,89 @@ describe('RateProviderTaproot', () => {
       );
     });
 
-    test('should calculate submarine pairs with premium', () => {
-      expect(
-        provider.getSubmarinePairs().get('L-BTC')!.get('BTC')!.fees.percentage,
-      ).toEqual(0.1);
+    test.each`
+      type                         | initialFee | premium | expectedFee | getPairs                      | pairPath
+      ${SwapType.Submarine}        | ${0.1}     | ${10}   | ${0.2}      | ${provider.getSubmarinePairs} | ${'L-BTC->BTC'}
+      ${SwapType.ReverseSubmarine} | ${0.5}     | ${15}   | ${0.65}     | ${provider.getReversePairs}   | ${'BTC->L-BTC'}
+      ${SwapType.Chain}            | ${0.25}    | ${-10}  | ${0.15}     | ${provider.getChainPairs}     | ${'BTC->L-BTC'}
+    `(
+      'should calculate $type pairs with fee premium',
+      ({ type, initialFee, premium, expectedFee, getPairs, pairPath }) => {
+        const [from, to] = pairPath.split('->');
 
-      expect(
-        provider
-          .getSubmarinePairs({
-            submarinePremium: 10,
-          } as any)
-          .get('L-BTC')!
-          .get('BTC')!.fees.percentage,
-      ).toEqual(0.2);
+        expect(
+          getPairs.call(provider).get(from)!.get(to)!.fees.percentage,
+        ).toEqual(initialFee);
 
-      expect(
-        provider.getSubmarinePairs().get('L-BTC')!.get('BTC')!.fees.percentage,
-      ).toEqual(0.1);
-    });
+        const referral = {
+          premiumForPairs: jest.fn().mockReturnValue(premium),
+          limitsForPairs: jest.fn().mockReturnValue(undefined),
+        } as any as Referral;
 
-    test('should calculate reverse pairs with premium', () => {
-      expect(
-        provider.getReversePairs().get('BTC')!.get('L-BTC')!.fees.percentage,
-      ).toEqual(0.5);
+        expect(
+          getPairs.call(provider, referral).get(from)!.get(to)!.fees.percentage,
+        ).toEqual(expectedFee);
 
-      expect(
-        provider
-          .getReversePairs({
-            reversePremium: 15,
-          } as any)
-          .get('BTC')!
-          .get('L-BTC')!.fees.percentage,
-      ).toEqual(0.65);
+        expect(referral.premiumForPairs).toHaveBeenCalledWith(
+          expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
+          type,
+        );
 
-      expect(
-        provider.getReversePairs().get('BTC')!.get('L-BTC')!.fees.percentage,
-      ).toEqual(0.5);
-    });
+        expect(
+          getPairs.call(provider).get(from)!.get(to)!.fees.percentage,
+        ).toEqual(initialFee);
+      },
+    );
 
-    test('should calculate chain pairs with premium', () => {
-      expect(
-        provider.getChainPairs().get('BTC')!.get('L-BTC')!.fees.percentage,
-      ).toEqual(0.25);
+    test.each`
+      type                         | initialMin | initialMax   | limitMin   | limitMax | expectedMin | expectedMax | getPairs                      | pairPath
+      ${SwapType.Submarine}        | ${1_000}   | ${1_000_000} | ${200_000} | ${800}   | ${200_000}  | ${800}      | ${provider.getSubmarinePairs} | ${'L-BTC->BTC'}
+      ${SwapType.ReverseSubmarine} | ${1_000}   | ${1_000_000} | ${750_000} | ${1_500} | ${750_000}  | ${1_500}    | ${provider.getReversePairs}   | ${'BTC->L-BTC'}
+      ${SwapType.Chain}            | ${100_000} | ${1_000_000} | ${300_000} | ${4_000} | ${300_000}  | ${4_000}    | ${provider.getChainPairs}     | ${'BTC->L-BTC'}
+    `(
+      'should calculate $type pairs with limit overrides',
+      ({
+        type,
+        initialMin,
+        initialMax,
+        limitMin,
+        limitMax,
+        expectedMin,
+        expectedMax,
+        getPairs,
+        pairPath,
+      }) => {
+        const [from, to] = pairPath.split('->');
 
-      expect(
-        provider
-          .getChainPairs({
-            chainPremium: -10,
-          } as any)
-          .get('BTC')!
-          .get('L-BTC')!.fees.percentage,
-      ).toEqual(0.15);
+        const pair = getPairs.call(provider).get(from)!.get(to)!;
+        expect(pair.limits.minimal).toEqual(initialMin);
+        expect(pair.limits.maximal).toEqual(initialMax);
 
-      expect(
-        provider.getChainPairs().get('BTC')!.get('L-BTC')!.fees.percentage,
-      ).toEqual(0.25);
-    });
+        const referral = {
+          premiumForPairs: jest.fn().mockReturnValue(undefined),
+          limitsForPairs: jest.fn().mockReturnValue({
+            minimal: limitMin,
+            maximal: limitMax,
+          }),
+        } as any as Referral;
+
+        const pairWithReferral = getPairs
+          .call(provider, referral)
+          .get(from)!
+          .get(to)!;
+        expect(pairWithReferral.limits.minimal).toEqual(expectedMin);
+        expect(pairWithReferral.limits.maximal).toEqual(expectedMax);
+
+        expect(referral.limitsForPairs).toHaveBeenCalledWith(
+          expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
+          type,
+        );
+
+        const originalPair = getPairs.call(provider).get(from)!.get(to)!;
+        expect(originalPair.limits.minimal).toEqual(initialMin);
+        expect(originalPair.limits.maximal).toEqual(initialMax);
+      },
+    );
   });
 
   test('should serialize pairs', () => {
@@ -672,6 +700,23 @@ describe('RateProviderTaproot', () => {
     'should check if $currency can be used onchain',
     ({ currency, expected }) => {
       expect(provider['canOnchain'](currency)).toEqual(expected);
+    },
+  );
+
+  test.each`
+    compFunc    | original | override     | expected
+    ${Math.max} | ${100}   | ${200}       | ${200}
+    ${Math.max} | ${200}   | ${100}       | ${200}
+    ${Math.min} | ${100}   | ${200}       | ${100}
+    ${Math.min} | ${200}   | ${100}       | ${100}
+    ${Math.max} | ${100}   | ${undefined} | ${100}
+    ${Math.min} | ${100}   | ${undefined} | ${100}
+  `(
+    'should apply override correctly',
+    ({ compFunc, original, override, expected }) => {
+      expect(provider['applyOverride'](compFunc, original, override)).toEqual(
+        expected,
+      );
     },
   );
 });

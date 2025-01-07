@@ -1,7 +1,7 @@
 import { QueryTypes } from 'sequelize';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
 import Database from '../Database';
-import Referral, { ReferralType } from '../models/Referral';
+import Referral, { ReferralConfig, ReferralType } from '../models/Referral';
 import { StatsDate } from './StatsRepository';
 
 type ReferralSumRow = StatsDate & {
@@ -14,24 +14,24 @@ class ReferralRepository {
   private static readonly referralSumQuery =
     // language=PostgreSQL
     `
-WITH data AS (
-    SELECT pair, status, fee, referral, "createdAt" FROM swaps
-    UNION ALL
-    SELECT pair, status, fee, referral, "createdAt" FROM "reverseSwaps"
-    UNION ALL
-    SELECT pair, status, fee, referral, "createdAt" FROM "chainSwaps"
-)
-SELECT
-    EXTRACT(YEAR from data."createdAt") AS year,
-    EXTRACT(MONTH from data."createdAt") AS month,
-    pair,
-    data.referral as referral,
-    (SUM(data.fee * r."feeShare") / 100)::BIGINT AS sum
-FROM data
-    INNER JOIN referrals r ON data.referral = r.id
-WHERE data.status IN (?)
-GROUP BY year, month, pair, data.referral
-ORDER BY year, month;
+        WITH data AS (SELECT pair, status, fee, referral, "createdAt"
+                      FROM swaps
+                      UNION ALL
+                      SELECT pair, status, fee, referral, "createdAt"
+                      FROM "reverseSwaps"
+                      UNION ALL
+                      SELECT pair, status, fee, referral, "createdAt"
+                      FROM "chainSwaps")
+        SELECT EXTRACT(YEAR from data."createdAt")          AS year,
+               EXTRACT(MONTH from data."createdAt")         AS month,
+               pair,
+               data.referral                                as referral,
+               (SUM(data.fee * r."feeShare") / 100)::BIGINT AS sum
+        FROM data
+                 INNER JOIN referrals r ON data.referral = r.id
+        WHERE data.status IN (?)
+        GROUP BY year, month, pair, data.referral
+        ORDER BY year, month;
     `;
 
   public static addReferral = (referral: ReferralType): Promise<Referral> => {
@@ -89,6 +89,11 @@ ORDER BY year, month;
 
     return res;
   };
+
+  public static setConfig = (ref: Referral, config?: ReferralConfig | null) =>
+    ref.update({
+      config: config === undefined ? null : config,
+    });
 }
 
 export default ReferralRepository;

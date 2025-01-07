@@ -49,6 +49,10 @@ service Boltz {
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
+  rpc GetReferrals (GetReferralsRequest) returns (GetReferralsResponse);
+
+  rpc SetReferral (SetReferralRequest) returns (SetReferralResponse);
+
   rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
@@ -259,6 +263,27 @@ message GetLabelResponse {
   string symbol = 1;
   string label = 2;
 }
+
+message GetReferralsRequest {
+  // When not specified, all referrals are returned
+  optional string id = 1;
+}
+
+message GetReferralsResponse {
+  message Referral {
+    string id = 1;
+    optional string config = 2;
+  }
+
+  repeated Referral referral = 1;
+}
+
+message SetReferralRequest {
+  string id = 1;
+  optional string config = 2;
+}
+
+message SetReferralResponse {}
 
 message DevHeapDumpRequest {
   optional string path = 1;

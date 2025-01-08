@@ -99,6 +99,8 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
   symbol: string;
   type: NodeType;
 
+  readonly maxPaymentFeeRatio: number;
+
   isConnected(): boolean;
 
   setClientStatus(status: ClientStatus): void;

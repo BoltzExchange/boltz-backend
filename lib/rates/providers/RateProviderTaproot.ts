@@ -44,6 +44,7 @@ type SubmarinePairTypeTaproot = PairTypeTaproot & {
   fees: {
     percentage: number;
     minerFees: number;
+    maximalRoutingFee?: number;
   };
 };
 
@@ -512,32 +513,48 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
             const premium = referral?.premiumForPairs(pairIds, type);
             const limits = referral?.limitsForPairs(pairIds, type);
 
-            return [
-              to,
-              {
-                ...value,
-                limits: {
-                  ...value.limits,
-                  minimal: this.applyOverride(
-                    Math.max,
-                    value.limits.minimal,
-                    limits?.minimal,
-                  ),
-                  maximal: this.applyOverride(
-                    Math.min,
-                    value.limits.maximal,
-                    limits?.maximal,
-                  ),
-                },
-                fees: {
-                  ...value.fees,
-                  percentage: FeeProvider.addPremium(
-                    value.fees.percentage,
-                    premium,
-                  ),
-                },
+            const result = {
+              ...value,
+              limits: {
+                ...value.limits,
+                minimal: this.applyOverride(
+                  Math.max,
+                  value.limits.minimal,
+                  limits?.minimal,
+                ),
+                maximal: this.applyOverride(
+                  Math.min,
+                  value.limits.maximal,
+                  limits?.maximal,
+                ),
               },
-            ];
+              fees: {
+                ...value.fees,
+                percentage: FeeProvider.addPremium(
+                  value.fees.percentage,
+                  premium,
+                ),
+              },
+            };
+
+            if (type === SwapType.Submarine) {
+              const maxRoutingFeeOverride =
+                referral?.maxRoutingFeeRatioForPairs(pairIds);
+
+              if (maxRoutingFeeOverride !== undefined) {
+                (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
+                  maxRoutingFeeOverride * 100;
+              } else {
+                const currency = this.currencies.get(to);
+
+                (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
+                  (currency?.lndClient?.maxPaymentFeeRatio ||
+                    currency?.clnClient?.maxPaymentFeeRatio ||
+                    0) * 100;
+              }
+            }
+
+            return [to, result];
           }),
         ),
       ]),

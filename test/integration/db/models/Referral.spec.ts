@@ -65,6 +65,22 @@ describe('Referral', () => {
   });
 
   test.each`
+    pairs                      | expected
+    ${['BTC/BTC']}             | ${referralValues.config!.maxRoutingFee}
+    ${['L-BTC/BTC']}           | ${referralValues.config!.maxRoutingFee}
+    ${['RBTC/BTC']}            | ${referralValues.config!.pairs!['RBTC/BTC']!.maxRoutingFee}
+    ${['BTC/BTC', 'RBTC/BTC']} | ${referralValues.config!.pairs!['RBTC/BTC']!.maxRoutingFee}
+  `(
+    'should get maxRoutingFeeRatioForPairs for pairs $pairs',
+    async ({ pairs, expected }) => {
+      const ref = await ReferralRepository.getReferralById(referralValues.id);
+
+      expect(ref).not.toBeNull();
+      expect(ref!.maxRoutingFeeRatioForPairs(pairs)).toEqual(expected);
+    },
+  );
+
+  test.each`
     pair          | type                         | expected
     ${'BTC/BTC'}  | ${SwapType.ReverseSubmarine} | ${referralValues.config!.limits![SwapType.ReverseSubmarine]}
     ${'BTC/BTC'}  | ${SwapType.Submarine}        | ${undefined}

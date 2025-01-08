@@ -65,7 +65,15 @@ describe('RateProviderTaproot', () => {
 
   const provider = new RateProviderTaproot(
     new Map<string, any>([
-      ['BTC', { chainClient: {}, lndClient: {} }],
+      [
+        'BTC',
+        {
+          chainClient: {},
+          lndClient: {
+            maxPaymentFeeRatio: 0.021,
+          },
+        },
+      ],
       [
         'L-BTC',
         {
@@ -125,6 +133,7 @@ describe('RateProviderTaproot', () => {
         const referral = {
           premiumForPairs: jest.fn().mockReturnValue(premium),
           limitsForPairs: jest.fn().mockReturnValue(undefined),
+          maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
         } as any as Referral;
 
         expect(
@@ -168,6 +177,7 @@ describe('RateProviderTaproot', () => {
 
         const referral = {
           premiumForPairs: jest.fn().mockReturnValue(undefined),
+          maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
           limitsForPairs: jest.fn().mockReturnValue({
             minimal: limitMin,
             maximal: limitMax,
@@ -191,6 +201,32 @@ describe('RateProviderTaproot', () => {
         expect(originalPair.limits.maximal).toEqual(initialMax);
       },
     );
+
+    test('should use maxRoutingFeeRatioForPairs when provided', () => {
+      const referral = {
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(0.01),
+      } as any as Referral;
+
+      const pairWithReferral = provider
+        .getSubmarinePairs(referral)
+        .get('L-BTC')!
+        .get('BTC')!;
+      expect(pairWithReferral.fees.maximalRoutingFee).toEqual(1);
+    });
+
+    test('should coalesce max routing fee from lightning clients when not provided in referral', () => {
+      const pairWithReferral = provider
+        .getSubmarinePairs({
+          limitsForPairs: jest.fn().mockReturnValue(undefined),
+          premiumForPairs: jest.fn().mockReturnValue(undefined),
+          maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+        } as any as Referral)
+        .get('L-BTC')!
+        .get('BTC')!;
+      expect(pairWithReferral.fees.maximalRoutingFee).toEqual(2.1);
+    });
   });
 
   test('should serialize pairs', () => {

@@ -61,5 +61,6 @@ COPY --from=builder /boltz-backend/boltzr/target/release/boltzr /boltz-backend/b
 EXPOSE 9000 9001
 
 ENV NODE_ENV=production
+ENV PATH="${PATH}:/boltz-backend/bin"
 
 ENTRYPOINT ["node", "--trace-deprecation", "/boltz-backend/bin/boltzd"]

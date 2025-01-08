@@ -28,7 +28,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Use Rust toolchain
-        run: rustup update ${{ matrix.rust-version }} && rustup default ${{ matrix.rust-version }}
+        run:
+          rustup update ${{ matrix.rust-version }} && rustup default ${{
+          matrix.rust-version }}
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
@@ -44,6 +46,18 @@ jobs:
 
       - name: Deploy Ethereum contracts
         run: npm run docker:solidity:deploy
+
+      - name: Build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            hold/target
+            boltzr/target
+          key:
+            ${{ runner.os }}-ci-${{ matrix.rust-version }}-${{
+            hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ci-${{ matrix.rust-version }}-
 
       - name: Compile
         run: npm run compile
@@ -90,7 +104,9 @@ jobs:
           cache: 'npm'
 
       - name: Use Rust toolchain
-        run: rustup update ${{ matrix.rust-version }} && rustup default ${{ matrix.rust-version }}
+        run:
+          rustup update ${{ matrix.rust-version }} && rustup default ${{
+          matrix.rust-version }}
 
       - name: Install rustfmt
         run: rustup component add rustfmt
@@ -112,6 +128,16 @@ jobs:
 
       - name: Deploy Ethereum contracts
         run: npm run docker:solidity:deploy
+
+      - name: Build cache
+        uses: actions/cache@v4
+        with:
+          path: boltzr/target
+          key:
+            ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{
+            hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.rust-version }}-
 
       - name: Compile
         run: cargo build

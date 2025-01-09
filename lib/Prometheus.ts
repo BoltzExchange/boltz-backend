@@ -3,8 +3,14 @@ import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
 import Logger from './Logger';
 import { getPairId } from './Utils';
 import Api from './api/Api';
+import { SwapVersion } from './consts/Enums';
 import { PairConfig } from './consts/Types';
+import ReferralRepository from './db/repositories/ReferralRepository';
 import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
+import {
+  SubmarinePairTypeTaproot,
+  SwapTypes,
+} from './rates/providers/RateProviderTaproot';
 import Service from './service/Service';
 
 type PrometheusConfig = {
@@ -14,7 +20,8 @@ type PrometheusConfig = {
 
 class Prometheus {
   private static readonly gaugeUpdateInterval = 1_000;
-  private static readonly metric_prefix = 'boltz_';
+  private static readonly metricPrefix = 'boltz_';
+  private static readonly defaultReferral = 'default';
 
   private readonly pairs = new Set<string>();
 
@@ -90,6 +97,115 @@ class Prometheus {
       })),
     );
 
+    // Needed because "this" in the collector refers to the function
+    const service = this.service;
+
+    const iterateAllPairs = async <T = SwapTypes>(
+      cb: (pair: T, pairId: string, type: SwapType, referral: string) => void,
+      limitToType?: SwapType,
+    ) => {
+      const referrals = await ReferralRepository.getReferrals();
+      const provider = service.rateProvider.providers[SwapVersion.Taproot];
+
+      // Include "null" for the defaults
+      for (const referral of [null, ...referrals]) {
+        for (const [type, pairsForType] of [
+          [SwapType.Swap, provider.getSubmarinePairs(referral)],
+          [SwapType.Reverse, provider.getReversePairs(referral)],
+          [SwapType.Chain, provider.getChainPairs(referral)],
+        ] as [SwapType, Map<string, Map<string, SwapTypes>>][]) {
+          if (limitToType !== undefined && type !== limitToType) {
+            continue;
+          }
+
+          for (const [from, pairs] of pairsForType.entries()) {
+            for (const [to, pair] of pairs.entries()) {
+              const pairId = getPairId({ base: from, quote: to });
+              cb(
+                pair as T,
+                pairId,
+                type,
+                referral?.id || Prometheus.defaultReferral,
+              );
+            }
+          }
+        }
+      }
+    };
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}pair_limits`,
+        labelNames: ['pair', 'type', 'extrema', 'referral'],
+        help: 'pair limits',
+        collect: async function () {
+          iterateAllPairs((pair, pairId, type, referral) => {
+            this.set(
+              {
+                type,
+                referral,
+                pair: pairId,
+                extrema: 'minimal',
+              },
+              pair.limits.minimal,
+            );
+
+            this.set(
+              {
+                type,
+                referral,
+                pair: pairId,
+                extrema: 'maximal',
+              },
+              pair.limits.maximal,
+            );
+          });
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}pair_fees`,
+        labelNames: ['pair', 'type', 'referral'],
+        help: 'pair fees',
+        collect: async function () {
+          iterateAllPairs((pair, pairId, type, referral) => {
+            this.set(
+              {
+                type,
+                referral,
+                pair: pairId,
+              },
+              pair.fees.percentage,
+            );
+          });
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}pair_max_routing_fee`,
+        labelNames: ['pair', 'referral'],
+        help: 'pair max routing fee',
+        collect: async function () {
+          iterateAllPairs<SubmarinePairTypeTaproot>(
+            (pair, pairId, _, referral) => {
+              this.set(
+                {
+                  pair: pairId,
+                  referral,
+                },
+                pair.fees.maximalRoutingFee || 0,
+              );
+            },
+            SwapType.Swap,
+          );
+        },
+      }),
+    );
+
     const setDefaults = (gauge: Gauge, defaultValue: number) => {
       defaults.forEach((defaultLabels) => {
         gauge.set(defaultLabels, defaultValue);
@@ -98,7 +214,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}swap_counts`,
+        name: `${Prometheus.metricPrefix}swap_counts`,
         labelNames: ['pair', 'type', 'status'],
         help: 'number of swaps',
         collect: async function () {
@@ -116,7 +232,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}swap_volume`,
+        name: `${Prometheus.metricPrefix}swap_volume`,
         labelNames: ['pair', 'type'],
         help: 'volume of swaps',
         collect: async function () {
@@ -131,7 +247,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}swap_pending_counts`,
+        name: `${Prometheus.metricPrefix}swap_pending_counts`,
         labelNames: ['pair', 'type'],
         help: 'count of pending swaps',
         collect: async function () {
@@ -147,7 +263,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}swap_locked_funds`,
+        name: `${Prometheus.metricPrefix}swap_locked_funds`,
         labelNames: ['pair', 'type'],
         help: 'coins locked in pending swaps',
         collect: async function () {
@@ -168,11 +284,9 @@ class Prometheus {
       () => this.api.swapInfos.cacheSize,
     );
 
-    const service = this.service;
-
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}zeroconf_risk`,
+        name: `${Prometheus.metricPrefix}zeroconf_risk`,
         labelNames: ['symbol'],
         help: '0-conf risk of a symbol',
         collect: function () {
@@ -188,7 +302,7 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
-        name: `${Prometheus.metric_prefix}zeroconf_risk_max`,
+        name: `${Prometheus.metricPrefix}zeroconf_risk_max`,
         labelNames: ['symbol'],
         help: 'max 0-conf risk of a symbol',
         collect: function () {
@@ -211,7 +325,7 @@ class Prometheus {
   ) => {
     const gauge = new Gauge({
       help,
-      name: `${Prometheus.metric_prefix}${name}`,
+      name: `${Prometheus.metricPrefix}${name}`,
     });
     setInterval(() => gauge.set(cb()), Prometheus.gaugeUpdateInterval);
     registry.registerMetric(gauge);

@@ -576,6 +576,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
 export default RateProviderTaproot;
 export {
+  SwapTypes,
   SubmarinePairTypeTaproot,
   ReversePairTypeTaproot,
   ChainPairTypeTaproot,

@@ -60,8 +60,9 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   private static readonly paymentTimeout = 300;
   private static readonly paymentTimePreference = 0.9;
 
+  public readonly maxPaymentFeeRatio!: number;
+
   private readonly uri!: string;
-  private readonly maxPaymentFeeRatio!: number;
   private readonly credentials!: ChannelCredentials;
 
   private readonly meta!: Metadata;

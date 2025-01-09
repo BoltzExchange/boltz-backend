@@ -53,7 +53,7 @@ class ClnClient
   private static readonly paymentMinFee = 121;
   private static readonly paymentTimeout = 300;
 
-  private readonly maxPaymentFeeRatio!: number;
+  public readonly maxPaymentFeeRatio!: number;
 
   private readonly nodeUri: string;
   private readonly holdUri: string;

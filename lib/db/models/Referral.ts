@@ -95,6 +95,17 @@ class Referral extends Model implements ReferralType {
     );
   };
 
+  public maxRoutingFeeRatioForPairs = (pairs: string[]): number | undefined => {
+    for (const pair of pairs) {
+      const ratio = this.config?.pairs?.[pair]?.maxRoutingFee;
+      if (ratio !== undefined) {
+        return ratio;
+      }
+    }
+
+    return this.config?.maxRoutingFee;
+  };
+
   public limits = (pair: string, type: SwapType): Limits | undefined => {
     return (
       this.config?.pairs?.[pair]?.limits?.[type] || this.config?.limits?.[type]

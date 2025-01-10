@@ -78,7 +78,7 @@ class VersionCheck {
   > = {
     [ChainClient.serviceName]: {
       minimal: 220000,
-      maximal: 280000,
+      maximal: 280100,
     },
     [ClnClient.serviceName]: {
       minimal: '24.11',
@@ -130,10 +130,10 @@ class VersionCheck {
         if (version.startsWith('v')) {
           sanitizedVersion = sanitizedVersion.slice(1);
         }
-        if (version.endsWith(ClnClient.moddedVersionSuffix)) {
+        if (version.includes(ClnClient.moddedVersionSuffix)) {
           sanitizedVersion = sanitizedVersion.slice(
             0,
-            -ClnClient.moddedVersionSuffix.length,
+            sanitizedVersion.indexOf(ClnClient.moddedVersionSuffix),
           );
         }
 

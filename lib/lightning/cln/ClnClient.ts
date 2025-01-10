@@ -46,7 +46,7 @@ class ClnClient
 {
   public static readonly serviceName = 'CLN';
   public static readonly serviceNameHold = 'hold';
-  public static readonly moddedVersionSuffix = '-modded';
+  public static readonly moddedVersionSuffix = '-';
 
   public static readonly paymentPendingError = 'payment already pending';
 

@@ -456,4 +456,14 @@ describe('Utils', () => {
   `('should get maximal bigint', ({ a, b, expected }) => {
     expect(bigIntMax(a, b)).toEqual(expected);
   });
+
+  test.each`
+    value         | decimals | expected
+    ${1.23456789} | ${2}     | ${1.23}
+    ${1.23456789} | ${4}     | ${1.2346}
+    ${0.35001}    | ${4}     | ${0.35}
+    ${0.3500999}  | ${4}     | ${0.3501}
+  `('should round to decimals', ({ value, decimals, expected }) => {
+    expect(utils.roundToDecimals(value, decimals)).toEqual(expected);
+  });
 });

@@ -507,12 +507,12 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"os"
 
-	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/BoltzExchange/boltz-client/v2/pkg/boltz"
 	"github.com/lightningnetwork/lnd/zpay32"
 )
 
-const endpoint = "<Boltz API endpoint to use>"
-const invoice = "<invoice that should be paid>"
+const endpoint = "<Boltz API endpoint>"
+const invoice = "<the invoice you want to pay"
 
 var network = boltz.Regtest
 
@@ -532,7 +532,7 @@ func submarineSwap() error {
 		return err
 	}
 
-	boltzApi := &boltz.Boltz{URL: endpoint}
+	boltzApi := &boltz.Api{URL: endpoint}
 
 	swap, err := boltzApi.CreateSwap(boltz.CreateSwapRequest{
 		From:            boltz.CurrencyBtc,
@@ -550,7 +550,7 @@ func submarineSwap() error {
 	}
 
 	tree := swap.SwapTree.Deserialize()
-	if err := tree.Init(false, keys, boltzPubKey); err != nil {
+	if err := tree.Init(boltz.CurrencyBtc, false, keys, boltzPubKey); err != nil {
 		return err
 	}
 
@@ -560,7 +560,7 @@ func submarineSwap() error {
 	}
 
 	// Check the scripts of the Taptree to make sure Boltz is not cheating
-	if err := tree.Check(false, swap.TimeoutBlockHeight, decodedInvoice.PaymentHash[:]); err != nil {
+	if err := tree.Check(boltz.NormalSwap, swap.TimeoutBlockHeight, decodedInvoice.PaymentHash[:]); err != nil {
 		return err
 	}
 
@@ -572,7 +572,7 @@ func submarineSwap() error {
 	fmt.Println("Swap created")
 	printJson(swap)
 
-	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	boltzWs := boltzApi.NewWebsocket()
 	if err := boltzWs.Connect(); err != nil {
 		return fmt.Errorf("Could not connect to Boltz websocket: %s", err)
 	}
@@ -583,6 +583,8 @@ func submarineSwap() error {
 
 	for update := range boltzWs.Updates {
 		parsedStatus := boltz.ParseEvent(update.Status)
+
+		printJson(update)
 
 		switch parsedStatus {
 		case boltz.InvoiceSet:
@@ -628,6 +630,7 @@ func submarineSwap() error {
 			}
 			break
 		}
+
 	}
 
 	return nil
@@ -1169,13 +1172,16 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BoltzExchange/boltz-client/boltz"
+	"github.com/BoltzExchange/boltz-client/v2/pkg/boltz"
 	"github.com/btcsuite/btcd/btcec/v2"
 )
 
-const endpoint = "<Boltz API endpoint to use>"
+const endpoint = "<Boltz API endpoint>"
 const invoiceAmount = 100000
 const destinationAddress = "<address to which the swap should be claimed>"
+
+// Swap from Lightning to BTC mainchain
+var toCurrency = boltz.CurrencyBtc
 
 var network = boltz.Regtest
 
@@ -1202,11 +1208,11 @@ func reverseSwap() error {
 	}
 	preimageHash := sha256.Sum256(preimage)
 
-	boltzApi := &boltz.Boltz{URL: endpoint}
+	boltzApi := &boltz.Api{URL: endpoint}
 
 	swap, err := boltzApi.CreateReverseSwap(boltz.CreateReverseSwapRequest{
 		From:           boltz.CurrencyBtc,
-		To:             boltz.CurrencyBtc,
+		To:             toCurrency,
 		ClaimPublicKey: ourKeys.PubKey().SerializeCompressed(),
 		PreimageHash:   preimageHash[:],
 		InvoiceAmount:  invoiceAmount,
@@ -1221,18 +1227,18 @@ func reverseSwap() error {
 	}
 
 	tree := swap.SwapTree.Deserialize()
-	if err := tree.Init(false, ourKeys, boltzPubKey); err != nil {
+	if err := tree.Init(toCurrency, false, ourKeys, boltzPubKey); err != nil {
 		return err
 	}
 
-	if err := tree.Check(true, swap.TimeoutBlockHeight, preimageHash[:]); err != nil {
+	if err := tree.Check(boltz.ReverseSwap, swap.TimeoutBlockHeight, preimageHash[:]); err != nil {
 		return err
 	}
 
 	fmt.Println("Swap created")
 	printJson(swap)
 
-	boltzWs := boltz.NewBoltzWebsocket(endpoint)
+	boltzWs := boltzApi.NewWebsocket()
 	if err := boltzWs.Connect(); err != nil {
 		return fmt.Errorf("Could not connect to Boltz websocket: %w", err)
 	}
@@ -1252,7 +1258,7 @@ func reverseSwap() error {
 			break
 
 		case boltz.TransactionMempool:
-			lockupTransaction, err := boltz.NewTxFromHex(boltz.CurrencyBtc, update.Transaction.Hex, nil)
+			lockupTransaction, err := boltz.NewTxFromHex(toCurrency, update.Transaction.Hex, nil)
 			if err != nil {
 				return err
 			}
@@ -1270,6 +1276,7 @@ func reverseSwap() error {
 					{
 						SwapId:            swap.Id,
 						SwapType:          boltz.ReverseSwap,
+						Address:           destinationAddress,
 						LockupTransaction: lockupTransaction,
 						Vout:              vout,
 						Preimage:          preimage,
@@ -1278,7 +1285,6 @@ func reverseSwap() error {
 						Cooperative:       true,
 					},
 				},
-				destinationAddress,
 				satPerVbyte,
 				boltzApi,
 			)
@@ -1286,12 +1292,17 @@ func reverseSwap() error {
 				return fmt.Errorf("could not create claim transaction: %w", err)
 			}
 
-			response, err := boltzApi.BroadcastTransaction(claimTransaction)
+			txHex, err := claimTransaction.Serialize()
+			if err != nil {
+				return fmt.Errorf("could not serialize claim transaction: %w", err)
+			}
+
+			txId, err := boltzApi.BroadcastTransaction(toCurrency, txHex)
 			if err != nil {
 				return fmt.Errorf("could not broadcast transaction: %w", err)
 			}
 
-			fmt.Printf("Broadcast claim transaction: %s\n", response.TransactionId)
+			fmt.Printf("Broadcast claim transaction: %s\n", txId)
 			break
 
 		case boltz.InvoiceSettled:

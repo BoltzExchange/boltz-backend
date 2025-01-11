@@ -6,6 +6,7 @@ import {
   getSendingChain,
   hashString,
   mapToObject,
+  roundToDecimals,
   splitPairId,
 } from '../../Utils';
 import {
@@ -543,14 +544,17 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
               if (maxRoutingFeeOverride !== undefined) {
                 (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
-                  maxRoutingFeeOverride * 100;
+                  roundToDecimals(maxRoutingFeeOverride * 100, 4);
               } else {
                 const currency = this.currencies.get(to);
 
                 (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
-                  (currency?.lndClient?.maxPaymentFeeRatio ||
-                    currency?.clnClient?.maxPaymentFeeRatio ||
-                    0) * 100;
+                  roundToDecimals(
+                    (currency?.lndClient?.maxPaymentFeeRatio ||
+                      currency?.clnClient?.maxPaymentFeeRatio ||
+                      0) * 100,
+                    4,
+                  );
               }
             }
 

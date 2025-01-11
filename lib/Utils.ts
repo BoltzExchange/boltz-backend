@@ -639,3 +639,6 @@ export const arrayToChunks = <T>(array: T[], chunkSize: number): T[][] => {
 };
 
 export const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);
+
+export const roundToDecimals = (value: number, decimals: number): number =>
+  Number(value.toFixed(decimals));

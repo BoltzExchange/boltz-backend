@@ -3,6 +3,7 @@ use diesel::sql_types::Bool;
 use diesel::BoxableExpression;
 
 pub mod chain_swap;
+pub mod referral;
 pub mod reverse_swap;
 pub mod swap;
 pub mod web_hook;

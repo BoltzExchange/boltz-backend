@@ -11,11 +11,16 @@ type Premiums = Partial<Record<SwapType, number>>;
 
 type LimitsPerType = Partial<Record<SwapType, Limits>>;
 
+// Implemented only for submarine swaps
+// Expiration in seconds
+type CustomExpirations = Partial<Record<SwapType, number>>;
+
 type ReferralPairConfig = {
   maxRoutingFee?: number;
 
   limits?: LimitsPerType;
   premiums?: Premiums;
+  expirations?: CustomExpirations;
 };
 
 type ReferralConfig = ReferralPairConfig & {

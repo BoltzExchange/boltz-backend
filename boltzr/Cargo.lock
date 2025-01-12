@@ -2218,6 +2218,7 @@ dependencies = [
  "libc",
  "pq-sys",
  "r2d2",
+ "serde_json",
 ]
 
 [[package]]

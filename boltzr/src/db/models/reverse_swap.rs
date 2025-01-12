@@ -3,7 +3,7 @@ use crate::swap::SwapUpdate;
 use crate::utils::pair::{split_pair, OrderSide};
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Debug)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Default, Clone, Debug)]
 #[diesel(table_name = crate::db::schema::reverseSwaps)]
 #[allow(non_snake_case)]
 pub struct ReverseSwap {

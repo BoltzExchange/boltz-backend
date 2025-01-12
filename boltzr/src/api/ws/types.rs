@@ -24,7 +24,7 @@ pub struct ChannelInfo {
     pub funding_transaction_vout: u64,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 pub struct SwapStatus {
     pub id: String,
     pub status: String,

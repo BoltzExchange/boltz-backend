@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, FixedBytes, Signature, U256};
+use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
 use serde::{Deserialize, Serialize};
 
 mod contracts;
@@ -35,5 +35,5 @@ pub trait RefundSigner {
         amount: U256,
         token_address: Option<Address>,
         timeout: u64,
-    ) -> anyhow::Result<Signature>;
+    ) -> anyhow::Result<PrimitiveSignature>;
 }

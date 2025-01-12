@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, FixedBytes, Signature, U256};
+use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
@@ -86,7 +86,7 @@ impl LocalRefundSigner {
         amount: U256,
         token_address: Option<Address>,
         timeout: u64,
-    ) -> anyhow::Result<Signature> {
+    ) -> anyhow::Result<PrimitiveSignature> {
         info!(
             "Signing cooperative {} refund",
             if token_address.is_none() {
@@ -115,8 +115,7 @@ impl LocalRefundSigner {
             .eip712_signing_hash(self.ether_swap.eip712_domain())
         };
 
-        let sig = signer.sign_hash(&hash).await?;
-        Ok(Signature::from_bytes_and_parity(&sig.as_bytes(), sig.v())?)
+        Ok(signer.sign_hash(&hash).await?)
     }
 }
 
@@ -205,7 +204,7 @@ pub mod test {
                 amount,
                 claim_keys.address(),
                 U256::from(timelock),
-                refund_sig.v().y_parity_byte_non_eip155().unwrap(),
+                refund_sig.v() as u8 + 27,
                 refund_sig.r().into(),
                 refund_sig.s().into(),
             )
@@ -298,7 +297,7 @@ pub mod test {
                 *token.address(),
                 claim_keys.address(),
                 U256::from(timelock),
-                refund_sig.v().y_parity_byte_non_eip155().unwrap(),
+                refund_sig.v() as u8 + 27,
                 refund_sig.r().into(),
                 refund_sig.s().into(),
             )

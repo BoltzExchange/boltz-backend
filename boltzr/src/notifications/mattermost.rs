@@ -4,7 +4,7 @@ use crate::notifications::{Config, NotificationClient};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::Message;
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

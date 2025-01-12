@@ -10,6 +10,7 @@ use tracing_subscriber::{fmt, reload, EnvFilter, Layer, Registry};
 
 #[cfg(feature = "otel")]
 use opentelemetry::trace::TracerProvider;
+use opentelemetry_otlp::WithExportConfig;
 
 #[derive(Clone)]
 pub struct ReloadHandler {
@@ -176,40 +177,34 @@ fn init_tracer(
         return Ok(None);
     }
 
-    use opentelemetry_otlp::WithExportConfig;
-    use opentelemetry_sdk::runtime;
-
     info!("Enabling OpenTelemetry");
 
     opentelemetry::global::set_text_map_propagator(
         opentelemetry_sdk::propagation::TraceContextPropagator::new(),
     );
 
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_trace_config(opentelemetry_sdk::trace::Config::default().with_resource(
-            opentelemetry_sdk::Resource::new(vec![
-                opentelemetry::KeyValue::new(
-                    opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-                    crate::utils::get_name(&crate::utils::get_network(&config.network)),
-                ),
-                opentelemetry::KeyValue::new(
-                    opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
-                    built_info::PKG_VERSION,
-                ),
-                opentelemetry::KeyValue::new(
-                    opentelemetry_semantic_conventions::resource::PROCESS_PID,
-                    std::process::id().to_string(),
-                ),
-            ]),
-        ))
-        .with_batch_config(opentelemetry_sdk::trace::BatchConfig::default())
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint(endpoint.unwrap()),
-        )
-        .install_batch(runtime::Tokio)?;
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint.unwrap())
+        .build()?;
+
+    let tracer = opentelemetry_sdk::trace::TracerProvider::builder()
+        .with_resource(opentelemetry_sdk::Resource::new(vec![
+            opentelemetry::KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                crate::utils::get_name(&crate::utils::get_network(&config.network)),
+            ),
+            opentelemetry::KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_VERSION,
+                built_info::PKG_VERSION,
+            ),
+            opentelemetry::KeyValue::new(
+                opentelemetry_semantic_conventions::resource::PROCESS_PID,
+                std::process::id().to_string(),
+            ),
+        ]))
+        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+        .build();
 
     Ok(Some(tracer.tracer(built_info::PKG_NAME)))
 }

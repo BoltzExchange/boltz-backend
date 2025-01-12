@@ -88,7 +88,7 @@
     "cors": "^2.8.5",
     "csv-parse": "^5.6.0",
     "ecpair": "^2.1.0",
-    "ethers": "^6.13.4",
+    "ethers": "^6.13.5",
     "express": "^4.21.2",
     "google-protobuf": "^3.21.4",
     "ip-address": "^10.0.1",
@@ -105,12 +105,12 @@
     "winston": "^3.17.0",
     "winston-loki": "^6.1.3",
     "yargs": "^17.7.2",
-    "zeromq": "^6.2.0"
+    "zeromq": "^6.3.0"
   },
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
-    "@eslint/js": "^9.17.0",
-    "@openzeppelin/contracts": "^5.1.0",
+    "@eslint/js": "^9.18.0",
+    "@openzeppelin/contracts": "^5.2.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.1",
     "@types/async-lock": "^1.4.2",
     "@types/cors": "^2.8.17",
@@ -121,7 +121,7 @@
     "@types/pg": "^8.11.10",
     "@types/yargs": "^17.0.33",
     "cross-os": "^1.5.0",
-    "eslint": "^9.17.0",
+    "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-jest": "^28.10.0",
     "eslint-plugin-n": "^17.15.1",
@@ -135,7 +135,7 @@
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
     "ts-jest": "^29.2.5",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.19.0"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1"
   }
 }

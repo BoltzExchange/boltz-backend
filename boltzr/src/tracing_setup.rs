@@ -10,6 +10,7 @@ use tracing_subscriber::{fmt, reload, EnvFilter, Layer, Registry};
 
 #[cfg(feature = "otel")]
 use opentelemetry::trace::TracerProvider;
+#[cfg(feature = "otel")]
 use opentelemetry_otlp::WithExportConfig;
 
 #[derive(Clone)]

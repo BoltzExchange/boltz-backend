@@ -37,7 +37,6 @@ pub struct Config {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GlobalConfig {
-    #[cfg(any(feature = "loki", feature = "otel"))]
     #[serde(rename = "network")]
     pub network: Option<String>,
 
@@ -48,6 +47,10 @@ pub struct GlobalConfig {
     #[cfg(feature = "otel")]
     #[serde(rename = "otlpEndpoint")]
     pub otlp_endpoint: Option<String>,
+
+    #[cfg(feature = "otel")]
+    #[serde(rename = "profilingEndpoint")]
+    pub profiling_endpoint: Option<String>,
 
     #[serde(rename = "mnemonicpathEvm")]
     pub mnemonic_path_evm: Option<String>,

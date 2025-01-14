@@ -3,74 +3,47 @@ use crate::currencies::Currencies;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::LightningSwap;
 use crate::lightning::invoice;
+use crate::swap::expiration::ExpirationChecker;
 use crate::swap::{serialize_swap_updates, SwapUpdate};
 use anyhow::anyhow;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument, trace};
+use tracing::{info, instrument, trace};
 
-const CHECK_INTERVAL_SECONDS: u64 = 60;
-const EXPIRED_INVOICE_FAILURE_REASON: &str = "invoice expired";
+const FAILURE_REASON_EXPIRED_INVOICE: &str = "invoice expired";
 
-pub struct InvoiceExpiryChecker {
-    cancellation_token: CancellationToken,
+pub struct InvoiceExpirationChecker {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
-
     currencies: Arc<Currencies>,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
 }
 
-impl InvoiceExpiryChecker {
+impl InvoiceExpirationChecker {
     pub fn new(
-        cancellation_token: CancellationToken,
         update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
         currencies: Arc<Currencies>,
         swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     ) -> Self {
-        InvoiceExpiryChecker {
+        InvoiceExpirationChecker {
             swap_repo,
             update_tx,
             currencies,
-            cancellation_token,
         }
     }
+}
 
-    pub async fn start(&self) {
-        let duration = Duration::from_secs(CHECK_INTERVAL_SECONDS);
-        info!(
-            "Checking for expired invoices of Submarine Swaps every {:#?}",
-            duration
-        );
-        let mut interval = tokio::time::interval(duration);
-
-        tokio::select! {
-            _ =  tokio::time::sleep(duration) => {},
-            _ = self.cancellation_token.cancelled() => {
-                return;
-            }
-        }
-
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {},
-                _ = self.cancellation_token.cancelled() => {
-                    break;
-                }
-            }
-
-            if let Err(err) = self.check().await {
-                error!(
-                    "Checking Submarine Swaps for expired invoices failed: {}",
-                    err
-                );
-            }
-        }
+impl ExpirationChecker for InvoiceExpirationChecker {
+    fn name(&self) -> &'static str {
+        "expired invoices of Submarine Swaps"
     }
 
-    #[instrument(name = "InvoiceExpiryChecker::check", skip_all)]
-    pub async fn check(&self) -> anyhow::Result<()> {
+    fn interval(&self) -> Duration {
+        Duration::from_secs(60)
+    }
+
+    #[instrument(name = "InvoiceExpirationChecker::check", skip_all)]
+    fn check(&self) -> anyhow::Result<()> {
         let swaps = self.swap_repo.get_all(Box::new(
             crate::db::schema::swaps::dsl::status
                 .ne_all(serialize_swap_updates(&[
@@ -113,7 +86,7 @@ impl InvoiceExpiryChecker {
             );
 
             let status = SwapUpdate::InvoiceFailedToPay;
-            let failure_reason = EXPIRED_INVOICE_FAILURE_REASON;
+            let failure_reason = FAILURE_REASON_EXPIRED_INVOICE;
 
             self.swap_repo
                 .update_status(&swap.id, status, Some(failure_reason.to_string()))?;
@@ -135,17 +108,16 @@ impl InvoiceExpiryChecker {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::api::ws::types::SwapStatus;
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::swap::{SwapCondition, SwapHelper};
     use crate::db::helpers::QueryResponse;
     use crate::db::models::Swap;
-    use crate::swap::expiry_checker::{InvoiceExpiryChecker, EXPIRED_INVOICE_FAILURE_REASON};
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};
     use mockall::{mock, predicate};
     use std::sync::{Arc, OnceLock};
-    use tokio_util::sync::CancellationToken;
 
     mock! {
         SwapHelper {}
@@ -185,8 +157,8 @@ mod test {
             .clone()
     }
 
-    #[tokio::test]
-    async fn test_check_ignore_non_expired() {
+    #[test]
+    fn test_check_ignore_non_expired() {
         let mut swap = MockSwapHelper::new();
         swap.expect_get_all().returning(|_| {
             Ok(vec![
@@ -196,21 +168,15 @@ mod test {
                     orderSide: 1,
                     status: "invoice.set".to_string(),
                     invoice: Some("lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2q3skgumxzcssyeyreggqmet8r4k6krvd3knppsx6c8v5g7tj8hcuq8lleta9ve5n".to_string()),
-                    failureReason: None,
-                    lockupAddress: "".to_string(),
+                    ..Default::default()
                 }
             ])
         });
 
         let (tx, _) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpiryChecker::new(
-            CancellationToken::new(),
-            tx,
-            Arc::new(get_currencies()),
-            Arc::new(swap),
-        );
+        let checker = InvoiceExpirationChecker::new(tx, Arc::new(get_currencies()), Arc::new(swap));
 
-        checker.check().await.unwrap();
+        checker.check().unwrap();
     }
 
     #[tokio::test]
@@ -226,8 +192,7 @@ mod test {
                     orderSide: 1,
                     status: "invoice.set".to_string(),
                     invoice: Some("lnbcrt1230p1pnwzkshsp584p434kjslfl030shwps75nvy4leq5k6psvdxn4kzsxjnptlmr3spp5nxqauehzqkx3xswjtrgx9lh5pqjxkyx0kszj0nc4m4jn7uk9gc5qdq8v9ekgesxqyjw5qcqp29qxpqysgqu6ft6p8c36khp082xng2xzmta25nlg803qjncal3fhzw8eshrsdyevhlgs970a09n95r3gtvqvvyk24vyv4506cu6cxl8ytaywrjkhcp468qnl".to_string()),
-                    failureReason: None,
-                    lockupAddress: "".to_string(),
+                    ..Default::default()
                 }
             ])
         });
@@ -235,19 +200,14 @@ mod test {
             .with(
                 predicate::eq(swap_id),
                 predicate::eq(SwapUpdate::InvoiceFailedToPay),
-                predicate::eq(Some(EXPIRED_INVOICE_FAILURE_REASON.to_string())),
+                predicate::eq(Some(FAILURE_REASON_EXPIRED_INVOICE.to_string())),
             )
             .returning(|_, _, _| Ok(1));
 
         let (tx, mut rx) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpiryChecker::new(
-            CancellationToken::new(),
-            tx,
-            Arc::new(get_currencies()),
-            Arc::new(swap),
-        );
+        let checker = InvoiceExpirationChecker::new(tx, Arc::new(get_currencies()), Arc::new(swap));
 
-        checker.check().await.unwrap();
+        checker.check().unwrap();
 
         let emitted = rx.recv().await.unwrap();
         assert_eq!(
@@ -255,11 +215,8 @@ mod test {
             SwapStatus {
                 id: swap_id.to_string(),
                 status: SwapUpdate::InvoiceFailedToPay.to_string(),
-                failure_reason: Some(EXPIRED_INVOICE_FAILURE_REASON.to_string()),
-                zero_conf_rejected: None,
-                transaction: None,
-                failure_details: None,
-                channel_info: None,
+                failure_reason: Some(FAILURE_REASON_EXPIRED_INVOICE.to_string()),
+                ..Default::default()
             }
         );
     }

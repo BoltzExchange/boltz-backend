@@ -3,17 +3,19 @@ use crate::swap::SwapUpdate;
 use crate::utils::pair::{split_pair, OrderSide};
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Debug)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Default, Clone, Debug)]
 #[diesel(table_name = crate::db::schema::swaps)]
 #[allow(non_snake_case)]
 pub struct Swap {
     pub id: String,
+    pub referral: Option<String>,
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
     pub failureReason: Option<String>,
     pub invoice: Option<String>,
     pub lockupAddress: String,
+    pub createdAt: chrono::NaiveDateTime,
 }
 
 impl SomeSwap for Swap {
@@ -94,11 +96,9 @@ mod test {
         Swap {
             id: "swap id".to_string(),
             pair: "L-BTC/BTC".to_string(),
-            lockupAddress: "".to_string(),
             status: "transaction.mempool".to_string(),
             orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
-            invoice: None,
-            failureReason: None,
+            ..Default::default()
         }
     }
 }

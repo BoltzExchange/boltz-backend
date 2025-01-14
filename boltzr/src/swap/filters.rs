@@ -325,21 +325,15 @@ mod test {
             Ok(vec![
                 Swap {
                     orderSide: 0,
-                    id: "".to_string(),
-                    status: "".to_string(),
                     pair: "BTC/BTC".to_string(),
                     lockupAddress: address_bitcoin.to_string(),
-                    invoice: None,
-                    failureReason: None,
+                    ..Default::default()
                 },
                 Swap {
                     orderSide: 1,
-                    id: "".to_string(),
-                    status: "".to_string(),
                     pair: "L-BTC/BTC".to_string(),
                     lockupAddress: address_elements.to_string(),
-                    invoice: None,
-                    failureReason: None,
+                    ..Default::default()
                 },
             ])
         });
@@ -394,11 +388,10 @@ mod test {
         reverse.expect_get_all().returning(|_| {
             Ok(vec![ReverseSwap {
                 orderSide: 0,
-                id: "".to_string(),
-                status: "".to_string(),
                 transactionVout: Some(2),
                 pair: "L-BTC/BTC".to_string(),
                 transactionId: Some(tx_id.to_string()),
+                ..Default::default()
             }])
         });
         let reverse_swap_repo: Arc<dyn ReverseSwapHelper + Send + Sync> = Arc::new(reverse);
@@ -445,24 +438,20 @@ mod test {
                 ChainSwapInfo::new(
                     ChainSwap {
                         orderSide: 0,
-                        id: "".to_string(),
                         pair: "L-BTC/BTC".to_string(),
                         status: SwapUpdate::TransactionServerMempool.to_string(),
+                        ..Default::default()
                     },
                     vec![
                         ChainSwapData {
-                            swapId: "".to_string(),
                             transactionVout: Some(21),
                             symbol: "L-BTC".to_string(),
-                            lockupAddress: "".to_string(),
                             transactionId: Some(tx_id.to_string()),
+                            ..Default::default()
                         },
                         ChainSwapData {
-                            transactionId: None,
-                            transactionVout: None,
-                            swapId: "".to_string(),
                             symbol: "BTC".to_string(),
-                            lockupAddress: "".to_string(),
+                            ..Default::default()
                         },
                     ],
                 )
@@ -470,24 +459,19 @@ mod test {
                 ChainSwapInfo::new(
                     ChainSwap {
                         orderSide: 0,
-                        id: "".to_string(),
                         pair: "L-BTC/BTC".to_string(),
                         status: SwapUpdate::SwapCreated.to_string(),
+                        ..Default::default()
                     },
                     vec![
                         ChainSwapData {
-                            transactionId: None,
-                            transactionVout: None,
-                            swapId: "".to_string(),
                             symbol: "L-BTC".to_string(),
-                            lockupAddress: "".to_string(),
+                            ..Default::default()
                         },
                         ChainSwapData {
-                            transactionId: None,
-                            transactionVout: None,
-                            swapId: "".to_string(),
                             symbol: "BTC".to_string(),
                             lockupAddress: address.to_string(),
+                            ..Default::default()
                         },
                     ],
                 )
@@ -529,19 +513,7 @@ mod test {
         let currencies = get_currencies();
 
         let symbol = "BTC";
-        let currency = get_currency(
-            &currencies,
-            symbol,
-            &Swap {
-                orderSide: 0,
-                id: "".to_string(),
-                pair: "".to_string(),
-                status: "".to_string(),
-                lockupAddress: "".to_string(),
-                invoice: None,
-                failureReason: None,
-            },
-        );
+        let currency = get_currency(&currencies, symbol, &Swap::default());
         assert!(currency.cloned().is_some());
         assert_eq!(currency.unwrap().chain.clone().unwrap().symbol(), symbol);
     }
@@ -549,52 +521,21 @@ mod test {
     #[test]
     fn test_get_currency_no_chain_client() {
         let currencies = get_currencies();
-        assert!(get_currency(
-            &currencies,
-            "LTC",
-            &Swap {
-                orderSide: 0,
-                id: "".to_string(),
-                pair: "".to_string(),
-                status: "".to_string(),
-                lockupAddress: "".to_string(),
-                invoice: None,
-                failureReason: None,
-            }
-        )
-        .is_none());
+        assert!(get_currency(&currencies, "LTC", &Swap::default(),).is_none());
     }
 
     #[test]
     fn test_get_currency_none() {
         let currencies = get_currencies();
-        assert!(get_currency(
-            &currencies,
-            "NOTFOUND",
-            &Swap {
-                orderSide: 0,
-                id: "".to_string(),
-                pair: "".to_string(),
-                status: "".to_string(),
-                lockupAddress: "".to_string(),
-                invoice: None,
-                failureReason: None,
-            }
-        )
-        .is_none());
+        assert!(get_currency(&currencies, "NOTFOUND", &Swap::default()).is_none());
     }
 
     #[test]
     fn test_decode_script() {
         let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(Bitcoin::new(Network::Regtest));
         let swap = Swap {
-            orderSide: 0,
             id: "id".to_string(),
-            pair: "".to_string(),
-            status: "".to_string(),
-            lockupAddress: "".to_string(),
-            invoice: None,
-            failureReason: None,
+            ..Default::default()
         };
         let address = "bcrt1pjcv9r3jeug6xmgug6hu0p4lux7r9996yxk9m2xxammfqq4kxdvkqhdu0h5";
 
@@ -608,13 +549,8 @@ mod test {
     fn test_decode_script_invalid() {
         let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(Bitcoin::new(Network::Regtest));
         let swap = Swap {
-            orderSide: 0,
             id: "id".to_string(),
-            pair: "".to_string(),
-            status: "".to_string(),
-            lockupAddress: "".to_string(),
-            invoice: None,
-            failureReason: None,
+            ..Default::default()
         };
 
         assert_eq!(decode_script(&wallet, &swap, "invalid"), None);

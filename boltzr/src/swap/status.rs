@@ -25,6 +25,8 @@ pub enum SwapUpdate {
     #[strum(serialize = "transaction.server.confirmed")]
     TransactionServerConfirmed,
 
+    #[strum(serialize = "invoice.set")]
+    InvoiceSet,
     #[strum(serialize = "invoice.pending")]
     InvoicePending,
     #[strum(serialize = "invoice.failedToPay")]

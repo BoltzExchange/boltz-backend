@@ -3,7 +3,9 @@ use crate::swap::SwapUpdate;
 use crate::utils::pair::{split_pair, OrderSide};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
 
-#[derive(Queryable, Selectable, Insertable, Identifiable, AsChangeset, PartialEq, Clone, Debug)]
+#[derive(
+    Queryable, Selectable, Insertable, Identifiable, AsChangeset, PartialEq, Default, Clone, Debug,
+)]
 #[diesel(table_name = crate::db::schema::chainSwaps)]
 #[allow(non_snake_case)]
 pub struct ChainSwap {
@@ -21,6 +23,7 @@ pub struct ChainSwap {
     AsChangeset,
     Associations,
     PartialEq,
+    Default,
     Clone,
     Debug,
 )]
@@ -36,7 +39,7 @@ pub struct ChainSwapData {
     pub transactionVout: Option<i32>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct ChainSwapInfo {
     swap: ChainSwap,
     sending_data: ChainSwapData,

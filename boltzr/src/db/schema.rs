@@ -11,15 +11,24 @@ diesel::table! {
 }
 
 diesel::table! {
+    referrals (id) {
+        id -> Text,
+        config -> Nullable<Json>,
+    }
+}
+
+diesel::table! {
     #[allow(non_snake_case)]
     swaps (id) {
         id -> Text,
+        referral -> Nullable<Text>,
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
         failureReason -> Nullable<Text>,
         invoice -> Nullable<Text>,
         lockupAddress -> Text,
+        createdAt -> Timestamp,
     }
 }
 

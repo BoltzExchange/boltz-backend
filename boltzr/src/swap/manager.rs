@@ -2,13 +2,15 @@ use crate::api::ws::types::SwapStatus;
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
+use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::Pool;
-use crate::swap::expiry_checker::InvoiceExpiryChecker;
+use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use futures_util::future::try_join_all;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
@@ -33,6 +35,7 @@ pub struct Manager {
     currencies: Arc<Currencies>,
     cancellation_token: CancellationToken,
 
+    pool: Pool,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_repo: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_repo: Arc<dyn ReverseSwapHelper + Sync + Send>,
@@ -45,6 +48,7 @@ impl Manager {
         Manager {
             update_tx,
             cancellation_token,
+            pool: pool.clone(),
             currencies: Arc::new(currencies),
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
@@ -53,16 +57,31 @@ impl Manager {
     }
 
     pub async fn start(&self) {
-        let expiry_checker = InvoiceExpiryChecker::new(
+        let invoice_expiration = Scheduler::new(
             self.cancellation_token.clone(),
-            self.update_tx.clone(),
-            self.currencies.clone(),
-            self.swap_repo.clone(),
+            InvoiceExpirationChecker::new(
+                self.update_tx.clone(),
+                self.currencies.clone(),
+                self.swap_repo.clone(),
+            ),
+        );
+        let custom_expiration = Scheduler::new(
+            self.cancellation_token.clone(),
+            CustomExpirationChecker::new(
+                self.update_tx.clone(),
+                self.swap_repo.clone(),
+                Arc::new(ReferralHelperDatabase::new(self.pool.clone())),
+            ),
         );
 
-        tokio::spawn(async move {
-            expiry_checker.start().await;
-        })
+        try_join_all([
+            tokio::spawn(async move {
+                invoice_expiration.start().await;
+            }),
+            tokio::spawn(async move {
+                custom_expiration.start().await;
+            }),
+        ])
         .await
         .unwrap();
     }

@@ -27,6 +27,9 @@ mod webhook;
 #[cfg(feature = "metrics")]
 mod metrics;
 
+#[cfg(feature = "otel")]
+mod profiling;
+
 #[derive(Parser, Serialize, Debug, Clone)]
 #[command(author = "Boltz", about = "Boltz Backend sidecar", version, about, long_about = None)]
 struct Args {
@@ -64,6 +67,9 @@ async fn main() {
             )
         },
     );
+
+    #[cfg(feature = "otel")]
+    let profiling_agent = profiling::start(&config);
 
     info!(
         "Starting {} v{}",
@@ -284,6 +290,14 @@ async fn main() {
 
     #[cfg(feature = "metrics")]
     metrics_handle.await.unwrap();
+
+    #[cfg(feature = "otel")]
+    {
+        if let Some(agent) = profiling_agent {
+            let agent = agent.stop().unwrap();
+            agent.shutdown();
+        }
+    }
 
     info!("Exiting");
 }

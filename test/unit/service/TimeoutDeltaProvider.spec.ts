@@ -202,6 +202,23 @@ describe('TimeoutDeltaProvider', () => {
       ),
     ).resolves.toEqual([8, true]);
 
+    await expect(
+      deltaProvider.getTimeout(
+        'BTC/BTC',
+        OrderSide.SELL,
+        SwapType.Submarine,
+        SwapVersion.Legacy,
+      ),
+    ).resolves.toEqual([36, true]);
+    await expect(
+      deltaProvider.getTimeout(
+        'BTC/BTC',
+        OrderSide.SELL,
+        SwapType.Submarine,
+        SwapVersion.Taproot,
+      ),
+    ).resolves.toEqual([1008, true]);
+
     // Should throw if pair cannot be found
     const notFound = 'notFound';
 

@@ -27,7 +27,6 @@ otel = [
 ]
 
 [profile.release]
-strip = true
 opt-level = 2
 lto = true
 codegen-units = 1

@@ -1,14 +1,14 @@
 name: CI
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   build:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
-        node-version: [20]
-        rust-version: [stable]
+        platform: [ ubuntu-latest ]
+        node-version: [ 20 ]
+        rust-version: [ stable ]
 
     runs-on: ${{ matrix.platform }}
 
@@ -80,9 +80,9 @@ jobs:
   build-rust:
     strategy:
       matrix:
-        platform: [ubuntu-latest]
-        node-version: [20]
-        rust-version: [stable, nightly]
+        platform: [ ubuntu-latest ]
+        node-version: [ 20 ]
+        rust-version: [ stable, nightly ]
 
     runs-on: ${{ matrix.platform }}
 
@@ -146,7 +146,7 @@ jobs:
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Tests
         run: cargo test

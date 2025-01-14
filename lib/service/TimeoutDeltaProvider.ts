@@ -224,7 +224,12 @@ class TimeoutDeltaProvider {
             invoice,
             referralId,
           )
-        : [chainDeltas.swapMinimal, true];
+        : [
+            version === SwapVersion.Taproot
+              ? chainDeltas.swapTaproot
+              : chainDeltas.swapMinimal,
+            true,
+          ];
     }
   };
 

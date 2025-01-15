@@ -942,7 +942,7 @@ class SwapManager {
         invoice: paymentRequest,
         orderSide: args.orderSide,
         referral: args.referralId,
-        version: SwapVersion.Legacy,
+        version: SwapVersion.Taproot,
         claimAddress: args.claimAddress!,
         lockupAddress: result.lockupAddress,
         onchainAmount: args.onchainAmount,

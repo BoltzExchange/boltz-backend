@@ -178,6 +178,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (
       this.overpaymentProtector.isUnacceptableOverpay(
+        swap.type,
         swap.receivingData.expectedAmount,
         outputValue,
       )
@@ -770,6 +771,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
       if (
         this.overpaymentProtector.isUnacceptableOverpay(
+          swap.type,
           updatedSwap.expectedAmount,
           outputValue,
         )

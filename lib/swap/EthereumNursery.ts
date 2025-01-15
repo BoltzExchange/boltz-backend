@@ -229,6 +229,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
       if (
         this.overpaymentProtector.isUnacceptableOverpay(
+          swap.type,
           expectedAmount,
           actualAmountSat,
         )
@@ -349,6 +350,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
       if (
         this.overpaymentProtector.isUnacceptableOverpay(
+          swap.type,
           expectedAmount,
           actualAmount,
         )

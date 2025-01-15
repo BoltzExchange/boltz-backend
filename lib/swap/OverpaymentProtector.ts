@@ -1,5 +1,6 @@
 import { OverPaymentConfig } from '../Config';
 import Logger from '../Logger';
+import { SwapType } from '../consts/Enums';
 
 class OverpaymentProtector {
   private static readonly defaultConfig = {
@@ -25,12 +26,24 @@ class OverpaymentProtector {
     );
   }
 
-  public isUnacceptableOverpay = (expected: number, actual: number): boolean =>
-    actual - expected >
-    Math.max(
-      this.overPaymentExemptAmount,
-      actual * this.overPaymentMaxPercentage,
-    );
+  public isUnacceptableOverpay = (
+    type: SwapType,
+    expected: number,
+    actual: number,
+  ): boolean => {
+    // For chain swaps we renegotiate overpayments
+    if (type === SwapType.Chain) {
+      return actual > expected;
+    } else {
+      return (
+        actual - expected >
+        Math.max(
+          this.overPaymentExemptAmount,
+          actual * this.overPaymentMaxPercentage,
+        )
+      );
+    }
+  };
 }
 
 export default OverpaymentProtector;

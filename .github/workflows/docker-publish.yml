@@ -3,7 +3,7 @@ name: Docker
 on:
   workflow_dispatch:
   push:
-    branches: ["master"]
+    branches: ['master']
 
 jobs:
   push:
@@ -29,4 +29,6 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Push backend image
-        run: ./docker/build.py buildx --platform linux/amd64 --no-latest --branch ${GITHUB_REF##*/} boltz
+        run:
+          ./docker/build.py buildx --platform linux/amd64 --no-latest --branch
+          ${GITHUB_REF##*/} boltz

@@ -2,7 +2,7 @@ use crate::config::GlobalConfig;
 use pyroscope::pyroscope::PyroscopeAgentRunning;
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub fn start(config: &GlobalConfig) -> Option<PyroscopeAgent<PyroscopeAgentRunning>> {
     let endpoint = match &config.profiling_endpoint {
@@ -24,7 +24,10 @@ pub fn start(config: &GlobalConfig) -> Option<PyroscopeAgent<PyroscopeAgentRunni
 
     let err = match agent {
         Ok(agent) => match agent.start() {
-            Ok(agent) => return Some(agent),
+            Ok(agent) => {
+                info!("Enabling profiler");
+                return Some(agent);
+            }
             Err(err) => err,
         },
         Err(err) => err,

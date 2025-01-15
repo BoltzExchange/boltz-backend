@@ -1,14 +1,14 @@
 name: CI
 
-on: [ push, pull_request ]
+on: [push, pull_request]
 
 jobs:
   build:
     strategy:
       matrix:
-        platform: [ ubuntu-latest ]
-        node-version: [ 20 ]
-        rust-version: [ stable ]
+        platform: [ubuntu-latest]
+        node-version: [20]
+        rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
 
@@ -33,7 +33,9 @@ jobs:
           matrix.rust-version }}
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
+        run:
+          sudo apt-get update && sudo apt-get -y install protobuf-compiler
+          libsqlite3-dev
 
       - name: Install Node.js dependencies
         run: npm ci
@@ -80,9 +82,9 @@ jobs:
   build-rust:
     strategy:
       matrix:
-        platform: [ ubuntu-latest ]
-        node-version: [ 20 ]
-        rust-version: [ stable, nightly ]
+        platform: [ubuntu-latest]
+        node-version: [20]
+        rust-version: [stable, nightly]
 
     runs-on: ${{ matrix.platform }}
 

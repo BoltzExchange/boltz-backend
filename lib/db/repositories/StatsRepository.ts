@@ -159,13 +159,13 @@ ORDER BY year, month, pair NULLS FIRST;
     // language=PostgreSQL
     `
 WITH data AS (
-    SELECT pair, 'submarine' AS type, status, referral, "createdAt"
+    SELECT pair, 'submarine' AS type, status, "failureReason", referral, "createdAt"
     FROM swaps
     UNION ALL
-    SELECT pair, 'reverse' AS type, status, referral, "createdAt"
+    SELECT pair, 'reverse' AS type, status, "failureReason",referral, "createdAt"
     FROM "reverseSwaps"
     UNION ALL
-    SELECT pair, 'chain' AS type, status, referral, "createdAt"
+    SELECT pair, 'chain' AS type, status, "failureReason", referral, "createdAt"
     FROM "chainSwaps"
 )
 SELECT
@@ -174,6 +174,7 @@ SELECT
     type,
     COUNT(*) FILTER (
         WHERE status IN (?)
+          AND "failureReason" NOT IN (?)
     ) / CAST(COUNT(*) AS REAL) AS "failureRate"
 FROM data
 WHERE
@@ -389,6 +390,7 @@ GROUP BY pair, type;
           SwapUpdateEvent.InvoiceFailedToPay,
           SwapUpdateEvent.TransactionRefunded,
         ],
+        ['invoice expired', 'swap expired'],
         referral,
         referral,
         minYear,

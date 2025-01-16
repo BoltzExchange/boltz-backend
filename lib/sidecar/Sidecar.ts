@@ -323,6 +323,18 @@ class Sidecar extends BaseClient<
     return res.invoice;
   };
 
+  public isMarked = async (ip: string) => {
+    const req = new sidecarrpc.IsMarkedRequest();
+    req.setIp(ip);
+
+    return (
+      await this.unaryNodeCall<
+        sidecarrpc.IsMarkedRequest,
+        sidecarrpc.IsMarkedResponse.AsObject
+      >('isMarked', req)
+    ).isMarked;
+  };
+
   private subscribeSwapUpdates = () => {
     const serializeSwapUpdate = (updates: Update[]) => {
       const req = new sidecarrpc.SwapUpdateRequest();

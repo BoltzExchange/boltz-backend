@@ -11,7 +11,6 @@ import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapR
 import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
-import CountryCodes from '../../../../../lib/service/CountryCodes';
 import Errors from '../../../../../lib/service/Errors';
 import Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
@@ -45,6 +44,10 @@ jest.mock('../../../../../lib/db/repositories/MarkedSwapRepository', () => ({
 
 describe('SwapRouter', () => {
   const service = {
+    sidecar: {
+      isMarked: jest.fn().mockReturnValue(true),
+    },
+
     rateProvider: {
       providers: {
         [SwapVersion.Taproot]: {
@@ -166,17 +169,7 @@ describe('SwapRouter', () => {
     },
   } as unknown as SwapInfos;
 
-  const countryCodes = {
-    isRelevantCountry: jest.fn().mockReturnValue(true),
-    getCountryCode: jest.fn().mockReturnValue('TOR'),
-  } as unknown as CountryCodes;
-
-  const swapRouter = new SwapRouter(
-    Logger.disabledLogger,
-    service,
-    swapInfos,
-    countryCodes,
-  );
+  const swapRouter = new SwapRouter(Logger.disabledLogger, service, swapInfos);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -354,10 +347,15 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                            | body
-    ${'undefined parameter: to'}                     | ${{}}
-    ${'undefined parameter: from'}                   | ${{ to: 'BTC' }}
-    ${'could not parse hex string: refundPublicKey'} | ${{ to: 'BTC', from: 'L-BTC', invoice: 'lnbc1', refundPublicKey: 'notHex' }}
+    error                          | body
+    ${'undefined parameter: to'}   | ${{}}
+    ${'undefined parameter: from'} | ${{ to: 'BTC' }}
+    ${'could not parse hex string: refundPublicKey'} | ${{
+  to: 'BTC',
+  from: 'L-BTC',
+  invoice: 'lnbc1',
+  refundPublicKey: 'notHex',
+}}
   `(
     'should not create submarine swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -673,14 +671,19 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                        | body
-    ${'undefined parameter: id'}                 | ${{}}
-    ${'undefined parameter: index'}              | ${{ id: 'someId' }}
-    ${'invalid parameter: index'}                | ${{ id: 'someId', index: 'yo' }}
-    ${'undefined parameter: pubNonce'}           | ${{ id: 'someId', index: 0 }}
-    ${'could not parse hex string: pubNonce'}    | ${{ id: 'someId', index: 0, pubNonce: 'notHex' }}
-    ${'undefined parameter: transaction'}        | ${{ id: 'someId', index: 0, pubNonce: '0011' }}
-    ${'could not parse hex string: transaction'} | ${{ id: 'someId', index: 0, pubNonce: '0011', transaction: 'notHex' }}
+    error                                     | body
+    ${'undefined parameter: id'}              | ${{}}
+    ${'undefined parameter: index'}           | ${{ id: 'someId' }}
+    ${'invalid parameter: index'}             | ${{ id: 'someId', index: 'yo' }}
+    ${'undefined parameter: pubNonce'}        | ${{ id: 'someId', index: 0 }}
+    ${'could not parse hex string: pubNonce'} | ${{ id: 'someId', index: 0, pubNonce: 'notHex' }}
+    ${'undefined parameter: transaction'}     | ${{ id: 'someId', index: 0, pubNonce: '0011' }}
+    ${'could not parse hex string: transaction'} | ${{
+  id: 'someId',
+  index: 0,
+  pubNonce: '0011',
+  transaction: 'notHex',
+}}
   `(
     'should not refund submarine swaps with invalid parameters ($error)',
     async ({ error, body }) => {
@@ -852,11 +855,14 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                             | params           | body
-    ${'undefined parameter: id'}                      | ${{}}            | ${{}}
-    ${'undefined parameter: partialSignature'}        | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc' }}
-    ${'could not parse hex string: pubNonce'}         | ${{ id: '123' }} | ${{ pubNonce: 'notHex' }}
-    ${'could not parse hex string: partialSignature'} | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc', partialSignature: 'notHex' }}
+    error                                      | params           | body
+    ${'undefined parameter: id'}               | ${{}}            | ${{}}
+    ${'undefined parameter: partialSignature'} | ${{ id: '123' }} | ${{ pubNonce: 'aabbcc' }}
+    ${'could not parse hex string: pubNonce'}  | ${{ id: '123' }} | ${{ pubNonce: 'notHex' }}
+    ${'could not parse hex string: partialSignature'} | ${{ id: '123' }} | ${{
+  pubNonce: 'aabbcc',
+  partialSignature: 'notHex',
+}}
   `(
     'should not refund submarine swaps with invalid parameters ($error)',
     async ({ error, params, body }) => {
@@ -944,19 +950,66 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                             | body
-    ${'undefined parameter: to'}                      | ${{}}
-    ${'undefined parameter: from'}                    | ${{ to: 'L-BTC' }}
-    ${'undefined parameter: preimageHash'}            | ${{ to: 'L-BTC', from: 'BTC' }}
-    ${'could not parse hex string: preimageHash'}     | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
-    ${'could not parse hex string: claimPublicKey'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: 'notHex' }}
-    ${'could not parse hex string: addressSignature'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', addressSignature: 'notHex' }}
-    ${'invalid parameter: invoiceExpiry'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', invoiceExpiry: '123' }}
-    ${'invalid parameter: description'}               | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', description: 123 }}
-    ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 123 }}
-    ${'invalid parameter: claimCovenant'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', claimCovenant: 'notBool' }}
-    ${'invalid parameter: descriptionHash'}           | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', descriptionHash: 123 }}
-    ${'could not parse hex string: descriptionHash'}  | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '00', claimPublicKey: '0011', descriptionHash: 'notHex' }}
+    error                                         | body
+    ${'undefined parameter: to'}                  | ${{}}
+    ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
+    ${'undefined parameter: preimageHash'}        | ${{ to: 'L-BTC', from: 'BTC' }}
+    ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
+    ${'could not parse hex string: claimPublicKey'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: 'notHex',
+}}
+    ${'could not parse hex string: addressSignature'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  addressSignature: 'notHex',
+}}
+    ${'invalid parameter: invoiceExpiry'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  invoiceExpiry: '123',
+}}
+    ${'invalid parameter: description'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  description: 123,
+}}
+    ${'invalid parameter: claimCovenant'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  claimCovenant: 123,
+}}
+    ${'invalid parameter: claimCovenant'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  claimCovenant: 'notBool',
+}}
+    ${'invalid parameter: descriptionHash'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  descriptionHash: 123,
+}}
+    ${'could not parse hex string: descriptionHash'} | ${{
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '00',
+  claimPublicKey: '0011',
+  descriptionHash: 'notHex',
+}}
   `(
     'should not create reverse swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1342,16 +1395,46 @@ describe('SwapRouter', () => {
 
   describe('signReverseSwapClaim', () => {
     test.each`
-      error                                                                 | body
-      ${'undefined parameter: id'}                                          | ${{}}
-      ${'undefined parameter: preimage'}                                    | ${{ id: 'someId' }}
-      ${'could not parse hex string: preimage'}                             | ${{ id: 'someId', preimage: 'notHex' }}
-      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{ id: 'someId', preimage: '21', pubNonce: '0011' }}
-      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{ id: 'someId', preimage: '21', index: 0 }}
-      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{ id: 'someId', preimage: '21', transaction: '0011' }}
-      ${'could not parse hex string: pubNonce'}                             | ${{ id: 'someId', preimage: '21', pubNonce: 'notHex', index: 0, transaction: '0011' }}
-      ${'could not parse hex string: transaction'}                          | ${{ id: 'someId', preimage: '21', pubNonce: '0011', index: 0, transaction: 'notHex' }}
-      ${'invalid parameter: index'}                                         | ${{ id: 'someId', preimage: '21', pubNonce: '0011', index: 'yo', transaction: '0011' }}
+      error                                     | body
+      ${'undefined parameter: id'}              | ${{}}
+      ${'undefined parameter: preimage'}        | ${{ id: 'someId' }}
+      ${'could not parse hex string: preimage'} | ${{ id: 'someId', preimage: 'notHex' }}
+      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
+  id: 'someId',
+  preimage: '21',
+  pubNonce: '0011',
+}}
+      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
+  id: 'someId',
+  preimage: '21',
+  index: 0,
+}}
+      ${'pubNonce, index and transaction must be all set or all undefined'} | ${{
+  id: 'someId',
+  preimage: '21',
+  transaction: '0011',
+}}
+      ${'could not parse hex string: pubNonce'} | ${{
+  id: 'someId',
+  preimage: '21',
+  pubNonce: 'notHex',
+  index: 0,
+  transaction: '0011',
+}}
+      ${'could not parse hex string: transaction'} | ${{
+  id: 'someId',
+  preimage: '21',
+  pubNonce: '0011',
+  index: 0,
+  transaction: 'notHex',
+}}
+      ${'invalid parameter: index'} | ${{
+  id: 'someId',
+  preimage: '21',
+  pubNonce: '0011',
+  index: 'yo',
+  transaction: '0011',
+}}
     `(
       'should not claim reverse swaps with invalid parameters ($error)',
       async ({ body, error }) => {
@@ -1468,14 +1551,24 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                            | body
-    ${'undefined parameter: to'}                     | ${{}}
-    ${'undefined parameter: from'}                   | ${{ to: 'L-BTC' }}
-    ${'undefined parameter: preimageHash'}           | ${{ to: 'L-BTC', from: 'BTC' }}
-    ${'could not parse hex string: preimageHash'}    | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'asdf' }}
-    ${'invalid preimage hash length: 2'}             | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '0011' }}
-    ${'could not parse hex string: claimPublicKey'}  | ${{ claimPublicKey: 'asdf', to: 'L-BTC', from: 'BTC', preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c' }}
-    ${'could not parse hex string: refundPublicKey'} | ${{ refundPublicKey: 'asdf', to: 'L-BTC', from: 'BTC', preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c' }}
+    error                                         | body
+    ${'undefined parameter: to'}                  | ${{}}
+    ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
+    ${'undefined parameter: preimageHash'}        | ${{ to: 'L-BTC', from: 'BTC' }}
+    ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'asdf' }}
+    ${'invalid preimage hash length: 2'}          | ${{ to: 'L-BTC', from: 'BTC', preimageHash: '0011' }}
+    ${'could not parse hex string: claimPublicKey'} | ${{
+  claimPublicKey: 'asdf',
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+}}
+    ${'could not parse hex string: refundPublicKey'} | ${{
+  refundPublicKey: 'asdf',
+  to: 'L-BTC',
+  from: 'BTC',
+  preimageHash: '32392e7849d736455b18707052e48d9f204d1575ecf979f19ae12919a32c0e4c',
+}}
   `(
     'should not create chain swaps with invalid parameters ($error)',
     async ({ body, error }) => {
@@ -1651,14 +1744,23 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                      | params            | body
-    ${'undefined parameter: id'}               | ${{}}             | ${{}}
-    ${'undefined parameter: index'}            | ${{ id: 'some' }} | ${{ toSign: {} }}
-    ${'undefined parameter: pubNonce'}         | ${{ id: 'some' }} | ${{ toSign: { index: 0 } }}
-    ${'undefined parameter: transaction'}      | ${{ id: 'some' }} | ${{ toSign: { index: 0, pubNonce: '00' } }}
-    ${'could not parse hex string: preimage'}  | ${{ id: 'some' }} | ${{ preimage: 'notHex', toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
-    ${'undefined parameter: pubNonce'}         | ${{ id: 'some' }} | ${{ signature: {}, toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
-    ${'undefined parameter: partialSignature'} | ${{ id: 'some' }} | ${{ signature: { pubNonce: '02' }, toSign: { index: 0, pubNonce: '00', transaction: '01' } }}
+    error                                 | params            | body
+    ${'undefined parameter: id'}          | ${{}}             | ${{}}
+    ${'undefined parameter: index'}       | ${{ id: 'some' }} | ${{ toSign: {} }}
+    ${'undefined parameter: pubNonce'}    | ${{ id: 'some' }} | ${{ toSign: { index: 0 } }}
+    ${'undefined parameter: transaction'} | ${{ id: 'some' }} | ${{ toSign: { index: 0, pubNonce: '00' } }}
+    ${'could not parse hex string: preimage'} | ${{ id: 'some' }} | ${{
+  preimage: 'notHex',
+  toSign: { index: 0, pubNonce: '00', transaction: '01' },
+}}
+    ${'undefined parameter: pubNonce'} | ${{ id: 'some' }} | ${{
+  signature: {},
+  toSign: { index: 0, pubNonce: '00', transaction: '01' },
+}}
+    ${'undefined parameter: partialSignature'} | ${{ id: 'some' }} | ${{
+  signature: { pubNonce: '02' },
+  toSign: { index: 0, pubNonce: '00', transaction: '01' },
+}}
   `(
     'should not claim chain swaps with invalid parameters ($error)',
     async ({ params, body, error }) => {

@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
 import MarkedSwapRepository from '../db/repositories/MarkedSwapRepository';
-import CountryCodes from '../service/CountryCodes';
 import ServiceErrors from '../service/Errors';
+import Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 
 export type ApiType = 'string' | 'number' | 'boolean' | 'object';
@@ -161,7 +161,7 @@ export const checkPreimageHashLength = (preimageHash: Buffer) => {
 };
 
 export const markSwap = async (
-  countryCodes: CountryCodes,
+  sidecar: Sidecar,
   ip: string | undefined,
   swapId: string,
 ) => {
@@ -169,11 +169,9 @@ export const markSwap = async (
     return;
   }
 
-  if (!countryCodes.isRelevantCountry(countryCodes.getCountryCode(ip))) {
-    return;
+  if (await sidecar.isMarked(ip)) {
+    await MarkedSwapRepository.addMarkedSwap(swapId);
   }
-
-  await MarkedSwapRepository.addMarkedSwap(swapId);
 };
 
 export const parseReferralId = (req: Request): string | undefined => {

@@ -6,7 +6,6 @@ import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
-import CountryCodes from '../../../service/CountryCodes';
 import Errors from '../../../service/Errors';
 import Service, { WebHookData } from '../../../service/Service';
 import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
@@ -32,7 +31,6 @@ class SwapRouter extends RouterBase {
     logger: Logger,
     private readonly service: Service,
     private readonly swapInfos: SwapInfos,
-    private readonly countryCodes: CountryCodes,
   ) {
     super(logger, 'swap');
   }
@@ -1713,7 +1711,7 @@ class SwapRouter extends RouterBase {
       });
     }
 
-    await markSwap(this.countryCodes, req.ip, response.id);
+    await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
@@ -1898,7 +1896,7 @@ class SwapRouter extends RouterBase {
       userAddressSignature: addressSignature,
     });
 
-    await markSwap(this.countryCodes, req.ip, response.id);
+    await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
@@ -2044,7 +2042,7 @@ class SwapRouter extends RouterBase {
       webHook: webHookData,
     });
 
-    await markSwap(this.countryCodes, req.ip, response.id);
+    await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
     this.logger.silly(`Chain swap ${response.id}: ${stringify(response)}`);

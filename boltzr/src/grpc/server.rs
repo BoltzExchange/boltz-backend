@@ -6,6 +6,7 @@ use crate::grpc::service::BoltzService;
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
+use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
@@ -36,6 +37,7 @@ pub struct Server<M, W, N> {
 
     log_reload_handler: ReloadHandler,
 
+    service: Arc<Service>,
     manager: Arc<M>,
 
     web_hook_helper: Box<W>,
@@ -61,6 +63,7 @@ where
         cancellation_token: CancellationToken,
         config: Config,
         log_reload_handler: ReloadHandler,
+        service: Arc<Service>,
         manager: Arc<M>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
@@ -70,6 +73,7 @@ where
     ) -> Self {
         Server {
             config,
+            service,
             manager,
             refund_signer,
             web_hook_helper,
@@ -98,6 +102,7 @@ where
 
         let service = BoltzService::new(
             self.log_reload_handler.clone(),
+            self.service.clone(),
             self.manager.clone(),
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
@@ -162,6 +167,7 @@ mod server_test {
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::notifications::commands::Commands;
+    use crate::service::Service;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller;
@@ -243,6 +249,7 @@ mod server_test {
                 disable_ssl: Some(true),
             },
             ReloadHandler::new(),
+            Arc::new(Service::new(None)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
@@ -370,6 +377,7 @@ mod server_test {
                 disable_ssl: Some(false),
             },
             ReloadHandler::new(),
+            Arc::new(Service::new(None)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),

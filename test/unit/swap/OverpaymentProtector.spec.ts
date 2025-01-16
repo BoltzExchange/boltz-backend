@@ -1,5 +1,6 @@
 import { OverPaymentConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
+import { SwapType } from '../../../lib/consts/Enums';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 
 describe('OverpaymentProtector', () => {
@@ -68,7 +69,7 @@ describe('OverpaymentProtector', () => {
           new OverpaymentProtector(
             Logger.disabledLogger,
             config,
-          ).isUnacceptableOverpay(expected, actual),
+          ).isUnacceptableOverpay(SwapType.Submarine, expected, actual),
         ).toEqual(false);
       },
     );
@@ -85,7 +86,7 @@ describe('OverpaymentProtector', () => {
           new OverpaymentProtector(
             Logger.disabledLogger,
             config,
-          ).isUnacceptableOverpay(expected, actual),
+          ).isUnacceptableOverpay(SwapType.Submarine, expected, actual),
         ).toEqual(false);
       },
     );
@@ -102,8 +103,27 @@ describe('OverpaymentProtector', () => {
           new OverpaymentProtector(
             Logger.disabledLogger,
             config,
-          ).isUnacceptableOverpay(expected, actual),
+          ).isUnacceptableOverpay(SwapType.Submarine, expected, actual),
         ).toEqual(true);
+      },
+    );
+
+    test.each`
+      expected | actual | expectedResult
+      ${100}   | ${101} | ${true}
+      ${100}   | ${105} | ${true}
+      ${100}   | ${110} | ${true}
+      ${100}   | ${100} | ${false}
+    `(
+      'should not allow overpayment for chain swaps',
+      ({ expected, actual, expectedResult }) => {
+        expect(
+          new OverpaymentProtector(Logger.disabledLogger).isUnacceptableOverpay(
+            SwapType.Chain,
+            expected,
+            actual,
+          ),
+        ).toEqual(expectedResult);
       },
     );
   });

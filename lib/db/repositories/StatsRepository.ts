@@ -58,6 +58,11 @@ type LockedFunds = {
 };
 
 class StatsRepository {
+  private static readonly expirationFailureReasons = [
+    'invoice expired',
+    'swap expired',
+  ];
+
   private static readonly queryVolume =
     // language=PostgreSQL
     `
@@ -196,7 +201,7 @@ WITH data AS (
         'swap' AS type,
         CASE
             WHEN status = ? THEN 'success'
-            WHEN status = ? THEN 'failure'
+            WHEN status = ? AND "failureReason" NOT IN (?) THEN 'failure'
             ELSE 'timeout'
         END AS status
     FROM swaps
@@ -390,7 +395,7 @@ GROUP BY pair, type;
           SwapUpdateEvent.InvoiceFailedToPay,
           SwapUpdateEvent.TransactionRefunded,
         ],
-        ['invoice expired', 'swap expired'],
+        StatsRepository.expirationFailureReasons,
         referral,
         referral,
         minYear,
@@ -406,6 +411,7 @@ GROUP BY pair, type;
       values: [
         SwapUpdateEvent.TransactionClaimed,
         SwapUpdateEvent.InvoiceFailedToPay,
+        StatsRepository.expirationFailureReasons,
         SwapUpdateEvent.InvoiceSettled,
         [
           SwapUpdateEvent.TransactionFailed,

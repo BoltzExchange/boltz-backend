@@ -819,7 +819,10 @@ class SwapRouter extends RouterBase {
      *           description: HTLC address in which coins will be locked
      *         refundPublicKey:
      *           type: string
-     *           description: Public key of Boltz that will be used to refund the onchain HTLC
+     *           description: Public key of Boltz that will be used to refund UTXO HTLCs
+     *         refundAddress:
+     *           type: string
+     *           description: Address that should be specified as refund address for EVM lockup transactions
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC

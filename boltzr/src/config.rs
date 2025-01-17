@@ -55,6 +55,9 @@ pub struct GlobalConfig {
     #[serde(rename = "mnemonicpathEvm")]
     pub mnemonic_path_evm: Option<String>,
 
+    #[serde(rename = "marking")]
+    pub marking: Option<crate::service::MarkingsConfig>,
+
     pub backup: Option<crate::backup::Config>,
     pub notification: Option<crate::notifications::Config>,
 

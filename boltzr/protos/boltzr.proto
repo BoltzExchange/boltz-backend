@@ -22,6 +22,8 @@ service BoltzR {
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
   rpc FetchInvoice (FetchInvoiceRequest) returns (FetchInvoiceResponse);
 
+  rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
+
   rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
 }
 
@@ -223,6 +225,14 @@ message FetchInvoiceRequest {
 
 message FetchInvoiceResponse {
   string invoice = 1;
+}
+
+message IsMarkedRequest {
+  string ip = 1;
+}
+
+message IsMarkedResponse {
+  bool is_marked = 1;
 }
 
 message ScanMempoolRequest {

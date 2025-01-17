@@ -1,5 +1,6 @@
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
+use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws;
 use clap::Parser;
@@ -18,6 +19,7 @@ mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
+mod service;
 mod swap;
 mod tracing_setup;
 mod utils;
@@ -111,6 +113,18 @@ async fn main() {
     };
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
+
+    let service = Arc::new(Service::new(config.marking));
+    {
+        let service = service.clone();
+        let cancellation_token = cancellation_token.clone();
+        tokio::spawn(async move {
+            if let Err(err) = service.start().await {
+                error!("Could not start service: {}", err);
+                cancellation_token.cancel();
+            }
+        });
+    }
 
     #[cfg(feature = "metrics")]
     let mut metrics_server =
@@ -211,6 +225,7 @@ async fn main() {
         cancellation_token.clone(),
         config.sidecar.grpc,
         log_reload_handler,
+        service,
         swap_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),

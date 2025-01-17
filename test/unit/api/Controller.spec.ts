@@ -7,7 +7,6 @@ import { SwapUpdateEvent, SwapVersion } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
-import CountryCodes from '../../../lib/service/CountryCodes';
 import Service from '../../../lib/service/Service';
 import { mockRequest, mockResponse } from './Utils';
 
@@ -135,6 +134,10 @@ const mockCreateReverseSwap = jest.fn().mockResolvedValue({
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      sidecar: {
+        isMarked: jest.fn().mockResolvedValue(true),
+      },
+
       transactionFetcher: {
         getSubmarineTransaction: mockGetSubmarineTransaction,
       },
@@ -205,17 +208,7 @@ describe('Controller', () => {
   const service = mockedService();
   const swapInfos = mockedSwapInfos();
 
-  const countryCodes = {
-    isRelevantCountry: jest.fn().mockReturnValue(true),
-    getCountryCode: jest.fn().mockReturnValue('TOR'),
-  } as unknown as CountryCodes;
-
-  const controller = new Controller(
-    Logger.disabledLogger,
-    service,
-    countryCodes,
-    swapInfos,
-  );
+  const controller = new Controller(Logger.disabledLogger, service, swapInfos);
 
   beforeEach(() => {
     ReferralStats.getReferralFees = mockGenerateReferralStats;

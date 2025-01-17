@@ -2,7 +2,6 @@ import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { ApiConfig } from '../Config';
 import Logger from '../Logger';
-import CountryCodes from '../service/CountryCodes';
 import Service from '../service/Service';
 import Controller from './Controller';
 import SwapInfos from './SwapInfos';
@@ -19,7 +18,6 @@ class Api {
     private readonly logger: Logger,
     private readonly config: ApiConfig,
     service: Service,
-    countryCodes: CountryCodes,
   ) {
     this.app = express();
     this.app.set('trust proxy', 'loopback');
@@ -60,19 +58,9 @@ class Api {
     );
 
     this.swapInfos = new SwapInfos(this.logger, service);
-    this.controller = new Controller(
-      logger,
-      service,
-      countryCodes,
-      this.swapInfos,
-    );
+    this.controller = new Controller(logger, service, this.swapInfos);
 
-    new ApiV2(
-      this.logger,
-      service,
-      this.swapInfos,
-      countryCodes,
-    ).registerRoutes(this.app);
+    new ApiV2(this.logger, service, this.swapInfos).registerRoutes(this.app);
     this.registerRoutes(this.controller);
   }
 

@@ -6,7 +6,6 @@ import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
-import CountryCodes from '../service/CountryCodes';
 import NodeInfo from '../service/NodeInfo';
 import Service from '../service/Service';
 import Bouncer from './Bouncer';
@@ -25,7 +24,6 @@ class Controller {
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
-    private readonly countryCodes: CountryCodes,
     private readonly swapInfos: SwapInfos,
   ) {}
 
@@ -319,7 +317,7 @@ class Controller {
       });
     }
 
-    await markSwap(this.countryCodes, req.ip, response.id);
+    await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created new Swap with id: ${response.id}`);
     this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
@@ -375,7 +373,7 @@ class Controller {
       userAddressSignature: addressSignature,
     });
 
-    await markSwap(this.countryCodes, req.ip, response.id);
+    await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
     this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

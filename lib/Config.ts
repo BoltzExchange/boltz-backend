@@ -11,7 +11,6 @@ import { PairConfig } from './consts/Types';
 import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
 import { BlocksConfig } from './service/Blocks';
-import { MarkingsConfig } from './service/CountryCodes';
 import { SidecarConfig } from './sidecar/Sidecar';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
@@ -200,7 +199,6 @@ type ConfigType = {
 
   swap: SwapConfig;
 
-  marking: MarkingsConfig;
   blocks: BlocksConfig;
 
   api: ApiConfig;
@@ -264,13 +262,6 @@ class Config {
         deferredClaimSymbols: ['L-BTC'],
         batchClaimInterval: '*/15 * * * *',
         expiryTolerance: 120,
-      },
-
-      marking: {
-        ipV4Ranges:
-          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv4-num.csv',
-        ipV6Ranges:
-          'https://cdn.jsdelivr.net/npm/@ip-location-db/asn-country/asn-country-ipv6-num.csv',
       },
 
       blocks: {},

@@ -11,7 +11,7 @@ import {
   validateRequest,
 } from '../../../lib/api/Utils';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
-import CountryCodes from '../../../lib/service/CountryCodes';
+import Sidecar from '../../../lib/sidecar/Sidecar';
 import { mockRequest, mockResponse } from './Utils';
 
 jest.mock('../../../lib/db/repositories/MarkedSwapRepository', () => ({
@@ -209,18 +209,14 @@ describe('Utils', () => {
     const id = '123';
     const ip = '123.123.123.123';
 
-    const countryCodes = {
-      isRelevantCountry: jest.fn().mockReturnValue(true),
-      getCountryCode: jest.fn().mockReturnValue('TOR'),
-    } as any as CountryCodes;
+    const sidecar = {
+      isMarked: jest.fn().mockReturnValue(true),
+    } as any as Sidecar;
 
-    await markSwap(countryCodes, ip, id);
+    await markSwap(sidecar, ip, id);
 
-    expect(countryCodes.getCountryCode).toHaveBeenCalledTimes(1);
-    expect(countryCodes.getCountryCode).toHaveBeenCalledWith(ip);
-
-    expect(countryCodes.isRelevantCountry).toHaveBeenCalledTimes(1);
-    expect(countryCodes.isRelevantCountry).toHaveBeenCalledWith('TOR');
+    expect(sidecar.isMarked).toHaveBeenCalledTimes(1);
+    expect(sidecar.isMarked).toHaveBeenCalledWith(ip);
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledWith(id);
@@ -230,18 +226,14 @@ describe('Utils', () => {
     const id = '123';
     const ip = '123.123.123.123';
 
-    const countryCodes = {
-      isRelevantCountry: jest.fn().mockReturnValue(false),
-      getCountryCode: jest.fn().mockReturnValue('TOR'),
-    } as any as CountryCodes;
+    const sidecar = {
+      isMarked: jest.fn().mockReturnValue(false),
+    } as any as Sidecar;
 
-    await markSwap(countryCodes, ip, id);
+    await markSwap(sidecar, ip, id);
 
-    expect(countryCodes.getCountryCode).toHaveBeenCalledTimes(1);
-    expect(countryCodes.getCountryCode).toHaveBeenCalledWith(ip);
-
-    expect(countryCodes.isRelevantCountry).toHaveBeenCalledTimes(1);
-    expect(countryCodes.isRelevantCountry).toHaveBeenCalledWith('TOR');
+    expect(sidecar.isMarked).toHaveBeenCalledTimes(1);
+    expect(sidecar.isMarked).toHaveBeenCalledWith(ip);
 
     expect(MarkedSwapRepository.addMarkedSwap).not.toHaveBeenCalled();
   });

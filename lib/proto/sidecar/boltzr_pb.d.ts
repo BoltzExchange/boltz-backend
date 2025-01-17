@@ -979,6 +979,46 @@ export namespace FetchInvoiceResponse {
     }
 }
 
+export class IsMarkedRequest extends jspb.Message { 
+    getIp(): string;
+    setIp(value: string): IsMarkedRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): IsMarkedRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: IsMarkedRequest): IsMarkedRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: IsMarkedRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): IsMarkedRequest;
+    static deserializeBinaryFromReader(message: IsMarkedRequest, reader: jspb.BinaryReader): IsMarkedRequest;
+}
+
+export namespace IsMarkedRequest {
+    export type AsObject = {
+        ip: string,
+    }
+}
+
+export class IsMarkedResponse extends jspb.Message { 
+    getIsMarked(): boolean;
+    setIsMarked(value: boolean): IsMarkedResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): IsMarkedResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: IsMarkedResponse): IsMarkedResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: IsMarkedResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): IsMarkedResponse;
+    static deserializeBinaryFromReader(message: IsMarkedResponse, reader: jspb.BinaryReader): IsMarkedResponse;
+}
+
+export namespace IsMarkedResponse {
+    export type AsObject = {
+        isMarked: boolean,
+    }
+}
+
 export class ScanMempoolRequest extends jspb.Message { 
     clearSymbolsList(): void;
     getSymbolsList(): Array<string>;

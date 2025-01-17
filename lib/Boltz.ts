@@ -29,7 +29,6 @@ import ClnClient from './lightning/cln/ClnClient';
 import NotificationClient from './notifications/NotificationClient';
 import NotificationProvider from './notifications/NotificationProvider';
 import Blocks from './service/Blocks';
-import CountryCodes from './service/CountryCodes';
 import Service from './service/Service';
 import Sidecar from './sidecar/Sidecar';
 import NodeSwitch from './swap/NodeSwitch';
@@ -51,7 +50,6 @@ class Boltz {
 
   private readonly api!: Api;
   private readonly blocks: Blocks;
-  private readonly countryCodes: CountryCodes;
   private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
 
@@ -198,13 +196,7 @@ class Boltz {
         new GrpcService(this.logger, this.service),
       );
 
-      this.countryCodes = new CountryCodes(this.logger, this.config.marking);
-      this.api = new Api(
-        this.logger,
-        this.config.api,
-        this.service,
-        this.countryCodes,
-      );
+      this.api = new Api(this.logger, this.config.api, this.service);
 
       this.prometheus = new Prometheus(
         this.logger,
@@ -272,10 +264,7 @@ class Boltz {
 
       await this.grpcServer.listen();
 
-      await Promise.all([
-        this.countryCodes.downloadRanges(),
-        this.blocks.updateBlocks(),
-      ]);
+      await this.blocks.updateBlocks();
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions

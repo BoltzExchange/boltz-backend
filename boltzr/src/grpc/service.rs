@@ -10,16 +10,17 @@ use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
     DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, LogLevel,
-    ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
+    IsMarkedResponse, LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest,
+    SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest,
+    SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest,
+    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate,
+    SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
+use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::caller::Caller;
@@ -31,6 +32,7 @@ use lightning::util::ser::Writeable;
 use lightning_invoice::Bolt11InvoiceDescription;
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
@@ -48,6 +50,7 @@ pub struct BoltzService<M, T> {
     log_reload_handler: ReloadHandler,
     web_hook_retry_handle: Arc<Mutex<Cell<Option<tokio::task::JoinHandle<()>>>>>,
 
+    service: Arc<Service>,
     manager: Arc<M>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
@@ -64,6 +67,7 @@ impl<M, T> BoltzService<M, T> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         log_reload_handler: ReloadHandler,
+        service: Arc<Service>,
         manager: Arc<M>,
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
@@ -74,6 +78,7 @@ impl<M, T> BoltzService<M, T> {
     ) -> Self {
         BoltzService {
             manager,
+            service,
             refund_signer,
             status_fetcher,
             web_hook_caller,
@@ -651,6 +656,23 @@ where
         }
     }
 
+    async fn is_marked(
+        &self,
+        request: Request<IsMarkedRequest>,
+    ) -> Result<Response<IsMarkedResponse>, Status> {
+        extract_parent_context(&request);
+
+        match request.into_inner().ip.parse::<IpAddr>() {
+            Ok(ip) => Ok(Response::new(IsMarkedResponse {
+                is_marked: self.service.country_codes.is_relevant(&ip),
+            })),
+            Err(err) => Err(Status::new(
+                Code::InvalidArgument,
+                format!("could not parse ip: {}", err),
+            )),
+        }
+    }
+
     #[instrument(name = "grpc::scan_mempool", skip_all)]
     async fn scan_mempool(
         &self,
@@ -719,6 +741,7 @@ mod test {
     use crate::grpc::service::BoltzService;
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
+    use crate::service::Service;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
@@ -1075,6 +1098,7 @@ mod test {
             token.clone(),
             BoltzService::new(
                 ReloadHandler::new(),
+                Arc::new(Service::new(None)),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,

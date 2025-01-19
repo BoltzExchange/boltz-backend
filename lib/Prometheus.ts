@@ -139,7 +139,7 @@ class Prometheus {
         labelNames: ['pair', 'type', 'extrema', 'referral'],
         help: 'pair limits',
         collect: async function () {
-          iterateAllPairs((pair, pairId, type, referral) => {
+          await iterateAllPairs((pair, pairId, type, referral) => {
             this.set(
               {
                 type,
@@ -170,7 +170,7 @@ class Prometheus {
         labelNames: ['pair', 'type', 'referral'],
         help: 'pair fees',
         collect: async function () {
-          iterateAllPairs((pair, pairId, type, referral) => {
+          await iterateAllPairs((pair, pairId, type, referral) => {
             this.set(
               {
                 type,
@@ -190,7 +190,7 @@ class Prometheus {
         labelNames: ['pair', 'referral'],
         help: 'pair max routing fee',
         collect: async function () {
-          iterateAllPairs<SubmarinePairTypeTaproot>(
+          await iterateAllPairs<SubmarinePairTypeTaproot>(
             (pair, pairId, _, referral) => {
               this.set(
                 {

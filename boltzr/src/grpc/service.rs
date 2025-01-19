@@ -656,6 +656,7 @@ where
         }
     }
 
+    #[instrument(name = "grpc::is_marked", skip_all)]
     async fn is_marked(
         &self,
         request: Request<IsMarkedRequest>,
@@ -668,7 +669,7 @@ where
             })),
             Err(err) => Err(Status::new(
                 Code::InvalidArgument,
-                format!("could not parse ip: {}", err),
+                format!("could not parse IP: {}", err),
             )),
         }
     }
@@ -725,6 +726,7 @@ fn extract_parent_context<T>(request: &Request<T>) {
 #[cfg(test)]
 mod test {
     use crate::api::ws;
+    use crate::cache::Redis;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
@@ -1098,7 +1100,7 @@ mod test {
             token.clone(),
             BoltzService::new(
                 ReloadHandler::new(),
-                Arc::new(Service::new(None)),
+                Arc::new(Service::new::<Redis>(None, None, None)),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,

@@ -14,6 +14,7 @@ type LightningPaymentType = {
   node: NodeType;
   status: LightningPaymentStatus;
   error?: string;
+  retries: number | null;
 };
 
 class LightningPayment extends Model implements LightningPaymentType {
@@ -21,6 +22,7 @@ class LightningPayment extends Model implements LightningPaymentType {
   public node!: NodeType;
   public status!: LightningPaymentStatus;
   public error?: string;
+  public retries!: number | null;
 
   public createdAt!: Date;
   public updatedAt!: Date;
@@ -56,6 +58,10 @@ class LightningPayment extends Model implements LightningPaymentType {
         },
         error: {
           type: new DataTypes.STRING(),
+          allowNull: true,
+        },
+        retries: {
+          type: new DataTypes.INTEGER(),
           allowNull: true,
         },
       },

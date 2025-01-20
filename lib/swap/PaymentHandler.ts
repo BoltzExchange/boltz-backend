@@ -119,9 +119,9 @@ class PaymentHandler {
     );
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
-    const lightningClient = this.nodeSwitch.getSwapNode(
+    const lightningClient = await this.nodeSwitch.getSwapNode(
       lightningCurrency,
-      (await this.sidecar.decodeInvoiceOrOffer(swap.invoice!)).type,
+      await this.sidecar.decodeInvoiceOrOffer(swap.invoice!),
       swap,
     );
 

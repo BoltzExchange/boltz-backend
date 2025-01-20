@@ -239,7 +239,12 @@ describe('PendingPaymentTracker', () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         tracker.lightningTrackers[NodeType.CLN].trackPayment,
-      ).toHaveBeenCalledWith(getHexString(preimageHash), expect.any(Promise));
+      ).toHaveBeenCalledWith(
+        clnClient,
+        getHexString(preimageHash),
+        invoice,
+        expect.any(Promise),
+      );
 
       const payments = await LightningPaymentRepository.findByPreimageHash(
         getHexString(preimageHash),

@@ -93,7 +93,7 @@ const decodeInvoice = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 14;
+  private static latestSchemaVersion = 15;
 
   private toBackFill: number[] = [];
 
@@ -652,6 +652,18 @@ class Migration {
         await this.sequelize.query(
           'ALTER TABLE referrals DROP COLUMN "chainPremium"',
         );
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 14: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(LightningPayment.tableName, 'retries', {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+          });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

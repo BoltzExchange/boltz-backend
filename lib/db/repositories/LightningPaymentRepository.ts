@@ -13,7 +13,7 @@ enum Errors {
 
 class LightningPaymentRepository {
   public static create = async (
-    data: Omit<Omit<LightningPaymentType, 'status'>, 'error'>,
+    data: Omit<Omit<Omit<LightningPaymentType, 'status'>, 'error'>, 'retries'>,
   ) => {
     const existing = await LightningPayment.findOne({
       where: {
@@ -24,6 +24,7 @@ class LightningPaymentRepository {
     if (existing === null) {
       return LightningPayment.create({
         ...data,
+        retries: 1,
         status: LightningPaymentStatus.Pending,
       });
     }
@@ -33,6 +34,7 @@ class LightningPaymentRepository {
     }
 
     return existing.update({
+      retries: (existing.retries || 0) + 1,
       status: LightningPaymentStatus.Pending,
     });
   };
@@ -68,6 +70,11 @@ class LightningPaymentRepository {
 
   public static findByPreimageHash = (preimageHash: string) =>
     LightningPayment.findAll({ where: { preimageHash } });
+
+  public static findByPreimageHashAndNode = (
+    preimageHash: string,
+    node: NodeType,
+  ) => LightningPayment.findOne({ where: { preimageHash, node } });
 
   public static findByStatus = (status: LightningPaymentStatus) =>
     LightningPayment.findAll({

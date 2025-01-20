@@ -1325,9 +1325,9 @@ class Service {
     ]);
     swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
 
-    const lightningClient = this.nodeSwitch.getSwapNode(
+    const lightningClient = await this.nodeSwitch.getSwapNode(
       this.currencies.get(lightningCurrency)!,
-      decodedInvoice.type,
+      decodedInvoice,
       swap,
     );
 
@@ -1399,13 +1399,14 @@ class Service {
 
     swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
 
-    const { destination, features } = await this.nodeSwitch
-      .getSwapNode(
-        getCurrency(this.currencies, lightningCurrency)!,
-        decodedInvoice.type,
-        swap,
-      )
-      .decodeInvoice(invoice);
+    const lightningClient = await this.nodeSwitch.getSwapNode(
+      getCurrency(this.currencies, lightningCurrency)!,
+      decodedInvoice,
+      swap,
+    );
+
+    const { destination, features } =
+      await lightningClient.decodeInvoice(invoice);
 
     if (this.nodeInfo.isOurNode(destination)) {
       throw Errors.DESTINATION_BOLTZ_NODE();

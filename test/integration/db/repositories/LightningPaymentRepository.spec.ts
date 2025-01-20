@@ -42,6 +42,7 @@ describe('LightningPaymentRepository', () => {
         node: NodeType.LND,
         preimageHash: swap.preimageHash,
       });
+      expect(payment.retries).toEqual(1);
       expect(payment.node).toEqual(NodeType.LND);
       expect(payment.preimageHash).toEqual(swap.preimageHash);
       expect(payment.status).toEqual(LightningPaymentStatus.Pending);
@@ -71,6 +72,7 @@ describe('LightningPaymentRepository', () => {
     test(`should update when payment with status ${LightningPaymentStatus.TemporaryFailure} exists already`, async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const existing = await LightningPayment.create({
+        retries: 3,
         node: NodeType.LND,
         preimageHash: swap.preimageHash,
         status: LightningPaymentStatus.TemporaryFailure,
@@ -81,6 +83,7 @@ describe('LightningPaymentRepository', () => {
         preimageHash: swap.preimageHash,
       });
       expect(payment.node).toEqual(NodeType.LND);
+      expect(payment.retries).toEqual(existing.retries! + 1);
       expect(payment.preimageHash).toEqual(swap.preimageHash);
       expect(payment.status).toEqual(LightningPaymentStatus.Pending);
 
@@ -229,6 +232,32 @@ describe('LightningPaymentRepository', () => {
       await expect(
         LightningPaymentRepository.findByPreimageHash(swap.preimageHash),
       ).resolves.toHaveLength(2);
+    });
+  });
+
+  describe('findByPreimageHashAndNode', () => {
+    test('should find by preimage hash and node', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      await LightningPaymentRepository.create({
+        node: NodeType.LND,
+        preimageHash: swap.preimageHash,
+      });
+
+      const fetched =
+        await LightningPaymentRepository.findByPreimageHashAndNode(
+          swap.preimageHash,
+          NodeType.LND,
+        );
+      expect(fetched!.node).toEqual(NodeType.LND);
+      expect(fetched!.preimageHash).toEqual(swap.preimageHash);
+
+      await expect(
+        LightningPaymentRepository.findByPreimageHashAndNode(
+          swap.preimageHash,
+          NodeType.CLN,
+        ),
+      ).resolves.toBeNull();
     });
   });
 

@@ -42,14 +42,16 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
     promise
       .then((result) => this.handleSucceededPayment(preimageHash, result))
       .catch((error) => {
+        const msg = formatError(error);
+
         // CLN xpay throws errors while the payment is still pending
         if (
           !this.isPermanentError(error) &&
-          formatError(error).includes('xpay')
+          (msg.includes('xpay') || msg === 'Connection dropped')
         ) {
           this.watchPayment(client, invoice, preimageHash);
         } else {
-          this.handleFailedPayment(preimageHash, error);
+          this.handleFailedPayment(client, preimageHash, error);
         }
       });
   };
@@ -96,7 +98,7 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
           continue;
         }
 
-        await this.handleFailedPayment(preimageHash, e);
+        await this.handleFailedPayment(client, preimageHash, e);
       }
 
       this.paymentsToWatch.delete(preimageHash);

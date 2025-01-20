@@ -13,14 +13,14 @@ class LndPendingPaymentTracker extends NodePendingPendingTracker {
   }
 
   public trackPayment = (
-    _client: LightningClient,
+    client: LightningClient,
     preimageHash: string,
     _invoice: string,
     promise: Promise<PaymentResponse>,
   ): void => {
     promise
       .then((result) => this.handleSucceededPayment(preimageHash, result))
-      .catch((error) => this.handleFailedPayment(preimageHash, error));
+      .catch((error) => this.handleFailedPayment(client, preimageHash, error));
   };
 
   public watchPayment = (
@@ -40,7 +40,11 @@ class LndPendingPaymentTracker extends NodePendingPendingTracker {
             break;
 
           case Payment.PaymentStatus.FAILED:
-            await this.handleFailedPayment(preimageHash, res.failureReason);
+            await this.handleFailedPayment(
+              client,
+              preimageHash,
+              res.failureReason,
+            );
             break;
         }
       })

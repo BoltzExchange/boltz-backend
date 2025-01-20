@@ -47,13 +47,26 @@ abstract class NodePendingPendingTracker {
     );
   };
 
-  protected handleFailedPayment = async (preimageHash: string, error: any) => {
+  protected handleFailedPayment = async (
+    client: LightningClient,
+    preimageHash: string,
+    error: any,
+  ) => {
     const isPermanent = this.isPermanentError(error);
 
     const errorMsg = this.parseErrorMessage(error);
     this.logger.debug(
       `${nodeTypeToPrettyString(this.nodeType)} payment ${preimageHash} failed ${isPermanent ? 'permanently' : 'temporarily'}: ${errorMsg}`,
     );
+
+    // Check for "Connection dropped" because the node status might be stale
+    if (!client.isConnected() || errorMsg === 'Connection dropped') {
+      this.logger.warn(
+        `Not failing payment ${preimageHash} because client is not connected`,
+      );
+      return;
+    }
+
     await LightningPaymentRepository.setStatus(
       preimageHash,
       this.nodeType,

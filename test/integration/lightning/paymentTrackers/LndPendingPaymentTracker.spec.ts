@@ -53,7 +53,12 @@ describe('LndPendingPaymentTracker', () => {
 
       const promise = bitcoinLndClient.sendPayment(paymentRequest);
 
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(
+        bitcoinLndClient,
+        preimageHash,
+        paymentRequest,
+        promise,
+      );
       await promise;
 
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
@@ -74,7 +79,12 @@ describe('LndPendingPaymentTracker', () => {
 
       const promise = bitcoinLndClient.sendPayment(paymentRequest);
 
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(
+        bitcoinLndClient,
+        preimageHash,
+        paymentRequest,
+        promise,
+      );
       await expect(promise).rejects.toEqual(
         PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
       );
@@ -98,7 +108,7 @@ describe('LndPendingPaymentTracker', () => {
         .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
       const promise = bitcoinLndClient.sendPayment(invoice);
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(bitcoinLndClient, preimageHash, invoice, promise);
       await expect(promise).rejects.toEqual(
         PaymentFailureReason.FAILURE_REASON_NO_ROUTE,
       );

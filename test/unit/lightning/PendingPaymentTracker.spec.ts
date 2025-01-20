@@ -67,7 +67,7 @@ describe('PendingPaymentTracker', () => {
       );
     });
 
-    test('should not throw when swap no referral can be found', async () => {
+    test('should not throw no referral for swap can be found', async () => {
       const swap = {
         pair: 'BTC/BTC',
         referral: 'test',
@@ -119,6 +119,33 @@ describe('PendingPaymentTracker', () => {
         undefined,
         undefined,
       );
+    });
+
+    test('should watch payment for temporiraly failed CLN payments', async () => {
+      const clnClient = {
+        type: NodeType.CLN,
+        sendPayment: jest.fn().mockRejectedValue('xpay doing something weird'),
+      } as unknown as LightningClient;
+
+      tracker.lightningTrackers[NodeType.CLN].watchPayment = jest.fn();
+
+      const swap = {
+        pair: 'BTC/BTC',
+        invoice: 'invoice',
+      } as unknown as Swap;
+
+      const preimageHash = getHexString(randomBytes(32));
+
+      await expect(
+        tracker['sendPaymentWithNode'](swap, clnClient, preimageHash),
+      ).resolves.toEqual(undefined);
+
+      expect(
+        tracker.lightningTrackers[NodeType.CLN].watchPayment,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        tracker.lightningTrackers[NodeType.CLN].watchPayment,
+      ).toHaveBeenCalledWith(clnClient, swap.invoice, preimageHash);
     });
   });
 });

@@ -1,7 +1,11 @@
 import Logger from '../Logger';
+import { getHexString } from '../Utils';
+import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
+import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import { LightningClient } from '../lightning/LightningClient';
-import { InvoiceType } from '../sidecar/DecodedInvoice';
+import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
 import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
@@ -14,6 +18,7 @@ type NodeSwitchConfig = {
 
 class NodeSwitch {
   private static readonly defaultClnAmountThreshold = 1_000_000;
+  private static readonly maxClnRetries = 1;
 
   private readonly clnAmountThreshold: number;
   private readonly referralIds = new Map<string, NodeType>();
@@ -21,7 +26,7 @@ class NodeSwitch {
   private readonly swapNode?: NodeType;
 
   constructor(
-    private logger: Logger,
+    private readonly logger: Logger,
     cfg?: NodeSwitchConfig,
   ) {
     this.clnAmountThreshold =
@@ -65,19 +70,56 @@ class NodeSwitch {
     );
   };
 
-  public getSwapNode = (
+  public getSwapNode = async (
     currency: Currency,
-    invoiceType: InvoiceType,
-    swap: { id?: string; invoiceAmount?: number; referral?: string },
-  ): LightningClient => {
-    const client = NodeSwitch.fallback(
-      currency,
-      invoiceType === InvoiceType.Bolt11
-        ? this.swapNode !== undefined
-          ? NodeSwitch.switchOnNodeType(currency, this.swapNode)
-          : this.switch(currency, swap.invoiceAmount, swap.referral)
-        : currency.clnClient,
-    );
+    decoded: DecodedInvoice,
+    swap: {
+      id?: string;
+      referral?: string;
+    },
+  ): Promise<LightningClient> => {
+    const selectNode = (preferredNode?: NodeType) => {
+      return NodeSwitch.fallback(
+        currency,
+        decoded.type === InvoiceType.Bolt11
+          ? preferredNode !== undefined
+            ? NodeSwitch.switchOnNodeType(currency, preferredNode)
+            : this.switch(
+                currency,
+                msatToSat(decoded.amountMsat),
+                swap.referral,
+              )
+          : currency.clnClient,
+      );
+    };
+
+    let client = selectNode(this.swapNode);
+
+    // Go easy on CLN xpay
+    if (client.type === NodeType.CLN && decoded.type === InvoiceType.Bolt11) {
+      if (decoded.paymentHash !== undefined) {
+        const existingPayment =
+          await LightningPaymentRepository.findByPreimageHashAndNode(
+            getHexString(decoded.paymentHash),
+            client.type,
+          );
+
+        if (
+          existingPayment?.retries !== null &&
+          existingPayment?.retries !== undefined &&
+          existingPayment.retries >= NodeSwitch.maxClnRetries
+        ) {
+          const identifier =
+            swap.id !== undefined
+              ? `of ${swapTypeToPrettyString(SwapType.Submarine)} Swap ${swap.id}`
+              : `with hash ${getHexString(decoded.paymentHash)}`;
+          this.logger.debug(
+            `Max CLN retries reached for invoice ${identifier}; preferring LND`,
+          );
+          client = selectNode(NodeType.LND);
+        }
+      }
+    }
 
     if (swap.id !== undefined) {
       this.logger.debug(

@@ -2,7 +2,7 @@ import Logger from '../../Logger';
 import { formatError } from '../../Utils';
 import { NodeType } from '../../db/models/ReverseSwap';
 import LightningNursery from '../../swap/LightningNursery';
-import { LightningClient } from '../LightningClient';
+import { LightningClient, PaymentResponse } from '../LightningClient';
 import ClnClient from '../cln/ClnClient';
 import NodePendingPendingTracker from './NodePendingPaymentTracker';
 
@@ -31,6 +31,27 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
 
   public stop = () => {
     clearInterval(this.checkInterval as unknown as number);
+  };
+
+  public trackPayment = (
+    client: LightningClient,
+    preimageHash: string,
+    invoice: string,
+    promise: Promise<PaymentResponse>,
+  ): void => {
+    promise
+      .then((result) => this.handleSucceededPayment(preimageHash, result))
+      .catch((error) => {
+        // CLN xpay throws errors while the payment is still pending
+        if (
+          !this.isPermanentError(error) &&
+          formatError(error).includes('xpay')
+        ) {
+          this.watchPayment(client, invoice, preimageHash);
+        } else {
+          this.handleFailedPayment(preimageHash, error);
+        }
+      });
   };
 
   public watchPayment = (

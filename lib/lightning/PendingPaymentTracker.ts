@@ -1,6 +1,6 @@
 import Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { getHexBuffer, getHexString } from '../Utils';
+import { formatError, getHexBuffer, getHexString } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -178,7 +178,9 @@ class PendingPaymentTracker {
         paymentPromise !== undefined
       ) {
         this.lightningTrackers[lightningClient.type].trackPayment(
+          lightningClient,
           preimageHash,
+          swap.invoice!,
           paymentPromise,
         );
         this.logger.verbose(
@@ -189,6 +191,22 @@ class PendingPaymentTracker {
 
       const isPermanentError =
         this.lightningTrackers[lightningClient.type].isPermanentError(e);
+
+      // CLN xpay does throw errors while the payment is still pending
+      if (
+        lightningClient.type === NodeType.CLN &&
+        !isPermanentError &&
+        formatError(e).includes('xpay')
+      ) {
+        this.lightningTrackers[lightningClient.type].watchPayment(
+          lightningClient,
+          swap.invoice!,
+          preimageHash,
+        );
+
+        return undefined;
+      }
+
       await LightningPaymentRepository.setStatus(
         preimageHash,
         lightningClient.type,

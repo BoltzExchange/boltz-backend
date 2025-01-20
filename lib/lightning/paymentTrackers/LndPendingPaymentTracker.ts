@@ -3,7 +3,7 @@ import { formatError, getHexBuffer } from '../../Utils';
 import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
 import LightningNursery from '../../swap/LightningNursery';
-import { LightningClient } from '../LightningClient';
+import { LightningClient, PaymentResponse } from '../LightningClient';
 import LndClient from '../LndClient';
 import NodePendingPendingTracker from './NodePendingPaymentTracker';
 
@@ -11,6 +11,17 @@ class LndPendingPaymentTracker extends NodePendingPendingTracker {
   constructor(logger: Logger) {
     super(logger, NodeType.LND);
   }
+
+  public trackPayment = (
+    _client: LightningClient,
+    preimageHash: string,
+    _invoice: string,
+    promise: Promise<PaymentResponse>,
+  ): void => {
+    promise
+      .then((result) => this.handleSucceededPayment(preimageHash, result))
+      .catch((error) => this.handleFailedPayment(preimageHash, error));
+  };
 
   public watchPayment = (
     client: LightningClient,

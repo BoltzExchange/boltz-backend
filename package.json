@@ -121,7 +121,7 @@
     "cross-os": "^1.5.0",
     "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-jest": "^28.10.0",
+    "eslint-plugin-jest": "^28.11.0",
     "eslint-plugin-n": "^17.15.1",
     "eslint-plugin-node": "^11.1.0",
     "git-cliff": "^2.7.0",

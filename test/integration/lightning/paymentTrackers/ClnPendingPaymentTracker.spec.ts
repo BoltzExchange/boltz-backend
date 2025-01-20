@@ -49,7 +49,7 @@ describe('ClnPendingPaymentTracker', () => {
 
       const promise = clnClient.sendPayment(paymentRequest);
 
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(clnClient, preimageHash, paymentRequest, promise);
       await promise;
 
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
@@ -69,7 +69,7 @@ describe('ClnPendingPaymentTracker', () => {
 
       const promise = clnClient.sendPayment(paymentRequest);
 
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(clnClient, preimageHash, paymentRequest, promise);
       await expect(promise).rejects.toEqual(expect.anything());
 
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
@@ -89,7 +89,7 @@ describe('ClnPendingPaymentTracker', () => {
         .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
       const promise = clnClient.sendPayment(invoice);
-      tracker.trackPayment(preimageHash, promise);
+      tracker.trackPayment(clnClient, preimageHash, invoice, promise);
       await expect(promise).rejects.toEqual(expect.anything());
 
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);

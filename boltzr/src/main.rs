@@ -11,6 +11,7 @@ use tracing::{debug, error, info, trace, warn};
 
 mod api;
 mod backup;
+mod cache;
 mod chain;
 mod config;
 mod currencies;
@@ -94,6 +95,19 @@ async fn main() {
         std::process::exit(1);
     });
 
+    let cache = if let Some(config) = config.cache {
+        Some(match cache::Redis::new(&config).await {
+            Ok(cache) => cache,
+            Err(err) => {
+                error!("Could not connect to cache: {}", err);
+                std::process::exit(1);
+            }
+        })
+    } else {
+        warn!("No cache was configured");
+        None
+    };
+
     // TODO: move to currencies
     let refund_signer = if let Some(rsk_config) = config.rsk {
         Some(
@@ -114,7 +128,7 @@ async fn main() {
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
 
-    let service = Arc::new(Service::new(config.marking));
+    let service = Arc::new(Service::new(config.marking, config.historical, cache));
     {
         let service = service.clone();
         let cancellation_token = cancellation_token.clone();
@@ -225,7 +239,7 @@ async fn main() {
         cancellation_token.clone(),
         config.sidecar.grpc,
         log_reload_handler,
-        service,
+        service.clone(),
         swap_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
@@ -240,6 +254,7 @@ async fn main() {
     let api_server = api::Server::new(
         config.sidecar.api,
         cancellation_token.clone(),
+        service,
         grpc_server.status_fetcher(),
         swap_status_update_tx.clone(),
     );

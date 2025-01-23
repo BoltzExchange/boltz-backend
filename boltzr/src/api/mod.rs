@@ -1,4 +1,7 @@
+use crate::api::errors::error_middleware;
 use crate::api::sse::sse_handler;
+use crate::api::stats::get_stats;
+use crate::service::Service;
 use axum::routing::get;
 use axum::{Extension, Router};
 use serde::{Deserialize, Serialize};
@@ -12,7 +15,10 @@ use ws::types::SwapStatus;
 #[cfg(feature = "metrics")]
 use crate::metrics::server::MetricsLayer;
 
+mod errors;
+mod headers;
 mod sse;
+mod stats;
 pub mod ws;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -22,13 +28,18 @@ pub struct Config {
 }
 
 pub struct Server<S> {
-    swap_infos: S,
     config: Config,
     cancellation_token: CancellationToken,
+
+    service: Arc<Service>,
+
+    swap_infos: S,
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
 
 struct ServerState<S> {
+    service: Arc<Service>,
+
     swap_infos: S,
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
@@ -40,11 +51,13 @@ where
     pub fn new(
         config: Config,
         cancellation_token: CancellationToken,
+        service: Arc<Service>,
         swap_infos: S,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
     ) -> Self {
         Server {
             config,
+            service,
             swap_infos,
             cancellation_token,
             swap_status_update_tx,
@@ -79,6 +92,7 @@ where
                 axum::serve(
                     listener,
                     router.layer(Extension(Arc::new(ServerState {
+                        service: self.service.clone(),
                         swap_infos: self.swap_infos.clone(),
                         swap_status_update_tx: self.swap_status_update_tx.clone(),
                     }))),
@@ -95,24 +109,33 @@ where
     }
 
     fn add_routes(router: Router) -> Router {
-        router.route("/streamswapstatus", get(sse_handler::<S>))
+        router
+            .route("/streamswapstatus", get(sse_handler::<S>))
+            .route(
+                "/v2/swap/{swap_type}/stats/{from}/{to}",
+                get(get_stats::<S>),
+            )
+            .layer(axum::middleware::from_fn(error_middleware))
     }
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::api::ws::status::SwapInfos;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Config, Server};
+    use crate::cache::Redis;
+    use crate::service::Service;
     use async_trait::async_trait;
     use reqwest::StatusCode;
+    use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::broadcast::Sender;
     use tokio_util::sync::CancellationToken;
 
     #[derive(Debug, Clone)]
-    struct Fetcher {
-        status_tx: Sender<Vec<SwapStatus>>,
+    pub struct Fetcher {
+        pub status_tx: Sender<Vec<SwapStatus>>,
     }
 
     #[async_trait]
@@ -150,6 +173,7 @@ mod test {
                 host: "127.0.0.1".to_string(),
             },
             cancel.clone(),
+            Arc::new(Service::new::<Redis>(None, None, None)),
             Fetcher {
                 status_tx: status_tx.clone(),
             },

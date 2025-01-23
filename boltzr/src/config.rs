@@ -58,6 +58,9 @@ pub struct GlobalConfig {
     #[serde(rename = "marking")]
     pub marking: Option<crate::service::MarkingsConfig>,
 
+    pub cache: Option<crate::cache::CacheConfig>,
+    pub historical: Option<crate::service::HistoricalConfig>,
+
     pub backup: Option<crate::backup::Config>,
     pub notification: Option<crate::notifications::Config>,
 

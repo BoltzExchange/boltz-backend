@@ -157,6 +157,7 @@ where
 mod server_test {
     use crate::api::ws;
     use crate::api::ws::types::SwapStatus;
+    use crate::cache::Redis;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
@@ -249,7 +250,7 @@ mod server_test {
                 disable_ssl: Some(true),
             },
             ReloadHandler::new(),
-            Arc::new(Service::new(None)),
+            Arc::new(Service::new::<Redis>(None, None, None)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
@@ -377,7 +378,7 @@ mod server_test {
                 disable_ssl: Some(false),
             },
             ReloadHandler::new(),
-            Arc::new(Service::new(None)),
+            Arc::new(Service::new::<Redis>(None, None, None)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),

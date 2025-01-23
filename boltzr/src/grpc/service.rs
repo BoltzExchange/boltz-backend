@@ -29,7 +29,7 @@ use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
 use lightning::offers::offer::Amount;
 use lightning::util::ser::Writeable;
-use lightning_invoice::Bolt11InvoiceDescription;
+use lightning_invoice::Bolt11InvoiceDescriptionRef;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -533,10 +533,10 @@ where
                                 }
                             },
                             description: Some(match invoice.description() {
-                                Bolt11InvoiceDescription::Direct(memo) => {
+                                Bolt11InvoiceDescriptionRef::Direct(memo) => {
                                     bolt11_invoice::Description::Memo(memo.to_string())
                                 }
-                                Bolt11InvoiceDescription::Hash(hash) => {
+                                Bolt11InvoiceDescriptionRef::Hash(hash) => {
                                     bolt11_invoice::Description::DescriptionHash(
                                         hash.0[..].to_vec(),
                                     )
@@ -579,7 +579,9 @@ where
                     decoded: Some(decode_invoice_or_offer_response::Decoded::Offer(
                         Bolt12Offer {
                             id: offer.id().0[..].to_vec(),
-                            signing_pubkey: offer.signing_pubkey().map(|pubkey| pubkey.encode()),
+                            signing_pubkey: offer
+                                .issuer_signing_pubkey()
+                                .map(|pubkey| pubkey.encode()),
                             description: offer
                                 .description()
                                 .map(|description| description.to_string()),

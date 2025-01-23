@@ -1,6 +1,6 @@
 # Boltz Backend
 
-[![CI](https://github.com/BoltzExchange/boltz-backend/workflows/CI/badge.svg?branch=master)](https://github.com/BoltzExchange/boltz-backend/actions)
+[![CI](https://github.com/BoltzExchange/boltz-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/BoltzExchange/boltz-backend/actions/workflows/ci.yml)
 [![Discord](https://img.shields.io/discord/547454030801272832.svg)](https://discordapp.com/invite/QBvZGcW)
 [![Version](https://img.shields.io/npm/v/boltz-backend.svg)](https://www.npmjs.com/package/boltz-backend)
 

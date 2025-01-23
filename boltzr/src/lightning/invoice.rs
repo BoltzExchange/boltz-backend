@@ -155,7 +155,9 @@ mod test {
 
         assert_eq!(
             decode(wallet::Network::Regtest, "invalid").err().unwrap(),
-            InvoiceError::DecodeError("ParseError(Bech32Error(MissingSeparator))".to_string())
+            InvoiceError::DecodeError(
+                "ParseError(Bech32Error(Parse(Char(InvalidChar('i')))))".to_string()
+            )
         );
     }
 

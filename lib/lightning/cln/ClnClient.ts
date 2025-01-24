@@ -49,6 +49,7 @@ class ClnClient
   public static readonly moddedVersionSuffix = '-';
 
   public static readonly paymentPendingError = 'payment already pending';
+  public static readonly paymentAllAttemptsFailed = 'all attempts failed';
 
   private static readonly paymentMinFee = 121;
   private static readonly paymentTimeout = 300;
@@ -535,9 +536,16 @@ class ClnClient
     _?: string,
     maxPaymentFeeRatio?: number,
   ): Promise<PaymentResponse> => {
-    const payStatus = await this.checkPayStatus(invoice);
-    if (payStatus !== undefined) {
-      return payStatus;
+    try {
+      const payStatus = await this.checkPayStatus(invoice);
+      if (payStatus !== undefined) {
+        return payStatus;
+      }
+    } catch (e) {
+      // When all attempts failed, we are ready for another try
+      if (e !== ClnClient.paymentAllAttemptsFailed) {
+        throw e;
+      }
     }
 
     const decoded = await this.decodeInvoice(invoice);
@@ -662,7 +670,7 @@ class ClnClient
       >('listPays', listPayReq, false)
     ).getPaysList();
 
-    // Check if the payment succeeded...
+    // Check if the payment succeeded, ...
     const completedAttempts = pays.filter(
       (attempt) => attempt.getStatus() === ListpaysPaysStatus.COMPLETE,
     );
@@ -680,7 +688,7 @@ class ClnClient
       };
     }
 
-    // ... or is still pending
+    // ... is still pending ...
     const hasPendingPayments = pays.some(
       (pay) => pay.getStatus() === ListpaysPaysStatus.PENDING,
     );
@@ -706,6 +714,15 @@ class ClnClient
       if (hasPendingHtlc) {
         throw ClnClient.paymentPendingError;
       }
+    }
+
+    // ... or has failed
+    // TODO: update when xpay persists errors from previous attempts
+    if (
+      pays.length > 0 &&
+      pays.every((pay) => pay.getStatus() === ListpaysPaysStatus.FAILED)
+    ) {
+      throw ClnClient.paymentAllAttemptsFailed;
     }
 
     return undefined;

@@ -22,6 +22,10 @@ class TestRateProvider extends RateProviderBase<any> {
     super(currencies, mockedFeeProvider, minSwapSizeMultipliers);
   }
 
+  public getRate(): number | undefined {
+    throw new Error('stub');
+  }
+
   public setHardcodedPair = () => {
     throw new Error('stub');
   };

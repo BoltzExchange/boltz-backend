@@ -78,12 +78,15 @@ class PendingPaymentTracker {
     }
   };
 
-  public sendPayment = async (
+  public getRelevantNode = async (
+    lightningCurrency: Currency,
     swap: Swap,
-    lightningClient: LightningClient,
-    cltvLimit?: number,
-    outgoingChannelId?: string,
-  ): Promise<PaymentResponse | undefined> => {
+    preferredNode: LightningClient,
+  ): Promise<{
+    paymentHash: string;
+    node: LightningClient;
+    payments: LightningPayment[];
+  }> => {
     const paymentHash = getHexString(
       (await this.sidecar.decodeInvoiceOrOffer(swap.invoice!)).paymentHash!,
     );
@@ -91,6 +94,40 @@ class PendingPaymentTracker {
     const payments =
       await LightningPaymentRepository.findByPreimageHash(paymentHash);
 
+    const existingRelevantAction = payments.find(
+      (p) =>
+        p.status === LightningPaymentStatus.Success ||
+        p.status === LightningPaymentStatus.Pending ||
+        p.status === LightningPaymentStatus.PermanentFailure,
+    );
+    if (existingRelevantAction === undefined) {
+      return {
+        payments,
+        paymentHash,
+        node: preferredNode,
+      };
+    }
+
+    const node = [
+      lightningCurrency.lndClient,
+      lightningCurrency.clnClient,
+    ].find((n) => n?.type === existingRelevantAction.node);
+
+    return {
+      payments,
+      paymentHash,
+      node: node || preferredNode,
+    };
+  };
+
+  public sendPayment = async (
+    swap: Swap,
+    lightningClient: LightningClient,
+    paymentHash: string,
+    payments: LightningPayment[],
+    cltvLimit?: number,
+    outgoingChannelId?: string,
+  ): Promise<PaymentResponse | undefined> => {
     for (const status of [
       LightningPaymentStatus.Pending,
       LightningPaymentStatus.Success,
@@ -109,7 +146,7 @@ class PendingPaymentTracker {
           return undefined;
 
         case LightningPaymentStatus.Success:
-          return this.getSuccessfulPaymentDetails(
+          return await this.getSuccessfulPaymentDetails(
             swap.id,
             relevant,
             lightningClient.symbol,
@@ -126,7 +163,7 @@ class PendingPaymentTracker {
       }
     }
 
-    return this.sendPaymentWithNode(
+    return await this.sendPaymentWithNode(
       swap,
       lightningClient,
       paymentHash,

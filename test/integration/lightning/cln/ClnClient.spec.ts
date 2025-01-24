@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { getHexString, getUnixTime } from '../../../../lib/Utils';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
+import ClnClient from '../../../../lib/lightning/cln/ClnClient';
 import * as noderpc from '../../../../lib/proto/cln/node_pb';
 import * as primitivesrpc from '../../../../lib/proto/cln/primitives_pb';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
@@ -295,6 +296,30 @@ describe('ClnClient', () => {
           'lnbcrt1m1pjdl0y5pp5f4ljuqc3hphgadf0nqyw8hxn6klcupntynpggm487dcx2slhhndsdqqcqzzsxq9z0rgqsp59fkq9py9rzes0n4gyvwqktk6020cjzjt6lydkd2casxn4gwq00lq9q8pqqqssq4c42h37htf2w873jthvx9n8zfunl07fjvkv739xggy9uvht95crk08qdwqd59hffxryjfgcylkqlzx3hf8q2tkvnjnlkqqn768k5e5gprl27z9',
         ),
       ).rejects.toEqual(expect.anything());
+    });
+  });
+
+  describe('checkPayStatus', () => {
+    test('should throw when all attempts failed', async () => {
+      const invoice = await bitcoinLndClient.addInvoice(10_000);
+      await bitcoinLndClient.cancelHoldInvoice(
+        Buffer.from(invoice.rHash as string, 'base64'),
+      );
+
+      await expect(
+        clnClient.sendPayment(invoice.paymentRequest),
+      ).rejects.toEqual(expect.anything());
+
+      await expect(
+        clnClient.checkPayStatus(invoice.paymentRequest),
+      ).rejects.toEqual(ClnClient.paymentAllAttemptsFailed);
+    });
+
+    test('should not throw when no attempts have been made', async () => {
+      const invoice = await bitcoinLndClient.addInvoice(10_000);
+      await expect(
+        clnClient.checkPayStatus(invoice.paymentRequest),
+      ).resolves.toBeUndefined();
     });
   });
 

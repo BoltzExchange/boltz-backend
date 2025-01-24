@@ -154,6 +154,84 @@ describe('PendingPaymentTracker', () => {
     });
   });
 
+  describe('getRelevantNode', () => {
+    test.each`
+      expected        | status
+      ${NodeType.CLN} | ${LightningPaymentStatus.Pending}
+      ${NodeType.CLN} | ${LightningPaymentStatus.Success}
+      ${NodeType.CLN} | ${LightningPaymentStatus.PermanentFailure}
+    `('should get node with status $status', async ({ expected, status }) => {
+      const invoiceRes = await bitcoinLndClient.addInvoice(1);
+      const preimageHash = (
+        await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest)
+      ).paymentHash!;
+
+      const swap = await Swap.create({
+        ...createSubmarineSwapData(),
+        invoice: invoiceRes.paymentRequest,
+        preimageHash: getHexString(preimageHash),
+      });
+
+      await LightningPayment.create({
+        node: NodeType.CLN,
+        preimageHash: swap.preimageHash,
+        status,
+      });
+
+      const res = await tracker.getRelevantNode(
+        currencies[0],
+        swap,
+        bitcoinLndClient,
+      );
+      expect(res.node.type).toEqual(expected);
+
+      expect(res.payments).toHaveLength(1);
+      expect(res.payments[0].node).toEqual(expected);
+      expect(res.payments).toEqual(
+        await LightningPaymentRepository.findByPreimageHash(swap.preimageHash),
+      );
+
+      expect(res.paymentHash).toEqual(getHexString(preimageHash));
+    });
+
+    test.each`
+      expected        | status
+      ${NodeType.LND} | ${LightningPaymentStatus.TemporaryFailure}
+      ${NodeType.LND} | ${undefined}
+    `(
+      'should get prefered node when status is $status',
+      async ({ expected, status }) => {
+        const invoiceRes = await bitcoinLndClient.addInvoice(1);
+        const preimageHash = (
+          await sidecar.decodeInvoiceOrOffer(invoiceRes.paymentRequest)
+        ).paymentHash!;
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice: invoiceRes.paymentRequest,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        if (status !== undefined) {
+          await LightningPayment.create({
+            node: NodeType.CLN,
+            preimageHash: swap.preimageHash,
+            status,
+          });
+        }
+
+        const res = await tracker.getRelevantNode(
+          currencies[0],
+          swap,
+          bitcoinLndClient,
+        );
+        expect(res.node.type).toEqual(expected);
+
+        expect(res.paymentHash).toEqual(getHexString(preimageHash));
+      },
+    );
+  });
+
   describe('sendPayment', () => {
     test('should send payments', async () => {
       const invoiceRes = await bitcoinLndClient.addInvoice(1);
@@ -168,7 +246,12 @@ describe('PendingPaymentTracker', () => {
       });
 
       await waitForClnChainSync();
-      const res = await tracker.sendPayment(swap, clnClient);
+      const res = await tracker.sendPayment(
+        swap,
+        clnClient,
+        getHexString(preimageHash),
+        [],
+      );
       expect(res).not.toBeUndefined();
       expect(typeof res!.feeMsat).toEqual('number');
       expect(res!.preimage).toEqual(
@@ -200,9 +283,9 @@ describe('PendingPaymentTracker', () => {
         preimageHash: getHexString(preimageHash),
       });
 
-      await expect(tracker.sendPayment(swap, clnClient)).rejects.toEqual(
-        expect.anything(),
-      );
+      await expect(
+        tracker.sendPayment(swap, clnClient, getHexString(preimageHash), []),
+      ).rejects.toEqual(expect.anything());
 
       const payments = await LightningPaymentRepository.findByPreimageHash(
         getHexString(preimageHash),
@@ -229,9 +312,9 @@ describe('PendingPaymentTracker', () => {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       PendingPaymentTracker['raceTimeout'] = 2;
-      await expect(tracker.sendPayment(swap, clnClient)).resolves.toEqual(
-        undefined,
-      );
+      await expect(
+        tracker.sendPayment(swap, clnClient, getHexString(preimageHash), []),
+      ).resolves.toEqual(undefined);
       await bitcoinLndClient.cancelHoldInvoice(preimageHash);
 
       expect(
@@ -271,7 +354,14 @@ describe('PendingPaymentTracker', () => {
         });
 
         await expect(
-          tracker.sendPayment(swap, bitcoinLndClient),
+          tracker.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            await LightningPaymentRepository.findByPreimageHash(
+              swap.preimageHash,
+            ),
+          ),
         ).resolves.toEqual(undefined);
       });
 
@@ -298,7 +388,14 @@ describe('PendingPaymentTracker', () => {
 
           const paymentRes = await bitcoinLndClient.sendPayment(invoice);
           await expect(
-            tracker.sendPayment(swap, bitcoinLndClient),
+            tracker.sendPayment(
+              swap,
+              bitcoinLndClient,
+              getHexString(preimageHash),
+              await LightningPaymentRepository.findByPreimageHash(
+                swap.preimageHash,
+              ),
+            ),
           ).resolves.toEqual(paymentRes);
         });
 
@@ -321,9 +418,16 @@ describe('PendingPaymentTracker', () => {
           const paymentRes = await clnClient.sendPayment(
             invoiceRes.paymentRequest,
           );
-          await expect(tracker.sendPayment(swap, clnClient)).resolves.toEqual(
-            paymentRes,
-          );
+          await expect(
+            tracker.sendPayment(
+              swap,
+              clnClient,
+              swap.preimageHash,
+              await LightningPaymentRepository.findByPreimageHash(
+                swap.preimageHash,
+              ),
+            ),
+          ).resolves.toEqual(paymentRes);
         });
 
         test('should return undefined when node for fetching success details is not available', async () => {
@@ -350,9 +454,16 @@ describe('PendingPaymentTracker', () => {
           ]);
 
           await clnClient.sendPayment(invoiceRes.paymentRequest);
-          await expect(tracker.sendPayment(swap, clnClient)).resolves.toEqual(
-            undefined,
-          );
+          await expect(
+            tracker.sendPayment(
+              swap,
+              clnClient,
+              swap.preimageHash,
+              await LightningPaymentRepository.findByPreimageHash(
+                swap.preimageHash,
+              ),
+            ),
+          ).resolves.toEqual(undefined);
         });
       });
 
@@ -374,7 +485,14 @@ describe('PendingPaymentTracker', () => {
         });
 
         await expect(
-          tracker.sendPayment(swap, bitcoinLndClient),
+          tracker.sendPayment(
+            swap,
+            bitcoinLndClient,
+            swap.preimageHash,
+            await LightningPaymentRepository.findByPreimageHash(
+              swap.preimageHash,
+            ),
+          ),
         ).rejects.toEqual(error);
       });
     });

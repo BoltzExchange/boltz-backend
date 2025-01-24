@@ -25,10 +25,7 @@ describe('InjectedProvider', () => {
   beforeAll(async () => {
     provider = new InjectedProvider(Logger.disabledLogger, Ethereum, {
       providerEndpoint,
-      tokens: [],
-      etherSwapAddress: '0x',
-      erc20SwapAddress: '0x',
-    });
+    } as never);
     await provider.init();
   });
 

@@ -119,11 +119,16 @@ class PaymentHandler {
     );
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
-    const lightningClient = await this.nodeSwitch.getSwapNode(
-      lightningCurrency,
-      await this.sidecar.decodeInvoiceOrOffer(swap.invoice!),
-      swap,
-    );
+    const { node, paymentHash, payments } =
+      await this.pendingPaymentTracker.getRelevantNode(
+        lightningCurrency,
+        swap,
+        await this.nodeSwitch.getSwapNode(
+          lightningCurrency,
+          await this.sidecar.decodeInvoiceOrOffer(swap.invoice!),
+          swap,
+        ),
+      );
 
     try {
       const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
@@ -136,7 +141,9 @@ class PaymentHandler {
       );
       const payResponse = await this.pendingPaymentTracker.sendPayment(
         swap,
-        lightningClient,
+        node,
+        paymentHash,
+        payments,
         cltvLimit,
         outgoingChannelId,
       );
@@ -149,7 +156,7 @@ class PaymentHandler {
         swap,
         channelCreation,
         lightningCurrency,
-        lightningClient,
+        node,
         error,
         outgoingChannelId,
       );

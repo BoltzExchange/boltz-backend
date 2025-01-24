@@ -304,6 +304,7 @@ class ChainSwapRepository {
       swap.chainSwap = await swap.chainSwap.update(
         {
           fee,
+          failureReason: null,
         },
         { transaction },
       );

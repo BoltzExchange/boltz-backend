@@ -116,6 +116,11 @@ describe('PaymentHandler', () => {
             );
           },
         ),
+      getRelevantNode: jest
+        .fn()
+        .mockImplementation(async (_currency, _swap, node) => {
+          return { node };
+        }),
     } as any,
     mockedEmit,
   );

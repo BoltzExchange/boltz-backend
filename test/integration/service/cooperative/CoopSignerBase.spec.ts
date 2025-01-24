@@ -42,7 +42,7 @@ import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
-class CoopSigner extends CoopSignerBase<Swap, NonNullable<unknown>> {
+class CoopSigner extends CoopSignerBase<NonNullable<unknown>> {
   constructor(walletManager: WalletManager, swapOutputType: SwapOutputType) {
     super(Logger.disabledLogger, walletManager, swapOutputType);
   }

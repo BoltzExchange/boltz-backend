@@ -4,10 +4,7 @@ import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
 describe('Router', () => {
   beforeAll(async () => {
     await bitcoinClient.generate(1);
-    await Promise.all([
-      clnClient.connect(false),
-      bitcoinLndClient.connect(false),
-    ]);
+    await Promise.all([clnClient.connect(), bitcoinLndClient.connect(false)]);
   });
 
   afterAll(() => {

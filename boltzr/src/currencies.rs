@@ -62,7 +62,7 @@ pub async fn connect_nodes(
                         },
                         cln: match currency.cln {
                             Some(config) => {
-                                connect_client(Cln::new(&currency.symbol, config).await).await
+                                connect_client(Cln::new(&currency.symbol, &config).await).await
                             }
                             None => None,
                         },

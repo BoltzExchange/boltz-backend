@@ -466,6 +466,11 @@ describe('ChainSwapRepository', () => {
     });
     expect(queried).not.toBeNull();
 
+    await queried!.chainSwap.update({
+      failureReason: 'something really bad',
+    });
+    expect(queried!.failureReason).not.toBeNull();
+
     await ChainSwapRepository.setExpectedAmounts(
       queried!,
       fee,
@@ -474,6 +479,7 @@ describe('ChainSwapRepository', () => {
     );
 
     expect(queried!.fee).toEqual(fee);
+    expect(queried!.failureReason).toBeNull();
     expect(queried!.receivingData.expectedAmount).toEqual(userLockAmount);
     expect(queried!.sendingData.expectedAmount).toEqual(serverLockAmount);
   });

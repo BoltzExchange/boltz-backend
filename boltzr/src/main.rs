@@ -128,18 +128,6 @@ async fn main() {
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
 
-    let service = Arc::new(Service::new(config.marking, config.historical, cache));
-    {
-        let service = service.clone();
-        let cancellation_token = cancellation_token.clone();
-        tokio::spawn(async move {
-            if let Err(err) = service.start().await {
-                error!("Could not start service: {}", err);
-                cancellation_token.cancel();
-            }
-        });
-    }
-
     #[cfg(feature = "metrics")]
     let mut metrics_server =
         metrics::server::Server::new(cancellation_token.clone(), config.sidecar.metrics);
@@ -166,6 +154,23 @@ async fn main() {
             std::process::exit(1);
         }
     };
+
+    let service = Arc::new(Service::new(
+        currencies.clone(),
+        config.marking,
+        config.historical,
+        cache,
+    ));
+    {
+        let service = service.clone();
+        let cancellation_token = cancellation_token.clone();
+        tokio::spawn(async move {
+            if let Err(err) = service.start().await {
+                error!("Could not start service: {}", err);
+                cancellation_token.cancel();
+            }
+        });
+    }
 
     let backup_client = if let Some(backup_config) = config.backup {
         match backup::Backup::new(

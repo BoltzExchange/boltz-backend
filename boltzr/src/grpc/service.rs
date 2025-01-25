@@ -1102,7 +1102,12 @@ mod test {
             token.clone(),
             BoltzService::new(
                 ReloadHandler::new(),
-                Arc::new(Service::new::<Redis>(None, None, None)),
+                Arc::new(Service::new::<Redis>(
+                    Arc::new(HashMap::new()),
+                    None,
+                    None,
+                    None,
+                )),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,

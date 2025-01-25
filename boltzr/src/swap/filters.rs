@@ -221,6 +221,7 @@ mod test {
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use alloy::hex;
     use mockall::mock;
+    use std::collections::HashMap;
     use std::sync::{Arc, OnceLock};
 
     mock! {
@@ -275,7 +276,7 @@ mod test {
         static CURRENCIES: OnceLock<Currencies> = OnceLock::new();
         CURRENCIES
             .get_or_init(|| {
-                Currencies::from([
+                Arc::new(HashMap::<String, Currency>::from([
                     (
                         String::from("BTC"),
                         Currency {
@@ -310,7 +311,7 @@ mod test {
                             lnd: None,
                         },
                     ),
-                ])
+                ]))
             })
             .clone()
     }

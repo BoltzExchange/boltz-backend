@@ -1,6 +1,9 @@
 use crate::api::errors::error_middleware;
+use crate::api::lightning::lightning_channels;
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
+#[cfg(feature = "metrics")]
+use crate::metrics::server::MetricsLayer;
 use crate::service::Service;
 use axum::routing::get;
 use axum::{Extension, Router};
@@ -12,11 +15,9 @@ use tracing::{debug, info};
 use ws::status::SwapInfos;
 use ws::types::SwapStatus;
 
-#[cfg(feature = "metrics")]
-use crate::metrics::server::MetricsLayer;
-
 mod errors;
 mod headers;
+mod lightning;
 mod sse;
 mod stats;
 pub mod ws;
@@ -115,6 +116,10 @@ where
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
                 get(get_stats::<S>),
             )
+            .route(
+                "/v2/lightning/{currency}/channels/{node}",
+                get(lightning_channels::<S>),
+            )
             .layer(axum::middleware::from_fn(error_middleware))
     }
 }
@@ -128,6 +133,7 @@ pub mod test {
     use crate::service::Service;
     use async_trait::async_trait;
     use reqwest::StatusCode;
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::broadcast::Sender;
@@ -173,7 +179,12 @@ pub mod test {
                 host: "127.0.0.1".to_string(),
             },
             cancel.clone(),
-            Arc::new(Service::new::<Redis>(None, None, None)),
+            Arc::new(Service::new::<Redis>(
+                Arc::new(HashMap::new()),
+                None,
+                None,
+                None,
+            )),
             Fetcher {
                 status_tx: status_tx.clone(),
             },

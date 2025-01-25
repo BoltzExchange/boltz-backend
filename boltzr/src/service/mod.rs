@@ -8,25 +8,32 @@ use std::sync::Arc;
 use tracing::warn;
 
 mod country_codes;
+mod lightning_info;
 mod pair_stats;
 mod prometheus;
 
+use crate::currencies::Currencies;
+use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 pub use country_codes::MarkingsConfig;
+pub use lightning_info::ChannelFetchError;
 pub use pair_stats::HistoricalConfig;
 
 pub struct Service {
-    pub pair_stats: Option<PairStatsFetcher>,
     pub country_codes: CountryCodes,
+    pub lightning_info: Box<dyn LightningInfo + Send + Sync>,
+    pub pair_stats: Option<PairStatsFetcher>,
 }
 
 impl Service {
     pub fn new<C: Cache + Clone + Debug + Sync + Send + 'static>(
+        currencies: Currencies,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
         cache: Option<C>,
     ) -> Self {
         Self {
             country_codes: CountryCodes::new(markings_config),
+            lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {
                 Some(PairStatsFetcher::new(
                     if let Some(cache) = cache {
@@ -58,13 +65,19 @@ impl Service {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::cache::Redis;
     use crate::service::prometheus::test::MockPrometheus;
+    use std::collections::HashMap;
 
     pub use pair_stats::PairStats;
 
     impl Service {
         pub fn new_mocked_prometheus(with_pair_stats: bool) -> Self {
             Self {
+                lightning_info: Box::new(ClnLightningInfo::<Redis>::new(
+                    None,
+                    Arc::new(HashMap::new()),
+                )),
                 country_codes: CountryCodes::new(None),
                 pair_stats: if with_pair_stats {
                     Some(PairStatsFetcher::new(

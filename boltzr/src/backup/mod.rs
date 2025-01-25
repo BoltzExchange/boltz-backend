@@ -66,11 +66,12 @@ impl Backup {
     }
 
     pub async fn start(&self) -> anyhow::Result<()> {
-        for (symbol, cur) in self.currencies.clone().into_iter() {
-            if let Some(mut lnd) = cur.lnd {
+        for (symbol, cur) in self.currencies.iter() {
+            if let Some(mut lnd) = cur.lnd.clone() {
                 let self_cp = self.clone();
                 let mut backup_stream = lnd.subscribe_channel_backups();
 
+                let symbol = symbol.clone();
                 tokio::spawn(async move {
                     if let Err(err) = self_cp.lnd_backup(&symbol, &mut lnd).await {
                         error!("LND backup failed: {}", err);

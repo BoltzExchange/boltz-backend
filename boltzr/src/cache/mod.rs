@@ -24,6 +24,7 @@ pub struct CacheConfig {
 pub trait Cache {
     async fn get<V: DeserializeOwned>(&self, key: &str) -> Result<Option<V>>;
     async fn set<V: Serialize + Sync>(&self, key: &str, value: &V) -> Result<()>;
+    async fn set_ttl<V: Serialize + Sync>(&self, key: &str, value: &V, ttl: u64) -> Result<()>;
 }
 
 #[cfg(test)]
@@ -61,6 +62,15 @@ pub mod test {
             self.map
                 .insert(key.to_owned(), serde_json::to_string(value)?.to_string());
             Ok(())
+        }
+
+        async fn set_ttl<V: Serialize + Sync>(
+            &self,
+            key: &str,
+            value: &V,
+            _ttl: u64,
+        ) -> anyhow::Result<()> {
+            self.set(key, value).await
         }
     }
 }

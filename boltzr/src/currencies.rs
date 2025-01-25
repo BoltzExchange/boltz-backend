@@ -22,7 +22,7 @@ pub struct Currency {
     pub lnd: Option<Lnd>,
 }
 
-pub type Currencies = HashMap<String, Currency>;
+pub type Currencies = Arc<HashMap<String, Currency>>;
 
 pub async fn connect_nodes(
     cancellation_token: CancellationToken,
@@ -107,7 +107,7 @@ pub async fn connect_nodes(
         );
     }
 
-    Ok(curs)
+    Ok(Arc::new(curs))
 }
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {

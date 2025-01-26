@@ -202,8 +202,22 @@ impl BaseClient for Cln {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::lightning::cln::cln_rpc::{OfferRequest, OfferResponse};
     use rstest::*;
     use std::path::Path;
+
+    impl Cln {
+        pub async fn offer(&mut self) -> anyhow::Result<OfferResponse> {
+            let res = self
+                .cln
+                .offer(OfferRequest {
+                    amount: "any".to_string(),
+                    ..Default::default()
+                })
+                .await?;
+            Ok(res.into_inner())
+        }
+    }
 
     const CLN_CERTS_PATH: &str = "../docker/regtest/data/cln/certs";
 

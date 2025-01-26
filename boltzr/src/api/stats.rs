@@ -3,6 +3,7 @@ use crate::api::headers::Referral;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
 use crate::db::models::SwapType;
+use crate::swap::manager::SwapManager;
 use anyhow::{anyhow, Result};
 use axum::extract::Path;
 use axum::http::StatusCode;
@@ -30,8 +31,8 @@ pub struct StatsParams {
     to: String,
 }
 
-pub async fn get_stats<S>(
-    Extension(state): Extension<Arc<ServerState<S>>>,
+pub async fn get_stats<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
     TypedHeader(referral): TypedHeader<Referral>,
     Path(StatsParams {
         to,
@@ -41,6 +42,7 @@ pub async fn get_stats<S>(
 ) -> Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
 {
     let referral = referral.inner();
     if referral != PRO_REFERRAL {
@@ -102,6 +104,7 @@ mod test {
     use crate::api::Server;
     use crate::service::test::PairStats;
     use crate::service::Service;
+    use crate::swap::manager::test::MockManager;
     use axum::body::Body;
     use axum::extract::Request;
     use axum::Router;
@@ -112,11 +115,14 @@ mod test {
     fn setup_router(with_pair_stats: bool) -> Router {
         let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<SwapStatus>>(1);
 
-        Server::<Fetcher>::add_routes(Router::new()).layer(Extension(Arc::new(ServerState {
-            service: Arc::new(Service::new_mocked_prometheus(with_pair_stats)),
-            swap_status_update_tx: status_tx.clone(),
-            swap_infos: Fetcher { status_tx },
-        })))
+        Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
+            ServerState {
+                manager: Arc::new(MockManager::new()),
+                service: Arc::new(Service::new_mocked_prometheus(with_pair_stats)),
+                swap_status_update_tx: status_tx.clone(),
+                swap_infos: Fetcher { status_tx },
+            },
+        )))
     }
 
     #[tokio::test]

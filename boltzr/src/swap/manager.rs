@@ -169,3 +169,31 @@ impl SwapManager for Manager {
         Ok(transactions)
     }
 }
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use crate::api::ws::types::SwapStatus;
+    use crate::chain::utils::Transaction;
+    use anyhow::Result;
+    use async_trait::async_trait;
+    use mockall::mock;
+
+    mock! {
+        pub Manager {}
+
+        impl Clone for Manager {
+            fn clone(&self) -> Self;
+        }
+
+        #[async_trait]
+        impl SwapManager for Manager {
+            fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
+            async fn scan_mempool(
+                &self,
+                symbols: Option<Vec<String>>,
+            ) -> Result<HashMap<String, Vec<Transaction>>>;
+        }
+    }
+}

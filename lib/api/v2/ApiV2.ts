@@ -5,7 +5,6 @@ import SwapInfos from '../SwapInfos';
 import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
 import InfoRouter from './routers/InfoRouter';
-import LightningRouter from './routers/LightningRouter';
 import NodesRouter from './routers/NodesRouter';
 import ReferralRouter from './routers/ReferralRouter';
 import RouterBase from './routers/RouterBase';
@@ -23,7 +22,6 @@ class ApiV2 {
       new InfoRouter(this.logger, service),
       new SwapRouter(this.logger, service, swapInfos),
       new ChainRouter(this.logger, service),
-      new LightningRouter(this.logger, service.sidecar),
       new NodesRouter(this.logger, service),
       new ReferralRouter(this.logger),
     ];

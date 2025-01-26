@@ -259,6 +259,7 @@ async fn main() {
     let api_server = api::Server::new(
         config.sidecar.api,
         cancellation_token.clone(),
+        swap_manager.clone(),
         service,
         grpc_server.status_fetcher(),
         swap_status_update_tx.clone(),

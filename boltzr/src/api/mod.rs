@@ -1,5 +1,5 @@
 use crate::api::errors::error_middleware;
-use crate::api::lightning::lightning_channels;
+use crate::api::lightning::{lightning_channels, lightning_node_info};
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
 #[cfg(feature = "metrics")]
@@ -115,6 +115,10 @@ where
             .route(
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
                 get(get_stats::<S>),
+            )
+            .route(
+                "/v2/lightning/{currency}/node/{node}",
+                get(lightning_node_info::<S>),
             )
             .route(
                 "/v2/lightning/{currency}/channels/{node}",

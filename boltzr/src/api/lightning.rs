@@ -1,7 +1,7 @@
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
-use crate::service::ChannelFetchError;
+use crate::service::InfoFetchError;
 use alloy::hex;
 use anyhow::Result;
 use axum::extract::Path;
@@ -12,29 +12,46 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 #[derive(Deserialize)]
-pub struct LightningChannelsParams {
+pub struct LightningInfoParams {
     currency: String,
     node: String,
 }
 
-pub async fn lightning_channels<S>(
+pub async fn lightning_node_info<S>(
     Extension(state): Extension<Arc<ServerState<S>>>,
-    Path(LightningChannelsParams { node, currency }): Path<LightningChannelsParams>,
+    Path(LightningInfoParams { node, currency }): Path<LightningInfoParams>,
 ) -> Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
 {
-    let node = match hex::decode(node) {
+    let node = match decode_node(&node) {
         Ok(node) => node,
-        Err(err) => {
-            return Ok((
-                StatusCode::BAD_REQUEST,
-                Json(ApiError {
-                    error: format!("invalid node: {}", err),
-                }),
-            )
-                .into_response())
-        }
+        Err(response) => return Ok(response),
+    };
+
+    Ok(
+        match state
+            .service
+            .lightning_info
+            .get_node_info(&currency, node)
+            .await
+        {
+            Ok(res) => (StatusCode::OK, Json(res)).into_response(),
+            Err(err) => handle_info_fetch_error(err),
+        },
+    )
+}
+
+pub async fn lightning_channels<S>(
+    Extension(state): Extension<Arc<ServerState<S>>>,
+    Path(LightningInfoParams { node, currency }): Path<LightningInfoParams>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+{
+    let node = match decode_node(&node) {
+        Ok(node) => node,
+        Err(response) => return Ok(response),
     };
 
     Ok(
@@ -45,19 +62,83 @@ where
             .await
         {
             Ok(res) => (StatusCode::OK, Json(res)).into_response(),
-            Err(err) => (
-                match err {
-                    ChannelFetchError::NoNode => StatusCode::NOT_FOUND,
-                    ChannelFetchError::FetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-                },
-                Json(ApiError {
-                    error: match err {
-                        ChannelFetchError::NoNode => "no node available".to_string(),
-                        ChannelFetchError::FetchError(err) => format!("{}", err),
-                    },
-                }),
-            )
-                .into_response(),
+            Err(err) => handle_info_fetch_error(err),
         },
     )
+}
+
+fn decode_node(node: &str) -> Result<Vec<u8>, axum::http::Response<axum::body::Body>> {
+    fn invalid_node_response<E: std::fmt::Display>(
+        err: E,
+    ) -> axum::http::Response<axum::body::Body> {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ApiError {
+                error: format!("invalid node: {}", err),
+            }),
+        )
+            .into_response()
+    }
+
+    Ok(match hex::decode(node) {
+        Ok(node) => {
+            if node.len() != 33 {
+                return Err(invalid_node_response("not a public key"));
+            }
+
+            node
+        }
+        Err(err) => return Err(invalid_node_response(err)),
+    })
+}
+
+fn handle_info_fetch_error(err: InfoFetchError) -> axum::http::Response<axum::body::Body> {
+    (
+        match err {
+            InfoFetchError::NoNode => StatusCode::NOT_FOUND,
+            InfoFetchError::FetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        },
+        Json(ApiError {
+            error: match err {
+                InfoFetchError::NoNode => "no node available".to_string(),
+                InfoFetchError::FetchError(err) => format!("{}", err),
+            },
+        }),
+    )
+        .into_response()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use http_body_util::BodyExt;
+    use rstest::*;
+
+    #[rstest]
+    #[case("03a7ee82c3c7fc4c796d26e513676d445d49b9c62004a47f2e813695a439a8fd01")]
+    #[case("02d39d33219daac2e5db99c07d4568485d2842e108ff7c1fb0ce13b0cc908e559b")]
+    fn test_decode_node(#[case] node: &str) {
+        assert_eq!(decode_node(node).unwrap(), hex::decode(node).unwrap());
+    }
+
+    #[rstest]
+    #[case(
+        "03a7ee82c3c7fc4c796d26e513676d445d49b9c62004a47f2e813695a439a8fd",
+        "not a public key"
+    )]
+    #[case(
+        "03a7ee82c3c7fc4c796d26e513676d445d49b9c62004a47f2e813695a439a8fd0102",
+        "not a public key"
+    )]
+    #[case("asdf", "invalid character 's' at position 1")]
+    #[tokio::test]
+    async fn test_decode_node_err(#[case] node: &str, #[case] expected: &str) {
+        let res = decode_node(node).err().unwrap();
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error: ApiError = serde_json::from_slice(&body).unwrap();
+        assert_eq!(error.error, format!("invalid node: {}", expected));
+    }
 }

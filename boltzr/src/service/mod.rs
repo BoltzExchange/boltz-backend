@@ -15,7 +15,7 @@ mod prometheus;
 use crate::currencies::Currencies;
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 pub use country_codes::MarkingsConfig;
-pub use lightning_info::ChannelFetchError;
+pub use lightning_info::InfoFetchError;
 pub use pair_stats::HistoricalConfig;
 
 pub struct Service {

@@ -72,14 +72,14 @@ impl From<(ListchannelsChannels, Node)> for Channel {
 }
 
 #[derive(Debug)]
-pub enum ChannelFetchError {
+pub enum InfoFetchError {
     NoNode,
     FetchError(anyhow::Error),
 }
 
-impl From<anyhow::Error> for ChannelFetchError {
+impl From<anyhow::Error> for InfoFetchError {
     fn from(value: anyhow::Error) -> Self {
-        ChannelFetchError::FetchError(value)
+        InfoFetchError::FetchError(value)
     }
 }
 
@@ -89,7 +89,9 @@ pub trait LightningInfo {
         &self,
         symbol: &str,
         destination: Vec<u8>,
-    ) -> Result<Vec<Channel>, ChannelFetchError>;
+    ) -> Result<Vec<Channel>, InfoFetchError>;
+
+    async fn get_node_info(&self, symbol: &str, node: Vec<u8>) -> Result<Node, InfoFetchError>;
 }
 
 pub struct ClnLightningInfo<C: Cache + Send + Sync> {
@@ -102,7 +104,7 @@ impl<C: Cache + Send + Sync> ClnLightningInfo<C> {
         Self { cache, currencies }
     }
 
-    async fn list_node(&self, cln: &mut Cln, id: Vec<u8>) -> anyhow::Result<Node> {
+    async fn get_node_info_from_cln(&self, cln: &mut Cln, id: Vec<u8>) -> anyhow::Result<Node> {
         let cache_key = Self::cache_key_node(&cln.symbol(), &id);
         if let Some(cache) = &self.cache {
             if let Some(node) = cache.get(&cache_key).await? {
@@ -132,6 +134,18 @@ impl<C: Cache + Send + Sync> ClnLightningInfo<C> {
         Ok(node)
     }
 
+    fn get_cln(&self, symbol: &str) -> Result<Cln, InfoFetchError> {
+        Ok(
+            match match self.currencies.get(symbol) {
+                Some(cur) => &cur.cln,
+                None => return Err(InfoFetchError::NoNode),
+            } {
+                Some(cln) => cln.clone(),
+                None => return Err(InfoFetchError::NoNode),
+            },
+        )
+    }
+
     fn cache_key_node(symbol: &str, id: &[u8]) -> String {
         format!("cln:{}:node:{}", symbol, hex::encode(id))
     }
@@ -147,7 +161,7 @@ impl<C: Cache + Send + Sync> LightningInfo for ClnLightningInfo<C> {
         &self,
         symbol: &str,
         destination: Vec<u8>,
-    ) -> Result<Vec<Channel>, ChannelFetchError> {
+    ) -> Result<Vec<Channel>, InfoFetchError> {
         let cache_key = Self::cache_key_channels(symbol, &destination);
         if let Some(cache) = &self.cache {
             if let Some(channels) = cache.get(&cache_key).await? {
@@ -155,14 +169,7 @@ impl<C: Cache + Send + Sync> LightningInfo for ClnLightningInfo<C> {
             }
         }
 
-        let mut cln = match match self.currencies.get(symbol) {
-            Some(cur) => &cur.cln,
-            None => return Err(ChannelFetchError::NoNode),
-        } {
-            Some(cln) => cln.clone(),
-            None => return Err(ChannelFetchError::NoNode),
-        };
-
+        let mut cln = self.get_cln(symbol)?;
         let raw_channels: Vec<ListchannelsChannels> = cln.list_channels(Some(destination)).await?;
 
         let mut channels = Vec::new();
@@ -171,7 +178,9 @@ impl<C: Cache + Send + Sync> LightningInfo for ClnLightningInfo<C> {
                 continue;
             }
 
-            let node_info = self.list_node(&mut cln, channel.source.clone()).await?;
+            let node_info = self
+                .get_node_info_from_cln(&mut cln, channel.source.clone())
+                .await?;
             channels.push((channel, node_info).into());
         }
 
@@ -182,6 +191,13 @@ impl<C: Cache + Send + Sync> LightningInfo for ClnLightningInfo<C> {
         }
 
         Ok(channels)
+    }
+
+    async fn get_node_info(&self, symbol: &str, node: Vec<u8>) -> Result<Node, InfoFetchError> {
+        let mut cln = self.get_cln(symbol)?;
+        self.get_node_info_from_cln(&mut cln, node)
+            .await
+            .map_err(InfoFetchError::FetchError)
     }
 }
 
@@ -212,7 +228,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_list_node() {
+    async fn test_get_node_info() {
         let currencies = get_currencies().await;
         let mut cln = currencies.get("BTC").unwrap().cln.clone().unwrap();
         let node = cln.list_nodes(None).await.unwrap()[0].clone();
@@ -220,7 +236,7 @@ mod test {
         let lightning_info = ClnLightningInfo::<Redis>::new(None, currencies);
 
         let info = lightning_info
-            .list_node(&mut cln, node.nodeid.clone())
+            .get_node_info("BTC", node.nodeid.clone())
             .await
             .unwrap();
 

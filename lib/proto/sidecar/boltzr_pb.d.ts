@@ -933,52 +933,6 @@ export namespace DecodeInvoiceOrOfferResponse {
 
 }
 
-export class FetchInvoiceRequest extends jspb.Message { 
-    getCurrency(): string;
-    setCurrency(value: string): FetchInvoiceRequest;
-    getOffer(): string;
-    setOffer(value: string): FetchInvoiceRequest;
-    getAmountMsat(): number;
-    setAmountMsat(value: number): FetchInvoiceRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FetchInvoiceRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: FetchInvoiceRequest): FetchInvoiceRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FetchInvoiceRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FetchInvoiceRequest;
-    static deserializeBinaryFromReader(message: FetchInvoiceRequest, reader: jspb.BinaryReader): FetchInvoiceRequest;
-}
-
-export namespace FetchInvoiceRequest {
-    export type AsObject = {
-        currency: string,
-        offer: string,
-        amountMsat: number,
-    }
-}
-
-export class FetchInvoiceResponse extends jspb.Message { 
-    getInvoice(): string;
-    setInvoice(value: string): FetchInvoiceResponse;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FetchInvoiceResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: FetchInvoiceResponse): FetchInvoiceResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FetchInvoiceResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FetchInvoiceResponse;
-    static deserializeBinaryFromReader(message: FetchInvoiceResponse, reader: jspb.BinaryReader): FetchInvoiceResponse;
-}
-
-export namespace FetchInvoiceResponse {
-    export type AsObject = {
-        invoice: string,
-    }
-}
-
 export class IsMarkedRequest extends jspb.Message { 
     getIp(): string;
     setIp(value: string): IsMarkedRequest;

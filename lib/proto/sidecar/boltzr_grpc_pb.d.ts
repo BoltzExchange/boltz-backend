@@ -19,7 +19,6 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     sendWebHook: IBoltzRService_ISendWebHook;
     signEvmRefund: IBoltzRService_ISignEvmRefund;
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
-    fetchInvoice: IBoltzRService_IFetchInvoice;
     isMarked: IBoltzRService_IIsMarked;
     scanMempool: IBoltzRService_IScanMempool;
 }
@@ -123,15 +122,6 @@ interface IBoltzRService_IDecodeInvoiceOrOffer extends grpc.MethodDefinition<bol
     responseSerialize: grpc.serialize<boltzr_pb.DecodeInvoiceOrOfferResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.DecodeInvoiceOrOfferResponse>;
 }
-interface IBoltzRService_IFetchInvoice extends grpc.MethodDefinition<boltzr_pb.FetchInvoiceRequest, boltzr_pb.FetchInvoiceResponse> {
-    path: "/boltzr.BoltzR/FetchInvoice";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<boltzr_pb.FetchInvoiceRequest>;
-    requestDeserialize: grpc.deserialize<boltzr_pb.FetchInvoiceRequest>;
-    responseSerialize: grpc.serialize<boltzr_pb.FetchInvoiceResponse>;
-    responseDeserialize: grpc.deserialize<boltzr_pb.FetchInvoiceResponse>;
-}
 interface IBoltzRService_IIsMarked extends grpc.MethodDefinition<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse> {
     path: "/boltzr.BoltzR/IsMarked";
     requestStream: false;
@@ -165,7 +155,6 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     sendWebHook: grpc.handleUnaryCall<boltzr_pb.SendWebHookRequest, boltzr_pb.SendWebHookResponse>;
     signEvmRefund: grpc.handleUnaryCall<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse>;
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
-    fetchInvoice: grpc.handleUnaryCall<boltzr_pb.FetchInvoiceRequest, boltzr_pb.FetchInvoiceResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
     scanMempool: grpc.handleUnaryCall<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse>;
 }
@@ -202,9 +191,6 @@ export interface IBoltzRClient {
     decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
     decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
     decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
-    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
-    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
-    fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     isMarked(request: boltzr_pb.IsMarkedRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
@@ -245,9 +231,6 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
     public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
     public decodeInvoiceOrOffer(request: boltzr_pb.DecodeInvoiceOrOfferRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.DecodeInvoiceOrOfferResponse) => void): grpc.ClientUnaryCall;
-    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
-    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
-    public fetchInvoice(request: boltzr_pb.FetchInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.FetchInvoiceResponse) => void): grpc.ClientUnaryCall;
     public isMarked(request: boltzr_pb.IsMarkedRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     public isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     public isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;

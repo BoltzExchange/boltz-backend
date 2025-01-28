@@ -1,7 +1,7 @@
 use crate::chain::BaseClient;
 use crate::lightning::cln::cln_rpc::{
-    Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListconfigsRequest,
-    ListconfigsResponse,
+    Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
+    ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
 use alloy::hex;
 use anyhow::anyhow;
@@ -12,7 +12,7 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, info, instrument};
 
 #[allow(clippy::enum_variant_names)]
-mod cln_rpc {
+pub(crate) mod cln_rpc {
     tonic::include_proto!("cln");
 }
 
@@ -85,6 +85,33 @@ impl Cln {
         );
 
         Ok(res.into_inner().invoice)
+    }
+
+    pub async fn list_nodes(&mut self, id: Option<Vec<u8>>) -> anyhow::Result<Vec<ListnodesNodes>> {
+        Ok(self
+            .cln
+            .list_nodes(ListnodesRequest { id })
+            .await
+            .map_err(Self::parse_error)?
+            .into_inner()
+            .nodes)
+    }
+
+    pub async fn list_channels(
+        &mut self,
+        destination: Option<Vec<u8>>,
+    ) -> anyhow::Result<Vec<ListchannelsChannels>> {
+        Ok(self
+            .cln
+            .list_channels(ListchannelsRequest {
+                destination,
+                source: None,
+                short_channel_id: None,
+            })
+            .await
+            .map_err(Self::parse_error)?
+            .into_inner()
+            .channels)
     }
 
     async fn get_info(&mut self) -> anyhow::Result<GetinfoResponse> {
@@ -173,9 +200,53 @@ impl BaseClient for Cln {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
+    use crate::lightning::cln::cln_rpc::{OfferRequest, OfferResponse};
     use rstest::*;
+    use std::path::Path;
+
+    impl Cln {
+        pub async fn offer(&mut self) -> anyhow::Result<OfferResponse> {
+            let res = self
+                .cln
+                .offer(OfferRequest {
+                    amount: "any".to_string(),
+                    ..Default::default()
+                })
+                .await?;
+            Ok(res.into_inner())
+        }
+    }
+
+    const CLN_CERTS_PATH: &str = "../docker/regtest/data/cln/certs";
+
+    pub async fn cln_client() -> Cln {
+        Cln::new(
+            "BTC",
+            Config {
+                host: "127.0.0.1".to_string(),
+                port: 9291,
+                root_cert_path: Path::new(CLN_CERTS_PATH)
+                    .join("ca.pem")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                private_key_path: Path::new(CLN_CERTS_PATH)
+                    .join("client-key.pem")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                cert_chain_path: Path::new(CLN_CERTS_PATH)
+                    .join("client.pem")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            },
+        )
+        .await
+        .unwrap()
+    }
 
     #[rstest]
     #[case("Error calling method Xpay: RpcError { code: Some(203), message: \"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details\", data: None }", "Destination said it doesn't know invoice: incorrect_or_unknown_payment_details")]

@@ -1,8 +1,11 @@
 use crate::api::errors::error_middleware;
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
+#[cfg(feature = "metrics")]
+use crate::metrics::server::MetricsLayer;
 use crate::service::Service;
-use axum::routing::get;
+use crate::swap::manager::SwapManager;
+use axum::routing::{get, post};
 use axum::{Extension, Router};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -12,13 +15,12 @@ use tracing::{debug, info};
 use ws::status::SwapInfos;
 use ws::types::SwapStatus;
 
-#[cfg(feature = "metrics")]
-use crate::metrics::server::MetricsLayer;
-
 mod errors;
 mod headers;
+mod lightning;
 mod sse;
 mod stats;
+mod types;
 pub mod ws;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -27,36 +29,41 @@ pub struct Config {
     pub port: u16,
 }
 
-pub struct Server<S> {
+pub struct Server<S, M> {
     config: Config,
     cancellation_token: CancellationToken,
 
+    manager: Arc<M>,
     service: Arc<Service>,
 
     swap_infos: S,
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
 
-struct ServerState<S> {
+struct ServerState<S, M> {
+    manager: Arc<M>,
     service: Arc<Service>,
 
     swap_infos: S,
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
 }
 
-impl<S> Server<S>
+impl<S, M> Server<S, M>
 where
     S: SwapInfos + Clone + Send + Sync + 'static,
+    M: SwapManager + Send + Sync + 'static,
 {
     pub fn new(
         config: Config,
         cancellation_token: CancellationToken,
+        manager: Arc<M>,
         service: Arc<Service>,
         swap_infos: S,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
     ) -> Self {
         Server {
             config,
+            manager,
             service,
             swap_infos,
             cancellation_token,
@@ -92,6 +99,7 @@ where
                 axum::serve(
                     listener,
                     router.layer(Extension(Arc::new(ServerState {
+                        manager: self.manager.clone(),
                         service: self.service.clone(),
                         swap_infos: self.swap_infos.clone(),
                         swap_status_update_tx: self.swap_status_update_tx.clone(),
@@ -110,10 +118,22 @@ where
 
     fn add_routes(router: Router) -> Router {
         router
-            .route("/streamswapstatus", get(sse_handler::<S>))
+            .route("/streamswapstatus", get(sse_handler::<S, M>))
             .route(
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
-                get(get_stats::<S>),
+                get(get_stats::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/node/{node}",
+                get(lightning::node_info::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/channels/{node}",
+                get(lightning::channels::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/bolt12/fetch",
+                post(lightning::bolt12_fetch::<S, M>),
             )
             .layer(axum::middleware::from_fn(error_middleware))
     }
@@ -126,8 +146,10 @@ pub mod test {
     use crate::api::{Config, Server};
     use crate::cache::Redis;
     use crate::service::Service;
+    use crate::swap::manager::test::MockManager;
     use async_trait::async_trait;
     use reqwest::StatusCode;
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::broadcast::Sender;
@@ -173,7 +195,13 @@ pub mod test {
                 host: "127.0.0.1".to_string(),
             },
             cancel.clone(),
-            Arc::new(Service::new::<Redis>(None, None, None)),
+            Arc::new(MockManager::new()),
+            Arc::new(Service::new::<Redis>(
+                Arc::new(HashMap::new()),
+                None,
+                None,
+                None,
+            )),
             Fetcher {
                 status_tx: status_tx.clone(),
             },

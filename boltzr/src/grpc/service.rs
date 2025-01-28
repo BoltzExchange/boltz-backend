@@ -9,13 +9,12 @@ use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, Tra
 use crate::grpc::service::boltzr::{
     bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
     Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
-    DecodeInvoiceOrOfferResponse, Feature, FetchInvoiceRequest, FetchInvoiceResponse,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
-    IsMarkedResponse, LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest,
-    SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest,
-    SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest,
-    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate,
-    SwapUpdateRequest, SwapUpdateResponse,
+    DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest, GetInfoResponse, GetMessagesRequest,
+    GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel, ScanMempoolRequest,
+    ScanMempoolResponse, SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest,
+    SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest,
+    SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -637,27 +636,6 @@ where
         }
     }
 
-    #[instrument(name = "grpc::fetch_invoice", skip_all)]
-    async fn fetch_invoice(
-        &self,
-        request: Request<FetchInvoiceRequest>,
-    ) -> Result<Response<FetchInvoiceResponse>, Status> {
-        extract_parent_context(&request);
-
-        let params = request.into_inner();
-
-        match self.manager.get_currency(&params.currency) {
-            Some(currency) => match currency.cln.clone() {
-                Some(mut cln) => match cln.fetch_invoice(params.offer, params.amount_msat).await {
-                    Ok(invoice) => Ok(Response::new(FetchInvoiceResponse { invoice })),
-                    Err(err) => Err(Status::new(Code::Internal, err.to_string())),
-                },
-                None => Err(Status::new(Code::NotFound, "no BOLT12 support")),
-            },
-            None => Err(Status::new(Code::NotFound, "currency not found")),
-        }
-    }
-
     #[instrument(name = "grpc::is_marked", skip_all)]
     async fn is_marked(
         &self,
@@ -729,8 +707,6 @@ fn extract_parent_context<T>(request: &Request<T>) {
 mod test {
     use crate::api::ws;
     use crate::cache::Redis;
-    use crate::chain::utils::Transaction;
-    use crate::currencies::Currency;
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::helpers::QueryResponse;
     use crate::db::models::{WebHook, WebHookState};
@@ -746,7 +722,7 @@ mod test {
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
     use crate::service::Service;
-    use crate::swap::manager::SwapManager;
+    use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
     use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
@@ -791,24 +767,6 @@ mod test {
                 token_address: Option<Address>,
                 timeout: u64,
             ) -> anyhow::Result<PrimitiveSignature>;
-        }
-    }
-
-    mock! {
-        Manager {}
-
-        impl Clone for Manager {
-            fn clone(&self) -> Self;
-        }
-
-        #[async_trait]
-        impl SwapManager for Manager {
-            fn get_currency(&self, symbol: &str) -> Option<Currency>;
-            fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<crate::api::ws::types::SwapStatus>;
-            async fn scan_mempool(
-                &self,
-                symbols: Option<Vec<String>>,
-            ) -> anyhow::Result<HashMap<String, Vec<Transaction>>>;
         }
     }
 
@@ -1102,7 +1060,12 @@ mod test {
             token.clone(),
             BoltzService::new(
                 ReloadHandler::new(),
-                Arc::new(Service::new::<Redis>(None, None, None)),
+                Arc::new(Service::new::<Redis>(
+                    Arc::new(HashMap::new()),
+                    None,
+                    None,
+                    None,
+                )),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),
                 status_tx,

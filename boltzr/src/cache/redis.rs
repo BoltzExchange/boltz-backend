@@ -41,11 +41,15 @@ impl Cache for Redis {
     }
 
     async fn set<V: Serialize + Sync>(&self, key: &str, value: &V) -> Result<()> {
+        self.set_ttl(key, value, self.default_expiry).await
+    }
+
+    async fn set_ttl<V: Serialize + Sync>(&self, key: &str, value: &V, ttl: u64) -> Result<()> {
         redis::cmd("SET")
             .arg(key)
             .arg(serde_json::to_string(value)?)
             .arg("EX")
-            .arg(self.default_expiry)
+            .arg(ttl)
             .exec_async(&mut self.connection.clone())
             .await?;
         Ok(())
@@ -95,7 +99,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_set_ttl() {
+    async fn test_set_default_ttl() {
         let default_expiry = 120;
         let cache = Redis::new(&CacheConfig {
             default_expiry,
@@ -104,7 +108,7 @@ mod test {
         .await
         .unwrap();
 
-        let key = "test:ttl";
+        let key = "test:ttl_default";
 
         cache
             .set(
@@ -123,5 +127,37 @@ mod test {
             .unwrap();
 
         assert!(ttl >= default_expiry - 1 && ttl <= default_expiry);
+    }
+
+    #[tokio::test]
+    async fn test_set_ttl() {
+        let cache = Redis::new(&CacheConfig {
+            default_expiry: 120,
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test:ttl";
+
+        let ttl_set = 21;
+        cache
+            .set_ttl(
+                key,
+                &Data {
+                    data: "ttl".to_string(),
+                },
+                ttl_set,
+            )
+            .await
+            .unwrap();
+
+        let ttl: u64 = redis::cmd("TTL")
+            .arg(key)
+            .query_async(&mut cache.connection.clone())
+            .await
+            .unwrap();
+
+        assert!(ttl >= ttl_set - 1 && ttl <= ttl_set);
     }
 }

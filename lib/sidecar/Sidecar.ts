@@ -21,7 +21,6 @@ import {
 import SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
-import { satToMsat } from '../lightning/ChannelUtils';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
@@ -304,23 +303,6 @@ class Sidecar extends BaseClient<
         sidecarrpc.DecodeInvoiceOrOfferResponse.AsObject
       >('decodeInvoiceOrOffer', req, true),
     );
-  };
-
-  public fetchOffer = async (
-    currency: string,
-    offer: string,
-    amountSat: number,
-  ) => {
-    const req = new sidecarrpc.FetchInvoiceRequest();
-    req.setCurrency(currency);
-    req.setOffer(offer);
-    req.setAmountMsat(satToMsat(amountSat));
-
-    const res = await this.unaryNodeCall<
-      sidecarrpc.FetchInvoiceRequest,
-      sidecarrpc.FetchInvoiceResponse.AsObject
-    >('fetchInvoice', req);
-    return res.invoice;
   };
 
   public isMarked = async (ip: string) => {

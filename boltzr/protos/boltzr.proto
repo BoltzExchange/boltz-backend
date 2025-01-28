@@ -20,7 +20,6 @@ service BoltzR {
   rpc SignEvmRefund (SignEvmRefundRequest) returns (SignEvmRefundResponse);
 
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
-  rpc FetchInvoice (FetchInvoiceRequest) returns (FetchInvoiceResponse);
 
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
@@ -215,16 +214,6 @@ message DecodeInvoiceOrOfferResponse {
     Bolt12Offer offer = 3;
     Bolt12Invoice bolt12_invoice = 4;
   }
-}
-
-message FetchInvoiceRequest {
-  string currency = 1;
-  string offer = 2;
-  uint64 amount_msat = 3;
-}
-
-message FetchInvoiceResponse {
-  string invoice = 1;
 }
 
 message IsMarkedRequest {

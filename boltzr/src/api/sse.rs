@@ -1,5 +1,6 @@
 use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
+use crate::swap::manager::SwapManager;
 use async_stream::try_stream;
 use axum::response::sse::{Event, Sse};
 use axum::{extract::Query, Extension};
@@ -23,12 +24,13 @@ pub struct IdParams {
     pub id: String,
 }
 
-pub async fn sse_handler<S>(
-    Extension(state): Extension<Arc<ServerState<S>>>,
+pub async fn sse_handler<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
     Query(params): Query<IdParams>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
 {
     trace!("New SSE status stream for swap: {}", params.id);
 

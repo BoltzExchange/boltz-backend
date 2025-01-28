@@ -1,4 +1,5 @@
 use crate::api::errors::{ApiError, AxumError};
+use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
 use crate::service::InfoFetchError;
@@ -16,6 +17,7 @@ use std::sync::Arc;
 pub struct Bolt12FetchRequest {
     offer: String,
     // In satoshis
+    #[serde(deserialize_with = "assert_not_zero")]
     amount: u64,
 }
 
@@ -252,7 +254,7 @@ mod test {
                     .body(Body::from(
                         serde_json::to_vec(&Bolt12FetchRequest {
                             offer: "".to_string(),
-                            amount: 0,
+                            amount: 1,
                         })
                         .unwrap(),
                     ))
@@ -267,6 +269,38 @@ mod test {
         assert_eq!(
             serde_json::from_slice::<ApiError>(&body).unwrap().error,
             "no BOLT12 support"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_bolt12_fetch_zero_amount() {
+        let mut manager = MockManager::new();
+        manager.expect_get_currency().return_const(None);
+
+        let res = setup_router(manager)
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri("/v2/lightning/BTC/bolt12/fetch")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&Bolt12FetchRequest {
+                            offer: "".to_string(),
+                            amount: 0,
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<ApiError>(&body).unwrap().error,
+            "Failed to deserialize the JSON body into the target type: amount: invalid value: integer `0`, expected value greater than 0 at line 1 column 23"
         );
     }
 

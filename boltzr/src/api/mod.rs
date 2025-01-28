@@ -20,6 +20,7 @@ mod headers;
 mod lightning;
 mod sse;
 mod stats;
+mod types;
 pub mod ws;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -123,16 +124,16 @@ where
                 get(get_stats::<S, M>),
             )
             .route(
-                "/v2/lightning/{currency}/bolt12/fetch",
-                post(lightning::bolt12_fetch::<S, M>),
-            )
-            .route(
                 "/v2/lightning/{currency}/node/{node}",
                 get(lightning::node_info::<S, M>),
             )
             .route(
                 "/v2/lightning/{currency}/channels/{node}",
                 get(lightning::channels::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/bolt12/fetch",
+                post(lightning::bolt12_fetch::<S, M>),
             )
             .layer(axum::middleware::from_fn(error_middleware))
     }

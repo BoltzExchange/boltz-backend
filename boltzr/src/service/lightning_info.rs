@@ -43,8 +43,8 @@ pub struct Channel {
     pub source: Node,
     #[serde(rename = "shortChannelId")]
     pub short_channel_id: String,
-    #[serde(rename = "amountSat", skip_serializing_if = "Option::is_none")]
-    pub amount_sat: Option<u64>,
+    #[serde(rename = "capacity", skip_serializing_if = "Option::is_none")]
+    pub capacity_sat: Option<u64>,
     pub active: bool,
     pub info: ChannelInfo,
 }
@@ -58,7 +58,7 @@ impl From<(ListchannelsChannels, Node)> for Channel {
                 color: v.1.color,
             },
             short_channel_id: v.0.short_channel_id,
-            amount_sat: v.0.amount_msat.map(|a| a.msat / 1_000),
+            capacity_sat: v.0.amount_msat.map(|a| a.msat / 1_000),
             active: v.0.active,
             info: ChannelInfo {
                 base_fee_millisatoshi: v.0.base_fee_millisatoshi,

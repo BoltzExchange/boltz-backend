@@ -1,7 +1,10 @@
 import Logger from '../Logger';
 import { getHexString } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
-import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
+import ReverseSwap, {
+  NodeType,
+  nodeTypeToPrettyString,
+} from '../db/models/ReverseSwap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import { LightningClient } from '../lightning/LightningClient';
@@ -14,6 +17,8 @@ type NodeSwitchConfig = {
 
   swapNode?: string;
   referralsIds?: Record<string, string>;
+
+  preferredForNode?: Record<string, string>;
 };
 
 class NodeSwitch {
@@ -24,6 +29,7 @@ class NodeSwitch {
   private readonly referralIds = new Map<string, NodeType>();
 
   private readonly swapNode?: NodeType;
+  private readonly preferredForNode = new Map<string, NodeType>();
 
   constructor(
     private readonly logger: Logger,
@@ -51,6 +57,17 @@ class NodeSwitch {
       }
 
       this.referralIds.set(referralId, nt);
+    }
+
+    for (const [node, nodeType] of Object.entries(
+      cfg?.preferredForNode || {},
+    )) {
+      const nt = this.parseNodeType(nodeType, `preferred for node ${node}`);
+      if (nt === undefined) {
+        continue;
+      }
+
+      this.preferredForNode.set(node.toLowerCase(), nt);
     }
   }
 
@@ -93,7 +110,7 @@ class NodeSwitch {
       );
     };
 
-    let client = selectNode(this.swapNode);
+    let client = selectNode(this.getPreferredNode(decoded));
 
     // Go easy on CLN xpay
     if (client.type === NodeType.CLN && decoded.type === InvoiceType.Bolt11) {
@@ -171,6 +188,27 @@ class NodeSwitch {
         ? currency.lndClient
         : currency.clnClient,
     );
+  };
+
+  private getPreferredNode = (
+    invoice: DecodedInvoice,
+  ): NodeType | undefined => {
+    const nodes = invoice.routingHints.flat().map((h) => h.nodeId);
+    if (invoice.payee !== undefined) {
+      nodes.push(getHexString(invoice.payee!));
+    }
+
+    for (const node of nodes) {
+      const nt = this.preferredForNode.get(node);
+      if (nt !== undefined) {
+        this.logger.debug(
+          `Preferring node ${nodeTypeToPrettyString(nt)} because of ${node}`,
+        );
+        return nt;
+      }
+    }
+
+    return this.swapNode;
   };
 
   private parseNodeType = (

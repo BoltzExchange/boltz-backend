@@ -164,7 +164,6 @@ class UtxoNursery extends TypedEventEmitter<{
     );
 
     if (swap.receivingData.expectedAmount > outputValue) {
-      chainClient.removeOutputFilter(swapOutput.script);
       this.emit('chainSwap.lockup.failed', {
         swap,
         reason: Errors.INSUFFICIENT_AMOUNT(
@@ -183,7 +182,6 @@ class UtxoNursery extends TypedEventEmitter<{
         outputValue,
       )
     ) {
-      chainClient.removeOutputFilter(swapOutput.script);
       this.emit('chainSwap.lockup.failed', {
         swap,
         reason: Errors.OVERPAID_AMOUNT(
@@ -201,6 +199,7 @@ class UtxoNursery extends TypedEventEmitter<{
       wallet,
     );
     if (prevAddresses.some(this.blocks.isBlocked)) {
+      chainClient.removeOutputFilter(swapOutput.script);
       this.emit('chainSwap.lockup.failed', {
         swap,
         reason: Errors.BLOCKED_ADDRESS().message,
@@ -304,6 +303,7 @@ class UtxoNursery extends TypedEventEmitter<{
             [Op.or]: [
               SwapUpdateEvent.SwapCreated,
               SwapUpdateEvent.TransactionMempool,
+              SwapUpdateEvent.TransactionLockupFailed,
               SwapUpdateEvent.TransactionZeroConfRejected,
             ],
           },

@@ -62,6 +62,11 @@ describe('NodeSwitch', () => {
   });
 
   test('should parse config', () => {
+    const nodeOne =
+      '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2';
+    const nodeTwo =
+      '02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018'.toUpperCase();
+
     const config = {
       clnAmountThreshold: 21,
       swapNode: 'LND',
@@ -69,6 +74,11 @@ describe('NodeSwitch', () => {
         test: 'CLN',
         breez: 'LND',
         other: 'notFound',
+      },
+      preferredForNode: {
+        [nodeOne]: 'LND',
+        [nodeTwo]: 'CLN',
+        unparseable: 'notFound',
       },
     };
     const ns = new NodeSwitch(Logger.disabledLogger, config);
@@ -80,6 +90,11 @@ describe('NodeSwitch', () => {
     expect(referrals.size).toEqual(2);
     expect(referrals.get('test')).toEqual(NodeType.CLN);
     expect(referrals.get('breez')).toEqual(NodeType.LND);
+
+    const preferredNodes = ns['preferredForNode'];
+    expect(preferredNodes.size).toEqual(2);
+    expect(preferredNodes.get(nodeOne)).toEqual(NodeType.LND);
+    expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(NodeType.CLN);
   });
 
   test.each`
@@ -108,7 +123,8 @@ describe('NodeSwitch', () => {
           {
             type: InvoiceType.Bolt11,
             amountMsat: satToMsat(amount),
-          } as DecodedInvoice,
+            routingHints: [],
+          } as unknown as DecodedInvoice,
           {
             referral,
           } as Swap,
@@ -127,7 +143,11 @@ describe('NodeSwitch', () => {
       await expect(
         new NodeSwitch(Logger.disabledLogger, {}).getSwapNode(
           currency,
-          { type, amountMsat: satToMsat(1_000_001) } as DecodedInvoice,
+          {
+            type,
+            amountMsat: satToMsat(1_000_001),
+            routingHints: [],
+          } as never as DecodedInvoice,
           {},
         ),
       ).resolves.toEqual(client);
@@ -147,7 +167,10 @@ describe('NodeSwitch', () => {
           swapNode,
         }).getSwapNode(
           currency,
-          { type: InvoiceType.Bolt11 } as DecodedInvoice,
+          {
+            type: InvoiceType.Bolt11,
+            routingHints: [],
+          } as never as DecodedInvoice,
           {} as Swap,
         ),
       ).resolves.toEqual(expected);
@@ -179,7 +202,8 @@ describe('NodeSwitch', () => {
           type: InvoiceType.Bolt11,
           paymentHash: randomBytes(32),
           amountMsat: satToMsat(21_000),
-        } as DecodedInvoice;
+          routingHints: [],
+        } as unknown as DecodedInvoice;
 
         LightningPaymentRepository.findByPreimageHashAndNode = jest
           .fn()
@@ -251,6 +275,48 @@ describe('NodeSwitch', () => {
     ${false} | ${{}}
   `('should check if currency has clients', ({ has, currency }) => {
     expect(NodeSwitch.hasClient(currency)).toEqual(has);
+  });
+
+  describe('getPreferredNode', () => {
+    test('should get preferred node for payee', () => {
+      const payee = randomBytes(32);
+
+      expect(
+        new NodeSwitch(Logger.disabledLogger, {
+          preferredForNode: {
+            [getHexString(payee)]: 'CLN',
+          },
+        })['getPreferredNode']({
+          payee,
+          routingHints: [],
+        } as unknown as DecodedInvoice),
+      ).toEqual(NodeType.CLN);
+    });
+
+    test('should get preferred node for routing hint', () => {
+      const nodeId = randomBytes(32);
+
+      expect(
+        new NodeSwitch(Logger.disabledLogger, {
+          preferredForNode: {
+            [getHexString(nodeId)]: 'CLN',
+          },
+        })['getPreferredNode']({
+          routingHints: [[{ nodeId: getHexString(nodeId) }]],
+        } as unknown as DecodedInvoice),
+      ).toEqual(NodeType.CLN);
+    });
+
+    test('should default to swapNode when no preference is configured', () => {
+      expect(
+        new NodeSwitch(Logger.disabledLogger, {
+          swapNode: 'LND',
+        })['getPreferredNode']({
+          payee: randomBytes(32),
+          routingHints: [[{ nodeId: getHexString(randomBytes(32)) }]],
+        } as unknown as DecodedInvoice),
+      ).toEqual(NodeType.LND);
+    });
   });
 
   test.each`

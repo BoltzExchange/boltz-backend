@@ -748,6 +748,7 @@ describe('Service', () => {
         )!.data as string;
 
         return {
+          routingHints: [],
           type: InvoiceType.Bolt11,
           features: new Set<InvoiceFeature>(),
           paymentHash: getHexBuffer(preimageHash),

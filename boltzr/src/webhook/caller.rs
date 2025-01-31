@@ -163,10 +163,7 @@ impl Caller {
             .send()
             .await
         {
-            Ok(res) => match res.error_for_status() {
-                Ok(_) => None,
-                Err(err) => Some(err),
-            },
+            Ok(res) => res.error_for_status().err(),
             Err(err) => Some(err),
         };
 

@@ -1,6 +1,6 @@
 import Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
+import { getHexBuffer, getHexString } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -233,7 +233,7 @@ class PendingPaymentTracker {
       if (
         lightningClient.type === NodeType.CLN &&
         !isPermanentError &&
-        formatError(e).includes('xpay')
+        ClnPendingPaymentTracker.shouldBeWatched(e)
       ) {
         this.lightningTrackers[lightningClient.type].watchPayment(
           lightningClient,

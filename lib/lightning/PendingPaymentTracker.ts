@@ -230,11 +230,7 @@ class PendingPaymentTracker {
         this.lightningTrackers[lightningClient.type].isPermanentError(e);
 
       // CLN xpay does throw errors while the payment is still pending
-      if (
-        lightningClient.type === NodeType.CLN &&
-        !isPermanentError &&
-        ClnPendingPaymentTracker.shouldBeWatched(e)
-      ) {
+      if (lightningClient.type === NodeType.CLN && !isPermanentError) {
         this.lightningTrackers[lightningClient.type].watchPayment(
           lightningClient,
           swap.invoice!,

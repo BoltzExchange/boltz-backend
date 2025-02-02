@@ -13,7 +13,8 @@ Prerequisites:
   installed. We recommend using
   [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm
   installs: `nvm install --lts`
-- [Docker](https://docs.docker.com/engine/install/)
+- [Docker](https://docs.docker.com/engine/install/) or
+  [Orbstack](https://orbstack.dev/) for Apple Silicon Macs
 
 The regtest environment of the Boltz Backend is based on
 [boltz/regtest](https://hub.docker.com/r/boltz/regtest). To start the images run

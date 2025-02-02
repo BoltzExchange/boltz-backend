@@ -29,15 +29,6 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
     );
   }
 
-  public static shouldBeWatched = (error: unknown) => {
-    const msg = formatError(error);
-    return (
-      (msg.includes('Failed after') && msg.includes('attempts')) ||
-      msg.includes('xpay') ||
-      msg === 'Connection dropped'
-    );
-  };
-
   public stop = () => {
     clearInterval(this.checkInterval as unknown as number);
   };
@@ -52,10 +43,7 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
       .then((result) => this.handleSucceededPayment(preimageHash, result))
       .catch((error) => {
         // CLN xpay throws errors while the payment is still pending
-        if (
-          !this.isPermanentError(error) &&
-          ClnPendingPaymentTracker.shouldBeWatched(error)
-        ) {
+        if (!this.isPermanentError(error)) {
           this.watchPayment(client, invoice, preimageHash);
         } else {
           this.handleFailedPayment(client, preimageHash, error);
@@ -93,12 +81,21 @@ class ClnPendingPaymentTracker extends NodePendingPendingTracker {
       { client, invoice },
     ] of this.paymentsToWatch.entries()) {
       try {
-        const res = await client.checkPayStatus(invoice);
-        if (res === undefined) {
-          continue;
-        }
+        const { decoded, pays } = await client.listPays(invoice);
+        const res = await client.checkListPaysStatus(decoded, pays);
+        if (pays.length === 0) {
+          this.handleFailedPayment(
+            client,
+            preimageHash,
+            'no attempts have been made',
+          );
+        } else {
+          if (res === undefined) {
+            continue;
+          }
 
-        await this.handleSucceededPayment(preimageHash, res);
+          await this.handleSucceededPayment(preimageHash, res);
+        }
       } catch (e) {
         // Ignore when the payment is pending; it's not a payment error
         if (e === ClnClient.paymentPendingError) {

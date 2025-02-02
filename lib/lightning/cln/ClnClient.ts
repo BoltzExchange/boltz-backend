@@ -658,18 +658,14 @@ class ClnClient
   public checkPayStatus = async (
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
-    const decoded = await this.decodeInvoice(invoice);
+    const { decoded, pays } = await this.listPays(invoice);
+    return this.checkListPaysStatus(decoded, pays);
+  };
 
-    const listPayReq = new noderpc.ListpaysRequest();
-    listPayReq.setBolt11(invoice);
-
-    const pays = (
-      await this.unaryNodeCall<
-        noderpc.ListpaysRequest,
-        noderpc.ListpaysResponse
-      >('listPays', listPayReq, false)
-    ).getPaysList();
-
+  public checkListPaysStatus = async (
+    decoded: Awaited<ReturnType<typeof this.decodeInvoice>>,
+    pays: noderpc.ListpaysPays[],
+  ): Promise<PaymentResponse | undefined> => {
     // Check if the payment succeeded, ...
     const completedAttempts = pays.filter(
       (attempt) => attempt.getStatus() === ListpaysPaysStatus.COMPLETE,
@@ -726,6 +722,25 @@ class ClnClient
     }
 
     return undefined;
+  };
+
+  public listPays = async (invoice: string) => {
+    const decoded = await this.decodeInvoice(invoice);
+
+    const listPayReq = new noderpc.ListpaysRequest();
+    listPayReq.setBolt11(invoice);
+
+    const pays = (
+      await this.unaryNodeCall<
+        noderpc.ListpaysRequest,
+        noderpc.ListpaysResponse
+      >('listPays', listPayReq, false)
+    ).getPaysList();
+
+    return {
+      pays,
+      decoded,
+    };
   };
 
   public subscribeTrackHoldInvoices = () => {

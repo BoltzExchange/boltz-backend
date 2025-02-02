@@ -92,6 +92,8 @@ describe('ClnPendingPaymentTracker', () => {
       tracker.trackPayment(clnClient, preimageHash, invoice, promise);
       await expect(promise).rejects.toEqual(expect.anything());
 
+      await tracker['checkPendingPayments']();
+
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
@@ -99,6 +101,8 @@ describe('ClnPendingPaymentTracker', () => {
         LightningPaymentStatus.TemporaryFailure,
         undefined,
       );
+
+      expect(tracker['paymentsToWatch'].size).toEqual(0);
     });
   });
 

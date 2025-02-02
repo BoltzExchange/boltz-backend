@@ -1,5 +1,5 @@
 import Logger from '../Logger';
-import { getHexString } from '../Utils';
+import { getHexString, stringify } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import ReverseSwap, {
   NodeType,
@@ -12,8 +12,13 @@ import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
 import { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
+type NodeAmountThreshold = {
+  submarine: number;
+  reverse: number;
+};
+
 type NodeSwitchConfig = {
-  clnAmountThreshold?: number;
+  clnAmountThreshold?: number | Partial<NodeAmountThreshold>;
 
   swapNode?: string;
   referralsIds?: Record<string, string>;
@@ -25,7 +30,10 @@ class NodeSwitch {
   private static readonly defaultClnAmountThreshold = 1_000_000;
   private static readonly maxClnRetries = 1;
 
-  private readonly clnAmountThreshold: number;
+  private readonly clnAmountThreshold: {
+    [SwapType.Submarine]: number;
+    [SwapType.ReverseSubmarine]: number;
+  };
   private readonly referralIds = new Map<string, NodeType>();
 
   private readonly swapNode?: NodeType;
@@ -35,9 +43,37 @@ class NodeSwitch {
     private readonly logger: Logger,
     cfg?: NodeSwitchConfig,
   ) {
-    this.clnAmountThreshold =
-      cfg?.clnAmountThreshold || NodeSwitch.defaultClnAmountThreshold;
-    this.logger.info(`CLN invoice threshold: ${this.clnAmountThreshold} sat`);
+    if (cfg?.clnAmountThreshold !== undefined) {
+      if (typeof cfg.clnAmountThreshold === 'number') {
+        this.clnAmountThreshold = {
+          [SwapType.Submarine]: cfg.clnAmountThreshold,
+          [SwapType.ReverseSubmarine]: cfg.clnAmountThreshold,
+        };
+      } else {
+        this.clnAmountThreshold = {
+          [SwapType.Submarine]:
+            cfg.clnAmountThreshold.submarine ||
+            NodeSwitch.defaultClnAmountThreshold,
+          [SwapType.ReverseSubmarine]:
+            cfg.clnAmountThreshold.reverse ||
+            NodeSwitch.defaultClnAmountThreshold,
+        };
+      }
+    } else {
+      this.clnAmountThreshold = {
+        [SwapType.Submarine]: NodeSwitch.defaultClnAmountThreshold,
+        [SwapType.ReverseSubmarine]: NodeSwitch.defaultClnAmountThreshold,
+      };
+    }
+
+    this.logger.info(
+      `CLN invoice threshold: ${stringify({
+        [swapTypeToPrettyString(SwapType.Submarine)]:
+          this.clnAmountThreshold[SwapType.Submarine],
+        [swapTypeToPrettyString(SwapType.ReverseSubmarine)]:
+          this.clnAmountThreshold[SwapType.ReverseSubmarine],
+      })}`,
+    );
 
     const swapNode =
       cfg?.swapNode !== undefined
@@ -103,6 +139,7 @@ class NodeSwitch {
             ? NodeSwitch.switchOnNodeType(currency, preferredNode)
             : this.switch(
                 currency,
+                SwapType.Submarine,
                 msatToSat(decoded.amountMsat),
                 swap.referral,
               )
@@ -155,7 +192,12 @@ class NodeSwitch {
   ): { nodeType: NodeType; lightningClient: LightningClient } => {
     const client = NodeSwitch.fallback(
       currency,
-      this.switch(currency, holdInvoiceAmount, referralId),
+      this.switch(
+        currency,
+        SwapType.ReverseSubmarine,
+        holdInvoiceAmount,
+        referralId,
+      ),
     );
     this.logger.debug(
       `Using node ${client.serviceName()} for Reverse Swap ${id}`,
@@ -167,8 +209,9 @@ class NodeSwitch {
     };
   };
 
-  public switch = (
+  private switch = (
     currency: Currency,
+    swapType: SwapType.Submarine | SwapType.ReverseSubmarine,
     amount?: number,
     referralId?: string,
   ): LightningClient => {
@@ -184,7 +227,7 @@ class NodeSwitch {
 
     return NodeSwitch.fallback(
       currency,
-      (amount || 0) > this.clnAmountThreshold
+      (amount || 0) > this.clnAmountThreshold[swapType]
         ? currency.lndClient
         : currency.clnClient,
     );

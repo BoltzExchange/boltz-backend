@@ -13,6 +13,7 @@
 - [⚠️ Common Mistakes](common-mistakes.md)
 - [🪝 Webhooks](webhooks.md)
 - [⚡ BOLT12](bolt12.md)
+- [🏅 Pro](pro.md)
 - [🤝 Referral Program](referral-program.md)
 - [🚢 Backend Deployment](deployment.md)
 - [🐳 Regtest Environment](regtest.md)

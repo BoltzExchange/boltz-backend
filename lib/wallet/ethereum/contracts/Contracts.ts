@@ -97,6 +97,7 @@ class Contracts {
     await this.contractEventHandler.init(
       this.version,
       this.network,
+      provider,
       this.etherSwap,
       this.erc20Swap,
     );

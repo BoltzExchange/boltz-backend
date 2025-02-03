@@ -25,6 +25,10 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
       this.handlers.map((handler) => handler.rescan(startHeight)),
     );
   };
+
+  public destroy = () => {
+    this.handlers.forEach((handler) => handler.destroy());
+  };
 }
 
 export default ConsolidatedEventHandler;

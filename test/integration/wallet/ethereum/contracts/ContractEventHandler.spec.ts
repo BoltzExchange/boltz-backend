@@ -60,6 +60,7 @@ describe('ContractEventHandler', () => {
 
   afterAll(() => {
     contractEventHandler.removeAllListeners();
+    contractEventHandler.destroy();
     setup.provider.destroy();
   });
 
@@ -67,6 +68,7 @@ describe('ContractEventHandler', () => {
     await contractEventHandler.init(
       contractsVersion,
       Ethereum,
+      setup.provider,
       contracts.etherSwap,
       contracts.erc20Swap,
     );
@@ -371,5 +373,46 @@ describe('ContractEventHandler', () => {
 
     await contractEventHandler.rescan(startingHeight);
     await Promise.all([lockupPromise, claimPromise, refundPromise]);
+  });
+
+  test('should check missed claims', async () => {
+    contractEventHandler['lastClaimCheck'] =
+      await setup.provider.getBlockNumber();
+
+    const preimage = randomBytes(32);
+
+    const lockupTx = await contracts.etherSwap.lock(
+      crypto.sha256(preimage),
+      await setup.etherBase.getAddress(),
+      timelock,
+      {
+        value: amount,
+      },
+    );
+    await lockupTx.wait(1);
+
+    const claimTx = await contracts.etherSwap
+      .connect(setup.etherBase)
+      [
+        'claim(bytes32,uint256,address,uint256)'
+      ](preimage, amount, await setup.signer.getAddress(), timelock);
+    await claimTx.wait(1);
+
+    const claimPromise = new Promise<void>((resolve) => {
+      contractEventHandler.once('eth.claim', async (args) => {
+        expect(args.version).toEqual(contractsVersion);
+        expect(args.transactionHash).toEqual(claimTx.hash);
+        expect(args.preimageHash).toEqual(crypto.sha256(preimage));
+        expect(args.preimage).toEqual(preimage);
+        resolve();
+      });
+    });
+
+    await contractEventHandler['checkMissedClaims'](setup.provider);
+    await claimPromise;
+
+    expect(contractEventHandler['lastClaimCheck']).toEqual(
+      await setup.provider.getBlockNumber(),
+    );
   });
 });

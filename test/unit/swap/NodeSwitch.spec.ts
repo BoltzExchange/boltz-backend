@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
+import { SwapType } from '../../../lib/consts/Enums';
 import LightningPayment from '../../../lib/db/models/LightningPayment';
 import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
@@ -49,52 +50,87 @@ describe('NodeSwitch', () => {
     } as unknown as Currency;
   });
 
-  test.each`
-    config
-    ${undefined}
-    ${{}}
-  `('should handle empty config', ({ config }) => {
-    const ns = new NodeSwitch(Logger.disabledLogger, config);
-    expect(ns['clnAmountThreshold']).toEqual(
-      NodeSwitch['defaultClnAmountThreshold'],
-    );
-    expect(ns['referralIds'].size).toEqual(0);
-  });
+  describe('constructor', () => {
+    test.each`
+      config
+      ${undefined}
+      ${{}}
+    `('should handle empty config', ({ config }) => {
+      const ns = new NodeSwitch(Logger.disabledLogger, config);
+      expect(ns['clnAmountThreshold']).toEqual({
+        [SwapType.Submarine]: NodeSwitch['defaultClnAmountThreshold'],
+        [SwapType.ReverseSubmarine]: NodeSwitch['defaultClnAmountThreshold'],
+      });
+      expect(ns['referralIds'].size).toEqual(0);
+    });
 
-  test('should parse config', () => {
-    const nodeOne =
-      '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2';
-    const nodeTwo =
-      '02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018'.toUpperCase();
+    test('should parse config with clnAmountThreshold as number', () => {
+      const nodeOne =
+        '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2';
+      const nodeTwo =
+        '02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018'.toUpperCase();
 
-    const config = {
-      clnAmountThreshold: 21,
-      swapNode: 'LND',
-      referralsIds: {
-        test: 'CLN',
-        breez: 'LND',
-        other: 'notFound',
-      },
-      preferredForNode: {
-        [nodeOne]: 'LND',
-        [nodeTwo]: 'CLN',
-        unparseable: 'notFound',
-      },
-    };
-    const ns = new NodeSwitch(Logger.disabledLogger, config);
+      const config = {
+        clnAmountThreshold: 21,
+        swapNode: 'LND',
+        referralsIds: {
+          test: 'CLN',
+          breez: 'LND',
+          other: 'notFound',
+        },
+        preferredForNode: {
+          [nodeOne]: 'LND',
+          [nodeTwo]: 'CLN',
+          unparseable: 'notFound',
+        },
+      };
+      const ns = new NodeSwitch(Logger.disabledLogger, config);
 
-    expect(ns['clnAmountThreshold']).toEqual(config.clnAmountThreshold);
-    expect(ns['swapNode']).toEqual(NodeType.LND);
+      expect(ns['clnAmountThreshold']).toEqual({
+        [SwapType.Submarine]: config.clnAmountThreshold,
+        [SwapType.ReverseSubmarine]: config.clnAmountThreshold,
+      });
+      expect(ns['swapNode']).toEqual(NodeType.LND);
 
-    const referrals = ns['referralIds'];
-    expect(referrals.size).toEqual(2);
-    expect(referrals.get('test')).toEqual(NodeType.CLN);
-    expect(referrals.get('breez')).toEqual(NodeType.LND);
+      const referrals = ns['referralIds'];
+      expect(referrals.size).toEqual(2);
+      expect(referrals.get('test')).toEqual(NodeType.CLN);
+      expect(referrals.get('breez')).toEqual(NodeType.LND);
 
-    const preferredNodes = ns['preferredForNode'];
-    expect(preferredNodes.size).toEqual(2);
-    expect(preferredNodes.get(nodeOne)).toEqual(NodeType.LND);
-    expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(NodeType.CLN);
+      const preferredNodes = ns['preferredForNode'];
+      expect(preferredNodes.size).toEqual(2);
+      expect(preferredNodes.get(nodeOne)).toEqual(NodeType.LND);
+      expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(NodeType.CLN);
+    });
+
+    test('should parse config with clnAmountThreshold as object', () => {
+      const config = {
+        clnAmountThreshold: {
+          submarine: 2_000_000,
+          reverse: 1_000_000,
+        },
+      };
+      const ns = new NodeSwitch(Logger.disabledLogger, config);
+
+      expect(ns['clnAmountThreshold']).toEqual({
+        [SwapType.Submarine]: config.clnAmountThreshold.submarine,
+        [SwapType.ReverseSubmarine]: config.clnAmountThreshold.reverse,
+      });
+    });
+
+    test('should parse config with clnAmountThreshold as object and coalesce undefined', () => {
+      const config = {
+        clnAmountThreshold: {
+          reverse: 1_000_000,
+        },
+      };
+      const ns = new NodeSwitch(Logger.disabledLogger, config);
+
+      expect(ns['clnAmountThreshold']).toEqual({
+        [SwapType.Submarine]: NodeSwitch['defaultClnAmountThreshold'],
+        [SwapType.ReverseSubmarine]: config.clnAmountThreshold.reverse,
+      });
+    });
   });
 
   test.each`
@@ -118,6 +154,10 @@ describe('NodeSwitch', () => {
       await expect(
         new NodeSwitch(Logger.disabledLogger, {
           referralsIds: { breez: 'LND' },
+          clnAmountThreshold: {
+            submarine: 1_000_000,
+            reverse: 2_000_000,
+          },
         }).getSwapNode(
           currency,
           {
@@ -262,6 +302,10 @@ describe('NodeSwitch', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
           referralsIds: { breez: 'LND' },
+          clnAmountThreshold: {
+            submarine: 2_000_000,
+            reverse: 1_000_000,
+          },
         }).getNodeForReverseSwap('', currency, amount, referral),
       ).toEqual({ nodeType: type, lightningClient: client });
     },

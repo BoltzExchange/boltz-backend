@@ -178,7 +178,7 @@ pub mod test {
         let contract = EtherSwap::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider.clone());
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let amount = U256::from(1);
         let timelock: u64 = 1;
@@ -241,7 +241,7 @@ pub mod test {
         let contract = ERC20Swap::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider.clone());
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let amount = U256::from(1);
         let timelock: u64 = 1;

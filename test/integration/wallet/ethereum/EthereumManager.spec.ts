@@ -84,6 +84,7 @@ describe('EthereumManager', () => {
     await manager.destroy();
     await database.close();
     setup.provider.destroy();
+    manager.contractEventHandler.destroy();
   });
 
   test.each`

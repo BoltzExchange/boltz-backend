@@ -26,6 +26,10 @@ describe('Contracts', () => {
     let contracts: Contracts;
 
     beforeEach(async () => {
+      if (contracts !== undefined) {
+        contracts.contractEventHandler.destroy();
+      }
+
       contracts = new Contracts(
         Logger.disabledLogger,
         {

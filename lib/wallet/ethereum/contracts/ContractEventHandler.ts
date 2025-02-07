@@ -1,7 +1,13 @@
 import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { ContractEventPayload, Transaction, TransactionResponse } from 'ethers';
+import {
+  ContractEventPayload,
+  Provider,
+  Transaction,
+  TransactionResponse,
+} from 'ethers';
 import Logger from '../../../Logger';
+import { formatError } from '../../../Utils';
 import TypedEventEmitter from '../../../consts/TypedEventEmitter';
 import { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
 import { parseBuffer } from '../EthereumUtils';
@@ -47,10 +53,18 @@ type Events = {
 };
 
 class ContractEventHandler extends TypedEventEmitter<Events> {
+  // Check for missed claims every 10 minutes
+  private static readonly claimCheckInterval = 1_000 * 60 * 10;
+
   private version!: bigint;
 
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
+
+  private networkDetails!: NetworkDetails;
+
+  private lastClaimCheck = 0;
+  private lastClaimCheckInterval: NodeJS.Timeout | undefined;
 
   constructor(private readonly logger: Logger) {
     super();
@@ -59,18 +73,38 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
   public init = async (
     version: bigint,
     networkDetails: NetworkDetails,
+    provider: Provider,
     etherSwap: EtherSwap,
     erc20Swap: ERC20Swap,
   ): Promise<void> => {
     this.version = version;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
+    this.networkDetails = networkDetails;
 
     this.logger.verbose(
-      `Starting ${networkDetails.name} contract event subscriptions`,
+      `Starting ${this.networkDetails.name} contract event subscriptions`,
     );
 
     await this.subscribeContractEvents();
+
+    this.lastClaimCheck = await provider.getBlockNumber();
+    this.lastClaimCheckInterval = setInterval(async () => {
+      try {
+        await this.checkMissedClaims(provider);
+      } catch (error) {
+        this.logger.error(
+          `Error checking missed claims ${this.networkDetails.name}: ${formatError(error)}`,
+        );
+      }
+    }, ContractEventHandler.claimCheckInterval);
+  };
+
+  public destroy = () => {
+    if (this.lastClaimCheckInterval) {
+      clearInterval(this.lastClaimCheckInterval);
+      this.lastClaimCheckInterval = undefined;
+    }
   };
 
   public rescan = async (startHeight: number): Promise<void> => {
@@ -233,6 +267,44 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         });
       },
     );
+  };
+
+  private checkMissedClaims = async (provider: Provider) => {
+    this.logger.debug(
+      `Checking for missed claims ${this.networkDetails.name} from block ${this.lastClaimCheck}`,
+    );
+
+    const currentHeight = await provider.getBlockNumber();
+    const [etherClaims, erc20Claims] = await Promise.all([
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Claim(),
+        this.lastClaimCheck,
+      ),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Claim(),
+        this.lastClaimCheck,
+      ),
+    ]);
+
+    this.lastClaimCheck = currentHeight;
+
+    for (const claim of etherClaims) {
+      this.emit('eth.claim', {
+        version: this.version,
+        transactionHash: claim.transactionHash,
+        preimageHash: parseBuffer(claim.topics[1]),
+        preimage: parseBuffer(claim.args!.preimage),
+      });
+    }
+
+    for (const claim of erc20Claims) {
+      this.emit('erc20.claim', {
+        version: this.version,
+        transactionHash: claim.transactionHash,
+        preimageHash: parseBuffer(claim.topics[1]),
+        preimage: parseBuffer(claim.args!.preimage),
+      });
+    }
   };
 }
 

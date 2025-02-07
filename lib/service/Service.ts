@@ -2055,7 +2055,7 @@ class Service {
     const receivingTimeoutBlockDelta = TimeoutDeltaProvider.convertBlocks(
       sending,
       receiving,
-      sendingTimeoutBlockDelta * 1.25,
+      sendingTimeoutBlockDelta * 1.5,
     );
 
     const rate = getRate(pairRate, side, true);

@@ -15,7 +15,7 @@ describe('Referral', () => {
     apiSecret: createApiCredential(),
     feeShare: 0,
     config: {
-      maxRoutingFee: 0.01,
+      maxRoutingFee: 0.001,
       premiums: {
         [SwapType.Submarine]: -15,
         [SwapType.ReverseSubmarine]: 21,
@@ -28,7 +28,7 @@ describe('Referral', () => {
       },
       pairs: {
         'RBTC/BTC': {
-          maxRoutingFee: 0.025,
+          maxRoutingFee: 0.0025,
           premiums: {
             [SwapType.Chain]: -25,
           },

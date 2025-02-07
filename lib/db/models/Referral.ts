@@ -154,4 +154,4 @@ class Referral extends Model implements ReferralType {
 }
 
 export default Referral;
-export { ReferralType, ReferralConfig };
+export { ReferralType, ReferralConfig, ReferralPairConfig };

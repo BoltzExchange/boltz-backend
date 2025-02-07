@@ -5,7 +5,7 @@ import { parseTransaction } from '../Core';
 import { dumpHeap } from '../HeapDump';
 import Logger, { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
-import { getHexString, getUnixTime } from '../Utils';
+import { getHexString, getUnixTime, stringify } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import Referral, { ReferralConfig } from '../db/models/Referral';
 import ReferralRepository from '../db/repositories/ReferralRepository';
@@ -518,6 +518,9 @@ class GrpcService {
         }
       }
 
+      this.logger.debug(
+        `Setting referral config for ${referral.id}: ${stringify(parsedConfig)}`,
+      );
       await ReferralRepository.setConfig(referral, parsedConfig);
 
       return new boltzrpc.SetReferralResponse();

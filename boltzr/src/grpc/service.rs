@@ -893,7 +893,7 @@ mod test {
         let (_, mut svc) = make_service();
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let req = SignEvmRefundRequest {
             preimage_hash: preimage_hash.to_vec(),
@@ -932,7 +932,7 @@ mod test {
         let (_, mut svc) = make_service();
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let req = SignEvmRefundRequest {
             preimage_hash: preimage_hash.to_vec(),
@@ -978,7 +978,7 @@ mod test {
         let (_, svc) = make_service();
 
         let mut preimage_hash = FixedBytes::<33>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
@@ -1003,7 +1003,7 @@ mod test {
         let (_, svc) = make_service();
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
@@ -1028,7 +1028,7 @@ mod test {
         let (_, svc) = make_service();
 
         let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
+        rand::rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {

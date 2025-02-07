@@ -7,13 +7,17 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::api::ws::types::SwapStatus;
 use crate::api::ws::Config;
 
-const PING_INTERVAL_MS: u64 = 15_000;
+const PING_INTERVAL_SECS: u64 = 15;
+const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
+
+const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
 
 #[async_trait]
 pub trait SwapInfos {
@@ -177,7 +181,11 @@ where
 
         let _guard = WsConnectionGuard;
 
-        let mut interval = tokio::time::interval(Duration::from_millis(PING_INTERVAL_MS));
+        let mut ping_interval = tokio::time::interval(Duration::from_secs(PING_INTERVAL_SECS));
+        let mut activity_check_interval =
+            tokio::time::interval(Duration::from_secs(ACTIVITY_CHECK_INTERVAL_SECS));
+        let mut last_activity = Instant::now();
+
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
         let mut subscribed_ids = HashSet::<String>::new();
@@ -198,6 +206,8 @@ where
 
                         match msg {
                             Message::Text(msg) => {
+                                last_activity = Instant::now();
+
                                 let res = match self.handle_message(&mut subscribed_ids, msg).await {
                                     Ok(res) => res.map(|res| serde_json::to_string(&res)),
                                     Err(res) => Some(serde_json::to_string(&res)),
@@ -240,6 +250,8 @@ where
                                 continue;
                             }
 
+                            last_activity = Instant::now();
+
                             let timestamp = match Self::get_timestamp() {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -270,10 +282,17 @@ where
                         },
                     }
                 },
-                _ = interval.tick() => {
-                    trace!("Pinging socket");
+                _ = ping_interval.tick() => {
+                    trace!("Pinging WebSocket");
                     if let Err(err) = ws_sender.send(Message::Ping(Vec::new())).await {
                         trace!("Could not send ping: {}", err);
+                        break;
+                    }
+                },
+                _ = activity_check_interval.tick() => {
+                    trace!("Checking for WebSocket inactivity");
+                    if Instant::now().duration_since(last_activity).as_secs() > ACTIVITY_TIMEOUT_SECS {
+                        trace!("Inactivity timeout reached; closing WebSocket");
                         break;
                     }
                 },

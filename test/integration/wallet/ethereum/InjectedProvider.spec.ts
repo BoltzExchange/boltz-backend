@@ -16,6 +16,7 @@ jest.mock(
   '../../../../lib/db/repositories/PendingEthereumTransactionRepository',
   () => ({
     addTransaction: jest.fn().mockResolvedValue(null),
+    getHighestNonce: jest.fn().mockResolvedValue(undefined),
   }),
 );
 
@@ -52,6 +53,33 @@ describe('InjectedProvider', () => {
         '0xeba77b6d0133e61bc931cb9bbdf07c51a09caa2d6699c3782de10cf7d765c06c',
       ),
     ).resolves.toEqual(null);
+  });
+
+  describe('getTransactionCount', () => {
+    const address = '0x0000000000000000000000000000000000000000';
+
+    afterAll(() => {
+      PendingEthereumTransactionRepository.getHighestNonce = jest
+        .fn()
+        .mockResolvedValue(undefined);
+    });
+
+    test('should get transaction count from provider when there are no pending transactions', async () => {
+      PendingEthereumTransactionRepository.getHighestNonce = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      await expect(provider.getTransactionCount(address)).resolves.toEqual(0);
+    });
+
+    test('should get transaction count from db when there are pending transactions', async () => {
+      const highestNonce = 10;
+      PendingEthereumTransactionRepository.getHighestNonce = jest
+        .fn()
+        .mockResolvedValue(highestNonce);
+      await expect(provider.getTransactionCount(address)).resolves.toEqual(
+        highestNonce,
+      );
+    });
   });
 
   test('should save broadcast transactions to database', async () => {

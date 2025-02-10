@@ -20,6 +20,7 @@ jest.mock(
   () => ({
     getTransactions: jest.fn().mockResolvedValue([]),
     addTransaction: jest.fn().mockResolvedValue(null),
+    getHighestNonce: jest.fn().mockResolvedValue(undefined),
   }),
 );
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');

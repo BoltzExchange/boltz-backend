@@ -375,8 +375,8 @@ describe('ContractEventHandler', () => {
     await Promise.all([lockupPromise, claimPromise, refundPromise]);
   });
 
-  test('should check missed claims', async () => {
-    contractEventHandler['lastClaimCheck'] =
+  test('should check for missed events', async () => {
+    contractEventHandler['rescanLastHeight'] =
       await setup.provider.getBlockNumber();
 
     const preimage = randomBytes(32);
@@ -408,10 +408,10 @@ describe('ContractEventHandler', () => {
       });
     });
 
-    await contractEventHandler['checkMissedClaims'](setup.provider);
+    await contractEventHandler['checkMissedEvents'](setup.provider);
     await claimPromise;
 
-    expect(contractEventHandler['lastClaimCheck']).toEqual(
+    expect(contractEventHandler['rescanLastHeight']).toEqual(
       await setup.provider.getBlockNumber(),
     );
   });

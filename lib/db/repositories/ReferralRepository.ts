@@ -1,7 +1,11 @@
 import { QueryTypes } from 'sequelize';
 import { SuccessSwapUpdateEvents } from '../../consts/Enums';
 import Database from '../Database';
-import Referral, { ReferralConfig, ReferralType } from '../models/Referral';
+import Referral, {
+  ReferralConfig,
+  ReferralPairConfig,
+  ReferralType,
+} from '../models/Referral';
 import { StatsDate } from './StatsRepository';
 
 type ReferralSumRow = StatsDate & {
@@ -34,8 +38,12 @@ class ReferralRepository {
         ORDER BY year, month;
     `;
 
-  public static addReferral = (referral: ReferralType): Promise<Referral> => {
-    return Referral.create(referral);
+  public static addReferral = async (
+    referral: ReferralType,
+  ): Promise<Referral> => {
+    ReferralRepository.sanityCheckConfig(referral.config);
+
+    return await Referral.create(referral);
   };
 
   public static getReferrals = (): Promise<Referral[]> => {
@@ -90,10 +98,54 @@ class ReferralRepository {
     return res;
   };
 
-  public static setConfig = (ref: Referral, config?: ReferralConfig | null) =>
-    ref.update({
+  public static setConfig = async (
+    ref: Referral,
+    config?: ReferralConfig | null,
+  ) => {
+    ReferralRepository.sanityCheckConfig(config);
+
+    return await ref.update({
       config: config === undefined ? null : config,
     });
+  };
+
+  private static sanityCheckConfig = (
+    config: ReferralConfig | null | undefined,
+  ) => {
+    const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
+      if (cfg.maxRoutingFee) {
+        if (cfg.maxRoutingFee < 0 || cfg.maxRoutingFee > 0.005) {
+          throw 'maxRoutingFee out of range';
+        }
+      }
+
+      if (cfg.premiums) {
+        if (Object.values(cfg.premiums).some((p) => p < -100 || p > 100)) {
+          throw 'premium out of range';
+        }
+      }
+
+      if (cfg.expirations) {
+        if (
+          Object.values(cfg.expirations).some(
+            (e) => e < 120 || e > 60 * 60 * 24,
+          )
+        ) {
+          throw 'expiration out of range';
+        }
+      }
+    };
+
+    if (config) {
+      sanityCheckPairConfig(config);
+
+      if (config.pairs) {
+        for (const pair of Object.values(config.pairs)) {
+          sanityCheckPairConfig(pair);
+        }
+      }
+    }
+  };
 }
 
 export default ReferralRepository;

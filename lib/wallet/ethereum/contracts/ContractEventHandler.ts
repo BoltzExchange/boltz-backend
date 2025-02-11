@@ -53,8 +53,8 @@ type Events = {
 };
 
 class ContractEventHandler extends TypedEventEmitter<Events> {
-  // Check for missed claims every 10 minutes
-  private static readonly claimCheckInterval = 1_000 * 60 * 10;
+  // Check for missed events every 5 minutes
+  private static readonly missedEventsCheckInterval = 1_000 * 60 * 5;
 
   private version!: bigint;
 
@@ -63,8 +63,8 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
   private networkDetails!: NetworkDetails;
 
-  private lastClaimCheck = 0;
-  private lastClaimCheckInterval: NodeJS.Timeout | undefined;
+  private rescanLastHeight = 0;
+  private rescanInterval: NodeJS.Timeout | undefined;
 
   constructor(private readonly logger: Logger) {
     super();
@@ -83,27 +83,27 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     this.networkDetails = networkDetails;
 
     this.logger.verbose(
-      `Starting ${this.networkDetails.name} contract event subscriptions`,
+      `Starting ${this.networkDetails.name} contracts v${version} event subscriptions`,
     );
 
     await this.subscribeContractEvents();
 
-    this.lastClaimCheck = await provider.getBlockNumber();
-    this.lastClaimCheckInterval = setInterval(async () => {
+    this.rescanLastHeight = await provider.getBlockNumber();
+    this.rescanInterval = setInterval(async () => {
       try {
-        await this.checkMissedClaims(provider);
+        await this.checkMissedEvents(provider);
       } catch (error) {
         this.logger.error(
-          `Error checking missed claims ${this.networkDetails.name}: ${formatError(error)}`,
+          `Error checking for missed events of ${this.networkDetails.name} contracts v${version}: ${formatError(error)}`,
         );
       }
-    }, ContractEventHandler.claimCheckInterval);
+    }, ContractEventHandler.missedEventsCheckInterval);
   };
 
   public destroy = () => {
-    if (this.lastClaimCheckInterval) {
-      clearInterval(this.lastClaimCheckInterval);
-      this.lastClaimCheckInterval = undefined;
+    if (this.rescanInterval) {
+      clearInterval(this.rescanInterval);
+      this.rescanInterval = undefined;
     }
   };
 
@@ -269,42 +269,13 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     );
   };
 
-  private checkMissedClaims = async (provider: Provider) => {
+  private checkMissedEvents = async (provider: Provider) => {
     this.logger.debug(
-      `Checking for missed claims ${this.networkDetails.name} from block ${this.lastClaimCheck}`,
+      `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${this.rescanLastHeight}`,
     );
-
     const currentHeight = await provider.getBlockNumber();
-    const [etherClaims, erc20Claims] = await Promise.all([
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Claim(),
-        this.lastClaimCheck,
-      ),
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Claim(),
-        this.lastClaimCheck,
-      ),
-    ]);
-
-    this.lastClaimCheck = currentHeight;
-
-    for (const claim of etherClaims) {
-      this.emit('eth.claim', {
-        version: this.version,
-        transactionHash: claim.transactionHash,
-        preimageHash: parseBuffer(claim.topics[1]),
-        preimage: parseBuffer(claim.args!.preimage),
-      });
-    }
-
-    for (const claim of erc20Claims) {
-      this.emit('erc20.claim', {
-        version: this.version,
-        transactionHash: claim.transactionHash,
-        preimageHash: parseBuffer(claim.topics[1]),
-        preimage: parseBuffer(claim.args!.preimage),
-      });
-    }
+    await this.rescan(this.rescanLastHeight);
+    this.rescanLastHeight = currentHeight;
   };
 }
 

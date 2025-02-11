@@ -1,4 +1,3 @@
-import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { ApiConfig } from '../Config';
 import Logger from '../Logger';
@@ -21,17 +20,6 @@ class Api {
   ) {
     this.app = express();
     this.app.set('trust proxy', 'loopback');
-
-    if (config.cors === undefined || config.cors.length !== 0) {
-      this.app.use(
-        cors({
-          origin: config.cors || '*',
-          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-          preflightContinue: false,
-          optionsSuccessStatus: 204,
-        }),
-      );
-    }
 
     this.app.use(
       express.json({

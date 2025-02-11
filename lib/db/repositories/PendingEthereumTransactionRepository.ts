@@ -5,6 +5,18 @@ class PendingEthereumTransactionRepository {
     return PendingEthereumTransaction.findAll();
   };
 
+  public static getHighestNonce = async (): Promise<number | undefined> => {
+    const nonce = await PendingEthereumTransaction.max<
+      number,
+      PendingEthereumTransaction
+    >('nonce');
+    if (nonce === null || nonce === undefined) {
+      return undefined;
+    }
+
+    return nonce + 1;
+  };
+
   public static addTransaction = (
     hash: string,
     nonce: number,

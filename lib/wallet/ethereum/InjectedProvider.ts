@@ -243,11 +243,23 @@ class InjectedProvider implements Provider {
     return this.forwardMethodNullable('getTransaction', transactionHash);
   };
 
-  public getTransactionCount = (
+  public getTransactionCount = async (
     addressOrName: string,
     blockTag?: BlockTag,
   ): Promise<number> => {
-    return this.forwardMethod('getTransactionCount', addressOrName, blockTag);
+    {
+      const highestNonce =
+        await PendingEthereumTransactionRepository.getHighestNonce();
+      if (highestNonce !== undefined) {
+        return highestNonce;
+      }
+    }
+
+    return await this.forwardMethod(
+      'getTransactionCount',
+      addressOrName,
+      blockTag,
+    );
   };
 
   public getTransactionReceipt = (

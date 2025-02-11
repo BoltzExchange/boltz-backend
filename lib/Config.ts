@@ -125,7 +125,6 @@ type EthereumConfig = RskConfig & {
 type ApiConfig = {
   host: string;
   port: number;
-  cors?: string | string[];
 };
 
 type GrpcConfig = {
@@ -269,7 +268,6 @@ class Config {
       api: {
         host: '127.0.0.1',
         port: 9001,
-        cors: '*',
       },
 
       grpc: {

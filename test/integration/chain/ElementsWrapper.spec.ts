@@ -147,6 +147,13 @@ describe('ElementsWrapper', () => {
         Logger.disabledLogger,
         elementsConfig,
       );
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      oneWrapper['zeroConfCheck'] = {
+        name: 'stub',
+        checkTransaction: jest.fn().mockResolvedValue(true),
+      };
+
       await oneWrapper.connect();
 
       expect.assertions(2);

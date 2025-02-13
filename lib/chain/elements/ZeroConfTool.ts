@@ -15,8 +15,8 @@ export type ZeroConfToolConfig = {
 };
 
 type ZeroConfResponse = {
-  node_types: {
-    bridge: {
+  observations?: {
+    bridge?: {
       seen: number;
       total: number;
     };
@@ -50,7 +50,7 @@ class ZeroConfTool
     this.maxRetries = config.maxRetries || 60;
 
     this.logger.info(
-      `Checking every ${this.retryDelay}ms with ${this.maxRetries} retries with 0-conf tool at ${this.endpoint}`,
+      `Checking every ${this.retryDelay}ms with ${this.maxRetries} retries with 0-conf tool at: ${this.endpoint}`,
     );
 
     this.start().then();
@@ -125,13 +125,18 @@ class ZeroConfTool
 
   private check = async () => {
     for (const [txId, { retries }] of this.toCheck) {
-      const res = await axios.get<any, AxiosResponse<ZeroConfResponse>>(
-        `${this.endpoint}/${txId}`,
-      );
+      const res = (
+        await axios.get<any, AxiosResponse<ZeroConfResponse>>(
+          `${this.endpoint}/${txId}`,
+        )
+      ).data;
 
-      if (
-        res.data.node_types.bridge.seen === res.data.node_types.bridge.total
-      ) {
+      const bridgeData = res.observations?.bridge;
+      if (bridgeData === undefined) {
+        continue;
+      }
+
+      if (bridgeData.seen > 0 && bridgeData.seen === bridgeData.total) {
         this.toCheck.delete(txId);
         this.emit('accepted', txId);
 

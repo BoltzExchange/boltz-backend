@@ -26,7 +26,7 @@ describe('ZeroConfTool', () => {
 
     app.get('/accept', (_, res) => {
       res.json({
-        node_types: {
+        observations: {
           bridge: {
             seen: 21,
             total: 21,
@@ -37,7 +37,7 @@ describe('ZeroConfTool', () => {
 
     app.get('/timeout', (_, res) => {
       res.json({
-        node_types: {
+        observations: {
           bridge: {
             seen: 20,
             total: 21,

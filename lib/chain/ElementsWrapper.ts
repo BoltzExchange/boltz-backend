@@ -47,7 +47,7 @@ class ElementsWrapper
       );
     }
 
-    this.logger.info(`Using 0-conf check ${this.zeroConfCheck.name}`);
+    this.logger.info(`Using 0-conf check: ${this.zeroConfCheck.name}`);
   }
 
   public serviceName = () => 'ElementsWrapper';

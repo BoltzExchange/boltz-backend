@@ -130,13 +130,13 @@ class InjectedProvider implements Provider {
     name: EthProviderService,
     providerConfig: EthProviderServiceConfig,
   ) => {
-    if (providerConfig === undefined || providerConfig.apiKey === undefined) {
-      this.logDisabledProvider(name, 'no api key was set');
-      return;
-    }
-
-    if (providerConfig.network === undefined) {
-      this.logDisabledProvider(name, 'no network was specified');
+    if (
+      providerConfig === undefined ||
+      (providerConfig.endpoint === undefined &&
+        (providerConfig.network === undefined ||
+          providerConfig.apiKey === undefined))
+    ) {
+      this.logDisabledProvider(name, 'not configured');
       return;
     }
 
@@ -151,7 +151,12 @@ class InjectedProvider implements Provider {
       case EthProviderService.Alchemy:
         this.providers.set(
           name,
-          new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
+          providerConfig.endpoint
+            ? new JsonRpcProvider(providerConfig.endpoint)
+            : new AlchemyProvider(
+                providerConfig.network,
+                providerConfig.apiKey,
+              ),
         );
         break;
 

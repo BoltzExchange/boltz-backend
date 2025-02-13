@@ -99,8 +99,10 @@ type TokenConfig = {
 };
 
 type EthProviderServiceConfig = {
-  network: string;
-  apiKey: string;
+  network?: string;
+  apiKey?: string;
+
+  endpoint?: string;
 };
 
 type ContractsConfig = {
@@ -112,6 +114,8 @@ type RskConfig = {
   networkName?: string;
   providerEndpoint: string;
 
+  alchemy: EthProviderServiceConfig;
+
   contracts: ContractsConfig[];
 
   tokens: TokenConfig[];
@@ -119,7 +123,6 @@ type RskConfig = {
 
 type EthereumConfig = RskConfig & {
   infura: EthProviderServiceConfig;
-  alchemy: EthProviderServiceConfig;
 };
 
 type ApiConfig = {

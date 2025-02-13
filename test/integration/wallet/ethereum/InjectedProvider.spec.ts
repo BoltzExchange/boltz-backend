@@ -1,3 +1,4 @@
+import { Transaction } from 'ethers';
 import { RskConfig } from '../../../../lib/Config';
 import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
@@ -89,6 +90,7 @@ describe('InjectedProvider', () => {
 
     const tx = await signer.sendTransaction({
       to: await signer.getAddress(),
+      value: 321,
     });
 
     expect(
@@ -96,6 +98,11 @@ describe('InjectedProvider', () => {
     ).toHaveBeenCalledTimes(1);
     expect(
       PendingEthereumTransactionRepository.addTransaction,
-    ).toHaveBeenCalledWith(tx.hash, tx.nonce);
+    ).toHaveBeenCalledWith(
+      tx.hash,
+      tx.nonce,
+      tx.value,
+      Transaction.from(tx).serialized,
+    );
   });
 });

@@ -12,6 +12,8 @@ const runTest = (file) => {
 };
 
 let testsRun = 0;
+let skipUntil = process.argv[2];
+let skip = skipUntil !== undefined;
 
 const execDir = (dir) => {
   const content = fs.readdirSync(dir);
@@ -19,6 +21,12 @@ const execDir = (dir) => {
   for (const entry of content) {
     if (entry.includes('.')) {
       if (entry.endsWith('.spec.ts')) {
+        if (skip && !entry.includes(skipUntil)) {
+          console.log(`Skipping ${path.join(dir, entry)}`);
+          continue;
+        }
+        skip = false;
+
         runTest(path.join(dir, entry));
         testsRun++;
       }

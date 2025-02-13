@@ -3,6 +3,8 @@ import { DataTypes, Model, Sequelize } from 'sequelize';
 type PendingEthereumTransactionType = {
   hash: string;
   nonce: number;
+  etherAmount: bigint;
+  hex: string;
 };
 
 class PendingEthereumTransaction
@@ -11,6 +13,8 @@ class PendingEthereumTransaction
 {
   public hash!: string;
   public nonce!: number;
+  public etherAmount!: bigint;
+  public hex!: string;
 
   public static load = (sequelize: Sequelize): void => {
     PendingEthereumTransaction.init(
@@ -23,6 +27,14 @@ class PendingEthereumTransaction
         nonce: {
           type: new DataTypes.INTEGER(),
           unique: true,
+          allowNull: false,
+        },
+        etherAmount: {
+          type: new DataTypes.DECIMAL(),
+          allowNull: false,
+        },
+        hex: {
+          type: new DataTypes.TEXT(),
           allowNull: false,
         },
       },

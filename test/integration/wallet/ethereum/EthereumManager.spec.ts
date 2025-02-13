@@ -18,6 +18,7 @@ import {
 jest.mock(
   '../../../../lib/db/repositories/PendingEthereumTransactionRepository',
   () => ({
+    getTotalSent: jest.fn().mockResolvedValue(0n),
     getTransactions: jest.fn().mockResolvedValue([]),
     addTransaction: jest.fn().mockResolvedValue(null),
     getHighestNonce: jest.fn().mockResolvedValue(undefined),

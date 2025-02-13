@@ -17,13 +17,25 @@ class PendingEthereumTransactionRepository {
     return nonce + 1;
   };
 
+  public static getTotalSent = async (): Promise<bigint> => {
+    return BigInt(
+      (await PendingEthereumTransaction.sum<number, PendingEthereumTransaction>(
+        'etherAmount',
+      )) ?? 0,
+    );
+  };
+
   public static addTransaction = (
     hash: string,
     nonce: number,
+    etherAmount: bigint,
+    hex: string,
   ): Promise<PendingEthereumTransaction> => {
     return PendingEthereumTransaction.create({
       hash,
       nonce,
+      etherAmount,
+      hex,
     });
   };
 }

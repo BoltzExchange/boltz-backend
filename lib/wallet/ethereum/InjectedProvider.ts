@@ -130,13 +130,13 @@ class InjectedProvider implements Provider {
     name: EthProviderService,
     providerConfig: EthProviderServiceConfig,
   ) => {
-    if (providerConfig === undefined || providerConfig.apiKey === undefined) {
-      this.logDisabledProvider(name, 'no api key was set');
-      return;
-    }
-
-    if (providerConfig.network === undefined) {
-      this.logDisabledProvider(name, 'no network was specified');
+    if (
+      providerConfig === undefined ||
+      (providerConfig.endpoint === undefined &&
+        (providerConfig.network === undefined ||
+          providerConfig.apiKey === undefined))
+    ) {
+      this.logDisabledProvider(name, 'not configured');
       return;
     }
 
@@ -151,7 +151,12 @@ class InjectedProvider implements Provider {
       case EthProviderService.Alchemy:
         this.providers.set(
           name,
-          new AlchemyProvider(providerConfig.network, providerConfig.apiKey),
+          providerConfig.endpoint
+            ? new JsonRpcProvider(providerConfig.endpoint)
+            : new AlchemyProvider(
+                providerConfig.network,
+                providerConfig.apiKey,
+              ),
         );
         break;
 
@@ -285,8 +290,8 @@ class InjectedProvider implements Provider {
   public broadcastTransaction = async (
     signedTransaction: string,
   ): Promise<TransactionResponse> => {
-    const transaction = Transaction.from(signedTransaction);
-    await this.addToTransactionDatabase(transaction.hash!, transaction.nonce);
+    const tx = Transaction.from(signedTransaction);
+    await this.addToTransactionDatabase(tx);
 
     // When sending a transaction, you want it to propagate on the network as quickly as possible
     // Therefore, we send it to all available providers
@@ -306,7 +311,11 @@ class InjectedProvider implements Provider {
       return results[0];
     }
 
-    throw (settled[0] as PromiseRejectedResult).reason;
+    const error = (settled[0] as PromiseRejectedResult).reason;
+    this.logger.error(
+      `Failed to broadcast ${this.networkDetails.name} transaction ${tx.hash}: ${formatError(error)}`,
+    );
+    throw error;
   };
 
   public sendTransaction = async (
@@ -316,7 +325,8 @@ class InjectedProvider implements Provider {
       'sendTransaction',
       tx,
     );
-    await this.addToTransactionDatabase(res.hash, res.nonce);
+
+    await this.addToTransactionDatabase(Transaction.from(res));
 
     return res;
   };
@@ -521,11 +531,16 @@ class InjectedProvider implements Provider {
     });
   };
 
-  private addToTransactionDatabase = async (hash: string, nonce: number) => {
+  private addToTransactionDatabase = async (tx: Transaction) => {
     this.logger.silly(
-      `Sending ${this.networkDetails.name} transaction: ${hash}`,
+      `Sending ${this.networkDetails.name} transaction: ${tx.hash}`,
     );
-    await PendingEthereumTransactionRepository.addTransaction(hash, nonce);
+    await PendingEthereumTransactionRepository.addTransaction(
+      tx.hash!,
+      tx.nonce,
+      tx.value,
+      tx.serialized,
+    );
   };
 
   private hashCode = (value: string): number => {

@@ -20,6 +20,7 @@ import ConsolidatedEventHandler from './ConsolidatedEventHandler';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
+import SequentialSigner from './SequentialSigner';
 import Contracts from './contracts/Contracts';
 
 type Network = {
@@ -81,7 +82,10 @@ class EthereumManager {
       name: this.config.networkName || network.name,
     };
 
-    this.signer = EthersWallet.fromPhrase(mnemonic).connect(this.provider);
+    this.signer = new SequentialSigner(
+      this.networkDetails.symbol,
+      EthersWallet.fromPhrase(mnemonic),
+    ).connect(this.provider);
     this.address = await this.signer.getAddress();
 
     this.logger.verbose(

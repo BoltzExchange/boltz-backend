@@ -13,6 +13,7 @@ pub struct ChainSwap {
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
+    pub createdAt: chrono::NaiveDateTime,
 }
 
 #[derive(
@@ -34,6 +35,10 @@ pub struct ChainSwap {
 pub struct ChainSwapData {
     pub swapId: String,
     pub symbol: String,
+    pub keyIndex: Option<i32>,
+    pub theirPublicKey: Option<String>,
+    pub swapTree: Option<String>,
+    pub timeoutBlockHeight: i32,
     pub lockupAddress: String,
     pub transactionId: Option<String>,
     pub transactionVout: Option<i32>,
@@ -41,7 +46,7 @@ pub struct ChainSwapData {
 
 #[derive(Default, Clone, Debug)]
 pub struct ChainSwapInfo {
-    swap: ChainSwap,
+    pub swap: ChainSwap,
     sending_data: ChainSwapData,
     receiving_data: ChainSwapData,
 }
@@ -202,6 +207,7 @@ mod test {
                 pair: "L-BTC/BTC".to_string(),
                 status: "swap.created".to_string(),
                 orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
+                ..Default::default()
             },
             vec![
                 ChainSwapData {
@@ -210,6 +216,7 @@ mod test {
                     swapId: id.to_string(),
                     symbol: "BTC".to_string(),
                     lockupAddress: "bc1".to_string(),
+                    ..Default::default()
                 },
                 ChainSwapData {
                     transactionId: None,
@@ -217,6 +224,7 @@ mod test {
                     swapId: id.to_string(),
                     symbol: "L-BTC".to_string(),
                     lockupAddress: "lq1".to_string(),
+                    ..Default::default()
                 },
             ],
         )

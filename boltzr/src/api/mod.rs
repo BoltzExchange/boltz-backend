@@ -1,4 +1,5 @@
 use crate::api::errors::error_middleware;
+use crate::api::recovery::swap_recovery;
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
 #[cfg(feature = "metrics")]
@@ -18,6 +19,7 @@ use ws::types::SwapStatus;
 mod errors;
 mod headers;
 mod lightning;
+mod recovery;
 mod sse;
 mod stats;
 mod types;
@@ -123,6 +125,7 @@ where
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
                 get(get_stats::<S, M>),
             )
+            .route("/v2/swap/recovery", post(swap_recovery::<S, M>))
             .route(
                 "/v2/lightning/{currency}/node/{node}",
                 get(lightning::node_info::<S, M>),
@@ -144,12 +147,10 @@ pub mod test {
     use crate::api::ws::status::SwapInfos;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Config, Server};
-    use crate::cache::Redis;
     use crate::service::Service;
     use crate::swap::manager::test::MockManager;
     use async_trait::async_trait;
     use reqwest::StatusCode;
-    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::broadcast::Sender;
@@ -196,12 +197,7 @@ pub mod test {
             },
             cancel.clone(),
             Arc::new(MockManager::new()),
-            Arc::new(Service::new::<Redis>(
-                Arc::new(HashMap::new()),
-                None,
-                None,
-                None,
-            )),
+            Arc::new(Service::new_mocked_prometheus(false)),
             Fetcher {
                 status_tx: status_tx.clone(),
             },

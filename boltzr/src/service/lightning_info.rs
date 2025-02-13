@@ -209,7 +209,9 @@ mod test {
     use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
     use crate::wallet::{Bitcoin, Network};
     use alloy::hex;
+    use bip39::Mnemonic;
     use std::collections::HashMap;
+    use std::str::FromStr;
     use std::sync::Arc;
 
     async fn get_currencies() -> Currencies {
@@ -217,7 +219,18 @@ mod test {
             "BTC".to_string(),
             Currency {
                 network: Network::Regtest,
-                wallet: Arc::new(Bitcoin::new(Network::Regtest)),
+                wallet: Arc::new(
+                    Bitcoin::new(
+                        Network::Regtest,
+                        &Mnemonic::from_str(
+                            "test test test test test test test test test test test junk",
+                        )
+                        .unwrap()
+                        .to_seed(""),
+                        "m/0/0".to_string(),
+                    )
+                    .unwrap(),
+                ),
                 chain: Some(Arc::new(Box::new(
                     crate::chain::chain_client::test::get_client(),
                 ))),

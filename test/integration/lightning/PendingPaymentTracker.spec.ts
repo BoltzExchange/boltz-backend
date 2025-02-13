@@ -52,9 +52,10 @@ describe('PendingPaymentTracker', () => {
   ] as Currency[];
 
   beforeAll(async () => {
+    await startSidecar();
+
     db = new Database(Logger.disabledLogger, Database.memoryDatabase);
 
-    startSidecar();
     await Promise.all([
       db.init(),
       clnClient.connect(),

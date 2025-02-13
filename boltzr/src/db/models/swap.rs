@@ -14,7 +14,13 @@ pub struct Swap {
     pub status: String,
     pub failureReason: Option<String>,
     pub invoice: Option<String>,
+    pub keyIndex: Option<i32>,
+    pub refundPublicKey: Option<String>,
+    pub timeoutBlockHeight: i32,
+    pub redeemScript: Option<String>,
     pub lockupAddress: String,
+    pub lockupTransactionId: Option<String>,
+    pub lockupTransactionVout: Option<i32>,
     pub createdAt: chrono::NaiveDateTime,
 }
 

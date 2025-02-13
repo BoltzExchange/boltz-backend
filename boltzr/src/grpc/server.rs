@@ -157,7 +157,6 @@ where
 mod server_test {
     use crate::api::ws;
     use crate::api::ws::types::SwapStatus;
-    use crate::cache::Redis;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
     use crate::db::helpers::QueryResponse;
@@ -168,7 +167,6 @@ mod server_test {
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
-    use crate::service::Service;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller;
@@ -250,12 +248,7 @@ mod server_test {
                 disable_ssl: Some(true),
             },
             ReloadHandler::new(),
-            Arc::new(Service::new::<Redis>(
-                Arc::new(HashMap::new()),
-                None,
-                None,
-                None,
-            )),
+            Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
@@ -383,12 +376,7 @@ mod server_test {
                 disable_ssl: Some(false),
             },
             ReloadHandler::new(),
-            Arc::new(Service::new::<Redis>(
-                Arc::new(HashMap::new()),
-                None,
-                None,
-                None,
-            )),
+            Arc::new(crate::service::Service::new_mocked_prometheus(false)),
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),

@@ -228,10 +228,15 @@ where
                                 }
                             },
                             Message::Ping(payload) => {
+                                last_activity = Instant::now();
+
                                 if let Err(err) = ws_sender.send(Message::Pong(payload)).await {
                                     trace!("Could not respond to ping: {}", err);
                                     break;
                                 }
+                            },
+                            Message::Pong(_) => {
+                                last_activity = Instant::now();
                             },
                             Message::Close(_) => {
                                 break;

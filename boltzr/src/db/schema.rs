@@ -21,14 +21,21 @@ diesel::table! {
     #[allow(non_snake_case)]
     swaps (id) {
         id -> Text,
+        version -> Integer,
         referral -> Nullable<Text>,
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
         failureReason -> Nullable<Text>,
         invoice -> Nullable<Text>,
+        keyIndex -> Nullable<Integer>,
+        refundPublicKey -> Nullable<Text>,
+        timeoutBlockHeight -> Integer,
+        redeemScript -> Nullable<Text>,
         lockupAddress -> Text,
-        createdAt -> Timestamp,
+        lockupTransactionId -> Nullable<Text>,
+        lockupTransactionVout -> Nullable<Integer>,
+        createdAt -> Timestamptz,
     }
 }
 
@@ -51,6 +58,7 @@ diesel::table! {
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
+        createdAt -> Timestamptz,
     }
 }
 
@@ -59,9 +67,22 @@ diesel::table! {
     chainSwapData (swapId, symbol) {
         swapId -> Text,
         symbol -> Text,
+        keyIndex -> Nullable<Integer>,
+        theirPublicKey -> Nullable<Text>,
+        swapTree -> Nullable<Text>,
+        timeoutBlockHeight -> Integer,
         lockupAddress -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
+    }
+}
+
+diesel::table! {
+    #[allow(non_snake_case)]
+    keys (symbol) {
+        symbol -> Text,
+        derivationPath -> Text,
+        highestUsedIndex -> Integer,
     }
 }
 

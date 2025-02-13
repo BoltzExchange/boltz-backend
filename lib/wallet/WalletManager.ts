@@ -80,8 +80,10 @@ class WalletManager {
     this.logger.debug(`Loading EVM mnemonic from: ${mnemonicPathEvm}`);
     this.mnemonicEvm = this.loadMnemonic(mnemonicPathEvm);
 
-    this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
-    this.slip77 = slip77.fromSeed(this.mnemonic);
+    const seed = mnemonicToSeedSync(this.mnemonic);
+    this.masterNode = bip32.fromSeed(seed);
+    // TODO: this is a breaking change. not sure how to handle that
+    this.slip77 = slip77.fromSeed(seed);
   }
 
   public init = async (configCurrencies: CurrencyConfig[]): Promise<void> => {

@@ -50,6 +50,7 @@ import {
   reverseBuffer,
 } from './Utils';
 import { IChainClient } from './chain/ChainClient';
+import { SomeTransaction } from './chain/ZmqClient';
 import {
   CurrencyType,
   SwapType,
@@ -61,7 +62,7 @@ import ChainSwapData from './db/models/ChainSwapData';
 import Swap from './db/models/Swap';
 import SwapOutputType from './swap/SwapOutputType';
 import Wallet from './wallet/Wallet';
-import WalletLiquid from './wallet/WalletLiquid';
+import WalletLiquid, { Slip77s } from './wallet/WalletLiquid';
 import { Currency } from './wallet/WalletManager';
 
 type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
@@ -159,14 +160,24 @@ export const getOutputValue = (
     return output.value as number;
   }
 
-  const unblinded = unblindOutput(
-    wallet,
-    output as LiquidTxOutput,
-    (wallet as WalletLiquid).deriveBlindingKeyFromScript(output.script)
-      .privateKey!,
+  const walletKeys = (wallet as WalletLiquid).deriveBlindingKeyFromScript(
+    output.script,
   );
 
-  return unblinded.isLbtc ? unblinded.value : 0;
+  for (const key of [walletKeys.new, walletKeys.legacy]
+    .map((k) => k.privateKey)
+    .filter((k) => k !== undefined)) {
+    try {
+      const unblinded = unblindOutput(wallet, output as LiquidTxOutput, key);
+
+      return unblinded.isLbtc ? unblinded.value : 0;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      /* empty */
+    }
+  }
+
+  return 0;
 };
 
 export const constructClaimDetails = (
@@ -230,7 +241,8 @@ export const constructClaimTransaction = (
   claimDetails: ClaimDetails[] | LiquidClaimDetails[],
   destinationAddress: string,
   feePerVbyte: number,
-) => {
+  blindingKeyType: keyof Slip77s = 'new',
+): SomeTransaction => {
   const span = Tracing.tracer.startSpan('constructClaimTransaction', {
     kind: SpanKind.INTERNAL,
     attributes: {
@@ -257,6 +269,7 @@ export const constructClaimTransaction = (
       const liquidDetails = populateBlindingKeys(
         walletLiquid,
         claimDetails as LiquidClaimDetails[],
+        blindingKeyType,
       );
       const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
@@ -274,6 +287,18 @@ export const constructClaimTransaction = (
         walletLiquid.supportsDiscountCT,
       );
     });
+  } catch (e) {
+    if (blindingKeyType === 'new') {
+      return constructClaimTransaction(
+        wallet,
+        claimDetails,
+        destinationAddress,
+        feePerVbyte,
+        'legacy',
+      );
+    }
+
+    throw e;
   } finally {
     span.end();
   }
@@ -285,7 +310,8 @@ export const constructRefundTransaction = (
   destinationAddress: string,
   timeoutBlockHeight: number,
   feePerVbyte: number,
-) => {
+  blindingKeyType: keyof Slip77s = 'new',
+): SomeTransaction => {
   const span = Tracing.tracer.startSpan('constructRefundTransaction', {
     kind: SpanKind.INTERNAL,
     attributes: {
@@ -313,6 +339,7 @@ export const constructRefundTransaction = (
       const liquidDetails = populateBlindingKeys(
         walletLiquid,
         refundDetails as LiquidRefundDetails[],
+        blindingKeyType,
       );
       const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
@@ -331,6 +358,19 @@ export const constructRefundTransaction = (
         walletLiquid.supportsDiscountCT,
       );
     });
+  } catch (e) {
+    if (blindingKeyType === 'new') {
+      return constructRefundTransaction(
+        wallet,
+        refundDetails,
+        destinationAddress,
+        timeoutBlockHeight,
+        feePerVbyte,
+        'legacy',
+      );
+    }
+
+    throw e;
   } finally {
     span.end();
   }
@@ -413,11 +453,12 @@ const populateBlindingKeys = <
 >(
   wallet: WalletLiquid,
   utxos: T[],
+  blindingKeyType: keyof Slip77s,
 ): T[] => {
   for (const utxo of utxos) {
-    utxo.blindingPrivateKey = wallet.deriveBlindingKeyFromScript(
-      utxo.script,
-    ).privateKey!;
+    utxo.blindingPrivateKey = wallet.deriveBlindingKeyFromScript(utxo.script)[
+      blindingKeyType
+    ].privateKey!;
   }
 
   return utxos;

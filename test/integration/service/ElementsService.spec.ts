@@ -16,15 +16,16 @@ import { bitcoinClient, elementsClient } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
-const slip77 = SLIP77Factory(ecc).fromSeed(
-  mnemonicToSeedSync(generateMnemonic()),
-);
+const slip77 = SLIP77Factory(ecc);
 
 describe('ElementsService', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
     new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
-    slip77,
+    {
+      new: slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+      legacy: slip77.fromSeed(generateMnemonic()),
+    },
     networks.regtest,
   );
 
@@ -54,50 +55,60 @@ describe('ElementsService', () => {
     [bitcoinClient, elementsClient].map((client) => client.disconnect());
   });
 
-  test('should unblind outputs that were blinded by known keys', async () => {
-    const script = wallet.decodeAddress(await wallet.getAddress(''));
-    const address = wallet.encodeAddress(script);
-    const amount = 100_000;
+  test.each`
+    blindingType
+    ${'new'}
+    ${'legacy'}
+  `(
+    'should unblind outputs that were blinded by known keys of type $blindingType',
+    async ({ blindingType }) => {
+      const script = wallet.decodeAddress(await wallet.getAddress(''));
+      const address = wallet.encodeAddress(script)[blindingType];
+      const amount = 100_000;
 
-    const tx = Transaction.fromHex(
-      await elementsClient.getRawTransaction(
-        await elementsClient.sendToAddress(
-          address,
-          amount,
-          undefined,
-          false,
-          '',
+      const tx = Transaction.fromHex(
+        await elementsClient.getRawTransaction(
+          await elementsClient.sendToAddress(
+            address,
+            amount,
+            undefined,
+            false,
+            '',
+          ),
         ),
-      ),
-    );
+      );
 
-    const unblinded = await es.unblindOutputs(tx);
+      const unblinded = await es.unblindOutputs(tx);
 
-    expect(unblinded.every((out) => out.isLbtc)).toEqual(true);
-    expect(unblinded.every((out) => out.value > 0)).toEqual(true);
-    expect(
-      unblinded.every((out) =>
-        out.asset.equals(getHexBuffer(networks.regtest.assetHash)),
-      ),
-    ).toEqual(true);
+      expect(unblinded.every((out) => out.isLbtc)).toEqual(true);
+      expect(unblinded.every((out) => out.value > 0)).toEqual(true);
+      expect(
+        unblinded.every((out) =>
+          out.asset.equals(getHexBuffer(networks.regtest.assetHash)),
+        ),
+      ).toEqual(true);
 
-    const output = unblinded.find((out) => out.script.equals(script))!;
-    expect(output).not.toBeUndefined();
-    expect(output.value).toEqual(amount);
-  });
+      const output = unblinded.find((out) => out.script.equals(script))!;
+      expect(output).not.toBeUndefined();
+      expect(output.value).toEqual(amount);
+    },
+  );
 
   test('should unblind outputs that were blinded by unknown keys', async () => {
     const secondWallet = new WalletLiquid(
       Logger.disabledLogger,
       new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
-      SLIP77Factory(ecc).fromSeed(mnemonicToSeedSync(generateMnemonic())),
+      {
+        new: slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+        legacy: slip77.fromSeed(generateMnemonic()),
+      },
       networks.regtest,
     );
 
     const script = secondWallet.decodeAddress(
       await secondWallet.getAddress(''),
     );
-    const address = secondWallet.encodeAddress(script);
+    const address = secondWallet.encodeAddress(script).new;
 
     const tx = Transaction.fromHex(
       await elementsClient.getRawTransaction(
@@ -159,7 +170,7 @@ describe('ElementsService', () => {
     ${'el1qqwts7wxqn32rv9jdp86dr06q5y6keuxkjgdjmpn8x50jfepgspvwlw7hzcr33r9mf0yees30g2r8mrvpnn73qya0jqg3za6hu'}
   `('should derive blinding keys for $address', ({ address }) => {
     const script = wallet.decodeAddress(address);
-    const { publicKey, privateKey } = slip77.derive(script);
+    const { publicKey, privateKey } = wallet['slip77s'].new.derive(script);
 
     expect(es.deriveBlindingKeys(address)).toEqual({
       publicKey,

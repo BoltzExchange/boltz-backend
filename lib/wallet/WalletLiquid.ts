@@ -7,11 +7,16 @@ import { CurrencyType } from '../consts/Enums';
 import Wallet from './Wallet';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
+export type Slip77s = {
+  new: Slip77Interface;
+  legacy: Slip77Interface;
+};
+
 class WalletLiquid extends Wallet {
   constructor(
     logger: Logger,
     walletProvider: WalletProviderInterface,
-    private readonly slip77: Slip77Interface,
+    private readonly slip77s: Slip77s,
     network: Network,
   ) {
     super(logger, CurrencyType.Liquid, walletProvider, network);
@@ -27,33 +32,63 @@ class WalletLiquid extends Wallet {
     );
   }
 
-  public deriveBlindingKeyFromScript = (outputScript: Buffer) => {
-    return this.slip77.derive(outputScript);
+  public deriveBlindingKeyFromScript = (
+    outputScript: Buffer,
+  ): Record<keyof Slip77s, Slip77Interface> => {
+    return {
+      new: this.slip77s.new.derive(outputScript),
+      legacy: this.slip77s.legacy.derive(outputScript),
+    };
   };
 
   public override encodeAddress = (
     outputScript: Buffer,
     shouldBlind = true,
-  ): string => {
+  ): Record<keyof Slip77s, string> => {
     try {
       // Fee output of Liquid
       if (outputScript.length == 0) {
-        return '';
+        return {
+          new: '',
+          legacy: '',
+        };
       }
 
-      const res = this.getPaymentFunc(outputScript)({
+      if (!shouldBlind) {
+        const res = this.getPaymentFunc(outputScript)({
+          output: outputScript,
+          network: this.network as networks.Network,
+        });
+        return {
+          new: res.address!,
+          legacy: res.address!,
+        };
+      }
+
+      const walletKeys = this.deriveBlindingKeyFromScript(outputScript);
+
+      const resNew = this.getPaymentFunc(outputScript)({
         output: outputScript,
         network: this.network as networks.Network,
-        blindkey: shouldBlind
-          ? this.deriveBlindingKeyFromScript(outputScript).publicKey!
-          : undefined,
+        blindkey: walletKeys.new.publicKey,
+      });
+      const resLegacy = this.getPaymentFunc(outputScript)({
+        output: outputScript,
+        network: this.network as networks.Network,
+        blindkey: walletKeys.legacy.publicKey,
       });
 
-      return shouldBlind ? res.confidentialAddress! : res.address!;
+      return {
+        new: resNew.confidentialAddress!,
+        legacy: resLegacy.confidentialAddress!,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
-      return '';
+      return {
+        new: '',
+        legacy: '',
+      };
     }
   };
 

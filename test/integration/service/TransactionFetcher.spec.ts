@@ -329,8 +329,10 @@ describe('TransactionFetcher', () => {
     let transaction: Transaction;
 
     const wallet = {
-      encodeAddress: (outputScript) =>
-        address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+      encodeAddress: (outputScript) => ({
+        new: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+        legacy: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+      }),
     } as Wallet;
 
     beforeAll(async () => {
@@ -357,9 +359,10 @@ describe('TransactionFetcher', () => {
       expect(swaps.swapLockups).toEqual([{ id: 'swap' }]);
       expect(swaps.chainSwapLockups).toEqual([{ id: 'chain' }]);
 
-      const outputAddresses = transaction.outs.map((output) =>
+      const outputAddresses = transaction.outs.flatMap((output) => [
         address.fromOutputScript(output.script, Networks.bitcoinRegtest),
-      );
+        address.fromOutputScript(output.script, Networks.bitcoinRegtest),
+      ]);
 
       expect(SwapRepository.getSwaps).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwaps).toHaveBeenCalledWith({

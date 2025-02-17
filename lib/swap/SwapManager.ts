@@ -416,14 +416,14 @@ class SwapManager {
         }
       }
 
-      result.address = receivingCurrency.wallet.encodeAddress(outputScript);
+      result.address = receivingCurrency.wallet.encodeAddress(outputScript).new;
       receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
         result.blindingKey = getHexString(
           (
             receivingCurrency.wallet as WalletLiquid
-          ).deriveBlindingKeyFromScript(outputScript).privateKey!,
+          ).deriveBlindingKeyFromScript(outputScript).new.privateKey!,
         );
       }
 
@@ -872,13 +872,14 @@ class SwapManager {
         }
       }
 
-      result.lockupAddress = sendingCurrency.wallet.encodeAddress(outputScript);
+      result.lockupAddress =
+        sendingCurrency.wallet.encodeAddress(outputScript).new;
 
       if (sendingCurrency.type === CurrencyType.Liquid) {
         result.blindingKey = getHexString(
           (sendingCurrency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
             outputScript,
-          ).privateKey!,
+          ).new.privateKey!,
         );
       }
 
@@ -1066,13 +1067,13 @@ class SwapManager {
           currency.chainClient!.addOutputFilter(outputScript);
         }
 
-        res.lockupAddress = currency.wallet.encodeAddress(outputScript);
+        res.lockupAddress = currency.wallet.encodeAddress(outputScript).new;
 
         if (currency.type === CurrencyType.Liquid) {
           blindingKey = getHexString(
             (currency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
               outputScript,
-            ).privateKey!,
+            ).new.privateKey!,
           );
         }
       } else {

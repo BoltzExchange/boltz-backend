@@ -18,7 +18,7 @@ import { sidecar, startSidecar } from '../../sidecar/Utils';
 
 describe('ClnClient', () => {
   beforeAll(async () => {
-    startSidecar();
+    await startSidecar();
 
     await bitcoinClient.generate(1);
     await bitcoinLndClient.connect(false);

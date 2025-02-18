@@ -178,7 +178,7 @@ describe('DeferredClaimer', () => {
     const tx = Transaction.fromHex(
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          btcWallet.encodeAddress(p2trOutput(tweakedKey)),
+          btcWallet.encodeAddress(p2trOutput(tweakedKey)).new,
           100_000,
           undefined,
           false,

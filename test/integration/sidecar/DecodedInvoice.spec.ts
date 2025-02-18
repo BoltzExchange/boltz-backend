@@ -14,7 +14,7 @@ const bolt12Invoice =
 
 describe('DecodedInvoice', () => {
   beforeAll(async () => {
-    startSidecar();
+    await startSidecar();
     await sidecar.connect(
       { on: jest.fn(), removeAllListeners: jest.fn() } as any,
       {} as any,

@@ -11,6 +11,7 @@ import {
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ExtraFeeRepository from '../../../lib/db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import RateProvider from '../../../lib/rates/RateProvider';
 import BalanceCheck from '../../../lib/service/BalanceCheck';
@@ -175,6 +176,8 @@ describe('Renegotiator', () => {
       balanceCheck,
     );
 
+    ExtraFeeRepository.get = jest.fn().mockResolvedValue(null);
+
     jest.clearAllMocks();
   });
 
@@ -323,6 +326,58 @@ describe('Renegotiator', () => {
           );
         },
       );
+
+      test('should set extra fee', async () => {
+        const transactionId = await bitcoinClient.sendToAddress(
+          await bitcoinClient.getNewAddress(''),
+          100_000,
+          undefined,
+          false,
+          '',
+        );
+        await bitcoinClient.generate(1);
+
+        const swapId = 'someId';
+        const receivedAmount = 100_000;
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+          id: swapId,
+          chainSwap: {},
+          receivingData: {
+            transactionId,
+            symbol: 'BTC',
+            amount: receivedAmount,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        });
+
+        const percentageFeeExtra = 1.5;
+        ExtraFeeRepository.get = jest
+          .fn()
+          .mockResolvedValue({ percentage: percentageFeeExtra });
+        ExtraFeeRepository.setFee = jest
+          .fn()
+          .mockImplementation(async () => {});
+
+        ChainSwapRepository.setExpectedAmounts = jest
+          .fn()
+          .mockImplementation(async (swap) => swap);
+
+        negotiator['validateEligibility'] = jest
+          .fn()
+          .mockImplementation(async () => {});
+
+        const extraFee = (receivedAmount * percentageFeeExtra) / 100;
+        const quote = 94_877 - extraFee;
+        await negotiator.acceptQuote(swapId, quote);
+
+        expect(ExtraFeeRepository.setFee).toHaveBeenCalledTimes(1);
+        expect(ExtraFeeRepository.setFee).toHaveBeenCalledWith(
+          swapId,
+          extraFee,
+        );
+      });
     });
 
     describe('EVM chain', () => {
@@ -617,6 +672,35 @@ describe('Renegotiator', () => {
       expect(
         rateProvider.providers[SwapVersion.Taproot].getChainPairs,
       ).toHaveBeenCalledWith(referral);
+    });
+
+    test('should calculate new quotes with extra fees', async () => {
+      const extraFees = {
+        percentage: 0.1,
+      };
+      ExtraFeeRepository.get = jest.fn().mockResolvedValue(extraFees);
+
+      await expect(
+        negotiator['calculateNewQuote']({
+          id: 'swap123',
+          pair: 'BTC/BTC',
+          chainSwap: {},
+          receivingData: {
+            symbol: 'BTC',
+            amount: 10_000,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        } as any),
+      ).resolves.toEqual({
+        extraFee: 10,
+        percentageFee: 500,
+        serverLockAmount: 9367,
+      });
+
+      expect(ExtraFeeRepository.get).toHaveBeenCalledTimes(1);
+      expect(ExtraFeeRepository.get).toHaveBeenCalledWith('swap123');
     });
 
     test('should throw when pair cannot be found', async () => {

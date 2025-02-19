@@ -14,8 +14,9 @@ import Referral from '../db/models/Referral';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../db/repositories/ChainSwapRepository';
+import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
-import { ChainSwapMinerFees } from '../rates/FeeProvider';
+import FeeProvider, { ChainSwapMinerFees } from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
 import SwapNursery from '../swap/SwapNursery';
@@ -60,7 +61,7 @@ class Renegotiator {
         const { swap, receivingCurrency } = await this.getSwap(swapId);
         await this.validateEligibility(swap, receivingCurrency);
 
-        const { serverLockAmount, percentageFee } =
+        const { serverLockAmount, percentageFee, extraFee } =
           await this.calculateNewQuote(swap);
         if (newQuote !== serverLockAmount) {
           throw Errors.INVALID_QUOTE();
@@ -74,6 +75,10 @@ class Renegotiator {
         this.logger.info(
           `Accepted new quote for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${newQuote}`,
         );
+
+        if (extraFee !== undefined) {
+          await ExtraFeeRepository.setFee(swap.id, extraFee);
+        }
 
         if (receivingCurrency.chainClient !== undefined) {
           const txInfo =
@@ -205,7 +210,13 @@ class Renegotiator {
     ),
   });
 
-  private calculateNewQuote = async (swap: ChainSwapInfo) => {
+  private calculateNewQuote = async (
+    swap: ChainSwapInfo,
+  ): Promise<
+    ReturnType<typeof this.calculateServerLockAmount> & {
+      extraFee?: number;
+    }
+  > => {
     const referral =
       swap.chainSwap.referral === null || swap.chainSwap.referral === undefined
         ? null
@@ -237,12 +248,31 @@ class Renegotiator {
       referral,
     );
 
-    return this.calculateServerLockAmount(
+    const serverLockAmount = this.calculateServerLockAmount(
       pair.rate,
       swap.receivingData.amount!,
       feePercent,
       baseFee,
     );
+
+    let extraFee: number | undefined = undefined;
+
+    const extraFees = await ExtraFeeRepository.get(swap.id);
+    if (extraFees !== undefined && extraFees !== null) {
+      extraFee = FeeProvider.calculateExtraFee(
+        extraFees.percentage,
+        swap.receivingData.amount!,
+        pair.rate,
+      );
+      serverLockAmount.serverLockAmount = Math.floor(
+        serverLockAmount.serverLockAmount - extraFee,
+      );
+    }
+
+    return {
+      ...serverLockAmount,
+      extraFee,
+    };
   };
 
   private validateEligibility = async (

@@ -9,4 +9,6 @@ export default {
     `${symbol} does not support ${argName}`,
   INVALID_SWAP_STATUS: (status: string): string =>
     `invalid swap status: ${status}`,
+  INVALID_EXTRA_FEES_PERCENTAGE: (percentage: number): string =>
+    `invalid extra fees percentage: ${percentage}`,
 };

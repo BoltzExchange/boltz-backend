@@ -9,6 +9,7 @@ import ChainSwapData from './models/ChainSwapData';
 import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
+import ExtraFee from './models/ExtraFee';
 import KeyProvider from './models/KeyProvider';
 import LightningPayment from './models/LightningPayment';
 import MarkedSwap from './models/MarkedSwap';
@@ -96,6 +97,7 @@ class Database {
       Pair.sync(),
       ChainTip.sync(),
       Referral.sync(),
+      ExtraFee.sync(),
       KeyProvider.sync(),
       Rebroadcast.sync(),
       DatabaseVersion.sync(),
@@ -130,6 +132,7 @@ class Database {
 
   private loadModels = () => {
     Pair.load(Database.sequelize);
+    ExtraFee.load(Database.sequelize);
     Referral.load(Database.sequelize);
     Swap.load(Database.sequelize);
     TransactionLabel.load(Database.sequelize);

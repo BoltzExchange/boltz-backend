@@ -4,7 +4,7 @@ use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{LightningSwap, SomeSwap};
-use crate::swap::status::{serialize_swap_updates, SwapUpdate};
+use crate::swap::status::{SwapUpdate, serialize_swap_updates};
 use crate::wallet::Wallet;
 use alloy::hex;
 use anyhow::Result;
@@ -209,15 +209,15 @@ fn parse_transaction_id(id: &str) -> Result<Vec<u8>> {
 mod test {
     use crate::chain::utils::Outpoint;
     use crate::currencies::{Currencies, Currency};
+    use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapHelper};
     use crate::db::helpers::reverse_swap::{ReverseSwapCondition, ReverseSwapHelper};
     use crate::db::helpers::swap::{SwapCondition, SwapHelper};
-    use crate::db::helpers::QueryResponse;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
+    use crate::swap::SwapUpdate;
     use crate::swap::filters::{
         decode_script, get_currency, get_input_output_filters, parse_transaction_id,
     };
-    use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use alloy::hex;
     use mockall::mock;
@@ -361,20 +361,24 @@ mod test {
         let (inputs, outputs) = chain_filters.get("BTC").unwrap();
         assert!(inputs.is_empty());
         assert_eq!(outputs.len(), 1);
-        assert!(outputs.contains(
-            &Bitcoin::new(Network::Regtest)
-                .decode_address(address_bitcoin)
-                .unwrap()
-        ));
+        assert!(
+            outputs.contains(
+                &Bitcoin::new(Network::Regtest)
+                    .decode_address(address_bitcoin)
+                    .unwrap()
+            )
+        );
 
         let (inputs, outputs) = chain_filters.get("L-BTC").unwrap();
         assert!(inputs.is_empty());
         assert_eq!(outputs.len(), 1);
-        assert!(outputs.contains(
-            &Elements::new(Network::Regtest)
-                .decode_address(address_elements)
-                .unwrap()
-        ));
+        assert!(
+            outputs.contains(
+                &Elements::new(Network::Regtest)
+                    .decode_address(address_elements)
+                    .unwrap()
+            )
+        );
     }
 
     #[test]
@@ -494,11 +498,13 @@ mod test {
         let (inputs, outputs) = chain_filters.get("BTC").unwrap();
         assert!(inputs.is_empty());
         assert_eq!(outputs.len(), 1);
-        assert!(outputs.contains(
-            &Bitcoin::new(Network::Regtest)
-                .decode_address(address)
-                .unwrap()
-        ));
+        assert!(
+            outputs.contains(
+                &Bitcoin::new(Network::Regtest)
+                    .decode_address(address)
+                    .unwrap()
+            )
+        );
 
         let (inputs, outputs) = chain_filters.get("L-BTC").unwrap();
         assert!(outputs.is_empty());

@@ -44,12 +44,18 @@ mod test {
     }
 
     #[rstest]
-    #[case::regtest_taproot(Network::Regtest, "el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq")]
+    #[case::regtest_taproot(
+        Network::Regtest,
+        "el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq"
+    )]
     #[case::regtest_taproot_unconfidential(
         Network::Regtest,
         "ert1p4r63s2x2m4x9e8ujgcjjmrknkrs8gqmegs96uyj3f8nmh3qt375sypfq5m"
     )]
-    #[case::regtest_segwit(Network::Regtest, "el1qq0cm53ae2e5trn6wxa9lhcg7k42rrsdtqkzw2gucr9f30rchqr4dttge6skvgjr4nfu9wa4cmhef2g4vsshr6gxcl9hn0j6t6")]
+    #[case::regtest_segwit(
+        Network::Regtest,
+        "el1qq0cm53ae2e5trn6wxa9lhcg7k42rrsdtqkzw2gucr9f30rchqr4dttge6skvgjr4nfu9wa4cmhef2g4vsshr6gxcl9hn0j6t6"
+    )]
     #[case::regtest_segwit_unconfidential(
         Network::Regtest,
         "ert1q45vagtxyfp6e57zhw6udmu54y2kggt3a772qqc"

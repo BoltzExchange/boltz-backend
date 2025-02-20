@@ -3,7 +3,7 @@ use crate::db::helpers::referral::ReferralHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{Referral, SwapType};
 use crate::swap::expiration::ExpirationChecker;
-use crate::swap::{serialize_swap_updates, SwapUpdate};
+use crate::swap::{SwapUpdate, serialize_swap_updates};
 use chrono::Local;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::collections::HashMap;
@@ -116,9 +116,9 @@ impl ExpirationChecker for CustomExpirationChecker {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::db::helpers::QueryResponse;
     use crate::db::helpers::referral::{ReferralCondition, ReferralHelper};
     use crate::db::helpers::swap::{SwapCondition, SwapHelper};
-    use crate::db::helpers::QueryResponse;
     use crate::db::models::Swap;
     use mockall::{mock, predicate};
 

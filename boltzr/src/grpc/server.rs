@@ -1,8 +1,8 @@
 use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::RefundSigner;
-use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::service::BoltzService;
+use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
@@ -160,13 +160,13 @@ mod server_test {
     use crate::cache::Redis;
     use crate::chain::utils::Transaction;
     use crate::currencies::Currency;
-    use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::helpers::QueryResponse;
+    use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::RefundSigner;
     use crate::grpc::server::{Config, Server};
-    use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::grpc::service::boltzr::GetInfoRequest;
+    use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
     use crate::service::Service;
     use crate::swap::manager::SwapManager;

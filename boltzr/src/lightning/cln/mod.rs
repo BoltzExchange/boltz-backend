@@ -249,10 +249,22 @@ pub mod test {
     }
 
     #[rstest]
-    #[case("Error calling method Xpay: RpcError { code: Some(203), message: \"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details\", data: None }", "Destination said it doesn't know invoice: incorrect_or_unknown_payment_details")]
-    #[case("Failed: could not route or connect directly to 02ead25af6e0271c5167d6fd05545d2d538995ce3e16ad780a1010fc4e91522202: {\"code\":400,\"message\":\"Unable to connect, no address known for peer\"}", "Unable to connect, no address known for peer")]
-    #[case("Error calling method FetchInvoice: RpcError { code: Some(1003), message: \"Failed: could not route or connect directly to 02ee337aec2b12fef609a57d1c32834fe3107d315acaf8f5206ccf94dc2a9baa8c: {\"code\":400,\"message\":\"Unable to connect, no address known for peer\"}\", data: None }", "Unable to connect, no address known for peer")]
-    #[case("Error calling method FetchInvoice: RpcError { code: Some(1003), message: \"Failed: could not route or connect directly to 02ee337aec2b12fef609a57d1c32834fe3107d315acaf8f5206ccf94dc2a9baa8c: {\\\"code\\\":400,\\\"message\\\":\\\"Unable to connect, no address known for peer\\\"}\", data: None }", "Unable to connect, no address known for peer")]
+    #[case(
+        "Error calling method Xpay: RpcError { code: Some(203), message: \"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details\", data: None }",
+        "Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"
+    )]
+    #[case(
+        "Failed: could not route or connect directly to 02ead25af6e0271c5167d6fd05545d2d538995ce3e16ad780a1010fc4e91522202: {\"code\":400,\"message\":\"Unable to connect, no address known for peer\"}",
+        "Unable to connect, no address known for peer"
+    )]
+    #[case(
+        "Error calling method FetchInvoice: RpcError { code: Some(1003), message: \"Failed: could not route or connect directly to 02ee337aec2b12fef609a57d1c32834fe3107d315acaf8f5206ccf94dc2a9baa8c: {\"code\":400,\"message\":\"Unable to connect, no address known for peer\"}\", data: None }",
+        "Unable to connect, no address known for peer"
+    )]
+    #[case(
+        "Error calling method FetchInvoice: RpcError { code: Some(1003), message: \"Failed: could not route or connect directly to 02ee337aec2b12fef609a57d1c32834fe3107d315acaf8f5206ccf94dc2a9baa8c: {\\\"code\\\":400,\\\"message\\\":\\\"Unable to connect, no address known for peer\\\"}\", data: None }",
+        "Unable to connect, no address known for peer"
+    )]
     #[case("gRPC error", "gRPC error")]
     #[case("", "The operation was cancelled")]
     fn test_parse_error(#[case] msg: &str, #[case] expected: &str) {

@@ -1,10 +1,10 @@
+use axum::Json;
 use axum::body::Body;
 use axum::extract::Request;
-use axum::http::header::CONTENT_TYPE;
 use axum::http::StatusCode;
+use axum::http::header::CONTENT_TYPE;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -66,7 +66,7 @@ pub async fn error_middleware(request: Request<Body>, next: Next) -> Response<Bo
                         error: format!("could not handle body: {}", err),
                     }),
                 )
-                    .into_response()
+                    .into_response();
             }
         };
 
@@ -79,8 +79,8 @@ pub async fn error_middleware(request: Request<Body>, next: Next) -> Response<Bo
 #[cfg(test)]
 mod test {
     use super::*;
-    use axum::routing::get;
     use axum::Router;
+    use axum::routing::get;
     use http_body_util::BodyExt;
     use rstest::rstest;
     use tower::util::ServiceExt;

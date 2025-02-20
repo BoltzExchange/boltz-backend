@@ -1,23 +1,22 @@
 use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+use alloy::providers::RootProvider;
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::network::{AnyNetwork, EthereumWallet};
-use alloy::providers::RootProvider;
-use alloy::signers::local::PrivateKeySigner;
 use alloy::signers::Signer;
+use alloy::signers::local::PrivateKeySigner;
 use alloy::sol_types::SolStruct;
 use anyhow::anyhow;
 use tracing::info;
 
 use crate::evm::contracts::erc20_swap::ERC20SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwapContract;
-use crate::evm::contracts::{erc20_swap, ether_swap, SwapContract};
+use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 
 const MIN_VERSION: u8 = 3;
 const MAX_VERSION: u8 = 4;
 
-type AlloyTransport = alloy_transport_http::Http<reqwest::Client>;
 type AlloyProvider = FillProvider<
     JoinFill<
         JoinFill<
@@ -26,16 +25,15 @@ type AlloyProvider = FillProvider<
         >,
         WalletFiller<EthereumWallet>,
     >,
-    RootProvider<alloy_transport_http::Http<alloy_transport_http::Client>, AnyNetwork>,
-    alloy_transport_http::Http<alloy_transport_http::Client>,
+    RootProvider<AnyNetwork>,
     AnyNetwork,
 >;
 
 pub struct LocalRefundSigner {
     version: u8,
 
-    ether_swap: EtherSwapContract<AlloyTransport, AlloyProvider, AnyNetwork>,
-    erc20_swap: ERC20SwapContract<AlloyTransport, AlloyProvider, AnyNetwork>,
+    ether_swap: EtherSwapContract<AlloyProvider, AnyNetwork>,
+    erc20_swap: ERC20SwapContract<AlloyProvider, AnyNetwork>,
 }
 
 impl LocalRefundSigner {
@@ -121,11 +119,11 @@ impl LocalRefundSigner {
 
 #[cfg(test)]
 pub mod test {
+    use crate::evm::ContractAddresses;
+    use crate::evm::contracts::SwapContract;
     use crate::evm::contracts::erc20_swap::ERC20Swap;
     use crate::evm::contracts::ether_swap::EtherSwap;
-    use crate::evm::contracts::SwapContract;
     use crate::evm::refund_signer::{AlloyProvider, LocalRefundSigner};
-    use crate::evm::ContractAddresses;
     use alloy::primitives::{Address, FixedBytes, U256};
     use alloy::providers::network::{AnyNetwork, EthereumWallet, ReceiptResponse};
     use alloy::providers::{Provider, ProviderBuilder};
@@ -232,7 +230,6 @@ pub mod test {
             TOKEN_ADDRESS.parse().unwrap(),
             ProviderBuilder::new()
                 .network::<AnyNetwork>()
-                .with_recommended_fillers()
                 .wallet(EthereumWallet::from(claim_keys.clone()))
                 .on_http(PROVIDER.parse().unwrap()),
         );
@@ -327,7 +324,6 @@ pub mod test {
         let signer = LocalRefundSigner::new(
             ProviderBuilder::new()
                 .network::<AnyNetwork>()
-                .with_recommended_fillers()
                 .wallet(EthereumWallet::from(claim_keys.clone()))
                 .on_http(PROVIDER.parse().unwrap()),
             &ContractAddresses {
@@ -341,7 +337,6 @@ pub mod test {
         let refund_keys = mnemonic_builder.index(1).unwrap().build().unwrap();
         let provider = ProviderBuilder::new()
             .network::<AnyNetwork>()
-            .with_recommended_fillers()
             .wallet(EthereumWallet::from(refund_keys.clone()))
             .on_http(PROVIDER.parse().unwrap());
 

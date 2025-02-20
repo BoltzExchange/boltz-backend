@@ -1,5 +1,5 @@
-use crate::evm::contracts::erc20_swap::ERC20Swap::ERC20SwapInstance;
 use crate::evm::contracts::SwapContract;
+use crate::evm::contracts::erc20_swap::ERC20Swap::ERC20SwapInstance;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::sol;
@@ -25,19 +25,16 @@ sol!(
 
 pub const NAME: &str = "ERC20Swap";
 
-pub struct ERC20SwapContract<T, P, N> {
+pub struct ERC20SwapContract<P, N> {
     #[allow(dead_code)]
-    contract: ERC20SwapInstance<T, P, N>,
+    contract: ERC20SwapInstance<(), P, N>,
 
     version: u8,
     eip712domain: Eip712Domain,
 }
 
-impl<
-        T: alloy::transports::Transport + Sync + Send + Clone,
-        P: Provider<T, N> + Clone + 'static,
-        N: alloy::providers::network::Network,
-    > ERC20SwapContract<T, P, N>
+impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
+    ERC20SwapContract<P, N>
 {
     pub async fn new(address: Address, provider: P) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
@@ -73,11 +70,8 @@ impl<
     }
 }
 
-impl<
-        T: alloy::transports::Transport + Sync + Send + Clone,
-        P: Provider<T, N> + Clone + 'static,
-        N: alloy::providers::network::Network,
-    > SwapContract for ERC20SwapContract<T, P, N>
+impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> SwapContract
+    for ERC20SwapContract<P, N>
 {
     fn address(&self) -> &Address {
         self.contract.address()
@@ -94,8 +88,8 @@ impl<
 
 #[cfg(test)]
 mod test {
-    use crate::evm::contracts::erc20_swap::ERC20SwapContract;
     use crate::evm::contracts::SwapContract;
+    use crate::evm::contracts::erc20_swap::ERC20SwapContract;
     use crate::evm::refund_signer::test::ERC20_SWAP_ADDRESS;
     use alloy::primitives::Address;
 

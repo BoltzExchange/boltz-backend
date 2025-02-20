@@ -4,7 +4,7 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::LightningSwap;
 use crate::lightning::invoice;
 use crate::swap::expiration::ExpirationChecker;
-use crate::swap::{serialize_swap_updates, SwapUpdate};
+use crate::swap::{SwapUpdate, serialize_swap_updates};
 use anyhow::anyhow;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::sync::Arc;
@@ -111,8 +111,8 @@ mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
     use crate::currencies::{Currencies, Currency};
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper};
     use crate::db::helpers::QueryResponse;
+    use crate::db::helpers::swap::{SwapCondition, SwapHelper};
     use crate::db::models::Swap;
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};

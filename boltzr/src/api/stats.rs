@@ -1,10 +1,10 @@
+use crate::api::ServerState;
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::headers::Referral;
 use crate::api::ws::status::SwapInfos;
-use crate::api::ServerState;
 use crate::db::models::SwapType;
 use crate::swap::manager::SwapManager;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -64,7 +64,7 @@ where
                     error: err.to_string(),
                 }),
             )
-                .into_response())
+                .into_response());
         }
     };
 
@@ -99,15 +99,15 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::api::Server;
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
-    use crate::api::Server;
-    use crate::service::test::PairStats;
     use crate::service::Service;
+    use crate::service::test::PairStats;
     use crate::swap::manager::test::MockManager;
+    use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
-    use axum::Router;
     use http_body_util::BodyExt;
     use rstest::rstest;
     use tower::ServiceExt;

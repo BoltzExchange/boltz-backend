@@ -1,7 +1,7 @@
 use std::fmt;
 
 use serde::de::Visitor;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WebHookEvent {

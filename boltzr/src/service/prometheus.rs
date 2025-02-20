@@ -1,6 +1,6 @@
 use crate::cache::Cache;
 use crate::db::models::SwapType;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

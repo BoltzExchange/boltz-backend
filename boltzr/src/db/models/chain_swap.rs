@@ -1,6 +1,6 @@
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
-use crate::utils::pair::{split_pair, OrderSide};
+use crate::utils::pair::{OrderSide, split_pair};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
 
 #[derive(

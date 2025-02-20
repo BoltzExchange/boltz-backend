@@ -1,6 +1,6 @@
 use crate::db::models::SwapType;
 use crate::service::prometheus::{
-    max_routing_fee_query, pair_fees_query, PrometheusClient, PROMETHEUS_QUERY_STEP,
+    PROMETHEUS_QUERY_STEP, PrometheusClient, max_routing_fee_query, pair_fees_query,
 };
 use anyhow::Result;
 use futures_util::try_join;

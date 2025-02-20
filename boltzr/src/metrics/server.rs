@@ -1,8 +1,8 @@
-use axum::routing::get;
 use axum::Router;
-use axum_prometheus::metrics_exporter_prometheus::PrometheusHandle;
+use axum::routing::get;
 use axum_prometheus::GenericMetricLayer;
-use metrics::{describe_counter, describe_gauge, Unit};
+use axum_prometheus::metrics_exporter_prometheus::PrometheusHandle;
+use metrics::{Unit, describe_counter, describe_gauge};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use tokio_util::sync::CancellationToken;

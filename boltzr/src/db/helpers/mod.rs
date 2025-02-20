@@ -1,6 +1,6 @@
+use diesel::BoxableExpression;
 use diesel::pg::Pg;
 use diesel::sql_types::Bool;
-use diesel::BoxableExpression;
 
 pub mod chain_swap;
 pub mod referral;

@@ -134,7 +134,7 @@ pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {
 
 #[cfg(test)]
 mod test_config {
-    use crate::config::{parse_config, Config};
+    use crate::config::{Config, parse_config};
     use std::fs;
     use std::path::Path;
 
@@ -165,11 +165,13 @@ irrelevant = "values"
         )
         .unwrap();
 
-        assert!(parse_config(config_file_path.to_str().unwrap())
-            .err()
-            .unwrap()
-            .to_string()
-            .starts_with("TOML parse error"),);
+        assert!(
+            parse_config(config_file_path.to_str().unwrap())
+                .err()
+                .unwrap()
+                .to_string()
+                .starts_with("TOML parse error"),
+        );
 
         fs::remove_dir_all(path).unwrap();
     }

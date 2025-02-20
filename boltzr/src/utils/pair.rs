@@ -24,7 +24,7 @@ pub fn split_pair(pair: &str) -> anyhow::Result<Pair> {
 
 #[cfg(test)]
 mod test {
-    use crate::utils::pair::{split_pair, Pair};
+    use crate::utils::pair::{Pair, split_pair};
     use rstest::*;
 
     #[rstest]

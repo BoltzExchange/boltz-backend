@@ -1,9 +1,9 @@
-use crate::api::ws::status::SwapInfos;
 use crate::api::ServerState;
+use crate::api::ws::status::SwapInfos;
 use crate::swap::manager::SwapManager;
 use async_stream::try_stream;
 use axum::response::sse::{Event, Sse};
-use axum::{extract::Query, Extension};
+use axum::{Extension, extract::Query};
 use futures_util::stream::Stream;
 use serde::Deserialize;
 use std::convert::Infallible;

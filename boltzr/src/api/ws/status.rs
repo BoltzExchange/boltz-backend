@@ -11,8 +11,8 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::api::ws::types::SwapStatus;
 use crate::api::ws::Config;
+use crate::api::ws::types::SwapStatus;
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -208,7 +208,7 @@ where
                             Message::Text(msg) => {
                                 last_activity = Instant::now();
 
-                                let res = match self.handle_message(&mut subscribed_ids, msg).await {
+                                let res = match self.handle_message(&mut subscribed_ids, msg.as_ref()).await {
                                     Ok(res) => res.map(|res| serde_json::to_string(&res)),
                                     Err(res) => Some(serde_json::to_string(&res)),
                                 };
@@ -216,7 +216,7 @@ where
                                 if let Some(res) = res {
                                     match res {
                                         Ok(res) => {
-                                            if let Err(err) = ws_sender.send(Message::Text(res)).await {
+                                            if let Err(err) = ws_sender.send(Message::text(res)).await {
                                                 trace!("Could not send message: {}", err);
                                             }
                                         },
@@ -276,7 +276,7 @@ where
                                     break;
                                 },
                             };
-                            if let Err(err) = ws_sender.send(Message::Text(msg)).await {
+                            if let Err(err) = ws_sender.send(Message::text(msg)).await {
                                 trace!("Could not send swap update: {}", err);
                                 break;
                             }
@@ -289,7 +289,7 @@ where
                 },
                 _ = ping_interval.tick() => {
                     trace!("Pinging WebSocket");
-                    if let Err(err) = ws_sender.send(Message::Ping(Vec::new())).await {
+                    if let Err(err) = ws_sender.send(Message::Ping(bytes::Bytes::new())).await {
                         trace!("Could not send ping: {}", err);
                         break;
                     }
@@ -311,9 +311,9 @@ where
     async fn handle_message(
         &self,
         subscribed_ids: &mut HashSet<String>,
-        msg: String,
+        msg: &[u8],
     ) -> Result<Option<WsResponse>, ErrorResponse> {
-        let msg = match serde_json::from_str::<WsRequest>(msg.as_str()) {
+        let msg = match serde_json::from_slice::<WsRequest>(msg) {
             Ok(msg) => msg,
             Err(err) => {
                 debug!("Could not parse message: {}", err);
@@ -378,11 +378,11 @@ where
 
 #[cfg(test)]
 mod status_test {
+    use crate::api::ws::Config;
     use crate::api::ws::status::{
         ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
     use crate::api::ws::types::SwapStatus;
-    use crate::api::ws::Config;
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
     use futures::{SinkExt, StreamExt};
@@ -449,7 +449,7 @@ mod status_test {
         let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
-            tx.send(Message::Ping(vec![])).await.unwrap();
+            tx.send(Message::Ping(bytes::Bytes::new())).await.unwrap();
         });
 
         loop {
@@ -475,9 +475,7 @@ mod status_test {
         let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
-            tx.send(Message::Text("not json".to_string()))
-                .await
-                .unwrap();
+            tx.send(Message::text("not json")).await.unwrap();
         });
 
         loop {
@@ -511,7 +509,7 @@ mod status_test {
         let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
-            tx.send(Message::Text(
+            tx.send(Message::text(
                 json!({
                     "op": "subscribe",
                     "channel": "swap.update",
@@ -593,7 +591,7 @@ mod status_test {
         let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
-            tx.send(Message::Text(
+            tx.send(Message::text(
                 json!({
                     "op": "subscribe",
                     "channel": "swap.update",
@@ -665,7 +663,7 @@ mod status_test {
         let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
-            tx.send(Message::Text(
+            tx.send(Message::text(
                 json!({
                     "op": "subscribe",
                     "channel": "swap.update",
@@ -685,7 +683,7 @@ mod status_test {
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
 
-            tx.send(Message::Text(
+            tx.send(Message::text(
                 json!({
                     "op": "unsubscribe",
                     "channel": "swap.update",

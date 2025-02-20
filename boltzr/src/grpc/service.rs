@@ -7,14 +7,14 @@ use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
-    bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response, Bolt11Invoice, Bolt12Invoice,
-    Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
-    DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest, GetInfoResponse, GetMessagesRequest,
-    GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel, ScanMempoolRequest,
-    ScanMempoolResponse, SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest,
-    SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest,
-    SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
-    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
+    Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
+    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
+    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
+    LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
+    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
+    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
+    SwapUpdateResponse, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -35,9 +35,9 @@ use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
-use tokio::sync::{mpsc, Mutex};
-use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
+use tokio::sync::{Mutex, mpsc};
 use tonic::codegen::tokio_stream::Stream;
+use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tonic::{Code, Request, Response, Status, Streaming};
 use tracing::{debug, error, instrument, trace};
 
@@ -528,7 +528,7 @@ where
                             created_at: match invoice.timestamp().duration_since(UNIX_EPOCH) {
                                 Ok(delta) => delta.as_secs(),
                                 Err(err) => {
-                                    return Err(Status::new(Code::Internal, err.to_string()))
+                                    return Err(Status::new(Code::Internal, err.to_string()));
                                 }
                             },
                             description: Some(match invoice.description() {
@@ -591,7 +591,7 @@ where
                                         return Err(Status::new(
                                             Code::InvalidArgument,
                                             "non Bitcoin currencies are not supported",
-                                        ))
+                                        ));
                                     }
                                 },
                                 None => None,
@@ -707,10 +707,11 @@ fn extract_parent_context<T>(request: &Request<T>) {
 mod test {
     use crate::api::ws;
     use crate::cache::Redis;
-    use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::helpers::QueryResponse;
+    use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::RefundSigner;
+    use crate::grpc::service::BoltzService;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
     use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
     use crate::grpc::service::boltzr::{
@@ -718,7 +719,6 @@ mod test {
         SendWebHookRequest, SendWebHookResponse, SignEvmRefundRequest, StartWebHookRetriesRequest,
         StartWebHookRetriesResponse,
     };
-    use crate::grpc::service::BoltzService;
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
     use crate::service::Service;
@@ -787,13 +787,14 @@ mod test {
     #[tokio::test]
     async fn test_web_hook_retries() {
         let (cancel_token, svc) = make_service();
-        assert!(svc
-            .web_hook_retry_handle
-            .clone()
-            .lock()
-            .await
-            .get_mut()
-            .is_none());
+        assert!(
+            svc.web_hook_retry_handle
+                .clone()
+                .lock()
+                .await
+                .get_mut()
+                .is_none()
+        );
         assert_eq!(
             svc.start_web_hook_retries(Request::new(StartWebHookRetriesRequest {}))
                 .await
@@ -802,13 +803,14 @@ mod test {
             StartWebHookRetriesResponse {}
         );
 
-        assert!(svc
-            .web_hook_retry_handle
-            .clone()
-            .lock()
-            .await
-            .get_mut()
-            .is_some());
+        assert!(
+            svc.web_hook_retry_handle
+                .clone()
+                .lock()
+                .await
+                .get_mut()
+                .is_some()
+        );
         cancel_token.cancel();
         svc.web_hook_retry_handle
             .clone()

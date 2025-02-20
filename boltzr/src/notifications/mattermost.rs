@@ -1,5 +1,5 @@
 use crate::notifications::commands::CommandHandler;
-use crate::notifications::utils::{contains_code_block, format_prefix, split_message, CODE_BLOCK};
+use crate::notifications::utils::{CODE_BLOCK, contains_code_block, format_prefix, split_message};
 use crate::notifications::{Config, NotificationClient};
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -159,7 +159,7 @@ where
                 return Err(anyhow!(
                     "{}",
                     MattermostError::ChannelNotFound(config.channel)
-                ))
+                ));
             }
         }
         .id
@@ -237,7 +237,7 @@ where
                             _ => continue,
                         };
 
-                        if let Err(err) = self.handle_websocket_message(msg).await {
+                        if let Err(err) = self.handle_websocket_message(msg.as_ref()).await {
                             error!("Handling message failed: {}", err);
                         };
                     }
@@ -253,8 +253,8 @@ where
         }
     }
 
-    async fn handle_websocket_message(&self, msg: String) -> anyhow::Result<()> {
-        let msg = match serde_json::from_str::<WebSocketEvent>(&msg) {
+    async fn handle_websocket_message(&self, msg: &[u8]) -> anyhow::Result<()> {
+        let msg = match serde_json::from_slice::<WebSocketEvent>(msg) {
             Ok(res) => res,
             // We just ignore messages we cannot parse
             Err(_) => return Ok(()),

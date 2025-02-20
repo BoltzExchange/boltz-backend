@@ -3,10 +3,10 @@ use crate::utils::built_info;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::Path;
-use tracing::{debug, error, info, warn, Subscriber};
+use tracing::{Subscriber, debug, error, info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::reload::Handle;
-use tracing_subscriber::{fmt, reload, EnvFilter, Layer, Registry};
+use tracing_subscriber::{EnvFilter, Layer, Registry, fmt, reload};
 
 #[cfg(feature = "otel")]
 use opentelemetry::trace::TracerProvider;

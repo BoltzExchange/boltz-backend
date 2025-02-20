@@ -1,18 +1,18 @@
 use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+use alloy::providers::RootProvider;
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::network::{AnyNetwork, EthereumWallet};
-use alloy::providers::RootProvider;
-use alloy::signers::local::PrivateKeySigner;
 use alloy::signers::Signer;
+use alloy::signers::local::PrivateKeySigner;
 use alloy::sol_types::SolStruct;
 use anyhow::anyhow;
 use tracing::info;
 
 use crate::evm::contracts::erc20_swap::ERC20SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwapContract;
-use crate::evm::contracts::{erc20_swap, ether_swap, SwapContract};
+use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 
 const MIN_VERSION: u8 = 3;
 const MAX_VERSION: u8 = 4;
@@ -119,11 +119,11 @@ impl LocalRefundSigner {
 
 #[cfg(test)]
 pub mod test {
+    use crate::evm::ContractAddresses;
+    use crate::evm::contracts::SwapContract;
     use crate::evm::contracts::erc20_swap::ERC20Swap;
     use crate::evm::contracts::ether_swap::EtherSwap;
-    use crate::evm::contracts::SwapContract;
     use crate::evm::refund_signer::{AlloyProvider, LocalRefundSigner};
-    use crate::evm::ContractAddresses;
     use alloy::primitives::{Address, FixedBytes, U256};
     use alloy::providers::network::{AnyNetwork, EthereumWallet, ReceiptResponse};
     use alloy::providers::{Provider, ProviderBuilder};

@@ -1,5 +1,5 @@
 use crate::notifications::commands::CommandHandler;
-use crate::notifications::utils::{contains_code_block, format_prefix, split_message, CODE_BLOCK};
+use crate::notifications::utils::{CODE_BLOCK, contains_code_block, format_prefix, split_message};
 use crate::notifications::{Config, NotificationClient};
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -159,7 +159,7 @@ where
                 return Err(anyhow!(
                     "{}",
                     MattermostError::ChannelNotFound(config.channel)
-                ))
+                ));
             }
         }
         .id

@@ -1,6 +1,6 @@
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{NetworkInfo, RawMempool, RpcParam};
-use crate::chain::utils::{parse_transaction, Outpoint, Transaction};
+use crate::chain::utils::{Outpoint, Transaction, parse_transaction};
 use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -164,9 +164,7 @@ impl Client for ChainClient {
             if i % 1_000 == 0 {
                 trace!(
                     "Scanned {}/{} transactions of {} chain mempool",
-                    i,
-                    mempool_size,
-                    self.client.symbol
+                    i, mempool_size, self.client.symbol
                 );
             }
         }
@@ -196,7 +194,7 @@ impl Client for ChainClient {
 pub mod test {
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
-    use crate::chain::utils::{parse_transaction, Transaction};
+    use crate::chain::utils::{Transaction, parse_transaction};
     use crate::chain::{BaseClient, Client, Config};
     use serial_test::serial;
     use std::collections::HashSet;

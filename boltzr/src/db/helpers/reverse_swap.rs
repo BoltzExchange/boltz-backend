@@ -1,7 +1,7 @@
+use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::ReverseSwap;
 use crate::db::schema::reverseSwaps;
-use crate::db::Pool;
 use diesel::{QueryDsl, RunQueryDsl, SelectableHelper};
 
 pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;

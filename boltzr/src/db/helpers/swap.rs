@@ -1,10 +1,10 @@
+use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::Swap;
 use crate::db::schema::swaps;
-use crate::db::Pool;
 use crate::swap::SwapUpdate;
 use diesel::prelude::*;
-use diesel::{update, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{QueryDsl, RunQueryDsl, SelectableHelper, update};
 
 pub type SwapCondition = BoxedCondition<swaps::table>;
 

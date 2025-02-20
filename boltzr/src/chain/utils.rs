@@ -82,7 +82,7 @@ pub fn parse_transaction(
 #[cfg(test)]
 mod test {
     use crate::chain::types::Type;
-    use crate::chain::utils::{parse_transaction, Outpoint, Transaction};
+    use crate::chain::utils::{Outpoint, Transaction, parse_transaction};
     use alloy::hex;
 
     #[test]

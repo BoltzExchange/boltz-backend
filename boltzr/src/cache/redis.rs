@@ -1,10 +1,10 @@
 use crate::cache::{Cache, CacheConfig};
 use anyhow::Result;
 use async_trait::async_trait;
-use redis::aio::MultiplexedConnection;
 use redis::Client;
-use serde::de::DeserializeOwned;
+use redis::aio::MultiplexedConnection;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tracing::info;
 
 #[derive(Debug, Clone)]

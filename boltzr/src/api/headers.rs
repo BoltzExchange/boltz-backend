@@ -37,12 +37,12 @@ impl Header for Referral {
 #[cfg(test)]
 mod test {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
     use axum::routing::get;
-    use axum::Router;
     use axum_extra::TypedHeader;
     use http_body_util::BodyExt;
     use rstest::rstest;

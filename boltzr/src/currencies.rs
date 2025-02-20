@@ -1,6 +1,6 @@
+use crate::chain::BaseClient;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
-use crate::chain::BaseClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;

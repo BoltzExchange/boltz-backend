@@ -1,8 +1,8 @@
 use crate::cache::Cache;
 use crate::chain::BaseClient;
 use crate::currencies::Currencies;
-use crate::lightning::cln::cln_rpc::ListchannelsChannels;
 use crate::lightning::cln::Cln;
+use crate::lightning::cln::cln_rpc::ListchannelsChannels;
 use alloy::hex;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

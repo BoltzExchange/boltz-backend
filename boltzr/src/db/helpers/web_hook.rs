@@ -1,7 +1,7 @@
+use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::{WebHook, WebHookState};
 use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
-use crate::db::Pool;
 use diesel::prelude::*;
 use diesel::{insert_into, update};
 use tracing::{instrument, trace};
@@ -105,7 +105,7 @@ impl WebHookHelper for WebHookHelperDatabase {
 mod test {
     use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
     use crate::db::models::{WebHook, WebHookState};
-    use crate::db::{connect, Config, Pool};
+    use crate::db::{Config, Pool, connect};
     use rand::distr::{Alphanumeric, SampleString};
     use std::sync::{Mutex, OnceLock};
 

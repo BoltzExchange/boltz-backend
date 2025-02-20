@@ -1,9 +1,9 @@
-use crate::chain::types::{RpcParam, RpcRequest, RpcResponse};
 use crate::chain::Config;
+use crate::chain::types::{RpcParam, RpcRequest, RpcResponse};
 use anyhow::anyhow;
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use base64::prelude::BASE64_STANDARD;
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
 use serde_json::json;
 use std::fs;

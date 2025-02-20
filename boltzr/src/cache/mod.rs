@@ -31,8 +31,8 @@ pub trait Cache {
 pub mod test {
     use async_trait::async_trait;
     use dashmap::DashMap;
-    use serde::de::DeserializeOwned;
     use serde::Serialize;
+    use serde::de::DeserializeOwned;
     use std::sync::Arc;
 
     #[derive(Clone, Debug)]

@@ -1,5 +1,5 @@
-use alloy::primitives::utils::parse_units;
 use alloy::primitives::U256;
+use alloy::primitives::utils::parse_units;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -29,7 +29,7 @@ pub fn parse_wei(amount: &str) -> Result<U256, Box<dyn Error>> {
 
 #[cfg(test)]
 mod test {
-    use crate::evm::utils::{parse_wei, ParseError};
+    use crate::evm::utils::{ParseError, parse_wei};
     use alloy::primitives::U256;
 
     #[test]

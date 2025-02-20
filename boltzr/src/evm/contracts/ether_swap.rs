@@ -1,5 +1,5 @@
-use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
 use crate::evm::contracts::SwapContract;
+use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::sol;
@@ -87,8 +87,8 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> Sw
 
 #[cfg(test)]
 mod test {
-    use crate::evm::contracts::ether_swap::EtherSwapContract;
     use crate::evm::contracts::SwapContract;
+    use crate::evm::contracts::ether_swap::EtherSwapContract;
     use crate::evm::refund_signer::test::ETHER_SWAP_ADDRESS;
     use alloy::primitives::Address;
 

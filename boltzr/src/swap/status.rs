@@ -50,7 +50,7 @@ pub fn serialize_swap_updates(
 
 #[cfg(test)]
 mod test {
-    use crate::swap::{serialize_swap_updates, SwapUpdate};
+    use crate::swap::{SwapUpdate, serialize_swap_updates};
     use rstest::*;
 
     #[rstest]

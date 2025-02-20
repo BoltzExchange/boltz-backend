@@ -1,7 +1,7 @@
 use crate::config::GlobalConfig;
-use pyroscope::pyroscope::PyroscopeAgentRunning;
 use pyroscope::PyroscopeAgent;
-use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use pyroscope::pyroscope::PyroscopeAgentRunning;
+use pyroscope_pprofrs::{PprofConfig, pprof_backend};
 use tracing::{error, info, warn};
 
 pub fn start(config: &GlobalConfig) -> Option<PyroscopeAgent<PyroscopeAgentRunning>> {

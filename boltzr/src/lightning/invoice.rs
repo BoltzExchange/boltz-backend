@@ -127,7 +127,7 @@ fn decode_bolt11(invoice: &str) -> Result<Invoice, InvoiceError> {
 #[cfg(test)]
 mod test {
     use crate::lightning::invoice::{
-        decode, decode_bolt11, decode_bolt12_invoice, decode_bolt12_offer, Invoice, InvoiceError,
+        Invoice, InvoiceError, decode, decode_bolt11, decode_bolt12_invoice, decode_bolt12_offer,
     };
     use crate::wallet;
     use bech32::FromBase32;

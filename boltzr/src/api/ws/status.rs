@@ -11,8 +11,8 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::api::ws::types::SwapStatus;
 use crate::api::ws::Config;
+use crate::api::ws::types::SwapStatus;
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -378,11 +378,11 @@ where
 
 #[cfg(test)]
 mod status_test {
+    use crate::api::ws::Config;
     use crate::api::ws::status::{
         ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
     use crate::api::ws::types::SwapStatus;
-    use crate::api::ws::Config;
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
     use futures::{SinkExt, StreamExt};

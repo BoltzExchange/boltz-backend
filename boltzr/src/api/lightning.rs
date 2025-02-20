@@ -1,7 +1,7 @@
+use crate::api::ServerState;
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
-use crate::api::ServerState;
 use crate::service::InfoFetchError;
 use crate::swap::manager::SwapManager;
 use alloy::hex;
@@ -157,17 +157,17 @@ fn handle_info_fetch_error(err: InfoFetchError) -> axum::http::Response<axum::bo
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::api::Server;
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
-    use crate::api::Server;
     use crate::currencies::Currency;
     use crate::lightning::invoice::Invoice;
     use crate::service::Service;
     use crate::swap::manager::test::MockManager;
     use crate::wallet::Network;
+    use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
-    use axum::Router;
     use http_body_util::BodyExt;
     use rstest::*;
     use tower::ServiceExt;

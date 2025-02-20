@@ -1,7 +1,7 @@
+use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo};
 use crate::db::schema::chainSwaps;
-use crate::db::Pool;
 use diesel::{BelongingToDsl, GroupedBy, QueryDsl, RunQueryDsl, SelectableHelper};
 
 pub type ChainSwapCondition = BoxedCondition<chainSwaps::dsl::chainSwaps>;

@@ -43,7 +43,6 @@ impl Manager {
 
         let provider = ProviderBuilder::new()
             .network::<AnyNetwork>()
-            .with_recommended_fillers()
             .wallet(EthereumWallet::from(signer.clone()))
             .on_http(config.provider_endpoint.parse()?);
 

@@ -24,19 +24,16 @@ sol!(
 
 pub const NAME: &str = "EtherSwap";
 
-pub struct EtherSwapContract<T, P, N> {
+pub struct EtherSwapContract<P, N> {
     #[allow(dead_code)]
-    contract: EtherSwapInstance<T, P, N>,
+    contract: EtherSwapInstance<(), P, N>,
 
     version: u8,
     eip712domain: Eip712Domain,
 }
 
-impl<
-        T: alloy::transports::Transport + Sync + Send + Clone,
-        P: Provider<T, N> + Clone + 'static,
-        N: alloy::providers::network::Network,
-    > EtherSwapContract<T, P, N>
+impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
+    EtherSwapContract<P, N>
 {
     pub async fn new(address: Address, provider: P) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
@@ -72,11 +69,8 @@ impl<
     }
 }
 
-impl<
-        T: alloy::transports::Transport + Sync + Send + Clone,
-        P: Provider<T, N> + Clone + 'static,
-        N: alloy::providers::network::Network,
-    > SwapContract for EtherSwapContract<T, P, N>
+impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> SwapContract
+    for EtherSwapContract<P, N>
 {
     fn address(&self) -> &Address {
         self.contract.address()

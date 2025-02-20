@@ -4,6 +4,7 @@ import Bouncer from '../../../../../lib/api/Bouncer';
 import ReferralRouter from '../../../../../lib/api/v2/routers/ReferralRouter';
 import ReferralStats from '../../../../../lib/data/ReferralStats';
 import Stats from '../../../../../lib/data/Stats';
+import ExtraFeeRepository from '../../../../../lib/db/repositories/ExtraFeeRepository';
 import { mockRequest, mockResponse } from '../../Utils';
 
 const mockedRouter = {
@@ -58,10 +59,14 @@ describe('ReferralRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(3);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(4);
     expect(mockedRouter.get).toHaveBeenCalledWith('/', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith('/fees', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith('/stats', expect.anything());
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/stats/extra',
+      expect.anything(),
+    );
   });
 
   test('should get name of referral id', async () => {
@@ -106,6 +111,27 @@ describe('ReferralRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(await Stats.generate(0, 0, ''));
+  });
+
+  test('should get extra fees of referral id', async () => {
+    ExtraFeeRepository.getStats = jest.fn().mockResolvedValue({
+      some: 'data',
+    });
+
+    mockValidateAuthResult = { id: 'partner', other: 'data' };
+
+    const res = mockResponse();
+    await referralRouter['getExtraFees'](mockRequest(), res);
+
+    expect(ExtraFeeRepository.getStats).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.getStats).toHaveBeenCalledWith(
+      mockValidateAuthResult.id,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      await ExtraFeeRepository.getStats(''),
+    );
   });
 
   test.each`

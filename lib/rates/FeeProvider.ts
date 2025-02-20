@@ -8,6 +8,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ApiErrors from '../api/Errors';
 import ElementsClient from '../chain/ElementsClient';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import {
@@ -21,6 +22,7 @@ import {
 } from '../consts/Enums';
 import { PairConfig } from '../consts/Types';
 import Referral from '../db/models/Referral';
+import { ExtraFees } from '../service/Service';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager from '../wallet/WalletManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
@@ -159,6 +161,18 @@ class FeeProvider {
     );
   };
 
+  public static calculateExtraFee = (
+    percentage: number,
+    amount: number,
+    rate: number,
+  ): number => {
+    if (percentage < 0) {
+      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(percentage);
+    }
+
+    return Math.ceil((percentage / 100) * amount * rate);
+  };
+
   public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
       const pairId = getPairId(pair);
@@ -245,9 +259,11 @@ class FeeProvider {
     type: SwapType,
     feeType: BaseFeeType,
     referral: Referral | null,
+    extraFees: ExtraFees | undefined,
   ): {
     baseFee: number;
     percentageFee: number;
+    extraFee?: number;
   } => {
     let percentageFee = this.getPercentageFee(
       pair,
@@ -269,7 +285,18 @@ class FeeProvider {
       type === SwapType.ReverseSubmarine,
     );
 
+    let extraFee: number | undefined = undefined;
+
+    if (extraFees !== undefined) {
+      extraFee = FeeProvider.calculateExtraFee(
+        extraFees.percentage,
+        amount,
+        rate,
+      );
+    }
+
     return {
+      extraFee,
       percentageFee: Math.ceil(percentageFee),
       baseFee: this.getBaseFee(chainCurrency, swapVersion, feeType),
     };

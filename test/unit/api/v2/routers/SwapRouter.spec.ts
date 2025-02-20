@@ -413,6 +413,7 @@ describe('SwapRouter', () => {
       undefined,
       SwapVersion.Taproot,
       undefined,
+      undefined,
     );
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
@@ -447,6 +448,37 @@ describe('SwapRouter', () => {
       undefined,
       SwapVersion.Taproot,
       reqBody.webhook,
+      undefined,
+    );
+  });
+
+  test('should create submarine swaps with extraFees', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      refundPublicKey: '0021',
+      extraFees: {
+        id: 'feeId',
+        percentage: 5,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
+    expect(service.createSwapWithInvoice).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      getHexBuffer(reqBody.refundPublicKey),
+      reqBody.invoice.toLowerCase(),
+      undefined,
+      undefined,
+      undefined,
+      SwapVersion.Taproot,
+      undefined,
+      reqBody.extraFees,
     );
   });
 
@@ -533,6 +565,7 @@ describe('SwapRouter', () => {
       undefined,
       SwapVersion.Taproot,
       undefined,
+      undefined,
     );
   });
 
@@ -558,6 +591,7 @@ describe('SwapRouter', () => {
       reqBody.referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
       undefined,
     );
   });
@@ -589,6 +623,7 @@ describe('SwapRouter', () => {
       referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
       undefined,
     );
   });
@@ -1091,6 +1126,33 @@ describe('SwapRouter', () => {
       orderSide: OrderSide.BUY,
       webHook: reqBody.webhook,
       version: SwapVersion.Taproot,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+    });
+  });
+
+  test('should create reverse swaps with extraFees', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+      extraFees: {
+        id: 'feeId',
+        percentage: 5,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createReverse'](mockRequest(reqBody), res);
+
+    expect(service.createReverseSwap).toHaveBeenCalledTimes(1);
+    expect(service.createReverseSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      prepayMinerFee: false,
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      extraFees: reqBody.extraFees,
       preimageHash: getHexBuffer(reqBody.preimageHash),
       claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
     });
@@ -1658,6 +1720,43 @@ describe('SwapRouter', () => {
     });
   });
 
+  test('should create chain swaps with extraFees', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      pairHash: 'pHash',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      referralId: 'partner',
+      claimAddress: '0x123',
+      serverLockAmount: 321,
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+      extraFees: {
+        id: 'feeId',
+        percentage: 5,
+      },
+    };
+    const res = mockResponse();
+
+    await swapRouter['createChain'](mockRequest(reqBody), res);
+
+    expect(service.createChainSwap).toHaveBeenCalledTimes(1);
+    expect(service.createChainSwap).toHaveBeenCalledWith({
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      extraFees: reqBody.extraFees,
+      pairHash: reqBody.pairHash,
+      referralId: reqBody.referralId,
+      claimAddress: reqBody.claimAddress,
+      userLockAmount: reqBody.userLockAmount,
+      serverLockAmount: reqBody.serverLockAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+  });
+
   test('should 404 when getting transactions of chain swap that does not exist', async () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
@@ -1990,6 +2089,51 @@ describe('SwapRouter', () => {
         expect(swapRouter['parseWebHook'](data)).toEqual(data);
       });
     });
+  });
+
+  describe('parseExtraFees', () => {
+    test('should parse extra fees', () => {
+      const data = {
+        id: 'id',
+        percentage: 10,
+      };
+
+      expect(swapRouter['parseExtraFees'](data)).toEqual(data);
+    });
+
+    test('should omit extra data', () => {
+      const data = {
+        id: 'id',
+        percentage: 10,
+        some: 'extra',
+      };
+
+      expect(swapRouter['parseExtraFees'](data)).toEqual({
+        id: data.id,
+        percentage: data.percentage,
+      });
+    });
+
+    test('should return undefined when input data is undefined', () => {
+      expect(swapRouter['parseExtraFees'](undefined)).toBeUndefined();
+    });
+
+    test.each`
+      percentage | error
+      ${0}       | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(0)}
+      ${-1}      | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(-1)}
+      ${11}      | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(11)}
+    `(
+      'should throw when percentage is $percentage',
+      ({ percentage, error }) => {
+        expect(() =>
+          swapRouter['parseExtraFees']({
+            id: 'id',
+            percentage,
+          }),
+        ).toThrow(error);
+      },
+    );
   });
 
   describe('getReferralFromHeader', () => {

@@ -7,7 +7,7 @@ import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
-import Service, { WebHookData } from '../../../service/Service';
+import Service, { ExtraFees, WebHookData } from '../../../service/Service';
 import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
 import MusigSigner, {
   PartialSignature,
@@ -1669,19 +1669,21 @@ class SwapRouter extends RouterBase {
   };
 
   private createSubmarine = async (req: Request, res: Response) => {
-    const { to, from, invoice, webhook, pairHash, refundPublicKey } =
+    const { to, from, invoice, webhook, pairHash, refundPublicKey, extraFees } =
       validateRequest(req.body, [
         { name: 'to', type: 'string' },
         { name: 'from', type: 'string' },
         { name: 'webhook', type: 'object', optional: true },
         { name: 'invoice', type: 'string', optional: true },
         { name: 'pairHash', type: 'string', optional: true },
+        { name: 'extraFees', type: 'object', optional: true },
         { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       ]);
     const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
+    const extraFeesData = this.parseExtraFees(extraFees);
 
     let response: { id: string };
 
@@ -1696,6 +1698,7 @@ class SwapRouter extends RouterBase {
         undefined,
         SwapVersion.Taproot,
         webHookData,
+        extraFeesData,
       );
     } else {
       const { preimageHash } = validateRequest(req.body, [
@@ -1726,15 +1729,19 @@ class SwapRouter extends RouterBase {
     const { id } = validateRequest(req.params, [
       { name: 'id', type: 'string' },
     ]);
-    const { invoice, pairHash } = validateRequest(req.body, [
+    const { invoice, extraFees, pairHash } = validateRequest(req.body, [
       { name: 'invoice', type: 'string' },
       { name: 'pairHash', type: 'string', optional: true },
+      { name: 'extraFees', type: 'object', optional: true },
     ]);
+
+    const extraFeesData = this.parseExtraFees(extraFees);
 
     const response = await this.service.setInvoice(
       id,
       invoice.toLowerCase(),
       pairHash,
+      extraFeesData,
     );
     successResponse(res, response);
   };
@@ -1841,6 +1848,7 @@ class SwapRouter extends RouterBase {
       webhook,
       address,
       pairHash,
+      extraFees,
       description,
       routingNode,
       preimageHash,
@@ -1859,6 +1867,7 @@ class SwapRouter extends RouterBase {
       { name: 'address', type: 'string', optional: true },
       { name: 'webhook', type: 'object', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
+      { name: 'extraFees', type: 'object', optional: true },
       { name: 'description', type: 'string', optional: true },
       { name: 'routingNode', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
@@ -1876,6 +1885,7 @@ class SwapRouter extends RouterBase {
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
+    const extraFeesData = this.parseExtraFees(extraFees);
 
     const response = await this.service.createReverseSwap({
       pairId,
@@ -1895,6 +1905,7 @@ class SwapRouter extends RouterBase {
       userAddress: address,
       webHook: webHookData,
       prepayMinerFee: false,
+      extraFees: extraFeesData,
       version: SwapVersion.Taproot,
       userAddressSignature: addressSignature,
     });
@@ -2006,6 +2017,7 @@ class SwapRouter extends RouterBase {
       from,
       webhook,
       pairHash,
+      extraFees,
       referralId,
       preimageHash,
       claimAddress,
@@ -2019,6 +2031,7 @@ class SwapRouter extends RouterBase {
       { name: 'webhook', type: 'object', optional: true },
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
+      { name: 'extraFees', type: 'object', optional: true },
       { name: 'referralId', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'userLockAmount', type: 'number', optional: true },
@@ -2029,6 +2042,7 @@ class SwapRouter extends RouterBase {
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);
+    const extraFeesData = this.parseExtraFees(extraFees);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const response = await this.service.createChainSwap({
@@ -2043,6 +2057,7 @@ class SwapRouter extends RouterBase {
       refundPublicKey,
       serverLockAmount,
       webHook: webHookData,
+      extraFees: extraFeesData,
     });
 
     await markSwap(this.service.sidecar, req.ip, response.id);
@@ -2277,6 +2292,28 @@ class SwapRouter extends RouterBase {
     }
 
     return res;
+  };
+
+  private parseExtraFees = (
+    data: Record<string, any> | undefined,
+  ): ExtraFees | undefined => {
+    if (data === undefined) {
+      return undefined;
+    }
+
+    const res = validateRequest(data, [
+      { name: 'id', type: 'string' },
+      { name: 'percentage', type: 'number' },
+    ]);
+
+    if (res.percentage <= 0 || res.percentage > 10) {
+      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(res.percentage);
+    }
+
+    return {
+      id: res.id,
+      percentage: res.percentage,
+    };
   };
 
   private getReferralFromHeader = async (req: Request) => {

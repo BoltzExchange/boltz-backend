@@ -237,7 +237,7 @@ where
                             _ => continue,
                         };
 
-                        if let Err(err) = self.handle_websocket_message(msg).await {
+                        if let Err(err) = self.handle_websocket_message(msg.as_ref()).await {
                             error!("Handling message failed: {}", err);
                         };
                     }
@@ -253,8 +253,8 @@ where
         }
     }
 
-    async fn handle_websocket_message(&self, msg: String) -> anyhow::Result<()> {
-        let msg = match serde_json::from_str::<WebSocketEvent>(&msg) {
+    async fn handle_websocket_message(&self, msg: &[u8]) -> anyhow::Result<()> {
+        let msg = match serde_json::from_slice::<WebSocketEvent>(msg) {
             Ok(res) => res,
             // We just ignore messages we cannot parse
             Err(_) => return Ok(()),

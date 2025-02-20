@@ -3,6 +3,7 @@ import Logger from '../../../Logger';
 import ReferralStats from '../../../data/ReferralStats';
 import Stats from '../../../data/Stats';
 import Referral from '../../../db/models/Referral';
+import ExtraFeeRepository from '../../../db/repositories/ExtraFeeRepository';
 import Bouncer from '../../Bouncer';
 import { errorResponse, successResponse } from '../../Utils';
 import RouterBase from './RouterBase';
@@ -203,6 +204,8 @@ class ReferralRouter extends RouterBase {
      */
     router.get('/stats', this.handleError(this.getStats));
 
+    router.get('/stats/extra', this.handleError(this.getExtraFees));
+
     return router;
   };
 
@@ -231,6 +234,15 @@ class ReferralRouter extends RouterBase {
     }
 
     successResponse(res, await Stats.generate(0, 0, referral.id));
+  };
+
+  private getExtraFees = async (req: Request, res: Response) => {
+    const referral = await this.checkAuthentication(req, res);
+    if (referral === undefined) {
+      return;
+    }
+
+    successResponse(res, await ExtraFeeRepository.getStats(referral.id));
   };
 
   private checkAuthentication = async (

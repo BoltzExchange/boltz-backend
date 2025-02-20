@@ -9,6 +9,7 @@ import {
 import Referral from '../../../lib/db/models/Referral';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
+import { ExtraFees } from '../../../lib/service/Service';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -74,6 +75,33 @@ describe('FeeProvider', () => {
     ${0.101} | ${10}        | ${0.2}
   `('should add premium', ({ fee, premium, expected }) => {
     expect(FeeProvider.addPremium(fee, premium)).toEqual(expected);
+  });
+
+  describe('calculateExtraFee', () => {
+    test.each`
+      percentage | amount | rate   | expected
+      ${0}       | ${1}   | ${1}   | ${0}
+      ${1}       | ${1}   | ${1}   | ${1}
+      ${1}       | ${100} | ${1}   | ${1}
+      ${2}       | ${100} | ${1}   | ${2}
+      ${2.5}     | ${100} | ${1}   | ${3}
+      ${2}       | ${100} | ${0.5} | ${1}
+      ${0.01}    | ${100} | ${5}   | ${1}
+      ${99.9}    | ${100} | ${5}   | ${500}
+    `(
+      'should calculate extra fee',
+      ({ percentage, amount, rate, expected }) => {
+        expect(FeeProvider.calculateExtraFee(percentage, amount, rate)).toEqual(
+          expected,
+        );
+      },
+    );
+
+    test('should throw on negative fee percentage', () => {
+      expect(() => {
+        FeeProvider.calculateExtraFee(-1, 100, 1);
+      }).toThrow('invalid extra fees percentage: -1');
+    });
   });
 
   test('should init', () => {
@@ -404,91 +432,142 @@ describe('FeeProvider', () => {
     expect(feeProvider.minerFees.get('L-BTC')).toMatchSnapshot();
   });
 
-  test('should get fees of a Swap', () => {
-    const amount = 100000000;
+  describe('getFees', () => {
+    test('should get fees of a Swap', () => {
+      const amount = 100000000;
 
-    expect(
-      feeProvider.getFees(
-        'LTC/BTC',
-        SwapVersion.Legacy,
-        2,
-        OrderSide.BUY,
-        amount,
-        SwapType.Submarine,
-        BaseFeeType.NormalClaim,
-        null,
-      ),
-    ).toEqual({
-      baseFee: 6120,
-      percentageFee: -2000000,
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Legacy,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.Submarine,
+          BaseFeeType.NormalClaim,
+          null,
+          undefined,
+        ),
+      ).toEqual({
+        baseFee: 6120,
+        percentageFee: -2000000,
+      });
+
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Taproot,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.Submarine,
+          BaseFeeType.NormalClaim,
+          null,
+          undefined,
+        ),
+      ).toEqual({
+        baseFee: 5436,
+        percentageFee: -2000000,
+      });
+
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Legacy,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.ReverseSubmarine,
+          BaseFeeType.ReverseLockup,
+          null,
+          undefined,
+        ),
+      ).toEqual({
+        baseFee: 459,
+        percentageFee: 4000000,
+      });
+
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Taproot,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.ReverseSubmarine,
+          BaseFeeType.ReverseLockup,
+          null,
+          undefined,
+        ),
+      ).toEqual({
+        baseFee: 462,
+        percentageFee: 4000000,
+      });
+
+      const referral = {
+        premium: jest.fn().mockReturnValue(20),
+      } as unknown as Referral;
+
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Taproot,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.ReverseSubmarine,
+          BaseFeeType.ReverseLockup,
+          referral,
+          undefined,
+        ),
+      ).toEqual({
+        baseFee: 462,
+        percentageFee: 4400000,
+      });
     });
 
-    expect(
-      feeProvider.getFees(
-        'LTC/BTC',
-        SwapVersion.Taproot,
-        2,
-        OrderSide.BUY,
-        amount,
-        SwapType.Submarine,
-        BaseFeeType.NormalClaim,
-        null,
-      ),
-    ).toEqual({
-      baseFee: 5436,
-      percentageFee: -2000000,
-    });
+    test('should get fees with extra fees', () => {
+      const amount = 100_000;
 
-    expect(
-      feeProvider.getFees(
-        'LTC/BTC',
-        SwapVersion.Legacy,
-        2,
-        OrderSide.BUY,
-        amount,
-        SwapType.ReverseSubmarine,
-        BaseFeeType.ReverseLockup,
-        null,
-      ),
-    ).toEqual({
-      baseFee: 459,
-      percentageFee: 4000000,
-    });
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Taproot,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.ReverseSubmarine,
+          BaseFeeType.ReverseLockup,
+          null,
+          {
+            percentage: 1,
+          } as ExtraFees,
+        ),
+      ).toEqual({
+        baseFee: 462,
+        extraFee: 2_000,
+        percentageFee: 4_000,
+      });
 
-    expect(
-      feeProvider.getFees(
-        'LTC/BTC',
-        SwapVersion.Taproot,
-        2,
-        OrderSide.BUY,
-        amount,
-        SwapType.ReverseSubmarine,
-        BaseFeeType.ReverseLockup,
-        null,
-      ),
-    ).toEqual({
-      baseFee: 462,
-      percentageFee: 4000000,
-    });
-
-    const referral = {
-      premium: jest.fn().mockReturnValue(20),
-    } as unknown as Referral;
-
-    expect(
-      feeProvider.getFees(
-        'LTC/BTC',
-        SwapVersion.Taproot,
-        2,
-        OrderSide.BUY,
-        amount,
-        SwapType.ReverseSubmarine,
-        BaseFeeType.ReverseLockup,
-        referral,
-      ),
-    ).toEqual({
-      baseFee: 462,
-      percentageFee: 4400000,
+      expect(
+        feeProvider.getFees(
+          'LTC/BTC',
+          SwapVersion.Taproot,
+          2,
+          OrderSide.BUY,
+          amount,
+          SwapType.ReverseSubmarine,
+          BaseFeeType.ReverseLockup,
+          null,
+          {
+            percentage: 0.01,
+          } as ExtraFees,
+        ),
+      ).toEqual({
+        baseFee: 462,
+        extraFee: 20,
+        percentageFee: 4_000,
+      });
     });
   });
 

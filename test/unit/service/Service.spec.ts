@@ -38,6 +38,7 @@ import { PairConfig } from '../../../lib/consts/Types';
 import Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
+import ExtraFeeRepository from '../../../lib/db/repositories/ExtraFeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
@@ -370,6 +371,7 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     getPercentageSwapInFee: mockGetPercentageSwapInFee,
   }));
 });
+FeeProvider.calculateExtraFee = jest.fn().mockReturnValue(1000);
 
 const MockedFeeProvider = <jest.Mock<FeeProvider>>(<any>FeeProvider);
 
@@ -789,6 +791,7 @@ describe('Service', () => {
     SwapRepository.getSwap = mockGetSwap;
     SwapRepository.addSwap = mockAddSwap;
 
+    ExtraFeeRepository.create = jest.fn();
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
 
     mockListChannelsResult = [
@@ -2051,6 +2054,7 @@ describe('Service', () => {
       SwapType.Submarine,
       BaseFeeType.NormalClaim,
       null,
+      undefined,
     );
 
     expect(mockAcceptZeroConf).toHaveBeenCalledTimes(1);
@@ -2108,6 +2112,61 @@ describe('Service', () => {
     await expect(service.setInvoice(mockGetSwapResult.id, '')).rejects.toEqual(
       Errors.SWAP_HAS_INVOICE_ALREADY(mockGetSwapResult.id),
     );
+  });
+
+  test('should set invoice with extraFees', async () => {
+    mockGetSwapResult = {
+      id: 'swapId',
+      pair: 'BTC/BTC',
+      orderSide: 0,
+      version: SwapVersion.Taproot,
+      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
+    };
+
+    const invoiceAmount = 100_000;
+    const invoice = createInvoice(
+      undefined,
+      getUnixTime() + 3600,
+      1,
+      invoiceAmount,
+    );
+    const extraFees = {
+      id: 'extraFeeId',
+      percentage: 0.5,
+    };
+
+    service['rateProvider'].feeProvider.getFees = jest.fn().mockReturnValue({
+      baseFee: 1_200,
+      extraFee: 1_001,
+      percentageFee: 2_000,
+    });
+
+    await service.setInvoice(
+      mockGetSwapResult.id,
+      invoice,
+      undefined,
+      extraFees,
+    );
+
+    expect(service['swapManager'].setSwapInvoice).toHaveBeenCalledTimes(1);
+    expect(service['swapManager'].setSwapInvoice).toHaveBeenCalledWith(
+      mockGetSwapResult,
+      invoice,
+      invoiceAmount,
+      104201,
+      2_000,
+      true,
+      true,
+      expect.anything(),
+    );
+
+    expect(ExtraFeeRepository.create).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.create).toHaveBeenCalledWith({
+      fee: 1_001,
+      id: extraFees.id,
+      swapId: mockGetSwapResult.id,
+      percentage: extraFees.percentage,
+    });
   });
 
   test('should throw when setting expired invoices', async () => {
@@ -2294,6 +2353,7 @@ describe('Service', () => {
     expect(service['setSwapInvoice']).toHaveBeenCalledWith(
       { pair: 'BTC/BTC', lockupAddress: createSwapResult.address },
       invoice,
+      undefined,
       undefined,
       undefined,
     );
@@ -2562,6 +2622,141 @@ describe('Service', () => {
         version: SwapVersion.Legacy,
       }),
     ).rejects.toEqual(Errors.NOT_WHOLE_NUMBER(invalidNumber));
+  });
+
+  test('should create reverse swaps with extra fees when invoice amount is defined', async () => {
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    mockGetSwapResult = null;
+    mockGetReverseSwapResult = null;
+
+    service.allowReverseSwaps = true;
+
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const invoiceAmount = 100000;
+    const preimageHash = randomBytes(32);
+    const claimPublicKey = getHexBuffer('0xfff');
+
+    const extraFees = {
+      id: 'extraFeeId',
+      percentage: 0.5,
+    };
+
+    const extraFee = FeeProvider.calculateExtraFee(
+      extraFees.percentage,
+      invoiceAmount,
+      1,
+    );
+
+    const onchainAmount =
+      invoiceAmount * (1 - mockGetPercentageFeeResult) -
+      mockGetBaseFeeResult -
+      extraFee;
+
+    const response = await service.createReverseSwap({
+      orderSide,
+      preimageHash,
+      invoiceAmount,
+      claimPublicKey,
+      pairId: pair,
+      extraFees,
+      version: SwapVersion.Legacy,
+    });
+
+    expect(response).toEqual({
+      onchainAmount,
+      id: mockedReverseSwap.id,
+      invoice: mockedReverseSwap.invoice,
+      redeemScript: mockedReverseSwap.redeemScript,
+      lockupAddress: mockedReverseSwap.lockupAddress,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
+    });
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+      preimageHash,
+      onchainAmount,
+      claimPublicKey,
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      claimCovenant: false,
+      orderSide: OrderSide.BUY,
+      onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
+      lightningTimeoutBlockDelta: 16,
+      holdInvoiceAmount: invoiceAmount,
+      percentageFee: invoiceAmount * mockGetPercentageFeeResult,
+    });
+
+    expect(ExtraFeeRepository.create).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.create).toHaveBeenCalledWith({
+      fee: extraFee,
+      id: extraFees.id,
+      swapId: mockedReverseSwap.id,
+      percentage: extraFees.percentage,
+    });
+  });
+
+  test('should create reverse swaps with extra fees when onchain amount is defined', async () => {
+    const pair = 'BTC/BTC';
+    const orderSide = 'buy';
+    const onchainAmount = 100000;
+    const preimageHash = randomBytes(32);
+    const claimPublicKey = getHexBuffer('0xfff');
+    const extraFees = {
+      id: 'extraFeeId',
+      percentage: 1,
+    };
+
+    const extraFee = 1000;
+
+    const holdInvoiceAmount =
+      Math.ceil(
+        (onchainAmount + mockGetBaseFeeResult) /
+          (1 - mockGetPercentageFeeResult),
+      ) + extraFee;
+
+    const response = await service.createReverseSwap({
+      orderSide,
+      preimageHash,
+      onchainAmount,
+      claimPublicKey,
+      pairId: pair,
+      extraFees,
+      version: SwapVersion.Legacy,
+    });
+
+    expect(response).toEqual({
+      id: mockedReverseSwap.id,
+      invoice: mockedReverseSwap.invoice,
+      redeemScript: mockedReverseSwap.redeemScript,
+      lockupAddress: mockedReverseSwap.lockupAddress,
+      timeoutBlockHeight: mockedReverseSwap.timeoutBlockHeight,
+    });
+
+    expect(mockCreateReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+      preimageHash,
+      onchainAmount,
+      claimPublicKey,
+      holdInvoiceAmount,
+      baseCurrency: 'BTC',
+      quoteCurrency: 'BTC',
+      claimCovenant: false,
+      orderSide: OrderSide.BUY,
+      onchainTimeoutBlockDelta: 1,
+      version: SwapVersion.Legacy,
+      lightningTimeoutBlockDelta: 16,
+      percentageFee: 2048,
+    });
+
+    expect(ExtraFeeRepository.create).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.create).toHaveBeenCalledWith({
+      fee: extraFee,
+      id: extraFees.id,
+      swapId: mockedReverseSwap.id,
+      percentage: extraFees.percentage,
+    });
   });
 
   test('should delete reverse swap when adding webhook fails', async () => {
@@ -3305,6 +3500,54 @@ describe('Service', () => {
       );
 
       expect(callback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('createExtraFees', () => {
+    test('should create extra fees', async () => {
+      const id = 'swapId';
+      const fee = 1000;
+      const extraFees = {
+        id: 'extraFeeId',
+        percentage: 0.5,
+      };
+
+      await service['createExtraFees'](id, fee, extraFees);
+
+      expect(ExtraFeeRepository.create).toHaveBeenCalledTimes(1);
+      expect(ExtraFeeRepository.create).toHaveBeenCalledWith({
+        fee,
+        swapId: id,
+        id: extraFees.id,
+        percentage: extraFees.percentage,
+      });
+    });
+
+    test('should handle undefined fee', async () => {
+      const id = 'swapId';
+      const extraFees = {
+        id: 'extraFeeId',
+        percentage: 0.5,
+      };
+
+      await service['createExtraFees'](id, undefined, extraFees);
+
+      expect(ExtraFeeRepository.create).toHaveBeenCalledTimes(1);
+      expect(ExtraFeeRepository.create).toHaveBeenCalledWith({
+        fee: undefined,
+        swapId: id,
+        id: extraFees.id,
+        percentage: extraFees.percentage,
+      });
+    });
+
+    test('should handle undefined extra fees', async () => {
+      const id = 'swapId';
+      const fee = 1000;
+
+      await service['createExtraFees'](id, fee, undefined);
+
+      expect(ExtraFeeRepository.create).not.toHaveBeenCalled();
     });
   });
 

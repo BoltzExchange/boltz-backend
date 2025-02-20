@@ -53,6 +53,7 @@ import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
@@ -73,6 +74,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
@@ -122,6 +124,11 @@ type WebHookData = {
   url: string;
   hashSwapId?: boolean;
   status?: string[];
+};
+
+type ExtraFees = {
+  id: string;
+  percentage: number;
 };
 
 type SomePair =
@@ -1298,6 +1305,7 @@ class Service {
     id: string,
     invoice: string,
     pairHash?: string,
+    extraFees?: ExtraFees,
   ) => {
     const swap = await SwapRepository.getSwap({
       id,
@@ -1345,7 +1353,7 @@ class Service {
       throw SwapErrors.NO_ROUTE_FOUND();
     }
 
-    return this.setSwapInvoice(swap, invoice, true, pairHash);
+    return this.setSwapInvoice(swap, invoice, true, pairHash, extraFees);
   };
 
   /**
@@ -1356,6 +1364,7 @@ class Service {
     invoice: string,
     canBeRouted: boolean,
     pairHash?: string,
+    extraFees?: ExtraFees,
   ): Promise<{
     bip21: string;
     expectedAmount: number;
@@ -1432,19 +1441,24 @@ class Service {
       swap.referral,
     );
 
-    const { baseFee, percentageFee } = this.rateProvider.feeProvider.getFees(
-      swap.pair,
-      swap.version,
-      rate,
-      swap.orderSide,
-      swap.invoiceAmount,
-      SwapType.Submarine,
-      BaseFeeType.NormalClaim,
-      referral,
-    );
+    const { baseFee, percentageFee, extraFee } =
+      this.rateProvider.feeProvider.getFees(
+        swap.pair,
+        swap.version,
+        rate,
+        swap.orderSide,
+        swap.invoiceAmount,
+        SwapType.Submarine,
+        BaseFeeType.NormalClaim,
+        referral,
+        extraFees,
+      );
 
     const expectedAmount =
-      Math.floor(swap.invoiceAmount * rate) + baseFee + percentageFee;
+      Math.floor(swap.invoiceAmount * rate) +
+      baseFee +
+      percentageFee +
+      (extraFee || 0);
 
     if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
       const maxInvoiceAmount = this.calculateInvoiceAmount(
@@ -1497,6 +1511,8 @@ class Service {
       this.eventHandler.emitSwapInvoiceSet,
     );
 
+    await this.createExtraFees(swap.id, extraFee, extraFees);
+
     return {
       expectedAmount,
       acceptZeroConf,
@@ -1524,6 +1540,7 @@ class Service {
     channel?: ChannelCreationInfo,
     version: SwapVersion = SwapVersion.Legacy,
     webHook?: WebHookData,
+    extraFees?: ExtraFees,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1582,6 +1599,7 @@ class Service {
           invoice,
           createdSwap.canBeRouted,
           pairHash,
+          extraFees,
         );
 
       return {
@@ -1653,6 +1671,7 @@ class Service {
     descriptionHash?: Buffer;
 
     webHook?: WebHookData;
+    extraFees?: ExtraFees;
 
     invoiceExpiry?: number;
   }): Promise<{
@@ -1813,6 +1832,22 @@ class Service {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
+    let extraFee: number | undefined = undefined;
+
+    if (args.extraFees !== undefined) {
+      extraFee = FeeProvider.calculateExtraFee(
+        args.extraFees.percentage,
+        holdInvoiceAmount,
+        rate,
+      );
+
+      if (invoiceAmountDefined) {
+        onchainAmount = Math.floor(onchainAmount - extraFee);
+      } else {
+        holdInvoiceAmount = Math.ceil(holdInvoiceAmount + extraFee);
+      }
+    }
+
     await this.verifyAmount(
       args.pairId,
       rate,
@@ -1930,6 +1965,8 @@ class Service {
       });
     }
 
+    await this.createExtraFees(id, extraFee, args.extraFees);
+
     const response: any = {
       id,
       invoice,
@@ -1974,6 +2011,7 @@ class Service {
     serverLockAmount?: number;
 
     webHook?: WebHookData;
+    extraFees?: ExtraFees;
   }) => {
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
@@ -2069,6 +2107,7 @@ class Service {
 
     const isZeroAmount =
       args.userLockAmount === undefined && args.serverLockAmount === undefined;
+    let userLockAmountDefined: boolean = false;
 
     if (
       args.userLockAmount !== undefined &&
@@ -2076,6 +2115,8 @@ class Service {
     ) {
       throw Errors.USER_AND_SERVER_AMOUNT_SPECIFIED();
     } else if (args.userLockAmount !== undefined) {
+      userLockAmountDefined = true;
+
       this.checkWholeNumber(args.userLockAmount);
 
       const calcRes = this.swapManager.renegotiator.calculateServerLockAmount(
@@ -2088,6 +2129,8 @@ class Service {
       percentageFee = calcRes.percentageFee;
       args.serverLockAmount = calcRes.serverLockAmount;
     } else if (args.serverLockAmount !== undefined) {
+      userLockAmountDefined = false;
+
       this.checkWholeNumber(args.serverLockAmount);
 
       args.userLockAmount = (args.serverLockAmount + baseFee) / rate;
@@ -2103,7 +2146,23 @@ class Service {
       throw Errors.NO_AMOUNT_SPECIFIED();
     }
 
+    let extraFee: number | undefined = undefined;
+
     if (!isZeroAmount) {
+      if (args.extraFees !== undefined) {
+        extraFee = FeeProvider.calculateExtraFee(
+          args.extraFees.percentage,
+          args.userLockAmount,
+          rate,
+        );
+
+        if (userLockAmountDefined) {
+          args.serverLockAmount = Math.floor(args.serverLockAmount - extraFee);
+        } else {
+          args.userLockAmount = Math.ceil(args.userLockAmount + extraFee);
+        }
+      }
+
       await this.verifyAmount(
         args.pairId,
         rate,
@@ -2150,6 +2209,8 @@ class Service {
         await ChainSwapRepository.destroy(res.id);
       });
     }
+
+    await this.createExtraFees(res.id, extraFee, args.extraFees);
 
     return {
       referralId,
@@ -2293,6 +2354,24 @@ class Service {
     }
   };
 
+  private createExtraFees = async (
+    id: string,
+    fee?: number,
+    extraFees?: ExtraFees,
+  ) => {
+    if (extraFees !== undefined) {
+      this.logger.debug(
+        `Adding extra fee for swap ${id}: ${fee || '0 amount swap'} (${extraFees.percentage}%)`,
+      );
+      await ExtraFeeRepository.create({
+        fee,
+        swapId: id,
+        id: extraFees.id,
+        percentage: extraFees.percentage,
+      });
+    }
+  };
+
   /**
    * Calculates the amount of an invoice for a Submarine Swap
    */
@@ -2397,4 +2476,4 @@ class Service {
 export const cancelledViaCliFailureReason = 'payment has been cancelled';
 
 export default Service;
-export { WebHookData, Contracts, NetworkContracts };
+export { WebHookData, Contracts, NetworkContracts, ExtraFees };

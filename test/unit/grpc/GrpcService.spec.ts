@@ -1,13 +1,20 @@
 import { ServiceError } from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import {
+  getHexBuffer,
+  getHexString,
+  removeHexPrefix,
+} from '../../../lib/Utils';
 import { CurrencyType } from '../../../lib/consts/Enums';
+import PendingEthereumTransaction from '../../../lib/db/models/PendingEthereumTransaction';
+import PendingEthereumTransactionRepository from '../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
+import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const getInfoData = {
   method: 'getInfo',
@@ -609,6 +616,50 @@ describe('GrpcService', () => {
 
       expect(TransactionLabelRepository.getLabel).toHaveBeenCalledTimes(1);
       expect(TransactionLabelRepository.getLabel).toHaveBeenCalledWith(txId);
+    });
+  });
+
+  describe('getPendingEvmTransactions', () => {
+    test('should get pending EVM transactions', async () => {
+      const txs = [
+        {
+          hash: '0x1234',
+          hex: '0x12345678',
+          nonce: 123,
+          etherAmount: 21_000_000_000_000_000n,
+        },
+      ] as PendingEthereumTransaction[];
+
+      PendingEthereumTransactionRepository.getTransactions = jest
+        .fn()
+        .mockResolvedValue(txs);
+
+      const res = await new Promise<any>((resolve) => {
+        grpcService.getPendingEvmTransactions(
+          createCall({}),
+          createCallback((error, response) => {
+            expect(error).toEqual(null);
+            resolve(response.toObject());
+          }),
+        );
+      });
+
+      expect(res.transactionsList).toEqual([
+        {
+          symbol: Rsk.symbol,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
+          nonce: txs[0].nonce,
+          amount: txs[0].etherAmount.toString(),
+        },
+      ]);
+
+      expect(
+        PendingEthereumTransactionRepository.getTransactions,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        PendingEthereumTransactionRepository.getTransactions,
+      ).toHaveBeenCalledWith();
     });
   });
 

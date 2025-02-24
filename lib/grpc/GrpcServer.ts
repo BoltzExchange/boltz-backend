@@ -41,6 +41,7 @@ class GrpcServer {
       getLockedFunds: grpcService.getLockedFunds,
       getPendingSweeps: grpcService.getPendingSweeps,
       getLabel: grpcService.getLabel,
+      getPendingEvmTransactions: grpcService.getPendingEvmTransactions,
       setLogLevel: grpcService.setLogLevel,
       calculateTransactionFee: grpcService.calculateTransactionFee,
       getReferrals: grpcService.getReferrals,

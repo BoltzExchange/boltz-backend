@@ -466,4 +466,17 @@ describe('Utils', () => {
   `('should round to decimals', ({ value, decimals, expected }) => {
     expect(utils.roundToDecimals(value, decimals)).toEqual(expected);
   });
+
+  test.each`
+    hex                                     | expected
+    ${'0x1234'}                             | ${'1234'}
+    ${'1234'}                               | ${'1234'}
+    ${'0xabcdef'}                           | ${'abcdef'}
+    ${'0x0000'}                             | ${'0000'}
+    ${'0x'}                                 | ${''}
+    ${''}                                   | ${''}
+    ${'0x123456789abcdef0123456789abcdef0'} | ${'123456789abcdef0123456789abcdef0'}
+  `('should remove hex prefix', ({ hex, expected }) => {
+    expect(utils.removeHexPrefix(hex)).toEqual(expected);
+  });
 });

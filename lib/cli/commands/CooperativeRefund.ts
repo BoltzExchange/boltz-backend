@@ -17,7 +17,7 @@ import {
 } from '../TaprootHelper';
 
 export const command =
-  'refund-cooperative <network> <privateKey> <swapId> <swapTree> <destinationAddress> [feePerVbyte] [blindingKey]';
+  'refund-cooperative <network> <privateKey> <swapId> <swapTree> <destinationAddress> [feePerVbyte] [blindingKey] [rawTransaction]';
 
 export const describe = 'refunds a Taproot Submarine Swap cooperatively';
 
@@ -29,6 +29,7 @@ export const builder = {
   destinationAddress: BuilderComponents.destinationAddress,
   feePerVbyte: BuilderComponents.feePerVbyte,
   blindingKey: BuilderComponents.blindingKey,
+  rawTransaction: BuilderComponents.rawTransaction,
 };
 
 export const handler = async (
@@ -40,7 +41,8 @@ export const handler = async (
   const boltzClient = new BoltzApiClient(argv.api.endpoint);
   const lockupTx = parseTransaction(
     currencyType,
-    (await boltzClient.getSwapTransaction(argv.swapId)).transactionHex,
+    argv.rawTransaction ||
+      (await boltzClient.getSwapTransaction(argv.swapId)).transactionHex,
   );
 
   const { keys, musig, tweakedKey, theirPublicKey } =

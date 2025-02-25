@@ -2,11 +2,16 @@ use crate::chain::BaseClient;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
+use crate::db::helpers::keys::KeysHelper;
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;
 use crate::wallet;
 use crate::wallet::Wallet;
+use anyhow::anyhow;
+use bip39::Mnemonic;
 use std::collections::HashMap;
+use std::fs;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
@@ -24,12 +29,20 @@ pub struct Currency {
 
 pub type Currencies = Arc<HashMap<String, Currency>>;
 
-pub async fn connect_nodes(
+pub async fn connect_nodes<K: KeysHelper>(
     cancellation_token: CancellationToken,
+    keys_helper: K,
+    mnemonic_path: Option<String>,
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
 ) -> anyhow::Result<Currencies> {
+    let mnemonic = match mnemonic_path {
+        Some(path) => fs::read_to_string(path)?,
+        None => return Err(anyhow!("no mnemonic path")),
+    };
+    let seed = Mnemonic::from_str(mnemonic.trim())?.to_seed("");
+
     let network = parse_network(network)?;
 
     let mut curs = HashMap::new();
@@ -39,11 +52,17 @@ pub async fn connect_nodes(
             for currency in currencies {
                 debug!("Connecting to nodes of {}", currency.symbol);
 
+                let keys_info = keys_helper.get_for_symbol(&currency.symbol)?;
+
                 curs.insert(
                     currency.symbol.clone(),
                     Currency {
                         network,
-                        wallet: Arc::new(wallet::Bitcoin::new(network)),
+                        wallet: Arc::new(wallet::Bitcoin::new(
+                            network,
+                            &seed,
+                            keys_info.derivationPath,
+                        )?),
                         chain: match currency.chain {
                             Some(config) => {
                                 #[allow(clippy::manual_map)]
@@ -91,13 +110,19 @@ pub async fn connect_nodes(
             crate::chain::elements_client::SYMBOL
         );
 
+        let keys_info = keys_helper.get_for_symbol(crate::chain::elements_client::SYMBOL)?;
+
         curs.insert(
             crate::chain::elements_client::SYMBOL.to_string(),
             Currency {
                 network,
                 cln: None,
                 lnd: None,
-                wallet: Arc::new(wallet::Elements::new(network)),
+                wallet: Arc::new(wallet::Elements::new(
+                    network,
+                    &seed,
+                    keys_info.derivationPath,
+                )?),
                 #[allow(clippy::manual_map)]
                 chain: match connect_client(ElementsClient::new(liquid.chain)).await {
                     Some(client) => Some(Arc::new(Box::new(client))),

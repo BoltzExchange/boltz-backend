@@ -708,8 +708,12 @@ mod test {
     use crate::api::ws;
     use crate::cache::Redis;
     use crate::db::helpers::QueryResponse;
+    use crate::db::helpers::chain_swap::{
+        ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
+    };
+    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::helpers::web_hook::WebHookHelper;
-    use crate::db::models::{WebHook, WebHookState};
+    use crate::db::models::{ChainSwapInfo, Swap, WebHook, WebHookState};
     use crate::evm::RefundSigner;
     use crate::grpc::service::BoltzService;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
@@ -722,6 +726,7 @@ mod test {
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
     use crate::service::Service;
+    use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
     use crate::webhook::caller::{Caller, Config};
@@ -735,6 +740,44 @@ mod test {
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
     use tonic::{Code, Request};
+
+    mock! {
+        SwapHelper {}
+
+        impl Clone for SwapHelper {
+            fn clone(&self) -> Self;
+        }
+
+        impl SwapHelper for SwapHelper {
+            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
+            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
+            fn update_status(
+                &self,
+                id: &str,
+                status: SwapUpdate,
+                failure_reason: Option<String>,
+            ) -> QueryResponse<usize>;
+        }
+    }
+
+    mock! {
+        ChainSwapHelper {}
+
+        impl Clone for ChainSwapHelper {
+            fn clone(&self) -> Self;
+        }
+
+        impl ChainSwapHelper for ChainSwapHelper {
+            fn get_all(
+                &self,
+                condition: ChainSwapCondition,
+            ) -> QueryResponse<Vec<ChainSwapInfo>>;
+            fn get_by_data_nullable(
+                &self,
+                condition: ChainSwapDataNullableCondition,
+            ) -> QueryResponse<Vec<ChainSwapInfo>>;
+        }
+    }
 
     mock! {
         WebHookHelper {}
@@ -1063,6 +1106,8 @@ mod test {
             BoltzService::new(
                 ReloadHandler::new(),
                 Arc::new(Service::new::<Redis>(
+                    Arc::new(MockSwapHelper::new()),
+                    Arc::new(MockChainSwapHelper::new()),
                     Arc::new(HashMap::new()),
                     None,
                     None,

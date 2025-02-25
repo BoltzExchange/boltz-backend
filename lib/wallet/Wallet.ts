@@ -5,6 +5,7 @@ import Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/repositories/KeyRepository';
 import Errors from './Errors';
+import type { Slip77s } from './WalletLiquid';
 import WalletProviderInterface, {
   BalancerFetcher,
   SentTransaction,
@@ -86,17 +87,26 @@ class Wallet implements BalancerFetcher {
    *
    * @param outputScript the output script to encode
    */
-  public encodeAddress = (outputScript: Buffer): string => {
+  public encodeAddress = (
+    outputScript: Buffer,
+  ): Record<keyof Slip77s, string> => {
     if (this.network === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'encodeAddress');
     }
 
     try {
-      return fromOutputScript(this.type, outputScript, this.network);
+      const address = fromOutputScript(this.type, outputScript, this.network);
+      return {
+        new: address,
+        legacy: address,
+      };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
-      return '';
+      return {
+        new: '',
+        legacy: '',
+      };
     }
   };
 

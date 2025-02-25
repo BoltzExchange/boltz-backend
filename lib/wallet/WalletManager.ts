@@ -5,7 +5,7 @@ import { Provider } from 'ethers';
 import fs from 'fs';
 import { IElementsClient } from 'lib/chain/ElementsClient';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
-import { SLIP77Factory, Slip77Interface } from 'slip77';
+import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
 import { CurrencyConfig } from '../Config';
 import Logger from '../Logger';
@@ -18,7 +18,7 @@ import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import Errors from './Errors';
 import Wallet from './Wallet';
-import WalletLiquid from './WalletLiquid';
+import WalletLiquid, { Slip77s } from './WalletLiquid';
 import EthereumManager from './ethereum/EthereumManager';
 import CoreWalletProvider from './providers/CoreWalletProvider';
 import ElementsWalletProvider from './providers/ElementsWalletProvider';
@@ -62,7 +62,7 @@ class WalletManager {
   private readonly mnemonic: string;
   private readonly mnemonicEvm: string;
 
-  private readonly slip77: Slip77Interface;
+  private readonly slip77s: Slip77s;
   private readonly masterNode: BIP32Interface;
 
   private readonly derivationPath = 'm/0';
@@ -80,8 +80,12 @@ class WalletManager {
     this.logger.debug(`Loading EVM mnemonic from: ${mnemonicPathEvm}`);
     this.mnemonicEvm = this.loadMnemonic(mnemonicPathEvm);
 
-    this.masterNode = bip32.fromSeed(mnemonicToSeedSync(this.mnemonic));
-    this.slip77 = slip77.fromSeed(this.mnemonic);
+    const seed = mnemonicToSeedSync(this.mnemonic);
+    this.masterNode = bip32.fromSeed(seed);
+    this.slip77s = {
+      new: slip77.fromSeed(seed),
+      legacy: slip77.fromSeed(this.mnemonic),
+    };
   }
 
   public init = async (configCurrencies: CurrencyConfig[]): Promise<void> => {
@@ -166,7 +170,7 @@ class WalletManager {
           : new WalletLiquid(
               this.logger,
               walletProvider,
-              this.slip77,
+              this.slip77s,
               currency.network! as LiquidNetwork,
             );
 

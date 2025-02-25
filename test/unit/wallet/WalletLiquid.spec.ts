@@ -1,4 +1,5 @@
 import ops from '@boltz/bitcoin-ops';
+import { mnemonicToSeedSync } from 'bip39';
 import { crypto } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { Scripts } from 'boltz-core';
@@ -12,9 +13,10 @@ import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
 
 describe('WalletLiquid', () => {
-  const slip77 = SLIP77Factory(ecc).fromSeed(
-    'test test test test test test test test test test test junk',
-  );
+  const slip77 = SLIP77Factory(ecc);
+  const mnemonic =
+    'test test test test test test test test test test test junk';
+
   const provider = {
     serviceName: () => 'Elements',
   } as WalletProviderInterface;
@@ -22,7 +24,10 @@ describe('WalletLiquid', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
     provider,
-    slip77,
+    {
+      new: slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+      legacy: slip77.fromSeed(mnemonic),
+    },
     Networks.liquidRegtest,
   );
   wallet.initKeyProvider('', 0, {} as any);
@@ -38,8 +43,12 @@ describe('WalletLiquid', () => {
     ${'mainnet'} | ${Networks.liquidMainnet} | ${false}
   `('should check if $name supports discount CT', ({ network, support }) => {
     expect(
-      new WalletLiquid(Logger.disabledLogger, provider, slip77, network)
-        .supportsDiscountCT,
+      new WalletLiquid(
+        Logger.disabledLogger,
+        provider,
+        wallet['slip77s'],
+        network,
+      ).supportsDiscountCT,
     ).toEqual(support);
   });
 
@@ -52,7 +61,10 @@ describe('WalletLiquid', () => {
     const blindingKey = wallet.deriveBlindingKeyFromScript(
       address.toOutputScript(addr, Networks.liquidRegtest),
     );
-    expect(blindingKey.privateKey).toMatchSnapshot();
+    expect({
+      new: blindingKey.new.privateKey,
+      legacy: blindingKey.new.privateKey,
+    }).toMatchSnapshot();
   });
 
   test.each`
@@ -75,21 +87,23 @@ describe('WalletLiquid', () => {
   );
 
   test('should return empty string as address for an empty script', () => {
-    expect(wallet.encodeAddress(Buffer.alloc(0), true)).toEqual('');
-    expect(wallet.encodeAddress(Buffer.alloc(0), false)).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), true).new).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), true).legacy).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), false).new).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), false).legacy).toEqual('');
   });
 
   test('should return empty string as address for scripts that cannot be encoded', () => {
     const outputScript = Buffer.from([ops.OP_RETURN, 1, 2, 3]);
-    expect(wallet.encodeAddress(outputScript, true)).toEqual('');
-    expect(wallet.encodeAddress(outputScript, false)).toEqual('');
+    expect(wallet.encodeAddress(outputScript, true).new).toEqual('');
+    expect(wallet.encodeAddress(outputScript, true).legacy).toEqual('');
+    expect(wallet.encodeAddress(outputScript, false).new).toEqual('');
+    expect(wallet.encodeAddress(outputScript, false).legacy).toEqual('');
   });
 
   test('should blind by default', () => {
-    expect(
-      wallet
-        .encodeAddress(Scripts.p2trOutput(toXOnly(publicKey)))
-        .startsWith(Networks.liquidRegtest.blech32),
-    ).toEqual(true);
+    const res = wallet.encodeAddress(Scripts.p2trOutput(toXOnly(publicKey)));
+    expect(res.new.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
+    expect(res.legacy.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
   });
 });

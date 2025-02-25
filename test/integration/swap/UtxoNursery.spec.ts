@@ -49,7 +49,7 @@ import {
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('UtxoNursery', () => {
-  const db = new Database(Logger.disabledLogger, Database.memoryDatabase);
+  let db: Database;
 
   const currencies = [
     {
@@ -134,10 +134,11 @@ describe('UtxoNursery', () => {
   );
 
   beforeAll(async () => {
-    startSidecar();
+    await startSidecar();
 
     await setup();
 
+    db = new Database(Logger.disabledLogger, Database.memoryDatabase);
     await db.init();
     await PairRepository.addPair({
       base: elementsClient.symbol,

@@ -118,7 +118,7 @@ mod test {
     use super::*;
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::referral::{ReferralCondition, ReferralHelper};
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper};
+    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::Swap;
     use mockall::{mock, predicate};
 
@@ -131,6 +131,7 @@ mod test {
 
         impl SwapHelper for SwapHelper {
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
+            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
             fn update_status(
                 &self,
                 id: &str,

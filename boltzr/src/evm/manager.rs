@@ -27,7 +27,7 @@ impl Manager {
         debug!("Read mnemonic");
 
         let signer = MnemonicBuilder::<English>::default()
-            .phrase(mnemonic.strip_suffix("\n").unwrap_or(mnemonic.as_str()))
+            .phrase(mnemonic.trim())
             .index(0)?
             .build()?;
 

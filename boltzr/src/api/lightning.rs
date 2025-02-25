@@ -168,8 +168,10 @@ mod test {
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
+    use bip39::Mnemonic;
     use http_body_util::BodyExt;
     use rstest::*;
+    use std::str::FromStr;
     use tower::ServiceExt;
 
     fn setup_router(manager: MockManager) -> Router {
@@ -196,7 +198,18 @@ mod test {
             manager.expect_get_currency().returning(move |_| {
                 Some(Currency {
                     network: Network::Regtest,
-                    wallet: Arc::new(crate::wallet::Bitcoin::new(Network::Regtest)),
+                    wallet: Arc::new(
+                        crate::wallet::Bitcoin::new(
+                            Network::Regtest,
+                            &Mnemonic::from_str(
+                                "test test test test test test test test test test test junk",
+                            )
+                            .unwrap()
+                            .to_seed(""),
+                            "m/0/0".to_string(),
+                        )
+                        .unwrap(),
+                    ),
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,

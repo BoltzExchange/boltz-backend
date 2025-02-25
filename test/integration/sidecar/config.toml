@@ -6,17 +6,17 @@ username = "boltz"
 password = "boltz"
 
 [sidecar]
-    [sidecar.grpc]
-    host = "127.0.0.1"
-    port = 10_001
+[sidecar.grpc]
+host = "127.0.0.1"
+port = 10_001
 
-    [sidecar.api]
-    host = "127.0.0.1"
-    port = 10_002
+[sidecar.api]
+host = "127.0.0.1"
+port = 10_002
 
-    [sidecar.ws]
-    host = "127.0.0.1"
-    port = 10_003
+[sidecar.ws]
+host = "127.0.0.1"
+port = 10_003
 
 [[currencies]]
 symbol = "BTC"

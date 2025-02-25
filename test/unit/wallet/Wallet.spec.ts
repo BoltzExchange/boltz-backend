@@ -101,7 +101,10 @@ describe('Wallet', () => {
   const walletLiquid = new WalletLiquid(
     Logger.disabledLogger,
     walletProvider,
-    slip77.fromSeed(mnemonic),
+    {
+      new: slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+      legacy: slip77.fromSeed(mnemonic),
+    },
     networkLiquid.liquid,
   );
 
@@ -144,7 +147,9 @@ describe('Wallet', () => {
   });
 
   test('should encode addresses', () => {
-    expect(wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
+    const enc = wallet.encodeAddress(encodeOutput);
+    expect(enc.new).toEqual(encodedAddress);
+    expect(enc.legacy).toEqual(encodedAddress);
   });
 
   test('should ignore OP_RETURN outputs', () => {
@@ -153,7 +158,10 @@ describe('Wallet', () => {
       crypto.sha256(randomBytes(64)),
     ]);
 
-    expect(wallet.encodeAddress(outputScript)).toEqual('');
+    expect(wallet.encodeAddress(outputScript)).toEqual({
+      new: '',
+      legacy: '',
+    });
   });
 
   test('should ignore all invalid addresses', () => {
@@ -171,7 +179,10 @@ describe('Wallet', () => {
     ];
 
     for (const script of invalidScripts) {
-      expect(wallet.encodeAddress(script)).toEqual('');
+      expect(wallet.encodeAddress(script)).toEqual({
+        new: '',
+        legacy: '',
+      });
     }
   });
 
@@ -233,14 +244,18 @@ describe('Wallet', () => {
 
   test('should blind Liquid addresses', () => {
     expect(walletLiquid.type).toEqual(CurrencyType.Liquid);
-    expect(
-      walletLiquid.encodeAddress(encodeOutput).startsWith('lq1qq'),
-    ).toBeTruthy();
+    const enc = walletLiquid.encodeAddress(encodeOutput);
+    expect(enc.new.startsWith('lq1qq')).toBeTruthy();
+    expect(enc.legacy.startsWith('lq1qq')).toBeTruthy();
+
+    expect(enc.new).not.toEqual(enc.legacy);
   });
 
   test('should encode unblinded Liquid addresses', () => {
-    expect(
-      walletLiquid.encodeAddress(encodeOutput, false).startsWith('ex'),
-    ).toBeTruthy();
+    const enc = walletLiquid.encodeAddress(encodeOutput, false);
+    expect(enc.new.startsWith('ex')).toBeTruthy();
+    expect(enc.legacy.startsWith('ex')).toBeTruthy();
+
+    expect(enc.new).toEqual(enc.legacy);
   });
 });

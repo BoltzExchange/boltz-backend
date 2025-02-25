@@ -193,7 +193,7 @@ class TransactionFetcher {
         ? transaction.outs
             // Filter Liquid fee outputs
             .filter((out) => out.script.length > 0)
-            .map((out) => wallet.encodeAddress(out.script))
+            .flatMap((out) => Object.values(wallet.encodeAddress(out.script)))
             // The wallet returns empty strings for addresses it cannot encode
             .filter((addr) => addr !== '')
         : [];

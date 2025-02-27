@@ -9,7 +9,7 @@ describe('Sidecar', () => {
   const eventHandler = { on: jest.fn(), removeAllListeners: jest.fn() } as any;
 
   beforeAll(async () => {
-    startSidecar();
+    await startSidecar();
     await Promise.all([
       sidecar.connect(eventHandler, {} as any, false),
       clnClient.connect(),

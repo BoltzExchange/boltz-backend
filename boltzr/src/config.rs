@@ -52,6 +52,9 @@ pub struct GlobalConfig {
     #[serde(rename = "profilingEndpoint")]
     pub profiling_endpoint: Option<String>,
 
+    #[serde(rename = "mnemonicpath")]
+    pub mnemonic_path: Option<String>,
+
     #[serde(rename = "mnemonicpathEvm")]
     pub mnemonic_path_evm: Option<String>,
 
@@ -77,16 +80,20 @@ pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {
     let mut config = toml::from_str::<GlobalConfig>(fs::read_to_string(path)?.as_ref())?;
     trace!("Read config: {:#}", serde_json::to_string_pretty(&config)?);
 
+    let default_mnemonic_path = Path::new(path)
+        .parent()
+        .unwrap()
+        .join("seed.dat")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    if config.mnemonic_path.is_none() {
+        config.mnemonic_path = Some(default_mnemonic_path.clone());
+    }
+
     if config.mnemonic_path_evm.is_none() {
-        config.mnemonic_path_evm = Some(
-            Path::new(path)
-                .parent()
-                .unwrap()
-                .join("seed.dat")
-                .to_str()
-                .unwrap()
-                .to_string(),
-        );
+        config.mnemonic_path_evm = Some(default_mnemonic_path);
     }
 
     let data_dir = config.clone().sidecar.data_dir.unwrap_or(

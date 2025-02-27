@@ -92,7 +92,6 @@ class Boltz {
       false,
     );
 
-    Sidecar.start(this.logger, this.config);
     registerExitHandler(async () => {
       await this.grpcServer.close();
       await this.db.close();
@@ -221,6 +220,10 @@ class Boltz {
       await this.db.migrate(this.currencies);
       await this.db.init();
 
+      // To initialize the key provider before starting the sidecar
+      await this.walletManager.init(this.config.currencies);
+
+      Sidecar.start(this.logger, this.config);
       await this.sidecar.connect(this.service.eventHandler, this.api.swapInfos);
       await this.sidecar.validateVersion();
       await this.sidecar.start();
@@ -252,7 +255,6 @@ class Boltz {
         }),
       );
 
-      await this.walletManager.init(this.config.currencies);
       await this.service.init(this.config.pairs);
 
       await this.service.swapManager.init(

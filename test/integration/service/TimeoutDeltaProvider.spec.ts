@@ -68,7 +68,7 @@ describe('TimeoutDeltaProvider', () => {
   };
 
   beforeAll(async () => {
-    startSidecar();
+    await startSidecar();
 
     await Promise.all([
       sidecar.connect(

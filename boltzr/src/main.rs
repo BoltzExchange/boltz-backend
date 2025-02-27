@@ -1,5 +1,8 @@
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
+use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
+use crate::db::helpers::keys::KeysHelperDatabase;
+use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws;
@@ -142,6 +145,8 @@ async fn main() {
 
     let currencies = match connect_nodes(
         cancellation_token.clone(),
+        KeysHelperDatabase::new(db_pool.clone()),
+        config.mnemonic_path,
         config.network,
         config.currencies,
         config.liquid,
@@ -156,6 +161,8 @@ async fn main() {
     };
 
     let service = Arc::new(Service::new(
+        Arc::new(SwapHelperDatabase::new(db_pool.clone())),
+        Arc::new(ChainSwapHelperDatabase::new(db_pool.clone())),
         currencies.clone(),
         config.marking,
         config.historical,

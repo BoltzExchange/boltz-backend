@@ -27,7 +27,7 @@ specs.servers = [
     description: 'Testnet',
   },
   {
-    url: 'http://localhost:9001/v2',
+    url: 'http://localhost:9006/v2',
     description: 'Regtest',
   },
 ];

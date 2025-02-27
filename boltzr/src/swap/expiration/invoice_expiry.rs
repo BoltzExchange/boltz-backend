@@ -112,12 +112,14 @@ mod test {
     use crate::api::ws::types::SwapStatus;
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper};
+    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::Swap;
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};
+    use bip39::Mnemonic;
     use mockall::{mock, predicate};
     use std::collections::HashMap;
+    use std::str::FromStr;
     use std::sync::{Arc, OnceLock};
 
     mock! {
@@ -129,6 +131,7 @@ mod test {
 
         impl SwapHelper for SwapHelper {
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
+            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
             fn update_status(
                 &self,
                 id: &str,
@@ -146,7 +149,18 @@ mod test {
                     String::from("BTC"),
                     Currency {
                         network: Network::Regtest,
-                        wallet: Arc::new(Bitcoin::new(Network::Regtest)),
+                        wallet: Arc::new(
+                            Bitcoin::new(
+                                Network::Regtest,
+                                &Mnemonic::from_str(
+                                    "test test test test test test test test test test test junk",
+                                )
+                                .unwrap()
+                                .to_seed(""),
+                                "m/0/0".to_string(),
+                            )
+                            .unwrap(),
+                        ),
                         chain: Some(Arc::new(Box::new(
                             crate::chain::chain_client::test::get_client(),
                         ))),

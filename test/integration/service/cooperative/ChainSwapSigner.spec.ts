@@ -82,7 +82,10 @@ describe('ChainSwapSigner', () => {
   const liquidWallet = new WalletLiquid(
     Logger.disabledLogger,
     new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
-    slip77.fromSeed(mnemonic),
+    {
+      legacy: slip77.fromSeed(mnemonic),
+      new: slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+    },
     LiquidNetworks.liquidRegtest,
   );
 
@@ -162,7 +165,7 @@ describe('ChainSwapSigner', () => {
         currency.type,
         await currency.chainClient!.getRawTransaction(
           await currency.chainClient!.sendToAddress(
-            wallet.encodeAddress(lockupScript),
+            wallet.encodeAddress(lockupScript).new,
             100_000,
             undefined,
             false,
@@ -183,7 +186,8 @@ describe('ChainSwapSigner', () => {
         timeoutBlockHeight,
         blindingPrivateKey:
           currency.type === CurrencyType.Liquid
-            ? liquidWallet.deriveBlindingKeyFromScript(lockupScript).privateKey!
+            ? liquidWallet.deriveBlindingKeyFromScript(lockupScript).new
+                .privateKey!
             : undefined,
       };
     };

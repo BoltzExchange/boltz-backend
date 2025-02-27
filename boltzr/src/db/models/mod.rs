@@ -1,13 +1,18 @@
 use crate::swap::SwapUpdate;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 use strum_macros::{Display, EnumString};
 
 mod chain_swap;
+mod keys;
 mod referral;
 mod reverse_swap;
 mod swap;
 mod web_hook;
 
 pub use chain_swap::*;
+pub use keys::*;
 pub use referral::*;
 pub use reverse_swap::*;
 pub use swap::*;
@@ -43,6 +48,50 @@ impl From<SwapType> for u64 {
             SwapType::Reverse => 1,
             SwapType::Chain => 2,
         }
+    }
+}
+
+impl Serialize for SwapType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            SwapType::Submarine => serializer.serialize_str("submarine"),
+            SwapType::Reverse => serializer.serialize_str("reverse"),
+            SwapType::Chain => serializer.serialize_str("chain"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SwapType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct SwapTypeVisitor;
+
+        impl Visitor<'_> for SwapTypeVisitor {
+            type Value = SwapType;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid swap type")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "submarine" => Ok(SwapType::Submarine),
+                    "reverse" => Ok(SwapType::Reverse),
+                    "chain" => Ok(SwapType::Chain),
+                    _ => Err(E::custom(format!("invalid swap type: {}", value))),
+                }
+            }
+        }
+
+        deserializer.deserialize_string(SwapTypeVisitor)
     }
 }
 

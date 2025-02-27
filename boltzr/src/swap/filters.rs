@@ -210,9 +210,11 @@ mod test {
     use crate::chain::utils::Outpoint;
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapHelper};
+    use crate::db::helpers::chain_swap::{
+        ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
+    };
     use crate::db::helpers::reverse_swap::{ReverseSwapCondition, ReverseSwapHelper};
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper};
+    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::swap::SwapUpdate;
     use crate::swap::filters::{
@@ -220,8 +222,10 @@ mod test {
     };
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use alloy::hex;
+    use bip39::Mnemonic;
     use mockall::mock;
     use std::collections::HashMap;
+    use std::str::FromStr;
     use std::sync::{Arc, OnceLock};
 
     mock! {
@@ -233,6 +237,7 @@ mod test {
 
         impl SwapHelper for SwapHelper {
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
+            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
             fn update_status(
                 &self,
                 id: &str,
@@ -269,7 +274,17 @@ mod test {
                 &self,
                 condition: ChainSwapCondition,
             ) -> QueryResponse<Vec<ChainSwapInfo>>;
+            fn get_by_data_nullable(
+                &self,
+                condition: ChainSwapDataNullableCondition,
+            ) -> QueryResponse<Vec<ChainSwapInfo>>;
         }
+    }
+
+    fn get_seed() -> [u8; 64] {
+        Mnemonic::from_str("test test test test test test test test test test test junk")
+            .unwrap()
+            .to_seed("")
     }
 
     fn get_currencies() -> Currencies {
@@ -281,7 +296,10 @@ mod test {
                         String::from("BTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(Bitcoin::new(Network::Regtest)),
+                            wallet: Arc::new(
+                                Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
+                                    .unwrap(),
+                            ),
                             chain: Some(Arc::new(Box::new(
                                 crate::chain::chain_client::test::get_client(),
                             ))),
@@ -293,7 +311,10 @@ mod test {
                         String::from("LTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(Bitcoin::new(Network::Regtest)),
+                            wallet: Arc::new(
+                                Bitcoin::new(Network::Regtest, &get_seed(), "m/0/1".to_string())
+                                    .unwrap(),
+                            ),
                             chain: None,
                             cln: None,
                             lnd: None,
@@ -303,7 +324,10 @@ mod test {
                         String::from("L-BTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(Elements::new(Network::Regtest)),
+                            wallet: Arc::new(
+                                Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
+                                    .unwrap(),
+                            ),
                             chain: Some(Arc::new(Box::new(
                                 crate::chain::elements_client::test::get_client().0,
                             ))),
@@ -363,7 +387,8 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Bitcoin::new(Network::Regtest)
+                &Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
+                    .unwrap()
                     .decode_address(address_bitcoin)
                     .unwrap()
             )
@@ -374,7 +399,8 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Elements::new(Network::Regtest)
+                &Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
+                    .unwrap()
                     .decode_address(address_elements)
                     .unwrap()
             )
@@ -500,7 +526,8 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Bitcoin::new(Network::Regtest)
+                &Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
+                    .unwrap()
                     .decode_address(address)
                     .unwrap()
             )
@@ -539,7 +566,8 @@ mod test {
 
     #[test]
     fn test_decode_script() {
-        let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(Bitcoin::new(Network::Regtest));
+        let wallet: Arc<dyn Wallet + Send + Sync> =
+            Arc::new(Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string()).unwrap());
         let swap = Swap {
             id: "id".to_string(),
             ..Default::default()
@@ -554,7 +582,8 @@ mod test {
 
     #[test]
     fn test_decode_script_invalid() {
-        let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(Bitcoin::new(Network::Regtest));
+        let wallet: Arc<dyn Wallet + Send + Sync> =
+            Arc::new(Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string()).unwrap());
         let swap = Swap {
             id: "id".to_string(),
             ..Default::default()

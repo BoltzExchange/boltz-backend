@@ -1616,6 +1616,12 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_hashes"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90064b8dee6815a6470d60bad07bbbaee885c0e12d04177138fa3291a01b7bc4"
+
+[[package]]
+name = "bitcoin_hashes"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb18c03d0db0247e147a21a6faafd5a7eb851c743db062de72018b6b7e8e4d16"
@@ -1709,6 +1715,7 @@ dependencies = [
  "diesel_migrations",
  "dirs",
  "elements",
+ "elements-miniscript",
  "eventsource-client",
  "fedimint-tonic-lnd",
  "flate2",
@@ -1735,6 +1742,7 @@ dependencies = [
  "redis",
  "reqwest",
  "rstest",
+ "rust-bip39",
  "rust-s3",
  "serde",
  "serde_json",
@@ -2524,6 +2532,17 @@ dependencies = [
  "bitcoin",
  "secp256k1-zkp",
  "serde_json",
+]
+
+[[package]]
+name = "elements-miniscript"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "571fa105690f83c7833df2109eb2e14ca0e62d633d2624ffcb166ff18a3da870"
+dependencies = [
+ "bitcoin",
+ "elements",
+ "miniscript",
 ]
 
 [[package]]
@@ -3922,6 +3941,16 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
+
+[[package]]
+name = "miniscript"
+version = "12.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bd3c9608217b0d6fa9c9c8ddd875b85ab72bd4311cfc8db35e1b5a08fc11f4d"
+dependencies = [
+ "bech32 0.11.0",
+ "bitcoin",
+]
 
 [[package]]
 name = "miniz_oxide"
@@ -5332,6 +5361,18 @@ checksum = "ab9f9ff05b63a786553a4c02943b74b34a988448671001e9a27e2f0565cc05a4"
 dependencies = [
  "libc",
  "libusb1-sys",
+]
+
+[[package]]
+name = "rust-bip39"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f868fd508789837c62557c8eb3c2ce6891ed3b4961e96e14f068d35299c270f"
+dependencies = [
+ "bitcoin_hashes 0.11.0",
+ "rand_core 0.6.4",
+ "serde",
+ "unicode-normalization",
 ]
 
 [[package]]

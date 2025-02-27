@@ -1028,6 +1028,95 @@ export namespace GetLabelResponse {
     }
 }
 
+export class GetPendingEvmTransactionsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPendingEvmTransactionsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPendingEvmTransactionsRequest): GetPendingEvmTransactionsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPendingEvmTransactionsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPendingEvmTransactionsRequest;
+    static deserializeBinaryFromReader(message: GetPendingEvmTransactionsRequest, reader: jspb.BinaryReader): GetPendingEvmTransactionsRequest;
+}
+
+export namespace GetPendingEvmTransactionsRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetPendingEvmTransactionsResponse extends jspb.Message { 
+    clearTransactionsList(): void;
+    getTransactionsList(): Array<GetPendingEvmTransactionsResponse.Transaction>;
+    setTransactionsList(value: Array<GetPendingEvmTransactionsResponse.Transaction>): GetPendingEvmTransactionsResponse;
+    addTransactions(value?: GetPendingEvmTransactionsResponse.Transaction, index?: number): GetPendingEvmTransactionsResponse.Transaction;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPendingEvmTransactionsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPendingEvmTransactionsResponse): GetPendingEvmTransactionsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPendingEvmTransactionsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPendingEvmTransactionsResponse;
+    static deserializeBinaryFromReader(message: GetPendingEvmTransactionsResponse, reader: jspb.BinaryReader): GetPendingEvmTransactionsResponse;
+}
+
+export namespace GetPendingEvmTransactionsResponse {
+    export type AsObject = {
+        transactionsList: Array<GetPendingEvmTransactionsResponse.Transaction.AsObject>,
+    }
+
+
+    export class Transaction extends jspb.Message { 
+        getSymbol(): string;
+        setSymbol(value: string): Transaction;
+        getHash(): Uint8Array | string;
+        getHash_asU8(): Uint8Array;
+        getHash_asB64(): string;
+        setHash(value: Uint8Array | string): Transaction;
+        getHex(): Uint8Array | string;
+        getHex_asU8(): Uint8Array;
+        getHex_asB64(): string;
+        setHex(value: Uint8Array | string): Transaction;
+
+        hasLabel(): boolean;
+        clearLabel(): void;
+        getLabel(): string | undefined;
+        setLabel(value: string): Transaction;
+        getNonce(): number;
+        setNonce(value: number): Transaction;
+        getAmountSent(): string;
+        setAmountSent(value: string): Transaction;
+
+        hasAmountReceived(): boolean;
+        clearAmountReceived(): void;
+        getAmountReceived(): string | undefined;
+        setAmountReceived(value: string): Transaction;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Transaction.AsObject;
+        static toObject(includeInstance: boolean, msg: Transaction): Transaction.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Transaction, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Transaction;
+        static deserializeBinaryFromReader(message: Transaction, reader: jspb.BinaryReader): Transaction;
+    }
+
+    export namespace Transaction {
+        export type AsObject = {
+            symbol: string,
+            hash: Uint8Array | string,
+            hex: Uint8Array | string,
+            label?: string,
+            nonce: number,
+            amountSent: string,
+            amountReceived?: string,
+        }
+    }
+
+}
+
 export class GetReferralsRequest extends jspb.Message { 
 
     hasId(): boolean;

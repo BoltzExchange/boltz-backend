@@ -14,14 +14,21 @@ class ReverseRoutingHintRepository {
       },
     });
 
-  public static getHints = (swapIds: string[]) =>
-    ReverseRoutingHint.findAll({
+  public static getHints = async (
+    swapIds: string[],
+  ): Promise<ReverseRoutingHint[]> => {
+    if (swapIds.length === 0) {
+      return [];
+    }
+
+    return await ReverseRoutingHint.findAll({
       where: {
         swapId: {
           [Op.in]: swapIds,
         },
       },
     });
+  };
 }
 
 export default ReverseRoutingHintRepository;

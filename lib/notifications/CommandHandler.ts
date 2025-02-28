@@ -3,12 +3,13 @@ import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import Logger from '../Logger';
 import Tracing from '../Tracing';
-import { formatError, mapToObject, stringify } from '../Utils';
+import { checkEvmAddress, formatError, mapToObject, stringify } from '../Utils';
 import {
   FinalChainSwapEvents,
   FinalReverseSwapEvents,
   FinalSwapEvents,
   SwapType,
+  SwapUpdateEvent,
   swapTypeToPrettyString,
   swapTypeToString,
 } from '../consts/Enums';
@@ -18,6 +19,7 @@ import Stats from '../data/Stats';
 import ChannelCreation from '../db/models/ChannelCreation';
 import ReverseRoutingHint from '../db/models/ReverseRoutingHint';
 import ReverseSwap from '../db/models/ReverseSwap';
+import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
   ChainSwapInfo,
 } from '../db/repositories/ChainSwapRepository';
@@ -303,41 +305,86 @@ class CommandHandler {
 
     const identifier = args[0];
 
-    const [swaps, reverseSwaps, chainSwaps] = await Promise.all([
-      SwapRepository.getSwaps({
-        [Op.or]: {
-          id: identifier,
-          invoice: identifier,
-          preimageHash: identifier,
-          lockupAddress: identifier,
-          lockupTransactionId: identifier,
-        },
-      }),
-      ReverseSwapRepository.getReverseSwaps({
-        [Op.or]: {
-          id: identifier,
-          invoice: identifier,
-          preimageHash: identifier,
-          lockupAddress: identifier,
-          transactionId: identifier,
-        },
-      }),
-      ChainSwapRepository.getChainSwapsByData(
-        {
+    // When it's an EVM address, we query only funds locked for that address
+    try {
+      const evmAddress = checkEvmAddress(identifier);
+
+      const [reverseSwaps, chainSwaps] = await Promise.all([
+        ReverseSwapRepository.getReverseSwaps({
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionMempool,
+              SwapUpdateEvent.TransactionConfirmed,
+            ],
+          },
+          claimAddress: evmAddress,
+        }),
+        ChainSwapRepository.getChainSwaps({
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionServerMempool,
+              SwapUpdateEvent.TransactionServerConfirmed,
+            ],
+          },
+        }),
+      ]);
+
+      this.notificationClient.sendMessage(`Funds locked for \`${evmAddress}\``);
+      await this.sendSwapInfos(
+        identifier,
+        [],
+        reverseSwaps,
+        chainSwaps.filter((s) => s.sendingData.claimAddress === evmAddress),
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      // When it's not EVM address, we try to find the swap by some other identifier
+      const [swaps, reverseSwaps, chainSwaps] = await Promise.all([
+        SwapRepository.getSwaps({
           [Op.or]: {
+            id: identifier,
+            invoice: identifier,
+            preimageHash: identifier,
+            lockupAddress: identifier,
+            lockupTransactionId: identifier,
+          },
+        }),
+        ReverseSwapRepository.getReverseSwaps({
+          [Op.or]: {
+            id: identifier,
+            invoice: identifier,
+            preimageHash: identifier,
             lockupAddress: identifier,
             transactionId: identifier,
           },
-        },
-        {
-          [Op.or]: {
-            id: identifier,
-            preimageHash: identifier,
+        }),
+        ChainSwapRepository.getChainSwapsByData(
+          {
+            [Op.or]: {
+              lockupAddress: identifier,
+              transactionId: identifier,
+            },
           },
-        },
-      ),
-    ]);
+          {
+            [Op.or]: {
+              id: identifier,
+              preimageHash: identifier,
+            },
+          },
+        ),
+      ]);
 
+      await this.sendSwapInfos(identifier, swaps, reverseSwaps, chainSwaps);
+    }
+  };
+
+  private sendSwapInfos = async (
+    identifier: string,
+    swaps: Swap[],
+    reverseSwaps: ReverseSwap[],
+    chainSwaps: ChainSwapInfo[],
+  ) => {
     const reverseRoutingHints = new Map<string, ReverseRoutingHint>(
       (
         await ReverseRoutingHintRepository.getHints(

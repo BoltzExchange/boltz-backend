@@ -1,10 +1,21 @@
+import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, mapToObject, stringify } from '../../../lib/Utils';
-import { SwapType, swapTypeToString } from '../../../lib/consts/Enums';
+import {
+  checkEvmAddress,
+  getHexBuffer,
+  mapToObject,
+  stringify,
+} from '../../../lib/Utils';
+import {
+  SwapType,
+  SwapUpdateEvent,
+  swapTypeToString,
+} from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import FeeRepository from '../../../lib/db/repositories/FeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
@@ -292,64 +303,147 @@ describe('CommandHandler', () => {
     );
   });
 
-  test('should get information about (reverse) swaps', async () => {
-    // Submarine Swap
-    sendMessage(`swapinfo ${swapExample.id}`);
-    await wait(50);
+  describe('swapInfo', () => {
+    test('should get information about (reverse) swaps', async () => {
+      // Submarine Swap
+      sendMessage(`swapinfo ${swapExample.id}`);
+      await wait(50);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Submarine Swap \`${swapExample.id}\`:\n\`\`\`${stringify(
-        await SwapRepository.getSwap({ id: swapExample.id }),
-      )}\`\`\``,
-    );
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `Submarine Swap \`${swapExample.id}\`:\n\`\`\`${stringify(
+          await SwapRepository.getSwap({ id: swapExample.id }),
+        )}\`\`\``,
+      );
 
-    // Channel Creation Swap
-    sendMessage(`swapinfo ${channelSwapExample.id}`);
-    await wait(50);
+      // Channel Creation Swap
+      sendMessage(`swapinfo ${channelSwapExample.id}`);
+      await wait(50);
 
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
-        `${stringify(
-          await SwapRepository.getSwap({ id: channelSwapExample.id }),
-        )}\n` +
-        `${stringify(
-          await ChannelCreationRepository.getChannelCreation({
-            swapId: channelSwapExample.id,
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
+          `${stringify(
+            await SwapRepository.getSwap({ id: channelSwapExample.id }),
+          )}\n` +
+          `${stringify(
+            await ChannelCreationRepository.getChannelCreation({
+              swapId: channelSwapExample.id,
+            }),
+          )}\`\`\``,
+      );
+
+      // Reverse Swap
+      sendMessage(`swapinfo ${reverseSwapExample.id}`);
+      await wait(50);
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(
+          await ReverseSwapRepository.getReverseSwap({
+            id: reverseSwapExample.id,
           }),
         )}\`\`\``,
+      );
+
+      const errorMessage = 'Could not find swap with id: ';
+
+      // Send an error if there is no id provided
+      sendMessage('swapinfo');
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(4);
+      expect(mockSendMessage).toHaveBeenCalledWith(errorMessage);
+
+      // Send an error if the swap cannot be found
+      const id = 'notFound';
+      sendMessage(`swapinfo ${id}`);
+
+      await wait(50);
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(5);
+      expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
+    });
+
+    test.each`
+      address                                                       | checksummed
+      ${'0x1234567890123456789012345678901234567890'}               | ${true}
+      ${'0x1234567890123456789012345678901234567890'.toLowerCase()} | ${false}
+    `(
+      'should get information about funds locked for an EVM address (checksummed: $checksummed)',
+      async ({ address }) => {
+        const evmAddress = checkEvmAddress(address);
+        const mockReverseSwaps = [
+          {
+            id: 'reverse1',
+            type: SwapType.ReverseSubmarine,
+            claimAddress: evmAddress,
+            onchainAmount: 500000,
+          },
+        ];
+        const mockChainSwaps = [
+          {
+            id: 'chain1',
+            type: SwapType.Chain,
+            sendingData: {
+              claimAddress: evmAddress,
+              amount: 300000,
+            },
+          },
+          {
+            id: 'chain2',
+            type: SwapType.Chain,
+            sendingData: {
+              claimAddress: 'different-address',
+              amount: 200000,
+            },
+          },
+        ];
+
+        ReverseSwapRepository.getReverseSwaps = jest
+          .fn()
+          .mockResolvedValue(mockReverseSwaps);
+        ChainSwapRepository.getChainSwaps = jest
+          .fn()
+          .mockResolvedValue(mockChainSwaps);
+
+        sendMessage(`swapinfo ${address}`);
+        await wait(50);
+
+        expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionMempool,
+              SwapUpdateEvent.TransactionConfirmed,
+            ],
+          },
+          claimAddress: evmAddress,
+        });
+
+        expect(ChainSwapRepository.getChainSwaps).toHaveBeenCalledWith({
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionServerMempool,
+              SwapUpdateEvent.TransactionServerConfirmed,
+            ],
+          },
+        });
+
+        expect(mockSendMessage).toHaveBeenCalledTimes(3);
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          `Funds locked for \`${evmAddress}\``,
+        );
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          `Reverse Swap \`${mockReverseSwaps[0].id}\`:\n\`\`\`${stringify(
+            mockReverseSwaps[0],
+          )}\`\`\``,
+        );
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          `Chain Swap \`${mockChainSwaps[0].id}\`:\n\`\`\`${stringify(
+            mockChainSwaps[0],
+          )}\`\`\``,
+        );
+      },
     );
-
-    // Reverse Swap
-    sendMessage(`swapinfo ${reverseSwapExample.id}`);
-    await wait(50);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(
-        await ReverseSwapRepository.getReverseSwap({
-          id: reverseSwapExample.id,
-        }),
-      )}\`\`\``,
-    );
-
-    const errorMessage = 'Could not find swap with id: ';
-
-    // Send an error if there is no id provided
-    sendMessage('swapinfo');
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(4);
-    expect(mockSendMessage).toHaveBeenCalledWith(errorMessage);
-
-    // Send an error if the swap cannot be found
-    const id = 'notFound';
-    sendMessage(`swapinfo ${id}`);
-
-    await wait(50);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(5);
-    expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
   });
 
   test('should get statistics', async () => {
@@ -481,6 +575,11 @@ describe('CommandHandler', () => {
   });
 
   test('should get pending swaps', async () => {
+    ReverseSwapRepository.getReverseSwaps = jest
+      .fn()
+      .mockResolvedValue([pendingReverseSwapExample]);
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+
     sendMessage('pendingswaps');
     await wait(50);
 

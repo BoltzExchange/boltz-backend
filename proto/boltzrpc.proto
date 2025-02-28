@@ -49,6 +49,8 @@ service Boltz {
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
+  rpc GetPendingEvmTransactions (GetPendingEvmTransactionsRequest) returns (GetPendingEvmTransactionsResponse);
+
   rpc GetReferrals (GetReferralsRequest) returns (GetReferralsResponse);
 
   rpc SetReferral (SetReferralRequest) returns (SetReferralResponse);
@@ -262,6 +264,24 @@ message GetLabelRequest {
 message GetLabelResponse {
   string symbol = 1;
   string label = 2;
+}
+
+message GetPendingEvmTransactionsRequest {}
+
+message GetPendingEvmTransactionsResponse {
+  message Transaction {
+    string symbol = 1;
+    bytes hash = 2;
+    bytes hex = 3;
+    optional string label = 4;
+    uint64 nonce = 5;
+    // In wei
+    string amount_sent = 6;
+    // In wei
+    optional string amount_received = 7;
+  }
+
+  repeated Transaction transactions = 1;
 }
 
 message GetReferralsRequest {

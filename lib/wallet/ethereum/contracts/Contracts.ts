@@ -109,6 +109,59 @@ class Contracts {
       `Using ${this.network.name} ERC20Swap v${versions[0]} contract: ${this.contracts.erc20Swap}`,
     );
   };
+
+  public decodeClaimData = (
+    data: string,
+  ): { preimage: string; amount: bigint }[] => {
+    for (const decoder of [
+      this.decodeEtherClaimBatch,
+      this.decodeEtherClaim,
+      this.decodeEtherClaimForAddress,
+    ]) {
+      try {
+        return decoder(data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        // Ignored to try the next decoder
+      }
+    }
+
+    return [];
+  };
+
+  private decodeEtherClaimBatch = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData('claimBatch', data);
+    return dec[0].map((preimage: string, index: number) => ({
+      preimage,
+      amount: dec[1][index],
+    }));
+  };
+
+  private decodeEtherClaim = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      'claim(bytes32,uint256,address,uint256)',
+      data,
+    );
+    return [
+      {
+        preimage: dec[0],
+        amount: dec[1],
+      },
+    ];
+  };
+
+  private decodeEtherClaimForAddress = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      'claim(bytes32,uint256,address,address,uint256)',
+      data,
+    );
+    return [
+      {
+        preimage: dec[0],
+        amount: dec[1],
+      },
+    ];
+  };
 }
 
 export default Contracts;

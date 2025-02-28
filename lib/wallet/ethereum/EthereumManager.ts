@@ -5,6 +5,7 @@ import {
   Wallet as EthersWallet,
   MaxUint256,
   Signer,
+  Transaction,
   getAddress,
 } from 'ethers';
 import { EthereumConfig, RskConfig } from '../../Config';
@@ -249,6 +250,24 @@ class EthereumManager {
     }
 
     return undefined;
+  };
+
+  public getClaimedAmount = async (
+    txHex: string,
+  ): Promise<bigint | undefined> => {
+    const tx = Transaction.from(txHex);
+    if (tx.to === null || tx.to === undefined) {
+      return undefined;
+    }
+
+    const contracts = await this.contractsForAddress(tx.to);
+    if (contracts === undefined) {
+      return undefined;
+    }
+
+    return contracts
+      .decodeClaimData(tx.data)
+      .reduce((acc, { amount }) => acc + amount, 0n);
   };
 
   private checkERC20Allowance = async (

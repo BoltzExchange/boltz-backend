@@ -44,6 +44,7 @@ class GrpcServer {
       getPendingEvmTransactions: grpcService.getPendingEvmTransactions,
       setLogLevel: grpcService.setLogLevel,
       calculateTransactionFee: grpcService.calculateTransactionFee,
+      swapCreationHook: grpcService.swapCreationHook,
       getReferrals: grpcService.getReferrals,
       setReferral: grpcService.setReferral,
     });

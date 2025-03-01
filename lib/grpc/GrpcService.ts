@@ -1,4 +1,4 @@
-import { handleUnaryCall } from '@grpc/grpc-js';
+import { ServerDuplexStream, handleUnaryCall } from '@grpc/grpc-js';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import process from 'process';
 import { parseTransaction } from '../Core';
@@ -510,6 +510,15 @@ class GrpcService {
 
       return res;
     });
+  };
+
+  public swapCreationHook = (
+    call: ServerDuplexStream<
+      boltzrpc.SwapCreationResponse,
+      boltzrpc.SwapCreation
+    >,
+  ) => {
+    this.service.swapManager.creationHook.connectToStream(call);
   };
 
   public getReferrals: handleUnaryCall<

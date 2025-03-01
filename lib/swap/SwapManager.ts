@@ -72,6 +72,7 @@ import { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
+import CreationHook from './CreationHook';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
 import NodeSwitch from './NodeSwitch';
@@ -159,6 +160,7 @@ class SwapManager {
 
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
+  public readonly creationHook: CreationHook;
   public readonly renegotiator: Renegotiator;
   public readonly deferredClaimer: DeferredClaimer;
   public readonly chainSwapSigner: ChainSwapSigner;
@@ -238,6 +240,8 @@ class SwapManager {
       this.rateProvider,
       paymentRequestUtils,
     );
+
+    this.creationHook = new CreationHook(this.logger);
   }
 
   public init = async (
@@ -613,6 +617,18 @@ class SwapManager {
       `Setting ${decodedInvoice.typePretty} invoice of Swap ${swap.id}: ${invoice}`,
     );
 
+    if (
+      !(await this.creationHook.swapCreationHook(swap.type, {
+        invoiceAmount,
+        id: swap.id,
+        referral: swap.referral,
+        symbolReceiving: swap.chainCurrency,
+        symbolSending: swap.lightningCurrency,
+      }))
+    ) {
+      throw Errors.HOOK_REJECTED();
+    }
+
     await this.nursery.lock.acquire(SwapNursery.swapLock, async () => {
       // Fetch the status again to make sure it is the latest from the database
       const previousStatus = (await swap.reload()).status;
@@ -715,6 +731,18 @@ class SwapManager {
       this.logger.silly(
         `Using referral ID ${args.referralId} for Reverse Swap ${id}`,
       );
+    }
+
+    if (
+      !(await this.creationHook.swapCreationHook(SwapType.ReverseSubmarine, {
+        id,
+        referral: args.referralId,
+        invoiceAmount: args.holdInvoiceAmount,
+        symbolSending: sendingCurrency.symbol,
+        symbolReceiving: receivingCurrency.symbol,
+      }))
+    ) {
+      throw Errors.HOOK_REJECTED();
     }
 
     const isBitcoinLike =
@@ -999,6 +1027,18 @@ class SwapManager {
       this.logger.silly(
         `Using referral ID ${args.referralId} for Chain Swap ${id}`,
       );
+    }
+
+    if (
+      !(await this.creationHook.swapCreationHook(SwapType.Chain, {
+        id,
+        referral: args.referralId,
+        userLockAmount: args.userLockAmount,
+        symbolSending: sendingCurrency.symbol,
+        symbolReceiving: receivingCurrency.symbol,
+      }))
+    ) {
+      throw Errors.HOOK_REJECTED();
     }
 
     if (

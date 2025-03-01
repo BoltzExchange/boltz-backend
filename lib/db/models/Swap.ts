@@ -1,5 +1,9 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { getLightningCurrency, splitPairId } from '../../Utils';
+import {
+  getChainCurrency,
+  getLightningCurrency,
+  splitPairId,
+} from '../../Utils';
 import {
   SwapType as SwapKindType,
   SwapUpdateEvent,
@@ -193,6 +197,11 @@ class Swap extends Model implements SwapType {
   get lightningCurrency() {
     const { base, quote } = splitPairId(this.pair);
     return getLightningCurrency(base, quote, this.orderSide, false);
+  }
+
+  get chainCurrency() {
+    const { base, quote } = splitPairId(this.pair);
+    return getChainCurrency(base, quote, this.orderSide, false);
   }
 
   get failureDetails(): IncorrectAmountDetails | undefined {

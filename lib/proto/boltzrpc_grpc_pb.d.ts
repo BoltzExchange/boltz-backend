@@ -30,6 +30,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getReferrals: IBoltzService_IGetReferrals;
     setReferral: IBoltzService_ISetReferral;
     calculateTransactionFee: IBoltzService_ICalculateTransactionFee;
+    swapCreationHook: IBoltzService_ISwapCreationHook;
     setLogLevel: IBoltzService_ISetLogLevel;
     devHeapDump: IBoltzService_IDevHeapDump;
 }
@@ -232,6 +233,15 @@ interface IBoltzService_ICalculateTransactionFee extends grpc.MethodDefinition<b
     responseSerialize: grpc.serialize<boltzrpc_pb.CalculateTransactionFeeResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.CalculateTransactionFeeResponse>;
 }
+interface IBoltzService_ISwapCreationHook extends grpc.MethodDefinition<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation> {
+    path: "/boltzrpc.Boltz/SwapCreationHook";
+    requestStream: true;
+    responseStream: true;
+    requestSerialize: grpc.serialize<boltzrpc_pb.SwapCreationResponse>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.SwapCreationResponse>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.SwapCreation>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.SwapCreation>;
+}
 interface IBoltzService_ISetLogLevel extends grpc.MethodDefinition<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse> {
     path: "/boltzrpc.Boltz/SetLogLevel";
     requestStream: false;
@@ -276,6 +286,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     getReferrals: grpc.handleUnaryCall<boltzrpc_pb.GetReferralsRequest, boltzrpc_pb.GetReferralsResponse>;
     setReferral: grpc.handleUnaryCall<boltzrpc_pb.SetReferralRequest, boltzrpc_pb.SetReferralResponse>;
     calculateTransactionFee: grpc.handleUnaryCall<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse>;
+    swapCreationHook: grpc.handleBidiStreamingCall<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     setLogLevel: grpc.handleUnaryCall<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse>;
     devHeapDump: grpc.handleUnaryCall<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse>;
 }
@@ -347,6 +358,9 @@ export interface IBoltzClient {
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    swapCreationHook(): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    swapCreationHook(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    swapCreationHook(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
@@ -423,6 +437,8 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
+    public swapCreationHook(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    public swapCreationHook(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;
     public setLogLevel(request: boltzrpc_pb.SetLogLevelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetLogLevelResponse) => void): grpc.ClientUnaryCall;

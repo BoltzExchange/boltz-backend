@@ -44,19 +44,19 @@ impl<'de> Deserialize<'de> for XpubDeserialize {
 }
 
 #[derive(Deserialize)]
-pub struct RecoveryParams {
+pub struct RescueParams {
     xpub: XpubDeserialize,
 }
 
-pub async fn swap_recovery<S, M>(
+pub async fn swap_rescue<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
-    Json(RecoveryParams { xpub }): Json<RecoveryParams>,
+    Json(RescueParams { xpub }): Json<RescueParams>,
 ) -> anyhow::Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let res = state.service.swap_recovery.recover_xpub(&xpub.0)?;
+    let res = state.service.swap_rescue.rescue_xpub(&xpub.0)?;
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 
@@ -67,7 +67,7 @@ mod test {
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
     use crate::service::Service;
-    use crate::service::test::RecoverableSwap;
+    use crate::service::test::RescuableSwap;
     use crate::swap::manager::test::MockManager;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -89,12 +89,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_swap_recovery() {
+    async fn test_swap_rescue() {
         let res = setup_router()
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri("/v2/swap/recovery")
+                    .uri("/v2/swap/rescue")
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&serde_json::json!({
@@ -111,18 +111,18 @@ mod test {
 
         let body = res.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
-            serde_json::from_slice::<Vec<RecoverableSwap>>(&body).unwrap(),
+            serde_json::from_slice::<Vec<RescuableSwap>>(&body).unwrap(),
             vec![],
         );
     }
 
     #[tokio::test]
-    async fn test_swap_recovery_invalid_xpub() {
+    async fn test_swap_rescue_invalid_xpub() {
         let res = setup_router()
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri("/v2/swap/recovery")
+                    .uri("/v2/swap/rescue")
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&serde_json::json!({

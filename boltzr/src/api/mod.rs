@@ -1,5 +1,5 @@
 use crate::api::errors::error_middleware;
-use crate::api::recovery::swap_recovery;
+use crate::api::rescue::swap_rescue;
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
 #[cfg(feature = "metrics")]
@@ -19,7 +19,7 @@ use ws::types::SwapStatus;
 mod errors;
 mod headers;
 mod lightning;
-mod recovery;
+mod rescue;
 mod sse;
 mod stats;
 mod types;
@@ -125,7 +125,7 @@ where
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
                 get(get_stats::<S, M>),
             )
-            .route("/v2/swap/recovery", post(swap_recovery::<S, M>))
+            .route("/v2/swap/rescue", post(swap_rescue::<S, M>))
             .route(
                 "/v2/lightning/{currency}/node/{node}",
                 get(lightning::node_info::<S, M>),

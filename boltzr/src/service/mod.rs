@@ -6,7 +6,7 @@ use crate::service::country_codes::CountryCodes;
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
-use crate::service::recovery::SwapRecovery;
+use crate::service::rescue::SwapRescue;
 use anyhow::Result;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -16,14 +16,14 @@ mod country_codes;
 mod lightning_info;
 mod pair_stats;
 mod prometheus;
-mod recovery;
+mod rescue;
 
 pub use country_codes::MarkingsConfig;
 pub use lightning_info::InfoFetchError;
 pub use pair_stats::HistoricalConfig;
 
 pub struct Service {
-    pub swap_recovery: SwapRecovery,
+    pub swap_rescue: SwapRescue,
     pub country_codes: CountryCodes,
     pub lightning_info: Box<dyn LightningInfo + Send + Sync>,
     pub pair_stats: Option<PairStatsFetcher>,
@@ -39,7 +39,7 @@ impl Service {
         cache: Option<C>,
     ) -> Self {
         Self {
-            swap_recovery: SwapRecovery::new(swap_helper, chain_swap_helper, currencies.clone()),
+            swap_rescue: SwapRescue::new(swap_helper, chain_swap_helper, currencies.clone()),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {
@@ -84,7 +84,7 @@ pub mod test {
     use std::collections::HashMap;
 
     pub use pair_stats::PairStats;
-    pub use recovery::RecoverableSwap;
+    pub use rescue::RescuableSwap;
 
     mock! {
         SwapHelper {}
@@ -137,7 +137,7 @@ pub mod test {
                 .returning(|_| Ok(vec![]));
 
             Self {
-                swap_recovery: SwapRecovery::new(
+                swap_rescue: SwapRescue::new(
                     Arc::new(swap_helper),
                     Arc::new(chain_swap_helper),
                     Arc::new(HashMap::new()),

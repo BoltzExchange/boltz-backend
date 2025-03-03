@@ -14,6 +14,7 @@ import TransactionLabelRepository from '../../../lib/db/repositories/Transaction
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
+import CreationHook from '../../../lib/swap/CreationHook';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 
@@ -832,6 +833,26 @@ describe('GrpcService', () => {
         symbol,
         transactionId,
       );
+    });
+  });
+
+  describe('swapCreationHook', () => {
+    test('should set swap creation hook stream', () => {
+      (service.swapManager.creationHook as any) = {
+        connectToStream: jest.fn(),
+      } as Partial<CreationHook>;
+
+      const stream = {
+        good: 'stream',
+      } as any;
+      grpcService.swapCreationHook(stream);
+
+      expect(
+        service.swapManager.creationHook.connectToStream,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.swapManager.creationHook.connectToStream,
+      ).toHaveBeenCalledWith(stream);
     });
   });
 

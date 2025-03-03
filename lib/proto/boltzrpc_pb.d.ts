@@ -1452,6 +1452,157 @@ export namespace CalculateTransactionFeeResponse {
 
 }
 
+export class SwapCreationResponse extends jspb.Message { 
+    getId(): string;
+    setId(value: string): SwapCreationResponse;
+    getAction(): SwapCreationResponse.Action;
+    setAction(value: SwapCreationResponse.Action): SwapCreationResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SwapCreationResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SwapCreationResponse): SwapCreationResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SwapCreationResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SwapCreationResponse;
+    static deserializeBinaryFromReader(message: SwapCreationResponse, reader: jspb.BinaryReader): SwapCreationResponse;
+}
+
+export namespace SwapCreationResponse {
+    export type AsObject = {
+        id: string,
+        action: SwapCreationResponse.Action,
+    }
+
+    export enum Action {
+    ACCEPT = 0,
+    REJECT = 1,
+    }
+
+}
+
+export class SwapCreation extends jspb.Message { 
+    getId(): string;
+    setId(value: string): SwapCreation;
+    getSymbolSending(): string;
+    setSymbolSending(value: string): SwapCreation;
+    getSymbolReceiving(): string;
+    setSymbolReceiving(value: string): SwapCreation;
+
+    hasReferral(): boolean;
+    clearReferral(): void;
+    getReferral(): string | undefined;
+    setReferral(value: string): SwapCreation;
+
+    hasSubmarine(): boolean;
+    clearSubmarine(): void;
+    getSubmarine(): SwapCreation.Submarine | undefined;
+    setSubmarine(value?: SwapCreation.Submarine): SwapCreation;
+
+    hasReverse(): boolean;
+    clearReverse(): void;
+    getReverse(): SwapCreation.Reverse | undefined;
+    setReverse(value?: SwapCreation.Reverse): SwapCreation;
+
+    hasChain(): boolean;
+    clearChain(): void;
+    getChain(): SwapCreation.Chain | undefined;
+    setChain(value?: SwapCreation.Chain): SwapCreation;
+
+    getSwapCase(): SwapCreation.SwapCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SwapCreation.AsObject;
+    static toObject(includeInstance: boolean, msg: SwapCreation): SwapCreation.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SwapCreation, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SwapCreation;
+    static deserializeBinaryFromReader(message: SwapCreation, reader: jspb.BinaryReader): SwapCreation;
+}
+
+export namespace SwapCreation {
+    export type AsObject = {
+        id: string,
+        symbolSending: string,
+        symbolReceiving: string,
+        referral?: string,
+        submarine?: SwapCreation.Submarine.AsObject,
+        reverse?: SwapCreation.Reverse.AsObject,
+        chain?: SwapCreation.Chain.AsObject,
+    }
+
+
+    export class Submarine extends jspb.Message { 
+        getInvoiceAmount(): number;
+        setInvoiceAmount(value: number): Submarine;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Submarine.AsObject;
+        static toObject(includeInstance: boolean, msg: Submarine): Submarine.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Submarine, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Submarine;
+        static deserializeBinaryFromReader(message: Submarine, reader: jspb.BinaryReader): Submarine;
+    }
+
+    export namespace Submarine {
+        export type AsObject = {
+            invoiceAmount: number,
+        }
+    }
+
+    export class Reverse extends jspb.Message { 
+        getInvoiceAmount(): number;
+        setInvoiceAmount(value: number): Reverse;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Reverse.AsObject;
+        static toObject(includeInstance: boolean, msg: Reverse): Reverse.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Reverse, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Reverse;
+        static deserializeBinaryFromReader(message: Reverse, reader: jspb.BinaryReader): Reverse;
+    }
+
+    export namespace Reverse {
+        export type AsObject = {
+            invoiceAmount: number,
+        }
+    }
+
+    export class Chain extends jspb.Message { 
+        getUserLockAmount(): number;
+        setUserLockAmount(value: number): Chain;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Chain.AsObject;
+        static toObject(includeInstance: boolean, msg: Chain): Chain.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Chain, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Chain;
+        static deserializeBinaryFromReader(message: Chain, reader: jspb.BinaryReader): Chain;
+    }
+
+    export namespace Chain {
+        export type AsObject = {
+            userLockAmount: number,
+        }
+    }
+
+
+    export enum SwapCase {
+        SWAP_NOT_SET = 0,
+        SUBMARINE = 5,
+        REVERSE = 6,
+        CHAIN = 7,
+    }
+
+}
+
 export class SetLogLevelRequest extends jspb.Message { 
     getLevel(): LogLevel;
     setLevel(value: LogLevel): SetLogLevelRequest;

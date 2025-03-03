@@ -58,6 +58,30 @@ describe('Swap', () => {
     );
   });
 
+  describe('chainCurrency', () => {
+    test.each`
+      orderSide | expected
+      ${0}      | ${'BTC'}
+      ${1}      | ${'L-BTC'}
+    `(
+      'should get chainCurrency for orderSide $orderSide',
+      async ({ orderSide, expected }) => {
+        const swap = await Swap.create({
+          orderSide,
+          pair: 'L-BTC/BTC',
+          lockupAddress: 'bc1',
+          timeoutBlockHeight: 1,
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.SwapCreated,
+          id: generateSwapId(SwapVersion.Taproot),
+          preimageHash: getHexString(randomBytes(32)),
+        });
+
+        expect(swap.chainCurrency).toEqual(expected);
+      },
+    );
+  });
+
   describe('failureDetails', () => {
     const createSwapBase = () => ({
       pair: 'BTC/BTC',

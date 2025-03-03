@@ -57,6 +57,8 @@ service Boltz {
 
   rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
 
+  rpc SwapCreationHook (stream SwapCreationResponse) returns (stream SwapCreation);
+
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
@@ -351,6 +353,41 @@ message CalculateTransactionFeeResponse {
   oneof relative {
     double sat_per_vbyte = 2;
     double gwei = 3;
+  }
+}
+
+message SwapCreationResponse {
+  enum Action {
+    ACCEPT = 0;
+    REJECT = 1;
+  }
+
+  string id = 1;
+  Action action = 2;
+}
+
+message SwapCreation {
+    message Submarine {
+    uint64 invoice_amount = 1;
+  }
+
+  message Reverse {
+    uint64 invoice_amount = 1;
+  }
+
+  message Chain {
+    uint64 user_lock_amount = 1;
+  }
+
+  string id = 1;
+  string symbol_sending = 2;
+  string symbol_receiving = 3;
+  optional string referral = 4;
+
+  oneof swap {
+    Submarine submarine = 5;
+    Reverse reverse = 6;
+    Chain chain = 7;
   }
 }
 

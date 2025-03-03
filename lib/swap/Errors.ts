@@ -126,4 +126,8 @@ export default {
     message: 'no offers allowed',
     code: concatErrorCode(ErrorCodePrefix.Swap, 26),
   }),
+  HOOK_REJECTED: (): Error => ({
+    message: 'rejected',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 27),
+  }),
 };

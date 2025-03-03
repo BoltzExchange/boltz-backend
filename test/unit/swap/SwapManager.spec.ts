@@ -21,6 +21,7 @@ import {
   ChannelCreationType,
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
@@ -727,6 +728,9 @@ describe('SwapManager', () => {
     const swap = {
       id: 'id',
       pair: 'BTC/BTC',
+      chainCurrency: 'BTC',
+      lightningCurrency: 'BTC',
+      type: SwapType.Submarine,
       orderSide: OrderSide.BUY,
       preimageHash:
         '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
@@ -762,6 +766,7 @@ describe('SwapManager', () => {
     const acceptZeroConf = false;
     const emitSwapInvoiceSet = jest.fn().mockImplementation();
 
+    const creationHook = jest.spyOn(manager.creationHook, 'swapCreationHook');
     await manager.setSwapInvoice(
       swap,
       invoice,
@@ -772,6 +777,15 @@ describe('SwapManager', () => {
       true,
       emitSwapInvoiceSet,
     );
+
+    expect(creationHook).toHaveBeenCalledTimes(1);
+    expect(creationHook).toHaveBeenCalledWith(SwapType.Submarine, {
+      id: swap.id,
+      symbolSending: 'BTC',
+      symbolReceiving: 'BTC',
+      referral: swap.referral,
+      invoiceAmount: invoiceEncode.satoshis!,
+    });
 
     expect(mockGetChannelCreation).toHaveBeenCalledTimes(1);
     expect(mockGetChannelCreation).toHaveBeenCalledWith({
@@ -1048,6 +1062,8 @@ describe('SwapManager', () => {
     const percentageFee = 1;
     const invoiceExpiry = 6_111;
 
+    const creationHook = jest.spyOn(manager.creationHook, 'swapCreationHook');
+
     const reverseSwap = await manager.createReverseSwap({
       orderSide,
       preimageHash,
@@ -1062,6 +1078,14 @@ describe('SwapManager', () => {
       claimCovenant: false,
       claimPublicKey: claimKey,
       version: SwapVersion.Legacy,
+    });
+
+    expect(creationHook).toHaveBeenCalledTimes(1);
+    expect(creationHook).toHaveBeenCalledWith(SwapType.ReverseSubmarine, {
+      id: reverseSwap.id,
+      symbolSending: 'BTC',
+      symbolReceiving: 'BTC',
+      invoiceAmount: holdInvoiceAmount,
     });
 
     expect(reverseSwap).toEqual({

@@ -171,7 +171,7 @@ where
         let ws_stream = match accept_async(stream).await {
             Ok(stream) => stream,
             Err(err) => {
-                error!("Could not accept WebSocket connection: {}", err);
+                debug!("Could not accept WebSocket connection: {}", err);
                 return;
             }
         };

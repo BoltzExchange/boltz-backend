@@ -13,6 +13,7 @@ pub struct Swap {
     pub orderSide: i32,
     pub status: String,
     pub failureReason: Option<String>,
+    pub preimageHash: String,
     pub invoice: Option<String>,
     pub keyIndex: Option<i32>,
     pub refundPublicKey: Option<String>,

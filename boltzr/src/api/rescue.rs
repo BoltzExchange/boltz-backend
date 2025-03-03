@@ -46,17 +46,25 @@ impl<'de> Deserialize<'de> for XpubDeserialize {
 #[derive(Deserialize)]
 pub struct RescueParams {
     xpub: XpubDeserialize,
+    #[serde(rename = "derivationPath")]
+    derivation_path: Option<String>,
 }
 
 pub async fn swap_rescue<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
-    Json(RescueParams { xpub }): Json<RescueParams>,
+    Json(RescueParams {
+        xpub,
+        derivation_path,
+    }): Json<RescueParams>,
 ) -> anyhow::Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let res = state.service.swap_rescue.rescue_xpub(&xpub.0)?;
+    let res = state
+        .service
+        .swap_rescue
+        .rescue_xpub(&xpub.0, derivation_path)?;
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 

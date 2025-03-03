@@ -1653,6 +1653,99 @@ class SwapRouter extends RouterBase {
      */
     router.get('/:id', this.handleError(this.getSwapStatus));
 
+    // From the sidecar
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     RescueRequest:
+     *       type: object
+     *       required: ["xpub"]
+     *       properties:
+     *         xpub:
+     *           type: string
+     *           description: XPUB from which the refund keys were derived
+     *         derivationPath:
+     *           type: string
+     *           description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     *
+     *     RescuableSwap:
+     *       type: object
+     *       required: ["id", "type", "status", "symbol", "keyIndex", "preimageHash", "timeoutBlockHeight", "serverPublicKey", "tree", "lockupAddress", "createdAt"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID of the Swap
+     *         type:
+     *           type: string
+     *           enum: ["submarine", "chain"]
+     *           description: Type of the Swap
+     *         status:
+     *           type: string
+     *           description: Status of the Swap
+     *         symbol:
+     *           type: string
+     *           description: Symbol of the chain on which the funds locked for the swap can be rescued
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the refund key used in the swap
+     *         preimageHash:
+     *           type: string
+     *           description: Preimage hash of the swap
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the rescuable onchain HTLCs will time out
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
+     *         tree:
+     *           $ref: '#/components/schemas/SwapTree'
+     *         lockupAddress:
+     *           type: string
+     *           description: Lockup address of the Swap
+     *         transaction:
+     *           type: object
+     *           description: Lockup transaction of the Swap
+     *           required: ["id", "hex"]
+     *           properties:
+     *             id:
+     *               type: string
+     *               description: ID of the transaction
+     *             hex:
+     *               type: string
+     *               description: The transaction encoded as HEX
+     *         createdAt:
+     *           type: number
+     *           description: UNIX timestamp of the creation of the Swap
+     */
+
+    /**
+     * @openapi
+     * /swap/rescue:
+     *   post:
+     *     tags: [Swap]
+     *     description: Rescue swaps that were created with an XPUB
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RescueRequest'
+     *     responses:
+     *       '200':
+     *         description: List of swaps that can be rescued
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 $ref: '#/components/schemas/RescuableSwap'
+     */
+
     return router;
   };
 

@@ -70,6 +70,7 @@ diesel = { version = "2.2.7", default-features = false, features = [
     "r2d2",
     "chrono",
     "serde_json",
+    "32-column-tables",
 ] }
 strum_macros = "0.27.1"
 strum = "0.27.1"

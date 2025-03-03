@@ -13,6 +13,7 @@ pub struct ChainSwap {
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
+    pub preimageHash: String,
     pub createdAt: chrono::NaiveDateTime,
 }
 

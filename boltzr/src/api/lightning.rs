@@ -71,7 +71,7 @@ where
 {
     let node = match decode_node(&node) {
         Ok(node) => node,
-        Err(response) => return Ok(response),
+        Err(response) => return Ok(*response),
     };
 
     Ok(
@@ -97,7 +97,7 @@ where
 {
     let node = match decode_node(&node) {
         Ok(node) => node,
-        Err(response) => return Ok(response),
+        Err(response) => return Ok(*response),
     };
 
     Ok(
@@ -113,7 +113,7 @@ where
     )
 }
 
-fn decode_node(node: &str) -> Result<Vec<u8>, axum::http::Response<axum::body::Body>> {
+fn decode_node(node: &str) -> Result<Vec<u8>, Box<axum::http::Response<axum::body::Body>>> {
     fn invalid_node_response<E: std::fmt::Display>(
         err: E,
     ) -> axum::http::Response<axum::body::Body> {
@@ -129,12 +129,12 @@ fn decode_node(node: &str) -> Result<Vec<u8>, axum::http::Response<axum::body::B
     Ok(match hex::decode(node) {
         Ok(node) => {
             if node.len() != 33 {
-                return Err(invalid_node_response("not a public key"));
+                return Err(Box::new(invalid_node_response("not a public key")));
             }
 
             node
         }
-        Err(err) => return Err(invalid_node_response(err)),
+        Err(err) => return Err(Box::new(invalid_node_response(err))),
     })
 }
 

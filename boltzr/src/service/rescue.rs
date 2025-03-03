@@ -66,8 +66,6 @@ pub struct RescuableSwap {
     pub created_at: u64,
 }
 
-// TODO: database indexes
-
 pub struct SwapRescue {
     currencies: Currencies,
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,

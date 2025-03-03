@@ -49,6 +49,8 @@ pub struct RescuableSwap {
     pub symbol: String,
     #[serde(rename = "keyIndex")]
     pub key_index: u64,
+    #[serde(rename = "preimageHash")]
+    pub preimage_hash: String,
     #[serde(rename = "timeoutBlockHeight")]
     pub timeout_block_height: u64,
     #[serde(rename = "serverPublicKey")]
@@ -63,8 +65,6 @@ pub struct RescuableSwap {
     #[serde(rename = "createdAt")]
     pub created_at: u64,
 }
-
-// TODO: database indexes
 
 pub struct SwapRescue {
     currencies: Currencies,
@@ -86,13 +86,22 @@ impl SwapRescue {
     }
 
     #[instrument(name = "SwapRescue::rescue_xpub", skip_all)]
-    pub fn rescue_xpub(&self, xpub: &Xpub) -> Result<Vec<RescuableSwap>> {
+    pub fn rescue_xpub(
+        &self,
+        xpub: &Xpub,
+        derivation_path: Option<String>,
+    ) -> Result<Vec<RescuableSwap>> {
         debug!(
             "Scanning for rescuable swaps for {}",
             xpub.identifier().to_string()
         );
 
         let secp = Secp256k1::default();
+        let derivation_path = if let Some(path) = &derivation_path {
+            path
+        } else {
+            DERIVATION_PATH
+        };
 
         let mut rescuable = Vec::new();
 
@@ -106,7 +115,7 @@ impl SwapRescue {
                 xpub.identifier().to_string()
             );
 
-            let keys_map = Self::derive_keys(&secp, xpub, from, to)?;
+            let keys_map = Self::derive_keys(&secp, xpub, derivation_path, from, to)?;
             let keys = keys_map.keys().map(|k| Some(k.clone())).collect::<Vec<_>>();
 
             let swaps = self.swap_helper.get_all_nullable(Box::new(
@@ -171,6 +180,7 @@ impl SwapRescue {
                                 s.lockupTransactionVout,
                             ),
                             status: s.status,
+                            preimage_hash: s.preimageHash,
                             lockup_address: s.lockupAddress,
                             created_at: s.createdAt.and_utc().timestamp() as u64,
                         })
@@ -228,6 +238,7 @@ impl SwapRescue {
                             ),
                             lockup_address: s.receiving().lockupAddress.clone(),
                             status: s.swap.status,
+                            preimage_hash: s.swap.preimageHash,
                             created_at: s.swap.createdAt.and_utc().timestamp() as u64,
                         })
                     })
@@ -294,6 +305,7 @@ impl SwapRescue {
     fn derive_keys<C: secp256k1::Verification>(
         secp: &Secp256k1<C>,
         xpub: &Xpub,
+        derivation_path: &str,
         start: u64,
         end: u64,
     ) -> Result<HashMap<String, u64>> {
@@ -303,7 +315,7 @@ impl SwapRescue {
             let key = xpub
                 .derive_pub(
                     secp,
-                    &DerivationPath::from_str(&format!("{}/{}", DERIVATION_PATH, i))?,
+                    &DerivationPath::from_str(&format!("{}/{}", derivation_path, i))?,
                 )
                 .map(|derived| derived.public_key)?;
 
@@ -350,6 +362,7 @@ mod test {
             status: "invoice.failedToPay".to_string(),
             keyIndex: Some(1),
             timeoutBlockHeight: 321,
+            preimageHash: "101a17e334bcaba40cbf8e3580b73d263c3b94ed65e86ff81317f95fe1346dd8".to_string(),
             refundPublicKey: Some("025964821780625d20ba1af21a45b203a96dcc5986c75c2d43bdc873d224810b0c".to_string()),
             lockupAddress: "el1qqwgersfg6zwpr0htqwg6rt7zwvz5ypec9q2zn2d2s526uevt4hdtyf8jqgtak7aummc7te0rj0ke4v7ygj60s7a07pe3nz6a6".to_string(),
             redeemScript: Some(tree.to_string()),
@@ -365,6 +378,7 @@ mod test {
                 pair: "L-BTC/BTC".to_string(),
                 orderSide: 1,
                 status: "transaction.failed".to_string(),
+                preimageHash: "966ea2be5351178cf96b1ae2b5b41e57bcc3d42ebcb3ef5e3bb2647641d34414".to_string(),
                 createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:57:21").unwrap(),
             },
             vec![ChainSwapData {
@@ -428,7 +442,7 @@ mod test {
             )])),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
-        let res = rescue.rescue_xpub(&xpub).unwrap();
+        let res = rescue.rescue_xpub(&xpub, None).unwrap();
         assert_eq!(res.len(), 2);
         assert_eq!(
             res[0],
@@ -438,6 +452,7 @@ mod test {
                 status: swap.status,
                 symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 key_index: 0,
+                preimage_hash: swap.preimageHash,
                 timeout_block_height: swap.timeoutBlockHeight as u64,
                 server_public_key:
                     "03f80e5650435fb598bb07257d50af378d4f7ddf8f2f78181f8b29abb0b05ecb47".to_string(),
@@ -465,6 +480,7 @@ mod test {
                 status: chain_swap.swap.status,
                 symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 key_index: 11,
+                preimage_hash: chain_swap.swap.preimageHash,
                 server_public_key:
                     "02609b800f905a8bfba6763a5f0d9bdca4192648b006aeeb22598ea0b9004cf6c9".to_string(),
                 blinding_key: Some(
@@ -579,7 +595,14 @@ mod test {
     #[test]
     fn test_derive_keys() {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
-        let keys = SwapRescue::derive_keys(&Secp256k1::verification_only(), &xpub, 0, 10).unwrap();
+        let keys = SwapRescue::derive_keys(
+            &Secp256k1::verification_only(),
+            &xpub,
+            DERIVATION_PATH,
+            0,
+            10,
+        )
+        .unwrap();
 
         assert_eq!(keys.len(), 10);
         assert_eq!(
@@ -591,6 +614,28 @@ mod test {
         assert_eq!(
             *keys
                 .get("03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0")
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_derive_keys_custom_path() {
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let keys =
+            SwapRescue::derive_keys(&Secp256k1::verification_only(), &xpub, "m/45/1/0/0", 0, 10)
+                .unwrap();
+
+        assert_eq!(keys.len(), 10);
+        assert_eq!(
+            *keys
+                .get("0331369109fbd305f2fdd1a0babc5a6bc629bed7aa987b4472526c2be520ed3457")
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            *keys
+                .get("035d6f0b7f7cde3c1db252aec0262721c1858effc2cc806db4eca4d2f2928f1bc0")
                 .unwrap(),
             1
         );

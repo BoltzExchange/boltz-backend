@@ -177,6 +177,10 @@ class Swap extends Model implements SwapType {
             unique: false,
             fields: ['lockupTransactionId'],
           },
+          {
+            unique: false,
+            fields: ['refundPublicKey'],
+          },
         ],
       },
     );

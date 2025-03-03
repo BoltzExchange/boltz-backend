@@ -89,6 +89,10 @@ class ChainSwapData extends Model implements ChainSwapDataType {
             unique: false,
             fields: ['transactionId'],
           },
+          {
+            unique: false,
+            fields: ['theirPublicKey'],
+          },
         ],
       },
     );

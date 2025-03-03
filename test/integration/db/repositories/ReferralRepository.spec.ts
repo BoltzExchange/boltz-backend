@@ -1,5 +1,5 @@
 import Logger from '../../../../lib/Logger';
-import { SwapType } from '../../../../lib/consts/Enums';
+import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
 import Referral from '../../../../lib/db/models/Referral';
 import ReferralRepository from '../../../../lib/db/repositories/ReferralRepository';
@@ -146,6 +146,97 @@ describe('ReferralRepository', () => {
               config,
             }),
           ).rejects.toEqual(`${field} out of range`);
+        },
+      );
+
+      test('should throw if chain swap premium is not a DirectionalPremium object', async () => {
+        await expect(
+          ReferralRepository.addReferral({
+            ...fixture,
+            config: {
+              premiums: {
+                [SwapType.Chain]: 10 as any,
+              },
+            },
+          }),
+        ).rejects.toEqual(
+          'Chain swap premiums must specify both BUY and SELL values',
+        );
+      });
+
+      test.each`
+        premiumValue
+        ${10}
+        ${{ [OrderSide.BUY]: 10 }}
+        ${{ [OrderSide.SELL]: 10 }}
+      `(
+        'should throw if chain swap premium is invalid or incomplete ($premiumValue)',
+        async ({ premiumValue }) => {
+          await expect(
+            ReferralRepository.addReferral({
+              ...fixture,
+              config: {
+                premiums: {
+                  [SwapType.Chain]: premiumValue,
+                },
+              },
+            }),
+          ).rejects.toEqual(
+            'Chain swap premiums must specify both BUY and SELL values',
+          );
+        },
+      );
+
+      test.each`
+        buy     | sell
+        ${101}  | ${10}
+        ${10}   | ${-101}
+        ${-101} | ${10}
+        ${10}   | ${101}
+      `(
+        'should throw if chain swap premium values are out of range (buy: $buy, sell: $sell)',
+        async ({ buy, sell }) => {
+          await expect(
+            ReferralRepository.addReferral({
+              ...fixture,
+              config: {
+                premiums: {
+                  [SwapType.Chain]: {
+                    [OrderSide.BUY]: buy,
+                    [OrderSide.SELL]: sell,
+                  },
+                },
+              },
+            }),
+          ).rejects.toEqual('premium out of range');
+        },
+      );
+
+      test.each`
+        buy     | sell
+        ${10}   | ${20}
+        ${-100} | ${-100}
+        ${0}    | ${0}
+        ${100}  | ${100}
+      `(
+        'should accept valid chain swap premiums (buy: $buy, sell: $sell)',
+        async ({ buy, sell }) => {
+          const ref = await ReferralRepository.addReferral({
+            ...fixture,
+            config: {
+              premiums: {
+                [SwapType.Chain]: {
+                  [OrderSide.BUY]: buy,
+                  [OrderSide.SELL]: sell,
+                },
+              },
+            },
+          });
+
+          expect(ref.config?.premiums?.[SwapType.Chain]).toEqual({
+            [OrderSide.BUY]: buy,
+            [OrderSide.SELL]: sell,
+          });
         },
       );
     });

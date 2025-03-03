@@ -228,7 +228,9 @@ class FeeProvider {
       typeof percentageType === 'number'
         ? percentageType
         : percentageType[orderSide],
-      referral?.premium(pair, type),
+      type === SwapType.Chain
+        ? referral?.premium(pair, type, orderSide)
+        : referral?.premium(pair, type),
     );
 
     return feeType === PercentageFeeType.Calculation

@@ -1,6 +1,6 @@
 import Logger from '../../../../lib/Logger';
 import { createApiCredential } from '../../../../lib/Utils';
-import { SwapType } from '../../../../lib/consts/Enums';
+import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
 import ReferralRepository, {
   ReferralType,
@@ -19,6 +19,7 @@ describe('Referral', () => {
       premiums: {
         [SwapType.Submarine]: -15,
         [SwapType.ReverseSubmarine]: 21,
+        [SwapType.Chain]: { [OrderSide.BUY]: -15, [OrderSide.SELL]: -10 },
       },
       limits: {
         [SwapType.ReverseSubmarine]: {
@@ -30,7 +31,7 @@ describe('Referral', () => {
         'RBTC/BTC': {
           maxRoutingFee: 0.0025,
           premiums: {
-            [SwapType.Chain]: -25,
+            [SwapType.Chain]: { [OrderSide.BUY]: -25, [OrderSide.SELL]: -20 },
           },
           limits: {
             [SwapType.Submarine]: {
@@ -108,29 +109,36 @@ describe('Referral', () => {
   });
 
   test.each`
-    pair          | type                         | expected
-    ${'BTC/BTC'}  | ${SwapType.Submarine}        | ${referralValues.config!.premiums![SwapType.Submarine]}
-    ${'BTC/BTC'}  | ${SwapType.ReverseSubmarine} | ${referralValues.config!.premiums![SwapType.ReverseSubmarine]}
-    ${'BTC/BTC'}  | ${SwapType.Chain}            | ${referralValues.config!.premiums![SwapType.Chain]}
-    ${'RBTC/BTC'} | ${SwapType.Chain}            | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]}
+    pair          | type                         | orderSide         | expected
+    ${'BTC/BTC'}  | ${SwapType.Submarine}        | ${undefined}      | ${referralValues.config!.premiums![SwapType.Submarine]}
+    ${'BTC/BTC'}  | ${SwapType.ReverseSubmarine} | ${undefined}      | ${referralValues.config!.premiums![SwapType.ReverseSubmarine]}
+    ${'BTC/BTC'}  | ${SwapType.Chain}            | ${OrderSide.BUY}  | ${referralValues.config!.premiums![SwapType.Chain]![OrderSide.BUY]}
+    ${'BTC/BTC'}  | ${SwapType.Chain}            | ${OrderSide.SELL} | ${referralValues.config!.premiums![SwapType.Chain]![OrderSide.SELL]}
+    ${'RBTC/BTC'} | ${SwapType.Chain}            | ${OrderSide.BUY}  | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]![OrderSide.BUY]}
+    ${'RBTC/BTC'} | ${SwapType.Chain}            | ${OrderSide.SELL} | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]![OrderSide.SELL]}
   `(
     'should get premium for pair $pair and type $type',
-    async ({ pair, type, expected }) => {
+    async ({ pair, type, orderSide, expected }) => {
       const ref = await ReferralRepository.getReferralById(referralValues.id);
 
       expect(ref).not.toBeNull();
-      expect(ref!.premium(pair, type)).toEqual(expected);
+      expect(ref!.premium(pair, type, orderSide)).toEqual(expected);
     },
   );
 
   test.each`
-    pairs                      | type              | expected
-    ${['BTC/BTC']}             | ${SwapType.Chain} | ${referralValues.config!.premiums![SwapType.Chain]}
-    ${['BTC/BTC', 'RBTC/BTC']} | ${SwapType.Chain} | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]}
-  `('should get premium for pairs', async ({ pairs, type, expected }) => {
-    const ref = await ReferralRepository.getReferralById(referralValues.id);
+    pairs                      | type              | orderSide         | expected
+    ${['BTC/BTC']}             | ${SwapType.Chain} | ${OrderSide.BUY}  | ${referralValues.config!.premiums![SwapType.Chain]![OrderSide.BUY]}
+    ${['BTC/BTC']}             | ${SwapType.Chain} | ${OrderSide.SELL} | ${referralValues.config!.premiums![SwapType.Chain]![OrderSide.SELL]}
+    ${['BTC/BTC', 'RBTC/BTC']} | ${SwapType.Chain} | ${OrderSide.BUY}  | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]![OrderSide.BUY]}
+    ${['BTC/BTC', 'RBTC/BTC']} | ${SwapType.Chain} | ${OrderSide.SELL} | ${referralValues.config!.pairs!['RBTC/BTC']!.premiums![SwapType.Chain]![OrderSide.SELL]}
+  `(
+    'should get premium for pairs',
+    async ({ pairs, type, orderSide, expected }) => {
+      const ref = await ReferralRepository.getReferralById(referralValues.id);
 
-    expect(ref).not.toBeNull();
-    expect(ref!.premiumForPairs(pairs, type)).toEqual(expected);
-  });
+      expect(ref).not.toBeNull();
+      expect(ref!.premiumForPairs(pairs, type, orderSide)).toEqual(expected);
+    },
+  );
 });

@@ -1,7 +1,12 @@
 import { QueryTypes } from 'sequelize';
-import { SuccessSwapUpdateEvents } from '../../consts/Enums';
+import {
+  OrderSide,
+  SuccessSwapUpdateEvents,
+  SwapType,
+} from '../../consts/Enums';
 import Database from '../Database';
 import Referral, {
+  DirectionalPremium,
   ReferralConfig,
   ReferralPairConfig,
   ReferralType,
@@ -112,23 +117,56 @@ class ReferralRepository {
   private static sanityCheckConfig = (
     config: ReferralConfig | null | undefined,
   ) => {
+    const MAX_PREMIUM_PERCENTAGE = 100;
+    const MIN_PREMIUM_PERCENTAGE = -100;
+    const MIN_EXPIRATION = 120;
+    const MAX_EXPIRATION = 60 * 60 * 24;
+    const MAX_ROUTING_FEE = 0.005;
+
     const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
-      if (cfg.maxRoutingFee) {
-        if (cfg.maxRoutingFee < 0 || cfg.maxRoutingFee > 0.005) {
-          throw 'maxRoutingFee out of range';
-        }
+      if (
+        cfg.maxRoutingFee &&
+        (cfg.maxRoutingFee < 0 || cfg.maxRoutingFee > MAX_ROUTING_FEE)
+      ) {
+        throw 'maxRoutingFee out of range';
       }
 
       if (cfg.premiums) {
-        if (Object.values(cfg.premiums).some((p) => p < -100 || p > 100)) {
-          throw 'premium out of range';
+        for (const [typeStr, premium] of Object.entries(cfg.premiums)) {
+          const type = Number(typeStr) as SwapType;
+
+          if (type === SwapType.Chain) {
+            const directionalPremium = premium as DirectionalPremium;
+
+            if (
+              directionalPremium[OrderSide.BUY] === undefined ||
+              directionalPremium[OrderSide.SELL] === undefined
+            ) {
+              throw 'Chain swap premiums must specify both BUY and SELL values';
+            }
+
+            if (
+              directionalPremium[OrderSide.BUY] < MIN_PREMIUM_PERCENTAGE ||
+              directionalPremium[OrderSide.BUY] > MAX_PREMIUM_PERCENTAGE ||
+              directionalPremium[OrderSide.SELL] < MIN_PREMIUM_PERCENTAGE ||
+              directionalPremium[OrderSide.SELL] > MAX_PREMIUM_PERCENTAGE
+            ) {
+              throw 'premium out of range';
+            }
+          } else if (
+            typeof premium === 'number' &&
+            (premium < MIN_PREMIUM_PERCENTAGE ||
+              premium > MAX_PREMIUM_PERCENTAGE)
+          ) {
+            throw 'premium out of range';
+          }
         }
       }
 
       if (cfg.expirations) {
         if (
           Object.values(cfg.expirations).some(
-            (e) => e < 120 || e > 60 * 60 * 24,
+            (e) => e < MIN_EXPIRATION || e > MAX_EXPIRATION,
           )
         ) {
           throw 'expiration out of range';
@@ -140,9 +178,7 @@ class ReferralRepository {
       sanityCheckPairConfig(config);
 
       if (config.pairs) {
-        for (const pair of Object.values(config.pairs)) {
-          sanityCheckPairConfig(pair);
-        }
+        Object.values(config.pairs).forEach(sanityCheckPairConfig);
       }
     }
   };

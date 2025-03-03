@@ -1,13 +1,21 @@
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { SwapType } from '../../consts/Enums';
+import { OrderSide, SwapType } from '../../consts/Enums';
 
 type Limits = {
   minimal?: number;
   maximal?: number;
 };
 
-// TODO: direction of chain swaps
-type Premiums = Partial<Record<SwapType, number>>;
+type DirectionalPremium = {
+  [OrderSide.BUY]: number;
+  [OrderSide.SELL]: number;
+};
+
+type Premiums = Partial<{
+  [SwapType.Submarine]: number;
+  [SwapType.ReverseSubmarine]: number;
+  [SwapType.Chain]: DirectionalPremium;
+}>;
 
 type LimitsPerType = Partial<Record<SwapType, Limits>>;
 
@@ -131,27 +139,55 @@ class Referral extends Model implements ReferralType {
     return this.config?.limits?.[type];
   };
 
-  public premium = (pair: string, type: SwapType): number | undefined => {
-    return (
+  public premium = (
+    pair: string,
+    type: SwapType,
+    orderSide?: OrderSide,
+  ): number | undefined => {
+    const premium =
       this.config?.pairs?.[pair]?.premiums?.[type] ||
-      this.config?.premiums?.[type]
-    );
+      this.config?.premiums?.[type];
+
+    if (type === SwapType.Chain && orderSide !== undefined) {
+      return premium ? premium[orderSide] : undefined;
+    }
+
+    return premium as number | undefined;
   };
 
   public premiumForPairs = (
     pairs: string[],
     type: SwapType,
+    orderSide?: OrderSide,
   ): number | undefined => {
+    if (type === SwapType.Chain && orderSide === undefined) {
+      throw new Error('chain swap premiums require an order side');
+    }
+
     for (const pair of pairs) {
       const premium = this.config?.pairs?.[pair]?.premiums?.[type];
       if (premium !== undefined) {
-        return premium;
+        if (type === SwapType.Chain) {
+          return premium[orderSide!];
+        }
+        return premium as number | undefined;
       }
     }
 
-    return this.config?.premiums?.[type];
+    const premium = this.config?.premiums?.[type];
+    if (type === SwapType.Chain && premium !== undefined) {
+      return premium[orderSide!];
+    }
+
+    return premium as number | undefined;
   };
 }
 
 export default Referral;
-export { ReferralType, ReferralConfig, ReferralPairConfig };
+export {
+  ReferralType,
+  ReferralConfig,
+  ReferralPairConfig,
+  DirectionalPremium,
+  Premiums,
+};

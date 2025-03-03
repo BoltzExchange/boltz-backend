@@ -140,10 +140,18 @@ describe('RateProviderTaproot', () => {
           getPairs.call(provider, referral).get(from)!.get(to)!.fees.percentage,
         ).toEqual(expectedFee);
 
-        expect(referral.premiumForPairs).toHaveBeenCalledWith(
-          expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
-          type,
-        );
+        if (type === SwapType.Chain) {
+          expect(referral.premiumForPairs).toHaveBeenCalledWith(
+            expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
+            type,
+            expect.any(Number),
+          );
+        } else {
+          expect(referral.premiumForPairs).toHaveBeenCalledWith(
+            expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
+            type,
+          );
+        }
 
         expect(
           getPairs.call(provider).get(from)!.get(to)!.fees.percentage,

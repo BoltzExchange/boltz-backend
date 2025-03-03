@@ -41,7 +41,7 @@ pub struct Transaction {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct RecoverableSwap {
+pub struct RescuableSwap {
     pub id: String,
     #[serde(rename = "type")]
     pub kind: SwapType,
@@ -66,18 +66,18 @@ pub struct RecoverableSwap {
 
 // TODO: database indexes
 
-pub struct SwapRecovery {
+pub struct SwapRescue {
     currencies: Currencies,
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
 }
 
-impl SwapRecovery {
+impl SwapRescue {
     pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
-    ) -> SwapRecovery {
+    ) -> SwapRescue {
         Self {
             currencies,
             swap_helper,
@@ -85,22 +85,22 @@ impl SwapRecovery {
         }
     }
 
-    #[instrument(name = "SwapRecovery::recover_xpub", skip_all)]
-    pub fn recover_xpub(&self, xpub: &Xpub) -> Result<Vec<RecoverableSwap>> {
+    #[instrument(name = "SwapRescue::rescue_xpub", skip_all)]
+    pub fn rescue_xpub(&self, xpub: &Xpub) -> Result<Vec<RescuableSwap>> {
         debug!(
-            "Scanning for recoverable swaps for {}",
+            "Scanning for rescuable swaps for {}",
             xpub.identifier().to_string()
         );
 
         let secp = Secp256k1::default();
 
-        let mut recoverable = Vec::new();
+        let mut rescuable = Vec::new();
 
         for from in (0..).step_by(GAP_LIMIT as usize) {
             let to = from + GAP_LIMIT;
 
             trace!(
-                "Scanning for recoverable swaps from key index {} to {} for {}",
+                "Scanning for rescuable swaps from key index {} to {} for {}",
                 from,
                 to,
                 xpub.identifier().to_string()
@@ -121,15 +121,15 @@ impl SwapRecovery {
 
             if swaps.is_empty() && chain_swaps.is_empty() {
                 debug!(
-                    "Scanned {} keys for recoverable swaps for {} and found {}",
+                    "Scanned {} keys for rescuable swaps for {} and found {}",
                     to,
                     xpub.identifier().to_string(),
-                    recoverable.len(),
+                    rescuable.len(),
                 );
                 break;
             }
 
-            recoverable.append(
+            rescuable.append(
                 &mut swaps
                     .into_iter()
                     .map(|s| {
@@ -139,7 +139,7 @@ impl SwapRecovery {
                             .ok_or_else(|| anyhow!("no wallet for {}", s.id))?
                             .wallet;
 
-                        Ok(RecoverableSwap {
+                        Ok(RescuableSwap {
                             id: s.id.clone(),
                             kind: s.kind(),
                             symbol: s.chain_symbol()?,
@@ -175,9 +175,9 @@ impl SwapRecovery {
                             created_at: s.createdAt.and_utc().timestamp() as u64,
                         })
                     })
-                    .collect::<Result<Vec<RecoverableSwap>>>()?,
+                    .collect::<Result<Vec<RescuableSwap>>>()?,
             );
-            recoverable.append(
+            rescuable.append(
                 &mut chain_swaps
                     .into_iter()
                     .filter(|s| {
@@ -194,7 +194,7 @@ impl SwapRecovery {
                             .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?
                             .wallet;
 
-                        Ok(RecoverableSwap {
+                        Ok(RescuableSwap {
                             id: s.id(),
                             kind: s.kind(),
                             symbol: s.receiving().symbol.clone(),
@@ -231,12 +231,12 @@ impl SwapRecovery {
                             created_at: s.swap.createdAt.and_utc().timestamp() as u64,
                         })
                     })
-                    .collect::<Result<Vec<RecoverableSwap>>>()?,
+                    .collect::<Result<Vec<RescuableSwap>>>()?,
             );
         }
 
-        recoverable.sort_by(|a, b| a.key_index.cmp(&b.key_index));
-        Ok(recoverable)
+        rescuable.sort_by(|a, b| a.key_index.cmp(&b.key_index));
+        Ok(rescuable)
     }
 
     fn transform_transaction(
@@ -340,7 +340,7 @@ mod test {
     }
 
     #[test]
-    fn test_recover_xpub() {
+    fn test_rescue_xpub() {
         let tree = "{\"claimLeaf\":{\"version\":196,\"output\":\"a914617cc637679ded498738a09314294837227fbf938820ceb839aafaafdb6370781cb102567101f4ab628f54734792ede606fa8fd4f35fac\"},\"refundLeaf\":{\"version\":196,\"output\":\"2020103b104886a5180dd1be5146cceb12f19e59bdd63bca41470c91d94f317cdead02c527b1\"}}";
 
         let swap = Swap {
@@ -413,7 +413,7 @@ mod test {
             .returning(|_| Ok(vec![]))
             .times(1);
 
-        let recovery = SwapRecovery::new(
+        let rescue = SwapRescue::new(
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(HashMap::from([(
@@ -428,11 +428,11 @@ mod test {
             )])),
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
-        let res = recovery.recover_xpub(&xpub).unwrap();
+        let res = rescue.rescue_xpub(&xpub).unwrap();
         assert_eq!(res.len(), 2);
         assert_eq!(
             res[0],
-            RecoverableSwap {
+            RescuableSwap {
                 id: swap.id,
                 kind: SwapType::Submarine,
                 status: swap.status,
@@ -444,7 +444,7 @@ mod test {
                 blinding_key: Some(
                     "cf93ed8c71de3fff39a265898766ef327cf123e8eb7084fabaead2d6092de90d".to_string()
                 ),
-                tree: SwapRecovery::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
+                tree: SwapRescue::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
                 lockup_address: swap.lockupAddress,
                 transaction: Some(Transaction {
                     id: swap.lockupTransactionId.unwrap(),
@@ -455,11 +455,11 @@ mod test {
         );
         assert_eq!(
             res[1],
-            RecoverableSwap {
+            RescuableSwap {
                 id: chain_swap.id(),
                 kind: SwapType::Chain,
                 timeout_block_height: chain_swap.receiving().timeoutBlockHeight as u64,
-                tree: SwapRecovery::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
+                tree: SwapRescue::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
                     .unwrap(),
                 lockup_address: chain_swap.receiving().lockupAddress.clone(),
                 status: chain_swap.swap.status,
@@ -485,13 +485,13 @@ mod test {
         #[case] vout: Option<i32>,
         #[case] res: Option<Transaction>,
     ) {
-        assert_eq!(SwapRecovery::transform_transaction(tx_id, vout), res);
+        assert_eq!(SwapRescue::transform_transaction(tx_id, vout), res);
     }
 
     #[test]
     fn test_derive_our_public_key() {
         assert_eq!(
-            SwapRecovery::derive_our_public_key(
+            SwapRescue::derive_our_public_key(
                 &Secp256k1::signing_only(),
                 &get_liquid_wallet(),
                 "",
@@ -506,7 +506,7 @@ mod test {
     fn test_derive_our_public_key_no_key_index() {
         let id = "id";
         assert_eq!(
-            SwapRecovery::derive_our_public_key(
+            SwapRescue::derive_our_public_key(
                 &Secp256k1::signing_only(),
                 &get_liquid_wallet(),
                 id,
@@ -521,7 +521,7 @@ mod test {
 
     #[test]
     fn test_derive_blinding_key() {
-        assert_eq!(SwapRecovery::derive_blinding_key(
+        assert_eq!(SwapRescue::derive_blinding_key(
             &get_liquid_wallet(),
             "",
             crate::chain::elements_client::SYMBOL,
@@ -532,7 +532,7 @@ mod test {
     #[test]
     fn test_derive_blinding_key_non_liquid() {
         assert!(
-            SwapRecovery::derive_blinding_key(&get_liquid_wallet(), "", "BTC", "")
+            SwapRescue::derive_blinding_key(&get_liquid_wallet(), "", "BTC", "")
                 .unwrap()
                 .is_none()
         );
@@ -542,7 +542,7 @@ mod test {
     fn test_lookup_from_keys() {
         let key = "key";
         assert_eq!(
-            SwapRecovery::lookup_from_keys(
+            SwapRescue::lookup_from_keys(
                 &HashMap::from([(key.to_string(), 21)]),
                 Some(key.to_string()),
                 ""
@@ -556,7 +556,7 @@ mod test {
     fn test_lookup_from_keys_no_key() {
         let id = "adsf";
         assert_eq!(
-            SwapRecovery::lookup_from_keys(&HashMap::new(), None, id)
+            SwapRescue::lookup_from_keys(&HashMap::new(), None, id)
                 .err()
                 .unwrap()
                 .to_string(),
@@ -568,7 +568,7 @@ mod test {
     fn test_lookup_from_keys_no_mapping() {
         let id = "adsf";
         assert_eq!(
-            SwapRecovery::lookup_from_keys(&HashMap::new(), Some("".to_string()), id)
+            SwapRescue::lookup_from_keys(&HashMap::new(), Some("".to_string()), id)
                 .err()
                 .unwrap()
                 .to_string(),
@@ -579,8 +579,7 @@ mod test {
     #[test]
     fn test_derive_keys() {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
-        let keys =
-            SwapRecovery::derive_keys(&Secp256k1::verification_only(), &xpub, 0, 10).unwrap();
+        let keys = SwapRescue::derive_keys(&Secp256k1::verification_only(), &xpub, 0, 10).unwrap();
 
         assert_eq!(keys.len(), 10);
         assert_eq!(
@@ -599,6 +598,6 @@ mod test {
 
     #[test]
     fn test_parse_tree() {
-        assert!(SwapRecovery::parse_tree("{\"claimLeaf\":{\"version\":192,\"output\":\"82012088a91433ca578b1dde9cb32e4b6a2c05fe74520911b66e8820884ff511cc5061a90f07e553de127095df5d438b2bda23db4159c5f32df5e1f9ac\"},\"refundLeaf\":{\"version\":192,\"output\":\"205bbdfe5d1bf863f65c5271d4cd6621c44048b89e80aa79301fe671d98bed598aad026001b1\"}}").err().is_none());
+        assert!(SwapRescue::parse_tree("{\"claimLeaf\":{\"version\":192,\"output\":\"82012088a91433ca578b1dde9cb32e4b6a2c05fe74520911b66e8820884ff511cc5061a90f07e553de127095df5d438b2bda23db4159c5f32df5e1f9ac\"},\"refundLeaf\":{\"version\":192,\"output\":\"205bbdfe5d1bf863f65c5271d4cd6621c44048b89e80aa79301fe671d98bed598aad026001b1\"}}").err().is_none());
     }
 }

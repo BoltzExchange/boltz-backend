@@ -7,7 +7,6 @@ import {
   LiquidBalances,
   liquidSymbol,
 } from '../consts/LiquidTypes';
-import type WalletLiquid from '../wallet/WalletLiquid';
 import ChainClient, { AddressType, IChainClient } from './ChainClient';
 
 enum LiquidAddressType {
@@ -30,8 +29,7 @@ class ElementsClient
   implements IElementsClient
 {
   public static readonly symbol = liquidSymbol;
-
-  private static readonly minNoLowBallFee = 0.1;
+  private static readonly feeFloor = 0.1;
 
   constructor(
     logger: Logger,
@@ -39,14 +37,11 @@ class ElementsClient
     public readonly isLowball = false,
   ) {
     super(logger, config, ElementsClient.symbol);
+    this.feeFloor = ElementsClient.feeFloor;
     this.currencyType = CurrencyType.Liquid;
-    this.feeFloor = isLowball ? 0.01 : ElementsClient.minNoLowBallFee;
   }
 
-  public static needsLowball = (
-    wallet: WalletLiquid,
-    tx: Transaction,
-  ): boolean => {
+  public static needsLowball = (tx: Transaction): boolean => {
     const feeOutput = tx.outs.find((out) => out.script.length === 0);
     if (feeOutput === undefined) {
       return false;
@@ -54,8 +49,8 @@ class ElementsClient
 
     return (
       confidential.confidentialValueToSatoshi(feeOutput.value) /
-        tx.virtualSize(wallet.supportsDiscountCT) <
-      ElementsClient.minNoLowBallFee
+        tx.virtualSize(true) <
+      ElementsClient.feeFloor
     );
   };
 

@@ -37,22 +37,6 @@ describe('WalletLiquid', () => {
   );
 
   test.each`
-    name         | network                   | support
-    ${'regtest'} | ${Networks.liquidRegtest} | ${true}
-    ${'testnet'} | ${Networks.liquidTestnet} | ${true}
-    ${'mainnet'} | ${Networks.liquidMainnet} | ${false}
-  `('should check if $name supports discount CT', ({ network, support }) => {
-    expect(
-      new WalletLiquid(
-        Logger.disabledLogger,
-        provider,
-        wallet['slip77s'],
-        network,
-      ).supportsDiscountCT,
-    ).toEqual(support);
-  });
-
-  test.each`
     addr
     ${'AzpvTi6t8GTVxhg6tZ4vxNCdQKS9YYMMgJmxQAFYfhVvaogb6iVgTixvtv246tSbeM3zdgG1Z2ToreMt'}
     ${'CTEvqk9mbKSWnkPhF7DwqHf5X5Jx1Q25LXh4sprdqj4KRgMZTZaiGrhCCDfWrDyVqBbxUrhyCtLwgB7J'}

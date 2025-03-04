@@ -284,7 +284,7 @@ export const constructClaimTransaction = (
             wallet.network as LiquidNetwork,
             decodedAddress.blindingKey,
           ),
-        walletLiquid.supportsDiscountCT,
+        true,
       );
     });
   } catch (e) {
@@ -355,7 +355,7 @@ export const constructRefundTransaction = (
             wallet.network as LiquidNetwork,
             decodedAddress.blindingKey,
           ),
-        walletLiquid.supportsDiscountCT,
+        true,
       );
     });
   } catch (e) {

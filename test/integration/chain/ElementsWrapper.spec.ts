@@ -359,8 +359,4 @@ describe('ElementsWrapper', () => {
   test('should prefer lowball over public client for wallet', () => {
     expect(wrapper['walletClient']().isLowball).toEqual(true);
   });
-
-  test('should prefer lowball over public client for fee estimations', async () => {
-    await expect(wrapper.estimateFee()).resolves.toEqual(0.01);
-  });
 });

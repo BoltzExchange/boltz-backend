@@ -73,9 +73,4 @@ export default {
     describe: 'preimage of the swap',
     type: 'string',
   },
-  discountCT: {
-    describe: 'whether discount CT should be used',
-    type: 'boolean',
-    default: false,
-  },
 };

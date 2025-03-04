@@ -9,7 +9,7 @@ import BuilderComponents from '../BuilderComponents';
 import { prepareTx } from '../Command';
 
 export const command =
-  'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey] [discountCT]';
+  'claim <network> <preimage> <privateKey> <redeemScript> <rawTransaction> <destinationAddress> [feePerVbyte] [blindingKey]';
 
 export const describe = 'claims reverse submarine or chain to chain swaps';
 
@@ -22,7 +22,6 @@ export const builder = {
   destinationAddress: BuilderComponents.destinationAddress,
   feePerVbyte: BuilderComponents.feePerVbyte,
   blindingKey: BuilderComponents.blindingKey,
-  discountCT: BuilderComponents.discountCT,
 };
 
 export const handler = async (argv: Arguments<any>): Promise<void> => {

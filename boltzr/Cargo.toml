@@ -35,7 +35,7 @@ panic = "abort"
 [dependencies]
 axum = "0.8.1"
 bitcoin_hashes = "0.16.0"
-clap = { version = "4.5.30", features = ["derive"] }
+clap = { version = "4.5.31", features = ["derive"] }
 crossbeam-channel = "0.5.14"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 dirs = "6.0.0"
@@ -44,7 +44,7 @@ prost = "0.13.5"
 rcgen = { version = "0.13.2", features = ["x509-parser"] }
 reqwest = { version = "0.12.12", features = ["json"] }
 serde = { version = "1.0.218", features = ["derive"] }
-serde_json = "1.0.139"
+serde_json = "1.0.140"
 tokio = { version = "1.43.0", features = [
     "rt-multi-thread",
     "macros",
@@ -65,7 +65,7 @@ axum-prometheus = { version = "0.6.1", default-features = false, optional = true
 metrics = { version = "0.24.1", optional = true }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8.10"
-diesel = { version = "2.2.7", default-features = false, features = [
+diesel = { version = "2.2.8", default-features = false, features = [
     "postgres",
     "r2d2",
     "chrono",
@@ -105,10 +105,10 @@ async-tungstenite = { version = "0.29.1", features = [
     "tokio-native-tls",
     "tokio-runtime",
 ] }
-async-trait = "0.1.86"
+async-trait = "0.1.87"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
-anyhow = "1.0.96"
+anyhow = "1.0.97"
 lightning = { version = "0.1.1", features = ["std"] }
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.9.1"
@@ -117,16 +117,16 @@ elements = "0.25.1"
 base64 = "0.22.1"
 rust-s3 = "0.35.1"
 cron = "0.15.0"
-chrono = "0.4.39"
+chrono = "0.4.40"
 fedimint-tonic-lnd = { version = "0.2.0", features = [
     "lightningrpc",
 ], default-features = false }
-flate2 = "1.0.35"
+flate2 = "1.1.0"
 pyroscope = { version = "0.5.8", optional = true }
 pyroscope_pprofrs = { version = "0.2.8", optional = true }
 csv = "1.3.1"
 axum-extra = { version = "0.10.0", features = ["typed-header"] }
-redis = { version = "0.29.0", features = ["tokio-comp", "r2d2"] }
+redis = { version = "0.29.1", features = ["tokio-comp", "r2d2"] }
 bytes = "1.10.0"
 rust-bip39 = "1.0.0"
 elements-miniscript = "0.4.0"
@@ -136,10 +136,10 @@ built = { version = "0.7.7", features = ["git2"] }
 tonic-build = "0.12.3"
 
 [dev-dependencies]
-eventsource-client = "0.13.0"
+eventsource-client = "0.14.0"
 http-body-util = "0.1.2"
 mockall = "0.13.1"
 rand = "0.9.0"
-rstest = "0.24.0"
+rstest = "0.25.0"
 serial_test = "3.2.0"
 tower = { version = "0.5.2", features = ["util"] }

@@ -142,14 +142,14 @@ class Referral extends Model implements ReferralType {
   public premium = (
     pair: string,
     type: SwapType,
-    orderSide?: OrderSide,
+    orderSide: OrderSide,
   ): number | undefined => {
     const premium =
       this.config?.pairs?.[pair]?.premiums?.[type] ||
       this.config?.premiums?.[type];
 
-    if (type === SwapType.Chain && orderSide !== undefined) {
-      return premium ? premium[orderSide] : undefined;
+    if (type === SwapType.Chain) {
+      return premium !== undefined ? premium[orderSide] : undefined;
     }
 
     return premium as number | undefined;

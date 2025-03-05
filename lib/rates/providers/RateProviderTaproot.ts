@@ -522,14 +522,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
             const { quote } = splitPairId(getConfigPairId(pairIds));
 
-            const premium =
-              type === SwapType.Chain
-                ? referral?.premiumForPairs(
-                    pairIds,
-                    type,
-                    to === quote ? OrderSide.SELL : OrderSide.BUY,
-                  )
-                : referral?.premiumForPairs(pairIds, type);
+            const premium = referral?.premiumForPairs(
+              pairIds,
+              type,
+              to === quote ? OrderSide.SELL : OrderSide.BUY,
+            );
             const limits = referral?.limitsForPairs(pairIds, type);
 
             const result = {

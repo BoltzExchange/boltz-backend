@@ -43,6 +43,13 @@ class ReferralRepository {
         ORDER BY year, month;
     `;
 
+  private static readonly maxPremiumPercentage = 100;
+  private static readonly minPremiumPercentage = -100;
+  private static readonly minExpiration = 120;
+  private static readonly maxExpiration = 60 * 60 * 24;
+  private static readonly minRoutingFee = 0;
+  private static readonly maxRoutingFee = 0.005;
+
   public static addReferral = async (
     referral: ReferralType,
   ): Promise<Referral> => {
@@ -117,16 +124,11 @@ class ReferralRepository {
   private static sanityCheckConfig = (
     config: ReferralConfig | null | undefined,
   ) => {
-    const MAX_PREMIUM_PERCENTAGE = 100;
-    const MIN_PREMIUM_PERCENTAGE = -100;
-    const MIN_EXPIRATION = 120;
-    const MAX_EXPIRATION = 60 * 60 * 24;
-    const MAX_ROUTING_FEE = 0.005;
-
     const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
       if (
-        cfg.maxRoutingFee &&
-        (cfg.maxRoutingFee < 0 || cfg.maxRoutingFee > MAX_ROUTING_FEE)
+        cfg.maxRoutingFee !== undefined &&
+        (cfg.maxRoutingFee < ReferralRepository.minRoutingFee ||
+          cfg.maxRoutingFee > ReferralRepository.maxRoutingFee)
       ) {
         throw 'maxRoutingFee out of range';
       }
@@ -146,19 +148,27 @@ class ReferralRepository {
             }
 
             if (
-              directionalPremium[OrderSide.BUY] < MIN_PREMIUM_PERCENTAGE ||
-              directionalPremium[OrderSide.BUY] > MAX_PREMIUM_PERCENTAGE ||
-              directionalPremium[OrderSide.SELL] < MIN_PREMIUM_PERCENTAGE ||
-              directionalPremium[OrderSide.SELL] > MAX_PREMIUM_PERCENTAGE
+              [
+                directionalPremium[OrderSide.BUY],
+                directionalPremium[OrderSide.SELL],
+              ].some(
+                (p) =>
+                  p < ReferralRepository.minPremiumPercentage ||
+                  p > ReferralRepository.maxPremiumPercentage,
+              )
             ) {
               throw 'premium out of range';
             }
-          } else if (
-            typeof premium === 'number' &&
-            (premium < MIN_PREMIUM_PERCENTAGE ||
-              premium > MAX_PREMIUM_PERCENTAGE)
-          ) {
-            throw 'premium out of range';
+          } else {
+            if (typeof premium !== 'number') {
+              throw 'premium must be a number';
+            }
+            if (
+              premium < ReferralRepository.minPremiumPercentage ||
+              premium > ReferralRepository.maxPremiumPercentage
+            ) {
+              throw 'premium out of range';
+            }
           }
         }
       }
@@ -166,7 +176,9 @@ class ReferralRepository {
       if (cfg.expirations) {
         if (
           Object.values(cfg.expirations).some(
-            (e) => e < MIN_EXPIRATION || e > MAX_EXPIRATION,
+            (e) =>
+              e < ReferralRepository.minExpiration ||
+              e > ReferralRepository.maxExpiration,
           )
         ) {
           throw 'expiration out of range';

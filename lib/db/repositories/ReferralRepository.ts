@@ -1,5 +1,9 @@
 import { QueryTypes } from 'sequelize';
-import { SuccessSwapUpdateEvents, SwapType } from '../../consts/Enums';
+import {
+  OrderSide,
+  SuccessSwapUpdateEvents,
+  SwapType,
+} from '../../consts/Enums';
 import Database from '../Database';
 import Referral, {
   DirectionalPremium,
@@ -120,6 +124,24 @@ class ReferralRepository {
   private static sanityCheckConfig = (
     config: ReferralConfig | null | undefined,
   ) => {
+    const validateDirectionalPremium = (
+      premium: unknown,
+    ): DirectionalPremium => {
+      if (typeof premium === 'object') {
+        const premiumObj = premium as Record<string, unknown>;
+        if (
+          (OrderSide.BUY in premiumObj &&
+            typeof premiumObj[OrderSide.BUY] !== 'number') ||
+          (OrderSide.SELL in premiumObj &&
+            typeof premiumObj[OrderSide.SELL] !== 'number')
+        ) {
+          throw 'premium values must be numbers';
+        }
+      }
+
+      return premium as DirectionalPremium;
+    };
+
     const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
       if (
         cfg.maxRoutingFee !== undefined &&
@@ -134,8 +156,7 @@ class ReferralRepository {
           const type = Number(typeStr) as SwapType;
 
           if (type === SwapType.Chain) {
-            const directionalPremium = premium as DirectionalPremium;
-
+            const directionalPremium = validateDirectionalPremium(premium);
             Object.values(directionalPremium).forEach((p) => {
               if (
                 p < ReferralRepository.minPremiumPercentage ||

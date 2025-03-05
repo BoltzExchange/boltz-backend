@@ -149,62 +149,49 @@ describe('ReferralRepository', () => {
         },
       );
 
-      test('should throw if chain swap premium is not a DirectionalPremium object', async () => {
-        await expect(
-          ReferralRepository.addReferral({
-            ...fixture,
-            config: {
-              premiums: {
-                [SwapType.Chain]: 10 as any,
-              },
-            },
-          }),
-        ).rejects.toEqual('premium must be a number');
-      });
-
       test.each`
-        premiumValue                                     | description
-        ${{ [OrderSide.BUY]: 10 }}                       | ${'only BUY'}
-        ${{ [OrderSide.SELL]: 10 }}                      | ${'only SELL'}
-        ${{ [OrderSide.BUY]: 10, [OrderSide.SELL]: 10 }} | ${'both BUY and SELL'}
+        premium                                 | description
+        ${{ [OrderSide.BUY]: 'not-a-number' }}  | ${'invalid BUY value type'}
+        ${{ [OrderSide.SELL]: 'not-a-number' }} | ${'invalid SELL value type'}
+        ${{ [OrderSide.BUY]: true }}            | ${'invalid BUY value type'}
+        ${{ [OrderSide.SELL]: {} }}             | ${'invalid SELL value type'}
+        ${{ [OrderSide.BUY]: () => {} }}        | ${'invalid BUY value type'}
+        ${{ [OrderSide.SELL]: [1, 2] }}         | ${'invalid SELL value type'}
       `(
-        'should accept valid partial chain swap premiums ($description)',
-        async ({ premiumValue }) => {
-          const ref = await ReferralRepository.addReferral({
-            ...fixture,
-            config: {
-              premiums: {
-                [SwapType.Chain]: premiumValue,
-              },
-            },
-          });
-
-          expect(ref.config?.premiums?.[SwapType.Chain]).toEqual(premiumValue);
-        },
-      );
-
-      test.each`
-        buy     | sell
-        ${101}  | ${10}
-        ${10}   | ${-101}
-        ${-101} | ${10}
-        ${10}   | ${101}
-      `(
-        'should throw if chain swap premium values are out of range (buy: $buy, sell: $sell)',
-        async ({ buy, sell }) => {
+        'should throw if chain swap premium has $description',
+        async ({ premium }) => {
           await expect(
             ReferralRepository.addReferral({
               ...fixture,
               config: {
                 premiums: {
-                  [SwapType.Chain]: {
-                    [OrderSide.BUY]: buy,
-                    [OrderSide.SELL]: sell,
-                  },
+                  [SwapType.Chain]: premium,
                 },
               },
             }),
-          ).rejects.toEqual('premium out of range');
+          ).rejects.toEqual('premium values must be numbers');
+        },
+      );
+
+      test.each`
+        premium                                          | description
+        ${{}}                                            | ${'empty object'}
+        ${{ [OrderSide.BUY]: 10 }}                       | ${'only BUY'}
+        ${{ [OrderSide.SELL]: 10 }}                      | ${'only SELL'}
+        ${{ [OrderSide.BUY]: 10, [OrderSide.SELL]: 10 }} | ${'both BUY and SELL'}
+      `(
+        'should accept valid chain swap premium ($description)',
+        async ({ premium }) => {
+          const ref = await ReferralRepository.addReferral({
+            ...fixture,
+            config: {
+              premiums: {
+                [SwapType.Chain]: premium,
+              },
+            },
+          });
+
+          expect(ref.config?.premiums?.[SwapType.Chain]).toEqual(premium);
         },
       );
 

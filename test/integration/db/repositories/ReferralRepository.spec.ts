@@ -159,31 +159,27 @@ describe('ReferralRepository', () => {
               },
             },
           }),
-        ).rejects.toEqual(
-          'Chain swap premiums must specify both BUY and SELL values',
-        );
+        ).rejects.toEqual('premium must be a number');
       });
 
       test.each`
-        premiumValue
-        ${10}
-        ${{ [OrderSide.BUY]: 10 }}
-        ${{ [OrderSide.SELL]: 10 }}
+        premiumValue                                     | description
+        ${{ [OrderSide.BUY]: 10 }}                       | ${'only BUY'}
+        ${{ [OrderSide.SELL]: 10 }}                      | ${'only SELL'}
+        ${{ [OrderSide.BUY]: 10, [OrderSide.SELL]: 10 }} | ${'both BUY and SELL'}
       `(
-        'should throw if chain swap premium is invalid or incomplete ($premiumValue)',
+        'should accept valid partial chain swap premiums ($description)',
         async ({ premiumValue }) => {
-          await expect(
-            ReferralRepository.addReferral({
-              ...fixture,
-              config: {
-                premiums: {
-                  [SwapType.Chain]: premiumValue,
-                },
+          const ref = await ReferralRepository.addReferral({
+            ...fixture,
+            config: {
+              premiums: {
+                [SwapType.Chain]: premiumValue,
               },
-            }),
-          ).rejects.toEqual(
-            'Chain swap premiums must specify both BUY and SELL values',
-          );
+            },
+          });
+
+          expect(ref.config?.premiums?.[SwapType.Chain]).toEqual(premiumValue);
         },
       );
 

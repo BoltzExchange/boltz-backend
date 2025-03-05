@@ -1,9 +1,5 @@
 import { QueryTypes } from 'sequelize';
-import {
-  OrderSide,
-  SuccessSwapUpdateEvents,
-  SwapType,
-} from '../../consts/Enums';
+import { SuccessSwapUpdateEvents, SwapType } from '../../consts/Enums';
 import Database from '../Database';
 import Referral, {
   DirectionalPremium,
@@ -140,25 +136,14 @@ class ReferralRepository {
           if (type === SwapType.Chain) {
             const directionalPremium = premium as DirectionalPremium;
 
-            if (
-              directionalPremium[OrderSide.BUY] === undefined ||
-              directionalPremium[OrderSide.SELL] === undefined
-            ) {
-              throw 'Chain swap premiums must specify both BUY and SELL values';
-            }
-
-            if (
-              [
-                directionalPremium[OrderSide.BUY],
-                directionalPremium[OrderSide.SELL],
-              ].some(
-                (p) =>
-                  p < ReferralRepository.minPremiumPercentage ||
-                  p > ReferralRepository.maxPremiumPercentage,
-              )
-            ) {
-              throw 'premium out of range';
-            }
+            Object.values(directionalPremium).forEach((p) => {
+              if (
+                p < ReferralRepository.minPremiumPercentage ||
+                p > ReferralRepository.maxPremiumPercentage
+              ) {
+                throw 'premium out of range';
+              }
+            });
           } else {
             if (typeof premium !== 'number') {
               throw 'premium must be a number';

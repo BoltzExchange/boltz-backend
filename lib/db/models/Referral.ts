@@ -6,10 +6,10 @@ type Limits = {
   maximal?: number;
 };
 
-type DirectionalPremium = {
+type DirectionalPremium = Partial<{
   [OrderSide.BUY]: number;
   [OrderSide.SELL]: number;
-};
+}>;
 
 type Premiums = Partial<{
   [SwapType.Submarine]: number;

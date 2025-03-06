@@ -1,7 +1,12 @@
 import { QueryTypes } from 'sequelize';
-import { SuccessSwapUpdateEvents } from '../../consts/Enums';
+import {
+  OrderSide,
+  SuccessSwapUpdateEvents,
+  SwapType,
+} from '../../consts/Enums';
 import Database from '../Database';
 import Referral, {
+  DirectionalPremium,
   ReferralConfig,
   ReferralPairConfig,
   ReferralType,
@@ -37,6 +42,13 @@ class ReferralRepository {
         GROUP BY year, month, pair, data.referral
         ORDER BY year, month;
     `;
+
+  private static readonly maxPremiumPercentage = 100;
+  private static readonly minPremiumPercentage = -100;
+  private static readonly minExpiration = 120;
+  private static readonly maxExpiration = 60 * 60 * 24;
+  private static readonly minRoutingFee = 0;
+  private static readonly maxRoutingFee = 0.005;
 
   public static addReferral = async (
     referral: ReferralType,
@@ -112,23 +124,67 @@ class ReferralRepository {
   private static sanityCheckConfig = (
     config: ReferralConfig | null | undefined,
   ) => {
-    const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
-      if (cfg.maxRoutingFee) {
-        if (cfg.maxRoutingFee < 0 || cfg.maxRoutingFee > 0.005) {
-          throw 'maxRoutingFee out of range';
+    const validateDirectionalPremium = (
+      premium: unknown,
+    ): DirectionalPremium => {
+      if (typeof premium === 'object') {
+        const premiumObj = premium as Record<string, unknown>;
+        if (
+          (OrderSide.BUY in premiumObj &&
+            typeof premiumObj[OrderSide.BUY] !== 'number') ||
+          (OrderSide.SELL in premiumObj &&
+            typeof premiumObj[OrderSide.SELL] !== 'number')
+        ) {
+          throw 'premium values must be numbers';
         }
       }
 
+      return premium as DirectionalPremium;
+    };
+
+    const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
+      if (
+        cfg.maxRoutingFee !== undefined &&
+        (cfg.maxRoutingFee < ReferralRepository.minRoutingFee ||
+          cfg.maxRoutingFee > ReferralRepository.maxRoutingFee)
+      ) {
+        throw 'maxRoutingFee out of range';
+      }
+
       if (cfg.premiums) {
-        if (Object.values(cfg.premiums).some((p) => p < -100 || p > 100)) {
-          throw 'premium out of range';
+        for (const [typeStr, premium] of Object.entries(cfg.premiums)) {
+          const type = Number(typeStr) as SwapType;
+
+          if (type === SwapType.Chain) {
+            const directionalPremium = validateDirectionalPremium(premium);
+            Object.values(directionalPremium).forEach((p) => {
+              if (
+                p < ReferralRepository.minPremiumPercentage ||
+                p > ReferralRepository.maxPremiumPercentage
+              ) {
+                throw 'premium out of range';
+              }
+            });
+          } else {
+            if (typeof premium !== 'number') {
+              throw 'premium must be a number';
+            }
+            if (
+              premium < ReferralRepository.minPremiumPercentage ||
+              premium > ReferralRepository.maxPremiumPercentage
+            ) {
+              throw 'premium out of range';
+            }
+          }
         }
       }
 
       if (cfg.expirations) {
         if (
           Object.values(cfg.expirations).some(
-            (e) => e < 120 || e > 60 * 60 * 24,
+            (e) =>
+              e < ReferralRepository.minExpiration ||
+              e > ReferralRepository.maxExpiration,
           )
         ) {
           throw 'expiration out of range';
@@ -140,9 +196,7 @@ class ReferralRepository {
       sanityCheckPairConfig(config);
 
       if (config.pairs) {
-        for (const pair of Object.values(config.pairs)) {
-          sanityCheckPairConfig(pair);
-        }
+        Object.values(config.pairs).forEach(sanityCheckPairConfig);
       }
     }
   };

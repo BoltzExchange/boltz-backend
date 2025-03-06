@@ -143,6 +143,7 @@ describe('RateProviderTaproot', () => {
         expect(referral.premiumForPairs).toHaveBeenCalledWith(
           expect.arrayContaining(['L-BTC/BTC', 'BTC/L-BTC']),
           type,
+          expect.any(Number),
         );
 
         expect(

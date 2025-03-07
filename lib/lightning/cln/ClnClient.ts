@@ -298,9 +298,7 @@ class ClnClient
         (chan) =>
           !activeOnly ||
           (chan.getPeerConnected() &&
-            chan.getState() ===
-              noderpc.ListpeerchannelsChannels.ListpeerchannelsChannelsState
-                .CHANNELD_NORMAL),
+            chan.getState() === primitivesrpc.ChannelState.CHANNELDNORMAL),
       )
       .filter((chan) => !privateOnly || chan.getPrivate())
       .map((chan) => {

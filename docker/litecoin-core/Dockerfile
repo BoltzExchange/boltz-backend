@@ -1,7 +1,7 @@
 ARG UBUNTU_VERSION
 
 # Build Litecoin Core
-FROM ubuntu:${UBUNTU_VERSION} as litecoin-core
+FROM ubuntu:${UBUNTU_VERSION} AS litecoin-core
 
 ARG VERSION
 
@@ -37,16 +37,16 @@ WORKDIR /litecoin-${VERSION}
 
 RUN ./autogen.sh
 RUN ./configure \
-    --prefix=${LITECOIN_PREFIX} \
-    --mandir=/usr/share/man \
-    --disable-ccache \
-    --disable-tests \
-    --disable-bench \
-    --without-gui \
-    --with-daemon \
-    --with-utils \
-    --with-libs \
-    --with-incompatible-bdb
+  --prefix=${LITECOIN_PREFIX} \
+  --mandir=/usr/share/man \
+  --disable-ccache \
+  --disable-tests \
+  --disable-bench \
+  --without-gui \
+  --with-daemon \
+  --with-utils \
+  --with-libs \
+  --with-incompatible-bdb
 
 RUN make -j$(nproc)
 RUN make install

@@ -69,6 +69,7 @@ impl Cln {
             .fetch_invoice(FetchinvoiceRequest {
                 offer: offer.clone(),
                 amount_msat: Some(Amount { msat: amount_msat }),
+                bip353: None,
                 timeout: None,
                 quantity: None,
                 payer_note: None,

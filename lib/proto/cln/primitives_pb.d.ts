@@ -102,23 +102,6 @@ export namespace AmountOrAny {
 
 }
 
-export class ChannelStateChangeCause extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ChannelStateChangeCause.AsObject;
-    static toObject(includeInstance: boolean, msg: ChannelStateChangeCause): ChannelStateChangeCause.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ChannelStateChangeCause, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ChannelStateChangeCause;
-    static deserializeBinaryFromReader(message: ChannelStateChangeCause, reader: jspb.BinaryReader): ChannelStateChangeCause;
-}
-
-export namespace ChannelStateChangeCause {
-    export type AsObject = {
-    }
-}
-
 export class Outpoint extends jspb.Message { 
     getTxid(): Uint8Array | string;
     getTxid_asU8(): Uint8Array;
@@ -456,6 +439,8 @@ export enum ChannelState {
     DUALOPENDOPENINIT = 9,
     DUALOPENDAWAITINGLOCKIN = 10,
     CHANNELDAWAITINGSPLICE = 11,
+    DUALOPENDOPENCOMMITTED = 12,
+    DUALOPENDOPENCOMMITTREADY = 13,
 }
 
 export enum HtlcState {

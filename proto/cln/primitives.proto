@@ -37,6 +37,8 @@ enum ChannelState {
 	DualopendOpenInit = 9;
 	DualopendAwaitingLockin = 10;
 	ChanneldAwaitingSplice = 11;
+	DualopendOpenCommitted = 12;
+	DualopendOpenCommittReady = 13;
 }
 
 enum HtlcState {
@@ -61,8 +63,6 @@ enum HtlcState {
 	RcvdRemoveAckCommit = 18;
 	SentRemoveAckRevocation = 19;
 }
-
-message ChannelStateChangeCause {}
 
 message Outpoint {
 	bytes txid = 1;
@@ -122,12 +122,12 @@ message TlvStream {
 }
 
 enum ChannelTypeName {
-	static_remotekey_even = 0;
-	anchor_outputs_even = 1;
-	anchors_zero_fee_htlc_tx_even = 2;
-	scid_alias_even = 3;
-	zeroconf_even = 4;
-	anchors_even = 5;
+  static_remotekey_even = 0;
+  anchor_outputs_even = 1;
+  anchors_zero_fee_htlc_tx_even = 2;
+  scid_alias_even = 3;
+  zeroconf_even = 4;
+  anchors_even = 5;
 }
 
 enum AutocleanSubsystem {

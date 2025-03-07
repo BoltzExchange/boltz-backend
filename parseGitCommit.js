@@ -21,7 +21,9 @@ const versionFilePath = `${__dirname}/lib/Version.ts`;
 
 try {
   // Delete the version file if it exists
-  fs.unlinkSync(versionFilePath);
+  if (fs.existsSync(versionFilePath)) {
+    fs.unlinkSync(versionFilePath);
+  }
 } catch (error) {
   console.error(`Could not delete file: ${versionFilePath}`, error);
 }

@@ -37,15 +37,15 @@ NODE_VERSION = BuildArgument(
 
 GOLANG_VERSION = BuildArgument(
     name="GOLANG_VERSION",
-    value="1.24.0-bullseye",
+    value="1.24.1-bullseye",
 )
 
 BITCOIN_VERSION = "28.1"
 LITECOIN_VERSION = "0.21.4"
 ELEMENTS_VERSION = "23.2.6"
-GETH_VERSION = "1.15.1"
+GETH_VERSION = "1.15.5"
 
-C_LIGHTNING_VERSION = "24.11.1"
+C_LIGHTNING_VERSION = "25.02"
 ECLAIR_VERSION = "0.11.0"
 LND_VERSION = "0.18.5-beta"
 
@@ -108,7 +108,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.6.6",
+        tag="4.7.0",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
@@ -218,7 +218,9 @@ def build_images(
             )
         else:
             extra_tag = "" if no_latest else f"-t {name}:latest"
-            command = f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
+            command = (
+                f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
+            )
 
         if no_cache:
             command = command + " --no-cache"

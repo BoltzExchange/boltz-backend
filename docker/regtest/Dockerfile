@@ -22,28 +22,22 @@ RUN apt-get update && \
   curl \
   psmisc \
   openssl \
-  python3 \
   libtool \
   autoconf \
   libpq-dev \
   libdb-dev \
   pkg-config \
-  python3-pip \
   libdb++-dev \
   libzmq3-dev \
-  python3-venv \
   libevent-dev \
   libevent-dev \
   libsqlite3-dev \
-  python-is-python3 \
   libboost-chrono-dev \
   libboost-system-dev \
   libboost-thread-dev \
   libboost-filesystem-dev \
   libboost-program-options-dev && \
   rm -rf /var/lib/apt/lists/*
-
-RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Copy node executables
 COPY --from=bitcoin-core /bin/bitcoind /bin/

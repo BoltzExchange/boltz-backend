@@ -86,7 +86,7 @@ class VersionCheck {
     },
     [ClnClient.serviceNameHold]: {
       minimal: '0.2.0',
-      maximal: '0.2.1',
+      maximal: '0.2.2',
     },
     [LndClient.serviceName]: {
       minimal: '0.18.0',

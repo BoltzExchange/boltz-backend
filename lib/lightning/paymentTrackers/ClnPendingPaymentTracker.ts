@@ -4,9 +4,9 @@ import { NodeType } from '../../db/models/ReverseSwap';
 import LightningNursery from '../../swap/LightningNursery';
 import { LightningClient, PaymentResponse } from '../LightningClient';
 import ClnClient from '../cln/ClnClient';
-import NodePendingPendingTracker from './NodePendingPaymentTracker';
+import NodePendingPaymentTracker from './NodePendingPaymentTracker';
 
-class ClnPendingPaymentTracker extends NodePendingPendingTracker {
+class ClnPendingPaymentTracker extends NodePendingPaymentTracker {
   private static readonly checkInterval = 15;
 
   private readonly checkInterval: NodeJS.Timer;

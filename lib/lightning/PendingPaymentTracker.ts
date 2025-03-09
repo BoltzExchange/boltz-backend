@@ -16,7 +16,7 @@ import LndClient from './LndClient';
 import ClnClient from './cln/ClnClient';
 import ClnPendingPaymentTracker from './paymentTrackers/ClnPendingPaymentTracker';
 import LndPendingPaymentTracker from './paymentTrackers/LndPendingPaymentTracker';
-import NodePendingPendingTracker from './paymentTrackers/NodePendingPaymentTracker';
+import NodePendingPaymentTracker from './paymentTrackers/NodePendingPaymentTracker';
 
 type LightningNodes = Record<NodeType, LightningClient | undefined>;
 
@@ -26,7 +26,7 @@ class PendingPaymentTracker {
 
   public readonly lightningTrackers: Record<
     NodeType,
-    NodePendingPendingTracker
+    NodePendingPaymentTracker
   >;
 
   private readonly lightningNodes = new DefaultMap<string, LightningNodes>(

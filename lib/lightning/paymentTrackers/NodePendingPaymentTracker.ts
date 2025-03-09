@@ -5,7 +5,7 @@ import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import LightningPaymentRepository from '../../db/repositories/LightningPaymentRepository';
 import { LightningClient, PaymentResponse } from '../LightningClient';
 
-abstract class NodePendingPendingTracker {
+abstract class NodePendingPaymentTracker {
   protected constructor(
     protected readonly logger: Logger,
     protected readonly nodeType: NodeType,
@@ -78,4 +78,4 @@ abstract class NodePendingPendingTracker {
   };
 }
 
-export default NodePendingPendingTracker;
+export default NodePendingPaymentTracker;

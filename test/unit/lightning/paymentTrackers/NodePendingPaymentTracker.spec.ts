@@ -5,9 +5,9 @@ import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayme
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
 import { LightningClient } from '../../../../lib/lightning/LightningClient';
-import NodePendingPendingTracker from '../../../../lib/lightning/paymentTrackers/NodePendingPaymentTracker';
+import NodePendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/NodePendingPaymentTracker';
 
-class MockTracker extends NodePendingPendingTracker {
+class MockTracker extends NodePendingPaymentTracker {
   constructor() {
     super(Logger.disabledLogger, NodeType.CLN);
   }
@@ -21,7 +21,7 @@ class MockTracker extends NodePendingPendingTracker {
   public parseErrorMessage = jest.fn();
 }
 
-describe('NodePendingPendingTracker', () => {
+describe('NodePendingPaymentTracker', () => {
   describe('handleFailedPayment', () => {
     const tracker = new MockTracker();
 

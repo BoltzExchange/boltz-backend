@@ -5,9 +5,9 @@ import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
 import LightningNursery from '../../swap/LightningNursery';
 import { LightningClient, PaymentResponse } from '../LightningClient';
 import LndClient from '../LndClient';
-import NodePendingPendingTracker from './NodePendingPaymentTracker';
+import NodePendingPaymentTracker from './NodePendingPaymentTracker';
 
-class LndPendingPaymentTracker extends NodePendingPendingTracker {
+class LndPendingPaymentTracker extends NodePendingPaymentTracker {
   constructor(logger: Logger) {
     super(logger, NodeType.LND);
   }

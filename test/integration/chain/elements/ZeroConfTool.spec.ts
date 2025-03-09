@@ -24,7 +24,7 @@ describe('ZeroConfTool', () => {
       }),
     );
 
-    app.get('/accept', (_, res) => {
+    app.get('/accept*', (_, res) => {
       res.json({
         observations: {
           bridge: {
@@ -130,5 +130,69 @@ describe('ZeroConfTool', () => {
 
     expect(tool.listenerCount('accepted')).toEqual(0);
     expect(tool.listenerCount('timeout')).toEqual(0);
+  });
+
+  describe('stats', () => {
+    beforeEach(() => {
+      tool.stop();
+      tool = new ZeroConfTool(Logger.disabledLogger, {
+        endpoint,
+        interval: 100,
+        maxRetries: 2,
+      });
+    });
+
+    test('should track accepted transactions', async () => {
+      await tool.checkTransaction({
+        getId: jest.fn().mockReturnValue('accept'),
+      } as any);
+
+      expect(tool.stats.accepted).toEqual(1n);
+      expect(tool.stats.rejected).toEqual(0n);
+      expect(tool.stats.pending).toEqual(0n);
+      expect(tool.stats.acceptedCalls).toEqual(1n);
+    });
+
+    test('should track rejected transactions', async () => {
+      await tool.checkTransaction({
+        getId: jest.fn().mockReturnValue('timeout'),
+      } as any);
+
+      expect(tool.stats.accepted).toEqual(0n);
+      expect(tool.stats.rejected).toEqual(1n);
+      expect(tool.stats.pending).toEqual(0n);
+    });
+
+    test('should track pending transactions', async () => {
+      const promise = tool.checkTransaction({
+        getId: jest.fn().mockReturnValue('timeout'),
+      } as any);
+
+      expect(tool.stats.pending).toEqual(1n);
+
+      await promise;
+
+      expect(tool.stats.pending).toEqual(0n);
+      expect(tool.stats.rejected).toEqual(1n);
+    });
+
+    test('should track multiple transactions correctly', async () => {
+      await Promise.all([
+        tool.checkTransaction({
+          getId: jest.fn().mockReturnValue('accept'),
+        } as any),
+        tool.checkTransaction({
+          getId: jest.fn().mockReturnValue('accept/1'),
+        } as any),
+        tool.checkTransaction({
+          getId: jest.fn().mockReturnValue('timeout'),
+        } as any),
+      ]);
+
+      expect(tool.stats.accepted).toEqual(2n);
+      expect(tool.stats.rejected).toEqual(1n);
+      expect(tool.stats.pending).toEqual(0n);
+      expect(tool.stats.acceptedCalls).toEqual(2n);
+    });
   });
 });

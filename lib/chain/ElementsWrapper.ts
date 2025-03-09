@@ -20,9 +20,9 @@ class ElementsWrapper
   implements IElementsClient
 {
   public readonly currencyType = CurrencyType.Liquid;
+  public readonly zeroConfCheck: ZeroConfCheck;
 
   private readonly clients: ElementsClient[] = [];
-  private readonly zeroConfCheck: ZeroConfCheck;
 
   constructor(logger: Logger, config: LiquidChainConfig) {
     super(logger, ElementsClient.symbol);

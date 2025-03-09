@@ -198,9 +198,7 @@ class UtxoNursery extends TypedEventEmitter<{
       chainClient,
       wallet,
     );
-    if (
-      prevAddresses.flatMap((a) => Object.values(a)).some(this.blocks.isBlocked)
-    ) {
+    if (prevAddresses.some(this.blocks.isBlocked)) {
       chainClient.removeOutputFilter(swapOutput.script);
       this.emit('chainSwap.lockup.failed', {
         swap,
@@ -329,12 +327,7 @@ class UtxoNursery extends TypedEventEmitter<{
         const output = transaction.outs[vout];
         const encoded = wallet.encodeAddress(output.script);
 
-        await Promise.all(
-          [...new Set([encoded.new, encoded.legacy])].flatMap((a) => [
-            checkSwap(a),
-            checkChainSwap(a),
-          ]),
-        );
+        await Promise.all([checkSwap(encoded), checkChainSwap(encoded)]);
       }
     });
   };
@@ -800,9 +793,7 @@ class UtxoNursery extends TypedEventEmitter<{
       chainClient,
       wallet,
     );
-    if (
-      prevAddresses.flatMap((a) => Object.values(a)).some(this.blocks.isBlocked)
-    ) {
+    if (prevAddresses.some(this.blocks.isBlocked)) {
       this.emit('swap.lockup.failed', {
         swap: updatedSwap,
         reason: Errors.BLOCKED_ADDRESS().message,
@@ -934,7 +925,7 @@ class UtxoNursery extends TypedEventEmitter<{
     transaction: Transaction | LiquidTransaction,
     chainClient: IChainClient,
     wallet: Wallet,
-  ) => {
+  ): Promise<string[]> => {
     const inputTxsIds = chunkArray(
       Array.from(
         new Set<string>(

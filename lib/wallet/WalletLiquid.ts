@@ -7,16 +7,11 @@ import { CurrencyType } from '../consts/Enums';
 import Wallet from './Wallet';
 import WalletProviderInterface from './providers/WalletProviderInterface';
 
-export type Slip77s = {
-  new: Slip77Interface;
-  legacy: Slip77Interface;
-};
-
 class WalletLiquid extends Wallet {
   constructor(
     logger: Logger,
     walletProvider: WalletProviderInterface,
-    private readonly slip77s: Slip77s,
+    private readonly slip77: Slip77Interface,
     network: Network,
   ) {
     super(logger, CurrencyType.Liquid, walletProvider, network);
@@ -24,24 +19,18 @@ class WalletLiquid extends Wallet {
 
   public deriveBlindingKeyFromScript = (
     outputScript: Buffer,
-  ): Record<keyof Slip77s, Slip77Interface> => {
-    return {
-      new: this.slip77s.new.derive(outputScript),
-      legacy: this.slip77s.legacy.derive(outputScript),
-    };
+  ): Slip77Interface => {
+    return this.slip77.derive(outputScript);
   };
 
   public override encodeAddress = (
     outputScript: Buffer,
     shouldBlind = true,
-  ): Record<keyof Slip77s, string> => {
+  ): string => {
     try {
       // Fee output of Liquid
       if (outputScript.length == 0) {
-        return {
-          new: '',
-          legacy: '',
-        };
+        return '';
       }
 
       if (!shouldBlind) {
@@ -49,36 +38,22 @@ class WalletLiquid extends Wallet {
           output: outputScript,
           network: this.network as networks.Network,
         });
-        return {
-          new: res.address!,
-          legacy: res.address!,
-        };
+        return res.address!;
       }
 
       const walletKeys = this.deriveBlindingKeyFromScript(outputScript);
 
-      const resNew = this.getPaymentFunc(outputScript)({
+      const res = this.getPaymentFunc(outputScript)({
         output: outputScript,
+        blindkey: walletKeys.publicKey,
         network: this.network as networks.Network,
-        blindkey: walletKeys.new.publicKey,
-      });
-      const resLegacy = this.getPaymentFunc(outputScript)({
-        output: outputScript,
-        network: this.network as networks.Network,
-        blindkey: walletKeys.legacy.publicKey,
       });
 
-      return {
-        new: resNew.confidentialAddress!,
-        legacy: resLegacy.confidentialAddress!,
-      };
+      return res.confidentialAddress!;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       // Ignore invalid addresses
-      return {
-        new: '',
-        legacy: '',
-      };
+      return '';
     }
   };
 

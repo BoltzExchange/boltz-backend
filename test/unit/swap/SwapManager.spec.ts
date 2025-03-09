@@ -132,9 +132,7 @@ const mockDecodeAddress = jest.fn().mockImplementation((toDecode: string) => {
 const mockEncodeAddress = jest
   .fn()
   .mockImplementation((outputScript: Buffer) => {
-    return {
-      new: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
-    };
+    return address.fromOutputScript(outputScript, Networks.bitcoinRegtest);
   });
 
 jest.mock('../../../lib/wallet/Wallet', () => {
@@ -163,11 +161,9 @@ const mockWallets = new Map<string, Wallet>([
           addressLiquid.toOutputScript(address, LiquidNetworks.liquidRegtest),
         ),
       deriveBlindingKeyFromScript: jest.fn().mockReturnValue({
-        new: {
-          privateKey: getHexBuffer(
-            '4e09bc9895ccef1eab4e2e67adcff67be2af26110ffb35f26592688c0e88dc76',
-          ),
-        },
+        privateKey: getHexBuffer(
+          '4e09bc9895ccef1eab4e2e67adcff67be2af26110ffb35f26592688c0e88dc76',
+        ),
       }),
     } as any,
   ],

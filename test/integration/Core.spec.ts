@@ -89,10 +89,7 @@ describe('Core', () => {
     walletLiquid = new WalletLiquid(
       Logger.disabledLogger,
       new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
-      {
-        new: slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
-        legacy: slip77.fromSeed(generateMnemonic()),
-      },
+      slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
       networks.regtest,
     );
     initWallet(walletLiquid);
@@ -174,51 +171,44 @@ describe('Core', () => {
     walletLiquid['network'] = networks.regtest;
   });
 
-  test.each`
-    blindingType
-    ${'new'}
-    ${'legacy'}
-  `(
-    'should get output value of blinded Liquid transactions blinded with type $blindingType',
-    async ({ blindingType }) => {
-      const script = toOutputScript(
-        CurrencyType.Liquid,
-        await walletLiquid.getAddress(''),
-        walletLiquid.network!,
-      );
+  test('should get output value of blinded Liquid transactions', async () => {
+    const script = toOutputScript(
+      CurrencyType.Liquid,
+      await walletLiquid.getAddress(''),
+      walletLiquid.network!,
+    );
 
-      const outputAmount = 1245412;
-      const { transaction, vout } = await walletLiquid.sendToAddress(
-        walletLiquid.encodeAddress(script)[blindingType],
-        outputAmount,
-        undefined,
-        '',
-      );
+    const outputAmount = 1245412;
+    const { transaction, vout } = await walletLiquid.sendToAddress(
+      walletLiquid.encodeAddress(script),
+      outputAmount,
+      undefined,
+      '',
+    );
 
-      expect(
-        getOutputValue(
-          walletLiquid,
-          (transaction as LiquidTransaction).outs[vout!],
-        ),
-      ).toEqual(outputAmount);
+    expect(
+      getOutputValue(
+        walletLiquid,
+        (transaction as LiquidTransaction).outs[vout!],
+      ),
+    ).toEqual(outputAmount);
 
-      // Wrong asset hash
+    // Wrong asset hash
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      walletLiquid['network'] = networks.liquid;
-      expect(
-        getOutputValue(
-          walletLiquid,
-          (transaction as LiquidTransaction).outs[vout!],
-        ),
-      ).toEqual(0);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    walletLiquid['network'] = networks.liquid;
+    expect(
+      getOutputValue(
+        walletLiquid,
+        (transaction as LiquidTransaction).outs[vout!],
+      ),
+    ).toEqual(0);
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      walletLiquid['network'] = networks.regtest;
-    },
-  );
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    walletLiquid['network'] = networks.regtest;
+  });
 
   test('should construct legacy claim details', async () => {
     const preimage = randomBytes(32);
@@ -236,7 +226,7 @@ describe('Core', () => {
     const tx = Transaction.fromHex(
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          wallet.encodeAddress(outputScript).new,
+          wallet.encodeAddress(outputScript),
           100_00,
           undefined,
           false,
@@ -290,7 +280,7 @@ describe('Core', () => {
     const tx = Transaction.fromHex(
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
-          wallet.encodeAddress(outputScript).new,
+          wallet.encodeAddress(outputScript),
           100_00,
           undefined,
           false,

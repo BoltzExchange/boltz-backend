@@ -112,9 +112,9 @@ const mockDecodeAddress = jest.fn().mockImplementation((toDecode: string) => {
 
 const encodeAddress = (script: Buffer) =>
   address.fromOutputScript(script, Networks.bitcoinMainnet);
-const mockEncodeAddress = jest.fn().mockImplementation((script: Buffer) => {
-  return { new: encodeAddress(script), legacy: encodeAddress(script) };
-});
+const mockEncodeAddress = jest
+  .fn()
+  .mockImplementation((script: Buffer) => encodeAddress(script));
 
 let mockGetKeysByIndexResult: ECPairInterface | undefined = undefined;
 const mockGetKeysByIndex = jest

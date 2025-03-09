@@ -62,7 +62,7 @@ import ChainSwapData from './db/models/ChainSwapData';
 import Swap from './db/models/Swap';
 import SwapOutputType from './swap/SwapOutputType';
 import Wallet from './wallet/Wallet';
-import WalletLiquid, { Slip77s } from './wallet/WalletLiquid';
+import WalletLiquid from './wallet/WalletLiquid';
 import { Currency } from './wallet/WalletManager';
 
 type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
@@ -160,15 +160,17 @@ export const getOutputValue = (
     return output.value as number;
   }
 
-  const walletKeys = (wallet as WalletLiquid).deriveBlindingKeyFromScript(
+  const blindingKey = (wallet as WalletLiquid).deriveBlindingKeyFromScript(
     output.script,
   );
 
-  for (const key of [walletKeys.new, walletKeys.legacy]
-    .map((k) => k.privateKey)
-    .filter((k) => k !== undefined)) {
+  if (blindingKey.privateKey !== undefined) {
     try {
-      const unblinded = unblindOutput(wallet, output as LiquidTxOutput, key);
+      const unblinded = unblindOutput(
+        wallet,
+        output as LiquidTxOutput,
+        blindingKey.privateKey,
+      );
 
       return unblinded.isLbtc ? unblinded.value : 0;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -241,7 +243,6 @@ export const constructClaimTransaction = (
   claimDetails: ClaimDetails[] | LiquidClaimDetails[],
   destinationAddress: string,
   feePerVbyte: number,
-  blindingKeyType: keyof Slip77s = 'new',
 ): SomeTransaction => {
   const span = Tracing.tracer.startSpan('constructClaimTransaction', {
     kind: SpanKind.INTERNAL,
@@ -269,7 +270,6 @@ export const constructClaimTransaction = (
       const liquidDetails = populateBlindingKeys(
         walletLiquid,
         claimDetails as LiquidClaimDetails[],
-        blindingKeyType,
       );
       const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
@@ -287,18 +287,6 @@ export const constructClaimTransaction = (
         true,
       );
     });
-  } catch (e) {
-    if (blindingKeyType === 'new') {
-      return constructClaimTransaction(
-        wallet,
-        claimDetails,
-        destinationAddress,
-        feePerVbyte,
-        'legacy',
-      );
-    }
-
-    throw e;
   } finally {
     span.end();
   }
@@ -310,7 +298,6 @@ export const constructRefundTransaction = (
   destinationAddress: string,
   timeoutBlockHeight: number,
   feePerVbyte: number,
-  blindingKeyType: keyof Slip77s = 'new',
 ): SomeTransaction => {
   const span = Tracing.tracer.startSpan('constructRefundTransaction', {
     kind: SpanKind.INTERNAL,
@@ -339,7 +326,6 @@ export const constructRefundTransaction = (
       const liquidDetails = populateBlindingKeys(
         walletLiquid,
         refundDetails as LiquidRefundDetails[],
-        blindingKeyType,
       );
       const decodedAddress = liquidAddress.fromConfidential(destinationAddress);
 
@@ -358,19 +344,6 @@ export const constructRefundTransaction = (
         true,
       );
     });
-  } catch (e) {
-    if (blindingKeyType === 'new') {
-      return constructRefundTransaction(
-        wallet,
-        refundDetails,
-        destinationAddress,
-        timeoutBlockHeight,
-        feePerVbyte,
-        'legacy',
-      );
-    }
-
-    throw e;
   } finally {
     span.end();
   }
@@ -453,12 +426,11 @@ const populateBlindingKeys = <
 >(
   wallet: WalletLiquid,
   utxos: T[],
-  blindingKeyType: keyof Slip77s,
 ): T[] => {
   for (const utxo of utxos) {
-    utxo.blindingPrivateKey = wallet.deriveBlindingKeyFromScript(utxo.script)[
-      blindingKeyType
-    ].privateKey!;
+    utxo.blindingPrivateKey = wallet.deriveBlindingKeyFromScript(
+      utxo.script,
+    ).privateKey!;
   }
 
   return utxos;

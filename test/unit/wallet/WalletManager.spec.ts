@@ -110,6 +110,27 @@ describe('WalletManager', () => {
     await database.init();
   });
 
+  afterAll(async () => {
+    await database.close();
+
+    cleanUp();
+  });
+
+  test('should derive master node and slip77 from mnemonic', () => {
+    const derived = WalletManager['deriveFromMnemonic'](generateMnemonic());
+    expect(derived.masterNode).toBeDefined();
+    expect(derived.slip77).toBeDefined();
+
+    const second = WalletManager['deriveFromMnemonic'](generateMnemonic());
+    expect(second.masterNode).toBeDefined();
+    expect(second.slip77).toBeDefined();
+
+    expect(second.masterNode.privateKey).not.toEqual(
+      derived.masterNode.privateKey,
+    );
+    expect(second.slip77.masterKey).not.toEqual(derived.slip77.masterKey);
+  });
+
   test('should initialize with a new menmonic and write it to the disk', () => {
     new WalletManager(
       Logger.disabledLogger,
@@ -229,11 +250,5 @@ describe('WalletManager', () => {
           [],
         ),
     ).toThrow(WalletErrors.INVALID_MNEMONIC(invalidMnemonic).message);
-  });
-
-  afterAll(async () => {
-    await database.close();
-
-    cleanUp();
   });
 });

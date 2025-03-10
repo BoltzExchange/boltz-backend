@@ -8,6 +8,7 @@ import { ZeroConfToolConfig } from './chain/elements/ZeroConfTool';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import { PairConfig } from './consts/Types';
+import { RedisConfig } from './db/Redis';
 import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
 import { BlocksConfig } from './service/Blocks';
@@ -182,6 +183,8 @@ type ConfigType = {
 
   dbpath: string;
   postgres?: PostgresConfig;
+
+  cache?: RedisConfig;
 
   logpath: string;
   loglevel: string;

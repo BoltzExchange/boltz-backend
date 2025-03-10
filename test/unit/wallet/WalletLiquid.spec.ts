@@ -24,10 +24,7 @@ describe('WalletLiquid', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
     provider,
-    {
-      new: slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
-      legacy: slip77.fromSeed(mnemonic),
-    },
+    slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
     Networks.liquidRegtest,
   );
   wallet.initKeyProvider('', 0, {} as any);
@@ -45,10 +42,7 @@ describe('WalletLiquid', () => {
     const blindingKey = wallet.deriveBlindingKeyFromScript(
       address.toOutputScript(addr, Networks.liquidRegtest),
     );
-    expect({
-      new: blindingKey.new.privateKey,
-      legacy: blindingKey.new.privateKey,
-    }).toMatchSnapshot();
+    expect(blindingKey.privateKey).toMatchSnapshot();
   });
 
   test.each`
@@ -71,23 +65,18 @@ describe('WalletLiquid', () => {
   );
 
   test('should return empty string as address for an empty script', () => {
-    expect(wallet.encodeAddress(Buffer.alloc(0), true).new).toEqual('');
-    expect(wallet.encodeAddress(Buffer.alloc(0), true).legacy).toEqual('');
-    expect(wallet.encodeAddress(Buffer.alloc(0), false).new).toEqual('');
-    expect(wallet.encodeAddress(Buffer.alloc(0), false).legacy).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), true)).toEqual('');
+    expect(wallet.encodeAddress(Buffer.alloc(0), false)).toEqual('');
   });
 
   test('should return empty string as address for scripts that cannot be encoded', () => {
     const outputScript = Buffer.from([ops.OP_RETURN, 1, 2, 3]);
-    expect(wallet.encodeAddress(outputScript, true).new).toEqual('');
-    expect(wallet.encodeAddress(outputScript, true).legacy).toEqual('');
-    expect(wallet.encodeAddress(outputScript, false).new).toEqual('');
-    expect(wallet.encodeAddress(outputScript, false).legacy).toEqual('');
+    expect(wallet.encodeAddress(outputScript, true)).toEqual('');
+    expect(wallet.encodeAddress(outputScript, false)).toEqual('');
   });
 
   test('should blind by default', () => {
     const res = wallet.encodeAddress(Scripts.p2trOutput(toXOnly(publicKey)));
-    expect(res.new.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
-    expect(res.legacy.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
+    expect(res.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
   });
 });

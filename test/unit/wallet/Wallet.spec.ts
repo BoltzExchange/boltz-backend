@@ -101,10 +101,7 @@ describe('Wallet', () => {
   const walletLiquid = new WalletLiquid(
     Logger.disabledLogger,
     walletProvider,
-    {
-      new: slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
-      legacy: slip77.fromSeed(mnemonic),
-    },
+    slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
     networkLiquid.liquid,
   );
 
@@ -147,9 +144,7 @@ describe('Wallet', () => {
   });
 
   test('should encode addresses', () => {
-    const enc = wallet.encodeAddress(encodeOutput);
-    expect(enc.new).toEqual(encodedAddress);
-    expect(enc.legacy).toEqual(encodedAddress);
+    expect(wallet.encodeAddress(encodeOutput)).toEqual(encodedAddress);
   });
 
   test('should ignore OP_RETURN outputs', () => {
@@ -158,10 +153,7 @@ describe('Wallet', () => {
       crypto.sha256(randomBytes(64)),
     ]);
 
-    expect(wallet.encodeAddress(outputScript)).toEqual({
-      new: '',
-      legacy: '',
-    });
+    expect(wallet.encodeAddress(outputScript)).toEqual('');
   });
 
   test('should ignore all invalid addresses', () => {
@@ -179,10 +171,7 @@ describe('Wallet', () => {
     ];
 
     for (const script of invalidScripts) {
-      expect(wallet.encodeAddress(script)).toEqual({
-        new: '',
-        legacy: '',
-      });
+      expect(wallet.encodeAddress(script)).toEqual('');
     }
   });
 
@@ -245,17 +234,11 @@ describe('Wallet', () => {
   test('should blind Liquid addresses', () => {
     expect(walletLiquid.type).toEqual(CurrencyType.Liquid);
     const enc = walletLiquid.encodeAddress(encodeOutput);
-    expect(enc.new.startsWith('lq1qq')).toBeTruthy();
-    expect(enc.legacy.startsWith('lq1qq')).toBeTruthy();
-
-    expect(enc.new).not.toEqual(enc.legacy);
+    expect(enc.startsWith('lq1qq')).toBeTruthy();
   });
 
   test('should encode unblinded Liquid addresses', () => {
     const enc = walletLiquid.encodeAddress(encodeOutput, false);
-    expect(enc.new.startsWith('ex')).toBeTruthy();
-    expect(enc.legacy.startsWith('ex')).toBeTruthy();
-
-    expect(enc.new).toEqual(enc.legacy);
+    expect(enc.startsWith('ex')).toBeTruthy();
   });
 });

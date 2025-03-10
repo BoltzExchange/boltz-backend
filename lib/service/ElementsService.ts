@@ -27,14 +27,12 @@ class ElementsService {
     return await Promise.all(
       tx.outs.map(async (out) => {
         if (out.rangeProof !== undefined && out.rangeProof.length > 0) {
-          const walletKeys = wallet.deriveBlindingKeyFromScript(out.script)!;
+          const walletKey = wallet.deriveBlindingKeyFromScript(out.script)!;
           const keys = [
-            walletKeys.new.privateKey,
-            walletKeys.legacy.privateKey,
+            walletKey.privateKey,
             getHexBuffer(
               await chainClient.dumpBlindingKey(
-                // Does not matter which one we take because we don't blind
-                wallet.encodeAddress(out.script, false).new,
+                wallet.encodeAddress(out.script, false),
               ),
             ),
           ];
@@ -59,7 +57,7 @@ class ElementsService {
 
     const { publicKey, privateKey } = wallet.deriveBlindingKeyFromScript(
       wallet.decodeAddress(address),
-    ).new;
+    );
     return {
       publicKey: publicKey!,
       privateKey: privateKey!,

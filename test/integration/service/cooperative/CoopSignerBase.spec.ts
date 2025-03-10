@@ -89,7 +89,7 @@ describe('CoopSignerBase', () => {
     );
 
     const txId = await bitcoinClient.sendToAddress(
-      wallet.encodeAddress(p2trOutput(tweakedKey)).new,
+      wallet.encodeAddress(p2trOutput(tweakedKey)),
       100_000,
       undefined,
       false,
@@ -169,8 +169,7 @@ describe('CoopSignerBase', () => {
 
       expect(toClaim.cooperative!.transaction.outs).toHaveLength(1);
       expect(
-        wallet.encodeAddress(toClaim.cooperative!.transaction.outs[0].script)
-          .new,
+        wallet.encodeAddress(toClaim.cooperative!.transaction.outs[0].script),
       ).toEqual(toClaim.cooperative!.sweepAddress);
     });
 

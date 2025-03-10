@@ -75,6 +75,8 @@ class ZeroConfTool
     };
   }
 
+  public init = async (): Promise<void> => {};
+
   public checkTransaction = async (
     transaction: Transaction,
   ): Promise<boolean> => {

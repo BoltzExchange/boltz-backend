@@ -61,6 +61,8 @@ class ElementsWrapper
       this.emit('block', blockHeight),
     );
 
+    await this.zeroConfCheck.init();
+
     // If we have a lowball client, bubble up only confirmed transactions
     // of the public client
     const hasLowball = this.lowballClient() !== undefined;

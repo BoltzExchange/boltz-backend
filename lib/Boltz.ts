@@ -19,6 +19,7 @@ import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
 import { NetworkInfo } from './consts/Types';
 import Database from './db/Database';
+import Redis from './db/Redis';
 import ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import GrpcServer from './grpc/GrpcServer';
@@ -46,6 +47,8 @@ class Boltz {
   private readonly currencies: Map<string, Currency>;
 
   private readonly db: Database;
+  private readonly redis?: Redis;
+
   private readonly notifications?: NotificationProvider;
 
   private readonly api!: Api;
@@ -92,9 +95,16 @@ class Boltz {
       false,
     );
 
+    if (this.config.cache !== undefined) {
+      this.redis = new Redis(this.logger, this.config.cache);
+    } else {
+      this.logger.warn('Redis is not configured');
+    }
+
     registerExitHandler(async () => {
       await this.grpcServer.close();
       await this.db.close();
+      await this.redis?.disconnect();
 
       await Profiling.stop();
       await Tracing.stop();
@@ -195,7 +205,12 @@ class Boltz {
         new GrpcService(this.logger, this.service),
       );
 
-      this.api = new Api(this.logger, this.config.api, this.service);
+      this.api = new Api(
+        this.logger,
+        this.config.api,
+        this.service,
+        this.redis,
+      );
 
       this.prometheus = new Prometheus(
         this.logger,
@@ -219,6 +234,7 @@ class Boltz {
     try {
       await this.db.migrate(this.currencies);
       await this.db.init();
+      await this.redis?.connect();
 
       // To initialize the key provider before starting the sidecar
       await this.walletManager.init(this.config.currencies);

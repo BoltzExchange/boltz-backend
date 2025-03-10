@@ -22,7 +22,6 @@ type PrometheusConfig = {
 };
 
 class Prometheus {
-  private static readonly gaugeUpdateInterval = 1_000;
   private static readonly metricPrefix = 'boltz_';
   private static readonly defaultReferral = 'default';
 
@@ -101,6 +100,7 @@ class Prometheus {
     );
 
     // Needed because "this" in the collector refers to the function
+    const api = this.api;
     const service = this.service;
 
     const iterateAllPairs = async <T = SwapTypes>(
@@ -280,11 +280,14 @@ class Prometheus {
       }),
     );
 
-    this.registerGauge(
-      this.swapRegistry!,
-      'swap_status_cache_count',
-      'number of swap status messages cached',
-      () => this.api.swapInfos.cacheSize,
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}swap_status_cache_count`,
+        help: 'number of swap status messages cached',
+        collect: async function () {
+          this.set({}, await api.swapInfos.cacheSize());
+        },
+      }),
     );
 
     this.swapRegistry!.registerMetric(
@@ -375,20 +378,6 @@ class Prometheus {
         },
       }),
     );
-  };
-
-  private registerGauge = (
-    registry: Registry,
-    name: string,
-    help: string,
-    cb: () => number,
-  ) => {
-    const gauge = new Gauge({
-      help,
-      name: `${Prometheus.metricPrefix}${name}`,
-    });
-    setInterval(() => gauge.set(cb()), Prometheus.gaugeUpdateInterval);
-    registry.registerMetric(gauge);
   };
 }
 

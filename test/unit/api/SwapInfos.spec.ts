@@ -38,13 +38,15 @@ describe('SwapInfos', () => {
   });
 
   describe('constructor', () => {
-    test('should update cache on swap.update', () => {
+    test('should update cache on swap.update', async () => {
       const id = 'asdf';
       const status = { status: SwapUpdateEvent.TransactionClaimed };
       service.eventHandler.emit('swap.update', { id, status });
 
-      expect(swapInfos['cachedSwapInfos'].get(id)).toEqual(status);
-      expect(swapInfos.cacheSize).toEqual(1);
+      await expect(swapInfos['cachedSwapInfos'].get(id)).resolves.toEqual(
+        status,
+      );
+      await expect(swapInfos.cacheSize()).resolves.toEqual(1);
     });
   });
 
@@ -92,7 +94,7 @@ describe('SwapInfos', () => {
 
       await expect(swapInfos.get(id)).resolves.toEqual(undefined);
 
-      expect(swapInfos.cacheSize).toEqual(0);
+      await expect(swapInfos.cacheSize()).resolves.toEqual(0);
 
       expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
@@ -123,7 +125,7 @@ describe('SwapInfos', () => {
         await expect(swapInfos.get(id)).resolves.toEqual({
           status: SwapUpdateEvent.SwapCreated,
         });
-        expect(swapInfos.cacheSize).toEqual(1);
+        await expect(swapInfos.cacheSize()).resolves.toEqual(1);
 
         expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
         expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);

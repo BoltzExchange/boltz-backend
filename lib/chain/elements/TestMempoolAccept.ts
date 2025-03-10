@@ -6,6 +6,7 @@ import ElementsClient from '../ElementsClient';
 import { ZeroConfCheck } from './ZeroConfCheck';
 
 class TestMempoolAccept implements ZeroConfCheck {
+  private static readonly regtestChain = 'liquidregtest';
   private static readonly zeroConfCheckTimeDefault = 1_000;
   private static readonly zeroConfCheckAllowedErrors = [
     'min relay fee not met',
@@ -13,6 +14,8 @@ class TestMempoolAccept implements ZeroConfCheck {
   ];
 
   private readonly zeroConfCheckTime: number;
+
+  private isRegtest = false;
 
   constructor(
     private readonly logger: Logger,
@@ -30,9 +33,23 @@ class TestMempoolAccept implements ZeroConfCheck {
     return 'Test mempool acceptance';
   }
 
+  public init = async (): Promise<void> => {
+    const { chain } = await this.publicClient.getBlockchainInfo();
+    if (chain === TestMempoolAccept.regtestChain) {
+      this.isRegtest = true;
+      this.logger.warn(
+        'Elements chain is regtest; skipping 0-conf mempool acceptance check',
+      );
+    }
+  };
+
   public checkTransaction = async (
     transaction: Transaction,
   ): Promise<boolean> => {
+    if (this.isRegtest) {
+      return true;
+    }
+
     this.logger.debug(
       `Waiting before accepting 0-conf transaction of ${liquidSymbol}: ${transaction.getId()}`,
     );

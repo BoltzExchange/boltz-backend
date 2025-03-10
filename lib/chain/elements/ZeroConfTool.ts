@@ -39,6 +39,14 @@ class ZeroConfTool
 
   private readonly toCheck = new Map<string, { retries: number }>();
 
+  private readonly txStats = {
+    accepted: 0n,
+    rejected: 0n,
+
+    // Number of calls made for transactions that ended up being accepted
+    acceptedCalls: 0n,
+  };
+
   constructor(
     private readonly logger: Logger,
     config: ZeroConfToolConfig,
@@ -58,6 +66,13 @@ class ZeroConfTool
 
   public get name(): string {
     return '0-conf tool';
+  }
+
+  public get stats(): typeof this.txStats & { pending: bigint } {
+    return {
+      ...this.txStats,
+      pending: BigInt(this.toCheck.size),
+    };
   }
 
   public checkTransaction = async (
@@ -137,17 +152,24 @@ class ZeroConfTool
       }
 
       if (bridgeData.seen > 0 && bridgeData.seen === bridgeData.total) {
-        this.toCheck.delete(txId);
-        this.emit('accepted', txId);
+        if (this.toCheck.has(txId)) {
+          this.toCheck.delete(txId);
+          this.txStats.accepted++;
+          this.txStats.acceptedCalls += BigInt(retries) + 1n;
+        }
 
+        this.emit('accepted', txId);
         continue;
       }
 
       const newRetries = retries + 1;
       if (newRetries >= this.maxRetries) {
-        this.toCheck.delete(txId);
-        this.emit('timeout', txId);
+        if (this.toCheck.has(txId)) {
+          this.toCheck.delete(txId);
+          this.txStats.rejected++;
+        }
 
+        this.emit('timeout', txId);
         continue;
       }
 

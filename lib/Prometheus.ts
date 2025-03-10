@@ -3,6 +3,9 @@ import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
 import Logger from './Logger';
 import { getPairId } from './Utils';
 import Api from './api/Api';
+import ElementsClient from './chain/ElementsClient';
+import ElementsWrapper from './chain/ElementsWrapper';
+import ZeroConfTool from './chain/elements/ZeroConfTool';
 import { SwapVersion } from './consts/Enums';
 import { PairConfig } from './consts/Types';
 import ReferralRepository from './db/repositories/ReferralRepository';
@@ -312,6 +315,63 @@ class Prometheus {
           } of service.lockupTransactionTracker.maxRisks()) {
             this.set({ symbol }, Number(maxRisk));
           }
+        },
+      }),
+    );
+
+    this.registerZeroConfToolMetrics();
+  };
+
+  private registerZeroConfToolMetrics = () => {
+    const currency = this.service.currencies.get(ElementsClient.symbol);
+    if (currency === undefined) {
+      return;
+    }
+
+    if (!(currency.chainClient instanceof ElementsWrapper)) {
+      return;
+    }
+
+    const zeroConfCheck = (currency.chainClient as ElementsWrapper)
+      .zeroConfCheck;
+    if (!(zeroConfCheck instanceof ZeroConfTool)) {
+      return;
+    }
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}zeroconf_tool_txs`,
+        labelNames: ['symbol', 'type'],
+        help: 'transactions checked by the 0-conf tool',
+        collect: function () {
+          const stats = zeroConfCheck.stats;
+
+          this.set(
+            { symbol: ElementsClient.symbol, type: 'pending' },
+            Number(stats.pending),
+          );
+          this.set(
+            { symbol: ElementsClient.symbol, type: 'accepted' },
+            Number(stats.accepted),
+          );
+          this.set(
+            { symbol: ElementsClient.symbol, type: 'rejected' },
+            Number(stats.rejected),
+          );
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}zeroconf_tool_txs_calls`,
+        labelNames: ['symbol', 'type'],
+        help: 'calls to the 0-conf tool',
+        collect: function () {
+          this.set(
+            { symbol: ElementsClient.symbol, type: 'accepted' },
+            Number(zeroConfCheck.stats.acceptedCalls),
+          );
         },
       }),
     );

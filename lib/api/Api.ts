@@ -1,6 +1,7 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { ApiConfig } from '../Config';
 import Logger from '../Logger';
+import Redis from '../db/Redis';
 import Service from '../service/Service';
 import Controller from './Controller';
 import SwapInfos from './SwapInfos';
@@ -17,6 +18,7 @@ class Api {
     private readonly logger: Logger,
     private readonly config: ApiConfig,
     service: Service,
+    redis?: Redis,
   ) {
     this.app = express();
     this.app.set('trust proxy', 'loopback');
@@ -45,7 +47,7 @@ class Api {
       },
     );
 
-    this.swapInfos = new SwapInfos(this.logger, service);
+    this.swapInfos = new SwapInfos(this.logger, service, redis);
     this.controller = new Controller(logger, service, this.swapInfos);
 
     new ApiV2(this.logger, service, this.swapInfos).registerRoutes(this.app);

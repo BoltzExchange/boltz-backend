@@ -38,13 +38,34 @@ describe('SwapInfos', () => {
   });
 
   describe('constructor', () => {
-    test('should update cache on swap.update', () => {
+    test('should update cache on swap.update', async () => {
       const id = 'asdf';
       const status = { status: SwapUpdateEvent.TransactionClaimed };
       service.eventHandler.emit('swap.update', { id, status });
 
-      expect(swapInfos['cachedSwapInfos'].get(id)).toEqual(status);
-      expect(swapInfos.cacheSize).toEqual(1);
+      await expect(swapInfos['cachedSwapInfos'].get(id)).resolves.toEqual(
+        status,
+      );
+      await expect(swapInfos.cacheSize()).resolves.toEqual(1);
+    });
+
+    test('should use RedisCache when Redis is provided', () => {
+      const mockRedis = {} as any;
+      const redisSwapInfos = new SwapInfos(
+        Logger.disabledLogger,
+        service,
+        mockRedis,
+      );
+      expect(redisSwapInfos['cachedSwapInfos'].constructor.name).toEqual(
+        'RedisCache',
+      );
+    });
+
+    test('should use MapCache when Redis is not provided', () => {
+      const mapSwapInfos = new SwapInfos(Logger.disabledLogger, service);
+      expect(mapSwapInfos['cachedSwapInfos'].constructor.name).toEqual(
+        'MapCache',
+      );
     });
   });
 
@@ -92,7 +113,7 @@ describe('SwapInfos', () => {
 
       await expect(swapInfos.get(id)).resolves.toEqual(undefined);
 
-      expect(swapInfos.cacheSize).toEqual(0);
+      await expect(swapInfos.cacheSize()).resolves.toEqual(0);
 
       expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
@@ -123,7 +144,7 @@ describe('SwapInfos', () => {
         await expect(swapInfos.get(id)).resolves.toEqual({
           status: SwapUpdateEvent.SwapCreated,
         });
-        expect(swapInfos.cacheSize).toEqual(1);
+        await expect(swapInfos.cacheSize()).resolves.toEqual(1);
 
         expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
         expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
@@ -138,6 +159,59 @@ describe('SwapInfos', () => {
         expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(1);
       },
     );
+
+    test('should handle errors when getting cached swap updates', async () => {
+      const id = 'errorId';
+      const errorMessage = 'Cache error';
+
+      swapInfos['cachedSwapInfos'].get = jest
+        .fn()
+        .mockRejectedValue(new Error(errorMessage));
+
+      const swap = {
+        type: SwapType.Submarine,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+      swapInfos['handleSwapStatus'] = jest.fn().mockResolvedValue({
+        status: SwapUpdateEvent.SwapCreated,
+      });
+
+      await expect(swapInfos.get(id)).resolves.toEqual({
+        status: SwapUpdateEvent.SwapCreated,
+      });
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(1);
+
+      expect(swapInfos['handleSwapStatus']).toHaveBeenCalledWith(swap);
+    });
+
+    test('should update cache after fetching from database', async () => {
+      const id = 'cacheUpdateId';
+      const status = { status: SwapUpdateEvent.SwapCreated };
+
+      swapInfos['cachedSwapInfos'].get = jest.fn().mockResolvedValue(undefined);
+      swapInfos['cachedSwapInfos'].set = jest.fn().mockResolvedValue(undefined);
+
+      const swap = {
+        type: SwapType.Submarine,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+      swapInfos['handleSwapStatus'] = jest.fn().mockResolvedValue(status);
+
+      await expect(swapInfos.get(id)).resolves.toEqual(status);
+
+      expect(swapInfos['cachedSwapInfos'].set).toHaveBeenCalledWith(id, status);
+    });
   });
 
   describe('handleSwapStatus', () => {

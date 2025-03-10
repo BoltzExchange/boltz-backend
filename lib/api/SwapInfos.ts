@@ -7,6 +7,7 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import { AnySwap } from '../consts/Types';
+import Redis from '../db/Redis';
 import ReverseSwap from '../db/models/ReverseSwap';
 import Swap from '../db/models/Swap';
 import ChainSwapRepository, {
@@ -20,30 +21,40 @@ import EventHandler, { SwapUpdate } from '../service/EventHandler';
 import Service from '../service/Service';
 import { getCurrency } from '../service/Utils';
 import SwapNursery from '../swap/SwapNursery';
+import { MapCache, RedisCache, SwapUpdateCache } from './SwapUpdateCache';
 
 class SwapInfos {
-  private readonly cachedSwapInfos = new Map<string, SwapUpdate>();
+  private readonly cachedSwapInfos: SwapUpdateCache;
 
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
+    redis?: Redis,
   ) {
+    this.cachedSwapInfos =
+      redis !== undefined ? new RedisCache(redis) : new MapCache();
+
     this.service.eventHandler.on('swap.update', async ({ id, status }) => {
-      this.set(id, status);
+      await this.cachedSwapInfos.set(id, status);
     });
   }
 
-  public get cacheSize() {
-    return this.cachedSwapInfos.size;
-  }
+  public cacheSize = async (): Promise<number> =>
+    await this.cachedSwapInfos.size();
 
   public has = async (id: string): Promise<boolean> =>
     (await this.get(id)) !== undefined;
 
   public get = async (id: string): Promise<SwapUpdate | undefined> => {
-    const cachedUpdate = this.cachedSwapInfos.get(id);
-    if (cachedUpdate !== undefined) {
-      return cachedUpdate;
+    try {
+      const cachedUpdate = await this.cachedSwapInfos.get(id);
+      if (cachedUpdate !== undefined) {
+        return cachedUpdate;
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Error getting cached swap update for ${id}: ${formatError(e)}`,
+      );
     }
 
     const fetchedSwaps = await Promise.all([
@@ -61,7 +72,7 @@ class SwapInfos {
     }
 
     const status = await this.handleSwapStatus(swap);
-    this.cachedSwapInfos.set(id, status);
+    await this.cachedSwapInfos.set(id, status);
     return status;
   };
 
@@ -266,9 +277,6 @@ class SwapInfos {
       zeroConfRejected,
     };
   };
-
-  private set = (id: string, status: SwapUpdate) =>
-    this.cachedSwapInfos.set(id, status);
 }
 
 export default SwapInfos;

@@ -46,5 +46,20 @@ describe('SwapUpdateCache', () => {
       await client.clear();
       await expect(client.size()).resolves.toEqual(0);
     });
+
+    test('should delete entry', async () => {
+      const id1 = 'id1';
+      const id2 = 'id2';
+      await client.set(id1, { status: SwapUpdateEvent.TransactionMempool });
+      await client.set(id2, { status: SwapUpdateEvent.TransactionClaimed });
+
+      await client.delete(id1);
+
+      await expect(client.get(id1)).resolves.toBeUndefined();
+      await expect(client.get(id2)).resolves.toEqual({
+        status: SwapUpdateEvent.TransactionClaimed,
+      });
+      await expect(client.size()).resolves.toEqual(1);
+    });
   });
 });

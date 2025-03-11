@@ -5,6 +5,7 @@ abstract class SwapUpdateCache {
   abstract size(): Promise<number>;
   abstract get(id: string): Promise<SwapUpdate | undefined>;
   abstract set(id: string, swapInfo: SwapUpdate): Promise<void>;
+  abstract delete(id: string): Promise<void>;
   abstract clear(): Promise<void>;
 }
 
@@ -18,6 +19,11 @@ class MapCache extends SwapUpdateCache {
 
   public set = (id: string, swapInfo: SwapUpdate): Promise<void> => {
     this.cache.set(id, swapInfo);
+    return Promise.resolve();
+  };
+
+  public delete = (id: string): Promise<void> => {
+    this.cache.delete(id);
     return Promise.resolve();
   };
 
@@ -47,6 +53,10 @@ class RedisCache extends SwapUpdateCache {
 
   public set = async (id: string, swapInfo: SwapUpdate): Promise<void> => {
     await this.redis.hashSet(RedisCache.key, id, swapInfo);
+  };
+
+  public delete = async (id: string): Promise<void> => {
+    await this.redis.hashDelete(RedisCache.key, id);
   };
 
   public clear = async (): Promise<void> => {

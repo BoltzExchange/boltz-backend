@@ -24,30 +24,26 @@ import SwapNursery from '../swap/SwapNursery';
 import { MapCache, RedisCache, SwapUpdateCache } from './SwapUpdateCache';
 
 class SwapInfos {
-  private readonly cachedSwapInfos: SwapUpdateCache;
+  public readonly cache: SwapUpdateCache;
 
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
     redis?: Redis,
   ) {
-    this.cachedSwapInfos =
-      redis !== undefined ? new RedisCache(redis) : new MapCache();
+    this.cache = redis !== undefined ? new RedisCache(redis) : new MapCache();
 
     this.service.eventHandler.on('swap.update', async ({ id, status }) => {
-      await this.cachedSwapInfos.set(id, status);
+      await this.cache.set(id, status);
     });
   }
-
-  public cacheSize = async (): Promise<number> =>
-    await this.cachedSwapInfos.size();
 
   public has = async (id: string): Promise<boolean> =>
     (await this.get(id)) !== undefined;
 
   public get = async (id: string): Promise<SwapUpdate | undefined> => {
     try {
-      const cachedUpdate = await this.cachedSwapInfos.get(id);
+      const cachedUpdate = await this.cache.get(id);
       if (cachedUpdate !== undefined) {
         return cachedUpdate;
       }
@@ -72,7 +68,7 @@ class SwapInfos {
     }
 
     const status = await this.handleSwapStatus(swap);
-    await this.cachedSwapInfos.set(id, status);
+    await this.cache.set(id, status);
     return status;
   };
 

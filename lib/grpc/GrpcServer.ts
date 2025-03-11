@@ -47,6 +47,7 @@ class GrpcServer {
       swapCreationHook: grpcService.swapCreationHook,
       getReferrals: grpcService.getReferrals,
       setReferral: grpcService.setReferral,
+      devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,
     });
   }
 

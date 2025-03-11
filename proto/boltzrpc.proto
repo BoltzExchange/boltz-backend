@@ -62,6 +62,7 @@ service Boltz {
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
+  rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
 }
 
 enum OutputType {
@@ -405,3 +406,8 @@ message GetPendingSweepsRequest {}
 message GetPendingSweepsResponse {
   map<string, PendingSweeps> pending_sweeps = 1;
 }
+
+message DevClearSwapUpdateCacheRequest {
+  optional string id = 1;
+}
+message DevClearSwapUpdateCacheResponse {}

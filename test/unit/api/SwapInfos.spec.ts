@@ -43,10 +43,8 @@ describe('SwapInfos', () => {
       const status = { status: SwapUpdateEvent.TransactionClaimed };
       service.eventHandler.emit('swap.update', { id, status });
 
-      await expect(swapInfos['cachedSwapInfos'].get(id)).resolves.toEqual(
-        status,
-      );
-      await expect(swapInfos.cacheSize()).resolves.toEqual(1);
+      await expect(swapInfos.cache.get(id)).resolves.toEqual(status);
+      await expect(swapInfos.cache.size()).resolves.toEqual(1);
     });
 
     test('should use RedisCache when Redis is provided', () => {
@@ -56,22 +54,18 @@ describe('SwapInfos', () => {
         service,
         mockRedis,
       );
-      expect(redisSwapInfos['cachedSwapInfos'].constructor.name).toEqual(
-        'RedisCache',
-      );
+      expect(redisSwapInfos.cache.constructor.name).toEqual('RedisCache');
     });
 
     test('should use MapCache when Redis is not provided', () => {
       const mapSwapInfos = new SwapInfos(Logger.disabledLogger, service);
-      expect(mapSwapInfos['cachedSwapInfos'].constructor.name).toEqual(
-        'MapCache',
-      );
+      expect(mapSwapInfos.cache.constructor.name).toEqual('MapCache');
     });
   });
 
   describe('has', () => {
     test('should return true when swap info is found', async () => {
-      swapInfos['get'] = jest
+      swapInfos.get = jest
         .fn()
         .mockResolvedValue({ status: SwapUpdateEvent.SwapCreated });
 
@@ -79,7 +73,7 @@ describe('SwapInfos', () => {
     });
 
     test('should return false when no swap info is found', async () => {
-      swapInfos['get'] = jest.fn().mockResolvedValue(undefined);
+      swapInfos.get = jest.fn().mockResolvedValue(undefined);
       await expect(swapInfos.has('')).resolves.toEqual(false);
     });
   });
@@ -91,7 +85,7 @@ describe('SwapInfos', () => {
         status: SwapUpdateEvent.TransactionMempool,
       };
 
-      swapInfos['cachedSwapInfos'].set(id, status);
+      swapInfos.cache.set(id, status);
 
       SwapRepository.getSwap = jest.fn();
       ReverseSwapRepository.getReverseSwap = jest.fn();
@@ -113,7 +107,7 @@ describe('SwapInfos', () => {
 
       await expect(swapInfos.get(id)).resolves.toEqual(undefined);
 
-      await expect(swapInfos.cacheSize()).resolves.toEqual(0);
+      await expect(swapInfos.cache.size()).resolves.toEqual(0);
 
       expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
       expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
@@ -144,7 +138,7 @@ describe('SwapInfos', () => {
         await expect(swapInfos.get(id)).resolves.toEqual({
           status: SwapUpdateEvent.SwapCreated,
         });
-        await expect(swapInfos.cacheSize()).resolves.toEqual(1);
+        await expect(swapInfos.cache.size()).resolves.toEqual(1);
 
         expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
         expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledTimes(1);
@@ -164,7 +158,7 @@ describe('SwapInfos', () => {
       const id = 'errorId';
       const errorMessage = 'Cache error';
 
-      swapInfos['cachedSwapInfos'].get = jest
+      swapInfos.cache.get = jest
         .fn()
         .mockRejectedValue(new Error(errorMessage));
 
@@ -195,8 +189,8 @@ describe('SwapInfos', () => {
       const id = 'cacheUpdateId';
       const status = { status: SwapUpdateEvent.SwapCreated };
 
-      swapInfos['cachedSwapInfos'].get = jest.fn().mockResolvedValue(undefined);
-      swapInfos['cachedSwapInfos'].set = jest.fn().mockResolvedValue(undefined);
+      swapInfos.cache.get = jest.fn().mockResolvedValue(undefined);
+      swapInfos.cache.set = jest.fn().mockResolvedValue(undefined);
 
       const swap = {
         type: SwapType.Submarine,
@@ -210,7 +204,7 @@ describe('SwapInfos', () => {
 
       await expect(swapInfos.get(id)).resolves.toEqual(status);
 
-      expect(swapInfos['cachedSwapInfos'].set).toHaveBeenCalledWith(id, status);
+      expect(swapInfos.cache.set).toHaveBeenCalledWith(id, status);
     });
   });
 

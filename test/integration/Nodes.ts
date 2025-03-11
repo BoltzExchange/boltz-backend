@@ -2,6 +2,7 @@ import { resolve } from 'path';
 import Logger from '../../lib/Logger';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
+import Redis from '../../lib/db/Redis';
 import LndClient from '../../lib/lightning/LndClient';
 import ClnClient from '../../lib/lightning/cln/ClnClient';
 
@@ -92,3 +93,7 @@ export const waitForClnChainSync = () =>
       }
     }, 100);
   });
+
+export const redis = new Redis(Logger.disabledLogger, {
+  redisEndpoint: 'redis://localhost:6379',
+});

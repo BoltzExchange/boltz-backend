@@ -468,8 +468,47 @@ mod status_test {
     }
 
     #[tokio::test]
-    async fn test_respond_invalid_message() {
+    async fn test_respond_app_level_pings() {
         let port = 12_003;
+        let (cancel, _) = create_server(port).await;
+
+        let (client, _) =
+            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
+                .await
+                .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::text(
+                json!({
+                    "op": "ping",
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        });
+
+        loop {
+            let msg = rx.next().await.unwrap().unwrap();
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+
+            if let WsResponse::Pong = res {
+                break;
+            }
+        }
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_respond_invalid_message() {
+        let port = 12_004;
         let (cancel, _) = create_server(port).await;
 
         let (client, _) =
@@ -503,7 +542,7 @@ mod status_test {
 
     #[tokio::test]
     async fn test_send_existing_status() {
-        let port = 12_004;
+        let port = 12_005;
         let (cancel, _) = create_server(port).await;
 
         let (client, _) =
@@ -585,7 +624,7 @@ mod status_test {
 
     #[tokio::test]
     async fn test_send_update() {
-        let port = 12_005;
+        let port = 12_006;
         let (cancel, update_tx) = create_server(port).await;
 
         let (client, _) =
@@ -657,7 +696,7 @@ mod status_test {
 
     #[tokio::test]
     async fn test_unsubscribe() {
-        let port = 12_006;
+        let port = 12_007;
         let (cancel, update_tx) = create_server(port).await;
 
         let (client, _) =

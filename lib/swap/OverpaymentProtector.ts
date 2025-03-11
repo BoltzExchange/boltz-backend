@@ -37,10 +37,10 @@ class OverpaymentProtector {
     } else {
       return (
         actual - expected >
-        Math.max(
-          this.overPaymentExemptAmount,
-          actual * this.overPaymentMaxPercentage,
-        )
+          Math.max(
+            this.overPaymentExemptAmount,
+            expected * this.overPaymentMaxPercentage,
+          ) || actual > expected * 2
       );
     }
   };

@@ -126,5 +126,24 @@ describe('OverpaymentProtector', () => {
         ).toEqual(expectedResult);
       },
     );
+
+    test.each`
+      expected | actual  | config                                        | expectedResult
+      ${100}   | ${150}  | ${{ exemptAmount: 500, maxPercentage: 60 }}   | ${false}
+      ${100}   | ${150}  | ${{ exemptAmount: 500, maxPercentage: 40 }}   | ${false}
+      ${100}   | ${300}  | ${{ exemptAmount: 500, maxPercentage: 1 }}    | ${true}
+      ${5000}  | ${5500} | ${{ exemptAmount: 100, maxPercentage: 1 }}    | ${true}
+      ${1020}  | ${3000} | ${{ exemptAmount: 10_000, maxPercentage: 2 }} | ${true}
+    `(
+      'should not allow overpayment when actual > expected * 2',
+      ({ expected, actual, config, expectedResult }) => {
+        expect(
+          new OverpaymentProtector(
+            Logger.disabledLogger,
+            config,
+          ).isUnacceptableOverpay(SwapType.Submarine, expected, actual),
+        ).toEqual(expectedResult);
+      },
+    );
   });
 });

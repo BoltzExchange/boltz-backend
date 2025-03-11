@@ -21,6 +21,7 @@ describe('ElementsWrapper', () => {
     wrapper['zeroConfCheck'] = {
       name: 'test',
       checkTransaction: jest.fn().mockResolvedValue(true),
+      init: jest.fn().mockImplementation(() => Promise.resolve()),
     };
   });
 
@@ -152,6 +153,7 @@ describe('ElementsWrapper', () => {
       oneWrapper['zeroConfCheck'] = {
         name: 'stub',
         checkTransaction: jest.fn().mockResolvedValue(true),
+        init: jest.fn().mockImplementation(() => Promise.resolve()),
       };
 
       await oneWrapper.connect();

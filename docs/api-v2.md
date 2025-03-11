@@ -83,6 +83,25 @@ is still subscribed to.
 }
 ```
 
+To ensure the connection is alive, besides the native WebSocket pings, Boltz API
+will also respond to application-level pings, which is useful when the WebSocket
+client cannot control the low-level WebSocket connection (like on browsers). To
+send a ping, send a message like below.
+
+```json
+{
+  "op": "ping"
+}
+```
+
+The backend will respond with a `pong` message.
+
+```json
+{
+  "event": "pong"
+}
+```
+
 ## Examples
 
 Below are some examples covering the flow of a given swap type from beginning to

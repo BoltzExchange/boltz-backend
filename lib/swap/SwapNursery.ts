@@ -33,6 +33,7 @@ import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
   CurrencyType,
   FinalChainSwapEvents,
+  SuccessSwapUpdateEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -306,23 +307,50 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.utxoNursery.on(
-      'server.lockup.confirmed',
-      async ({ swap, transaction }) => {
-        await this.lock.acquire(
-          swap.type === SwapType.ReverseSubmarine
-            ? SwapNursery.reverseSwapLock
-            : SwapNursery.chainSwapLock,
-          async () => {
-            this.emit('transaction', {
-              swap,
-              transaction,
-              confirmed: true,
+    this.utxoNursery.on('server.lockup.confirmed', async (data) => {
+      await this.lock.acquire(
+        data.swap.type === SwapType.ReverseSubmarine
+          ? SwapNursery.reverseSwapLock
+          : SwapNursery.chainSwapLock,
+        async () => {
+          let swap: typeof data.swap | null;
+
+          // Fetch the swap from database again to make sure we have the latest state
+          if (data.swap.type === SwapType.ReverseSubmarine) {
+            swap = await ReverseSwapRepository.getReverseSwap({
+              id: data.swap.id,
             });
-          },
-        );
-      },
-    );
+          } else {
+            swap = await ChainSwapRepository.getChainSwap({ id: data.swap.id });
+          }
+
+          if (swap === null || swap === undefined) {
+            this.logger.warn(`Could not find swap with id: ${data.swap.id}`);
+            return;
+          }
+
+          if (
+            SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)
+          ) {
+            this.logger.debug(
+              `Not acting on confirmed server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it succeeded already`,
+            );
+            return;
+          }
+
+          this.emit('transaction', {
+            confirmed: true,
+            transaction: data.transaction,
+            swap: await WrappedSwapRepository.setStatus(
+              swap,
+              swap.type === SwapType.ReverseSubmarine
+                ? SwapUpdateEvent.TransactionConfirmed
+                : SwapUpdateEvent.TransactionServerConfirmed,
+            ),
+          });
+        },
+      );
+    });
 
     this.lightningNursery.on('minerfee.invoice.paid', async (reverseSwap) => {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {

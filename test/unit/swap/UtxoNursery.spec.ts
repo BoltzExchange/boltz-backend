@@ -797,12 +797,6 @@ describe('UtxoNursery', () => {
     expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
       decodeAddress(mockGetReverseSwapsResult[1].lockupAddress),
     );
-
-    expect(mockSetStatus).toHaveBeenCalledTimes(1);
-    expect(mockSetStatus).toHaveBeenCalledWith(
-      mockGetReverseSwapsResult[1],
-      SwapUpdateEvent.TransactionConfirmed,
-    );
   });
 
   test('should handle expired Swaps', async () => {

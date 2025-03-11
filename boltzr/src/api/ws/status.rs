@@ -65,6 +65,8 @@ enum WsRequest {
     Subscribe(SubscribeRequest),
     #[serde(rename = "unsubscribe")]
     Unsubscribe(UnsubscribeRequest),
+    #[serde(rename = "ping")]
+    Ping,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -100,6 +102,8 @@ enum WsResponse {
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
     Update(UpdateResponse),
+    #[serde(rename = "pong")]
+    Pong,
 }
 
 #[derive(Debug, Clone)]
@@ -365,6 +369,7 @@ where
                     args: subscribed_ids.iter().cloned().collect(),
                 })))
             }
+            WsRequest::Ping => Ok(Some(WsResponse::Pong)),
         }
     }
 

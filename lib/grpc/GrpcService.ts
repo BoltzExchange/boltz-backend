@@ -12,6 +12,7 @@ import {
   removeHexPrefix,
   stringify,
 } from '../Utils';
+import Api from '../api/Api';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import Referral, { ReferralConfig } from '../db/models/Referral';
 import PendingEthereumTransactionRepository from '../db/repositories/PendingEthereumTransactionRepository';
@@ -27,6 +28,7 @@ class GrpcService {
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
+    private readonly api: Api,
   ) {}
 
   public stop: handleUnaryCall<boltzrpc.StopRequest, boltzrpc.StopRequest> =
@@ -587,6 +589,25 @@ class GrpcService {
       await ReferralRepository.setConfig(referral, parsedConfig);
 
       return new boltzrpc.SetReferralResponse();
+    });
+  };
+
+  public devClearSwapUpdateCache: handleUnaryCall<
+    boltzrpc.DevClearSwapUpdateCacheRequest,
+    boltzrpc.DevClearSwapUpdateCacheResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { id } = call.request.toObject();
+
+      if (id !== undefined && id != null && id !== '') {
+        this.logger.debug(`Clearing cache for swap: ${id}`);
+        await this.api.swapInfos.cache.delete(id);
+      } else {
+        this.logger.debug('Clearing entire swap update cache');
+        await this.api.swapInfos.cache.clear();
+      }
+
+      return new boltzrpc.DevClearSwapUpdateCacheResponse();
     });
   };
 

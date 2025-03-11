@@ -285,7 +285,7 @@ class Prometheus {
         name: `${Prometheus.metricPrefix}swap_status_cache_count`,
         help: 'number of swap status messages cached',
         collect: async function () {
-          this.set({}, await api.swapInfos.cacheSize());
+          this.set({}, await api.swapInfos.cache.size());
         },
       }),
     );

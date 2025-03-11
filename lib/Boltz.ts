@@ -199,17 +199,17 @@ class Boltz {
         );
       }
 
-      this.grpcServer = new GrpcServer(
-        this.logger,
-        this.config.grpc,
-        new GrpcService(this.logger, this.service),
-      );
-
       this.api = new Api(
         this.logger,
         this.config.api,
         this.service,
         this.redis,
+      );
+
+      this.grpcServer = new GrpcServer(
+        this.logger,
+        this.config.grpc,
+        new GrpcService(this.logger, this.service, this.api),
       );
 
       this.prometheus = new Prometheus(

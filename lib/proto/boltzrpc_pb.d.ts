@@ -1701,6 +1701,46 @@ export namespace GetPendingSweepsResponse {
     }
 }
 
+export class DevClearSwapUpdateCacheRequest extends jspb.Message { 
+
+    hasId(): boolean;
+    clearId(): void;
+    getId(): string | undefined;
+    setId(value: string): DevClearSwapUpdateCacheRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevClearSwapUpdateCacheRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DevClearSwapUpdateCacheRequest): DevClearSwapUpdateCacheRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevClearSwapUpdateCacheRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevClearSwapUpdateCacheRequest;
+    static deserializeBinaryFromReader(message: DevClearSwapUpdateCacheRequest, reader: jspb.BinaryReader): DevClearSwapUpdateCacheRequest;
+}
+
+export namespace DevClearSwapUpdateCacheRequest {
+    export type AsObject = {
+        id?: string,
+    }
+}
+
+export class DevClearSwapUpdateCacheResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DevClearSwapUpdateCacheResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DevClearSwapUpdateCacheResponse): DevClearSwapUpdateCacheResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DevClearSwapUpdateCacheResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DevClearSwapUpdateCacheResponse;
+    static deserializeBinaryFromReader(message: DevClearSwapUpdateCacheResponse, reader: jspb.BinaryReader): DevClearSwapUpdateCacheResponse;
+}
+
+export namespace DevClearSwapUpdateCacheResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

@@ -33,6 +33,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     swapCreationHook: IBoltzService_ISwapCreationHook;
     setLogLevel: IBoltzService_ISetLogLevel;
     devHeapDump: IBoltzService_IDevHeapDump;
+    devClearSwapUpdateCache: IBoltzService_IDevClearSwapUpdateCache;
 }
 
 interface IBoltzService_IStop extends grpc.MethodDefinition<boltzrpc_pb.StopRequest, boltzrpc_pb.StopResponse> {
@@ -260,6 +261,15 @@ interface IBoltzService_IDevHeapDump extends grpc.MethodDefinition<boltzrpc_pb.D
     responseSerialize: grpc.serialize<boltzrpc_pb.DevHeapDumpResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.DevHeapDumpResponse>;
 }
+interface IBoltzService_IDevClearSwapUpdateCache extends grpc.MethodDefinition<boltzrpc_pb.DevClearSwapUpdateCacheRequest, boltzrpc_pb.DevClearSwapUpdateCacheResponse> {
+    path: "/boltzrpc.Boltz/DevClearSwapUpdateCache";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.DevClearSwapUpdateCacheRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.DevClearSwapUpdateCacheRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.DevClearSwapUpdateCacheResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.DevClearSwapUpdateCacheResponse>;
+}
 
 export const BoltzService: IBoltzService;
 
@@ -289,6 +299,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     swapCreationHook: grpc.handleBidiStreamingCall<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     setLogLevel: grpc.handleUnaryCall<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse>;
     devHeapDump: grpc.handleUnaryCall<boltzrpc_pb.DevHeapDumpRequest, boltzrpc_pb.DevHeapDumpResponse>;
+    devClearSwapUpdateCache: grpc.handleUnaryCall<boltzrpc_pb.DevClearSwapUpdateCacheRequest, boltzrpc_pb.DevClearSwapUpdateCacheResponse>;
 }
 
 export interface IBoltzClient {
@@ -367,6 +378,9 @@ export interface IBoltzClient {
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
+    devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
+    devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzClient extends grpc.Client implements IBoltzClient {
@@ -445,4 +459,7 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
     public devHeapDump(request: boltzrpc_pb.DevHeapDumpRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevHeapDumpResponse) => void): grpc.ClientUnaryCall;
+    public devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
+    public devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
+    public devClearSwapUpdateCache(request: boltzrpc_pb.DevClearSwapUpdateCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DevClearSwapUpdateCacheResponse) => void): grpc.ClientUnaryCall;
 }

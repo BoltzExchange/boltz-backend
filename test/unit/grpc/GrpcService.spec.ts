@@ -6,6 +6,7 @@ import {
   getHexString,
   removeHexPrefix,
 } from '../../../lib/Utils';
+import Api from '../../../lib/api/Api';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import PendingEthereumTransaction from '../../../lib/db/models/PendingEthereumTransaction';
 import PendingEthereumTransactionRepository from '../../../lib/db/repositories/PendingEthereumTransactionRepository';
@@ -183,8 +184,16 @@ TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue(null);
 
 describe('GrpcService', () => {
   const service = mockedService();
+  const api = {
+    swapInfos: {
+      cache: {
+        delete: jest.fn(),
+        clear: jest.fn(),
+      },
+    },
+  } as unknown as Api;
 
-  const grpcService = new GrpcService(Logger.disabledLogger, service);
+  const grpcService = new GrpcService(Logger.disabledLogger, service, api);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1046,6 +1055,53 @@ describe('GrpcService', () => {
           );
         }),
       ).rejects.toEqual({ message: 'could not find referral with id: ref' });
+    });
+  });
+
+  describe('devClearSwapUpdateCache', () => {
+    test.each`
+      id
+      ${''}
+      ${null}
+      ${undefined}
+    `('should clear cache when id is "$id"', async ({ id }) => {
+      await new Promise<boltzrpc.DevClearSwapUpdateCacheResponse>(
+        (resolve, reject) => {
+          grpcService.devClearSwapUpdateCache(
+            createCall({ id }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        },
+      );
+
+      expect(api.swapInfos.cache.clear).toHaveBeenCalledTimes(1);
+    });
+
+    test('should delete entry from cache when id is provided', async () => {
+      const id = 'asdf';
+      await new Promise<boltzrpc.DevClearSwapUpdateCacheResponse>(
+        (resolve, reject) => {
+          grpcService.devClearSwapUpdateCache(
+            createCall({ id }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        },
+      );
+
+      expect(api.swapInfos.cache.delete).toHaveBeenCalledTimes(1);
+      expect(api.swapInfos.cache.delete).toHaveBeenCalledWith(id);
     });
   });
 

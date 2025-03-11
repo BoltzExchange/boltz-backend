@@ -29,7 +29,6 @@ import ElementsWrapper from '../chain/ElementsWrapper';
 import type { SomeTransaction } from '../chain/ZmqClient';
 import {
   CurrencyType,
-  SuccessSwapUpdateEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -43,7 +42,6 @@ import ChainSwapRepository, {
 } from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import Blocks from '../service/Blocks';
 import Sidecar from '../sidecar/Sidecar';
@@ -690,21 +688,10 @@ class UtxoNursery extends TypedEventEmitter<{
           : (swap as ChainSwapInfo).sendingData.lockupAddress,
       ),
     );
-    if (SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)) {
-      this.logger.debug(
-        `Not acting on confirmed server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it succeeded already`,
-      );
-      return;
-    }
 
     this.emit('server.lockup.confirmed', {
+      swap,
       transaction,
-      swap: await WrappedSwapRepository.setStatus(
-        swap,
-        swap.type === SwapType.ReverseSubmarine
-          ? SwapUpdateEvent.TransactionConfirmed
-          : SwapUpdateEvent.TransactionServerConfirmed,
-      ),
     });
   };
 

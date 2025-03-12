@@ -3,6 +3,62 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.10.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.9.1..v3.10.0) - 2025-03-12
+
+### Bug Fixes
+
+- blinding key derivation of wallet stub in CLI (#832) - ([2219654](https://github.com/BoltzExchange/boltz-backend/commit/2219654e8e38d6b2b8ce9f5a0da9ec18d8b4211c))
+- skip mempool acceptance check on regtest (#848) - ([8a8e45c](https://github.com/BoltzExchange/boltz-backend/commit/8a8e45ce573afce44f155729cdd0324801716169))
+- successful swaps reverting status transaction.confirmed (#851) - ([569cee7](https://github.com/BoltzExchange/boltz-backend/commit/569cee70b2bdb3072c69b978a7ffed3edf135f02))
+
+### Documentation
+
+- add rescue endpoint to swagger - ([fef5b5a](https://github.com/BoltzExchange/boltz-backend/commit/fef5b5a5f63def82009a092054445fe5bf1b832b))
+
+### Features
+
+- nested extra fees (#826) - ([64fba5a](https://github.com/BoltzExchange/boltz-backend/commit/64fba5a024f702cf4b4e29398373f39ee00ca77c))
+- add lockup tx param to refund-cooperative CLI (#828) - ([3f47be3](https://github.com/BoltzExchange/boltz-backend/commit/3f47be357450fe57102c53d52bbe5ab59358be21))
+- swap recovery rescan - ([34ffa9d](https://github.com/BoltzExchange/boltz-backend/commit/34ffa9deb5fc3f9bcc1fda88755cd8ba4b4382e5))
+- gRPC method to get pending EVM transactions - ([7df8c87](https://github.com/BoltzExchange/boltz-backend/commit/7df8c87508e8ed5a4ed2a905714d2c30997580fc))
+- add EVM address to swapinfo command (#830) - ([7048767](https://github.com/BoltzExchange/boltz-backend/commit/7048767d95d51fa1e4adea809f8a96ee39fa7e50))
+- swap creation hook - ([b75863a](https://github.com/BoltzExchange/boltz-backend/commit/b75863a20d5d0edfac631a37927e9ee471e52f2d))
+- add index on refund public key columns - ([116bf9f](https://github.com/BoltzExchange/boltz-backend/commit/116bf9f108214dc2ccacdf2e63838b1b4d9aa6dc))
+- directional premiums for referrals (#837) - ([036923e](https://github.com/BoltzExchange/boltz-backend/commit/036923ed9b709fdd9c79b1967b30d7d8fd8bfacc))
+- 0-conf tool Prometheus metrics (#846) - ([46149c2](https://github.com/BoltzExchange/boltz-backend/commit/46149c25bb6be70e74ce72df93788830e6708d1c))
+- gRPC method to clear swap update cache (#849) - ([454ff7f](https://github.com/BoltzExchange/boltz-backend/commit/454ff7fefbd1bbcf7c4a0b6b60a22dba6b4bc9d8))
+- WebSocket JSON ping/pong (#850) - ([c52fbf3](https://github.com/BoltzExchange/boltz-backend/commit/c52fbf39943576d7efac17a23dfe4ba550eccdc5))
+- add overpayment check for actual > expected * 2 - ([e99d388](https://github.com/BoltzExchange/boltz-backend/commit/e99d388db1bf370bef84af9439acf03cd44bf899))
+
+### Miscellaneous Chores
+
+- bump elliptic from 6.6.0 to 6.6.1 (#824) - ([84a3f8c](https://github.com/BoltzExchange/boltz-backend/commit/84a3f8c1b6b7dac10fc16a3cc9239434607ad90f))
+- bump LND to v0.18.5 (#825) - ([c8709c9](https://github.com/BoltzExchange/boltz-backend/commit/c8709c9b6935618302e82f9eaf1421205229721c))
+- minor Rust dependency updates - ([ab5490d](https://github.com/BoltzExchange/boltz-backend/commit/ab5490db32af15591fd3c95ff50aead99e8f3b11))
+- bump alloy Rust dependencies - ([a02e162](https://github.com/BoltzExchange/boltz-backend/commit/a02e1621b7d786427d95d9da8ce6723c28118801))
+- bump Rust edition to 2024 - ([04b2253](https://github.com/BoltzExchange/boltz-backend/commit/04b2253301298a223b265e82645932cd5e6909af))
+- minor NPM dependency updates - ([f89becc](https://github.com/BoltzExchange/boltz-backend/commit/f89beccf2ff0806aa9f47050f4f54d8b44c193ae))
+- fix clippy on Rust nightly (#835) - ([a0806e2](https://github.com/BoltzExchange/boltz-backend/commit/a0806e20b1fefa578569dbf2784ebbca0be0da62))
+- bump NPM dependencies - ([1ca6827](https://github.com/BoltzExchange/boltz-backend/commit/1ca6827d1874acbd1c68a1ae1f7991bf66b682c4))
+- update dependencies - ([c02dfdb](https://github.com/BoltzExchange/boltz-backend/commit/c02dfdb88e85741f7decebf57e2cbe52cc643f8f))
+- bump ring from 0.17.8 to 0.17.13 in /boltzr (#840) - ([2ec9aa6](https://github.com/BoltzExchange/boltz-backend/commit/2ec9aa6da38d1601cf65641344c4e7026f0666ea))
+- bump axios from 1.8.1 to 1.8.2 (#841) - ([6e55d27](https://github.com/BoltzExchange/boltz-backend/commit/6e55d2704d24b02f20bb555e9a495646218f973e))
+- bump CLN to v25.02 (#842) - ([b4bdfd3](https://github.com/BoltzExchange/boltz-backend/commit/b4bdfd371f4ad613690ff209cdaaf8f0ddbd1ffb))
+- bump vulnerable dependencies - ([b7b54e4](https://github.com/BoltzExchange/boltz-backend/commit/b7b54e417c15d5f21ebe13f6e51b0f2febef1ff6))
+- bump hold to v0.2.2 - ([4696ef4](https://github.com/BoltzExchange/boltz-backend/commit/4696ef47afd4f2c8444f4fd153b9690d0dbda716))
+- fix naming of NodePendingPaymentTracker (#845) - ([ea8c9ee](https://github.com/BoltzExchange/boltz-backend/commit/ea8c9eeccd979b9b4a02c98836250ea07926e052))
+- bump Eclair to v0.12.0 - ([f4cd063](https://github.com/BoltzExchange/boltz-backend/commit/f4cd063cdb71a9921aa6bc3dda0085253807a4f5))
+- bump dependencies - ([4e9ab46](https://github.com/BoltzExchange/boltz-backend/commit/4e9ab467cc5f0fbd7b6dd2845e25d088f792fec8))
+
+### Refactoring
+
+- migrate slip77 - ([315771f](https://github.com/BoltzExchange/boltz-backend/commit/315771f7fa12d107006eb8ed9a24380379d1455c))
+- rename swap recovery to rescue (#833) - ([b886ffd](https://github.com/BoltzExchange/boltz-backend/commit/b886ffdee5b1e2fed5d5b1a25d95fd1a5a11662f))
+- Discount CT on mainnet - ([aa291b3](https://github.com/BoltzExchange/boltz-backend/commit/aa291b32b5377a7007bebc5a04d53a6a888dc1d3))
+- remove legacy blinding key derivation (#844) - ([e728f90](https://github.com/BoltzExchange/boltz-backend/commit/e728f90130bc3a4ac0b5652819cf8a77e228bd1e))
+- optional Redis swap update cache (#847) - ([9fe80b1](https://github.com/BoltzExchange/boltz-backend/commit/9fe80b1b313888652f0f21d034d38df6c333a6f7))
+
+---
 ## [3.9.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.9.0..v3.9.1) - 2025-02-13
 
 ### Bug Fixes
@@ -83,6 +139,7 @@ All notable changes to this project will be documented in this file. See [conven
 - bump chain swap timeout buffer to 50% (#812) - ([d1665f5](https://github.com/BoltzExchange/boltz-backend/commit/d1665f5a42767d7fa5ec8ec7f9285c44e29e86cf))
 - bump elements to v23.2.6 - ([d5fbf23](https://github.com/BoltzExchange/boltz-backend/commit/d5fbf235ac69e3af70ae499bc3ce6f1eed6038b1))
 - remove CORS from backend API - ([17bfad0](https://github.com/BoltzExchange/boltz-backend/commit/17bfad0c82d39e98ca73069a547bcdc879092e68))
+- bump version to v3.9.1 (#823) - ([2c3ab1e](https://github.com/BoltzExchange/boltz-backend/commit/2c3ab1e8d3269c51ac11e3868d4273916060c366))
 
 ### Refactoring
 

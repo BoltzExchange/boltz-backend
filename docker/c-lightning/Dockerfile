@@ -40,10 +40,7 @@ RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
 RUN ./configure
-RUN make install
-
-RUN strip --strip-all /usr/local/bin/lightningd
-RUN strip --strip-all /usr/local/bin/lightning-cli
+RUN RUST_PROFILE=release make install -j$(nproc)
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}

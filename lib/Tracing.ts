@@ -6,7 +6,7 @@ import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { WinstonInstrumentation } from '@opentelemetry/instrumentation-winston';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import process from 'process';
 import packageJson from '../package.json';
@@ -27,7 +27,7 @@ class Tracing {
   public init = (endpoint: string, network: string) => {
     this.sdk = new NodeSDK({
       instrumentations,
-      resource: new Resource({
+      resource: resourceFromAttributes({
         ['process.pid']: process.pid,
         ['service.version']: packageJson.version,
         ['service.name']: `${packageJson.name}-${network}`,

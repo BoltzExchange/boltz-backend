@@ -42,10 +42,10 @@ dirs = "6.0.0"
 num_cpus = "1.16.0"
 prost = "0.13.5"
 rcgen = { version = "0.13.2", features = ["x509-parser"] }
-reqwest = { version = "0.12.14", features = ["json"] }
+reqwest = { version = "0.12.15", features = ["json"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
-tokio = { version = "1.44.0", features = [
+tokio = { version = "1.44.1", features = [
     "rt-multi-thread",
     "macros",
     "process",
@@ -54,7 +54,7 @@ toml = "0.8.20"
 tonic = { version = "0.12.3", features = ["prost", "tls"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-tokio-util = "0.7.13"
+tokio-util = "0.7.14"
 tracing-loki = { version = "0.2.6", optional = true }
 futures = "0.3.31"
 metrics-process = { version = "2.4.0", optional = true }
@@ -89,7 +89,7 @@ diesel-tracing = { version = "0.3.1", optional = true, features = [
     "r2d2",
     "statement-fields",
 ] }
-alloy = { version = "0.12.5", features = [
+alloy = { version = "0.12.6", features = [
     "reqwest",
     "sol-types",
     "serde",
@@ -105,13 +105,13 @@ async-tungstenite = { version = "0.29.1", features = [
     "tokio-native-tls",
     "tokio-runtime",
 ] }
-async-trait = "0.1.87"
+async-trait = "0.1.88"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
 anyhow = "1.0.97"
 lightning = { version = "0.1.1", features = ["std"] }
 lightning-invoice = { version = "0.33.1", features = ["std"] }
-bech32 = "0.9.1"
+bech32 = "0.11.0"
 bitcoin = "0.32.5"
 elements = "0.25.1"
 base64 = "0.22.1"

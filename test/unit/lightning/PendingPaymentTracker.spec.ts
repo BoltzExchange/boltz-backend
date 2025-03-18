@@ -1,10 +1,14 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
+import LightningPayment, {
+  LightningPaymentStatus,
+} from '../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
+import LightningErrors from '../../../lib/lightning/Errors';
 import { LightningClient } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
@@ -121,7 +125,7 @@ describe('PendingPaymentTracker', () => {
       );
     });
 
-    test('should watch payment for temporiraly failed CLN payments', async () => {
+    test('should watch payment for temporarily failed CLN payments', async () => {
       const clnClient = {
         type: NodeType.CLN,
         sendPayment: jest.fn().mockRejectedValue('xpay doing something weird'),
@@ -146,6 +150,94 @@ describe('PendingPaymentTracker', () => {
       expect(
         tracker.lightningTrackers[NodeType.CLN].watchPayment,
       ).toHaveBeenCalledWith(clnClient, swap.invoice, preimageHash);
+    });
+  });
+
+  describe('checkInvoiceTimeout', () => {
+    const swapId = 'testSwap123';
+    const paymentHash = 'paymentHash123';
+    const nodeType = NodeType.LND;
+    const defaultTimeout = (PendingPaymentTracker as any)
+      .defaultPaymentTimeout as number;
+    const expectedError = LightningErrors.PAYMENT_TIMED_OUT().message;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      LightningPaymentRepository.setStatus = jest.fn().mockResolvedValue([1]);
+
+      jest.spyOn(Date, 'now').mockImplementation(() => 1742265902131);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('should not time out when there are no payments', async () => {
+      const payments: LightningPayment[] = [];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
+    });
+
+    test('should not time out when payments are recent', async () => {
+      const recentPayment = {
+        createdAt: new Date(Date.now() - defaultTimeout / 2),
+      } as LightningPayment;
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, [
+          recentPayment,
+        ]),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
+    });
+
+    test('should time out when oldest payment exceeds timeout', async () => {
+      const oldPayment = {
+        createdAt: new Date(Date.now() - (defaultTimeout + 5 * 60 * 1000)),
+      } as LightningPayment;
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, [
+          oldPayment,
+        ]),
+      ).rejects.toEqual(expectedError);
+
+      expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
+        paymentHash,
+        nodeType,
+        LightningPaymentStatus.PermanentFailure,
+        expectedError,
+      );
+    });
+
+    test('should use oldest payment when multiple payments exist', async () => {
+      const payments = [
+        {
+          createdAt: new Date(Date.now() - defaultTimeout / 6),
+        } as LightningPayment,
+        {
+          createdAt: new Date(Date.now() - (defaultTimeout + 5 * 60 * 1000)),
+        } as LightningPayment,
+        {
+          createdAt: new Date(Date.now() - defaultTimeout * 0.8),
+        } as LightningPayment,
+      ];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).rejects.toEqual(expectedError);
+
+      expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
+        paymentHash,
+        nodeType,
+        LightningPaymentStatus.PermanentFailure,
+        expectedError,
+      );
     });
   });
 });

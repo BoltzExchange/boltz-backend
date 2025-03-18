@@ -8,6 +8,7 @@ import TypedEventEmitter from '../consts/TypedEventEmitter';
 import ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
+import LightningErrors from '../lightning/Errors';
 import { InvoiceState, LightningClient } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
@@ -62,6 +63,11 @@ class LightningNursery extends TypedEventEmitter<{
       error === 'InvoiceExpiredError()' ||
       error.toLowerCase().includes('invoice expired')
     );
+  };
+  public static errIsPaymentTimedOut = (error: string): boolean => {
+    return error
+      .toLowerCase()
+      .includes(LightningErrors.PAYMENT_TIMED_OUT().message.toLowerCase());
   };
 
   public static cancelReverseInvoices = async (

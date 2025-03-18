@@ -11,6 +11,7 @@ import LightningPaymentRepository from '../db/repositories/LightningPaymentRepos
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import Sidecar from '../sidecar/Sidecar';
 import { Currency } from '../wallet/WalletManager';
+import LightningErrors from './Errors';
 import { LightningClient, PaymentResponse } from './LightningClient';
 import LndClient from './LndClient';
 import ClnClient from './cln/ClnClient';
@@ -23,6 +24,8 @@ type LightningNodes = Record<NodeType, LightningClient | undefined>;
 class PendingPaymentTracker {
   private static readonly raceTimeout = 10;
   private static readonly timeoutError = 'payment timed out';
+  // TODO: configurable timeout value
+  private static readonly defaultPaymentTimeout = 30 * 60 * 1000;
 
   public readonly lightningTrackers: Record<
     NodeType,
@@ -163,6 +166,13 @@ class PendingPaymentTracker {
       }
     }
 
+    await this.checkInvoiceTimeout(
+      swap.id,
+      paymentHash,
+      lightningClient.type,
+      payments,
+    );
+
     return await this.sendPaymentWithNode(
       swap,
       lightningClient,
@@ -170,6 +180,37 @@ class PendingPaymentTracker {
       cltvLimit,
       outgoingChannelId,
     );
+  };
+
+  private checkInvoiceTimeout = async (
+    swapId: string,
+    paymentHash: string,
+    lightningClientType: NodeType,
+    payments: LightningPayment[],
+  ) => {
+    if (payments.length > 0) {
+      const earliestAttempt = Math.min(
+        ...payments.map((p) => p.createdAt.getTime()),
+      );
+
+      if (
+        Date.now() - earliestAttempt >
+        PendingPaymentTracker.defaultPaymentTimeout
+      ) {
+        this.logger.verbose(
+          `Payment for ${swapId} (${paymentHash}) has timed out`,
+        );
+
+        const err = LightningErrors.PAYMENT_TIMED_OUT();
+        await LightningPaymentRepository.setStatus(
+          paymentHash,
+          lightningClientType,
+          LightningPaymentStatus.PermanentFailure,
+          err.message,
+        );
+        throw err.message;
+      }
+    }
   };
 
   private sendPaymentWithNode = async (

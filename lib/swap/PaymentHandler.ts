@@ -242,7 +242,8 @@ class PaymentHandler {
         LndClient.formatPaymentFailureReason(
           PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
         ) ||
-      LightningNursery.errIsInvoiceExpired(errorMessage)
+      LightningNursery.errIsInvoiceExpired(errorMessage) ||
+      LightningNursery.errIsPaymentTimedOut(errorMessage)
     ) {
       await this.abandonSwap(swap, errorMessage);
       return undefined;
@@ -306,7 +307,8 @@ class PaymentHandler {
 
     if (
       ClnClient.errIsIncorrectPaymentDetails(errorMessage) ||
-      LightningNursery.errIsInvoiceExpired(errorMessage)
+      LightningNursery.errIsInvoiceExpired(errorMessage) ||
+      LightningNursery.errIsPaymentTimedOut(errorMessage)
     ) {
       await this.abandonSwap(swap, errorMessage);
       return undefined;

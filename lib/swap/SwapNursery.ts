@@ -137,6 +137,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private readonly chainSwapSigner: ChainSwapSigner,
     lockupTransactionTracker: LockupTransactionTracker,
     overPaymentConfig?: OverPaymentConfig,
+    paymentTimeoutMinutes?: number,
   ) {
     super();
 
@@ -175,6 +176,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.pendingPaymentTracker = new PendingPaymentTracker(
       this.logger,
       this.sidecar,
+      paymentTimeoutMinutes,
     );
     this.paymentHandler = new PaymentHandler(
       this.logger,

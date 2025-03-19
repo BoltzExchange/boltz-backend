@@ -1,7 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { getHexString } from '../../../lib/Utils';
+import { getHexString, minutesToMilliseconds } from '../../../lib/Utils';
 import Database from '../../../lib/db/Database';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -10,6 +10,7 @@ import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
+import LightningErrors from '../../../lib/lightning/Errors';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { Currency } from '../../../lib/wallet/WalletManager';
@@ -42,6 +43,12 @@ jest.mock(
 describe('PendingPaymentTracker', () => {
   let db: Database;
   const tracker = new PendingPaymentTracker(Logger.disabledLogger, sidecar);
+  const paymentTimeoutMinutes = 10;
+  const trackerWithTimeout = new PendingPaymentTracker(
+    Logger.disabledLogger,
+    sidecar,
+    paymentTimeoutMinutes,
+  );
 
   const currencies = [
     {
@@ -336,6 +343,215 @@ describe('PendingPaymentTracker', () => {
       expect(payments).toHaveLength(1);
       expect(payments[0].node).toEqual(NodeType.CLN);
       expect(payments[0].status).toEqual(LightningPaymentStatus.Pending);
+    });
+
+    describe('payment timeout', () => {
+      beforeEach(() => {
+        jest
+          .spyOn(trackerWithTimeout as any, 'sendPaymentWithNode')
+          .mockResolvedValue(undefined);
+        jest
+          .spyOn(tracker as any, 'sendPaymentWithNode')
+          .mockResolvedValue(undefined);
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      test('should timeout payment after configured timeout period', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        const pastDate = new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
+        );
+        await LightningPayment.create({
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: pastDate,
+        });
+
+        const payments = await LightningPaymentRepository.findByPreimageHash(
+          getHexString(preimageHash),
+        );
+
+        await expect(
+          trackerWithTimeout.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            payments,
+          ),
+        ).rejects.toEqual(LightningErrors.PAYMENT_TIMED_OUT().message);
+
+        const updatedPayments =
+          await LightningPaymentRepository.findByPreimageHash(
+            getHexString(preimageHash),
+          );
+        expect(updatedPayments).toHaveLength(1);
+        expect(updatedPayments[0].status).toEqual(
+          LightningPaymentStatus.PermanentFailure,
+        );
+        expect(updatedPayments[0].error).toEqual(
+          LightningErrors.PAYMENT_TIMED_OUT().message,
+        );
+      });
+
+      test('should not timeout payment if within timeout period', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        await LightningPayment.create({
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes - 5),
+          ),
+        });
+
+        const payments = await LightningPaymentRepository.findByPreimageHash(
+          getHexString(preimageHash),
+        );
+
+        await expect(
+          trackerWithTimeout.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            payments,
+          ),
+        ).resolves.toBeUndefined();
+
+        const updatedPayments =
+          await LightningPaymentRepository.findByPreimageHash(
+            getHexString(preimageHash),
+          );
+        expect(updatedPayments).toHaveLength(1);
+        expect(updatedPayments[0].status).toEqual(
+          LightningPaymentStatus.TemporaryFailure,
+        );
+      });
+
+      test('should not timeout if no timeout minutes configured', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        const pastDate = new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 50),
+        );
+        await LightningPayment.create({
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: pastDate,
+        });
+
+        const payments = await LightningPaymentRepository.findByPreimageHash(
+          getHexString(preimageHash),
+        );
+
+        await expect(
+          tracker.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            payments,
+          ),
+        ).resolves.toBeUndefined();
+
+        const updatedPayments =
+          await LightningPaymentRepository.findByPreimageHash(
+            getHexString(preimageHash),
+          );
+        expect(updatedPayments).toHaveLength(1);
+        expect(updatedPayments[0].status).toEqual(
+          LightningPaymentStatus.TemporaryFailure,
+        );
+      });
+
+      test('should check temporary failure payments for timeout', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        const pastDate = new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
+        );
+        await LightningPayment.create({
+          node: NodeType.LND,
+          preimageHash: swap.preimageHash,
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: pastDate,
+        });
+
+        const payments = await LightningPaymentRepository.findByPreimageHash(
+          getHexString(preimageHash),
+        );
+
+        await expect(
+          trackerWithTimeout.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            payments,
+          ),
+        ).rejects.toEqual(LightningErrors.PAYMENT_TIMED_OUT().message);
+
+        const updatedPayments =
+          await LightningPaymentRepository.findByPreimageHash(
+            getHexString(preimageHash),
+          );
+        expect(updatedPayments).toHaveLength(1);
+        expect(updatedPayments[0].status).toEqual(
+          LightningPaymentStatus.PermanentFailure,
+        );
+      });
+
+      test('should not timeout if payments array is empty', async () => {
+        const preimageHash = randomBytes(32);
+        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
+
+        const swap = await Swap.create({
+          ...createSubmarineSwapData(),
+          invoice,
+          preimageHash: getHexString(preimageHash),
+        });
+
+        await expect(
+          trackerWithTimeout.sendPayment(
+            swap,
+            bitcoinLndClient,
+            getHexString(preimageHash),
+            [],
+          ),
+        ).resolves.toBeUndefined();
+      });
     });
 
     describe('existing relevant status', () => {

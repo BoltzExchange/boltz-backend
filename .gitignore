@@ -54,8 +54,9 @@ dist/
 # Yarn Integrity file
 .yarn-integrity
 
-#  Webstorm config
+#  Editor config
 .idea/
+.cursor/
 
 # typedoc
 typedoc/

@@ -64,10 +64,9 @@ class LightningNursery extends TypedEventEmitter<{
       error.toLowerCase().includes('invoice expired')
     );
   };
+
   public static errIsPaymentTimedOut = (error: string): boolean => {
-    return error
-      .toLowerCase()
-      .includes(LightningErrors.PAYMENT_TIMED_OUT().message.toLowerCase());
+    return error === LightningErrors.PAYMENT_TIMED_OUT().message;
   };
 
   public static cancelReverseInvoices = async (

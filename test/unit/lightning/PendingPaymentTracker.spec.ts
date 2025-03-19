@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { getHexString } from '../../../lib/Utils';
+import { getHexString, minutesToMilliseconds } from '../../../lib/Utils';
 import LightningPayment, {
   LightningPaymentStatus,
 } from '../../../lib/db/models/LightningPayment';
@@ -14,7 +14,16 @@ import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker'
 import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 
 describe('PendingPaymentTracker', () => {
-  const tracker = new PendingPaymentTracker(Logger.disabledLogger, {} as any);
+  const paymentTimeoutMinutes = 30;
+  const tracker = new PendingPaymentTracker(
+    Logger.disabledLogger,
+    {} as any,
+    paymentTimeoutMinutes,
+  );
+  const trackerWithoutPaymentTimeout = new PendingPaymentTracker(
+    Logger.disabledLogger,
+    {} as any,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,6 +32,11 @@ describe('PendingPaymentTracker', () => {
   afterAll(() => {
     (
       tracker.lightningTrackers[NodeType.CLN] as ClnPendingPaymentTracker
+    ).stop();
+    (
+      trackerWithoutPaymentTimeout.lightningTrackers[
+        NodeType.CLN
+      ] as ClnPendingPaymentTracker
     ).stop();
   });
 
@@ -157,15 +171,13 @@ describe('PendingPaymentTracker', () => {
     const swapId = 'testSwap123';
     const paymentHash = 'paymentHash123';
     const nodeType = NodeType.LND;
-    const defaultTimeout = (PendingPaymentTracker as any)
-      .defaultPaymentTimeout as number;
     const expectedError = LightningErrors.PAYMENT_TIMED_OUT().message;
 
     beforeEach(() => {
       jest.clearAllMocks();
       LightningPaymentRepository.setStatus = jest.fn().mockResolvedValue([1]);
 
-      jest.spyOn(Date, 'now').mockImplementation(() => 1742265902131);
+      jest.spyOn(Date, 'now').mockReturnValue(1742265902131);
     });
 
     afterEach(() => {
@@ -184,7 +196,10 @@ describe('PendingPaymentTracker', () => {
 
     test('should not time out when payments are recent', async () => {
       const recentPayment = {
-        createdAt: new Date(Date.now() - defaultTimeout / 2),
+        status: LightningPaymentStatus.TemporaryFailure,
+        createdAt: new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 2),
+        ),
       } as LightningPayment;
 
       await expect(
@@ -196,35 +211,45 @@ describe('PendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
     });
 
-    test('should time out when oldest payment exceeds timeout', async () => {
+    test('should not time out when timeout is not configured', async () => {
       const oldPayment = {
-        createdAt: new Date(Date.now() - (defaultTimeout + 5 * 60 * 1000)),
+        status: LightningPaymentStatus.TemporaryFailure,
+        createdAt: new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 5),
+        ),
       } as LightningPayment;
 
       await expect(
-        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, [
-          oldPayment,
-        ]),
-      ).rejects.toEqual(expectedError);
+        trackerWithoutPaymentTimeout['checkInvoiceTimeout'](
+          swapId,
+          paymentHash,
+          nodeType,
+          [oldPayment],
+        ),
+      ).resolves.toBeUndefined();
 
-      expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
-        paymentHash,
-        nodeType,
-        LightningPaymentStatus.PermanentFailure,
-        expectedError,
-      );
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
     });
 
-    test('should use oldest payment when multiple payments exist', async () => {
+    test('should time out when one of the payments exceeds timeout', async () => {
       const payments = [
         {
-          createdAt: new Date(Date.now() - defaultTimeout / 6),
+          status: LightningPaymentStatus.Pending,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 3),
+          ),
         } as LightningPayment,
         {
-          createdAt: new Date(Date.now() - (defaultTimeout + 5 * 60 * 1000)),
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
+          ),
         } as LightningPayment,
         {
-          createdAt: new Date(Date.now() - defaultTimeout * 0.8),
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 2),
+          ),
         } as LightningPayment,
       ];
 
@@ -238,6 +263,35 @@ describe('PendingPaymentTracker', () => {
         LightningPaymentStatus.PermanentFailure,
         expectedError,
       );
+    });
+
+    test('should not consider payments with statuses other than TemporaryFailure', async () => {
+      const payments = [
+        {
+          status: LightningPaymentStatus.PermanentFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.Success,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.Pending,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+      ];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
     });
   });
 });

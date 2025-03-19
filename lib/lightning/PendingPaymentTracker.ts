@@ -1,6 +1,6 @@
 import Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { getHexBuffer, getHexString } from '../Utils';
+import { getHexBuffer, getHexString, minutesToMilliseconds } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -24,8 +24,6 @@ type LightningNodes = Record<NodeType, LightningClient | undefined>;
 class PendingPaymentTracker {
   private static readonly raceTimeout = 10;
   private static readonly timeoutError = 'payment timed out';
-  // TODO: configurable timeout value
-  private static readonly defaultPaymentTimeout = 30 * 60 * 1000;
 
   public readonly lightningTrackers: Record<
     NodeType,
@@ -42,6 +40,7 @@ class PendingPaymentTracker {
   constructor(
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
+    private readonly paymentTimeoutMinutes?: number,
   ) {
     this.lightningTrackers = {
       [NodeType.LND]: new LndPendingPaymentTracker(this.logger),
@@ -188,28 +187,34 @@ class PendingPaymentTracker {
     lightningClientType: NodeType,
     payments: LightningPayment[],
   ) => {
-    if (payments.length > 0) {
-      const earliestAttempt = Math.min(
-        ...payments.map((p) => p.createdAt.getTime()),
+    if (payments.length === 0 || this.paymentTimeoutMinutes === undefined) {
+      return;
+    }
+
+    const relevantTimestamps = payments
+      .filter(
+        (payment) => payment.status === LightningPaymentStatus.TemporaryFailure,
+      )
+      .map((p) => p.createdAt.getTime());
+
+    if (relevantTimestamps.length === 0) {
+      return;
+    }
+
+    if (
+      Date.now() - Math.min(...relevantTimestamps) >
+      minutesToMilliseconds(this.paymentTimeoutMinutes)
+    ) {
+      this.logger.warn(`Payment for ${swapId} (${paymentHash}) has timed out`);
+
+      const err = LightningErrors.PAYMENT_TIMED_OUT();
+      await LightningPaymentRepository.setStatus(
+        paymentHash,
+        lightningClientType,
+        LightningPaymentStatus.PermanentFailure,
+        err.message,
       );
-
-      if (
-        Date.now() - earliestAttempt >
-        PendingPaymentTracker.defaultPaymentTimeout
-      ) {
-        this.logger.verbose(
-          `Payment for ${swapId} (${paymentHash}) has timed out`,
-        );
-
-        const err = LightningErrors.PAYMENT_TIMED_OUT();
-        await LightningPaymentRepository.setStatus(
-          paymentHash,
-          lightningClientType,
-          LightningPaymentStatus.PermanentFailure,
-          err.message,
-        );
-        throw err.message;
-      }
+      throw err.message;
     }
   };
 

@@ -1,6 +1,8 @@
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::webhook::caller::Hook;
+
 #[derive(EnumString, AsRefStr, Debug, PartialEq, Clone, Copy)]
 pub enum WebHookState {
     #[strum(serialize = "none")]
@@ -19,7 +21,7 @@ impl From<WebHookState> for String {
     }
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Debug)]
+#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Default, Debug)]
 #[diesel(table_name = crate::db::schema::web_hooks)]
 pub struct WebHook {
     pub id: String,
@@ -27,6 +29,18 @@ pub struct WebHook {
     pub url: String,
     pub hash_swap_id: bool,
     pub status: Option<Vec<String>>,
+}
+
+impl Hook for WebHook {
+    type Id = String;
+
+    fn id(&self) -> Self::Id {
+        self.id.clone()
+    }
+
+    fn url(&self) -> String {
+        self.url.clone()
+    }
 }
 
 #[cfg(test)]

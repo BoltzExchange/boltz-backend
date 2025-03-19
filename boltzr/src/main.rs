@@ -218,16 +218,14 @@ async fn main() {
         None
     };
 
-    let web_hook_caller = webhook::caller::Caller::new(
+    let web_hook_status_caller = webhook::status_caller::StatusCaller::new(
         cancellation_token.clone(),
         config.sidecar.webhook.unwrap_or(webhook::caller::Config {
             request_timeout: None,
             max_retries: None,
             retry_interval: None,
         }),
-        Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(
-            db_pool.clone(),
-        )),
+        db::helpers::web_hook::WebHookHelperDatabase::new(db_pool.clone()),
     );
 
     let backup_handle = backup_client.map(|b| {
@@ -255,7 +253,7 @@ async fn main() {
         swap_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
-        web_hook_caller,
+        web_hook_status_caller,
         match refund_signer {
             Some(signer) => Some(Arc::new(signer)),
             None => None,

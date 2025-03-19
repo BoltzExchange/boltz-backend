@@ -20,7 +20,7 @@
     "prettier": "npx prettier docs '{lib,test}/**/*.ts' bin",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
-    "db:start": "npm run docker:dragonfly:start && docker run --name boltz-db --rm -v ~/.boltz/db:/var/lib/postgresql/data -e PGDATA=/var/lib/postgresql/data/pgdata -e POSTGRES_DB=boltz -e POSTGRES_USER=boltz -e POSTGRES_PASSWORD=boltz -d -p 5432:5432 postgres:14-alpine && npm run db:setup",
+    "db:start": "npm run docker:dragonfly:start && docker run --name boltz-db --rm -v ~/.boltz/db:/var/lib/postgresql/data -e PGDATA=/var/lib/postgresql/data/pgdata -e POSTGRES_DB=boltz -e POSTGRES_USER=boltz -e POSTGRES_PASSWORD=boltz -d -p 5432:5432 postgres:17-alpine && npm run db:setup",
     "db:setup": "docker exec boltz-db sh -c \"sleep 5 && psql -U boltz -tc \\\"SELECT 1 FROM pg_database WHERE datname = 'boltz_test'\\\" | grep -q 1 || psql -U boltz -c \\\"CREATE DATABASE boltz_test\\\"\"",
     "db:stop": "docker stop boltz-db && npm run docker:dragonfly:stop",
     "docker:build": "docker build . -t boltz/backend:latest -f ./docker/boltz/Dockerfile",

@@ -2,6 +2,8 @@ use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::{WebHook, WebHookState};
 use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
+use crate::webhook::caller::{Hook, HookState};
+use crate::webhook::{WebHookCallData, WebHookCallParams, WebHookEvent};
 use diesel::prelude::*;
 use diesel::{insert_into, update};
 use tracing::{instrument, trace};
@@ -22,6 +24,15 @@ pub struct WebHookHelperDatabase {
 impl WebHookHelperDatabase {
     pub fn new(pool: Pool) -> Self {
         WebHookHelperDatabase { pool }
+    }
+
+    pub fn format_swap_id(id: String, hash_swap_id: bool) -> String {
+        if !hash_swap_id {
+            return id;
+        }
+
+        let hash = bitcoin_hashes::Sha256::hash(id.as_bytes());
+        hash.to_string()
     }
 }
 
@@ -101,12 +112,47 @@ impl WebHookHelper for WebHookHelperDatabase {
     }
 }
 
+impl HookState<WebHook> for WebHookHelperDatabase {
+    fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallParams) -> bool {
+        if let Some(status_include) = &hook.status {
+            if !status_include.contains(&params.data.status) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn get_by_state(&self, state: WebHookState) -> QueryResponse<Vec<WebHook>> {
+        WebHookHelper::get_by_state(self, state)
+    }
+
+    fn get_retry_data(&self, hook: &WebHook) -> anyhow::Result<Option<WebHookCallParams>> {
+        let res = WebHookHelper::get_swap_status(self, &hook.id)?;
+        Ok(res.map(|res| WebHookCallParams {
+            event: WebHookEvent::SwapUpdate,
+            data: WebHookCallData {
+                id: Self::format_swap_id(hook.id.clone(), hook.hash_swap_id),
+                status: res,
+            },
+        }))
+    }
+
+    fn set_state(&self, id: &<WebHook as Hook>::Id, state: WebHookState) -> anyhow::Result<()> {
+        WebHookHelper::set_state(self, id, state)?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
     use crate::db::models::{WebHook, WebHookState};
     use crate::db::{Config, Pool, connect};
+    use crate::webhook::caller::HookState;
+    use crate::webhook::{WebHookCallData, WebHookCallParams, WebHookEvent};
     use rand::distr::{Alphanumeric, SampleString};
+    use rstest::rstest;
     use std::sync::{Mutex, OnceLock};
 
     pub fn get_pool() -> Pool {
@@ -126,6 +172,35 @@ mod test {
         .lock()
         .unwrap()
         .clone()
+    }
+
+    #[rstest]
+    #[case(None, "update", false)]
+    #[case(Some(vec!("some".to_string(), "update".to_string())), "some", false)]
+    #[case(Some(vec!("some".to_string(), "update".to_string())), "update", false)]
+    #[case(Some(vec!("some".to_string(), "update".to_string())), "not.included", true)]
+    fn test_should_be_skipped(
+        #[case] included: Option<Vec<String>>,
+        #[case] status: String,
+        #[case] expected: bool,
+    ) {
+        let helper = WebHookHelperDatabase::new(get_pool());
+        assert_eq!(
+            helper.should_be_skipped(
+                &WebHook {
+                    status: included,
+                    ..Default::default()
+                },
+                &WebHookCallParams {
+                    event: WebHookEvent::SwapUpdate,
+                    data: WebHookCallData {
+                        id: "".to_string(),
+                        status,
+                    },
+                },
+            ),
+            expected
+        );
     }
 
     #[test]
@@ -170,13 +245,31 @@ mod test {
             status: None,
         };
         assert_eq!(helper.insert_web_hook(&hook).unwrap(), 1);
-        assert_eq!(helper.set_state(&hook.id, WebHookState::Failed).unwrap(), 1);
+        assert_eq!(
+            WebHookHelper::set_state(&helper, &hook.id, WebHookState::Failed).unwrap(),
+            1
+        );
 
         hook.state = WebHookState::Failed.into();
-        let failed_states = helper.get_by_state(WebHookState::Failed).unwrap();
+        let failed_states = WebHookHelper::get_by_state(&helper, WebHookState::Failed).unwrap();
         assert_eq!(
             failed_states.iter().find(|elem| elem.id == hook.id),
             Some(hook).as_ref()
+        );
+    }
+
+    #[test]
+    fn test_format_swap_id_no_hash() {
+        let id = String::from("test");
+        assert_eq!(WebHookHelperDatabase::format_swap_id(id.clone(), false), id);
+    }
+
+    #[test]
+    fn test_format_swap_id_hash() {
+        let id = String::from("test");
+        assert_eq!(
+            WebHookHelperDatabase::format_swap_id(id, true),
+            "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08".to_string()
         );
     }
 }

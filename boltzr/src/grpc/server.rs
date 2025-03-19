@@ -9,7 +9,7 @@ use crate::notifications::NotificationClient;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
-use crate::webhook::caller::Caller;
+use crate::webhook::status_caller::StatusCaller;
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::error::Error;
@@ -41,7 +41,7 @@ pub struct Server<M, W, N> {
     manager: Arc<M>,
 
     web_hook_helper: Box<W>,
-    web_hook_caller: Caller,
+    web_hook_status_caller: StatusCaller,
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<N>>,
@@ -67,7 +67,7 @@ where
         manager: Arc<M>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
-        web_hook_caller: Caller,
+        web_hook_status_caller: StatusCaller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
         notification_client: Option<Arc<N>>,
     ) -> Self {
@@ -77,11 +77,11 @@ where
             manager,
             refund_signer,
             web_hook_helper,
-            web_hook_caller,
             cancellation_token,
             log_reload_handler,
             notification_client,
             swap_status_update_tx,
+            web_hook_status_caller,
             status_fetcher: StatusFetcher::new(),
         }
     }
@@ -107,7 +107,7 @@ where
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
-            Arc::new(self.web_hook_caller.clone()),
+            Arc::new(self.web_hook_status_caller.clone()),
             self.refund_signer.clone(),
             self.notification_client.clone(),
         );
@@ -169,7 +169,6 @@ mod server_test {
     use crate::notifications::commands::Commands;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
-    use crate::webhook::caller;
     use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
     use async_trait::async_trait;
     use mockall::{mock, predicate::*};
@@ -252,15 +251,7 @@ mod server_test {
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
-            caller::Caller::new(
-                token.clone(),
-                caller::Config {
-                    max_retries: None,
-                    retry_interval: None,
-                    request_timeout: None,
-                },
-                Box::new(make_mock_hook_helper()),
-            ),
+            crate::webhook::status_caller::test::new_caller(token.clone()),
             Some(Arc::new(MockRefundSigner::default())),
             None,
         );
@@ -380,15 +371,7 @@ mod server_test {
             Arc::new(make_mock_manager()),
             status_tx,
             Box::new(make_mock_hook_helper()),
-            caller::Caller::new(
-                token.clone(),
-                caller::Config {
-                    max_retries: None,
-                    retry_interval: None,
-                    request_timeout: None,
-                },
-                Box::new(make_mock_hook_helper()),
-            ),
+            crate::webhook::status_caller::test::new_caller(token.clone()),
             Some(Arc::new(MockRefundSigner::default())),
             None,
         );

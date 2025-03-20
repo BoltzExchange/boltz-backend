@@ -25,6 +25,57 @@ describe('PendingPaymentTracker', () => {
     {} as any,
   );
 
+  describe('constructor', () => {
+    let mockLogger: any;
+
+    beforeEach(() => {
+      mockLogger = {
+        info: jest.fn(),
+        debug: jest.fn(),
+      };
+    });
+
+    test('should set paymentTimeoutMinutes when a valid number is provided', () => {
+      const validTimeout = 45;
+      const numericTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        validTimeout,
+      );
+
+      expect(numericTracker['paymentTimeoutMinutes']).toBe(validTimeout);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Payment timeout configured: ${validTimeout} minutes`,
+      );
+    });
+
+    test('should not set paymentTimeoutMinutes when undefined is provided', () => {
+      const undefinedTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        undefined,
+      );
+
+      expect(undefinedTracker['paymentTimeoutMinutes']).toBeUndefined();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Payment timeout not configured',
+      );
+    });
+
+    test('should not set paymentTimeoutMinutes when non-numeric value is provided', () => {
+      const stringTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        '60' as any,
+      );
+
+      expect(stringTracker['paymentTimeoutMinutes']).toBeUndefined();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Payment timeout not configured',
+      );
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

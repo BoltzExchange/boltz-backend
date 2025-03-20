@@ -46,6 +46,19 @@ class PendingPaymentTracker {
       [NodeType.LND]: new LndPendingPaymentTracker(this.logger),
       [NodeType.CLN]: new ClnPendingPaymentTracker(this.logger),
     };
+
+    if (
+      this.paymentTimeoutMinutes === undefined ||
+      typeof this.paymentTimeoutMinutes !== 'number'
+    ) {
+      this.paymentTimeoutMinutes = undefined;
+      this.logger.info('Payment timeout not configured');
+      return;
+    }
+
+    this.logger.info(
+      `Payment timeout configured: ${this.paymentTimeoutMinutes} minutes`,
+    );
   }
 
   public init = async (currencies: Currency[]) => {

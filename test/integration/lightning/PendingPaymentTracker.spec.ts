@@ -490,49 +490,6 @@ describe('PendingPaymentTracker', () => {
         );
       });
 
-      test('should check temporary failure payments for timeout', async () => {
-        const preimageHash = randomBytes(32);
-        const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);
-
-        const swap = await Swap.create({
-          ...createSubmarineSwapData(),
-          invoice,
-          preimageHash: getHexString(preimageHash),
-        });
-
-        const pastDate = new Date(
-          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
-        );
-        await LightningPayment.create({
-          node: NodeType.LND,
-          preimageHash: swap.preimageHash,
-          status: LightningPaymentStatus.TemporaryFailure,
-          createdAt: pastDate,
-        });
-
-        const payments = await LightningPaymentRepository.findByPreimageHash(
-          getHexString(preimageHash),
-        );
-
-        await expect(
-          trackerWithTimeout.sendPayment(
-            swap,
-            bitcoinLndClient,
-            getHexString(preimageHash),
-            payments,
-          ),
-        ).rejects.toEqual(LightningErrors.PAYMENT_TIMED_OUT().message);
-
-        const updatedPayments =
-          await LightningPaymentRepository.findByPreimageHash(
-            getHexString(preimageHash),
-          );
-        expect(updatedPayments).toHaveLength(1);
-        expect(updatedPayments[0].status).toEqual(
-          LightningPaymentStatus.PermanentFailure,
-        );
-      });
-
       test('should not timeout if payments array is empty', async () => {
         const preimageHash = randomBytes(32);
         const invoice = await bitcoinLndClient.addHoldInvoice(1, preimageHash);

@@ -574,10 +574,7 @@ class Sidecar extends BaseClient<
         certChainPath: path.join(certPath, 'client.pem'),
         privateKeyPath: path.join(certPath, 'client-key.pem'),
       }),
-      {
-        ...grpcOptions,
-        'grpc.ssl_target_name_override': 'sidecar',
-      },
+      grpcOptions('sidecar'),
     );
 
     try {

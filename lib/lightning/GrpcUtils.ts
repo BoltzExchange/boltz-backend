@@ -1,8 +1,16 @@
 import { Metadata, ServiceError } from '@grpc/grpc-js';
 
-export const grpcOptions = {
-  // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
-  'grpc.max_receive_message_length': 1024 * 1024 * 200,
+export const grpcOptions = (sslTargetNameOverride?: string) => {
+  const options = {
+    // 200 MB which is the same value lncli uses: https://github.com/lightningnetwork/lnd/commit/7470f696aebc51b4ab354324e6536f54446538e1
+    'grpc.max_receive_message_length': 1024 * 1024 * 200,
+  };
+
+  if (sslTargetNameOverride !== undefined) {
+    options['grpc.ssl_target_name_override'] = sslTargetNameOverride;
+  }
+
+  return options;
 };
 
 interface GrpcResponse {

@@ -56,10 +56,11 @@ export const loadBoltzClient = (argv: RpcType): BoltzClient => {
         `${CertificatePrefix.Client}-key.pem`,
       ),
     });
-    return new BoltzClient(address, creds, {
-      ...grpcOptions,
-      'grpc.ssl_target_name_override': GrpcServer.certificateSubject,
-    });
+    return new BoltzClient(
+      address,
+      creds,
+      grpcOptions(GrpcServer.certificateSubject),
+    );
   }
 };
 

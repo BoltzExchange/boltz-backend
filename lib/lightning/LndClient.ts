@@ -46,6 +46,7 @@ type LndConfig = {
   certpath: string;
   macaroonpath: string;
   maxPaymentFeeRatio: number;
+  sslTargetNameOverride?: string;
 };
 
 /**
@@ -80,7 +81,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   constructor(
     logger: Logger,
     public readonly symbol: string,
-    config: LndConfig,
+    private readonly config: LndConfig,
   ) {
     super(logger, symbol);
 
@@ -127,16 +128,20 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    */
   public connect = async (startSubscriptions = true): Promise<boolean> => {
     if (!this.isConnected()) {
-      this.router = new RouterClient(this.uri, this.credentials, grpcOptions);
+      this.router = new RouterClient(
+        this.uri,
+        this.credentials,
+        grpcOptions(this.config.sslTargetNameOverride),
+      );
       this.invoices = new InvoicesClient(
         this.uri,
         this.credentials,
-        grpcOptions,
+        grpcOptions(this.config.sslTargetNameOverride),
       );
       this.lightning = new LndLightningClient(
         this.uri,
         this.credentials,
-        grpcOptions,
+        grpcOptions(this.config.sslTargetNameOverride),
       );
 
       try {

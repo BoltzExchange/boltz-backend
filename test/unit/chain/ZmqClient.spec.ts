@@ -373,6 +373,7 @@ describe('ZmqClient', () => {
     );
 
     expect(zmqClient['sockets'].length).toEqual(5);
+    zmqClient.close();
   });
 
   test('should sanitize ZMQ addresses', async () => {

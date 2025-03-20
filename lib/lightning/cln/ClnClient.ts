@@ -123,15 +123,17 @@ class ClnClient
 
   public connect = async (): Promise<boolean> => {
     if (!this.isConnected()) {
-      this.nodeClient = new NodeClient(this.nodeUri, this.nodeCreds, {
-        ...grpcOptions,
-        'grpc.ssl_target_name_override': 'cln',
-      });
+      this.nodeClient = new NodeClient(
+        this.nodeUri,
+        this.nodeCreds,
+        grpcOptions('cln'),
+      );
 
-      this.holdClient = new HoldClient(this.holdUri, this.holdCreds, {
-        ...grpcOptions,
-        'grpc.ssl_target_name_override': 'hold',
-      });
+      this.holdClient = new HoldClient(
+        this.holdUri,
+        this.holdCreds,
+        grpcOptions('hold'),
+      );
 
       try {
         await this.getInfo();

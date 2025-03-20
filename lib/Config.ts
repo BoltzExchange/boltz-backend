@@ -172,6 +172,8 @@ type SwapConfig = {
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
 
   overpayment?: OverPaymentConfig;
+
+  paymentTimeoutMinutes?: number;
 };
 
 type ConfigType = {

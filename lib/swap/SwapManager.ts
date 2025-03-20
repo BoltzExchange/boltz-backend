@@ -222,6 +222,7 @@ class SwapManager {
       this.chainSwapSigner,
       lockupTransactionTracker,
       swapConfig.overpayment,
+      swapConfig.paymentTimeoutMinutes,
     );
 
     this.renegotiator = new Renegotiator(

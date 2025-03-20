@@ -1,16 +1,80 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { getHexString } from '../../../lib/Utils';
+import { getHexString, minutesToMilliseconds } from '../../../lib/Utils';
+import LightningPayment, {
+  LightningPaymentStatus,
+} from '../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
+import LightningErrors from '../../../lib/lightning/Errors';
 import { LightningClient } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 
 describe('PendingPaymentTracker', () => {
-  const tracker = new PendingPaymentTracker(Logger.disabledLogger, {} as any);
+  const paymentTimeoutMinutes = 30;
+  const tracker = new PendingPaymentTracker(
+    Logger.disabledLogger,
+    {} as any,
+    paymentTimeoutMinutes,
+  );
+  const trackerWithoutPaymentTimeout = new PendingPaymentTracker(
+    Logger.disabledLogger,
+    {} as any,
+  );
+
+  describe('constructor', () => {
+    let mockLogger: any;
+
+    beforeEach(() => {
+      mockLogger = {
+        info: jest.fn(),
+        debug: jest.fn(),
+      };
+    });
+
+    test('should set paymentTimeoutMinutes when a valid number is provided', () => {
+      const validTimeout = 45;
+      const numericTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        validTimeout,
+      );
+
+      expect(numericTracker['paymentTimeoutMinutes']).toBe(validTimeout);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Payment timeout configured: ${validTimeout} minutes`,
+      );
+    });
+
+    test('should not set paymentTimeoutMinutes when undefined is provided', () => {
+      const undefinedTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        undefined,
+      );
+
+      expect(undefinedTracker['paymentTimeoutMinutes']).toBeUndefined();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Payment timeout not configured',
+      );
+    });
+
+    test('should not set paymentTimeoutMinutes when non-numeric value is provided', () => {
+      const stringTracker = new PendingPaymentTracker(
+        mockLogger,
+        {} as any,
+        '60' as any,
+      );
+
+      expect(stringTracker['paymentTimeoutMinutes']).toBeUndefined();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Payment timeout not configured',
+      );
+    });
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -19,6 +83,11 @@ describe('PendingPaymentTracker', () => {
   afterAll(() => {
     (
       tracker.lightningTrackers[NodeType.CLN] as ClnPendingPaymentTracker
+    ).stop();
+    (
+      trackerWithoutPaymentTimeout.lightningTrackers[
+        NodeType.CLN
+      ] as ClnPendingPaymentTracker
     ).stop();
   });
 
@@ -121,7 +190,7 @@ describe('PendingPaymentTracker', () => {
       );
     });
 
-    test('should watch payment for temporiraly failed CLN payments', async () => {
+    test('should watch payment for temporarily failed CLN payments', async () => {
       const clnClient = {
         type: NodeType.CLN,
         sendPayment: jest.fn().mockRejectedValue('xpay doing something weird'),
@@ -146,6 +215,134 @@ describe('PendingPaymentTracker', () => {
       expect(
         tracker.lightningTrackers[NodeType.CLN].watchPayment,
       ).toHaveBeenCalledWith(clnClient, swap.invoice, preimageHash);
+    });
+  });
+
+  describe('checkInvoiceTimeout', () => {
+    const swapId = 'testSwap123';
+    const paymentHash = 'paymentHash123';
+    const nodeType = NodeType.LND;
+    const expectedError = LightningErrors.PAYMENT_TIMED_OUT().message;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      LightningPaymentRepository.setStatus = jest.fn().mockResolvedValue([1]);
+
+      jest.spyOn(Date, 'now').mockReturnValue(1742265902131);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('should not time out when there are no payments', async () => {
+      const payments: LightningPayment[] = [];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
+    });
+
+    test('should not time out when payments are recent', async () => {
+      const recentPayment = {
+        status: LightningPaymentStatus.TemporaryFailure,
+        createdAt: new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 2),
+        ),
+      } as LightningPayment;
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, [
+          recentPayment,
+        ]),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
+    });
+
+    test('should not time out when timeout is not configured', async () => {
+      const oldPayment = {
+        status: LightningPaymentStatus.TemporaryFailure,
+        createdAt: new Date(
+          Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 5),
+        ),
+      } as LightningPayment;
+
+      await expect(
+        trackerWithoutPaymentTimeout['checkInvoiceTimeout'](
+          swapId,
+          paymentHash,
+          nodeType,
+          [oldPayment],
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
+    });
+
+    test('should time out when one of the payments exceeds timeout', async () => {
+      const payments = [
+        {
+          status: LightningPaymentStatus.Pending,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 3),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.TemporaryFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes / 2),
+          ),
+        } as LightningPayment,
+      ];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).rejects.toEqual(expectedError);
+
+      expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
+        paymentHash,
+        nodeType,
+        LightningPaymentStatus.PermanentFailure,
+        expectedError,
+      );
+    });
+
+    test('should not consider payments with statuses other than TemporaryFailure', async () => {
+      const payments = [
+        {
+          status: LightningPaymentStatus.PermanentFailure,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.Success,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+        {
+          status: LightningPaymentStatus.Pending,
+          createdAt: new Date(
+            Date.now() - minutesToMilliseconds(paymentTimeoutMinutes * 2),
+          ),
+        } as LightningPayment,
+      ];
+
+      await expect(
+        tracker['checkInvoiceTimeout'](swapId, paymentHash, nodeType, payments),
+      ).resolves.toBeUndefined();
+
+      expect(LightningPaymentRepository.setStatus).not.toHaveBeenCalled();
     });
   });
 });

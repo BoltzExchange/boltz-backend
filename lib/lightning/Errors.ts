@@ -15,4 +15,8 @@ export default {
     message: 'no route found',
     code: concatErrorCode(ErrorCodePrefix.Lightning, 2),
   }),
+  PAYMENT_TIMED_OUT: (): Error => ({
+    message: 'invoice payment timed out',
+    code: concatErrorCode(ErrorCodePrefix.Lightning, 3),
+  }),
 };

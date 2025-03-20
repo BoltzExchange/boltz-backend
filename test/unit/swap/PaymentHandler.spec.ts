@@ -2,6 +2,7 @@ import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import Swap from '../../../lib/db/models/Swap';
+import LightningErrors from '../../../lib/lightning/Errors';
 import { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
@@ -174,6 +175,27 @@ describe('PaymentHandler', () => {
   test('should abandon swap when invoice expired', async () => {
     cltvLimit = 100;
     sendPaymentError = { details: 'invoice expired' };
+    trackPaymentResponse = {
+      status: Payment.PaymentStatus.FAILED,
+    };
+
+    expect(mockedEmit).not.toHaveBeenCalled();
+    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
+    expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
+
+    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+      undefined,
+    );
+    expect(swap.update).toHaveBeenCalledTimes(1);
+    expect(swap.update).toHaveBeenCalledWith({
+      failureReason: 'invoice could not be paid',
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+    });
+  });
+
+  test('should abandon swap when payment times out', async () => {
+    cltvLimit = 100;
+    sendPaymentError = LightningErrors.PAYMENT_TIMED_OUT().message;
     trackPaymentResponse = {
       status: Payment.PaymentStatus.FAILED,
     };

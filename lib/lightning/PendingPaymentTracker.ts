@@ -1,6 +1,6 @@
 import Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { getHexBuffer, getHexString } from '../Utils';
+import { getHexBuffer, getHexString, minutesToMilliseconds } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -11,6 +11,7 @@ import LightningPaymentRepository from '../db/repositories/LightningPaymentRepos
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import Sidecar from '../sidecar/Sidecar';
 import { Currency } from '../wallet/WalletManager';
+import LightningErrors from './Errors';
 import { LightningClient, PaymentResponse } from './LightningClient';
 import LndClient from './LndClient';
 import ClnClient from './cln/ClnClient';
@@ -39,11 +40,25 @@ class PendingPaymentTracker {
   constructor(
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
+    private readonly paymentTimeoutMinutes?: number,
   ) {
     this.lightningTrackers = {
       [NodeType.LND]: new LndPendingPaymentTracker(this.logger),
       [NodeType.CLN]: new ClnPendingPaymentTracker(this.logger),
     };
+
+    if (
+      this.paymentTimeoutMinutes === undefined ||
+      typeof this.paymentTimeoutMinutes !== 'number'
+    ) {
+      this.paymentTimeoutMinutes = undefined;
+      this.logger.info('Payment timeout not configured');
+      return;
+    }
+
+    this.logger.info(
+      `Payment timeout configured: ${this.paymentTimeoutMinutes} minutes`,
+    );
   }
 
   public init = async (currencies: Currency[]) => {
@@ -163,6 +178,13 @@ class PendingPaymentTracker {
       }
     }
 
+    await this.checkInvoiceTimeout(
+      swap.id,
+      paymentHash,
+      lightningClient.type,
+      payments,
+    );
+
     return await this.sendPaymentWithNode(
       swap,
       lightningClient,
@@ -170,6 +192,43 @@ class PendingPaymentTracker {
       cltvLimit,
       outgoingChannelId,
     );
+  };
+
+  private checkInvoiceTimeout = async (
+    swapId: string,
+    paymentHash: string,
+    lightningClientType: NodeType,
+    payments: LightningPayment[],
+  ) => {
+    if (payments.length === 0 || this.paymentTimeoutMinutes === undefined) {
+      return;
+    }
+
+    const relevantTimestamps = payments
+      .filter(
+        (payment) => payment.status === LightningPaymentStatus.TemporaryFailure,
+      )
+      .map((p) => p.createdAt.getTime());
+
+    if (relevantTimestamps.length === 0) {
+      return;
+    }
+
+    if (
+      Date.now() - Math.min(...relevantTimestamps) >
+      minutesToMilliseconds(this.paymentTimeoutMinutes)
+    ) {
+      this.logger.warn(`Payment for ${swapId} (${paymentHash}) has timed out`);
+
+      const err = LightningErrors.PAYMENT_TIMED_OUT();
+      await LightningPaymentRepository.setStatus(
+        paymentHash,
+        lightningClientType,
+        LightningPaymentStatus.PermanentFailure,
+        err.message,
+      );
+      throw err.message;
+    }
   };
 
   private sendPaymentWithNode = async (

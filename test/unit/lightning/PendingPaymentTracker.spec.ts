@@ -47,6 +47,11 @@ describe('PendingPaymentTracker', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         `Payment timeout configured: ${validTimeout} minutes`,
       );
+      (
+        numericTracker.lightningTrackers[
+          NodeType.CLN
+        ] as ClnPendingPaymentTracker
+      ).stop();
     });
 
     test('should not set paymentTimeoutMinutes when undefined is provided', () => {
@@ -60,6 +65,11 @@ describe('PendingPaymentTracker', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Payment timeout not configured',
       );
+      (
+        undefinedTracker.lightningTrackers[
+          NodeType.CLN
+        ] as ClnPendingPaymentTracker
+      ).stop();
     });
 
     test('should not set paymentTimeoutMinutes when non-numeric value is provided', () => {
@@ -73,6 +83,11 @@ describe('PendingPaymentTracker', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Payment timeout not configured',
       );
+      (
+        stringTracker.lightningTrackers[
+          NodeType.CLN
+        ] as ClnPendingPaymentTracker
+      ).stop();
     });
   });
 

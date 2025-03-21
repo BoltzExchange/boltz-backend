@@ -22,7 +22,7 @@ use crate::notifications::NotificationClient;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
-use crate::webhook::caller::Caller;
+use crate::webhook::status_caller::StatusCaller;
 use alloy::primitives::{Address, FixedBytes};
 use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
@@ -53,7 +53,7 @@ pub struct BoltzService<M, T> {
     manager: Arc<M>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
-    web_hook_caller: Arc<Caller>,
+    web_hook_status_caller: Arc<StatusCaller>,
 
     refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<T>>,
@@ -71,7 +71,7 @@ impl<M, T> BoltzService<M, T> {
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
-        web_hook_caller: Arc<Caller>,
+        web_hook_status_caller: Arc<StatusCaller>,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
         notification_client: Option<Arc<T>>,
     ) -> Self {
@@ -80,7 +80,7 @@ impl<M, T> BoltzService<M, T> {
             service,
             refund_signer,
             status_fetcher,
-            web_hook_caller,
+            web_hook_status_caller,
             web_hook_helper,
             log_reload_handler,
             notification_client,
@@ -328,7 +328,7 @@ where
             ));
         }
 
-        let caller_cp = self.web_hook_caller.clone();
+        let caller_cp = self.web_hook_status_caller.clone();
         handle.set(Some(tokio::spawn(async move {
             caller_cp.start().await;
         })));
@@ -347,7 +347,7 @@ where
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
 
-        if let Some(err) = Caller::validate_url(&params.url) {
+        if let Some(err) = crate::webhook::caller::validate_url(&params.url) {
             debug!("Invalid WebHook URL for swap {}: {}", params.id, params.url);
             return Err(Status::new(Code::InvalidArgument, err.to_string()));
         }
@@ -392,8 +392,8 @@ where
         };
 
         match self
-            .web_hook_caller
-            .call_webhook(&hook, &params.status)
+            .web_hook_status_caller
+            .call_webhook(&hook, params.status)
             .await
         {
             Ok(res) => Ok(Response::new(SendWebHookResponse {
@@ -729,7 +729,6 @@ mod test {
     use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
-    use crate::webhook::caller::{Caller, Config};
     use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
     use anyhow::anyhow;
     use async_trait::async_trait;
@@ -904,7 +903,7 @@ mod test {
         let (_, svc) = make_service();
         assert_eq!(
             svc.send_web_hook(Request::new(SendWebHookRequest {
-                id: "id".to_string(),
+                id: "calledHook".to_string(),
                 status: "some.status".to_string(),
             }))
             .await
@@ -1117,14 +1116,8 @@ mod test {
                 StatusFetcher::new(),
                 status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),
-                Arc::new(Caller::new(
-                    token,
-                    Config {
-                        max_retries: None,
-                        retry_interval: None,
-                        request_timeout: None,
-                    },
-                    Box::new(make_mock_hook_helper()),
+                Arc::new(crate::webhook::status_caller::test::new_caller(
+                    token.clone(),
                 )),
                 Some(refund_signer.clone()),
                 None,

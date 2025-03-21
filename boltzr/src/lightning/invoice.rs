@@ -1,5 +1,6 @@
 use crate::wallet;
-use bech32::FromBase32;
+use bech32::NoChecksum;
+use bech32::primitives::decode::CheckedHrpstring;
 use bitcoin::constants::ChainHash;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -98,19 +99,15 @@ fn decode_bolt12_offer(offer: &str) -> Result<Invoice, InvoiceError> {
 }
 
 fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
-    let (hrp, data) = match bech32::decode_without_checksum(invoice) {
+    let dec = match CheckedHrpstring::new::<NoChecksum>(invoice) {
         Ok(dec) => dec,
         Err(err) => return Err(InvoiceError::DecodeError(format!("{:?}", err))),
     };
-    if hrp != BECH32_BOLT12_INVOICE_HRP {
+    if dec.hrp().to_lowercase() != BECH32_BOLT12_INVOICE_HRP {
         return Err(InvoiceError::DecodeError("invalid HRP".to_string()));
     }
 
-    let data = match Vec::<u8>::from_base32(&data) {
-        Ok(dec) => dec,
-        Err(err) => return Err(InvoiceError::DecodeError(format!("{:?}", err))),
-    };
-
+    let data = dec.byte_iter().collect::<Vec<_>>();
     match lightning::offers::invoice::Bolt12Invoice::try_from(data) {
         Ok(invoice) => Ok(Invoice::Bolt12(Box::new(invoice))),
         Err(err) => Err(InvoiceError::DecodeError(format!("{:?}", err))),
@@ -130,7 +127,8 @@ mod test {
         Invoice, InvoiceError, decode, decode_bolt11, decode_bolt12_invoice, decode_bolt12_offer,
     };
     use crate::wallet;
-    use bech32::FromBase32;
+    use bech32::NoChecksum;
+    use bech32::primitives::decode::CheckedHrpstring;
     use rstest::*;
     use std::str::FromStr;
 
@@ -218,9 +216,10 @@ mod test {
     fn test_decode_bolt12_invoice() {
         let res = decode_bolt12_invoice(BOLT12_INVOICE).unwrap();
 
-        let data =
-            Vec::<u8>::from_base32(&bech32::decode_without_checksum(BOLT12_INVOICE).unwrap().1)
-                .unwrap();
+        let data = CheckedHrpstring::new::<NoChecksum>(BOLT12_INVOICE)
+            .unwrap()
+            .byte_iter()
+            .collect::<Vec<_>>();
         assert_eq!(
             res,
             Invoice::Bolt12(

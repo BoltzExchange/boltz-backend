@@ -23,7 +23,7 @@ function waitForLnd () {
 
 function waitForCln () {
   while true; do
-    cln_height=$(lightning-cli getinfo 2> /dev/null | jq .blockheight)
+    cln_height=$($1 getinfo 2> /dev/null | jq .blockheight)
     core_height=$(bitcoin-cli getblockchaininfo | jq .blocks)
 
     if [ "$cln_height" == "$core_height" ]; then
@@ -61,13 +61,16 @@ function startLnds () {
   echo "Started LNDs"
 }
 
-function startCln () {
-  echo "Starting CLN"
+function startClns () {
+  echo "Starting CLNs"
 
   nohup lightningd > /dev/null 2>&1 & num="0"
-  waitForCln
+  nohup lightningd --regtest --lightning-dir /root/.lightning2 --bind-addr 127.0.0.1:9738 --grpc-port 9295 --developer --dev-fast-gossip --dev-fast-reconnect --dev-bitcoind-poll=5 > /dev/null 2>&1 & num="0"
 
-  echo "Started CLN"
+  waitForCln "lightning-cli"
+  waitForCln "lightning-cli --regtest --lightning-dir /root/.lightning2"
+
+  echo "Started CLNs"
 }
 
 function stopNodes () {

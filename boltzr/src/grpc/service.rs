@@ -393,7 +393,7 @@ where
 
         match self
             .web_hook_status_caller
-            .call_webhook(&hook, params.status)
+            .call_webhook(hook, params.status)
             .await
         {
             Ok(res) => Ok(Response::new(SendWebHookResponse {

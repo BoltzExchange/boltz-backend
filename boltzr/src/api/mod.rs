@@ -16,6 +16,7 @@ use tracing::{debug, info};
 use ws::status::SwapInfos;
 use ws::types::SwapStatus;
 
+mod bolt12;
 mod errors;
 mod headers;
 mod lightning;
@@ -135,8 +136,12 @@ where
                 get(lightning::channels::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/bolt12",
+                post(bolt12::create::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/bolt12/fetch",
-                post(lightning::bolt12_fetch::<S, M>),
+                post(bolt12::fetch::<S, M>),
             )
             .layer(axum::middleware::from_fn(error_middleware))
     }

@@ -3,9 +3,13 @@ use std::fmt;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
+const SWAP_UPDATE: &str = "swap.update";
+const INVOICE_REQUEST: &str = "invoice.request";
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum WebHookEvent {
     SwapUpdate,
+    InvoiceRequest,
 }
 
 impl Serialize for WebHookEvent {
@@ -14,7 +18,8 @@ impl Serialize for WebHookEvent {
         S: Serializer,
     {
         match *self {
-            WebHookEvent::SwapUpdate => serializer.serialize_str("swap.update"),
+            WebHookEvent::SwapUpdate => serializer.serialize_str(SWAP_UPDATE),
+            WebHookEvent::InvoiceRequest => serializer.serialize_str(INVOICE_REQUEST),
         }
     }
 }
@@ -38,8 +43,12 @@ impl<'de> Deserialize<'de> for WebHookEvent {
                 E: de::Error,
             {
                 match value {
-                    "swap.update" => Ok(WebHookEvent::SwapUpdate),
-                    _ => Err(de::Error::unknown_variant(value, &["swap.update"])),
+                    SWAP_UPDATE => Ok(WebHookEvent::SwapUpdate),
+                    INVOICE_REQUEST => Ok(WebHookEvent::InvoiceRequest),
+                    _ => Err(de::Error::unknown_variant(
+                        value,
+                        &[SWAP_UPDATE, INVOICE_REQUEST],
+                    )),
                 }
             }
         }
@@ -49,9 +58,24 @@ impl<'de> Deserialize<'de> for WebHookEvent {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct WebHookCallData {
+pub struct SwapUpdateCallData {
     pub id: String,
     pub status: String,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct InvoiceRequestCallData {
+    #[serde(rename = "invoiceRequest")]
+    pub invoice_request: String,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(untagged)]
+pub enum WebHookCallData {
+    #[serde(rename = "data")]
+    SwapUpdate(SwapUpdateCallData),
+    #[serde(rename = "data")]
+    InvoiceRequest(InvoiceRequestCallData),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]

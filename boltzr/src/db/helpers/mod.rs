@@ -4,6 +4,7 @@ use diesel::sql_types::{Bool, Nullable};
 
 pub mod chain_swap;
 pub mod keys;
+pub mod offer;
 pub mod referral;
 pub mod reverse_swap;
 pub mod swap;

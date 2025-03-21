@@ -11,6 +11,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    offers (signer) {
+        signer -> Binary,
+        offer -> Text,
+        url -> Text,
+    }
+}
+
+diesel::table! {
     referrals (id) {
         id -> Text,
         config -> Nullable<Json>,

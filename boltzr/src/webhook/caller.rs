@@ -1,18 +1,20 @@
-use std::error::Error;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{cmp, fmt};
-
 use anyhow::Result;
 use dashmap::DashMap;
 use futures::future;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{cmp, fmt};
+use tokio::sync::broadcast::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::db::models::WebHookState;
 use crate::webhook::types::WebHookCallParams;
+use crate::webhook::{WebHookCallData, WebHookEvent};
 
 const DEFAULT_REQUEST_TIMEOUT: u64 = 15;
 const DEFAULT_MAX_RETRIES: u64 = 5;
@@ -66,11 +68,11 @@ pub trait Hook {
 }
 
 pub trait HookState<H: Hook> {
-    fn should_be_skipped(&self, hook: &H, params: &WebHookCallParams) -> bool;
+    fn should_be_skipped(&self, hook: &H, params: &WebHookCallData) -> bool;
 
     fn get_by_state(&self, state: WebHookState) -> Result<Vec<H>>;
-    fn get_retry_data(&self, id: &H) -> Result<Option<WebHookCallParams>>;
-    fn set_state(&self, id: &H::Id, state: WebHookState) -> Result<()>;
+    fn get_retry_data(&self, hook: &H) -> Result<Option<WebHookCallData>>;
+    fn set_state(&self, hook: &H, state: WebHookState) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -83,6 +85,7 @@ where
     hook_state: Arc<S>,
     cancellation_token: CancellationToken,
     retry_count: Arc<DashMap<H::Id, u64>>,
+    successful_calls: Sender<(H, Vec<u8>)>,
 
     request_timeout: Duration,
     max_retries: u64,
@@ -91,7 +94,7 @@ where
 
 impl<H, S> Caller<H, S>
 where
-    H: Hook + Clone + Send + Sync + 'static,
+    H: Hook + Clone + Debug + Send + Sync + 'static,
     H::Id: fmt::Display + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
     S: HookState<H> + Clone + Send + Sync + 'static,
 {
@@ -107,10 +110,13 @@ where
         let timeout = config.request_timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
         trace!("{} WebHook call timeout: {}s", name, timeout);
 
-        Caller {
+        let (tx, _) = tokio::sync::broadcast::channel(256);
+
+        Self {
             name,
             max_retries,
             cancellation_token,
+            successful_calls: tx,
             hook_state: Arc::new(hook_state),
             retry_count: Arc::new(DashMap::new()),
             request_timeout: Duration::from_secs(timeout),
@@ -153,13 +159,17 @@ where
         }
     }
 
+    pub fn subscribe_successful_calls(&self) -> Receiver<(H, Vec<u8>)> {
+        self.successful_calls.subscribe()
+    }
+
     #[instrument(name = "Caller::call_webhook", skip(self, hook, data))]
     pub async fn call_webhook(
         &self,
-        hook: &H,
-        data: &WebHookCallParams,
+        hook: H,
+        data: WebHookCallData,
     ) -> Result<CallResult, Box<dyn Error>> {
-        if self.hook_state.should_be_skipped(hook, data) {
+        if self.hook_state.should_be_skipped(&hook, &data) {
             trace!("Skipping call to {} WebHook for {}", self.name, hook.id());
             return Ok(CallResult::NotIncluded);
         }
@@ -176,13 +186,28 @@ where
             .timeout(self.request_timeout)
             .build()
             .unwrap();
-        let req_err = match client.post(hook.url()).json(data).send().await {
-            Ok(res) => res.error_for_status().err(),
-            Err(err) => Some(err),
+
+        let res = match client
+            .post(hook.url())
+            .json(&WebHookCallParams {
+                event: match data {
+                    WebHookCallData::SwapUpdate(_) => WebHookEvent::SwapUpdate,
+                    WebHookCallData::InvoiceRequest(_) => WebHookEvent::InvoiceRequest,
+                },
+                data,
+            })
+            .send()
+            .await
+        {
+            Ok(res) => match res.error_for_status() {
+                Ok(res) => res.bytes().await,
+                Err(err) => Err(err),
+            },
+            Err(err) => Err(err),
         };
 
-        match req_err {
-            None => {
+        match res {
+            Ok(res) => {
                 info!("Called {} WebHook for {}", self.name, hook.id());
 
                 #[cfg(feature = "metrics")]
@@ -190,11 +215,12 @@ where
                     .increment(1);
 
                 self.retry_count.remove(&hook.id());
-                self.hook_state.set_state(&hook.id(), WebHookState::Ok)?;
+                self.hook_state.set_state(&hook, WebHookState::Ok)?;
 
+                self.successful_calls.send((hook, res.to_vec()))?;
                 Ok(CallResult::Success)
             }
-            Some(err) => {
+            Err(err) => {
                 warn!(
                     "{} WebHook request for {} failed: {}",
                     self.name,
@@ -206,8 +232,7 @@ where
                 metrics::counter!(crate::metrics::WEBHOOK_CALL_COUNT, "status" => "failed", "type" => self.name.clone())
                     .increment(1);
 
-                self.hook_state
-                    .set_state(&hook.id(), WebHookState::Failed)?;
+                self.hook_state.set_state(&hook, WebHookState::Failed)?;
 
                 Ok(CallResult::Failed)
             }
@@ -267,7 +292,7 @@ where
                 hook.id(),
                 hook.url()
             );
-            let res = self.call_webhook(&hook, &params).await?;
+            let res = self.call_webhook(hook.clone(), params).await?;
 
             if res == CallResult::Success {
                 self.retry_count.remove(&hook.id());
@@ -300,8 +325,7 @@ where
                 .increment(1);
 
                 self.retry_count.remove(&hook.id());
-                self.hook_state
-                    .set_state(&hook.id(), WebHookState::Abandoned)?;
+                self.hook_state.set_state(&hook, WebHookState::Abandoned)?;
             } else {
                 self.retry_count.insert(hook.id(), failed_count);
             }
@@ -415,7 +439,7 @@ mod caller_test {
             )
             .await
             .unwrap();
-        assert_eq!(res, CallResult::Success);
+        assert!(res.is_success());
 
         assert!(caller.retry_count.get(&id.to_string()).is_none());
 
@@ -619,7 +643,7 @@ mod caller_test {
             )
             .await
             .unwrap();
-        assert_eq!(res, CallResult::Success);
+        assert!(res.is_success());
         assert_eq!(received_calls.lock().unwrap().len(), 1);
 
         cancel_token.cancel();

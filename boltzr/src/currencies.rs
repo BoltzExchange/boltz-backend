@@ -3,6 +3,7 @@ use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
 use crate::db::helpers::keys::KeysHelper;
+use crate::db::helpers::offer::OfferHelper;
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;
 use crate::wallet;
@@ -36,6 +37,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
+    offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
 ) -> anyhow::Result<Currencies> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
@@ -81,7 +83,16 @@ pub async fn connect_nodes<K: KeysHelper>(
                         },
                         cln: match currency.cln {
                             Some(config) => {
-                                connect_client(Cln::new(&currency.symbol, config).await).await
+                                connect_client(
+                                    Cln::new(
+                                        cancellation_token.clone(),
+                                        &currency.symbol,
+                                        &config,
+                                        offer_helper.clone(),
+                                    )
+                                    .await,
+                                )
+                                .await
                             }
                             None => None,
                         },

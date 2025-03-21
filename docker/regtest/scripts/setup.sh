@@ -47,7 +47,7 @@ function waitForClnChannel () {
   bitcoin-cli generatetoaddress 6 $(bitcoin-cli getnewaddress) > /dev/null
 
   while true; do
-    numPendingChannels="$(lightning-cli getinfo | jq -r .num_pending_channels)"
+    numPendingChannels="$($1 getinfo | jq -r .num_pending_channels)"
 
     if [[ ${numPendingChannels} == "0" ]]; then
       break
@@ -83,7 +83,7 @@ elements-cli generatetoaddress 101 ${elementsAddress} > /dev/null
 
 elements-cli rescanblockchain > /dev/null
 
-startCln
+startClns
 startLnds
 
 mkdir /root/.lightning/regtest/certs
@@ -112,9 +112,17 @@ openChannel bitcoin-cli \
   $(lightning-cli getinfo | jq -r .id) \
   9737 false
 
+lightning-cli connect $(lightning-cli getinfo --regtest --lightning-dir /root/.lightning2 | jq -r .id)@127.0.0.1:9738 > /dev/null
+
+openChannel bitcoin-cli \
+  "lncli --lnddir=/root/.lnd-btc --rpcserver=127.0.0.1:10011 --network=regtest" \
+  $(lightning-cli getinfo --regtest --lightning-dir /root/.lightning2 | jq -r .id) \
+  9738 false
+
 echo "Opened channels to CLN"
 
-waitForClnChannel
+waitForClnChannel "lightning-cli"
+waitForClnChannel "lightning-cli --regtest --lightning-dir /root/.lightning2"
 
 stopCln
 stopLnds

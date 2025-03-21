@@ -11,6 +11,8 @@ use std::fs;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, info, instrument};
 
+mod hold;
+
 #[allow(clippy::enum_variant_names)]
 pub(crate) mod cln_rpc {
     tonic::include_proto!("cln");
@@ -18,43 +20,46 @@ pub(crate) mod cln_rpc {
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
-    pub host: String,
-    pub port: u16,
+    #[serde(flatten)]
+    pub cln: hold::Config,
 
-    #[serde(rename = "rootCertPath")]
-    pub root_cert_path: String,
-    #[serde(rename = "privateKeyPath")]
-    pub private_key_path: String,
-    #[serde(rename = "certChainPath")]
-    pub cert_chain_path: String,
+    pub hold: hold::Config,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Cln {
     symbol: String,
+    hold: hold::Hold,
     cln: cln_rpc::node_client::NodeClient<Channel>,
 }
 
 impl Cln {
     #[instrument(name = "Cln::new", skip(config))]
-    pub async fn new(symbol: &str, config: Config) -> anyhow::Result<Self> {
+    pub async fn new(symbol: &str, config: &Config) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
             .domain_name("cln")
             .ca_certificate(Certificate::from_pem(fs::read_to_string(
-                config.root_cert_path,
+                &config.cln.root_cert_path,
             )?))
             .identity(Identity::from_pem(
-                fs::read_to_string(config.cert_chain_path)?,
-                fs::read_to_string(config.private_key_path)?,
+                fs::read_to_string(&config.cln.cert_chain_path)?,
+                fs::read_to_string(&config.cln.private_key_path)?,
             ));
 
-        let channel = Channel::from_shared(format!("https://{}:{}", config.host, config.port))?
-            .tls_config(tls)?
-            .connect()
-            .await?;
+        let channel =
+            Channel::from_shared(format!("https://{}:{}", config.cln.host, config.cln.port))?
+                .tls_config(tls)?
+                .connect()
+                .await?;
 
-        Ok(Cln {
+        Ok(Self {
             symbol: symbol.to_string(),
+            hold: hold::Hold::new(
+                symbol,
+                cln_rpc::node_client::NodeClient::new(channel.clone()),
+                &config.hold,
+            )
+            .await?,
             cln: cln_rpc::node_client::NodeClient::new(channel),
         })
     }
@@ -167,6 +172,7 @@ impl BaseClient for Cln {
         self.symbol.clone()
     }
 
+    #[instrument(name = "Cln::connect", skip_all)]
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.get_info().await?;
         let version = info.version.split(".").collect::<Vec<&str>>();
@@ -195,6 +201,8 @@ impl BaseClient for Cln {
             info.version,
             info.alias.unwrap_or(hex::encode(info.id))
         );
+
+        self.hold.connect().await?;
 
         Ok(())
     }

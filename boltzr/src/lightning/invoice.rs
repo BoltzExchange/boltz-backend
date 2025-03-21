@@ -98,7 +98,7 @@ fn decode_bolt12_offer(offer: &str) -> Result<Invoice, InvoiceError> {
     }
 }
 
-fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
+pub fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
     let dec = match CheckedHrpstring::new::<NoChecksum>(invoice) {
         Ok(dec) => dec,
         Err(err) => return Err(InvoiceError::DecodeError(format!("{:?}", err))),

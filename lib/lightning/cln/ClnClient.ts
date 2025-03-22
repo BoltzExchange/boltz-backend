@@ -431,6 +431,16 @@ class ClnClient
     >('settle', req);
   };
 
+  public injectHoldInvoice = async (invoice: string) => {
+    const req = new holdrpc.InjectRequest();
+    req.setInvoice(invoice);
+
+    await this.unaryHoldCall<
+      holdrpc.InjectRequest,
+      holdrpc.InjectResponse.AsObject
+    >('inject', req);
+  };
+
   public decodeInvoice = async (
     invoice: string,
   ): Promise<

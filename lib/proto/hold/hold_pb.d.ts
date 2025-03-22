@@ -707,12 +707,12 @@ export namespace OnionMessage {
         getFirstScidDir(): number | undefined;
         setFirstScidDir(value: number): ReplyBlindedPath;
 
-        hasBlinded(): boolean;
-        clearBlinded(): void;
-        getBlinded(): Uint8Array | string;
-        getBlinded_asU8(): Uint8Array;
-        getBlinded_asB64(): string;
-        setBlinded(value: Uint8Array | string): ReplyBlindedPath;
+        hasFirstPathKey(): boolean;
+        clearFirstPathKey(): void;
+        getFirstPathKey(): Uint8Array | string;
+        getFirstPathKey_asU8(): Uint8Array;
+        getFirstPathKey_asB64(): string;
+        setFirstPathKey(value: Uint8Array | string): ReplyBlindedPath;
         clearHopsList(): void;
         getHopsList(): Array<OnionMessage.ReplyBlindedPath.Hop>;
         setHopsList(value: Array<OnionMessage.ReplyBlindedPath.Hop>): ReplyBlindedPath;
@@ -733,7 +733,7 @@ export namespace OnionMessage {
             firstNodeId: Uint8Array | string,
             firstScid?: string,
             firstScidDir?: number,
-            blinded: Uint8Array | string,
+            firstPathKey: Uint8Array | string,
             hopsList: Array<OnionMessage.ReplyBlindedPath.Hop.AsObject>,
         }
 

@@ -83,7 +83,7 @@ import {
   ReversePairTypeTaproot,
   SubmarinePairTypeTaproot,
 } from '../rates/providers/RateProviderTaproot';
-import { InvoiceType } from '../sidecar/DecodedInvoice';
+import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -1633,7 +1633,10 @@ class Service {
     version: SwapVersion;
     pairHash?: string;
     orderSide: string;
-    preimageHash: Buffer;
+    preimageHash?: Buffer;
+
+    // BOLT12 invoice that can be used instead of the preimage hash and invoice amount
+    invoice?: string;
 
     invoiceAmount?: number;
     onchainAmount?: number;
@@ -1695,7 +1698,35 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    await this.checkSwapWithPreimageExists(args.preimageHash);
+    if (args.invoice !== undefined && args.preimageHash !== undefined) {
+      throw 'only invoice or preimage hash can be specified';
+    }
+
+    let preimageHash: Buffer;
+    let decodedInvoice: DecodedInvoice | undefined;
+
+    if (args.invoice !== undefined) {
+      decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(args.invoice);
+      if (decodedInvoice.type !== InvoiceType.Bolt12Invoice) {
+        throw 'invoice is not a BOLT12 invoice';
+      }
+      preimageHash = decodedInvoice.paymentHash!;
+
+      if (
+        args.invoiceAmount !== undefined ||
+        args.onchainAmount !== undefined
+      ) {
+        throw 'invoice amount or onchain amount cannot be specified when using a BOLT12 invoice';
+      }
+
+      args.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
+    } else if (args.preimageHash !== undefined) {
+      preimageHash = args.preimageHash!;
+    } else {
+      throw 'preimage hash or invoice must be specified';
+    }
+
+    await this.checkSwapWithPreimageExists(preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
     const referralId = await this.getReferralId(
@@ -1938,15 +1969,16 @@ class Service {
       quoteCurrency: quote,
       version: args.version,
       memo: args.description,
+      preimageHash: preimageHash,
       routingNode: args.routingNode,
       userAddress: args.userAddress,
       claimAddress: args.claimAddress,
-      preimageHash: args.preimageHash,
       invoiceExpiry: args.invoiceExpiry,
       claimPublicKey: args.claimPublicKey,
       descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
+      invoice: { invoice: args.invoice!, decoded: decodedInvoice! },
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1962,7 +1994,6 @@ class Service {
 
     const response: any = {
       id,
-      invoice,
       swapTree,
       referralId,
       blindingKey,
@@ -1972,6 +2003,10 @@ class Service {
       refundPublicKey,
       timeoutBlockHeight,
     };
+
+    if (args.invoice === undefined) {
+      response.invoice = invoice;
+    }
 
     if (swapIsPrepayMinerFee) {
       response.minerFeeInvoice = minerFeeInvoice;

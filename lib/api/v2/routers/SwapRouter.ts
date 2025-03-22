@@ -1940,6 +1940,7 @@ class SwapRouter extends RouterBase {
       from,
       webhook,
       address,
+      invoice,
       pairHash,
       extraFees,
       description,
@@ -1956,9 +1957,9 @@ class SwapRouter extends RouterBase {
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
-      { name: 'preimageHash', type: 'string', hex: true },
       { name: 'address', type: 'string', optional: true },
       { name: 'webhook', type: 'object', optional: true },
+      { name: 'invoice', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'extraFees', type: 'object', optional: true },
       { name: 'description', type: 'string', optional: true },
@@ -1968,13 +1969,16 @@ class SwapRouter extends RouterBase {
       { name: 'invoiceExpiry', type: 'number', optional: true },
       { name: 'onchainAmount', type: 'number', optional: true },
       { name: 'claimCovenant', type: 'boolean', optional: true },
+      { name: 'preimageHash', type: 'string', hex: true, optional: true },
       { name: 'descriptionHash', type: 'string', hex: true, optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'addressSignature', type: 'string', hex: true, optional: true },
     ]);
     const referralId = parseReferralId(req);
 
-    checkPreimageHashLength(preimageHash);
+    if (preimageHash !== undefined) {
+      checkPreimageHashLength(preimageHash);
+    }
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
@@ -1982,6 +1986,7 @@ class SwapRouter extends RouterBase {
 
     const response = await this.service.createReverseSwap({
       pairId,
+      invoice,
       pairHash,
       orderSide,
       referralId,

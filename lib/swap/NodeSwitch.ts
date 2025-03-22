@@ -117,9 +117,15 @@ class NodeSwitch {
     );
   };
 
-  public static hasClient = (currency: Currency): boolean => {
+  public static hasClient = (currency: Currency, type?: NodeType): boolean => {
     return [currency.lndClient, currency.clnClient].some(
-      (client) => client !== undefined,
+      (client?: LightningClient) => {
+        if (type !== undefined) {
+          return client?.type === type;
+        }
+
+        return client !== undefined;
+      },
     );
   };
 

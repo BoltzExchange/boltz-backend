@@ -78,6 +78,7 @@ impl Cln {
         offer: String,
         amount_msat: u64,
     ) -> anyhow::Result<String> {
+        // TODO: handle BOLT12 offers that are registered with a webhook
         let res = self
             .cln
             .fetch_invoice(FetchinvoiceRequest {

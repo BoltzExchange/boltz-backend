@@ -246,7 +246,7 @@ async fn main() {
         cancellation_token.clone(),
         currencies,
         db_pool.clone(),
-        &config.pairs,
+        &config.pairs.unwrap_or_default(),
     ) {
         Ok(swap_manager) => Arc::new(swap_manager),
         Err(err) => {

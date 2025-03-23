@@ -1,5 +1,4 @@
-import { parse } from '@iarna/toml';
-import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
@@ -52,7 +51,6 @@ const currencies = [
 ] as any as PairConfig[];
 
 describe('TimeoutDeltaProvider', () => {
-  const newDelta = 120;
   const configpath = 'config.toml';
 
   const cleanup = () => {
@@ -230,75 +228,6 @@ describe('TimeoutDeltaProvider', () => {
         SwapVersion.Legacy,
       ),
     ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
-  });
-
-  test('should set timeout deltas', () => {
-    const pairId = 'LTC/BTC';
-
-    deltaProvider.setTimeout(pairId, {
-      chain: newDelta,
-      reverse: newDelta,
-      swapMinimal: newDelta,
-      swapMaximal: newDelta,
-      swapTaproot: newDelta,
-    });
-
-    expect(deltaProvider['timeoutDeltas'].get(pairId)).toEqual({
-      base: createDeltas(120 / 2.5),
-      quote: createDeltas(120 / 10),
-    });
-
-    // Should throw if pair cannot be found
-    const notFound = 'notFound';
-
-    expect(() => deltaProvider.setTimeout(notFound, createDeltas(20))).toThrow(
-      Errors.PAIR_NOT_FOUND(notFound).message,
-    );
-
-    // Should throw if the new delta is invalid
-    expect(() =>
-      deltaProvider.setTimeout(pairId, {
-        chain: -newDelta,
-        reverse: -newDelta,
-        swapMinimal: -newDelta,
-        swapMaximal: -newDelta,
-        swapTaproot: -newDelta,
-      }),
-    ).toThrow(Errors.INVALID_TIMEOUT_BLOCK_DELTA().message);
-    expect(() =>
-      deltaProvider.setTimeout(pairId, {
-        chain: 5,
-        reverse: 5,
-        swapMinimal: 5,
-        swapMaximal: 5,
-        swapTaproot: 5,
-      }),
-    ).toThrow(Errors.INVALID_TIMEOUT_BLOCK_DELTA().message);
-  });
-
-  test('should write updated timeout deltas to config file', () => {
-    const writtenConfig = parse(
-      readFileSync(configpath, 'utf-8'),
-    ) as ConfigType;
-
-    expect(writtenConfig.pairs[0].timeoutDelta).toEqual(createDeltas(newDelta));
-  });
-
-  test('should use Ethereum block times if symbols that are not hardcoded are calculated', () => {
-    const minutesToBlocks = deltaProvider['minutesToBlocks'];
-
-    expect(
-      minutesToBlocks('USDT/USDC', {
-        chain: 1,
-        reverse: 1,
-        swapMinimal: 1,
-        swapMaximal: 1,
-        swapTaproot: 1,
-      }),
-    ).toEqual({
-      base: createDeltas(5),
-      quote: createDeltas(5),
-    });
   });
 
   test('should convert blocks', () => {

@@ -239,29 +239,53 @@ pub mod test {
     }
 
     const CLN_CERTS_PATH: &str = "../docker/regtest/data/cln/certs";
+    const HOLD_CERTS_PATH: &str = "../docker/regtest/data/cln/hold";
 
     pub async fn cln_client() -> Cln {
         Cln::new(
+            CancellationToken::new(),
             "BTC",
-            Config {
-                host: "127.0.0.1".to_string(),
-                port: 9291,
-                root_cert_path: Path::new(CLN_CERTS_PATH)
-                    .join("ca.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                private_key_path: Path::new(CLN_CERTS_PATH)
-                    .join("client-key.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                cert_chain_path: Path::new(CLN_CERTS_PATH)
-                    .join("client.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
+            &Config {
+                cln: hold::Config {
+                    host: "127.0.0.1".to_string(),
+                    port: 9291,
+                    root_cert_path: Path::new(CLN_CERTS_PATH)
+                        .join("ca.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    private_key_path: Path::new(CLN_CERTS_PATH)
+                        .join("client-key.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    cert_chain_path: Path::new(CLN_CERTS_PATH)
+                        .join("client.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                },
+                hold: hold::Config {
+                    host: "127.0.0.1".to_string(),
+                    port: 9292,
+                    root_cert_path: Path::new(HOLD_CERTS_PATH)
+                        .join("ca.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    private_key_path: Path::new(HOLD_CERTS_PATH)
+                        .join("client-key.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    cert_chain_path: Path::new(HOLD_CERTS_PATH)
+                        .join("client.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                },
             },
+            Arc::new(crate::db::helpers::offer::test::MockOfferHelper::new()),
         )
         .await
         .unwrap()

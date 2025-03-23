@@ -111,7 +111,7 @@ mod web_hook_event_test {
                 .err()
                 .unwrap()
                 .to_string(),
-            "unknown variant `not.found`, expected `swap.update` at line 1 column 11"
+            "unknown variant `not.found`, expected `swap.update` or `invoice.request` at line 1 column 11"
         );
     }
 

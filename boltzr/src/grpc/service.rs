@@ -615,10 +615,18 @@ where
                                 .payment_paths()
                                 .iter()
                                 .map(|path| bolt12_invoice::Path {
-                                    first_node_pubkey: match path.introduction_node() {
-                                        IntroductionNode::NodeId(pubkey) => Some(pubkey.encode()),
-                                        IntroductionNode::DirectedShortChannelId(_, _) => None,
-                                    },
+                                    introduction_node: Some(match path.introduction_node() {
+                                        IntroductionNode::NodeId(pubkey) => {
+                                            boltzr::bolt12_invoice::path::IntroductionNode::NodeId(
+                                                pubkey.encode(),
+                                            )
+                                        }
+                                        IntroductionNode::DirectedShortChannelId(_, channel_id) => {
+                                            boltzr::bolt12_invoice::path::IntroductionNode::ShortChannelId(
+                                                *channel_id,
+                                            )
+                                        }
+                                    }),
                                     base_fee_msat: path.payinfo.fee_base_msat,
                                     ppm_fee: path.payinfo.fee_proportional_millionths,
                                     cltv_expiry_delta: path.payinfo.cltv_expiry_delta as u64,

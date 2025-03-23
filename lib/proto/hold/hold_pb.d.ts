@@ -188,6 +188,11 @@ export class InjectRequest extends jspb.Message {
     getInvoice(): string;
     setInvoice(value: string): InjectRequest;
 
+    hasMinCltvExpiry(): boolean;
+    clearMinCltvExpiry(): void;
+    getMinCltvExpiry(): number | undefined;
+    setMinCltvExpiry(value: number): InjectRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InjectRequest.AsObject;
     static toObject(includeInstance: boolean, msg: InjectRequest): InjectRequest.AsObject;
@@ -201,6 +206,7 @@ export class InjectRequest extends jspb.Message {
 export namespace InjectRequest {
     export type AsObject = {
         invoice: string,
+        minCltvExpiry?: number,
     }
 }
 
@@ -351,6 +357,11 @@ export class Invoice extends jspb.Message {
     setHtlcsList(value: Array<Htlc>): Invoice;
     addHtlcs(value?: Htlc, index?: number): Htlc;
 
+    hasMinCltvExpiry(): boolean;
+    clearMinCltvExpiry(): void;
+    getMinCltvExpiry(): number | undefined;
+    setMinCltvExpiry(value: number): Invoice;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Invoice.AsObject;
     static toObject(includeInstance: boolean, msg: Invoice): Invoice.AsObject;
@@ -371,6 +382,7 @@ export namespace Invoice {
         createdAt: number,
         settledAt?: number,
         htlcsList: Array<Htlc.AsObject>,
+        minCltvExpiry?: number,
     }
 }
 

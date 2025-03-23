@@ -1,3 +1,5 @@
+use super::PairConfig;
+use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
@@ -6,8 +8,10 @@ use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
+use crate::db::models::SwapType;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
+use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use futures_util::future::try_join_all;
@@ -19,6 +23,12 @@ use tracing::{debug, info};
 #[async_trait]
 pub trait SwapManager {
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
+    fn get_timeouts(
+        &self,
+        receiving: &str,
+        sending: &str,
+        swap_type: SwapType,
+    ) -> Result<(u64, u64)>;
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
 
@@ -39,13 +49,19 @@ pub struct Manager {
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_repo: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_repo: Arc<dyn ReverseSwapHelper + Sync + Send>,
+    timeout_delta_provider: Arc<TimeoutDeltaProvider>,
 }
 
 impl Manager {
-    pub fn new(cancellation_token: CancellationToken, currencies: Currencies, pool: Pool) -> Self {
+    pub fn new(
+        cancellation_token: CancellationToken,
+        currencies: Currencies,
+        pool: Pool,
+        pairs: &[PairConfig],
+    ) -> Result<Self> {
         let (update_tx, _) = tokio::sync::broadcast::channel::<SwapStatus>(128);
 
-        Manager {
+        Ok(Manager {
             update_tx,
             cancellation_token,
             pool: pool.clone(),
@@ -53,7 +69,8 @@ impl Manager {
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool)),
-        }
+            timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(pairs)?),
+        })
     }
 
     pub async fn start(&self) {
@@ -91,6 +108,21 @@ impl Manager {
 impl SwapManager for Manager {
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
+    }
+
+    fn get_timeouts(
+        &self,
+        receiving: &str,
+        sending: &str,
+        swap_type: SwapType,
+    ) -> Result<(u64, u64)> {
+        let (pair, order_side) = match swap_type {
+            SwapType::Reverse => (concat_pair(receiving, sending), OrderSide::Buy),
+            _ => return Err(anyhow!("not implemented")),
+        };
+
+        self.timeout_delta_provider
+            .get_timeouts(&pair, order_side, swap_type)
     }
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {

@@ -761,7 +761,6 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    // TODO: support for bolt12
     const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
 
     let nodeType: NodeType;
@@ -770,22 +769,20 @@ class SwapManager {
     let routingHints: HopHint[][] | undefined = undefined;
 
     if (isInvoice) {
-      if (
-        args.invoice!.decoded.minFinalCltv < args.lightningTimeoutBlockDelta
-      ) {
-        throw 'invoice min final cltv is less than the lightning timeout block delta';
+      if (args.memo !== undefined || args.descriptionHash !== undefined) {
+        throw 'not supported for BOLT12 invoices';
       }
 
       // We already asserted that CLN is available
       await receivingCurrency.clnClient!.injectHoldInvoice(
         args.invoice!.invoice,
+        args.lightningTimeoutBlockDelta,
       );
 
       nodeType = NodeType.CLN;
       paymentRequest = args.invoice!.invoice;
       lightningClient = receivingCurrency.clnClient!;
     } else {
-      // TODO: throw when params are specified that are not supported for bolt12
       const res = await this.nodeFallback.getReverseSwapInvoice(
         id,
         args.referralId,
@@ -966,7 +963,10 @@ class SwapManager {
             : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
       });
 
-      if (hints.routingHint && hints.bip21 && args.userAddressSignature) {
+      if (
+        hints.bip21 !== undefined &&
+        args.userAddressSignature !== undefined
+      ) {
         await ReverseRoutingHintRepository.addHint({
           swapId: id,
           bip21: hints.bip21,

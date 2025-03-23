@@ -23,9 +23,6 @@ service Boltz {
   /* Sends onchain coins to a specified address */
   rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
 
-  /* Updates the timeout block delta of a pair */
-  rpc UpdateTimeoutBlockDelta (UpdateTimeoutBlockDeltaRequest) returns (UpdateTimeoutBlockDeltaResponse);
-
   /* Adds a new referral ID to the database */
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
 
@@ -192,19 +189,6 @@ message SendCoinsResponse {
   string transaction_id = 1;
   optional uint32 vout = 2;
 }
-
-message UpdateTimeoutBlockDeltaRequest {
-  string pair = 1;
-
-  uint32 reverse_timeout = 2;
-
-  uint32 swap_minimal_timeout = 3;
-  uint32 swap_maximal_timeout = 4;
-  uint32 swap_taproot_timeout = 5;
-
-  uint32 chain_timeout = 6;
-}
-message UpdateTimeoutBlockDeltaResponse {}
 
 message AddReferralRequest {
   string id = 1;

@@ -140,6 +140,10 @@ where
                 post(bolt12::create::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/bolt12/{receiving}",
+                get(bolt12::params::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/bolt12/fetch",
                 post(bolt12::fetch::<S, M>),
             )

@@ -6,11 +6,12 @@ import { transactionToLndScid } from '../lightning/ChannelUtils';
 import { HopHint } from '../lightning/LightningClient';
 import RateProvider from '../rates/RateProvider';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
+import DecodedInvoice from '../sidecar/DecodedInvoice';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
 type SwapHints = {
-  invoiceMemo: string;
+  invoiceMemo?: string;
   invoiceDescriptionHash?: Buffer;
 
   receivedAmount: number;
@@ -41,14 +42,19 @@ class ReverseRoutingHints {
       claimPublicKey?: Buffer;
       descriptionHash?: Buffer;
       userAddressSignature?: Buffer;
+      invoice?: { invoice: string; decoded: DecodedInvoice };
     },
   ): SwapHints => {
-    const invoiceDescriptionHash = this.checkDescriptionHash(
-      args.descriptionHash,
-    );
-    const invoiceMemo =
-      args.memo ||
-      getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine);
+    const isBolt12 = args.invoice !== undefined;
+
+    const invoiceDescriptionHash = !isBolt12
+      ? this.checkDescriptionHash(args.descriptionHash)
+      : undefined;
+    const invoiceMemo = !isBolt12
+      ? args.memo ||
+        getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine)
+      : undefined;
+
     const receivedAmount =
       args.onchainAmount -
       this.rateProvider.feeProvider.minerFees.get(sendingCurrency.symbol)![
@@ -78,11 +84,21 @@ class ReverseRoutingHints {
       args.memo,
     );
 
-    const routingHint = this.encodeRoutingHint(
-      args.claimPublicKey,
-      args.userAddress,
-      args.userAddressSignature,
-    );
+    let routingHint: ReturnType<typeof this.encodeRoutingHint> = undefined;
+
+    if (isBolt12) {
+      this.verifyBolt12Invoice(
+        args.invoice!.decoded,
+        args.userAddress,
+        args.userAddressSignature,
+      );
+    } else {
+      routingHint = this.encodeRoutingHint(
+        args.claimPublicKey,
+        args.userAddress,
+        args.userAddressSignature,
+      );
+    }
 
     return {
       bip21,
@@ -96,17 +112,19 @@ class ReverseRoutingHints {
   private encodeRoutingHint = (
     claimPublicKey: Buffer | undefined,
     userAddress: string,
-    userAddressSignature: Buffer | undefined,
+    userAddressSignature: Buffer,
   ): HopHint[][] | undefined => {
-    if (claimPublicKey === undefined || userAddressSignature === undefined) {
+    if (claimPublicKey === undefined) {
       return undefined;
     }
 
-    const sigValid = ECPair.fromPublicKey(claimPublicKey).verifySchnorr(
-      crypto.sha256(Buffer.from(userAddress, 'utf-8')),
-      userAddressSignature,
-    );
-    if (!sigValid) {
+    if (
+      !this.verifyAddressSignature(
+        claimPublicKey,
+        userAddress,
+        userAddressSignature,
+      )
+    ) {
       throw Errors.INVALID_ADDRESS_SIGNATURE();
     }
 
@@ -123,6 +141,37 @@ class ReverseRoutingHints {
     ];
   };
 
+  private verifyBolt12Invoice = (
+    decoded: DecodedInvoice,
+    userAddress: string,
+    userAddressSignature: Buffer,
+  ) => {
+    if (
+      !decoded.paths.every(
+        (path) =>
+          path.shortChannelId === undefined ||
+          path.shortChannelId.toString() !==
+            ReverseRoutingHints.routingHintChanId,
+      )
+    ) {
+      throw 'magic routing hint missing from invoice';
+    }
+
+    if (decoded.payee === undefined) {
+      throw 'payee missing from invoice';
+    }
+
+    if (
+      !this.verifyAddressSignature(
+        decoded.payee,
+        userAddress,
+        userAddressSignature,
+      )
+    ) {
+      throw Errors.INVALID_ADDRESS_SIGNATURE();
+    }
+  };
+
   private checkDescriptionHash = (
     descriptionHash?: Buffer,
   ): Buffer | undefined => {
@@ -136,6 +185,16 @@ class ReverseRoutingHints {
 
     return descriptionHash;
   };
+
+  private verifyAddressSignature = (
+    publicKey: Buffer,
+    userAddress: string,
+    userAddressSignature: Buffer,
+  ) =>
+    ECPair.fromPublicKey(publicKey).verifySchnorr(
+      crypto.sha256(Buffer.from(userAddress, 'utf-8')),
+      userAddressSignature,
+    );
 }
 
 export default ReverseRoutingHints;

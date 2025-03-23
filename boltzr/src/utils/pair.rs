@@ -1,4 +1,5 @@
 #[allow(dead_code)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum OrderSide {
     Buy = 0,
     Sell = 1,
@@ -20,6 +21,10 @@ pub fn split_pair(pair: &str) -> anyhow::Result<Pair> {
         base: parts[0].to_string(),
         quote: parts[1].to_string(),
     })
+}
+
+pub fn concat_pair(base: &str, quote: &str) -> String {
+    format!("{}/{}", base, quote)
 }
 
 #[cfg(test)]

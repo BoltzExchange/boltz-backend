@@ -160,32 +160,6 @@ class GrpcService {
     });
   };
 
-  public updateTimeoutBlockDelta: handleUnaryCall<
-    boltzrpc.UpdateTimeoutBlockDeltaRequest,
-    boltzrpc.UpdateTimeoutBlockDeltaResponse
-  > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
-      const {
-        pair,
-        chainTimeout,
-        reverseTimeout,
-        swapTaprootTimeout,
-        swapMinimalTimeout,
-        swapMaximalTimeout,
-      } = call.request.toObject();
-
-      this.service.updateTimeoutBlockDelta(pair, {
-        chain: chainTimeout,
-        reverse: reverseTimeout,
-        swapTaproot: swapTaprootTimeout,
-        swapMinimal: swapMinimalTimeout,
-        swapMaximal: swapMaximalTimeout,
-      });
-
-      return new boltzrpc.UpdateTimeoutBlockDeltaResponse();
-    });
-  };
-
   public addReferral: handleUnaryCall<
     boltzrpc.AddReferralRequest,
     boltzrpc.AddReferralResponse

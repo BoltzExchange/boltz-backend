@@ -16,7 +16,6 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     unblindOutputs: IBoltzService_IUnblindOutputs;
     getAddress: IBoltzService_IGetAddress;
     sendCoins: IBoltzService_ISendCoins;
-    updateTimeoutBlockDelta: IBoltzService_IUpdateTimeoutBlockDelta;
     addReferral: IBoltzService_IAddReferral;
     setSwapStatus: IBoltzService_ISetSwapStatus;
     allowRefund: IBoltzService_IAllowRefund;
@@ -108,15 +107,6 @@ interface IBoltzService_ISendCoins extends grpc.MethodDefinition<boltzrpc_pb.Sen
     requestDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsRequest>;
     responseSerialize: grpc.serialize<boltzrpc_pb.SendCoinsResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SendCoinsResponse>;
-}
-interface IBoltzService_IUpdateTimeoutBlockDelta extends grpc.MethodDefinition<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse> {
-    path: "/boltzrpc.Boltz/UpdateTimeoutBlockDelta";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
-    requestDeserialize: grpc.deserialize<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest>;
-    responseSerialize: grpc.serialize<boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
-    responseDeserialize: grpc.deserialize<boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
 }
 interface IBoltzService_IAddReferral extends grpc.MethodDefinition<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse> {
     path: "/boltzrpc.Boltz/AddReferral";
@@ -292,7 +282,6 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     unblindOutputs: grpc.handleUnaryCall<boltzrpc_pb.UnblindOutputsRequest, boltzrpc_pb.UnblindOutputsResponse>;
     getAddress: grpc.handleUnaryCall<boltzrpc_pb.GetAddressRequest, boltzrpc_pb.GetAddressResponse>;
     sendCoins: grpc.handleUnaryCall<boltzrpc_pb.SendCoinsRequest, boltzrpc_pb.SendCoinsResponse>;
-    updateTimeoutBlockDelta: grpc.handleUnaryCall<boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, boltzrpc_pb.UpdateTimeoutBlockDeltaResponse>;
     addReferral: grpc.handleUnaryCall<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse>;
     setSwapStatus: grpc.handleUnaryCall<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse>;
     allowRefund: grpc.handleUnaryCall<boltzrpc_pb.AllowRefundRequest, boltzrpc_pb.AllowRefundResponse>;
@@ -338,9 +327,6 @@ export interface IBoltzClient {
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
-    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
-    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
-    updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
     addReferral(request: boltzrpc_pb.AddReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
@@ -423,9 +409,6 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
     public sendCoins(request: boltzrpc_pb.SendCoinsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SendCoinsResponse) => void): grpc.ClientUnaryCall;
-    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
-    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
-    public updateTimeoutBlockDelta(request: boltzrpc_pb.UpdateTimeoutBlockDeltaRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.UpdateTimeoutBlockDeltaResponse) => void): grpc.ClientUnaryCall;
     public addReferral(request: boltzrpc_pb.AddReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     public addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;
     public addReferral(request: boltzrpc_pb.AddReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AddReferralResponse) => void): grpc.ClientUnaryCall;

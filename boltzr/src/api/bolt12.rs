@@ -2,6 +2,8 @@ use crate::api::ServerState;
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
+use crate::db::models::SwapType;
+use crate::swap::magic_routing_hints;
 use crate::swap::manager::SwapManager;
 use anyhow::Result;
 use async_tungstenite::tungstenite::http::StatusCode;
@@ -21,6 +23,26 @@ pub struct CreateRequest {
 
 #[derive(Serialize)]
 pub struct CreateResponse {}
+
+#[derive(Deserialize)]
+pub struct ParamsPath {
+    pub currency: String,
+    pub receiving: String,
+}
+
+#[derive(Serialize)]
+pub struct MagicRoutingHintParams {
+    #[serde(rename = "channelId")]
+    pub channel_id: u64,
+}
+
+#[derive(Serialize)]
+pub struct ParamsResponse {
+    #[serde(rename = "minCltv")]
+    pub min_cltv: u64,
+    #[serde(rename = "magicRoutingHint")]
+    pub magic_routing_hint: MagicRoutingHintParams,
+}
 
 #[derive(Deserialize, Serialize)]
 pub struct Bolt12FetchRequest {
@@ -55,6 +77,45 @@ where
 
     cln.hold.add_offer(body.offer, body.url)?;
     Ok((StatusCode::CREATED, Json(CreateResponse {})).into_response())
+}
+
+pub async fn params<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(ParamsPath {
+        currency,
+        receiving,
+    }): Path<ParamsPath>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let lightning_delta = match state
+        .manager
+        .get_timeouts(&receiving, &currency, SwapType::Reverse)
+    {
+        Ok(res) => res.1,
+        Err(err) => {
+            return Ok((
+                StatusCode::NOT_FOUND,
+                Json(ApiError {
+                    error: err.to_string(),
+                }),
+            )
+                .into_response());
+        }
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(ParamsResponse {
+            min_cltv: lightning_delta,
+            magic_routing_hint: MagicRoutingHintParams {
+                channel_id: magic_routing_hints::CHANNEL_ID,
+            },
+        }),
+    )
+        .into_response())
 }
 
 pub async fn fetch<S, M>(

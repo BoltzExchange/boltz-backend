@@ -1,5 +1,3 @@
-import toml from '@iarna/toml';
-import fs from 'fs';
 import { ConfigType } from '../Config';
 import Logger from '../Logger';
 import {
@@ -65,7 +63,7 @@ class TimeoutDeltaProvider {
 
   constructor(
     private readonly logger: Logger,
-    private readonly config: ConfigType,
+    config: ConfigType,
     private readonly sidecar: Sidecar,
     private readonly currencies: Map<string, Currency>,
     private readonly nodeSwitch: NodeSwitch,
@@ -134,31 +132,6 @@ class TimeoutDeltaProvider {
       } else {
         throw Errors.NO_TIMEOUT_DELTA(pairId);
       }
-    }
-  };
-
-  public setTimeout = (
-    pairId: string,
-    newDeltas: PairTimeoutBlocksDelta,
-  ): void => {
-    if (this.timeoutDeltas.has(pairId)) {
-      const blocks = this.minutesToBlocks(pairId, newDeltas);
-
-      this.timeoutDeltas.set(pairId, blocks);
-
-      for (let i = 0; i < this.config.pairs.length; i += 1) {
-        if (getPairId(this.config.pairs[i]) === pairId) {
-          this.config.pairs[i].timeoutDelta = newDeltas;
-
-          break;
-        }
-      }
-
-      // Write the new config to the disk
-      const newConfig = toml.stringify(this.config as toml.JsonMap);
-      fs.writeFileSync(this.config.configpath, newConfig);
-    } else {
-      throw Errors.PAIR_NOT_FOUND(pairId);
     }
   };
 

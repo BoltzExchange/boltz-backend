@@ -851,18 +851,25 @@ export namespace Bolt12Invoice {
 
     export class Path extends jspb.Message { 
 
-        hasFirstNodePubkey(): boolean;
-        clearFirstNodePubkey(): void;
-        getFirstNodePubkey(): Uint8Array | string;
-        getFirstNodePubkey_asU8(): Uint8Array;
-        getFirstNodePubkey_asB64(): string;
-        setFirstNodePubkey(value: Uint8Array | string): Path;
+        hasNodeId(): boolean;
+        clearNodeId(): void;
+        getNodeId(): Uint8Array | string;
+        getNodeId_asU8(): Uint8Array;
+        getNodeId_asB64(): string;
+        setNodeId(value: Uint8Array | string): Path;
+
+        hasShortChannelId(): boolean;
+        clearShortChannelId(): void;
+        getShortChannelId(): number;
+        setShortChannelId(value: number): Path;
         getBaseFeeMsat(): number;
         setBaseFeeMsat(value: number): Path;
         getPpmFee(): number;
         setPpmFee(value: number): Path;
         getCltvExpiryDelta(): number;
         setCltvExpiryDelta(value: number): Path;
+
+        getIntroductionNodeCase(): Path.IntroductionNodeCase;
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Path.AsObject;
@@ -876,11 +883,19 @@ export namespace Bolt12Invoice {
 
     export namespace Path {
         export type AsObject = {
-            firstNodePubkey: Uint8Array | string,
+            nodeId: Uint8Array | string,
+            shortChannelId: number,
             baseFeeMsat: number,
             ppmFee: number,
             cltvExpiryDelta: number,
         }
+
+        export enum IntroductionNodeCase {
+            INTRODUCTION_NODE_NOT_SET = 0,
+            NODE_ID = 1,
+            SHORT_CHANNEL_ID = 2,
+        }
+
     }
 
 }

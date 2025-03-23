@@ -23,7 +23,6 @@ import {
   getUnixTime,
   getVersion,
   splitPairId,
-  stringify,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength } from '../api/Utils';
@@ -97,9 +96,7 @@ import Errors from './Errors';
 import EventHandler from './EventHandler';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from './TimeoutDeltaProvider';
+import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
 import MusigSigner from './cooperative/MusigSigner';
@@ -924,20 +921,6 @@ class Service {
         throw error;
       }
     }
-  };
-
-  /**
-   * Updates the timeout block delta of a pair
-   */
-  public updateTimeoutBlockDelta = (
-    pairId: string,
-    newDeltas: PairTimeoutBlocksDelta,
-  ): void => {
-    this.timeoutDeltaProvider.setTimeout(pairId, newDeltas);
-
-    this.logger.info(
-      `Updated timeout block delta of ${pairId} to ${stringify(newDeltas)}`,
-    );
   };
 
   public addReferral = async (referral: {

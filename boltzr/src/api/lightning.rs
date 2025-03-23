@@ -107,6 +107,7 @@ fn handle_info_fetch_error(err: anyhow::Error) -> axum::http::Response<axum::bod
 #[cfg(test)]
 mod test {
     use super::*;
+    use http_body_util::BodyExt;
     use rstest::*;
 
     #[rstest]

@@ -242,11 +242,18 @@ async fn main() {
     let (swap_status_update_tx, _swap_status_update_rx) =
         tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);
 
-    let swap_manager = Arc::new(Manager::new(
+    let swap_manager = match Manager::new(
         cancellation_token.clone(),
         currencies,
         db_pool.clone(),
-    ));
+        &config.pairs,
+    ) {
+        Ok(swap_manager) => Arc::new(swap_manager),
+        Err(err) => {
+            error!("Could not create swap manager: {}", err);
+            std::process::exit(1);
+        }
+    };
 
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),

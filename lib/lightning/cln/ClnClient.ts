@@ -431,9 +431,10 @@ class ClnClient
     >('settle', req);
   };
 
-  public injectHoldInvoice = async (invoice: string) => {
+  public injectHoldInvoice = async (invoice: string, minCltvExpiry: number) => {
     const req = new holdrpc.InjectRequest();
     req.setInvoice(invoice);
+    req.setMinCltvExpiry(minCltvExpiry);
 
     await this.unaryHoldCall<
       holdrpc.InjectRequest,

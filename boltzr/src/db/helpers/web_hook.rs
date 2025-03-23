@@ -150,8 +150,8 @@ pub mod test {
     use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
     use crate::db::models::{WebHook, WebHookState};
     use crate::db::{Config, Pool, connect};
-    use crate::webhook::WebHookCallData;
     use crate::webhook::caller::HookState;
+    use crate::webhook::{SwapUpdateCallData, WebHookCallData};
     use rand::distr::{Alphanumeric, SampleString};
     use rstest::rstest;
     use std::sync::{Mutex, OnceLock};
@@ -192,10 +192,10 @@ pub mod test {
                     status: included,
                     ..Default::default()
                 },
-                &WebHookCallData {
+                &WebHookCallData::SwapUpdate(SwapUpdateCallData {
                     id: "".to_string(),
                     status,
-                },
+                }),
             ),
             expected
         );

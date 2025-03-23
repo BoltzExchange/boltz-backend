@@ -221,6 +221,12 @@ pub mod test {
         #[async_trait]
         impl SwapManager for Manager {
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_timeouts(
+                &self,
+                receiving: &str,
+                sending: &str,
+                swap_type: SwapType,
+            ) -> Result<(u64, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn scan_mempool(
                 &self,

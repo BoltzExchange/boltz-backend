@@ -116,8 +116,12 @@ impl Hold {
             ));
         }
 
-        self.offer_helper.insert(&Offer { signer, offer, url })?;
-
+        self.offer_helper.insert(&Offer {
+            signer,
+            // Needed when we lookup if we know an offer when fetching
+            offer: offer.to_lowercase(),
+            url,
+        })?;
         Ok(())
     }
 
@@ -130,16 +134,20 @@ impl Hold {
         }
 
         let secp = Secp256k1::verification_only();
-        if let Err(err) = secp.verify_schnorr(
-            &Signature::from_slice(signature)?,
-            &Message::from_digest(*bitcoin_hashes::Sha256::hash(url.as_bytes()).as_byte_array()),
-            &PublicKey::from_slice(&signer)?.to_x_only_pubkey(),
-        ) {
-            return Err(anyhow!("invalid signature: {}", err));
+        if secp
+            .verify_schnorr(
+                &Signature::from_slice(signature)?,
+                &Message::from_digest(
+                    *bitcoin_hashes::Sha256::hash(url.as_bytes()).as_byte_array(),
+                ),
+                &PublicKey::from_slice(&signer)?.to_x_only_pubkey(),
+            )
+            .is_err()
+        {
+            return Err(anyhow!("invalid signature"));
         }
 
         self.offer_helper.update(&signer, url)?;
-
         Ok(())
     }
 

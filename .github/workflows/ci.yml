@@ -95,6 +95,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          submodules: 'true'
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
@@ -149,6 +151,9 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Start hold invoice plugin
+        run: npm run docker:cln:hold
 
       - name: Tests
         run: cargo test

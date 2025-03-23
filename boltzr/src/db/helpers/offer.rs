@@ -51,3 +51,19 @@ impl OfferHelper for OfferHelperDatabase {
         Ok(Some(res[0].clone()))
     }
 }
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use mockall::mock;
+
+    mock! {
+        pub OfferHelper {}
+
+        impl OfferHelper for OfferHelper {
+            fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
+            fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
+            fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
+        }
+    }
+}

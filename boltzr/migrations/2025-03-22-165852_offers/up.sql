@@ -11,4 +11,4 @@ CREATE TRIGGER update_offers_modified_time
     BEFORE UPDATE
     ON offers
     FOR EACH ROW
-EXECUTE FUNCTIOn update_modified_column();
+EXECUTE FUNCTION update_modified_column();

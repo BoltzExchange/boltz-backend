@@ -1960,7 +1960,10 @@ class Service {
       descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
-      invoice: { invoice: args.invoice!, decoded: decodedInvoice! },
+      invoice:
+        args.invoice !== undefined && decodedInvoice !== undefined
+          ? { invoice: args.invoice, decoded: decodedInvoice }
+          : undefined,
     });
 
     this.eventHandler.emitSwapCreation(id);

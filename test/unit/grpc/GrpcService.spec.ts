@@ -45,8 +45,6 @@ const sendCoinsData = {
 
 const mockSendCoins = jest.fn().mockResolvedValue(sendCoinsData);
 
-const mockUpdateTimeoutBlockDelta = jest.fn().mockImplementation(() => {});
-
 const mockAddReferralResponse = {
   apiKey: 'key',
   apiSecret: 'secret',
@@ -144,7 +142,6 @@ jest.mock('../../../lib/service/Service', () => {
       sendCoins: mockSendCoins,
       addReferral: mockAddReferral,
       rescan: jest.fn().mockResolvedValue(831106),
-      updateTimeoutBlockDelta: mockUpdateTimeoutBlockDelta,
     };
   });
 });
@@ -365,34 +362,6 @@ describe('GrpcService', () => {
 
     expect(mockSendCoins).toHaveBeenCalledTimes(1);
     expect(mockSendCoins).toHaveBeenCalledWith(callData);
-  });
-
-  test('should handle UpdateTimeoutBlockDelta', () => {
-    const callData = {
-      pair: 'pair',
-      chainTimeout: 5,
-      reverseTimeout: 1,
-      swapMinimalTimeout: 2,
-      swapMaximalTimeout: 3,
-      swapTaprootTimeout: 4,
-    };
-
-    grpcService.updateTimeoutBlockDelta(
-      createCall(callData),
-      createCallback((error, response) => {
-        expect(error).toEqual(null);
-        expect(response).not.toEqual(null);
-      }),
-    );
-
-    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledTimes(1);
-    expect(mockUpdateTimeoutBlockDelta).toHaveBeenCalledWith(callData.pair, {
-      chain: callData.chainTimeout,
-      reverse: callData.reverseTimeout,
-      swapTaproot: callData.swapTaprootTimeout,
-      swapMinimal: callData.swapMinimalTimeout,
-      swapMaximal: callData.swapMaximalTimeout,
-    });
   });
 
   test('should handle AddReferral', () => {

@@ -9,7 +9,7 @@ use crate::{
     utils::pair::{OrderSide, concat_pair, split_pair},
 };
 
-// Map of symbol to block time in minutes
+/// Map of symbol to block time in minutes
 static BLOCK_TIMES: LazyLock<HashMap<String, f64>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert("BTC".to_string(), 10.0);

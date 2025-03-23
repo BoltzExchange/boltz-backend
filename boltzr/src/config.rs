@@ -70,7 +70,7 @@ pub struct GlobalConfig {
     pub sidecar: Config,
 
     pub postgres: crate::db::Config,
-    pub pairs: Vec<crate::swap::PairConfig>,
+    pub pairs: Option<Vec<crate::swap::PairConfig>>,
     pub currencies: Option<Vec<CurrencyConfig>>,
     pub liquid: Option<LiquidConfig>,
     pub rsk: Option<crate::evm::Config>,

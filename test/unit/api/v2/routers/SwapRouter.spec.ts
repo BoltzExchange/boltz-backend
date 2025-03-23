@@ -988,7 +988,6 @@ describe('SwapRouter', () => {
     error                                         | body
     ${'undefined parameter: to'}                  | ${{}}
     ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
-    ${'undefined parameter: preimageHash'}        | ${{ to: 'L-BTC', from: 'BTC' }}
     ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{
   to: 'L-BTC',

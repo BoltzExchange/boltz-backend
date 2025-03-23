@@ -5,6 +5,7 @@ use crate::api::ws::status::SwapInfos;
 use crate::db::models::SwapType;
 use crate::swap::magic_routing_hints;
 use crate::swap::manager::SwapManager;
+use alloy::hex;
 use anyhow::Result;
 use async_tungstenite::tungstenite::http::StatusCode;
 use axum::body::Body;
@@ -23,6 +24,13 @@ pub struct CreateRequest {
 
 #[derive(Serialize)]
 pub struct CreateResponse {}
+
+#[derive(Deserialize)]
+pub struct UpdateRequest {
+    offer: String,
+    url: String,
+    signature: String,
+}
 
 #[derive(Deserialize)]
 pub struct ParamsPath {
@@ -77,6 +85,41 @@ where
 
     cln.hold.add_offer(body.offer, body.url)?;
     Ok((StatusCode::CREATED, Json(CreateResponse {})).into_response())
+}
+
+pub async fn update<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(currency): Path<String>,
+    Json(body): Json<UpdateRequest>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let signature = match hex::decode(body.signature) {
+        Ok(signature) => signature,
+        Err(err) => {
+            return Ok((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(ApiError {
+                    error: err.to_string(),
+                }),
+            )
+                .into_response());
+        }
+    };
+
+    let cln = match state
+        .manager
+        .get_currency(&currency)
+        .and_then(|currency| currency.cln)
+    {
+        Some(cln) => cln,
+        None => return Ok(no_cln_error()),
+    };
+
+    cln.hold.update_offer(body.offer, body.url, &signature)?;
+    Ok((StatusCode::OK, Json(CreateResponse {})).into_response())
 }
 
 pub async fn params<S, M>(

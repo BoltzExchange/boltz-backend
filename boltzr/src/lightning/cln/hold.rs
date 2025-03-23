@@ -9,7 +9,9 @@ use crate::webhook::caller::{Hook, validate_url};
 use crate::webhook::invoice_caller::{InvoiceCaller, InvoiceHook};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use bitcoin::secp256k1::{PublicKey, Secp256k1};
+use bitcoin::secp256k1::schnorr::Signature;
+use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
+use elements_miniscript::ToPublicKey;
 use lightning::blinded_path::message::BlindedMessagePath;
 use lightning::blinded_path::{BlindedHop, BlindedPath, EmptyNodeIdLookUp, IntroductionNode};
 use lightning::offers::invoice::Bolt12Invoice;
@@ -107,19 +109,7 @@ impl Hold {
     }
 
     pub fn add_offer(&self, offer: String, url: String) -> Result<()> {
-        if let Some(err) = validate_url(&url) {
-            return Err(anyhow!("invalid URl: {}", err));
-        };
-
-        let decoded = match decode_bolt12_offer(&offer)? {
-            Invoice::Offer(offer) => offer,
-            _ => return Err(anyhow!("invalid offer")),
-        };
-        let signer = match decoded.issuer_signing_pubkey() {
-            Some(signer) => signer.serialize().to_vec(),
-            None => return Err(anyhow!("no signing public key specified")),
-        };
-
+        let signer = self.prepare_offer(&offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_some() {
             return Err(anyhow!(
                 "an offer for this signing public key was registered already"
@@ -129,6 +119,43 @@ impl Hold {
         self.offer_helper.insert(&Offer { signer, offer, url })?;
 
         Ok(())
+    }
+
+    pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
+        let signer = self.prepare_offer(&offer, &url)?;
+        if self.offer_helper.get_by_signer(&signer)?.is_none() {
+            return Err(anyhow!(
+                "no offer for this signing public key was registered"
+            ));
+        }
+
+        let secp = Secp256k1::verification_only();
+        if let Err(err) = secp.verify_schnorr(
+            &Signature::from_slice(signature)?,
+            &Message::from_digest(*bitcoin_hashes::Sha256::hash(url.as_bytes()).as_byte_array()),
+            &PublicKey::from_slice(&signer)?.to_x_only_pubkey(),
+        ) {
+            return Err(anyhow!("invalid signature: {}", err));
+        }
+
+        self.offer_helper.update(&signer, url)?;
+
+        Ok(())
+    }
+
+    fn prepare_offer(&self, offer: &str, url: &str) -> Result<Vec<u8>> {
+        if let Some(err) = validate_url(url) {
+            return Err(anyhow!("invalid URL: {}", err));
+        };
+
+        let decoded = match decode_bolt12_offer(offer)? {
+            Invoice::Offer(offer) => offer,
+            _ => return Err(anyhow!("invalid offer")),
+        };
+        Ok(match decoded.issuer_signing_pubkey() {
+            Some(signer) => signer.serialize().to_vec(),
+            None => return Err(anyhow!("no signing public key specified")),
+        })
     }
 
     async fn stream_onion_messages(&mut self) -> Result<()> {

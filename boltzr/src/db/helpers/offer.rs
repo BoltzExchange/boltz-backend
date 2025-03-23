@@ -2,11 +2,12 @@ use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::Offer;
 use crate::db::schema::offers;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, insert_into};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, insert_into, update};
 use tracing::instrument;
 
 pub trait OfferHelper {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
+    fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
     fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
 }
 
@@ -25,6 +26,13 @@ impl OfferHelper for OfferHelperDatabase {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize> {
         Ok(insert_into(offers::dsl::offers)
             .values(offer)
+            .execute(&mut self.pool.get()?)?)
+    }
+
+    fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize> {
+        Ok(update(offers::dsl::offers)
+            .filter(offers::dsl::signer.eq(signer))
+            .set(offers::dsl::url.eq(url))
             .execute(&mut self.pool.get()?)?)
     }
 

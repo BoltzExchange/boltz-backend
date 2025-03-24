@@ -15,9 +15,9 @@ const NAME: &str = "BOLT12 invoice";
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct InvoiceHook {
-    pub invoice_request: String,
-    pub reply_blinded_path: ReplyBlindedPath,
     pub url: String,
+    pub invoice_request: String,
+    pub reply_blinded_path: Option<ReplyBlindedPath>,
 }
 
 #[derive(Clone)]
@@ -29,6 +29,25 @@ pub struct InvoiceHookState {
 #[derive(Clone)]
 pub struct InvoiceCaller {
     caller: Caller<InvoiceHook, InvoiceHookState>,
+}
+
+impl InvoiceHook {
+    pub fn new(
+        invoice_request: &[u8],
+        url: String,
+        reply_blinded_path: Option<ReplyBlindedPath>,
+    ) -> Self {
+        let invoice_request = hex::encode(invoice_request);
+        Self {
+            invoice_request: invoice_request.clone(),
+            reply_blinded_path,
+            url,
+        }
+    }
+
+    pub fn respond_with_onion(&self) -> bool {
+        self.reply_blinded_path.is_some()
+    }
 }
 
 impl Hook for InvoiceHook {
@@ -105,23 +124,14 @@ impl InvoiceCaller {
         self.caller.subscribe_successful_calls()
     }
 
-    pub async fn call(
-        &self,
-        url: String,
-        reply_blinded_path: ReplyBlindedPath,
-        invoice_request: &[u8],
-    ) -> Result<CallResult> {
-        let invoice_request = hex::encode(invoice_request);
-        let hook = InvoiceHook {
-            invoice_request: invoice_request.clone(),
-            reply_blinded_path,
-            url,
-        };
+    pub async fn call(&self, hook: InvoiceHook) -> Result<CallResult> {
         let res = self
             .caller
             .call_webhook(
                 hook.clone(),
-                WebHookCallData::InvoiceRequest(InvoiceRequestCallData { invoice_request }),
+                WebHookCallData::InvoiceRequest(InvoiceRequestCallData {
+                    invoice_request: hook.invoice_request,
+                }),
             )
             .await
             .map_err(|e| anyhow!("{}", e))?;
@@ -139,13 +149,13 @@ mod tests {
         let same_req = "test_request";
         let hook1 = InvoiceHook {
             invoice_request: same_req.to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "https://example.com".to_string(),
         };
 
         let hook2 = InvoiceHook {
             invoice_request: same_req.to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "https://different.com".to_string(),
         };
 
@@ -153,7 +163,7 @@ mod tests {
 
         let hook3 = InvoiceHook {
             invoice_request: "different_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "https://example.com".to_string(),
         };
 
@@ -166,7 +176,7 @@ mod tests {
         let url = "https://example.com/webhook";
         let hook = InvoiceHook {
             invoice_request: "test_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: url.to_string(),
         };
 
@@ -178,7 +188,7 @@ mod tests {
         let state = InvoiceHookState::new();
         let hook = InvoiceHook {
             invoice_request: "test_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "http://example.com".to_string(),
         };
         let params = WebHookCallData::InvoiceRequest(InvoiceRequestCallData {
@@ -193,7 +203,7 @@ mod tests {
         let state = InvoiceHookState::new();
         let hook = InvoiceHook {
             invoice_request: "test_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "http://example.com".to_string(),
         };
 
@@ -213,7 +223,7 @@ mod tests {
         let state = InvoiceHookState::new();
         let hook = InvoiceHook {
             invoice_request: "test_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "http://example.com".to_string(),
         };
 
@@ -231,7 +241,7 @@ mod tests {
         let state = InvoiceHookState::new();
         let hook = InvoiceHook {
             invoice_request: "test_request".to_string(),
-            reply_blinded_path: ReplyBlindedPath::default(),
+            reply_blinded_path: None,
             url: "http://example.com".to_string(),
         };
 

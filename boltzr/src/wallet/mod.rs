@@ -21,6 +21,16 @@ pub trait Wallet {
     fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>>;
 }
 
+impl Network {
+    pub fn bitcoin(&self) -> ::bitcoin::Network {
+        match self {
+            Network::Mainnet => ::bitcoin::Network::Bitcoin,
+            Network::Testnet => ::bitcoin::Network::Testnet,
+            Network::Regtest => ::bitcoin::Network::Regtest,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use super::*;

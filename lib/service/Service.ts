@@ -1682,7 +1682,7 @@ class Service {
     }
 
     if (args.invoice !== undefined && args.preimageHash !== undefined) {
-      throw 'only invoice or preimage hash can be specified';
+      throw Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED();
     }
 
     let preimageHash: Buffer;
@@ -1691,7 +1691,7 @@ class Service {
     if (args.invoice !== undefined) {
       decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(args.invoice);
       if (decodedInvoice.type !== InvoiceType.Bolt12Invoice) {
-        throw 'invoice is not a BOLT12 invoice';
+        throw Errors.INVOICE_NOT_BOLT12();
       }
       preimageHash = decodedInvoice.paymentHash!;
 
@@ -1699,14 +1699,14 @@ class Service {
         args.invoiceAmount !== undefined ||
         args.onchainAmount !== undefined
       ) {
-        throw 'invoice amount or onchain amount cannot be specified when using a BOLT12 invoice';
+        throw Errors.BOLT12_INVOICE_AMOUNT_CONFLICT();
       }
 
       args.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
     } else if (args.preimageHash !== undefined) {
       preimageHash = args.preimageHash!;
     } else {
-      throw 'preimage hash or invoice must be specified';
+      throw Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED();
     }
 
     await this.checkSwapWithPreimageExists(preimageHash);

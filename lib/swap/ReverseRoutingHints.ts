@@ -42,7 +42,7 @@ class ReverseRoutingHints {
       claimPublicKey?: Buffer;
       descriptionHash?: Buffer;
       userAddressSignature?: Buffer;
-      invoice?: { invoice: string; decoded: DecodedInvoice };
+      invoice?: { decoded: DecodedInvoice };
     },
   ): SwapHints => {
     const isBolt12 = args.invoice !== undefined;
@@ -53,7 +53,7 @@ class ReverseRoutingHints {
     const invoiceMemo = !isBolt12
       ? args.memo ||
         getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine)
-      : undefined;
+      : args.invoice?.decoded.description;
 
     const receivedAmount =
       args.onchainAmount -
@@ -147,18 +147,18 @@ class ReverseRoutingHints {
     userAddressSignature: Buffer,
   ) => {
     if (
-      !decoded.paths.every(
+      !decoded.paths.some(
         (path) =>
-          path.shortChannelId === undefined ||
-          path.shortChannelId.toString() !==
+          path.shortChannelId !== undefined &&
+          path.shortChannelId.toString() ===
             ReverseRoutingHints.routingHintChanId,
       )
     ) {
-      throw 'magic routing hint missing from invoice';
+      throw Errors.MAGIC_ROUTING_HINT_MISSING();
     }
 
     if (decoded.payee === undefined) {
-      throw 'payee missing from invoice';
+      throw Errors.PAYEE_MISSING_FROM_INVOICE();
     }
 
     if (

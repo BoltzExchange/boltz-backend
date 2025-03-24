@@ -103,7 +103,8 @@ class DecodedInvoice {
           path.nodeId !== undefined
             ? Buffer.from(path.nodeId as string, 'base64')
             : undefined,
-        shortChannelId: path.shortChannelId,
+        shortChannelId:
+          path.shortChannelId !== 0 ? path.shortChannelId : undefined,
       }));
     }
 

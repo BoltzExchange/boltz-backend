@@ -42,7 +42,7 @@ pub trait SwapManager {
 pub struct Manager {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
 
-    currencies: Arc<Currencies>,
+    currencies: Currencies,
     cancellation_token: CancellationToken,
 
     pool: Pool,
@@ -63,9 +63,9 @@ impl Manager {
 
         Ok(Manager {
             update_tx,
+            currencies,
             cancellation_token,
             pool: pool.clone(),
-            currencies: Arc::new(currencies),
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool)),
@@ -207,6 +207,8 @@ pub mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
     use crate::chain::utils::Transaction;
+    use crate::db::helpers::web_hook::test::get_pool;
+    use crate::swap::timeout_delta::PairTimeoutBlockDelta;
     use anyhow::Result;
     use async_trait::async_trait;
     use mockall::mock;
@@ -233,5 +235,43 @@ pub mod test {
                 symbols: Option<Vec<String>>,
             ) -> Result<HashMap<String, Vec<Transaction>>>;
         }
+    }
+
+    #[test]
+    fn test_get_timeouts() {
+        // Setup test data
+        let pairs = vec![PairConfig {
+            base: "L-BTC".to_string(),
+            quote: "BTC".to_string(),
+            timeout_delta: PairTimeoutBlockDelta {
+                chain: 120,
+                reverse: 120,
+                swap_minimal: 30,
+                swap_maximal: 240,
+                swap_taproot: 180,
+            },
+        }];
+
+        let timeout_provider = TimeoutDeltaProvider::new(&pairs).unwrap();
+        let manager = Manager {
+            update_tx: tokio::sync::broadcast::channel(100).0,
+            cancellation_token: CancellationToken::new(),
+            pool: get_pool(),
+            currencies: Arc::new(HashMap::new()),
+            swap_repo: Arc::new(SwapHelperDatabase::new(get_pool())),
+            chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(get_pool())),
+            reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(get_pool())),
+            timeout_delta_provider: Arc::new(timeout_provider),
+        };
+
+        let result = manager.get_timeouts("L-BTC", "BTC", SwapType::Reverse);
+        assert!(result.is_ok());
+        let (onchain, lightning) = result.unwrap();
+        assert_eq!(onchain, 120);
+        assert_eq!(lightning, 15);
+
+        let result = manager.get_timeouts("BTC", "L-BTC", SwapType::Submarine);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "not implemented");
     }
 }

@@ -985,10 +985,11 @@ describe('SwapRouter', () => {
   });
 
   test.each`
-    error                                         | body
-    ${'undefined parameter: to'}                  | ${{}}
-    ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
-    ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
+    error                                           | body
+    ${'undefined parameter: to'}                    | ${{}}
+    ${'undefined parameter: from'}                  | ${{ to: 'L-BTC' }}
+    ${'either preimageHash or invoice must be set'} | ${{ to: 'L-BTC', from: 'BTC' }}
+    ${'could not parse hex string: preimageHash'}   | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{
   to: 'L-BTC',
   from: 'BTC',

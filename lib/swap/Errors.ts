@@ -130,4 +130,12 @@ export default {
     message: 'rejected',
     code: concatErrorCode(ErrorCodePrefix.Swap, 27),
   }),
+  MAGIC_ROUTING_HINT_MISSING: (): Error => ({
+    message: 'magic routing hint missing from invoice',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 28),
+  }),
+  PAYEE_MISSING_FROM_INVOICE: (): Error => ({
+    message: 'payee missing from invoice',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 29),
+  }),
 };

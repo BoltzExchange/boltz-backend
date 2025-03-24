@@ -6,6 +6,7 @@ import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
 import ClnClient from '../../../../lib/lightning/cln/ClnClient';
 import * as noderpc from '../../../../lib/proto/cln/node_pb';
 import * as primitivesrpc from '../../../../lib/proto/cln/primitives_pb';
+import * as holdrpc from '../../../../lib/proto/hold/hold_pb';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { wait } from '../../../Utils';
 import {
@@ -254,6 +255,39 @@ describe('ClnClient', () => {
     await clnClient.settleHoldInvoice(preimage);
     await paymentPromise;
     await settledPromise;
+  });
+
+  test('should inject hold invoices', async () => {
+    const invoiceReq = new noderpc.InvoiceRequest();
+    invoiceReq.setLabel(getHexString(randomBytes(32)));
+
+    const amount = new primitivesrpc.Amount();
+    amount.setMsat(10_000);
+    const amountOrAny = new primitivesrpc.AmountOrAny();
+    amountOrAny.setAmount(amount);
+    invoiceReq.setAmountMsat(amountOrAny);
+
+    const invoiceRes = await clnClient['unaryNodeCall']<
+      noderpc.InvoiceRequest,
+      noderpc.InvoiceResponse.AsObject
+    >('invoice', invoiceReq);
+    const minCltv = 123;
+    await clnClient.injectHoldInvoice(invoiceRes.bolt11, minCltv);
+
+    const listReq = new holdrpc.ListRequest();
+
+    const decoded = await clnClient.decodeInvoice(invoiceRes.bolt11);
+    listReq.setPaymentHash(decoded.paymentHash);
+
+    const injectedInvoice = (
+      await clnClient['unaryHoldCall']<
+        holdrpc.ListRequest,
+        holdrpc.ListResponse.AsObject
+      >('list', listReq)
+    ).invoicesList;
+
+    expect(injectedInvoice.length).toEqual(1);
+    expect(injectedInvoice[0].minCltvExpiry).toEqual(minCltv);
   });
 
   describe('decodeInvoice', () => {

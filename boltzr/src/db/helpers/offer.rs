@@ -3,7 +3,6 @@ use crate::db::helpers::QueryResponse;
 use crate::db::models::Offer;
 use crate::db::schema::offers;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, insert_into, update};
-use tracing::instrument;
 
 pub trait OfferHelper {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
@@ -36,7 +35,6 @@ impl OfferHelper for OfferHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
-    #[instrument(skip_all)]
     fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>> {
         let res = offers::dsl::offers
             .select(Offer::as_select())

@@ -1978,6 +1978,8 @@ class SwapRouter extends RouterBase {
 
     if (preimageHash !== undefined) {
       checkPreimageHashLength(preimageHash);
+    } else if (invoice === undefined) {
+      throw 'either preimageHash or invoice must be set';
     }
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);

@@ -109,7 +109,7 @@ impl Hold {
     }
 
     pub fn add_offer(&self, offer: String, url: String) -> Result<()> {
-        let signer = self.prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(&offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_some() {
             return Err(anyhow!(
                 "an offer for this signing public key was registered already"
@@ -126,7 +126,7 @@ impl Hold {
     }
 
     pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
-        let signer = self.prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(&offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
             return Err(anyhow!(
                 "no offer for this signing public key was registered"
@@ -149,21 +149,6 @@ impl Hold {
 
         self.offer_helper.update(&signer, url)?;
         Ok(())
-    }
-
-    fn prepare_offer(&self, offer: &str, url: &str) -> Result<Vec<u8>> {
-        if let Some(err) = validate_url(url) {
-            return Err(anyhow!("invalid URL: {}", err));
-        };
-
-        let decoded = match decode_bolt12_offer(offer)? {
-            Invoice::Offer(offer) => offer,
-            _ => return Err(anyhow!("invalid offer")),
-        };
-        Ok(match decoded.issuer_signing_pubkey() {
-            Some(signer) => signer.serialize().to_vec(),
-            None => return Err(anyhow!("no signing public key specified")),
-        })
     }
 
     async fn stream_onion_messages(&mut self) -> Result<()> {
@@ -291,6 +276,22 @@ impl Hold {
         }
     }
 
+    fn prepare_offer(offer: &str, url: &str) -> Result<Vec<u8>> {
+        // TODO: check network of offer
+        if let Some(err) = validate_url(url) {
+            return Err(anyhow!("invalid URL: {}", err));
+        };
+
+        let decoded = match decode_bolt12_offer(offer)? {
+            Invoice::Offer(offer) => offer,
+            _ => return Err(anyhow!("invalid offer")),
+        };
+        Ok(match decoded.issuer_signing_pubkey() {
+            Some(signer) => signer.serialize().to_vec(),
+            None => return Err(anyhow!("no signing public key specified")),
+        })
+    }
+
     fn blind_onion(
         invoice: Bolt12Invoice,
         path: ReplyBlindedPath,
@@ -384,5 +385,213 @@ impl BaseClient for Hold {
         self.stream_onion_messages().await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::lightning::cln::test::cln_client;
+    use alloy::hex;
+    use bitcoin::key::Keypair;
+    use mockall::predicate::eq;
+
+    const OFFER: &str = "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcsjgp07s6z7e3lz8gun0tfslclfs8w48v6uq9vfwuura5g4kn60fffu4qzwrsgl9ed40gujkc3s0ln56ek2yn5xcj289m5mwgpeagkr20dkdvqzqe4h4njxfj9j9fl2smkxg66ctcrcznw47d95jpnnaax2e327judevqzczqa77ng8hpls7wnwknm2t7v93swf9du4j90l58yclfza9ju87aer5vklmwt0veucef7lch3vggrkj0u253wznwv0ganr2mfr9hhymtj3q8spuwlemh2n4sghlmqf5qq";
+    const HOOK: &str = "https://bol.tz/nice_hook";
+
+    #[tokio::test]
+    async fn test_add_offer() {
+        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer.clone()))
+            .returning(|_| Ok(None));
+        offer_helper
+            .expect_insert()
+            .with(eq(Offer {
+                signer,
+                offer: OFFER.to_lowercase(),
+                url: HOOK.to_string(),
+            }))
+            .returning(|_| Ok(1));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        hold.add_offer(OFFER.to_uppercase(), HOOK.to_string())
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_add_offer_already_registered() {
+        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: HOOK.to_string(),
+                }))
+            });
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        assert_eq!(
+            hold.add_offer(OFFER.to_uppercase(), HOOK.to_string())
+                .unwrap_err()
+                .to_string(),
+            "an offer for this signing public key was registered already"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_offer_update_offer() {
+        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer_cp.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: HOOK.to_string(),
+                }))
+            });
+
+        let new_hook = "https://bol.tz/new_hook";
+        offer_helper
+            .expect_update()
+            .with(eq(signer.clone()), eq(new_hook.to_string()))
+            .returning(|_, _| Ok(1));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        let secp = Secp256k1::signing_only();
+        let keypair = Keypair::from_seckey_str(
+            &secp,
+            "ac0ee106ecc58bfff9b106d6e26b51ee2d37c8a85eb2eed0b6c71d0a9d910b61",
+        )
+        .unwrap();
+        let sig = secp.sign_schnorr_no_aux_rand(
+            &Message::from_digest(
+                *bitcoin_hashes::Sha256::hash(new_hook.as_bytes()).as_byte_array(),
+            ),
+            &keypair,
+        );
+
+        hold.update_offer(OFFER.to_uppercase(), new_hook.to_string(), &sig.serialize())
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_add_offer_update_offer_not_registered() {
+        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| Ok(None));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        assert_eq!(
+            hold.update_offer(
+                OFFER.to_uppercase(),
+                "https://bol.tz/new_hook".to_string(),
+                &[],
+            )
+            .unwrap_err()
+            .to_string(),
+            "no offer for this signing public key was registered"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_offer_update_offer_invalid_signature() {
+        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer_cp.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: HOOK.to_string(),
+                }))
+            });
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        let new_hook = "https://bol.tz/new_hook";
+
+        let secp = Secp256k1::signing_only();
+        let keypair = Keypair::from_seckey_str(
+            &secp,
+            "f73ef753b278653899d79b8b0ca525a48be5c2902b6b21303c86f9a3c62c216a",
+        )
+        .unwrap();
+        let sig = secp.sign_schnorr_no_aux_rand(
+            &Message::from_digest(
+                *bitcoin_hashes::Sha256::hash(new_hook.as_bytes()).as_byte_array(),
+            ),
+            &keypair,
+        );
+
+        assert_eq!(
+            hold.update_offer(OFFER.to_uppercase(), new_hook.to_string(), &sig.serialize(),)
+                .unwrap_err()
+                .to_string(),
+            "invalid signature"
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer() {
+        assert_eq!(
+            Hold::prepare_offer(OFFER, HOOK).unwrap(),
+            hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_invalid_url() {
+        assert_eq!(
+            Hold::prepare_offer("OFFER", "INVALID URL")
+                .unwrap_err()
+                .to_string(),
+            "invalid URL: relative URL without a base"
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_invalid_offer() {
+        assert_eq!(
+            Hold::prepare_offer("invalid", HOOK)
+                .unwrap_err()
+                .to_string(),
+            "invalid invoice: Bech32(Parse(Char(InvalidChar('i'))))"
+        );
     }
 }

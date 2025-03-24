@@ -15,8 +15,12 @@ use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
 use elements_miniscript::ToPublicKey;
 use lightning::blinded_path::message::BlindedMessagePath;
 use lightning::blinded_path::{BlindedHop, BlindedPath, EmptyNodeIdLookUp, IntroductionNode};
+use lightning::ln::channelmanager::PaymentId;
+use lightning::ln::inbound_payment::ExpandedKey;
 use lightning::offers::invoice::Bolt12Invoice;
 use lightning::offers::invoice_request::InvoiceRequest;
+use lightning::offers::nonce::Nonce;
+use lightning::offers::parse::Bolt12SemanticError;
 use lightning::onion_message::messenger::{Destination, OnionMessagePath, create_onion_message};
 use lightning::onion_message::offers::OffersMessage;
 use lightning::sign::{KeysManager, RandomBytes};
@@ -126,6 +130,7 @@ impl Hold {
             offer: offer.to_lowercase(),
             url,
         })?;
+        info!("Registered offer");
         Ok(())
     }
 
@@ -152,7 +157,64 @@ impl Hold {
         }
 
         self.offer_helper.update(&signer, url)?;
+        info!("Updated offer");
         Ok(())
+    }
+
+    pub async fn fetch_invoice_webhook(&self, offer: Offer, amount_msat: u64) -> Result<String> {
+        let parsed = match crate::lightning::invoice::decode(self.network, &offer.offer)? {
+            Invoice::Offer(offer) => offer,
+            _ => return Err(anyhow!("invalid offer")),
+        };
+
+        let (entropy_bytes, entropy) = Self::entropy_source();
+        let expanded_key = ExpandedKey::new(entropy_bytes);
+        let nonce = Nonce::from_entropy_source(&entropy);
+        let payment_id = PaymentId(Self::entropy_source().0);
+        let secp_ctx = Secp256k1::signing_only();
+
+        // To avoid annoying error mapping
+        let build_invoice_request =
+            move || -> std::result::Result<InvoiceRequest, Bolt12SemanticError> {
+                (parsed.request_invoice(&expanded_key, nonce, &secp_ctx, payment_id)?)
+                    .chain(self.network.bitcoin())?
+                    .amount_msats(amount_msat)?
+                    .build_and_sign()
+            };
+
+        let request = build_invoice_request().map_err(|e| anyhow!("{:?}", e))?;
+
+        let mut request_bytes = vec![];
+        request.write(&mut request_bytes)?;
+
+        let hook = InvoiceHook::new(&request_bytes, offer.url, None);
+        let hook_id = hook.id();
+
+        let mut receiver = self.invoice_caller.subscribe_successful_calls();
+        self.invoice_caller.call(hook).await?;
+
+        // Wait for a response on the receiver or timeout after 30 seconds
+        let timeout = tokio::time::sleep(std::time::Duration::from_secs(30));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                response = receiver.recv() => {
+                    match response {
+                        Ok((received_hook, invoice_bytes)) => {
+                            if received_hook.id() == hook_id {
+                                let res: InvoiceRequestResponse = serde_json::from_slice(&invoice_bytes)?;
+                                return Ok(res.invoice);
+                            }
+                        },
+                        Err(e) => return Err(anyhow!("failed to receive Webhook response: {}", e)),
+                    }
+                },
+                _ = &mut timeout => {
+                    return Err(anyhow!("timeout waiting for invoice response"));
+                }
+            }
+        }
     }
 
     async fn stream_onion_messages(&mut self) -> Result<()> {
@@ -170,6 +232,9 @@ impl Hold {
                         break;
                     }
                 };
+                if !hook.respond_with_onion() {
+                    continue;
+                }
 
                 if let Err(err) = self_cp.handle_response(our_pubkey, hook, &res).await {
                     warn!("Handling BOLT12 invoice response failed: {}", err);
@@ -216,7 +281,11 @@ impl Hold {
 
                         if let Err(error) = self_cp
                             .invoice_caller
-                            .call(offer.url, reply_blinded_path, &invoice_request)
+                            .call(InvoiceHook::new(
+                                &invoice_request,
+                                offer.url,
+                                Some(reply_blinded_path),
+                            ))
                             .await
                         {
                             warn!("Sending BOLT12 invoice Webhook failed: {}", error);
@@ -244,14 +313,18 @@ impl Hold {
         hook: InvoiceHook,
         res: &[u8],
     ) -> Result<()> {
+        let reply_blinded_path = match hook.reply_blinded_path.clone() {
+            Some(path) => path,
+            None => return Ok(()),
+        };
+
         let res: InvoiceRequestResponse = serde_json::from_slice(res)?;
         let invoice = match crate::lightning::invoice::decode(self.network, &res.invoice)? {
             Invoice::Bolt12(invoice) => invoice,
             _ => return Err(anyhow!("invalid invoice")),
         };
 
-        let (blinding_point, onion) =
-            Self::blind_onion(*invoice, hook.reply_blinded_path.clone(), our_pubkey)?;
+        let (blinding_point, onion) = Self::blind_onion(*invoice, reply_blinded_path, our_pubkey)?;
         self.cln
             .inject_onion_message(InjectonionmessageRequest {
                 message: onion,

@@ -4,7 +4,8 @@ use crate::db::models::Offer;
 use crate::lightning::cln::cln_rpc::{GetinfoRequest, InjectonionmessageRequest};
 use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
 use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessagesRequest};
-use crate::lightning::invoice::{Invoice, decode_bolt12_invoice, decode_bolt12_offer};
+use crate::lightning::invoice::Invoice;
+use crate::wallet;
 use crate::webhook::caller::{Hook, validate_url};
 use crate::webhook::invoice_caller::{InvoiceCaller, InvoiceHook};
 use anyhow::{Result, anyhow};
@@ -53,6 +54,7 @@ pub struct Config {
 #[derive(Clone)]
 pub struct Hold {
     symbol: String,
+    network: wallet::Network,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
     invoice_caller: InvoiceCaller,
     cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
@@ -63,6 +65,7 @@ impl Hold {
     pub async fn new(
         cancellation_token: CancellationToken,
         symbol: &str,
+        network: wallet::Network,
         cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
         config: &Config,
@@ -101,6 +104,7 @@ impl Hold {
 
         Ok(Self {
             cln,
+            network,
             offer_helper,
             invoice_caller,
             symbol: symbol.to_string(),
@@ -109,7 +113,7 @@ impl Hold {
     }
 
     pub fn add_offer(&self, offer: String, url: String) -> Result<()> {
-        let signer = Self::prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(self.network, &offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_some() {
             return Err(anyhow!(
                 "an offer for this signing public key was registered already"
@@ -126,7 +130,7 @@ impl Hold {
     }
 
     pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
-        let signer = Self::prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(self.network, &offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
             return Err(anyhow!(
                 "no offer for this signing public key was registered"
@@ -241,7 +245,7 @@ impl Hold {
         res: &[u8],
     ) -> Result<()> {
         let res: InvoiceRequestResponse = serde_json::from_slice(res)?;
-        let invoice = match decode_bolt12_invoice(&res.invoice)? {
+        let invoice = match crate::lightning::invoice::decode(self.network, &res.invoice)? {
             Invoice::Bolt12(invoice) => invoice,
             _ => return Err(anyhow!("invalid invoice")),
         };
@@ -276,13 +280,12 @@ impl Hold {
         }
     }
 
-    fn prepare_offer(offer: &str, url: &str) -> Result<Vec<u8>> {
-        // TODO: check network of offer
+    fn prepare_offer(network: wallet::Network, offer: &str, url: &str) -> Result<Vec<u8>> {
         if let Some(err) = validate_url(url) {
             return Err(anyhow!("invalid URL: {}", err));
         };
 
-        let decoded = match decode_bolt12_offer(offer)? {
+        let decoded = match crate::lightning::invoice::decode(network, offer)? {
             Invoice::Offer(offer) => offer,
             _ => return Err(anyhow!("invalid offer")),
         };
@@ -401,7 +404,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -426,7 +429,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_already_registered() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -453,7 +456,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -497,7 +500,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer_not_registered() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -524,7 +527,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer_invalid_signature() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -569,7 +572,7 @@ mod test {
     #[test]
     fn test_prepare_offer() {
         assert_eq!(
-            Hold::prepare_offer(OFFER, HOOK).unwrap(),
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap(),
             hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
                 .unwrap()
         );
@@ -578,7 +581,7 @@ mod test {
     #[test]
     fn test_prepare_offer_invalid_url() {
         assert_eq!(
-            Hold::prepare_offer("OFFER", "INVALID URL")
+            Hold::prepare_offer(wallet::Network::Regtest, "OFFER", "INVALID URL")
                 .unwrap_err()
                 .to_string(),
             "invalid URL: relative URL without a base"
@@ -588,10 +591,10 @@ mod test {
     #[test]
     fn test_prepare_offer_invalid_offer() {
         assert_eq!(
-            Hold::prepare_offer("invalid", HOOK)
+            Hold::prepare_offer(wallet::Network::Regtest, "invalid", HOOK)
                 .unwrap_err()
                 .to_string(),
-            "invalid invoice: Bech32(Parse(Char(InvalidChar('i'))))"
+            "invalid invoice: ParseError(Bech32Error(Parse(Char(InvalidChar('i')))))"
         );
     }
 }

@@ -38,6 +38,7 @@ pub struct Cln {
 
     symbol: String,
     cln: cln_rpc::node_client::NodeClient<Channel>,
+    offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
 }
 
 impl Cln {
@@ -69,16 +70,17 @@ impl Cln {
             .max_decoding_message_size(1024 * 1024 * 1024);
         Ok(Self {
             symbol: symbol.to_string(),
-            cln: cln.clone(),
             hold: hold::Hold::new(
                 cancellation_token,
                 symbol,
                 network,
-                cln,
-                offer_helper,
+                cln.clone(),
+                offer_helper.clone(),
                 &config.hold,
             )
             .await?,
+            cln,
+            offer_helper,
         })
     }
 
@@ -87,7 +89,11 @@ impl Cln {
         offer: String,
         amount_msat: u64,
     ) -> anyhow::Result<String> {
-        // TODO: handle BOLT12 offers that are registered with a webhook
+        if let Some(offer) = self.offer_helper.get_offer(&offer)? {
+            debug!("Fetching invoice for offer via Webhook");
+            return self.hold.fetch_invoice_webhook(offer, amount_msat).await;
+        }
+
         let res = self
             .cln
             .fetch_invoice(FetchinvoiceRequest {
@@ -251,6 +257,9 @@ pub mod test {
     const HOLD_CERTS_PATH: &str = "../docker/regtest/data/cln/hold";
 
     pub async fn cln_client() -> Cln {
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+        offer_helper.expect_get_offer().returning(|_| Ok(None));
+
         Cln::new(
             CancellationToken::new(),
             "BTC",
@@ -295,7 +304,7 @@ pub mod test {
                         .to_string(),
                 },
             },
-            Arc::new(crate::db::helpers::offer::test::MockOfferHelper::new()),
+            Arc::new(offer_helper),
         )
         .await
         .unwrap()

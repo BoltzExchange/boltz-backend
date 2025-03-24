@@ -312,13 +312,21 @@ describe('NodeSwitch', () => {
   );
 
   test.each`
-    has      | currency
-    ${true}  | ${currency}
-    ${true}  | ${{ lndClient }}
-    ${true}  | ${{ clnClient }}
-    ${false} | ${{}}
-  `('should check if currency has clients', ({ has, currency }) => {
-    expect(NodeSwitch.hasClient(currency)).toEqual(has);
+    has      | currency         | type
+    ${true}  | ${currency}      | ${undefined}
+    ${true}  | ${{ lndClient }} | ${undefined}
+    ${true}  | ${{ clnClient }} | ${undefined}
+    ${false} | ${{}}            | ${undefined}
+    ${true}  | ${currency}      | ${NodeType.LND}
+    ${true}  | ${currency}      | ${NodeType.CLN}
+    ${true}  | ${{ lndClient }} | ${NodeType.LND}
+    ${false} | ${{ lndClient }} | ${NodeType.CLN}
+    ${false} | ${{ clnClient }} | ${NodeType.LND}
+    ${true}  | ${{ clnClient }} | ${NodeType.CLN}
+    ${false} | ${{}}            | ${NodeType.LND}
+    ${false} | ${{}}            | ${NodeType.CLN}
+  `('should check if currency has clients', ({ has, currency, type }) => {
+    expect(NodeSwitch.hasClient(currency, type)).toEqual(has);
   });
 
   describe('getPreferredNode', () => {

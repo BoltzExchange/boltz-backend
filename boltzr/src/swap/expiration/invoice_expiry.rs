@@ -15,14 +15,14 @@ const FAILURE_REASON_EXPIRED_INVOICE: &str = "invoice expired";
 
 pub struct InvoiceExpirationChecker {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
-    currencies: Arc<Currencies>,
+    currencies: Currencies,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
 }
 
 impl InvoiceExpirationChecker {
     pub fn new(
         update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
-        currencies: Arc<Currencies>,
+        currencies: Currencies,
         swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     ) -> Self {
         InvoiceExpirationChecker {
@@ -189,7 +189,7 @@ mod test {
         });
 
         let (tx, _) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpirationChecker::new(tx, Arc::new(get_currencies()), Arc::new(swap));
+        let checker = InvoiceExpirationChecker::new(tx, get_currencies(), Arc::new(swap));
 
         checker.check().unwrap();
     }
@@ -220,7 +220,7 @@ mod test {
             .returning(|_, _, _| Ok(1));
 
         let (tx, mut rx) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpirationChecker::new(tx, Arc::new(get_currencies()), Arc::new(swap));
+        let checker = InvoiceExpirationChecker::new(tx, get_currencies(), Arc::new(swap));
 
         checker.check().unwrap();
 

@@ -87,6 +87,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                                     Cln::new(
                                         cancellation_token.clone(),
                                         &currency.symbol,
+                                        network,
                                         &config,
                                         offer_helper.clone(),
                                     )

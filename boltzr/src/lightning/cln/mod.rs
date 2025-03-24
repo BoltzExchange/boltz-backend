@@ -4,6 +4,7 @@ use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
+use crate::wallet;
 use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -44,6 +45,7 @@ impl Cln {
     pub async fn new(
         cancellation_token: CancellationToken,
         symbol: &str,
+        network: wallet::Network,
         config: &Config,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
     ) -> anyhow::Result<Self> {
@@ -68,6 +70,7 @@ impl Cln {
             hold: hold::Hold::new(
                 cancellation_token,
                 symbol,
+                network,
                 cln_rpc::node_client::NodeClient::new(channel.clone()),
                 offer_helper,
                 &config.hold,
@@ -249,6 +252,7 @@ pub mod test {
         Cln::new(
             CancellationToken::new(),
             "BTC",
+            wallet::Network::Regtest,
             &Config {
                 cln: hold::Config {
                     host: "127.0.0.1".to_string(),

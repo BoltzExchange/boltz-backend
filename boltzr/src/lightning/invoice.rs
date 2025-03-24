@@ -91,14 +91,14 @@ fn parse(invoice_or_offer: &str) -> Result<Invoice, InvoiceError> {
     Err(first_error.unwrap_or(InvoiceError::DecodeError("could not decode".to_string())))
 }
 
-pub fn decode_bolt12_offer(offer: &str) -> Result<Invoice, InvoiceError> {
+fn decode_bolt12_offer(offer: &str) -> Result<Invoice, InvoiceError> {
     match lightning::offers::offer::Offer::from_str(offer) {
         Ok(offer) => Ok(Invoice::Offer(Box::new(offer))),
         Err(err) => Err(InvoiceError::DecodeError(format!("{:?}", err))),
     }
 }
 
-pub fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
+fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
     let dec = match CheckedHrpstring::new::<NoChecksum>(invoice) {
         Ok(dec) => dec,
         Err(err) => return Err(InvoiceError::DecodeError(format!("{:?}", err))),

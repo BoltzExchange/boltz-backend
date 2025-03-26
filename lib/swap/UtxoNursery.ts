@@ -190,6 +190,7 @@ class UtxoNursery extends TypedEventEmitter<{
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
+        confirmed,
         swapOutput.vout,
       ))
     ) {
@@ -776,6 +777,7 @@ class UtxoNursery extends TypedEventEmitter<{
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
+        confirmed,
         swapOutput.vout,
       ))
     ) {

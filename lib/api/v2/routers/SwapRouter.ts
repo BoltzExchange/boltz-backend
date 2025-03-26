@@ -1976,12 +1976,6 @@ class SwapRouter extends RouterBase {
     ]);
     const referralId = parseReferralId(req);
 
-    if (preimageHash !== undefined) {
-      checkPreimageHashLength(preimageHash);
-    } else if (invoice === undefined) {
-      throw 'either preimageHash or invoice must be set';
-    }
-
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
     const webHookData = this.parseWebHook(webhook);
     const extraFeesData = this.parseExtraFees(extraFees);

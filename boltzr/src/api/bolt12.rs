@@ -32,6 +32,9 @@ pub struct UpdateRequest {
     signature: String,
 }
 
+#[derive(Serialize)]
+pub struct UpdateResponse {}
+
 #[derive(Deserialize)]
 pub struct ParamsPath {
     pub currency: String,
@@ -119,7 +122,7 @@ where
     };
 
     cln.hold.update_offer(body.offer, body.url, &signature)?;
-    Ok((StatusCode::OK, Json(CreateResponse {})).into_response())
+    Ok((StatusCode::OK, Json(UpdateResponse {})).into_response())
 }
 
 pub async fn params<S, M>(

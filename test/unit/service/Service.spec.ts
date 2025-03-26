@@ -2812,6 +2812,17 @@ describe('Service', () => {
     mockGetReverseSwapResult = null;
   });
 
+  test.each([1, 2, 3, 21, 31, 33, 64])(
+    'should not create reverse swaps with preimage hash length != 32',
+    async (length) => {
+      await expect(
+        service.createReverseSwap({
+          preimageHash: randomBytes(length),
+        } as any),
+      ).rejects.toEqual(`invalid preimage hash length: ${length}`);
+    },
+  );
+
   test('should create Reverse Swaps with referral IDs', async () => {
     const pair = 'BTC/BTC';
     const orderSide = 'buy';

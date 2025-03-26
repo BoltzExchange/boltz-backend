@@ -32,6 +32,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 ARG VERSION
 RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
 WORKDIR /boltz-backend
+RUN git submodule update --init
 
 # Remove dependency that is not needed for the build and unavailable on ARM64
 RUN sed -i "/grpc-tools/d" package.json
@@ -50,7 +51,7 @@ RUN apt-get update && apt-get -y upgrade && \
     sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     apt-get update && \
-    apt-get -y install postgresql-client-14 postgresql-client-common && \
+    apt-get -y install postgresql-client-17 postgresql-client-common && \
     apt-get clean all && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /boltz-backend/bin /boltz-backend/bin

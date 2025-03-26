@@ -1708,6 +1708,7 @@ class Service {
       throw Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED();
     }
 
+    checkPreimageHashLength(preimageHash);
     await this.checkSwapWithPreimageExists(preimageHash);
 
     const side = this.getOrderSide(args.orderSide);

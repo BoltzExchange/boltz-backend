@@ -11,11 +11,18 @@ class TransactionHook extends Hook<
     super(logger, 'transaction', true, 20_000, notificationClient);
   }
 
-  public hook = (symbol: string, id: string, tx: Buffer, vout?: number) => {
+  public hook = (
+    symbol: string,
+    id: string,
+    tx: Buffer,
+    confirmed: boolean,
+    vout?: number,
+  ) => {
     const msg = new boltzrpc.TransactionHookRequest();
     msg.setSymbol(symbol);
     msg.setId(id);
     msg.setTx(tx);
+    msg.setConfirmed(confirmed);
     if (vout !== undefined) {
       msg.setVout(vout);
     }

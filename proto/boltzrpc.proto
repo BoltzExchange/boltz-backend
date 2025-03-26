@@ -402,9 +402,10 @@ message TransactionHookRequest {
   string symbol = 1;
   string id = 2;
   bytes tx = 3;
+  bool confirmed = 4;
   
   // Set for UTXO based chains
-  optional uint64 vout = 4;
+  optional uint64 vout = 5;
 }
 
 message SetLogLevelRequest {

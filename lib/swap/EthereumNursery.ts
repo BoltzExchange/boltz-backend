@@ -252,6 +252,7 @@ class EthereumNursery extends TypedEventEmitter<{
         getHexBuffer(
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
+        true,
       ))
     ) {
       this.emit('lockup.failed', {
@@ -380,6 +381,7 @@ class EthereumNursery extends TypedEventEmitter<{
         getHexBuffer(
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
+        true,
       ))
     ) {
       this.emit('lockup.failed', {

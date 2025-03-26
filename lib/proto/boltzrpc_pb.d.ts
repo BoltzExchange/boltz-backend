@@ -1629,6 +1629,8 @@ export class TransactionHookRequest extends jspb.Message {
     getTx_asU8(): Uint8Array;
     getTx_asB64(): string;
     setTx(value: Uint8Array | string): TransactionHookRequest;
+    getConfirmed(): boolean;
+    setConfirmed(value: boolean): TransactionHookRequest;
 
     hasVout(): boolean;
     clearVout(): void;
@@ -1650,6 +1652,7 @@ export namespace TransactionHookRequest {
         symbol: string,
         id: string,
         tx: Uint8Array | string,
+        confirmed: boolean,
         vout?: number,
     }
 }

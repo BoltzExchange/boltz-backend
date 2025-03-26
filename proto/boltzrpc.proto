@@ -58,6 +58,7 @@ service Boltz {
   rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
 
   rpc SwapCreationHook (stream SwapCreationResponse) returns (stream SwapCreation);
+  rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
@@ -357,12 +358,12 @@ message CalculateTransactionFeeResponse {
   }
 }
 
-message SwapCreationResponse {
-  enum Action {
-    ACCEPT = 0;
-    REJECT = 1;
-  }
+enum Action {
+  ACCEPT = 0;
+  REJECT = 1;
+}
 
+message SwapCreationResponse {
   string id = 1;
   Action action = 2;
 }
@@ -390,6 +391,20 @@ message SwapCreation {
     Reverse reverse = 6;
     Chain chain = 7;
   }
+}
+
+message TransactionHookResponse {
+  string id = 1;
+  Action action = 2;
+}
+
+message TransactionHookRequest {
+  string symbol = 1;
+  string id = 2;
+  bytes tx = 3;
+  
+  // Set for UTXO based chains
+  optional uint64 vout = 4;
 }
 
 message SetLogLevelRequest {

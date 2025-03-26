@@ -92,7 +92,6 @@ import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import BalanceCheck from './BalanceCheck';
-import Blocks from './Blocks';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
 import EventHandler from './EventHandler';
@@ -166,7 +165,6 @@ class Service {
     public walletManager: WalletManager,
     private nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
-    blocks: Blocks,
     public readonly sidecar: Sidecar,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
@@ -223,7 +221,6 @@ class Service {
           : OutputType.Compatibility,
       ),
       config.retryInterval,
-      blocks,
       config.swap,
       this.lockupTransactionTracker,
       this.sidecar,

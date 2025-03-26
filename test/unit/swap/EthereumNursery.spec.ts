@@ -1,4 +1,5 @@
 import { crypto } from 'bitcoinjs-lib';
+import { Transaction } from 'ethers';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
@@ -15,10 +16,10 @@ import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepositor
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
-import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
+import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -198,15 +199,15 @@ const examplePreimage = getHexBuffer(
 );
 const examplePreimageHash = crypto.sha256(examplePreimage);
 
-const exampleTransaction = {
-  hash: '0x193be8365ec997f97156dbd894d446135eca8cfbfe3417404c50f32015ee5bb2',
-};
-
-const blocks = {
-  isBlocked: jest.fn().mockImplementation((addr) => addr === 'blocked'),
-} as unknown as Blocks;
+const exampleTransaction = Transaction.from(
+  '0x02f8732103843b9aca0084a6fb2cd482520894f39fd6e51aad88f6f4ce6ab8827279cfffb92266893635c9adc5dea0000080c001a03321cede5d110b71d670aaea8353427dea69e67b74f3f3f0fb85c3b682b3cbf4a0240a9787a8807fe07255f0e541ad94b271821660aa3e786699c29c9dd1399d56',
+);
 
 describe('EthereumNursery', () => {
+  const transactionHook = {
+    hook: jest.fn().mockReturnValue(true),
+  } as unknown as TransactionHook;
+
   const nursery = new EthereumNursery(
     Logger.disabledLogger,
     {
@@ -217,7 +218,7 @@ describe('EthereumNursery', () => {
       ]),
     } as any,
     new MockedEthereumManager(),
-    blocks,
+    transactionHook,
     new OverpaymentProtector(Logger.disabledLogger),
   );
 
@@ -495,6 +496,8 @@ describe('EthereumNursery', () => {
   });
 
   test('should reject EtherSwap lockup transaction from blocked addresses', async () => {
+    transactionHook.hook = jest.fn().mockReturnValue(false);
+
     const lockupPromise = new Promise<void>((resolve) => {
       nursery.once('lockup.failed', ({ reason }) => {
         expect(reason).toEqual(Errors.BLOCKED_ADDRESS().message);
@@ -511,7 +514,7 @@ describe('EthereumNursery', () => {
     };
 
     emitEthLockup({
-      transaction: { ...exampleTransaction, from: 'blocked' },
+      transaction: exampleTransaction,
       etherSwapValues: {
         claimAddress: mockAddress,
         amount: BigInt('100000000000'),
@@ -521,6 +524,8 @@ describe('EthereumNursery', () => {
     });
 
     await lockupPromise;
+
+    transactionHook.hook = jest.fn().mockReturnValue(true);
   });
 
   test('should reject overpaid EtherSwap lockup transactions', async () => {
@@ -578,7 +583,7 @@ describe('EthereumNursery', () => {
     await emitEthClaim({
       preimage: examplePreimage,
       preimageHash: examplePreimageHash,
-      transactionHash: exampleTransaction.hash,
+      transactionHash: exampleTransaction.hash!,
     });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
@@ -597,7 +602,7 @@ describe('EthereumNursery', () => {
     await emitEthClaim({
       preimage: examplePreimage,
       preimageHash: examplePreimageHash,
-      transactionHash: exampleTransaction.hash,
+      transactionHash: exampleTransaction.hash!,
     });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
@@ -817,6 +822,8 @@ describe('EthereumNursery', () => {
   });
 
   test('should reject ERC20Swap lockup transaction from blocked addresses', async () => {
+    transactionHook.hook = jest.fn().mockReturnValue(false);
+
     const lockupPromise = new Promise<void>((resolve) => {
       nursery.once('lockup.failed', ({ reason }) => {
         expect(reason).toEqual(Errors.BLOCKED_ADDRESS().message);
@@ -833,7 +840,7 @@ describe('EthereumNursery', () => {
     };
 
     emitErc20Lockup({
-      transaction: { ...exampleTransaction, from: 'blocked' },
+      transaction: exampleTransaction,
       erc20SwapValues: {
         claimAddress: mockAddress,
         amount: BigInt('1000'),
@@ -844,6 +851,8 @@ describe('EthereumNursery', () => {
     });
 
     await lockupPromise;
+
+    transactionHook.hook = jest.fn().mockReturnValue(true);
   });
 
   test('should reject overpaid ERC20 lockup transactions', async () => {
@@ -901,7 +910,7 @@ describe('EthereumNursery', () => {
     await emitErc20Claim({
       preimage: examplePreimage,
       preimageHash: examplePreimageHash,
-      transactionHash: exampleTransaction.hash,
+      transactionHash: exampleTransaction.hash!,
     });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
@@ -920,7 +929,7 @@ describe('EthereumNursery', () => {
     await emitErc20Claim({
       preimage: examplePreimage,
       preimageHash: examplePreimageHash,
-      transactionHash: exampleTransaction.hash,
+      transactionHash: exampleTransaction.hash!,
     });
 
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);

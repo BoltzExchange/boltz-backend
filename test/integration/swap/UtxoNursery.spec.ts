@@ -1,4 +1,4 @@
-import { Transaction, address, crypto, networks } from 'bitcoinjs-lib';
+import { Transaction, crypto, networks } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
@@ -11,12 +11,7 @@ import path from 'path';
 import { parseTransaction, setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import {
-  getHexBuffer,
-  getHexString,
-  getPairId,
-  reverseBuffer,
-} from '../../../lib/Utils';
+import { getHexBuffer, getPairId } from '../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
@@ -28,7 +23,6 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
-import Blocks from '../../../lib/service/Blocks';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Sidecar from '../../../lib/sidecar/Sidecar';
@@ -38,6 +32,7 @@ import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
+import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
 import { wait } from '../../Utils';
 import {
@@ -82,7 +77,6 @@ describe('UtxoNursery', () => {
     [],
   );
 
-  const blocks = new Blocks(Logger.disabledLogger, {});
   const lockupTracker = new LockupTransactionTracker(
     Logger.disabledLogger,
     {
@@ -99,12 +93,17 @@ describe('UtxoNursery', () => {
     new Map<string, Currency>(currencies.map((cur) => [cur.symbol, cur])),
     {} as any,
   );
+
+  const transactionHook = {
+    hook: jest.fn().mockReturnValue(true),
+  } as unknown as TransactionHook;
+
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
     { on: jest.fn() } as any,
     walletManager,
-    blocks,
     lockupTracker,
+    transactionHook,
     new OverpaymentProtector(Logger.disabledLogger),
   );
 
@@ -122,7 +121,6 @@ describe('UtxoNursery', () => {
     new PaymentRequestUtils(),
     new SwapOutputType(OutputType.Compatibility),
     100_000,
-    blocks,
     {
       batchClaimInterval: '',
       expiryTolerance: 10_000,
@@ -202,7 +200,7 @@ describe('UtxoNursery', () => {
   });
 
   afterEach(() => {
-    blocks['blocked'].clear();
+    transactionHook.hook = jest.fn().mockReturnValue(true);
   });
 
   describe('checkChainSwapTransaction', () => {
@@ -313,19 +311,8 @@ describe('UtxoNursery', () => {
           ),
         ),
       );
-      const prevTransaction = parseTransaction<Transaction>(
-        CurrencyType.BitcoinLike,
-        await bitcoinClient.getRawTransaction(
-          getHexString(reverseBuffer(transaction.ins[0].hash)),
-        ),
-      );
 
-      blocks['blocked'].add(
-        address.fromOutputScript(
-          prevTransaction.outs[transaction.ins[0].index].script,
-          networks.regtest,
-        ),
-      );
+      transactionHook.hook = jest.fn().mockReturnValue(false);
 
       bitcoinClient.emit('transaction', {
         transaction,
@@ -502,19 +489,8 @@ describe('UtxoNursery', () => {
           ),
         ),
       );
-      const prevTransaction = parseTransaction<LiquidTransaction>(
-        CurrencyType.Liquid,
-        await elementsClient.getRawTransaction(
-          getHexString(reverseBuffer(transaction.ins[0].hash)),
-        ),
-      );
 
-      blocks['blocked'].add(
-        address.fromOutputScript(
-          prevTransaction.outs[transaction.ins[0].index].script,
-          liquidNetworks.regtest,
-        ),
-      );
+      transactionHook.hook = jest.fn().mockReturnValue(false);
 
       elementsClient.emit('transaction', {
         transaction,

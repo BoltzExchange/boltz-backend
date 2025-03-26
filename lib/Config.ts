@@ -11,7 +11,6 @@ import { PairConfig } from './consts/Types';
 import { RedisConfig } from './db/Redis';
 import { LndConfig } from './lightning/LndClient';
 import { ClnConfig } from './lightning/cln/Types';
-import { BlocksConfig } from './service/Blocks';
 import { SidecarConfig } from './sidecar/Sidecar';
 import { NodeSwitchConfig } from './swap/NodeSwitch';
 
@@ -206,8 +205,6 @@ type ConfigType = {
 
   swap: SwapConfig;
 
-  blocks: BlocksConfig;
-
   api: ApiConfig;
   grpc: GrpcConfig;
   rates: RatesConfig;
@@ -270,8 +267,6 @@ class Config {
         batchClaimInterval: '*/15 * * * *',
         expiryTolerance: 120,
       },
-
-      blocks: {},
 
       api: {
         host: '127.0.0.1',

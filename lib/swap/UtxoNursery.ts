@@ -12,11 +12,9 @@ import {
 } from '../Core';
 import Logger from '../Logger';
 import {
-  chunkArray,
   formatError,
   getChainCurrency,
   getHexBuffer,
-  getHexString,
   isTxConfirmed,
   reverseBuffer,
   splitPairId,
@@ -28,7 +26,6 @@ import ElementsClient from '../chain/ElementsClient';
 import ElementsWrapper from '../chain/ElementsWrapper';
 import type { SomeTransaction } from '../chain/ZmqClient';
 import {
-  CurrencyType,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -43,13 +40,12 @@ import ChainSwapRepository, {
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
-import Blocks from '../service/Blocks';
 import Sidecar from '../sidecar/Sidecar';
 import Wallet from '../wallet/Wallet';
-import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import OverpaymentProtector from './OverpaymentProtector';
+import TransactionHook from './hooks/TransactionHook';
 
 class UtxoNursery extends TypedEventEmitter<{
   // Swap
@@ -98,8 +94,6 @@ class UtxoNursery extends TypedEventEmitter<{
   };
   'chainSwap.expired': ChainSwapInfo;
 }> {
-  private static readonly maxParallelRequests = 6;
-
   private static lockupLock = 'lockupLock';
   private static swapLockupConfirmationLock = 'swapLockupConfirmation';
 
@@ -109,8 +103,8 @@ class UtxoNursery extends TypedEventEmitter<{
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
     private readonly walletManager: WalletManager,
-    private readonly blocks: Blocks,
     private readonly lockupTransactionTracker: LockupTransactionTracker,
+    private readonly transactionHook: TransactionHook,
     private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     super();
@@ -191,12 +185,14 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
-    const prevAddresses = await this.getPreviousAddresses(
-      transaction,
-      chainClient,
-      wallet,
-    );
-    if (prevAddresses.some(this.blocks.isBlocked)) {
+    if (
+      !(await this.transactionHook.hook(
+        wallet.symbol,
+        transaction.getId(),
+        transaction.toBuffer(),
+        swapOutput.vout,
+      ))
+    ) {
       chainClient.removeOutputFilter(swapOutput.script);
       this.emit('chainSwap.lockup.failed', {
         swap,
@@ -775,12 +771,14 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     }
 
-    const prevAddresses = await this.getPreviousAddresses(
-      transaction,
-      chainClient,
-      wallet,
-    );
-    if (prevAddresses.some(this.blocks.isBlocked)) {
+    if (
+      !(await this.transactionHook.hook(
+        wallet.symbol,
+        transaction.getId(),
+        transaction.toBuffer(),
+        swapOutput.vout,
+      ))
+    ) {
       this.emit('swap.lockup.failed', {
         swap: updatedSwap,
         reason: Errors.BLOCKED_ADDRESS().message,
@@ -906,53 +904,6 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     return undefined;
-  };
-
-  private getPreviousAddresses = async (
-    transaction: Transaction | LiquidTransaction,
-    chainClient: IChainClient,
-    wallet: Wallet,
-  ): Promise<string[]> => {
-    const inputTxsIds = chunkArray(
-      Array.from(
-        new Set<string>(
-          transaction.ins.map((input) =>
-            getHexString(reverseBuffer(input.hash)),
-          ),
-        ).values(),
-      ),
-      UtxoNursery.maxParallelRequests,
-    );
-
-    const inputTxs = (
-      await Promise.all(
-        inputTxsIds.map((ids) => this.getTransactions(chainClient, ids)),
-      )
-    )
-      .flat()
-      .map((txHex) => parseTransaction(wallet.type, txHex));
-
-    return inputTxs
-      .map((tx) => tx.outs)
-      .flat()
-      .map((output) =>
-        wallet.type === CurrencyType.Liquid
-          ? (wallet as WalletLiquid).encodeAddress(output.script, false)
-          : wallet.encodeAddress(output.script),
-      );
-  };
-
-  private getTransactions = async (
-    chainClient: IChainClient,
-    ids: string[],
-  ) => {
-    const txs: string[] = [];
-
-    for (const id of ids) {
-      txs.push(await chainClient.getRawTransaction(id));
-    }
-
-    return txs;
   };
 
   private logFoundTransaction = (

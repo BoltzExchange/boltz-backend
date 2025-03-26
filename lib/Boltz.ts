@@ -29,7 +29,6 @@ import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 import NotificationClient from './notifications/NotificationClient';
 import NotificationProvider from './notifications/NotificationProvider';
-import Blocks from './service/Blocks';
 import Service from './service/Service';
 import Sidecar from './sidecar/Sidecar';
 import NodeSwitch from './swap/NodeSwitch';
@@ -52,7 +51,6 @@ class Boltz {
   private readonly notifications?: NotificationProvider;
 
   private readonly api!: Api;
-  private readonly blocks: Blocks;
   private readonly grpcServer!: GrpcServer;
   private readonly prometheus: Prometheus;
 
@@ -157,8 +155,6 @@ class Boltz {
       this.ethereumManagers,
     );
 
-    this.blocks = new Blocks(this.logger, this.config.blocks);
-
     this.sidecar = new Sidecar(
       this.logger,
       this.config.sidecar,
@@ -178,7 +174,6 @@ class Boltz {
         this.walletManager,
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
-        this.blocks,
         this.sidecar,
       );
 
@@ -281,8 +276,6 @@ class Boltz {
       await this.notifications?.init();
 
       await this.grpcServer.listen();
-
-      await this.blocks.updateBlocks();
       await this.api.init();
 
       // Rescan chains after everything else was initialized to avoid race conditions

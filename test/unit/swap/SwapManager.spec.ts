@@ -33,7 +33,6 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import Blocks from '../../../lib/service/Blocks';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
@@ -354,10 +353,6 @@ jest.mock('../../../lib/swap/SwapNursery', () => {
   }));
 });
 
-const blocks = {
-  isBlocked: jest.fn().mockReturnValue(false),
-} as unknown as Blocks;
-
 describe('SwapManager', () => {
   let manager: SwapManager;
 
@@ -451,7 +446,6 @@ describe('SwapManager', () => {
       {} as PaymentRequestUtils,
       new SwapOutputType(OutputType.Compatibility),
       0,
-      blocks,
       {
         deferredClaimSymbols: [],
       } as any,
@@ -762,7 +756,7 @@ describe('SwapManager', () => {
     const acceptZeroConf = false;
     const emitSwapInvoiceSet = jest.fn().mockImplementation();
 
-    const creationHook = jest.spyOn(manager.creationHook, 'swapCreationHook');
+    const creationHook = jest.spyOn(manager.creationHook, 'hook');
     await manager.setSwapInvoice(
       swap,
       invoice,
@@ -1058,7 +1052,7 @@ describe('SwapManager', () => {
     const percentageFee = 1;
     const invoiceExpiry = 6_111;
 
-    const creationHook = jest.spyOn(manager.creationHook, 'swapCreationHook');
+    const creationHook = jest.spyOn(manager.creationHook, 'hook');
 
     const reverseSwap = await manager.createReverseSwap({
       orderSide,
@@ -1317,24 +1311,6 @@ describe('SwapManager', () => {
         quoteCurrency: notFoundSymbol,
       }),
     ).rejects.toEqual(Errors.NO_LIGHTNING_SUPPORT(notFoundSymbol));
-  });
-
-  test('should throw when creating reverse swaps to blocked addresses', async () => {
-    const claimAddress = '0x123';
-    blocks.isBlocked = jest.fn().mockReturnValue(true);
-
-    await expect(
-      manager.createReverseSwap({
-        claimAddress,
-        orderSide: OrderSide.SELL,
-        baseCurrency: btcCurrency.symbol,
-        quoteCurrency: rbtcCurrency.symbol,
-      } as any),
-    ).rejects.toEqual(Errors.BLOCKED_ADDRESS());
-    expect(blocks.isBlocked).toHaveBeenCalledTimes(1);
-    expect(blocks.isBlocked).toHaveBeenCalledWith(claimAddress);
-
-    blocks.isBlocked = jest.fn().mockReturnValue(false);
   });
 
   test('should create reverse swap with covenant', async () => {

@@ -1455,8 +1455,8 @@ export namespace CalculateTransactionFeeResponse {
 export class SwapCreationResponse extends jspb.Message { 
     getId(): string;
     setId(value: string): SwapCreationResponse;
-    getAction(): SwapCreationResponse.Action;
-    setAction(value: SwapCreationResponse.Action): SwapCreationResponse;
+    getAction(): Action;
+    setAction(value: Action): SwapCreationResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SwapCreationResponse.AsObject;
@@ -1471,14 +1471,8 @@ export class SwapCreationResponse extends jspb.Message {
 export namespace SwapCreationResponse {
     export type AsObject = {
         id: string,
-        action: SwapCreationResponse.Action,
+        action: Action,
     }
-
-    export enum Action {
-    ACCEPT = 0,
-    REJECT = 1,
-    }
-
 }
 
 export class SwapCreation extends jspb.Message { 
@@ -1601,6 +1595,63 @@ export namespace SwapCreation {
         CHAIN = 7,
     }
 
+}
+
+export class TransactionHookResponse extends jspb.Message { 
+    getId(): string;
+    setId(value: string): TransactionHookResponse;
+    getAction(): Action;
+    setAction(value: Action): TransactionHookResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): TransactionHookResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: TransactionHookResponse): TransactionHookResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: TransactionHookResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): TransactionHookResponse;
+    static deserializeBinaryFromReader(message: TransactionHookResponse, reader: jspb.BinaryReader): TransactionHookResponse;
+}
+
+export namespace TransactionHookResponse {
+    export type AsObject = {
+        id: string,
+        action: Action,
+    }
+}
+
+export class TransactionHookRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): TransactionHookRequest;
+    getId(): string;
+    setId(value: string): TransactionHookRequest;
+    getTx(): Uint8Array | string;
+    getTx_asU8(): Uint8Array;
+    getTx_asB64(): string;
+    setTx(value: Uint8Array | string): TransactionHookRequest;
+
+    hasVout(): boolean;
+    clearVout(): void;
+    getVout(): number | undefined;
+    setVout(value: number): TransactionHookRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): TransactionHookRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: TransactionHookRequest): TransactionHookRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: TransactionHookRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): TransactionHookRequest;
+    static deserializeBinaryFromReader(message: TransactionHookRequest, reader: jspb.BinaryReader): TransactionHookRequest;
+}
+
+export namespace TransactionHookRequest {
+    export type AsObject = {
+        symbol: string,
+        id: string,
+        tx: Uint8Array | string,
+        vout?: number,
+    }
 }
 
 export class SetLogLevelRequest extends jspb.Message { 
@@ -1754,4 +1805,9 @@ export enum LogLevel {
     VERBOSE = 3,
     DEBUG = 4,
     SILLY = 5,
+}
+
+export enum Action {
+    ACCEPT = 0,
+    REJECT = 1,
 }

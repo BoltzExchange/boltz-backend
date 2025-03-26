@@ -60,7 +60,6 @@ import NotificationClient from '../notifications/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import BalanceCheck from '../service/BalanceCheck';
-import Blocks from '../service/Blocks';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import PaymentRequestUtils from '../service/PaymentRequestUtils';
 import Renegotiator from '../service/Renegotiator';
@@ -72,13 +71,13 @@ import { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
-import CreationHook from './CreationHook';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
 import NodeSwitch from './NodeSwitch';
 import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
 import SwapOutputType from './SwapOutputType';
+import CreationHook from './hooks/CreationHook';
 import RoutingHints from './routing/RoutingHints';
 
 type ChannelCreationInfo = {
@@ -180,7 +179,6 @@ class SwapManager {
     paymentRequestUtils: PaymentRequestUtils,
     private readonly swapOutputType: SwapOutputType,
     retryInterval: number,
-    private readonly blocks: Blocks,
     swapConfig: SwapConfig,
     lockupTransactionTracker: LockupTransactionTracker,
     private readonly sidecar: Sidecar,
@@ -217,7 +215,6 @@ class SwapManager {
       this.walletManager,
       this.swapOutputType,
       retryInterval,
-      this.blocks,
       this.deferredClaimer,
       this.chainSwapSigner,
       lockupTransactionTracker,
@@ -242,7 +239,7 @@ class SwapManager {
       paymentRequestUtils,
     );
 
-    this.creationHook = new CreationHook(this.logger);
+    this.creationHook = new CreationHook(this.logger, notifications);
   }
 
   public init = async (
@@ -619,7 +616,7 @@ class SwapManager {
     );
 
     if (
-      !(await this.creationHook.swapCreationHook(swap.type, {
+      !(await this.creationHook.hook(swap.type, {
         invoiceAmount,
         id: swap.id,
         referral: swap.referral,
@@ -735,7 +732,7 @@ class SwapManager {
     }
 
     if (
-      !(await this.creationHook.swapCreationHook(SwapType.ReverseSubmarine, {
+      !(await this.creationHook.hook(SwapType.ReverseSubmarine, {
         id,
         referral: args.referralId,
         invoiceAmount: args.holdInvoiceAmount,
@@ -749,10 +746,6 @@ class SwapManager {
     const isBitcoinLike =
       sendingCurrency.type === CurrencyType.BitcoinLike ||
       sendingCurrency.type === CurrencyType.Liquid;
-
-    if (!isBitcoinLike && this.blocks.isBlocked(args.claimAddress!)) {
-      throw Errors.BLOCKED_ADDRESS();
-    }
 
     const pair = getPairId({
       base: args.baseCurrency,
@@ -1030,7 +1023,7 @@ class SwapManager {
     }
 
     if (
-      !(await this.creationHook.swapCreationHook(SwapType.Chain, {
+      !(await this.creationHook.hook(SwapType.Chain, {
         id,
         referral: args.referralId,
         userLockAmount: args.userLockAmount,
@@ -1039,16 +1032,6 @@ class SwapManager {
       }))
     ) {
       throw Errors.HOOK_REJECTED();
-    }
-
-    if (
-      !(
-        sendingCurrency.type === CurrencyType.BitcoinLike ||
-        sendingCurrency.type === CurrencyType.Liquid
-      ) &&
-      this.blocks.isBlocked(args.claimAddress!)
-    ) {
-      throw Errors.BLOCKED_ADDRESS();
     }
 
     const createChainData = async (

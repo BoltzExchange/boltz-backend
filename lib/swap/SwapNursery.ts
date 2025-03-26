@@ -63,7 +63,6 @@ import NotificationClient from '../notifications/NotificationClient';
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
-import Blocks from '../service/Blocks';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
@@ -88,6 +87,7 @@ import OverpaymentProtector from './OverpaymentProtector';
 import PaymentHandler, { SwapNurseryEvents } from './PaymentHandler';
 import SwapOutputType from './SwapOutputType';
 import UtxoNursery from './UtxoNursery';
+import TransactionHook from './hooks/TransactionHook';
 
 type PaidSwapInvoice = {
   preimage: Buffer;
@@ -122,6 +122,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   private static retryLock = 'retry';
 
+  public readonly transactionHook: TransactionHook;
+
   constructor(
     private logger: Logger,
     private readonly sidecar: Sidecar,
@@ -132,7 +134,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     public walletManager: WalletManager,
     private swapOutputType: SwapOutputType,
     private retryInterval: number,
-    blocks: Blocks,
     private readonly claimer: DeferredClaimer,
     private readonly chainSwapSigner: ChainSwapSigner,
     lockupTransactionTracker: LockupTransactionTracker,
@@ -143,6 +144,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.logger.info(`Setting Swap retry interval to ${retryInterval} seconds`);
 
+    this.transactionHook = new TransactionHook(this.logger, notifications);
+
     const overpaymentProtector = new OverpaymentProtector(
       this.logger,
       overPaymentConfig,
@@ -151,8 +154,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.logger,
       this.sidecar,
       this.walletManager,
-      blocks,
       lockupTransactionTracker,
+      this.transactionHook,
       overpaymentProtector,
     );
     this.lightningNursery = new LightningNursery(this.logger, this.sidecar);
@@ -168,7 +171,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.logger,
           this.walletManager,
           manager,
-          blocks,
+          this.transactionHook,
           overpaymentProtector,
         ),
     );

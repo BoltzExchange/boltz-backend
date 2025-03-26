@@ -1,8 +1,8 @@
 import { status } from '@grpc/grpc-js';
-import Logger from '../../../lib/Logger';
-import { SwapType } from '../../../lib/consts/Enums';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
-import CreationHook from '../../../lib/swap/CreationHook';
+import Logger from '../../../../lib/Logger';
+import { SwapType } from '../../../../lib/consts/Enums';
+import * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
+import CreationHook from '../../../../lib/swap/hooks/CreationHook';
 
 describe('CreationHook', () => {
   let hook: CreationHook;
@@ -50,9 +50,9 @@ describe('CreationHook', () => {
     });
 
     test.each`
-      action                                         | result
-      ${boltzrpc.SwapCreationResponse.Action.ACCEPT} | ${true}
-      ${boltzrpc.SwapCreationResponse.Action.REJECT} | ${false}
+      action                    | result
+      ${boltzrpc.Action.ACCEPT} | ${true}
+      ${boltzrpc.Action.REJECT} | ${false}
     `('should handle hook on data $action', ({ action, result }) => {
       const pendingHookId = '1';
       const pendingHook = jest.fn();
@@ -82,13 +82,13 @@ describe('CreationHook', () => {
       expect(hook['stream']).toBeUndefined();
 
       await expect(
-        hook.swapCreationHook(SwapType.Submarine, {
+        hook.hook(SwapType.Submarine, {
           id: '1',
           symbolSending: 'BTC',
           symbolReceiving: 'BTC',
           invoiceAmount: 1,
         }),
-      ).resolves.toEqual(CreationHook['defaultAction']);
+      ).resolves.toEqual(hook['defaultAction']);
     });
 
     test('should resolve default action if hook is not resolved after timeout', async () => {
@@ -97,7 +97,7 @@ describe('CreationHook', () => {
       hook.connectToStream(stream);
 
       const id = '1';
-      const promise = hook.swapCreationHook(SwapType.Submarine, {
+      const promise = hook.hook(SwapType.Submarine, {
         id,
         symbolSending: 'BTC',
         symbolReceiving: 'BTC',
@@ -107,7 +107,7 @@ describe('CreationHook', () => {
 
       jest.runAllTimers();
 
-      await expect(promise).resolves.toEqual(CreationHook['defaultAction']);
+      await expect(promise).resolves.toEqual(hook['defaultAction']);
       expect(hook['pendingHooks'].has(id)).toEqual(false);
     });
 
@@ -127,7 +127,7 @@ describe('CreationHook', () => {
         invoiceAmount: 1_321,
       };
 
-      const promise = hook.swapCreationHook(SwapType.Submarine, params);
+      const promise = hook.hook(SwapType.Submarine, params);
       hook['pendingHooks'].get(params.id)?.(true);
       await promise;
 
@@ -157,7 +157,7 @@ describe('CreationHook', () => {
         invoiceAmount: 1_321,
       };
 
-      const promise = hook.swapCreationHook(SwapType.ReverseSubmarine, params);
+      const promise = hook.hook(SwapType.ReverseSubmarine, params);
       hook['pendingHooks'].get(params.id)?.(true);
       await promise;
 
@@ -187,7 +187,7 @@ describe('CreationHook', () => {
         userLockAmount: 1_321,
       };
 
-      const promise = hook.swapCreationHook(SwapType.Chain, params);
+      const promise = hook.hook(SwapType.Chain, params);
       hook['pendingHooks'].get(params.id)?.(true);
       await promise;
 
@@ -216,7 +216,7 @@ describe('CreationHook', () => {
     expect(hook['stream']).toBeUndefined();
 
     expect(pendingHook).toHaveBeenCalledTimes(1);
-    expect(pendingHook).toHaveBeenCalledWith(CreationHook['defaultAction']);
+    expect(pendingHook).toHaveBeenCalledWith(hook['defaultAction']);
     expect(hook['pendingHooks'].size).toEqual(0);
     expect(hook['pendingHooks'].has(pendingHookId)).toEqual(false);
   });

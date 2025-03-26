@@ -4,7 +4,9 @@ import Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
+  getHexBuffer,
   getHexString,
+  removeHexPrefix,
   splitPairId,
 } from '../Utils';
 import { etherDecimals } from '../consts/Consts';
@@ -24,13 +26,13 @@ import ChainSwapRepository, {
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
-import Blocks from '../service/Blocks';
 import Wallet from '../wallet/Wallet';
 import WalletManager from '../wallet/WalletManager';
 import EthereumManager from '../wallet/ethereum/EthereumManager';
 import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
 import OverpaymentProtector from './OverpaymentProtector';
+import TransactionHook from './hooks/TransactionHook';
 
 class EthereumNursery extends TypedEventEmitter<{
   // EtherSwap
@@ -67,7 +69,7 @@ class EthereumNursery extends TypedEventEmitter<{
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     public readonly ethereumManager: EthereumManager,
-    private readonly blocks: Blocks,
+    private readonly transactionHook: TransactionHook,
     private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     super();
@@ -243,7 +245,15 @@ class EthereumNursery extends TypedEventEmitter<{
       }
     }
 
-    if (this.blocks.isBlocked(transaction.from!)) {
+    if (
+      !(await this.transactionHook.hook(
+        this.ethereumManager.networkDetails.name,
+        transaction.hash!,
+        getHexBuffer(
+          removeHexPrefix(Transaction.from(transaction).serialized!),
+        ),
+      ))
+    ) {
       this.emit('lockup.failed', {
         swap,
         reason: Errors.BLOCKED_ADDRESS().message,
@@ -363,7 +373,15 @@ class EthereumNursery extends TypedEventEmitter<{
       }
     }
 
-    if (this.blocks.isBlocked(transaction.from!)) {
+    if (
+      !(await this.transactionHook.hook(
+        wallet.symbol,
+        transaction.hash!,
+        getHexBuffer(
+          removeHexPrefix(Transaction.from(transaction).serialized!),
+        ),
+      ))
+    ) {
       this.emit('lockup.failed', {
         swap,
         reason: Errors.BLOCKED_ADDRESS().message,

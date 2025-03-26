@@ -775,7 +775,6 @@ describe('Service', () => {
     mockedWalletManager(),
     new NodeSwitch(Logger.disabledLogger),
     currencies,
-    {} as any,
     sidecar,
   );
 

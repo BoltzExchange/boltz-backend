@@ -45,6 +45,7 @@ class GrpcServer {
       setLogLevel: grpcService.setLogLevel,
       calculateTransactionFee: grpcService.calculateTransactionFee,
       swapCreationHook: grpcService.swapCreationHook,
+      transactionHook: grpcService.transactionHook,
       getReferrals: grpcService.getReferrals,
       setReferral: grpcService.setReferral,
       devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,

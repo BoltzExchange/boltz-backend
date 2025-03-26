@@ -24,10 +24,10 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
-import Blocks from '../../../lib/service/Blocks';
 import Errors from '../../../lib/swap/Errors';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
+import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 
 type blockCallback = (height: number) => void;
@@ -176,9 +176,9 @@ describe('UtxoNursery', () => {
   const btcWallet = new MockedWallet();
   const btcChainClient = new MockedChainClient('BTC');
 
-  const blocks = {
-    isBlocked: jest.fn().mockReturnValue(false),
-  } as unknown as Blocks;
+  const transactionHook = {
+    hook: jest.fn().mockReturnValue(true),
+  } as unknown as TransactionHook;
   const lockupTracker = {
     zeroConfAccepted: jest.fn().mockReturnValue(true),
     isAcceptable: jest.fn().mockResolvedValue(true),
@@ -190,8 +190,8 @@ describe('UtxoNursery', () => {
     {
       wallets: new Map<string, any>([['BTC', btcWallet]]),
     } as any,
-    blocks,
     lockupTracker,
+    transactionHook,
     new OverpaymentProtector(Logger.disabledLogger),
   );
 
@@ -279,7 +279,7 @@ describe('UtxoNursery', () => {
       },
     });
 
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledWith(transaction.outs[0].script);
 
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -422,7 +422,7 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
     expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledTimes(1);
@@ -480,7 +480,7 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
@@ -510,7 +510,7 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
@@ -536,10 +536,10 @@ describe('UtxoNursery', () => {
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(4);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-    expect(mockGetRawTransaction).toHaveBeenCalledTimes(4);
+    expect(mockGetRawTransaction).toHaveBeenCalledTimes(2);
     expect(mockGetRawTransaction).toHaveBeenNthCalledWith(
       1,
       'a21b0b3763a64ce2e5da23c52e3496c70c2b3268a37633653e21325ba64d4056',
@@ -663,12 +663,12 @@ describe('UtxoNursery', () => {
       });
     });
 
-    blocks.isBlocked = jest.fn().mockReturnValue(true);
+    transactionHook.hook = jest.fn().mockReturnValue(false);
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
-    expect(blocks.isBlocked).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
 
-    blocks.isBlocked = jest.fn().mockReturnValue(false);
+    transactionHook.hook = jest.fn().mockReturnValue(true);
 
     await failPromise;
   });

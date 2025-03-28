@@ -27,7 +27,7 @@ class Image:
 
 UBUNTU_VERSION = BuildArgument(
     name="UBUNTU_VERSION",
-    value="22.04",
+    value="24.04",
 )
 
 NODE_VERSION = BuildArgument(

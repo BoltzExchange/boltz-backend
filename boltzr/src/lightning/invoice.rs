@@ -60,6 +60,7 @@ impl Invoice {
         match network {
             wallet::Network::Mainnet => ChainHash::BITCOIN,
             wallet::Network::Testnet => ChainHash::TESTNET3,
+            wallet::Network::Signet => ChainHash::SIGNET,
             wallet::Network::Regtest => ChainHash::REGTEST,
         }
     }

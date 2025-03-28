@@ -15,6 +15,7 @@ impl Bitcoin {
             network: match network {
                 Network::Mainnet => bitcoin::Network::Bitcoin,
                 Network::Testnet => bitcoin::Network::Testnet,
+                Network::Signet => bitcoin::Network::Signet,
                 Network::Regtest => bitcoin::Network::Regtest,
             },
             keys: Keys::new(seed, path)?,

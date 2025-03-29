@@ -50,7 +50,8 @@ RUN apt-get update && \
   sqlite3 \
   libpq-dev \
   libsodium23 \
-  libevent-dev && \
+  libevent-dev \
+  ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy binaries

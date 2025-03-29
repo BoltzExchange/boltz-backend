@@ -1,6 +1,5 @@
-use crate::cache::{Cache, CacheConfig};
+use crate::cache::CacheConfig;
 use anyhow::Result;
-use async_trait::async_trait;
 use redis::Client;
 use redis::aio::MultiplexedConnection;
 use serde::Serialize;
@@ -9,7 +8,6 @@ use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct Redis {
-    default_expiry: u64,
     connection: MultiplexedConnection,
 }
 
@@ -18,7 +16,6 @@ impl Redis {
         let client = Client::open(&*config.redis_endpoint)?;
 
         let cache = Self {
-            default_expiry: config.default_expiry,
             connection: client.get_multiplexed_tokio_connection().await?,
         };
         info!("Connected to Redis cache");
@@ -26,9 +23,8 @@ impl Redis {
     }
 }
 
-#[async_trait]
-impl Cache for Redis {
-    async fn get<V: DeserializeOwned>(&self, key: &str) -> Result<Option<V>> {
+impl Redis {
+    pub async fn get<V: DeserializeOwned>(&self, key: &str) -> Result<Option<V>> {
         let res: Option<String> = redis::cmd("GET")
             .arg(key)
             .query_async(&mut self.connection.clone())
@@ -40,18 +36,21 @@ impl Cache for Redis {
         })
     }
 
-    async fn set<V: Serialize + Sync>(&self, key: &str, value: &V) -> Result<()> {
-        self.set_ttl(key, value, self.default_expiry).await
-    }
+    pub async fn set<V: Serialize + Sync>(
+        &self,
+        key: &str,
+        value: &V,
+        ttl: Option<u64>,
+    ) -> Result<()> {
+        let json_value = serde_json::to_string(value)?;
+        let mut cmd = redis::cmd("SET");
+        cmd.arg(key).arg(&json_value);
 
-    async fn set_ttl<V: Serialize + Sync>(&self, key: &str, value: &V, ttl: u64) -> Result<()> {
-        redis::cmd("SET")
-            .arg(key)
-            .arg(serde_json::to_string(value)?)
-            .arg("EX")
-            .arg(ttl)
-            .exec_async(&mut self.connection.clone())
-            .await?;
+        if let Some(ttl) = ttl {
+            cmd.arg("EX").arg(ttl);
+        }
+
+        cmd.exec_async(&mut self.connection.clone()).await?;
         Ok(())
     }
 }
@@ -72,7 +71,6 @@ mod test {
     async fn test_get_set() {
         let cache = Redis::new(&CacheConfig {
             redis_endpoint: REDIS_ENDPOINT.to_string(),
-            default_expiry: 120,
         })
         .await
         .unwrap();
@@ -82,7 +80,7 @@ mod test {
             data: "is super hard to compute".to_string(),
         };
 
-        cache.set(key, &data).await.unwrap();
+        cache.set(key, &data, None).await.unwrap();
         assert_eq!(cache.get::<Data>(key).await.unwrap().unwrap(), data);
     }
 
@@ -90,7 +88,6 @@ mod test {
     async fn test_get_empty() {
         let cache = Redis::new(&CacheConfig {
             redis_endpoint: REDIS_ENDPOINT.to_string(),
-            default_expiry: 120,
         })
         .await
         .unwrap();
@@ -99,16 +96,14 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_set_default_ttl() {
-        let default_expiry = 120;
+    async fn test_set() {
         let cache = Redis::new(&CacheConfig {
-            default_expiry,
             redis_endpoint: REDIS_ENDPOINT.to_string(),
         })
         .await
         .unwrap();
 
-        let key = "test:ttl_default";
+        let key = "test:no_ttl";
 
         cache
             .set(
@@ -116,6 +111,7 @@ mod test {
                 &Data {
                     data: "ttl".to_string(),
                 },
+                None,
             )
             .await
             .unwrap();
@@ -126,13 +122,12 @@ mod test {
             .await
             .unwrap();
 
-        assert!(ttl >= default_expiry - 1 && ttl <= default_expiry);
+        assert!(ttl >= 18446744073709551610);
     }
 
     #[tokio::test]
     async fn test_set_ttl() {
         let cache = Redis::new(&CacheConfig {
-            default_expiry: 120,
             redis_endpoint: REDIS_ENDPOINT.to_string(),
         })
         .await
@@ -142,12 +137,12 @@ mod test {
 
         let ttl_set = 21;
         cache
-            .set_ttl(
+            .set(
                 key,
                 &Data {
                     data: "ttl".to_string(),
                 },
-                ttl_set,
+                Some(ttl_set),
             )
             .await
             .unwrap();

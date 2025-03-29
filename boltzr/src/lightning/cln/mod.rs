@@ -55,7 +55,8 @@ impl Cln {
 
         Ok(Cln {
             symbol: symbol.to_string(),
-            cln: cln_rpc::node_client::NodeClient::new(channel),
+            cln: cln_rpc::node_client::NodeClient::new(channel)
+                .max_decoding_message_size(1024 * 1024 * 1024),
         })
     }
 

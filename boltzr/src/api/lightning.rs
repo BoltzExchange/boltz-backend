@@ -2,7 +2,6 @@ use crate::api::ServerState;
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
-use crate::service::InfoFetchError;
 use crate::swap::manager::SwapManager;
 use alloy::hex;
 use anyhow::Result;
@@ -78,7 +77,7 @@ where
         match state
             .service
             .lightning_info
-            .get_node_info(&currency, node)
+            .get_node_info(&currency, &node)
             .await
         {
             Ok(res) => (StatusCode::OK, Json(res)).into_response(),
@@ -104,7 +103,7 @@ where
         match state
             .service
             .lightning_info
-            .get_channels(&currency, node)
+            .get_channels(&currency, &node)
             .await
         {
             Ok(res) => (StatusCode::OK, Json(res)).into_response(),
@@ -138,17 +137,11 @@ fn decode_node(node: &str) -> Result<Vec<u8>, Box<axum::http::Response<axum::bod
     })
 }
 
-fn handle_info_fetch_error(err: InfoFetchError) -> axum::http::Response<axum::body::Body> {
+fn handle_info_fetch_error(err: anyhow::Error) -> axum::http::Response<axum::body::Body> {
     (
-        match err {
-            InfoFetchError::NoNode => StatusCode::NOT_FOUND,
-            InfoFetchError::FetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        },
+        StatusCode::NOT_FOUND,
         Json(ApiError {
-            error: match err {
-                InfoFetchError::NoNode => "no node available".to_string(),
-                InfoFetchError::FetchError(err) => format!("{}", err),
-            },
+            error: err.to_string(),
         }),
     )
         .into_response()

@@ -4,13 +4,16 @@ use crate::currencies::Currencies;
 use crate::lightning::cln::Cln;
 use crate::lightning::cln::cln_rpc::ListchannelsChannels;
 use alloy::hex;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use tracing::{debug, info, warn};
 
-const CACHE_NODE_TTL_SECS: u64 = 3_600;
-const CACHE_CHANNELS_TTL_SECS: u64 = 600;
+const CACHE_TTL_SECS: u64 = 3_600;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -71,139 +74,150 @@ impl From<(ListchannelsChannels, Node)> for Channel {
     }
 }
 
-#[derive(Debug)]
-pub enum InfoFetchError {
-    NoNode,
-    FetchError(anyhow::Error),
-}
-
-impl From<anyhow::Error> for InfoFetchError {
-    fn from(value: anyhow::Error) -> Self {
-        InfoFetchError::FetchError(value)
-    }
-}
-
 #[async_trait]
 pub trait LightningInfo {
-    async fn get_channels(
-        &self,
-        symbol: &str,
-        destination: Vec<u8>,
-    ) -> Result<Vec<Channel>, InfoFetchError>;
-
-    async fn get_node_info(&self, symbol: &str, node: Vec<u8>) -> Result<Node, InfoFetchError>;
+    async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>>;
+    async fn get_node_info(&self, symbol: &str, node: &[u8]) -> Result<Node>;
 }
 
-pub struct ClnLightningInfo<C: Cache + Send + Sync> {
+#[derive(Clone)]
+pub struct ClnLightningInfo {
+    cache: Cache,
     currencies: Currencies,
-    cache: Option<C>,
 }
 
-impl<C: Cache + Send + Sync> ClnLightningInfo<C> {
-    pub fn new(cache: Option<C>, currencies: Currencies) -> Self {
-        Self { cache, currencies }
-    }
+impl ClnLightningInfo {
+    pub fn new(cache: Cache, currencies: Currencies) -> Self {
+        let info = Self { cache, currencies };
 
-    async fn get_node_info_from_cln(&self, cln: &mut Cln, id: Vec<u8>) -> anyhow::Result<Node> {
-        let cache_key = Self::cache_key_node(&cln.symbol(), &id);
-        if let Some(cache) = &self.cache {
-            if let Some(node) = cache.get(&cache_key).await? {
-                return Ok(node);
-            }
+        {
+            let interval_duration = Duration::from_secs(CACHE_TTL_SECS - 60);
+            info!("Updating lightning gossip every: {:?}", interval_duration);
+            let mut interval = tokio::time::interval(interval_duration);
+
+            let info = info.clone();
+            tokio::spawn(async move {
+                loop {
+                    interval.tick().await;
+
+                    for currency in info.currencies.values() {
+                        let mut cln = match &currency.cln {
+                            Some(cln) => cln.clone(),
+                            None => continue,
+                        };
+
+                        let start = Instant::now();
+                        match info.update_cache(&mut cln).await {
+                            Ok(_) => {
+                                debug!(
+                                    "Updated {} lighting gossip in: {:?}",
+                                    cln.symbol(),
+                                    start.elapsed()
+                                );
+                            }
+                            Err(err) => {
+                                warn!("Updating {} lightning gossip failed: {}", cln.symbol(), err);
+                            }
+                        }
+                    }
+                }
+            });
         }
 
-        let mut node = Node {
-            id: hex::encode(&id),
-            alias: None,
-            color: None,
-        };
+        info
+    }
 
-        let nodes = cln.list_nodes(Some(id)).await?;
-        if !nodes.is_empty() {
-            let node_entry = nodes[0].clone();
-            node.alias = node_entry.alias;
-            node.color = node_entry.color.map(hex::encode);
-        };
+    async fn update_cache(&self, cln: &mut Cln) -> Result<()> {
+        let symbol = cln.symbol();
+        info!("Updating {} lightning gossip", symbol);
 
-        if let Some(cache) = &self.cache {
-            cache
-                .set_ttl(&cache_key, &node, CACHE_NODE_TTL_SECS)
+        let mut node_infos = HashMap::new();
+        for node in cln.list_nodes(None).await? {
+            let id_hex = hex::encode(&node.nodeid);
+            let node_info = Node {
+                id: id_hex.clone(),
+                alias: node.alias,
+                color: node.color.map(hex::encode),
+            };
+            self.cache
+                .set(
+                    &Self::cache_key_node(&symbol, &id_hex),
+                    &node_info,
+                    Some(CACHE_TTL_SECS),
+                )
                 .await?;
+            node_infos.insert(node.nodeid, node_info);
         }
 
-        Ok(node)
-    }
-
-    fn get_cln(&self, symbol: &str) -> Result<Cln, InfoFetchError> {
-        Ok(
-            match match self.currencies.get(symbol) {
-                Some(cur) => &cur.cln,
-                None => return Err(InfoFetchError::NoNode),
-            } {
-                Some(cln) => cln.clone(),
-                None => return Err(InfoFetchError::NoNode),
-            },
-        )
-    }
-
-    fn cache_key_node(symbol: &str, id: &[u8]) -> String {
-        format!("cln:{}:node:{}", symbol, hex::encode(id))
-    }
-
-    fn cache_key_channels(symbol: &str, destination: &[u8]) -> String {
-        format!("cln:{}:channels:{}", symbol, hex::encode(destination))
-    }
-}
-
-#[async_trait]
-impl<C: Cache + Send + Sync> LightningInfo for ClnLightningInfo<C> {
-    async fn get_channels(
-        &self,
-        symbol: &str,
-        destination: Vec<u8>,
-    ) -> Result<Vec<Channel>, InfoFetchError> {
-        let cache_key = Self::cache_key_channels(symbol, &destination);
-        if let Some(cache) = &self.cache {
-            if let Some(channels) = cache.get(&cache_key).await? {
-                return Ok(channels);
-            }
-        }
-
-        let mut cln = self.get_cln(symbol)?;
-        let raw_channels: Vec<ListchannelsChannels> = cln.list_channels(Some(destination)).await?;
-
-        let mut channels = Vec::new();
-        for channel in raw_channels {
+        let mut channels_to_nodes = HashMap::<Vec<u8>, Vec<Channel>>::new();
+        for channel in cln.list_channels(None).await? {
             if !channel.public {
                 continue;
             }
 
-            let node_info = self
-                .get_node_info_from_cln(&mut cln, channel.source.clone())
-                .await?;
-            channels.push((channel, node_info).into());
+            let source_info = match node_infos.get(&channel.source) {
+                Some(info) => info,
+                None => continue,
+            };
+
+            channels_to_nodes
+                .entry(channel.destination.clone())
+                .or_default()
+                .push((channel, source_info.clone()).into());
         }
 
-        if let Some(cache) = &self.cache {
-            cache
-                .set_ttl(&cache_key, &channels, CACHE_CHANNELS_TTL_SECS)
+        for (destination, channels) in channels_to_nodes {
+            self.cache
+                .set(
+                    &Self::cache_key_channels(&symbol, &hex::encode(destination)),
+                    &channels,
+                    Some(CACHE_TTL_SECS),
+                )
                 .await?;
         }
 
-        Ok(channels)
+        Ok(())
     }
 
-    async fn get_node_info(&self, symbol: &str, node: Vec<u8>) -> Result<Node, InfoFetchError> {
-        let mut cln = self.get_cln(symbol)?;
-        self.get_node_info_from_cln(&mut cln, node)
-            .await
-            .map_err(InfoFetchError::FetchError)
+    fn cache_key_node(symbol: &str, id: &str) -> String {
+        format!("cln:{}:node:{}", symbol, id)
+    }
+
+    fn cache_key_channels(symbol: &str, destination: &str) -> String {
+        format!("cln:{}:channels:{}", symbol, destination)
+    }
+}
+
+#[async_trait]
+impl LightningInfo for ClnLightningInfo {
+    async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>> {
+        if let Some(channels) = self
+            .cache
+            .get(&Self::cache_key_channels(symbol, &hex::encode(destination)))
+            .await?
+        {
+            return Ok(channels);
+        }
+
+        Err(anyhow!("no channels for node"))
+    }
+
+    async fn get_node_info(&self, symbol: &str, node: &[u8]) -> Result<Node> {
+        if let Some(node) = self
+            .cache
+            .get(&Self::cache_key_node(symbol, &hex::encode(node)))
+            .await?
+        {
+            return Ok(node);
+        }
+
+        Err(anyhow!("node not found"))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::cache::Redis;
+    use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::lightning::cln::test::cln_client;
     use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
@@ -213,6 +227,7 @@ mod test {
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
+    use std::time::Duration;
 
     async fn get_currencies() -> Currencies {
         Arc::new(HashMap::<String, Currency>::from([(
@@ -241,37 +256,89 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_get_node_info() {
+    async fn test_lightning_info_cache_updates() {
+        let mem_cache = MemCache::new();
+        let cache = Cache::Memory(mem_cache);
         let currencies = get_currencies().await;
-        let mut cln = currencies.get("BTC").unwrap().cln.clone().unwrap();
-        let node = cln.list_nodes(None).await.unwrap()[0].clone();
 
-        let lightning_info = ClnLightningInfo::<Redis>::new(None, currencies);
+        let lightning_info = ClnLightningInfo::new(cache.clone(), currencies.clone());
 
-        let info = lightning_info
-            .get_node_info("BTC", node.nodeid.clone())
-            .await
-            .unwrap();
+        // Allow some time for the background task to update the cache
+        tokio::time::sleep(Duration::from_millis(1_000)).await;
 
-        assert_eq!(info.id, hex::encode(&node.nodeid));
-        assert_eq!(info.color.unwrap(), hex::encode(node.color.unwrap()));
-        assert_eq!(info.alias, node.alias);
+        let btc = currencies.get("BTC").unwrap();
+        let mut cln = btc.cln.clone().unwrap();
+
+        let nodes = cln.list_nodes(None).await.unwrap();
+        assert!(!nodes.is_empty());
+
+        let test_node = &nodes[0];
+        let node_id_hex = hex::encode(&test_node.nodeid);
+
+        let node_info = lightning_info.get_node_info("BTC", &test_node.nodeid).await;
+        assert!(node_info.is_ok());
+
+        let node = node_info.unwrap();
+        assert_eq!(node.id, node_id_hex);
+        assert_eq!(node.alias, test_node.alias);
     }
 
     #[tokio::test]
     async fn test_get_channels() {
+        let mem_cache = MemCache::new();
+        let cache = Cache::Memory(mem_cache);
         let currencies = get_currencies().await;
-        let mut cln = currencies.get("BTC").unwrap().cln.clone().unwrap();
-        let node = cln.list_nodes(None).await.unwrap()[0].clone();
 
-        let lightning_info = ClnLightningInfo::<Redis>::new(None, currencies);
+        let lightning_info = ClnLightningInfo::new(cache.clone(), currencies.clone());
 
-        let channels = lightning_info
-            .get_channels("BTC", node.nodeid.clone())
-            .await
-            .unwrap();
+        // Allow some time for the background task to update the cache
+        tokio::time::sleep(Duration::from_millis(1_000)).await;
 
+        let btc = currencies.get("BTC").unwrap();
+        let mut cln = btc.cln.clone().unwrap();
+
+        let channels = cln.list_channels(None).await.unwrap();
+
+        let channel = &channels[0];
+        let dest_node = &channel.destination;
+
+        let channel_info = lightning_info.get_channels("BTC", dest_node).await;
+        assert!(channel_info.is_ok());
+
+        let channels = channel_info.unwrap();
         assert!(!channels.is_empty());
-        assert!(channels.iter().all(|c| c.source.alias.is_some()))
+    }
+
+    #[tokio::test]
+    async fn test_cache_keys() {
+        let symbol = "BTC";
+        let id = "03abcdef1234567890";
+
+        let node_key = ClnLightningInfo::cache_key_node(symbol, id);
+        assert_eq!(node_key, "cln:BTC:node:03abcdef1234567890");
+
+        let channels_key = ClnLightningInfo::cache_key_channels(symbol, id);
+        assert_eq!(channels_key, "cln:BTC:channels:03abcdef1234567890");
+    }
+
+    #[tokio::test]
+    async fn test_nonexistent_node() {
+        let mem_cache = MemCache::new();
+        let cache = Cache::Memory(mem_cache);
+        let currencies = get_currencies().await;
+
+        let lightning_info = ClnLightningInfo::new(cache, currencies);
+
+        let fake_node_id = vec![0; 33];
+
+        // We should get an error when trying to get info for a nonexistent node
+        let result = lightning_info.get_node_info("BTC", &fake_node_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "node not found");
+
+        // Same for channels
+        let result = lightning_info.get_channels("BTC", &fake_node_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "no channels for node");
     }
 }

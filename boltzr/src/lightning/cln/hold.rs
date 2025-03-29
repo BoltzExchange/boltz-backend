@@ -3,7 +3,7 @@ use crate::db::helpers::offer::OfferHelper;
 use crate::db::models::Offer;
 use crate::lightning::cln::cln_rpc::{GetinfoRequest, InjectonionmessageRequest};
 use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
-use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessagesRequest};
+use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessageResponse};
 use crate::lightning::invoice::Invoice;
 use crate::wallet;
 use crate::webhook::caller::{Hook, validate_url};
@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
 use elements_miniscript::ToPublicKey;
+use hold_rpc::HookAction;
 use lightning::blinded_path::message::BlindedMessagePath;
 use lightning::blinded_path::{BlindedHop, BlindedPath, EmptyNodeIdLookUp, IntroductionNode};
 use lightning::ln::channelmanager::PaymentId;
@@ -29,6 +30,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, error, info, instrument, warn};
@@ -242,14 +244,27 @@ impl Hold {
             }
         });
 
+        let (response_tx, response_rx) = mpsc::channel(256);
         let mut stream = self
             .hold
-            .onion_messages(OnionMessagesRequest {})
+            .onion_messages(tokio_stream::wrappers::ReceiverStream::new(response_rx))
             .await?
             .into_inner();
 
         let self_cp = self.clone();
         tokio::spawn(async move {
+            let response_msg = async |id: u64, action: HookAction| {
+                if let Err(err) = response_tx
+                    .send(OnionMessageResponse {
+                        id,
+                        action: action.into(),
+                    })
+                    .await
+                {
+                    error!("Could not send onion message response: {}", err);
+                }
+            };
+
             loop {
                 match stream.message().await {
                     Ok(msg) => {
@@ -259,26 +274,38 @@ impl Hold {
                         };
                         let invoice_request = match msg.invoice_request {
                             Some(req) => req,
-                            None => continue,
+                            None => {
+                                response_msg(msg.id, HookAction::Continue).await;
+                                continue;
+                            }
                         };
 
                         let reply_blinded_path = match msg.reply_blindedpath {
                             Some(path) => path,
                             None => {
-                                warn!("Not handling invoice request: blinded reply path missing");
+                                debug!("Not handling invoice request: blinded reply path missing");
+                                response_msg(msg.id, HookAction::Continue).await;
                                 continue;
                             }
                         };
 
                         let offer =
                             match self_cp.get_offer_for_invoice_request(invoice_request.clone()) {
-                                Ok(offer) => offer,
+                                Ok(Some(offer)) => offer,
+                                Ok(None) => {
+                                    debug!("Not handling invoice request: no offer found");
+                                    response_msg(msg.id, HookAction::Continue).await;
+                                    continue;
+                                }
                                 Err(err) => {
                                     warn!("Could not get offer for invoice request: {}", err);
+                                    response_msg(msg.id, HookAction::Continue).await;
                                     continue;
                                 }
                             };
 
+                        // When it's our offer, we resolve the hook
+                        response_msg(msg.id, HookAction::Resolve).await;
                         if let Err(error) = self_cp
                             .invoice_caller
                             .call(InvoiceHook::new(
@@ -298,6 +325,7 @@ impl Hold {
                             self_cp.kind(),
                             err
                         );
+                        break;
                     }
                 }
             }
@@ -336,7 +364,7 @@ impl Hold {
         Ok(())
     }
 
-    fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Offer> {
+    fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Option<Offer>> {
         let invoice_request = InvoiceRequest::try_from(invoice_request)
             .map_err(|err| anyhow!("could node decode invoice request: {:?}", err))?;
         let signing_pubkey = match invoice_request.issuer_signing_pubkey() {
@@ -344,13 +372,7 @@ impl Hold {
             None => return Err(anyhow!("no issuer signing public key")),
         };
 
-        match self
-            .offer_helper
-            .get_by_signer(&signing_pubkey.serialize())?
-        {
-            Some(offer) => Ok(offer),
-            None => Err(anyhow!("no offer for signing public key")),
-        }
+        self.offer_helper.get_by_signer(&signing_pubkey.serialize())
     }
 
     fn prepare_offer(network: wallet::Network, offer: &str, url: &str) -> Result<Vec<u8>> {

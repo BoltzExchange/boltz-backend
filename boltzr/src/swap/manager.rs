@@ -22,6 +22,7 @@ use tracing::{debug, info};
 
 #[async_trait]
 pub trait SwapManager {
+    fn get_network(&self) -> crate::wallet::Network;
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
     fn get_timeouts(
         &self,
@@ -40,6 +41,8 @@ pub trait SwapManager {
 
 #[derive(Clone)]
 pub struct Manager {
+    network: crate::wallet::Network,
+
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
 
     currencies: Currencies,
@@ -57,11 +60,13 @@ impl Manager {
         cancellation_token: CancellationToken,
         currencies: Currencies,
         pool: Pool,
+        network: crate::wallet::Network,
         pairs: &[PairConfig],
     ) -> Result<Self> {
         let (update_tx, _) = tokio::sync::broadcast::channel::<SwapStatus>(128);
 
         Ok(Manager {
+            network,
             update_tx,
             currencies,
             cancellation_token,
@@ -106,6 +111,10 @@ impl Manager {
 
 #[async_trait]
 impl SwapManager for Manager {
+    fn get_network(&self) -> crate::wallet::Network {
+        self.network
+    }
+
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
     }
@@ -222,6 +231,7 @@ pub mod test {
 
         #[async_trait]
         impl SwapManager for Manager {
+            fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
             fn get_timeouts(
                 &self,
@@ -254,6 +264,7 @@ pub mod test {
 
         let timeout_provider = TimeoutDeltaProvider::new(&pairs).unwrap();
         let manager = Manager {
+            network: crate::wallet::Network::Regtest,
             update_tx: tokio::sync::broadcast::channel(100).0,
             cancellation_token: CancellationToken::new(),
             pool: get_pool(),

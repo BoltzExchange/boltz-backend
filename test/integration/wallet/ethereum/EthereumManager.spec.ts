@@ -76,7 +76,7 @@ describe('EthereumManager', () => {
           contractAddress: await contracts.token.getAddress(),
         },
       ],
-    });
+    } as any);
     manager['contracts'].push(oldContracts);
 
     wallets = await manager.init(setup.mnemonic);

@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub const PROMETHEUS_QUERY_STEP: &str = "10m";
+const PROMETHEUS_QUERY_TTL: u64 = 120;
 
 #[derive(Deserialize, Debug)]
 struct PrometheusError {
@@ -91,22 +92,20 @@ impl PrometheusClient for RawPrometheusClient {
 }
 
 #[derive(Debug, Clone)]
-pub struct CachedPrometheusClient<P, C>
+pub struct CachedPrometheusClient<P>
 where
     P: PrometheusClient + Clone + Debug + Sync,
-    C: Cache + Clone + Debug + Sync,
 {
-    cache: C,
+    cache: Cache,
     client: P,
     include_start_end_in_key: bool,
 }
 
-impl<P, C> CachedPrometheusClient<P, C>
+impl<P> CachedPrometheusClient<P>
 where
     P: PrometheusClient + Clone + Debug + Sync,
-    C: Cache + Clone + Debug + Sync,
 {
-    pub fn new(client: P, cache: C, include_start_end_in_key: bool) -> Self {
+    pub fn new(client: P, cache: Cache, include_start_end_in_key: bool) -> Self {
         Self {
             cache,
             client,
@@ -129,10 +128,9 @@ where
 }
 
 #[async_trait]
-impl<P, C> PrometheusClient for CachedPrometheusClient<P, C>
+impl<P> PrometheusClient for CachedPrometheusClient<P>
 where
     P: PrometheusClient + Clone + Debug + Sync,
-    C: Cache + Clone + Debug + Sync,
 {
     async fn query(
         &self,
@@ -147,7 +145,9 @@ where
         }
 
         let res = self.client.query(query, step, start, end).await?;
-        self.cache.set(&cache_key, &res).await?;
+        self.cache
+            .set(&cache_key, &res, Some(PROMETHEUS_QUERY_TTL))
+            .await?;
 
         Ok(res)
     }
@@ -182,7 +182,7 @@ fn format_kind(kind: SwapType) -> String {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::test::MemCache;
+    use crate::cache::{Cache, MemCache};
     use rstest::rstest;
 
     #[derive(Clone, Debug)]
@@ -208,7 +208,7 @@ pub mod test {
         let prom = MockPrometheus {};
         let cache = MemCache::new();
 
-        let client = CachedPrometheusClient::new(prom.clone(), cache.clone(), false);
+        let client = CachedPrometheusClient::new(prom.clone(), Cache::Memory(cache.clone()), false);
 
         let query = "query";
         let step = "10m";
@@ -221,11 +221,10 @@ pub mod test {
         assert_eq!(cache.map.len(), 1);
         assert_eq!(
             cache
-                .map
-                .get(&client.get_cache_key(query, step, 1, 2))
+                .get::<Vec<RangeResult>>(&client.get_cache_key(query, step, 1, 2))
                 .unwrap()
-                .value(),
-            &serde_json::to_string(&res).unwrap()
+                .unwrap(),
+            res
         );
 
         let cached_res = client.query(query, step, 1, 2).await.unwrap();
@@ -242,7 +241,8 @@ pub mod test {
         #[case] start: u64,
         #[case] end: u64,
     ) {
-        let client = CachedPrometheusClient::new(MockPrometheus {}, MemCache::new(), false);
+        let client =
+            CachedPrometheusClient::new(MockPrometheus {}, Cache::Memory(MemCache::new()), false);
         let mut hasher = DefaultHasher::new();
         query.hash(&mut hasher);
         assert_eq!(
@@ -261,7 +261,8 @@ pub mod test {
         #[case] start: u64,
         #[case] end: u64,
     ) {
-        let client = CachedPrometheusClient::new(MockPrometheus {}, MemCache::new(), true);
+        let client =
+            CachedPrometheusClient::new(MockPrometheus {}, Cache::Memory(MemCache::new()), true);
         let mut hasher = DefaultHasher::new();
         query.hash(&mut hasher);
         assert_eq!(

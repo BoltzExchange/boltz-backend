@@ -1,3 +1,4 @@
+use crate::cache::{Cache, MemCache};
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
@@ -99,16 +100,16 @@ async fn main() {
     });
 
     let cache = if let Some(config) = config.cache {
-        Some(match cache::Redis::new(&config).await {
-            Ok(cache) => cache,
+        match cache::Redis::new(&config).await {
+            Ok(cache) => Cache::Redis(cache),
             Err(err) => {
                 error!("Could not connect to cache: {}", err);
                 std::process::exit(1);
             }
-        })
+        }
     } else {
         warn!("No cache was configured");
-        None
+        Cache::Memory(MemCache::new())
     };
 
     // TODO: move to currencies

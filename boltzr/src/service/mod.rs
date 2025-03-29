@@ -8,7 +8,6 @@ use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
 use crate::service::rescue::SwapRescue;
 use anyhow::Result;
-use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::warn;
 
@@ -19,7 +18,6 @@ mod prometheus;
 mod rescue;
 
 pub use country_codes::MarkingsConfig;
-pub use lightning_info::InfoFetchError;
 pub use pair_stats::HistoricalConfig;
 
 pub struct Service {
@@ -30,13 +28,13 @@ pub struct Service {
 }
 
 impl Service {
-    pub fn new<C: Cache + Clone + Debug + Sync + Send + 'static>(
+    pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
-        cache: Option<C>,
+        cache: Cache,
     ) -> Self {
         Self {
             swap_rescue: SwapRescue::new(swap_helper, chain_swap_helper, currencies.clone()),
@@ -44,17 +42,13 @@ impl Service {
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
             pair_stats: if let Some(config) = historical_config {
                 Some(PairStatsFetcher::new(
-                    if let Some(cache) = cache {
-                        Arc::new(CachedPrometheusClient::new(
-                            RawPrometheusClient::new(&config.prometheus_endpoint),
-                            cache,
-                            // The cached result being a little stale is fine
-                            // for historical pair stats
-                            false,
-                        ))
-                    } else {
-                        Arc::new(RawPrometheusClient::new(&config.prometheus_endpoint))
-                    },
+                    Arc::new(CachedPrometheusClient::new(
+                        RawPrometheusClient::new(&config.prometheus_endpoint),
+                        cache,
+                        // The cached result being a little stale is fine
+                        // for historical pair stats
+                        false,
+                    )),
                     config.instance,
                 ))
             } else {
@@ -73,7 +67,7 @@ impl Service {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::Redis;
+    use crate::cache::{Cache, MemCache};
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapDataNullableCondition};
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
@@ -142,8 +136,8 @@ pub mod test {
                     Arc::new(chain_swap_helper),
                     Arc::new(HashMap::new()),
                 ),
-                lightning_info: Box::new(ClnLightningInfo::<Redis>::new(
-                    None,
+                lightning_info: Box::new(ClnLightningInfo::new(
+                    Cache::Memory(MemCache::new()),
                     Arc::new(HashMap::new()),
                 )),
                 country_codes: CountryCodes::new(None),

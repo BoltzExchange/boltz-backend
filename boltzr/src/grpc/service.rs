@@ -706,7 +706,7 @@ fn extract_parent_context<T>(request: &Request<T>) {
 #[cfg(test)]
 mod test {
     use crate::api::ws;
-    use crate::cache::Redis;
+    use crate::cache::{Cache, MemCache};
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{
         ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
@@ -1104,13 +1104,13 @@ mod test {
             token.clone(),
             BoltzService::new(
                 ReloadHandler::new(),
-                Arc::new(Service::new::<Redis>(
+                Arc::new(Service::new(
                     Arc::new(MockSwapHelper::new()),
                     Arc::new(MockChainSwapHelper::new()),
                     Arc::new(HashMap::new()),
                     None,
                     None,
-                    None,
+                    Cache::Memory(MemCache::new()),
                 )),
                 Arc::new(make_mock_manager()),
                 StatusFetcher::new(),

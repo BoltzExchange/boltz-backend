@@ -184,6 +184,49 @@ export namespace InvoiceResponse {
     }
 }
 
+export class InjectRequest extends jspb.Message { 
+    getInvoice(): string;
+    setInvoice(value: string): InjectRequest;
+
+    hasMinCltvExpiry(): boolean;
+    clearMinCltvExpiry(): void;
+    getMinCltvExpiry(): number | undefined;
+    setMinCltvExpiry(value: number): InjectRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InjectRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InjectRequest): InjectRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InjectRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InjectRequest;
+    static deserializeBinaryFromReader(message: InjectRequest, reader: jspb.BinaryReader): InjectRequest;
+}
+
+export namespace InjectRequest {
+    export type AsObject = {
+        invoice: string,
+        minCltvExpiry?: number,
+    }
+}
+
+export class InjectResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InjectResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: InjectResponse): InjectResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InjectResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InjectResponse;
+    static deserializeBinaryFromReader(message: InjectResponse, reader: jspb.BinaryReader): InjectResponse;
+}
+
+export namespace InjectResponse {
+    export type AsObject = {
+    }
+}
+
 export class ListRequest extends jspb.Message { 
 
     hasPaymentHash(): boolean;
@@ -298,8 +341,8 @@ export class Invoice extends jspb.Message {
     getPreimage_asU8(): Uint8Array;
     getPreimage_asB64(): string;
     setPreimage(value: Uint8Array | string): Invoice;
-    getBolt11(): string;
-    setBolt11(value: string): Invoice;
+    getInvoice(): string;
+    setInvoice(value: string): Invoice;
     getState(): InvoiceState;
     setState(value: InvoiceState): Invoice;
     getCreatedAt(): number;
@@ -313,6 +356,11 @@ export class Invoice extends jspb.Message {
     getHtlcsList(): Array<Htlc>;
     setHtlcsList(value: Array<Htlc>): Invoice;
     addHtlcs(value?: Htlc, index?: number): Htlc;
+
+    hasMinCltvExpiry(): boolean;
+    clearMinCltvExpiry(): void;
+    getMinCltvExpiry(): number | undefined;
+    setMinCltvExpiry(value: number): Invoice;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Invoice.AsObject;
@@ -329,11 +377,12 @@ export namespace Invoice {
         id: number,
         paymentHash: Uint8Array | string,
         preimage: Uint8Array | string,
-        bolt11: string,
+        invoice: string,
         state: InvoiceState,
         createdAt: number,
         settledAt?: number,
         htlcsList: Array<Htlc.AsObject>,
+        minCltvExpiry?: number,
     }
 }
 
@@ -572,6 +621,195 @@ export namespace TrackAllResponse {
         bolt11: string,
         state: InvoiceState,
     }
+}
+
+export class OnionMessagesRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): OnionMessagesRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: OnionMessagesRequest): OnionMessagesRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: OnionMessagesRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OnionMessagesRequest;
+    static deserializeBinaryFromReader(message: OnionMessagesRequest, reader: jspb.BinaryReader): OnionMessagesRequest;
+}
+
+export namespace OnionMessagesRequest {
+    export type AsObject = {
+    }
+}
+
+export class OnionMessage extends jspb.Message { 
+
+    hasPathsecret(): boolean;
+    clearPathsecret(): void;
+    getPathsecret(): Uint8Array | string;
+    getPathsecret_asU8(): Uint8Array;
+    getPathsecret_asB64(): string;
+    setPathsecret(value: Uint8Array | string): OnionMessage;
+
+    hasReplyBlindedpath(): boolean;
+    clearReplyBlindedpath(): void;
+    getReplyBlindedpath(): OnionMessage.ReplyBlindedPath | undefined;
+    setReplyBlindedpath(value?: OnionMessage.ReplyBlindedPath): OnionMessage;
+
+    hasInvoiceRequest(): boolean;
+    clearInvoiceRequest(): void;
+    getInvoiceRequest(): Uint8Array | string;
+    getInvoiceRequest_asU8(): Uint8Array;
+    getInvoiceRequest_asB64(): string;
+    setInvoiceRequest(value: Uint8Array | string): OnionMessage;
+
+    hasInvoice(): boolean;
+    clearInvoice(): void;
+    getInvoice(): Uint8Array | string;
+    getInvoice_asU8(): Uint8Array;
+    getInvoice_asB64(): string;
+    setInvoice(value: Uint8Array | string): OnionMessage;
+
+    hasInvoiceError(): boolean;
+    clearInvoiceError(): void;
+    getInvoiceError(): Uint8Array | string;
+    getInvoiceError_asU8(): Uint8Array;
+    getInvoiceError_asB64(): string;
+    setInvoiceError(value: Uint8Array | string): OnionMessage;
+    clearUnknownFieldsList(): void;
+    getUnknownFieldsList(): Array<OnionMessage.UnknownField>;
+    setUnknownFieldsList(value: Array<OnionMessage.UnknownField>): OnionMessage;
+    addUnknownFields(value?: OnionMessage.UnknownField, index?: number): OnionMessage.UnknownField;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): OnionMessage.AsObject;
+    static toObject(includeInstance: boolean, msg: OnionMessage): OnionMessage.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: OnionMessage, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OnionMessage;
+    static deserializeBinaryFromReader(message: OnionMessage, reader: jspb.BinaryReader): OnionMessage;
+}
+
+export namespace OnionMessage {
+    export type AsObject = {
+        pathsecret: Uint8Array | string,
+        replyBlindedpath?: OnionMessage.ReplyBlindedPath.AsObject,
+        invoiceRequest: Uint8Array | string,
+        invoice: Uint8Array | string,
+        invoiceError: Uint8Array | string,
+        unknownFieldsList: Array<OnionMessage.UnknownField.AsObject>,
+    }
+
+
+    export class ReplyBlindedPath extends jspb.Message { 
+
+        hasFirstNodeId(): boolean;
+        clearFirstNodeId(): void;
+        getFirstNodeId(): Uint8Array | string;
+        getFirstNodeId_asU8(): Uint8Array;
+        getFirstNodeId_asB64(): string;
+        setFirstNodeId(value: Uint8Array | string): ReplyBlindedPath;
+
+        hasFirstScid(): boolean;
+        clearFirstScid(): void;
+        getFirstScid(): string | undefined;
+        setFirstScid(value: string): ReplyBlindedPath;
+
+        hasFirstScidDir(): boolean;
+        clearFirstScidDir(): void;
+        getFirstScidDir(): number | undefined;
+        setFirstScidDir(value: number): ReplyBlindedPath;
+
+        hasFirstPathKey(): boolean;
+        clearFirstPathKey(): void;
+        getFirstPathKey(): Uint8Array | string;
+        getFirstPathKey_asU8(): Uint8Array;
+        getFirstPathKey_asB64(): string;
+        setFirstPathKey(value: Uint8Array | string): ReplyBlindedPath;
+        clearHopsList(): void;
+        getHopsList(): Array<OnionMessage.ReplyBlindedPath.Hop>;
+        setHopsList(value: Array<OnionMessage.ReplyBlindedPath.Hop>): ReplyBlindedPath;
+        addHops(value?: OnionMessage.ReplyBlindedPath.Hop, index?: number): OnionMessage.ReplyBlindedPath.Hop;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): ReplyBlindedPath.AsObject;
+        static toObject(includeInstance: boolean, msg: ReplyBlindedPath): ReplyBlindedPath.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: ReplyBlindedPath, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): ReplyBlindedPath;
+        static deserializeBinaryFromReader(message: ReplyBlindedPath, reader: jspb.BinaryReader): ReplyBlindedPath;
+    }
+
+    export namespace ReplyBlindedPath {
+        export type AsObject = {
+            firstNodeId: Uint8Array | string,
+            firstScid?: string,
+            firstScidDir?: number,
+            firstPathKey: Uint8Array | string,
+            hopsList: Array<OnionMessage.ReplyBlindedPath.Hop.AsObject>,
+        }
+
+
+        export class Hop extends jspb.Message { 
+
+            hasBlindedNodeId(): boolean;
+            clearBlindedNodeId(): void;
+            getBlindedNodeId(): Uint8Array | string;
+            getBlindedNodeId_asU8(): Uint8Array;
+            getBlindedNodeId_asB64(): string;
+            setBlindedNodeId(value: Uint8Array | string): Hop;
+
+            hasEncryptedRecipientData(): boolean;
+            clearEncryptedRecipientData(): void;
+            getEncryptedRecipientData(): Uint8Array | string;
+            getEncryptedRecipientData_asU8(): Uint8Array;
+            getEncryptedRecipientData_asB64(): string;
+            setEncryptedRecipientData(value: Uint8Array | string): Hop;
+
+            serializeBinary(): Uint8Array;
+            toObject(includeInstance?: boolean): Hop.AsObject;
+            static toObject(includeInstance: boolean, msg: Hop): Hop.AsObject;
+            static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+            static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+            static serializeBinaryToWriter(message: Hop, writer: jspb.BinaryWriter): void;
+            static deserializeBinary(bytes: Uint8Array): Hop;
+            static deserializeBinaryFromReader(message: Hop, reader: jspb.BinaryReader): Hop;
+        }
+
+        export namespace Hop {
+            export type AsObject = {
+                blindedNodeId: Uint8Array | string,
+                encryptedRecipientData: Uint8Array | string,
+            }
+        }
+
+    }
+
+    export class UnknownField extends jspb.Message { 
+        getNumber(): number;
+        setNumber(value: number): UnknownField;
+        getValue(): Uint8Array | string;
+        getValue_asU8(): Uint8Array;
+        getValue_asB64(): string;
+        setValue(value: Uint8Array | string): UnknownField;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): UnknownField.AsObject;
+        static toObject(includeInstance: boolean, msg: UnknownField): UnknownField.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: UnknownField, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): UnknownField;
+        static deserializeBinaryFromReader(message: UnknownField, reader: jspb.BinaryReader): UnknownField;
+    }
+
+    export namespace UnknownField {
+        export type AsObject = {
+            number: number,
+            value: Uint8Array | string,
+        }
+    }
+
 }
 
 export enum InvoiceState {

@@ -209,4 +209,22 @@ export default {
     message: `no transaction with id: ${id}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 53),
   }),
+  INVOICE_AND_PREIMAGE_HASH_SPECIFIED: (): Error => ({
+    message: 'both invoice and preimage hash were specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 54),
+  }),
+  INVOICE_NOT_BOLT12: (): Error => ({
+    message: 'invoice is not a BOLT12 invoice',
+    code: concatErrorCode(ErrorCodePrefix.Service, 55),
+  }),
+
+  BOLT12_INVOICE_AMOUNT_CONFLICT: (): Error => ({
+    message:
+      'invoice amount or onchain amount cannot be specified when using a BOLT12 invoice',
+    code: concatErrorCode(ErrorCodePrefix.Service, 56),
+  }),
+  PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED: (): Error => ({
+    message: 'preimage hash or invoice must be specified',
+    code: concatErrorCode(ErrorCodePrefix.Service, 57),
+  }),
 };

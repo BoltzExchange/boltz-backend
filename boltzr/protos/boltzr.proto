@@ -194,12 +194,15 @@ message Bolt12Invoice {
   uint64 expiry = 6;
 
   message Path {
-    optional bytes first_node_pubkey = 1;
+    oneof introduction_node {
+      bytes node_id = 1;
+      uint64 short_channel_id = 2;
+    }
 
-    uint32 base_fee_msat = 2;
-    uint32 ppm_fee = 3;
+    uint32 base_fee_msat = 3;
+    uint32 ppm_fee = 4;
 
-    uint64 cltv_expiry_delta = 4;
+    uint64 cltv_expiry_delta = 5;
   }
 
   repeated Path paths = 7;

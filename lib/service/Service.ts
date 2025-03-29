@@ -660,14 +660,15 @@ class Service {
   public getTransaction = async (
     symbol: string,
     transactionHash: string,
-  ): Promise<string> => {
+  ): Promise<{ hex: string; confirmations?: number }> => {
     const currency = getCurrency(this.currencies, symbol);
-
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
     }
+    const res =
+      await currency.chainClient.getRawTransactionVerbose(transactionHash);
 
-    return await currency.chainClient.getRawTransaction(transactionHash);
+    return { hex: res.hex, confirmations: res.confirmations };
   };
 
   public getReverseBip21 = async (invoice: string) => {

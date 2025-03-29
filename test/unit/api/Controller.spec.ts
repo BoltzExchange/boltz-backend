@@ -107,7 +107,7 @@ const mockedSwapRates = {
 const mockGetSwapRates = jest.fn().mockResolvedValue(mockedSwapRates);
 
 const rawTransaction = 'transactionHex';
-const mockGetTransaction = jest.fn().mockResolvedValue(rawTransaction);
+const mockGetTransaction = jest.fn().mockResolvedValue({ hex: rawTransaction });
 
 const swapTransaction = {
   timeoutEta: 1586291268,

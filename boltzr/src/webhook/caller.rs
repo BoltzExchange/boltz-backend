@@ -343,7 +343,7 @@ where
     }
 }
 
-pub fn validate_url(url: &str) -> Option<Box<dyn Error>> {
+pub fn validate_url(url: &str, allow_http: bool) -> Option<Box<dyn Error>> {
     if url.len() > MAX_URL_LENGTH {
         return Some(UrlError::MoreThanMaxLen.into());
     }
@@ -353,7 +353,7 @@ pub fn validate_url(url: &str) -> Option<Box<dyn Error>> {
         Err(err) => return Some(err.into()),
     };
 
-    if url.scheme() != "https" {
+    if !allow_http && url.scheme() != "https" {
         return Some(UrlError::HttpsRequired.into());
     }
 
@@ -910,15 +910,18 @@ mod caller_test {
 
     #[test]
     fn test_validate_url_valid() {
-        assert!(validate_url("https://bol.tz").is_none());
+        assert!(validate_url("https://bol.tz", false).is_none());
     }
 
     #[test]
     fn test_validate_url_max_length() {
         assert_eq!(
-            validate_url(&(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>())
-                .unwrap()
-                .to_string(),
+            validate_url(
+                &(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>(),
+                false
+            )
+            .unwrap()
+            .to_string(),
             UrlError::MoreThanMaxLen.to_string(),
         );
     }
@@ -926,7 +929,7 @@ mod caller_test {
     #[test]
     fn test_validate_url_parse_fail() {
         assert_eq!(
-            validate_url("invalid url").unwrap().to_string(),
+            validate_url("invalid url", false).unwrap().to_string(),
             "relative URL without a base",
         );
     }
@@ -934,9 +937,14 @@ mod caller_test {
     #[test]
     fn test_validate_url_not_https() {
         assert_eq!(
-            validate_url("http://bol.tz").unwrap().to_string(),
+            validate_url("http://bol.tz", false).unwrap().to_string(),
             UrlError::HttpsRequired.to_string(),
         );
+    }
+
+    #[test]
+    fn test_validate_url_allow_http() {
+        assert!(validate_url("http://bol.tz", true).is_none());
     }
 
     async fn start_server(port: u16) -> (CancellationToken, Arc<Mutex<Vec<WebHookCallParams>>>) {

@@ -7,6 +7,8 @@ CREATE TABLE offers
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+CREATE INDEX offers_offer_idx ON offers (offer);
+
 CREATE TRIGGER update_offers_modified_time
     BEFORE UPDATE
     ON offers

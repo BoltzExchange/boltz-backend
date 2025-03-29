@@ -8,6 +8,7 @@ pub trait OfferHelper {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
     fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
     fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
+    fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;
 }
 
 #[derive(Clone, Debug)]
@@ -48,6 +49,20 @@ impl OfferHelper for OfferHelperDatabase {
 
         Ok(Some(res[0].clone()))
     }
+
+    fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>> {
+        let res = offers::dsl::offers
+            .select(Offer::as_select())
+            .filter(offers::dsl::offer.eq(offer.to_lowercase()))
+            .limit(1)
+            .load(&mut self.pool.get()?)?;
+
+        if res.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(res[0].clone()))
+    }
 }
 
 #[cfg(test)]
@@ -62,6 +77,7 @@ pub mod test {
             fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
             fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
             fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
+            fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;
         }
     }
 }

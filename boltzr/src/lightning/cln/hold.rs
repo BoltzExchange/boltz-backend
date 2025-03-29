@@ -3,8 +3,9 @@ use crate::db::helpers::offer::OfferHelper;
 use crate::db::models::Offer;
 use crate::lightning::cln::cln_rpc::{GetinfoRequest, InjectonionmessageRequest};
 use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
-use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessagesRequest};
-use crate::lightning::invoice::{Invoice, decode_bolt12_invoice, decode_bolt12_offer};
+use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessageResponse};
+use crate::lightning::invoice::Invoice;
+use crate::wallet;
 use crate::webhook::caller::{Hook, validate_url};
 use crate::webhook::invoice_caller::{InvoiceCaller, InvoiceHook};
 use anyhow::{Result, anyhow};
@@ -12,10 +13,15 @@ use async_trait::async_trait;
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
 use elements_miniscript::ToPublicKey;
+use hold_rpc::HookAction;
 use lightning::blinded_path::message::BlindedMessagePath;
 use lightning::blinded_path::{BlindedHop, BlindedPath, EmptyNodeIdLookUp, IntroductionNode};
+use lightning::ln::channelmanager::PaymentId;
+use lightning::ln::inbound_payment::ExpandedKey;
 use lightning::offers::invoice::Bolt12Invoice;
 use lightning::offers::invoice_request::InvoiceRequest;
+use lightning::offers::nonce::Nonce;
+use lightning::offers::parse::Bolt12SemanticError;
 use lightning::onion_message::messenger::{Destination, OnionMessagePath, create_onion_message};
 use lightning::onion_message::offers::OffersMessage;
 use lightning::sign::{KeysManager, RandomBytes};
@@ -24,6 +30,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, error, info, instrument, warn};
@@ -53,6 +60,7 @@ pub struct Config {
 #[derive(Clone)]
 pub struct Hold {
     symbol: String,
+    network: wallet::Network,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
     invoice_caller: InvoiceCaller,
     cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
@@ -63,6 +71,7 @@ impl Hold {
     pub async fn new(
         cancellation_token: CancellationToken,
         symbol: &str,
+        network: wallet::Network,
         cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
         config: &Config,
@@ -101,6 +110,7 @@ impl Hold {
 
         Ok(Self {
             cln,
+            network,
             offer_helper,
             invoice_caller,
             symbol: symbol.to_string(),
@@ -109,7 +119,7 @@ impl Hold {
     }
 
     pub fn add_offer(&self, offer: String, url: String) -> Result<()> {
-        let signer = Self::prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(self.network, &offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_some() {
             return Err(anyhow!(
                 "an offer for this signing public key was registered already"
@@ -122,11 +132,12 @@ impl Hold {
             offer: offer.to_lowercase(),
             url,
         })?;
+        info!("Registered offer");
         Ok(())
     }
 
     pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
-        let signer = Self::prepare_offer(&offer, &url)?;
+        let signer = Self::prepare_offer(self.network, &offer, &url)?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
             return Err(anyhow!(
                 "no offer for this signing public key was registered"
@@ -148,7 +159,64 @@ impl Hold {
         }
 
         self.offer_helper.update(&signer, url)?;
+        info!("Updated offer");
         Ok(())
+    }
+
+    pub async fn fetch_invoice_webhook(&self, offer: Offer, amount_msat: u64) -> Result<String> {
+        let parsed = match crate::lightning::invoice::decode(self.network, &offer.offer)? {
+            Invoice::Offer(offer) => offer,
+            _ => return Err(anyhow!("invalid offer")),
+        };
+
+        let (entropy_bytes, entropy) = Self::entropy_source();
+        let expanded_key = ExpandedKey::new(entropy_bytes);
+        let nonce = Nonce::from_entropy_source(&entropy);
+        let payment_id = PaymentId(Self::entropy_source().0);
+        let secp_ctx = Secp256k1::signing_only();
+
+        // To avoid annoying error mapping
+        let build_invoice_request =
+            move || -> std::result::Result<InvoiceRequest, Bolt12SemanticError> {
+                (parsed.request_invoice(&expanded_key, nonce, &secp_ctx, payment_id)?)
+                    .chain(self.network.bitcoin())?
+                    .amount_msats(amount_msat)?
+                    .build_and_sign()
+            };
+
+        let request = build_invoice_request().map_err(|e| anyhow!("{:?}", e))?;
+
+        let mut request_bytes = vec![];
+        request.write(&mut request_bytes)?;
+
+        let hook = InvoiceHook::new(&request_bytes, offer.url, None);
+        let hook_id = hook.id();
+
+        let mut receiver = self.invoice_caller.subscribe_successful_calls();
+        self.invoice_caller.call(hook).await?;
+
+        // Wait for a response on the receiver or timeout after 30 seconds
+        let timeout = tokio::time::sleep(std::time::Duration::from_secs(30));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                response = receiver.recv() => {
+                    match response {
+                        Ok((received_hook, invoice_bytes)) => {
+                            if received_hook.id() == hook_id {
+                                let res: InvoiceRequestResponse = serde_json::from_slice(&invoice_bytes)?;
+                                return Ok(res.invoice);
+                            }
+                        },
+                        Err(e) => return Err(anyhow!("failed to receive Webhook response: {}", e)),
+                    }
+                },
+                _ = &mut timeout => {
+                    return Err(anyhow!("timeout waiting for invoice response"));
+                }
+            }
+        }
     }
 
     async fn stream_onion_messages(&mut self) -> Result<()> {
@@ -166,6 +234,9 @@ impl Hold {
                         break;
                     }
                 };
+                if !hook.respond_with_onion() {
+                    continue;
+                }
 
                 if let Err(err) = self_cp.handle_response(our_pubkey, hook, &res).await {
                     warn!("Handling BOLT12 invoice response failed: {}", err);
@@ -173,14 +244,27 @@ impl Hold {
             }
         });
 
+        let (response_tx, response_rx) = mpsc::channel(256);
         let mut stream = self
             .hold
-            .onion_messages(OnionMessagesRequest {})
+            .onion_messages(tokio_stream::wrappers::ReceiverStream::new(response_rx))
             .await?
             .into_inner();
 
         let self_cp = self.clone();
         tokio::spawn(async move {
+            let response_msg = async |id: u64, action: HookAction| {
+                if let Err(err) = response_tx
+                    .send(OnionMessageResponse {
+                        id,
+                        action: action.into(),
+                    })
+                    .await
+                {
+                    error!("Could not send onion message response: {}", err);
+                }
+            };
+
             loop {
                 match stream.message().await {
                     Ok(msg) => {
@@ -190,29 +274,45 @@ impl Hold {
                         };
                         let invoice_request = match msg.invoice_request {
                             Some(req) => req,
-                            None => continue,
+                            None => {
+                                response_msg(msg.id, HookAction::Continue).await;
+                                continue;
+                            }
                         };
 
                         let reply_blinded_path = match msg.reply_blindedpath {
                             Some(path) => path,
                             None => {
-                                warn!("Not handling invoice request: blinded reply path missing");
+                                debug!("Not handling invoice request: blinded reply path missing");
+                                response_msg(msg.id, HookAction::Continue).await;
                                 continue;
                             }
                         };
 
                         let offer =
                             match self_cp.get_offer_for_invoice_request(invoice_request.clone()) {
-                                Ok(offer) => offer,
+                                Ok(Some(offer)) => offer,
+                                Ok(None) => {
+                                    debug!("Not handling invoice request: no offer found");
+                                    response_msg(msg.id, HookAction::Continue).await;
+                                    continue;
+                                }
                                 Err(err) => {
                                     warn!("Could not get offer for invoice request: {}", err);
+                                    response_msg(msg.id, HookAction::Continue).await;
                                     continue;
                                 }
                             };
 
+                        // When it's our offer, we resolve the hook
+                        response_msg(msg.id, HookAction::Resolve).await;
                         if let Err(error) = self_cp
                             .invoice_caller
-                            .call(offer.url, reply_blinded_path, &invoice_request)
+                            .call(InvoiceHook::new(
+                                &invoice_request,
+                                offer.url,
+                                Some(reply_blinded_path),
+                            ))
                             .await
                         {
                             warn!("Sending BOLT12 invoice Webhook failed: {}", error);
@@ -225,6 +325,7 @@ impl Hold {
                             self_cp.kind(),
                             err
                         );
+                        break;
                     }
                 }
             }
@@ -240,14 +341,18 @@ impl Hold {
         hook: InvoiceHook,
         res: &[u8],
     ) -> Result<()> {
+        let reply_blinded_path = match hook.reply_blinded_path.clone() {
+            Some(path) => path,
+            None => return Ok(()),
+        };
+
         let res: InvoiceRequestResponse = serde_json::from_slice(res)?;
-        let invoice = match decode_bolt12_invoice(&res.invoice)? {
+        let invoice = match crate::lightning::invoice::decode(self.network, &res.invoice)? {
             Invoice::Bolt12(invoice) => invoice,
             _ => return Err(anyhow!("invalid invoice")),
         };
 
-        let (blinding_point, onion) =
-            Self::blind_onion(*invoice, hook.reply_blinded_path.clone(), our_pubkey)?;
+        let (blinding_point, onion) = Self::blind_onion(*invoice, reply_blinded_path, our_pubkey)?;
         self.cln
             .inject_onion_message(InjectonionmessageRequest {
                 message: onion,
@@ -259,7 +364,7 @@ impl Hold {
         Ok(())
     }
 
-    fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Offer> {
+    fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Option<Offer>> {
         let invoice_request = InvoiceRequest::try_from(invoice_request)
             .map_err(|err| anyhow!("could node decode invoice request: {:?}", err))?;
         let signing_pubkey = match invoice_request.issuer_signing_pubkey() {
@@ -267,22 +372,15 @@ impl Hold {
             None => return Err(anyhow!("no issuer signing public key")),
         };
 
-        match self
-            .offer_helper
-            .get_by_signer(&signing_pubkey.serialize())?
-        {
-            Some(offer) => Ok(offer),
-            None => Err(anyhow!("no offer for signing public key")),
-        }
+        self.offer_helper.get_by_signer(&signing_pubkey.serialize())
     }
 
-    fn prepare_offer(offer: &str, url: &str) -> Result<Vec<u8>> {
-        // TODO: check network of offer
-        if let Some(err) = validate_url(url) {
+    fn prepare_offer(network: wallet::Network, offer: &str, url: &str) -> Result<Vec<u8>> {
+        if let Some(err) = validate_url(url, network == wallet::Network::Regtest) {
             return Err(anyhow!("invalid URL: {}", err));
-        };
+        }
 
-        let decoded = match decode_bolt12_offer(offer)? {
+        let decoded = match crate::lightning::invoice::decode(network, offer)? {
             Invoice::Offer(offer) => offer,
             _ => return Err(anyhow!("invalid offer")),
         };
@@ -401,7 +499,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -426,7 +524,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_already_registered() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -453,7 +551,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -497,7 +595,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer_not_registered() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -524,7 +622,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_update_offer_invalid_signature() {
-        let signer = Hold::prepare_offer(OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -569,7 +667,7 @@ mod test {
     #[test]
     fn test_prepare_offer() {
         assert_eq!(
-            Hold::prepare_offer(OFFER, HOOK).unwrap(),
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap(),
             hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
                 .unwrap()
         );
@@ -578,7 +676,7 @@ mod test {
     #[test]
     fn test_prepare_offer_invalid_url() {
         assert_eq!(
-            Hold::prepare_offer("OFFER", "INVALID URL")
+            Hold::prepare_offer(wallet::Network::Regtest, "OFFER", "INVALID URL")
                 .unwrap_err()
                 .to_string(),
             "invalid URL: relative URL without a base"
@@ -586,12 +684,31 @@ mod test {
     }
 
     #[test]
-    fn test_prepare_offer_invalid_offer() {
+    fn test_prepare_offer_allow_http_regtest() {
         assert_eq!(
-            Hold::prepare_offer("invalid", HOOK)
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, "http://bol.tz").unwrap(),
+            hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_no_http_mainnet() {
+        assert_eq!(
+            Hold::prepare_offer(wallet::Network::Mainnet, "invalid", "http://bol.tz")
                 .unwrap_err()
                 .to_string(),
-            "invalid invoice: Bech32(Parse(Char(InvalidChar('i'))))"
+            "invalid URL: only HTTPS URLs are permitted"
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_invalid_offer() {
+        assert_eq!(
+            Hold::prepare_offer(wallet::Network::Regtest, "invalid", HOOK)
+                .unwrap_err()
+                .to_string(),
+            "invalid invoice: ParseError(Bech32Error(Parse(Char(InvalidChar('i')))))"
         );
     }
 }

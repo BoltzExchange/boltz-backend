@@ -65,9 +65,9 @@ impl Cln {
                 .tls_config(tls)?
                 .connect()
                 .await?;
-
         let cln = cln_rpc::node_client::NodeClient::new(channel)
             .max_decoding_message_size(1024 * 1024 * 1024);
+
         Ok(Self {
             symbol: symbol.to_string(),
             hold: hold::Hold::new(

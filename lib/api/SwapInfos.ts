@@ -134,7 +134,7 @@ class SwapInfos {
       case SwapUpdateEvent.TransactionMempool:
       case SwapUpdateEvent.TransactionConfirmed: {
         const { base, quote } = splitPairId(swap.pair);
-        return this.getSwapStatusForServerSentTransaction(
+        return await this.getSwapStatusForServerSentTransaction(
           swap.status,
           getChainCurrency(base, quote, swap.orderSide, true),
           swap.transactionId!,
@@ -195,10 +195,9 @@ class SwapInfos {
     transactionId: string,
   ) => {
     try {
-      const transactionHex = await this.service.getTransaction(
-        chainCurrency,
-        transactionId!,
-      );
+      const transactionHex = (
+        await this.service.getTransaction(chainCurrency, transactionId!)
+      ).hex;
       return {
         status,
         transaction: {
@@ -246,10 +245,9 @@ class SwapInfos {
 
     if (transactionId !== undefined) {
       try {
-        const transactionHex = await this.service.getTransaction(
-          chainCurrency,
-          transactionId,
-        );
+        const transactionHex = (
+          await this.service.getTransaction(chainCurrency, transactionId)
+        ).hex;
 
         return {
           status,

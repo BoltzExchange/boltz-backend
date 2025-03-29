@@ -247,7 +247,7 @@ describe('SwapInfos', () => {
 
         service.getTransaction = jest
           .fn()
-          .mockResolvedValue(transaction.toHex());
+          .mockResolvedValue({ hex: transaction.toHex() });
         service.currencies = new Map<string, any>([
           ['BTC', { type: CurrencyType.BitcoinLike }],
         ]);
@@ -388,7 +388,7 @@ describe('SwapInfos', () => {
 
         service.getTransaction = jest
           .fn()
-          .mockResolvedValue(transaction.toHex());
+          .mockResolvedValue({ hex: transaction.toHex() });
 
         await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
           zeroConfRejected: true,
@@ -499,7 +499,9 @@ describe('SwapInfos', () => {
   `(
     'should get swap transaction for $chainCurrency with status $status',
     async ({ eta, status, chainCurrency }) => {
-      service.getTransaction = jest.fn().mockResolvedValue('txHex');
+      service.getTransaction = jest
+        .fn()
+        .mockResolvedValue({ hex: 'txHex', confirmations: 1 });
 
       await expect(
         swapInfos['getSwapStatusForServerSentTransaction'](

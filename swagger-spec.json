@@ -241,6 +241,10 @@
                     "hex": {
                       "type": "string",
                       "description": "The transaction encoded as HEX"
+                    },
+                    "confirmations": {
+                      "type": "number",
+                      "description": "Number of confirmations the transaction has; not set if not confirmed yet"
                     }
                   }
                 }

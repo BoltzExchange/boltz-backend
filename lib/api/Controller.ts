@@ -185,11 +185,8 @@ class Controller {
         { name: 'transactionId', type: 'string' },
       ]);
 
-      const response = await this.service.getTransaction(
-        currency,
-        transactionId,
-      );
-      successResponse(res, { transactionHex: response });
+      const data = await this.service.getTransaction(currency, transactionId);
+      successResponse(res, { transactionHex: data.hex });
     } catch (error) {
       errorResponse(this.logger, req, res, error);
     }

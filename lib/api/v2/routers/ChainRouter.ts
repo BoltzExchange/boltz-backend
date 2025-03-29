@@ -235,6 +235,9 @@ class ChainRouter extends RouterBase {
      *                 hex:
      *                   type: string
      *                   description: The transaction encoded as HEX
+     *                 confirmations:
+     *                   type: number
+     *                   description: Number of confirmations the transaction has; not set if not confirmed yet
      *       '400':
      *         description: Error that caused the query for the transaction to fail
      *         content:
@@ -377,7 +380,7 @@ class ChainRouter extends RouterBase {
     ]);
 
     const tx = await this.service.getTransaction(currency, id);
-    successResponse(res, { hex: tx });
+    successResponse(res, { hex: tx.hex, confirmations: tx.confirmations });
   };
 
   private postTransaction = async (req: Request, res: Response) => {

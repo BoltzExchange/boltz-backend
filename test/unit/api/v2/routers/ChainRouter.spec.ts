@@ -35,7 +35,7 @@ describe('ChainRouter', () => {
       ],
     },
 
-    getTransaction: jest.fn().mockResolvedValue('txHex'),
+    getTransaction: jest.fn().mockResolvedValue({ hex: 'txHex' }),
     broadcastTransaction: jest.fn().mockResolvedValue('txId'),
     getFeeEstimation: jest
       .fn()
@@ -228,7 +228,7 @@ describe('ChainRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
-      hex: await service.getTransaction(currency, id),
+      hex: (await service.getTransaction(currency, id)).hex,
     });
   });
 

@@ -38,7 +38,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
-) -> anyhow::Result<Currencies> {
+) -> anyhow::Result<(wallet::Network, Currencies)> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
         None => return Err(anyhow!("no mnemonic path")),
@@ -144,7 +144,7 @@ pub async fn connect_nodes<K: KeysHelper>(
         );
     }
 
-    Ok(Arc::new(curs))
+    Ok((network, Arc::new(curs)))
 }
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {

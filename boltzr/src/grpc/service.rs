@@ -347,7 +347,10 @@ where
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
 
-        if let Some(err) = crate::webhook::caller::validate_url(&params.url) {
+        if let Some(err) = crate::webhook::caller::validate_url(
+            &params.url,
+            self.manager.get_network() == crate::wallet::Network::Regtest,
+        ) {
             debug!("Invalid WebHook URL for swap {}: {}", params.id, params.url);
             return Err(Status::new(Code::InvalidArgument, err.to_string()));
         }
@@ -1161,6 +1164,9 @@ mod test {
     fn make_mock_manager() -> MockManager {
         let mut manager = MockManager::new();
         manager.expect_clone().returning(make_mock_manager);
+        manager
+            .expect_get_network()
+            .returning(|| crate::wallet::Network::Regtest);
 
         manager
     }

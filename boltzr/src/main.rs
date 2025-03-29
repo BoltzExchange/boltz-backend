@@ -144,7 +144,7 @@ async fn main() {
         }
     });
 
-    let currencies = match connect_nodes(
+    let (network, currencies) = match connect_nodes(
         cancellation_token.clone(),
         KeysHelperDatabase::new(db_pool.clone()),
         config.mnemonic_path,
@@ -245,6 +245,7 @@ async fn main() {
         cancellation_token.clone(),
         currencies,
         db_pool.clone(),
+        network,
         &config.pairs.unwrap_or_default(),
     ) {
         Ok(swap_manager) => Arc::new(swap_manager),

@@ -376,9 +376,9 @@ impl Hold {
     }
 
     fn prepare_offer(network: wallet::Network, offer: &str, url: &str) -> Result<Vec<u8>> {
-        if let Some(err) = validate_url(url) {
+        if let Some(err) = validate_url(url, network == wallet::Network::Regtest) {
             return Err(anyhow!("invalid URL: {}", err));
-        };
+        }
 
         let decoded = match crate::lightning::invoice::decode(network, offer)? {
             Invoice::Offer(offer) => offer,
@@ -680,6 +680,25 @@ mod test {
                 .unwrap_err()
                 .to_string(),
             "invalid URL: relative URL without a base"
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_allow_http_regtest() {
+        assert_eq!(
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, "http://bol.tz").unwrap(),
+            hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_prepare_offer_no_http_mainnet() {
+        assert_eq!(
+            Hold::prepare_offer(wallet::Network::Mainnet, "invalid", "http://bol.tz")
+                .unwrap_err()
+                .to_string(),
+            "invalid URL: only HTTPS URLs are permitted"
         );
     }
 

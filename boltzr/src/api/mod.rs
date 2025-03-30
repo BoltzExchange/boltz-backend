@@ -1,4 +1,4 @@
-use crate::api::errors::error_middleware;
+use crate::api::errors::{error_middleware, logging_middleware};
 use crate::api::rescue::swap_rescue;
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
@@ -139,6 +139,7 @@ where
                 post(lightning::bolt12_fetch::<S, M>),
             )
             .layer(axum::middleware::from_fn(error_middleware))
+            .layer(axum::middleware::from_fn(logging_middleware))
     }
 }
 

@@ -224,7 +224,14 @@ mod server_test {
 
         #[async_trait]
         impl SwapManager for Manager {
+            fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_timeouts(
+                &self,
+                receiving: &str,
+                sending: &str,
+                swap_type: crate::db::models::SwapType,
+            ) -> anyhow::Result<(u64, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn scan_mempool(
                 &self,

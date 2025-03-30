@@ -1,8 +1,7 @@
 use super::caller::{CallResult, Caller, Config};
 use crate::db::helpers::web_hook::WebHookHelperDatabase;
 use crate::db::models::WebHook;
-use crate::webhook::WebHookCallParams;
-use crate::webhook::types::{WebHookCallData, WebHookEvent};
+use crate::webhook::types::{SwapUpdateCallData, WebHookCallData};
 use std::error::Error;
 use tokio_util::sync::CancellationToken;
 
@@ -35,24 +34,14 @@ impl StatusCaller {
 
     pub async fn call_webhook(
         &self,
-        hook: &WebHook,
+        hook: WebHook,
         status: String,
     ) -> Result<CallResult, Box<dyn Error>> {
-        self.caller
-            .call_webhook(
-                hook,
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
-                        status,
-                        id: WebHookHelperDatabase::format_swap_id(
-                            hook.id.clone(),
-                            hook.hash_swap_id,
-                        ),
-                    },
-                },
-            )
-            .await
+        let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
+            status,
+            id: WebHookHelperDatabase::format_swap_id(hook.id.clone(), hook.hash_swap_id),
+        });
+        self.caller.call_webhook(hook, data).await
     }
 }
 

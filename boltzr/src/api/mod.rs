@@ -6,7 +6,7 @@ use crate::api::stats::get_stats;
 use crate::metrics::server::MetricsLayer;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use axum::{Extension, Router};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -16,6 +16,7 @@ use tracing::{debug, info};
 use ws::status::SwapInfos;
 use ws::types::SwapStatus;
 
+mod bolt12;
 mod errors;
 mod headers;
 mod lightning;
@@ -135,8 +136,20 @@ where
                 get(lightning::channels::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/bolt12",
+                post(bolt12::create::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/bolt12",
+                patch(bolt12::update::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/bolt12/{receiving}",
+                get(bolt12::params::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/bolt12/fetch",
-                post(lightning::bolt12_fetch::<S, M>),
+                post(bolt12::fetch::<S, M>),
             )
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))

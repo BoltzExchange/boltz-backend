@@ -1,15 +1,23 @@
 use crate::chain::BaseClient;
+use crate::db::helpers::offer::OfferHelper;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
+use crate::wallet;
 use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, info, instrument};
+
+mod hold;
+
+pub use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
 
 #[allow(clippy::enum_variant_names)]
 pub(crate) mod cln_rpc {
@@ -18,45 +26,61 @@ pub(crate) mod cln_rpc {
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
-    pub host: String,
-    pub port: u16,
+    #[serde(flatten)]
+    pub cln: hold::Config,
 
-    #[serde(rename = "rootCertPath")]
-    pub root_cert_path: String,
-    #[serde(rename = "privateKeyPath")]
-    pub private_key_path: String,
-    #[serde(rename = "certChainPath")]
-    pub cert_chain_path: String,
+    pub hold: hold::Config,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Cln {
+    pub hold: hold::Hold,
+
     symbol: String,
     cln: cln_rpc::node_client::NodeClient<Channel>,
+    offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
 }
 
 impl Cln {
-    #[instrument(name = "Cln::new", skip(config))]
-    pub async fn new(symbol: &str, config: Config) -> anyhow::Result<Self> {
+    #[instrument(name = "Cln::new", skip(config, offer_helper))]
+    pub async fn new(
+        cancellation_token: CancellationToken,
+        symbol: &str,
+        network: wallet::Network,
+        config: &Config,
+        offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
+    ) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
             .domain_name("cln")
             .ca_certificate(Certificate::from_pem(fs::read_to_string(
-                config.root_cert_path,
+                &config.cln.root_cert_path,
             )?))
             .identity(Identity::from_pem(
-                fs::read_to_string(config.cert_chain_path)?,
-                fs::read_to_string(config.private_key_path)?,
+                fs::read_to_string(&config.cln.cert_chain_path)?,
+                fs::read_to_string(&config.cln.private_key_path)?,
             ));
 
-        let channel = Channel::from_shared(format!("https://{}:{}", config.host, config.port))?
-            .tls_config(tls)?
-            .connect()
-            .await?;
+        let channel =
+            Channel::from_shared(format!("https://{}:{}", config.cln.host, config.cln.port))?
+                .tls_config(tls)?
+                .connect()
+                .await?;
+        let cln = cln_rpc::node_client::NodeClient::new(channel)
+            .max_decoding_message_size(1024 * 1024 * 1024);
 
-        Ok(Cln {
+        Ok(Self {
             symbol: symbol.to_string(),
-            cln: cln_rpc::node_client::NodeClient::new(channel)
-                .max_decoding_message_size(1024 * 1024 * 1024),
+            hold: hold::Hold::new(
+                cancellation_token,
+                symbol,
+                network,
+                cln.clone(),
+                offer_helper.clone(),
+                &config.hold,
+            )
+            .await?,
+            cln,
+            offer_helper,
         })
     }
 
@@ -65,6 +89,11 @@ impl Cln {
         offer: String,
         amount_msat: u64,
     ) -> anyhow::Result<String> {
+        if let Some(offer) = self.offer_helper.get_offer(&offer)? {
+            debug!("Fetching invoice for offer via Webhook");
+            return self.hold.fetch_invoice_webhook(offer, amount_msat).await;
+        }
+
         let res = self
             .cln
             .fetch_invoice(FetchinvoiceRequest {
@@ -168,6 +197,7 @@ impl BaseClient for Cln {
         self.symbol.clone()
     }
 
+    #[instrument(name = "Cln::connect", skip_all)]
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.get_info().await?;
         let version = info.version.split(".").collect::<Vec<&str>>();
@@ -197,6 +227,8 @@ impl BaseClient for Cln {
             info.alias.unwrap_or(hex::encode(info.id))
         );
 
+        self.hold.connect().await?;
+
         Ok(())
     }
 }
@@ -222,29 +254,57 @@ pub mod test {
     }
 
     const CLN_CERTS_PATH: &str = "../docker/regtest/data/cln/certs";
+    const HOLD_CERTS_PATH: &str = "../docker/regtest/data/cln/hold";
 
     pub async fn cln_client() -> Cln {
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+        offer_helper.expect_get_offer().returning(|_| Ok(None));
+
         Cln::new(
+            CancellationToken::new(),
             "BTC",
-            Config {
-                host: "127.0.0.1".to_string(),
-                port: 9291,
-                root_cert_path: Path::new(CLN_CERTS_PATH)
-                    .join("ca.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                private_key_path: Path::new(CLN_CERTS_PATH)
-                    .join("client-key.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                cert_chain_path: Path::new(CLN_CERTS_PATH)
-                    .join("client.pem")
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
+            wallet::Network::Regtest,
+            &Config {
+                cln: hold::Config {
+                    host: "127.0.0.1".to_string(),
+                    port: 9291,
+                    root_cert_path: Path::new(CLN_CERTS_PATH)
+                        .join("ca.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    private_key_path: Path::new(CLN_CERTS_PATH)
+                        .join("client-key.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    cert_chain_path: Path::new(CLN_CERTS_PATH)
+                        .join("client.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                },
+                hold: hold::Config {
+                    host: "127.0.0.1".to_string(),
+                    port: 9292,
+                    root_cert_path: Path::new(HOLD_CERTS_PATH)
+                        .join("ca.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    private_key_path: Path::new(HOLD_CERTS_PATH)
+                        .join("client-key.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    cert_chain_path: Path::new(HOLD_CERTS_PATH)
+                        .join("client.pem")
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                },
             },
+            Arc::new(offer_helper),
         )
         .await
         .unwrap()

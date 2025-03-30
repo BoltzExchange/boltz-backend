@@ -23,7 +23,6 @@ import {
   getUnixTime,
   getVersion,
   splitPairId,
-  stringify,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength } from '../api/Utils';
@@ -83,7 +82,7 @@ import {
   ReversePairTypeTaproot,
   SubmarinePairTypeTaproot,
 } from '../rates/providers/RateProviderTaproot';
-import { InvoiceType } from '../sidecar/DecodedInvoice';
+import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -97,9 +96,7 @@ import Errors from './Errors';
 import EventHandler from './EventHandler';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from './TimeoutDeltaProvider';
+import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
 import MusigSigner from './cooperative/MusigSigner';
@@ -926,20 +923,6 @@ class Service {
     }
   };
 
-  /**
-   * Updates the timeout block delta of a pair
-   */
-  public updateTimeoutBlockDelta = (
-    pairId: string,
-    newDeltas: PairTimeoutBlocksDelta,
-  ): void => {
-    this.timeoutDeltaProvider.setTimeout(pairId, newDeltas);
-
-    this.logger.info(
-      `Updated timeout block delta of ${pairId} to ${stringify(newDeltas)}`,
-    );
-  };
-
   public addReferral = async (referral: {
     id: string;
     feeShare: number;
@@ -1633,7 +1616,10 @@ class Service {
     version: SwapVersion;
     pairHash?: string;
     orderSide: string;
-    preimageHash: Buffer;
+    preimageHash?: Buffer;
+
+    // BOLT12 invoice that can be used instead of the preimage hash and invoice amount
+    invoice?: string;
 
     invoiceAmount?: number;
     onchainAmount?: number;
@@ -1695,7 +1681,36 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    await this.checkSwapWithPreimageExists(args.preimageHash);
+    if (args.invoice !== undefined && args.preimageHash !== undefined) {
+      throw Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED();
+    }
+
+    let preimageHash: Buffer;
+    let decodedInvoice: DecodedInvoice | undefined;
+
+    if (args.invoice !== undefined) {
+      decodedInvoice = await this.sidecar.decodeInvoiceOrOffer(args.invoice);
+      if (decodedInvoice.type !== InvoiceType.Bolt12Invoice) {
+        throw Errors.INVOICE_NOT_BOLT12();
+      }
+      preimageHash = decodedInvoice.paymentHash!;
+
+      if (
+        args.invoiceAmount !== undefined ||
+        args.onchainAmount !== undefined
+      ) {
+        throw Errors.BOLT12_INVOICE_AMOUNT_CONFLICT();
+      }
+
+      args.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
+    } else if (args.preimageHash !== undefined) {
+      preimageHash = args.preimageHash!;
+    } else {
+      throw Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED();
+    }
+
+    checkPreimageHashLength(preimageHash);
+    await this.checkSwapWithPreimageExists(preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
     const referralId = await this.getReferralId(
@@ -1938,15 +1953,19 @@ class Service {
       quoteCurrency: quote,
       version: args.version,
       memo: args.description,
+      preimageHash: preimageHash,
       routingNode: args.routingNode,
       userAddress: args.userAddress,
       claimAddress: args.claimAddress,
-      preimageHash: args.preimageHash,
       invoiceExpiry: args.invoiceExpiry,
       claimPublicKey: args.claimPublicKey,
       descriptionHash: args.descriptionHash,
       claimCovenant: args.claimCovenant || false,
       userAddressSignature: args.userAddressSignature,
+      invoice:
+        args.invoice !== undefined && decodedInvoice !== undefined
+          ? { invoice: args.invoice, decoded: decodedInvoice }
+          : undefined,
     });
 
     this.eventHandler.emitSwapCreation(id);
@@ -1962,7 +1981,6 @@ class Service {
 
     const response: any = {
       id,
-      invoice,
       swapTree,
       referralId,
       blindingKey,
@@ -1972,6 +1990,10 @@ class Service {
       refundPublicKey,
       timeoutBlockHeight,
     };
+
+    if (args.invoice === undefined) {
+      response.invoice = invoice;
+    }
 
     if (swapIsPrepayMinerFee) {
       response.minerFeeInvoice = minerFeeInvoice;

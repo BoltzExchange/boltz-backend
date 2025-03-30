@@ -93,7 +93,7 @@
  *             schema:
  *               $ref: '#/components/schemas/LightningNode'
  *       '400':
- *         description: Unprocessable acceptable request parameters
+ *         description: Unprocessable request parameters
  *         content:
  *           application/json:
  *             schema:
@@ -142,6 +142,146 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
  *         description: When the node cannot be found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /lightning/{currency}/bolt12:
+ *   post:
+ *     tags: [Lightning]
+ *     description: Creates a BOLT12 offer
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - offer
+ *               - url
+ *             properties:
+ *               offer:
+ *                 type: string
+ *                 description: The BOLT12 offer
+ *               url:
+ *                 type: string
+ *                 description: Webhook to call to fetch invoices for the offer
+ *     responses:
+ *       '201':
+ *         description: BOLT12 offer created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       '400':
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *
+ *   patch:
+ *     tags: [Lightning]
+ *     description: Updates the webhook URL for a BOLT12 offer
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - offer
+ *               - url
+ *               - signature
+ *             properties:
+ *               offer:
+ *                 type: string
+ *                 description: The BOLT12 offer
+ *               url:
+ *                 type: string
+ *                 description: Webhook to call to fetch invoices for the offer
+ *               signature:
+ *                 type: string
+ *                 description: Schnorr signature of the SHA256 hash of the new URL
+ *     responses:
+ *       '200':
+ *         description: BOLT12 offer updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       '400':
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /lightning/{currency}/bolt12/{receiving}:
+ *   get:
+ *     tags: [Lightning]
+ *     description: Gets parameters for a BOLT12 offer
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *       - in: path
+ *         name: receiving
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Symbol of the chain to which invoices of the offer should be swapped to
+ *     responses:
+ *       '200':
+ *         description: Parameters for the BOLT12 offer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: ["minCltv", "magicRoutingHint"]
+ *               properties:
+ *                 minCltv:
+ *                   type: integer
+ *                   description: Minimum CLTV value
+ *                 magicRoutingHint:
+ *                   type: object
+ *                   required: ["channelId"]
+ *                   properties:
+ *                     channelId:
+ *                       type: integer
+ *                       description: Channel ID to use for magic routing hints
+ *       '400':
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: BOLT12 Reverse Swaps not available for the sending symbol
  *         content:
  *           application/json:
  *             schema:

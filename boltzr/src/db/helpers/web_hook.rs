@@ -2,8 +2,8 @@ use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::{WebHook, WebHookState};
 use crate::db::schema::{chainSwaps, reverseSwaps, swaps, web_hooks};
-use crate::webhook::caller::{Hook, HookState};
-use crate::webhook::{WebHookCallData, WebHookCallParams, WebHookEvent};
+use crate::webhook::caller::HookState;
+use crate::webhook::{SwapUpdateCallData, WebHookCallData};
 use diesel::prelude::*;
 use diesel::{insert_into, update};
 use tracing::{instrument, trace};
@@ -113,10 +113,12 @@ impl WebHookHelper for WebHookHelperDatabase {
 }
 
 impl HookState<WebHook> for WebHookHelperDatabase {
-    fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallParams) -> bool {
-        if let Some(status_include) = &hook.status {
-            if !status_include.contains(&params.data.status) {
-                return true;
+    fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallData) -> bool {
+        if let WebHookCallData::SwapUpdate(params) = &params {
+            if let Some(status_include) = &hook.status {
+                if !status_include.contains(&params.status) {
+                    return true;
+                }
             }
         }
 
@@ -127,19 +129,18 @@ impl HookState<WebHook> for WebHookHelperDatabase {
         WebHookHelper::get_by_state(self, state)
     }
 
-    fn get_retry_data(&self, hook: &WebHook) -> anyhow::Result<Option<WebHookCallParams>> {
+    fn get_retry_data(&self, hook: &WebHook) -> anyhow::Result<Option<WebHookCallData>> {
         let res = WebHookHelper::get_swap_status(self, &hook.id)?;
-        Ok(res.map(|res| WebHookCallParams {
-            event: WebHookEvent::SwapUpdate,
-            data: WebHookCallData {
+        Ok(res.map(|res| {
+            WebHookCallData::SwapUpdate(SwapUpdateCallData {
                 id: Self::format_swap_id(hook.id.clone(), hook.hash_swap_id),
                 status: res,
-            },
+            })
         }))
     }
 
-    fn set_state(&self, id: &<WebHook as Hook>::Id, state: WebHookState) -> anyhow::Result<()> {
-        WebHookHelper::set_state(self, id, state)?;
+    fn set_state(&self, hook: &WebHook, state: WebHookState) -> anyhow::Result<()> {
+        WebHookHelper::set_state(self, &hook.id, state)?;
         Ok(())
     }
 }
@@ -150,7 +151,7 @@ pub mod test {
     use crate::db::models::{WebHook, WebHookState};
     use crate::db::{Config, Pool, connect};
     use crate::webhook::caller::HookState;
-    use crate::webhook::{WebHookCallData, WebHookCallParams, WebHookEvent};
+    use crate::webhook::{SwapUpdateCallData, WebHookCallData};
     use rand::distr::{Alphanumeric, SampleString};
     use rstest::rstest;
     use std::sync::{Mutex, OnceLock};
@@ -191,13 +192,10 @@ pub mod test {
                     status: included,
                     ..Default::default()
                 },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
-                        id: "".to_string(),
-                        status,
-                    },
-                },
+                &WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                    id: "".to_string(),
+                    status,
+                }),
             ),
             expected
         );

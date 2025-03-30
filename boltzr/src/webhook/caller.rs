@@ -1,18 +1,20 @@
-use std::error::Error;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{cmp, fmt};
-
 use anyhow::Result;
 use dashmap::DashMap;
 use futures::future;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{cmp, fmt};
+use tokio::sync::broadcast::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::db::models::WebHookState;
 use crate::webhook::types::WebHookCallParams;
+use crate::webhook::{WebHookCallData, WebHookEvent};
 
 const DEFAULT_REQUEST_TIMEOUT: u64 = 15;
 const DEFAULT_MAX_RETRIES: u64 = 5;
@@ -66,11 +68,11 @@ pub trait Hook {
 }
 
 pub trait HookState<H: Hook> {
-    fn should_be_skipped(&self, hook: &H, params: &WebHookCallParams) -> bool;
+    fn should_be_skipped(&self, hook: &H, params: &WebHookCallData) -> bool;
 
     fn get_by_state(&self, state: WebHookState) -> Result<Vec<H>>;
-    fn get_retry_data(&self, id: &H) -> Result<Option<WebHookCallParams>>;
-    fn set_state(&self, id: &H::Id, state: WebHookState) -> Result<()>;
+    fn get_retry_data(&self, hook: &H) -> Result<Option<WebHookCallData>>;
+    fn set_state(&self, hook: &H, state: WebHookState) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -83,6 +85,7 @@ where
     hook_state: Arc<S>,
     cancellation_token: CancellationToken,
     retry_count: Arc<DashMap<H::Id, u64>>,
+    successful_calls: Sender<(H, Vec<u8>)>,
 
     request_timeout: Duration,
     max_retries: u64,
@@ -91,7 +94,7 @@ where
 
 impl<H, S> Caller<H, S>
 where
-    H: Hook + Clone + Send + Sync + 'static,
+    H: Hook + Clone + Debug + Send + Sync + 'static,
     H::Id: fmt::Display + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
     S: HookState<H> + Clone + Send + Sync + 'static,
 {
@@ -107,10 +110,13 @@ where
         let timeout = config.request_timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT);
         trace!("{} WebHook call timeout: {}s", name, timeout);
 
-        Caller {
+        let (tx, _) = tokio::sync::broadcast::channel(256);
+
+        Self {
             name,
             max_retries,
             cancellation_token,
+            successful_calls: tx,
             hook_state: Arc::new(hook_state),
             retry_count: Arc::new(DashMap::new()),
             request_timeout: Duration::from_secs(timeout),
@@ -153,13 +159,17 @@ where
         }
     }
 
+    pub fn subscribe_successful_calls(&self) -> Receiver<(H, Vec<u8>)> {
+        self.successful_calls.subscribe()
+    }
+
     #[instrument(name = "Caller::call_webhook", skip(self, hook, data))]
     pub async fn call_webhook(
         &self,
-        hook: &H,
-        data: &WebHookCallParams,
+        hook: H,
+        data: WebHookCallData,
     ) -> Result<CallResult, Box<dyn Error>> {
-        if self.hook_state.should_be_skipped(hook, data) {
+        if self.hook_state.should_be_skipped(&hook, &data) {
             trace!("Skipping call to {} WebHook for {}", self.name, hook.id());
             return Ok(CallResult::NotIncluded);
         }
@@ -176,13 +186,28 @@ where
             .timeout(self.request_timeout)
             .build()
             .unwrap();
-        let req_err = match client.post(hook.url()).json(data).send().await {
-            Ok(res) => res.error_for_status().err(),
-            Err(err) => Some(err),
+
+        let res = match client
+            .post(hook.url())
+            .json(&WebHookCallParams {
+                event: match data {
+                    WebHookCallData::SwapUpdate(_) => WebHookEvent::SwapUpdate,
+                    WebHookCallData::InvoiceRequest(_) => WebHookEvent::InvoiceRequest,
+                },
+                data,
+            })
+            .send()
+            .await
+        {
+            Ok(res) => match res.error_for_status() {
+                Ok(res) => res.bytes().await,
+                Err(err) => Err(err),
+            },
+            Err(err) => Err(err),
         };
 
-        match req_err {
-            None => {
+        match res {
+            Ok(res) => {
                 info!("Called {} WebHook for {}", self.name, hook.id());
 
                 #[cfg(feature = "metrics")]
@@ -190,11 +215,14 @@ where
                     .increment(1);
 
                 self.retry_count.remove(&hook.id());
-                self.hook_state.set_state(&hook.id(), WebHookState::Ok)?;
+                self.hook_state.set_state(&hook, WebHookState::Ok)?;
 
+                if let Err(err) = self.successful_calls.send((hook, res.to_vec())) {
+                    warn!("Failed to send successful WebHook call to channel: {}", err);
+                }
                 Ok(CallResult::Success)
             }
-            Some(err) => {
+            Err(err) => {
                 warn!(
                     "{} WebHook request for {} failed: {}",
                     self.name,
@@ -206,8 +234,7 @@ where
                 metrics::counter!(crate::metrics::WEBHOOK_CALL_COUNT, "status" => "failed", "type" => self.name.clone())
                     .increment(1);
 
-                self.hook_state
-                    .set_state(&hook.id(), WebHookState::Failed)?;
+                self.hook_state.set_state(&hook, WebHookState::Failed)?;
 
                 Ok(CallResult::Failed)
             }
@@ -267,7 +294,7 @@ where
                 hook.id(),
                 hook.url()
             );
-            let res = self.call_webhook(&hook, &params).await?;
+            let res = self.call_webhook(hook.clone(), params).await?;
 
             if res == CallResult::Success {
                 self.retry_count.remove(&hook.id());
@@ -300,8 +327,7 @@ where
                 .increment(1);
 
                 self.retry_count.remove(&hook.id());
-                self.hook_state
-                    .set_state(&hook.id(), WebHookState::Abandoned)?;
+                self.hook_state.set_state(&hook, WebHookState::Abandoned)?;
             } else {
                 self.retry_count.insert(hook.id(), failed_count);
             }
@@ -317,7 +343,7 @@ where
     }
 }
 
-pub fn validate_url(url: &str) -> Option<Box<dyn Error>> {
+pub fn validate_url(url: &str, allow_http: bool) -> Option<Box<dyn Error>> {
     if url.len() > MAX_URL_LENGTH {
         return Some(UrlError::MoreThanMaxLen.into());
     }
@@ -327,7 +353,7 @@ pub fn validate_url(url: &str) -> Option<Box<dyn Error>> {
         Err(err) => return Some(err.into()),
     };
 
-    if url.scheme() != "https" {
+    if !allow_http && url.scheme() != "https" {
         return Some(UrlError::HttpsRequired.into());
     }
 
@@ -338,6 +364,7 @@ pub fn validate_url(url: &str) -> Option<Box<dyn Error>> {
 mod caller_test {
     use super::*;
     use crate::db::models::{WebHook, WebHookState};
+    use crate::webhook::SwapUpdateCallData;
     use crate::webhook::types::{WebHookCallData, WebHookCallParams, WebHookEvent};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
@@ -357,11 +384,11 @@ mod caller_test {
         }
 
         impl HookState<WebHook> for HookState {
-            fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallParams) -> bool;
+            fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallData) -> bool;
 
             fn get_by_state(&self, state: WebHookState) -> Result<Vec<WebHook>>;
-            fn get_retry_data(&self, id: &WebHook) -> Result<Option<WebHookCallParams>>;
-            fn set_state(&self, id: &<WebHook as Hook>::Id, state: WebHookState) -> Result<()>;
+            fn get_retry_data(&self, id: &WebHook) -> Result<Option<WebHookCallData>>;
+            fn set_state(&self, id: &WebHook, state: WebHookState) -> Result<()>;
         }
     }
 
@@ -373,12 +400,17 @@ mod caller_test {
             .returning(|_, _| false);
 
         let id = "gm";
+        let port = 10001;
+
+        let hook = WebHook {
+            id: id.to_string(),
+            url: format!("http://127.0.0.1:{}", port),
+            ..Default::default()
+        };
+
         web_hook_helper
             .expect_set_state()
-            .with(
-                predicate::eq(id.to_string()),
-                predicate::eq(WebHookState::Ok),
-            )
+            .with(predicate::eq(hook.clone()), predicate::eq(WebHookState::Ok))
             .returning(|_, _| Ok(()));
 
         let caller = Caller::new(
@@ -392,30 +424,15 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let port = 10001;
         let (cancel_token, received_calls) = start_server(port).await;
-
-        let data = WebHookCallData {
+        let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
             status: "some.update".to_string(),
-        };
+        });
 
         caller.retry_count.insert(id.to_string(), 21);
-        let res = caller
-            .call_webhook(
-                &WebHook {
-                    id: id.to_string(),
-                    url: format!("http://127.0.0.1:{}", port),
-                    ..Default::default()
-                },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: data.clone(),
-                },
-            )
-            .await
-            .unwrap();
-        assert_eq!(res, CallResult::Success);
+        let res = caller.call_webhook(hook, data.clone()).await.unwrap();
+        assert!(res == CallResult::Success);
 
         assert!(caller.retry_count.get(&id.to_string()).is_none());
 
@@ -439,10 +456,16 @@ mod caller_test {
             .returning(|_, _| false);
 
         let id = "gm";
+        let hook = WebHook {
+            url: format!("http://127.0.0.1:{}", 10002),
+            id: id.to_string(),
+            ..Default::default()
+        };
+
         web_hook_helper
             .expect_set_state()
             .with(
-                predicate::eq(id.to_string()),
+                predicate::eq(hook.clone()),
                 predicate::eq(WebHookState::Failed),
             )
             .returning(|_, _| Ok(()));
@@ -458,21 +481,13 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let url = format!("http://127.0.0.1:{}", 10002);
         let res = caller
             .call_webhook(
-                &WebHook {
-                    url,
+                hook,
+                WebHookCallData::SwapUpdate(SwapUpdateCallData {
                     id: id.to_string(),
-                    ..Default::default()
-                },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
-                        id: id.to_string(),
-                        status: "some.update".to_string(),
-                    },
-                },
+                    status: "some.update".to_string(),
+                }),
             )
             .await
             .unwrap();
@@ -487,10 +502,17 @@ mod caller_test {
             .returning(|_, _| false);
 
         let id = "gm";
+        let port = 10003;
+        let hook = WebHook {
+            id: id.to_string(),
+            url: format!("http://127.0.0.1:{}/fail", port),
+            ..Default::default()
+        };
+
         web_hook_helper
             .expect_set_state()
             .with(
-                predicate::eq(id.to_string()),
+                predicate::eq(hook.clone()),
                 predicate::eq(WebHookState::Failed),
             )
             .returning(|_, _| Ok(()));
@@ -506,29 +528,14 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let port = 10003;
         let (cancel_token, received_calls) = start_server(port).await;
 
-        let data = WebHookCallData {
+        let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
             status: "some.update".to_string(),
-        };
+        });
 
-        let url = format!("http://127.0.0.1:{}/fail", port);
-        let res = caller
-            .call_webhook(
-                &WebHook {
-                    id: id.to_string(),
-                    url,
-                    ..Default::default()
-                },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: data.clone(),
-                },
-            )
-            .await
-            .unwrap();
+        let res = caller.call_webhook(hook, data.clone()).await.unwrap();
         assert_eq!(res, CallResult::Failed);
 
         assert_eq!(received_calls.lock().unwrap().len(), 1);
@@ -560,12 +567,17 @@ mod caller_test {
             });
 
         let id = "gm";
+        let port = 10004;
+        let url = format!("http://127.0.0.1:{}", port);
+        let hook = WebHook {
+            id: id.to_string(),
+            url: url.clone(),
+            ..Default::default()
+        };
+
         web_hook_helper
             .expect_set_state()
-            .with(
-                predicate::eq(id.to_string()),
-                predicate::eq(WebHookState::Ok),
-            )
+            .with(predicate::eq(hook.clone()), predicate::eq(WebHookState::Ok))
             .returning(|_, _| Ok(()));
 
         let caller = Caller::new(
@@ -579,46 +591,21 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let port = 10004;
         let (cancel_token, received_calls) = start_server(port).await;
 
-        let data = WebHookCallData {
+        let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
             status: "some.update".to_string(),
-        };
+        });
 
-        let url = format!("http://127.0.0.1:{}", port);
         let res = caller
-            .call_webhook(
-                &WebHook {
-                    id: id.to_string(),
-                    url: url.clone(),
-                    ..Default::default()
-                },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: data.clone(),
-                },
-            )
+            .call_webhook(hook.clone(), data.clone())
             .await
             .unwrap();
         assert_eq!(res, CallResult::NotIncluded);
         assert_eq!(received_calls.lock().unwrap().len(), 0);
 
-        let res = caller
-            .call_webhook(
-                &WebHook {
-                    id: id.to_string(),
-                    url: url.clone(),
-                    ..Default::default()
-                },
-                &WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data,
-                },
-            )
-            .await
-            .unwrap();
+        let res = caller.call_webhook(hook, data).await.unwrap();
         assert_eq!(res, CallResult::Success);
         assert_eq!(received_calls.lock().unwrap().len(), 1);
 
@@ -637,18 +624,19 @@ mod caller_test {
         let id = "gm";
         let status = "some.update";
 
+        let hook = WebHook {
+            url: format!("http://127.0.0.1:{}", port),
+            id: id.to_string(),
+            state: WebHookState::Failed.as_ref().to_string(),
+            hash_swap_id: false,
+            status: None,
+        };
+
+        let hook_cp = hook.clone();
         web_hook_helper
             .expect_get_by_state()
             .with(predicate::eq(WebHookState::Failed))
-            .returning(move |_| {
-                Ok(vec![WebHook {
-                    url: format!("http://127.0.0.1:{}", port),
-                    id: id.to_string(),
-                    state: WebHookState::Failed.as_ref().to_string(),
-                    hash_swap_id: false,
-                    status: None,
-                }])
-            });
+            .returning(move |_| Ok(vec![hook_cp.clone()]));
 
         web_hook_helper
             .expect_get_retry_data()
@@ -660,21 +648,15 @@ mod caller_test {
                 status: None,
             }))
             .returning(|_| {
-                Ok(Some(WebHookCallParams {
-                    event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
-                        id: id.to_string(),
-                        status: status.to_string(),
-                    },
-                }))
+                Ok(Some(WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                    id: id.to_string(),
+                    status: status.to_string(),
+                })))
             });
 
         web_hook_helper
             .expect_set_state()
-            .with(
-                predicate::eq(id.to_string()),
-                predicate::eq(WebHookState::Ok),
-            )
+            .with(predicate::eq(hook), predicate::eq(WebHookState::Ok))
             .returning(|_, _| Ok(()));
 
         let caller_cancel = CancellationToken::new();
@@ -702,10 +684,10 @@ mod caller_test {
             received_calls.lock().unwrap()[0],
             WebHookCallParams {
                 event: WebHookEvent::SwapUpdate,
-                data: WebHookCallData {
+                data: WebHookCallData::SwapUpdate(SwapUpdateCallData {
                     id: id.to_string(),
-                    status: status.to_string()
-                },
+                    status: status.to_string(),
+                }),
             }
         );
 
@@ -756,21 +738,15 @@ mod caller_test {
             .expect_get_retry_data()
             .returning(move |param| {
                 if param.id == id {
-                    return Ok(Some(WebHookCallParams {
-                        event: WebHookEvent::SwapUpdate,
-                        data: WebHookCallData {
-                            id: id.to_string(),
-                            status: status.to_string(),
-                        },
-                    }));
+                    return Ok(Some(WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                        id: id.to_string(),
+                        status: status.to_string(),
+                    })));
                 } else if param.id == id_two {
-                    return Ok(Some(WebHookCallParams {
-                        event: WebHookEvent::SwapUpdate,
-                        data: WebHookCallData {
-                            id: id_two.to_string(),
-                            status: status_two.to_string(),
-                        },
-                    }));
+                    return Ok(Some(WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                        id: id_two.to_string(),
+                        status: status_two.to_string(),
+                    })));
                 }
 
                 panic!("invalid id");
@@ -798,20 +774,20 @@ mod caller_test {
             *entry
                 == WebHookCallParams {
                     event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
+                    data: WebHookCallData::SwapUpdate(SwapUpdateCallData {
                         id: id.to_string(),
                         status: status.to_string(),
-                    },
+                    }),
                 }
         }));
         assert!(received_calls.lock().unwrap().iter().any(|entry| {
             *entry
                 == WebHookCallParams {
                     event: WebHookEvent::SwapUpdate,
-                    data: WebHookCallData {
+                    data: WebHookCallData::SwapUpdate(SwapUpdateCallData {
                         id: id_two.to_string(),
                         status: status_two.to_string(),
-                    },
+                    }),
                 }
         }));
 
@@ -845,13 +821,10 @@ mod caller_test {
             });
 
         web_hook_helper.expect_get_retry_data().returning(move |_| {
-            Ok(Some(WebHookCallParams {
-                event: WebHookEvent::SwapUpdate,
-                data: WebHookCallData {
-                    id: id.to_string(),
-                    status: status.to_string(),
-                },
-            }))
+            Ok(Some(WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                id: id.to_string(),
+                status: status.to_string(),
+            })))
         });
 
         web_hook_helper
@@ -889,33 +862,30 @@ mod caller_test {
         let status = "not.included";
         let url = format!("http://127.0.0.1:{}", 1234);
 
+        let hook = WebHook {
+            url: url.clone(),
+            id: id.to_string(),
+            hash_swap_id: false,
+            status: Some(vec!["invoice.set".to_string()]),
+            state: WebHookState::Failed.as_ref().to_string(),
+        };
+        let hook_cp = hook.clone();
         web_hook_helper
             .expect_get_by_state()
             .with(predicate::eq(WebHookState::Failed))
-            .returning(move |_| {
-                Ok(vec![WebHook {
-                    url: url.clone(),
-                    id: id.to_string(),
-                    hash_swap_id: false,
-                    status: Some(vec!["invoice.set".to_string()]),
-                    state: WebHookState::Failed.as_ref().to_string(),
-                }])
-            });
+            .returning(move |_| Ok(vec![hook_cp.clone()]));
 
         web_hook_helper.expect_get_retry_data().returning(move |_| {
-            Ok(Some(WebHookCallParams {
-                event: WebHookEvent::SwapUpdate,
-                data: WebHookCallData {
-                    id: id.to_string(),
-                    status: status.to_string(),
-                },
-            }))
+            Ok(Some(WebHookCallData::SwapUpdate(SwapUpdateCallData {
+                id: id.to_string(),
+                status: status.to_string(),
+            })))
         });
 
         web_hook_helper
             .expect_set_state()
             .with(
-                predicate::eq(id.to_string()),
+                predicate::eq(hook.clone()),
                 predicate::eq(WebHookState::Abandoned),
             )
             .returning(move |_, _| Ok(()));
@@ -940,15 +910,18 @@ mod caller_test {
 
     #[test]
     fn test_validate_url_valid() {
-        assert!(validate_url("https://bol.tz").is_none());
+        assert!(validate_url("https://bol.tz", false).is_none());
     }
 
     #[test]
     fn test_validate_url_max_length() {
         assert_eq!(
-            validate_url(&(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>())
-                .unwrap()
-                .to_string(),
+            validate_url(
+                &(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>(),
+                false
+            )
+            .unwrap()
+            .to_string(),
             UrlError::MoreThanMaxLen.to_string(),
         );
     }
@@ -956,7 +929,7 @@ mod caller_test {
     #[test]
     fn test_validate_url_parse_fail() {
         assert_eq!(
-            validate_url("invalid url").unwrap().to_string(),
+            validate_url("invalid url", false).unwrap().to_string(),
             "relative URL without a base",
         );
     }
@@ -964,9 +937,14 @@ mod caller_test {
     #[test]
     fn test_validate_url_not_https() {
         assert_eq!(
-            validate_url("http://bol.tz").unwrap().to_string(),
+            validate_url("http://bol.tz", false).unwrap().to_string(),
             UrlError::HttpsRequired.to_string(),
         );
+    }
+
+    #[test]
+    fn test_validate_url_allow_http() {
+        assert!(validate_url("http://bol.tz", true).is_none());
     }
 
     async fn start_server(port: u16) -> (CancellationToken, Arc<Mutex<Vec<WebHookCallParams>>>) {

@@ -2812,6 +2812,17 @@ describe('Service', () => {
     mockGetReverseSwapResult = null;
   });
 
+  test.each([1, 2, 3, 21, 31, 33, 64])(
+    'should not create reverse swaps with preimage hash length != 32',
+    async (length) => {
+      await expect(
+        service.createReverseSwap({
+          preimageHash: randomBytes(length),
+        } as any),
+      ).rejects.toEqual(`invalid preimage hash length: ${length}`);
+    },
+  );
+
   test('should create Reverse Swaps with referral IDs', async () => {
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
@@ -3050,6 +3061,95 @@ describe('Service', () => {
       percentageFee: Math.ceil(
         invoiceAmount * pairRate * mockGetPercentageFeeResult,
       ),
+    });
+  });
+
+  describe('createReverseSwap BOLT12', () => {
+    test('should create reverse swaps with bolt12 invoices', async () => {
+      service.allowReverseSwaps = true;
+
+      const paymentHash = randomBytes(32);
+      const decodedInvoice = {
+        type: InvoiceType.Bolt12Invoice,
+        paymentHash,
+        amountMsat: 100_000_000,
+      } as any;
+      service.sidecar.decodeInvoiceOrOffer = jest
+        .fn()
+        .mockResolvedValue(decodedInvoice);
+
+      const invoice = 'lni';
+      const pair = 'BTC/BTC';
+      const orderSide = 'buy';
+      const claimPublicKey = getHexBuffer('0xfff');
+
+      await service.createReverseSwap({
+        invoice,
+        orderSide,
+        claimPublicKey,
+        pairId: pair,
+        version: SwapVersion.Legacy,
+      });
+
+      expect(mockCreateReverseSwap).toHaveBeenCalledWith({
+        claimPublicKey,
+        baseCurrency: 'BTC',
+        quoteCurrency: 'BTC',
+        claimCovenant: false,
+        percentageFee: 2_000,
+        onchainAmount: 97_680,
+        orderSide: OrderSide.BUY,
+        preimageHash: paymentHash,
+        holdInvoiceAmount: 100000,
+        version: SwapVersion.Legacy,
+        invoice: { invoice, decoded: decodedInvoice },
+        onchainTimeoutBlockDelta: expect.anything(),
+        lightningTimeoutBlockDelta: expect.anything(),
+      });
+    });
+
+    test('should throw if invoice and preimage hash are specified', async () => {
+      await expect(
+        service.createReverseSwap({
+          invoice: 'lni',
+          preimageHash: randomBytes(32),
+        } as any),
+      ).rejects.toEqual(Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED());
+    });
+
+    test('should throw if invoice is not bolt12', async () => {
+      service.sidecar.decodeInvoiceOrOffer = jest.fn().mockResolvedValue({
+        type: InvoiceType.Bolt11,
+      } as any);
+
+      await expect(
+        service.createReverseSwap({
+          invoice: 'not a bolt12 invoice',
+        } as any),
+      ).rejects.toEqual(Errors.INVOICE_NOT_BOLT12());
+    });
+
+    test('should throw if invoice and preimageHash are not specified', async () => {
+      await expect(service.createReverseSwap({} as any)).rejects.toEqual(
+        Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED(),
+      );
+    });
+
+    test.each`
+      params
+      ${{ onchainAmount: 1 }}
+      ${{ invoiceAmount: 1 }}
+    `('should throw when amount is set: $params', async ({ params }) => {
+      service.sidecar.decodeInvoiceOrOffer = jest.fn().mockResolvedValue({
+        type: InvoiceType.Bolt12Invoice,
+      } as any);
+
+      await expect(
+        service.createReverseSwap({
+          ...params,
+          invoice: 'lni',
+        }),
+      ).rejects.toEqual(Errors.BOLT12_INVOICE_AMOUNT_CONFLICT());
     });
   });
 

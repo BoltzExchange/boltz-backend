@@ -1,4 +1,5 @@
 #[allow(dead_code)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum OrderSide {
     Buy = 0,
     Sell = 1,
@@ -22,9 +23,13 @@ pub fn split_pair(pair: &str) -> anyhow::Result<Pair> {
     })
 }
 
+pub fn concat_pair(base: &str, quote: &str) -> String {
+    format!("{}/{}", base, quote)
+}
+
 #[cfg(test)]
 mod test {
-    use crate::utils::pair::{Pair, split_pair};
+    use super::*;
     use rstest::*;
 
     #[rstest]
@@ -43,5 +48,13 @@ mod test {
             split_pair(pair).unwrap_err().to_string(),
             format!("invalid pair: {}", pair)
         );
+    }
+
+    #[rstest]
+    #[case("BTC", "BTC", "BTC/BTC")]
+    #[case("L-BTC", "BTC", "L-BTC/BTC")]
+    #[case("L-BTC", "RBTC", "L-BTC/RBTC")]
+    fn test_concat_pair(#[case] base: &str, #[case] quote: &str, #[case] expected: &str) {
+        assert_eq!(concat_pair(base, quote), expected);
     }
 }

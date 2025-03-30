@@ -988,7 +988,6 @@ describe('SwapRouter', () => {
     error                                         | body
     ${'undefined parameter: to'}                  | ${{}}
     ${'undefined parameter: from'}                | ${{ to: 'L-BTC' }}
-    ${'undefined parameter: preimageHash'}        | ${{ to: 'L-BTC', from: 'BTC' }}
     ${'could not parse hex string: preimageHash'} | ${{ to: 'L-BTC', from: 'BTC', preimageHash: 'notHex' }}
     ${'could not parse hex string: claimPublicKey'} | ${{
   to: 'L-BTC',
@@ -1051,23 +1050,6 @@ describe('SwapRouter', () => {
       await expect(
         swapRouter['createReverse'](mockRequest(body), mockResponse()),
       ).rejects.toEqual(error);
-    },
-  );
-
-  test.each([1, 2, 3, 21, 31, 33, 64])(
-    'should not create reverse swaps with preimage hash length != 32',
-    async (length) => {
-      await expect(
-        swapRouter['createReverse'](
-          mockRequest({
-            to: 'L-BTC',
-            from: 'BTC',
-            claimPublicKey: '21',
-            preimageHash: getHexString(randomBytes(length)),
-          }),
-          mockResponse(),
-        ),
-      ).rejects.toEqual(`invalid preimage hash length: ${length}`);
     },
   );
 

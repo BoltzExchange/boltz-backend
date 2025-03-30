@@ -28,3 +28,11 @@ port = 9291
 rootCertPath = "./docker/regtest/data/cln/certs/ca.pem"
 privateKeyPath = "./docker/regtest/data/cln/certs/client-key.pem"
 certChainPath = "./docker/regtest/data/cln/certs/client.pem"
+
+[currencies.cln.hold]
+host = "127.0.0.1"
+port = 9292
+
+rootCertPath = "./docker/regtest/data/cln/hold/ca.pem"
+privateKeyPath = "./docker/regtest/data/cln/hold/client-key.pem"
+certChainPath = "./docker/regtest/data/cln/hold/client.pem"

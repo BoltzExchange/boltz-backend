@@ -3,6 +3,7 @@ use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
 use crate::db::helpers::keys::KeysHelperDatabase;
+use crate::db::helpers::offer::OfferHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
@@ -144,13 +145,14 @@ async fn main() {
         }
     });
 
-    let currencies = match connect_nodes(
+    let (network, currencies) = match connect_nodes(
         cancellation_token.clone(),
         KeysHelperDatabase::new(db_pool.clone()),
         config.mnemonic_path,
         config.network,
         config.currencies,
         config.liquid,
+        Arc::new(OfferHelperDatabase::new(db_pool.clone())),
     )
     .await
     {
@@ -240,11 +242,19 @@ async fn main() {
     let (swap_status_update_tx, _swap_status_update_rx) =
         tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(128);
 
-    let swap_manager = Arc::new(Manager::new(
+    let swap_manager = match Manager::new(
         cancellation_token.clone(),
         currencies,
         db_pool.clone(),
-    ));
+        network,
+        &config.pairs.unwrap_or_default(),
+    ) {
+        Ok(swap_manager) => Arc::new(swap_manager),
+        Err(err) => {
+            error!("Could not create swap manager: {}", err);
+            std::process::exit(1);
+        }
+    };
 
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),

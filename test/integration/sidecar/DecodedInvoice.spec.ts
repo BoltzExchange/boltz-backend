@@ -1,3 +1,4 @@
+import { getHexBuffer } from '../../../lib/Utils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Sidecar from '../../../lib/sidecar/Sidecar';
@@ -122,6 +123,18 @@ describe('DecodedInvoice', () => {
             '03e28590a7d2e79140fd10ca62a9c18c3daff8e5994047ae715ae0873719f13aac',
         },
       ],
+    ]);
+  });
+
+  test('should get paths', async () => {
+    const dec = await sidecar.decodeInvoiceOrOffer(bolt12Invoice);
+    expect(dec.paths).toEqual([
+      {
+        nodeId: getHexBuffer(
+          '026483ca100de5671d6dab0d8d8da610c0dac1d94479723df1c01fffcafa566693',
+        ),
+        shortChannelId: undefined,
+      },
     ]);
   });
 

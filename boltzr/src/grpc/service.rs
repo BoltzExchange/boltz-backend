@@ -347,7 +347,10 @@ where
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
 
-        if let Some(err) = crate::webhook::caller::validate_url(&params.url) {
+        if let Some(err) = crate::webhook::caller::validate_url(
+            &params.url,
+            self.manager.get_network() == crate::wallet::Network::Regtest,
+        ) {
             debug!("Invalid WebHook URL for swap {}: {}", params.id, params.url);
             return Err(Status::new(Code::InvalidArgument, err.to_string()));
         }
@@ -393,7 +396,7 @@ where
 
         match self
             .web_hook_status_caller
-            .call_webhook(&hook, params.status)
+            .call_webhook(hook, params.status)
             .await
         {
             Ok(res) => Ok(Response::new(SendWebHookResponse {
@@ -615,10 +618,18 @@ where
                                 .payment_paths()
                                 .iter()
                                 .map(|path| bolt12_invoice::Path {
-                                    first_node_pubkey: match path.introduction_node() {
-                                        IntroductionNode::NodeId(pubkey) => Some(pubkey.encode()),
-                                        IntroductionNode::DirectedShortChannelId(_, _) => None,
-                                    },
+                                    introduction_node: Some(match path.introduction_node() {
+                                        IntroductionNode::NodeId(pubkey) => {
+                                            boltzr::bolt12_invoice::path::IntroductionNode::NodeId(
+                                                pubkey.encode(),
+                                            )
+                                        }
+                                        IntroductionNode::DirectedShortChannelId(_, channel_id) => {
+                                            boltzr::bolt12_invoice::path::IntroductionNode::ShortChannelId(
+                                                *channel_id,
+                                            )
+                                        }
+                                    }),
                                     base_fee_msat: path.payinfo.fee_base_msat,
                                     ppm_fee: path.payinfo.fee_proportional_millionths,
                                     cltv_expiry_delta: path.payinfo.cltv_expiry_delta as u64,
@@ -1153,6 +1164,9 @@ mod test {
     fn make_mock_manager() -> MockManager {
         let mut manager = MockManager::new();
         manager.expect_clone().returning(make_mock_manager);
+        manager
+            .expect_get_network()
+            .returning(|| crate::wallet::Network::Regtest);
 
         manager
     }

@@ -30,7 +30,6 @@ class GrpcServer {
       unblindOutputs: grpcService.unblindOutputs,
       getAddress: grpcService.getAddress,
       sendCoins: grpcService.sendCoins,
-      updateTimeoutBlockDelta: grpcService.updateTimeoutBlockDelta,
       addReferral: grpcService.addReferral,
       sweepSwaps: grpcService.sweepSwaps,
       listSwaps: grpcService.listSwaps,

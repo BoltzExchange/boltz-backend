@@ -6,6 +6,7 @@ use strum_macros::{Display, EnumString};
 
 mod chain_swap;
 mod keys;
+mod offer;
 mod referral;
 mod reverse_swap;
 mod swap;
@@ -13,6 +14,7 @@ mod web_hook;
 
 pub use chain_swap::*;
 pub use keys::*;
+pub use offer::*;
 pub use referral::*;
 pub use reverse_swap::*;
 pub use swap::*;

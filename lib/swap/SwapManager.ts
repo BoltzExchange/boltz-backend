@@ -56,6 +56,7 @@ import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintR
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
+import { HopHint, LightningClient } from '../lightning/LightningClient';
 import NotificationClient from '../notifications/NotificationClient';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
@@ -67,7 +68,7 @@ import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import EipSigner from '../service/cooperative/EipSigner';
-import { InvoiceType } from '../sidecar/DecodedInvoice';
+import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
 import Sidecar from '../sidecar/Sidecar';
 import WalletLiquid from '../wallet/WalletLiquid';
 import WalletManager, { Currency } from '../wallet/WalletManager';
@@ -685,6 +686,8 @@ class SwapManager {
     prepayMinerFeeInvoiceAmount?: number;
     prepayMinerFeeOnchainAmount?: number;
 
+    invoice?: { invoice: string; decoded: DecodedInvoice };
+
     // Public key of the node for which routing hints should be included in the invoice(s)
     routingNode?: string;
 
@@ -708,13 +711,19 @@ class SwapManager {
 
     invoiceExpiry?: number;
   }): Promise<CreatedReverseSwap> => {
+    const isInvoice = args.invoice !== undefined;
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
       args.quoteCurrency,
       args.orderSide,
     );
 
-    if (!NodeSwitch.hasClient(receivingCurrency)) {
+    if (
+      !NodeSwitch.hasClient(
+        receivingCurrency,
+        isInvoice ? NodeType.CLN : undefined,
+      )
+    ) {
       throw Errors.NO_LIGHTNING_SUPPORT(receivingCurrency.symbol);
     }
 
@@ -754,8 +763,27 @@ class SwapManager {
 
     const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
 
-    const { nodeType, lightningClient, paymentRequest, routingHints } =
-      await this.nodeFallback.getReverseSwapInvoice(
+    let nodeType: NodeType;
+    let lightningClient: LightningClient;
+    let paymentRequest: string;
+    let routingHints: HopHint[][] | undefined = undefined;
+
+    if (isInvoice) {
+      if (args.memo !== undefined || args.descriptionHash !== undefined) {
+        throw 'not supported for BOLT12 invoices';
+      }
+
+      // We already asserted that CLN is available
+      await receivingCurrency.clnClient!.injectHoldInvoice(
+        args.invoice!.invoice,
+        args.lightningTimeoutBlockDelta,
+      );
+
+      nodeType = NodeType.CLN;
+      paymentRequest = args.invoice!.invoice;
+      lightningClient = receivingCurrency.clnClient!;
+    } else {
+      const res = await this.nodeFallback.getReverseSwapInvoice(
         id,
         args.referralId,
         args.routingNode,
@@ -769,7 +797,12 @@ class SwapManager {
         hints.routingHint,
       );
 
-    lightningClient.subscribeSingleInvoice(args.preimageHash);
+      res.lightningClient.subscribeSingleInvoice(args.preimageHash);
+      nodeType = res.nodeType;
+      lightningClient = res.lightningClient;
+      paymentRequest = res.paymentRequest;
+      routingHints = res.routingHints;
+    }
 
     let minerFeeInvoice: string | undefined = undefined;
     let minerFeeInvoicePreimage: string | undefined = undefined;
@@ -930,7 +963,10 @@ class SwapManager {
             : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
       });
 
-      if (hints.routingHint && hints.bip21 && args.userAddressSignature) {
+      if (
+        hints.bip21 !== undefined &&
+        args.userAddressSignature !== undefined
+      ) {
         await ReverseRoutingHintRepository.addHint({
           swapId: id,
           bip21: hints.bip21,

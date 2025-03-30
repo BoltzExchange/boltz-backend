@@ -3,11 +3,6 @@ module.exports = {
   testEnvironment: 'node',
   modulePathIgnorePatterns: ['dist'],
   transform: {
-    '^.+\\.spec.ts?$': [
-      'ts-jest',
-      {
-        isolatedModules: true,
-      },
-    ],
+    '^.+\\.spec.ts?$': ['ts-jest'],
   },
 };

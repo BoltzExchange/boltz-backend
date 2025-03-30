@@ -15,7 +15,7 @@ import TransactionLabelRepository from '../../../lib/db/repositories/Transaction
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
-import CreationHook from '../../../lib/swap/CreationHook';
+import CreationHook from '../../../lib/swap/hooks/CreationHook';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 

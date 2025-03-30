@@ -46,7 +46,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
   }));
 });
 
-const MockedWalletManager = <jest.Mock<WalletManager>>WalletManager;
+const MockedWalletManager = <jest.Mock<WalletManager>>(<any>WalletManager);
 
 describe('FeeProvider', () => {
   const walletManager = MockedWalletManager();
@@ -325,7 +325,7 @@ describe('FeeProvider', () => {
 
     test('should apply directional premiums for chain swaps', () => {
       const referral = {
-        premium: jest.fn().mockImplementation((pair, type, orderSide) => {
+        premium: jest.fn().mockImplementation((_pair, _type, orderSide) => {
           if (orderSide === OrderSide.BUY) return -50;
           return 50;
         }),

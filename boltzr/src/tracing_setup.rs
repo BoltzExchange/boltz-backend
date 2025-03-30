@@ -168,9 +168,7 @@ fn setup_loki(
 }
 
 #[cfg(feature = "otel")]
-fn init_tracer(
-    config: &GlobalConfig,
-) -> Result<Option<opentelemetry_sdk::trace::Tracer>, opentelemetry::trace::TraceError> {
+fn init_tracer(config: &GlobalConfig) -> anyhow::Result<Option<opentelemetry_sdk::trace::Tracer>> {
     let endpoint = config.otlp_endpoint.clone();
 
     if endpoint.is_none() || endpoint.clone().unwrap() == "" {

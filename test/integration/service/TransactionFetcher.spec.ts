@@ -333,7 +333,7 @@ describe('TransactionFetcher', () => {
         new: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
         legacy: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
       }),
-    } as Wallet;
+    } as unknown as Wallet;
 
     beforeAll(async () => {
       transaction = Transaction.fromHex(

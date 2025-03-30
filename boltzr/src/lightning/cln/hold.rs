@@ -15,7 +15,7 @@ use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
 use elements_miniscript::ToPublicKey;
 use hold_rpc::HookAction;
 use lightning::blinded_path::message::BlindedMessagePath;
-use lightning::blinded_path::{BlindedHop, BlindedPath, EmptyNodeIdLookUp, IntroductionNode};
+use lightning::blinded_path::{BlindedHop, EmptyNodeIdLookUp};
 use lightning::ln::channelmanager::PaymentId;
 use lightning::ln::inbound_payment::ExpandedKey;
 use lightning::offers::invoice::Bolt12Invoice;
@@ -406,24 +406,18 @@ impl Hold {
             &EmptyNodeIdLookUp {},
             &secp_ctx,
             OnionMessagePath {
+                first_node_addresses: None,
                 intermediate_nodes: vec![our_pubkey],
-                destination: Destination::BlindedPath(BlindedMessagePath(BlindedPath {
-                    introduction_node: match (
-                        path.first_node_id,
-                        path.first_scid,
-                        path.first_scid_dir,
-                    ) {
-                        (Some(first_node_id), None, None) => {
-                            IntroductionNode::NodeId(PublicKey::from_slice(&first_node_id)?)
-                        }
+                destination: Destination::BlindedPath(BlindedMessagePath::from_blinded_path(
+                    match (path.first_node_id, path.first_scid, path.first_scid_dir) {
+                        (Some(first_node_id), None, None) => PublicKey::from_slice(&first_node_id)?,
                         _ => return Err(anyhow!("scid implementation to be done")),
                     },
-                    blinding_point: PublicKey::from_slice(&match path.first_path_key {
+                    PublicKey::from_slice(&match path.first_path_key {
                         Some(key) => key,
                         None => return Err(anyhow!("no path key")),
                     })?,
-                    blinded_hops: path
-                        .hops
+                    path.hops
                         .into_iter()
                         .map(|hop| {
                             Ok(BlindedHop {
@@ -440,8 +434,7 @@ impl Hold {
                             })
                         })
                         .collect::<Result<Vec<BlindedHop>>>()?,
-                })),
-                first_node_addresses: None,
+                )),
             },
             OffersMessage::Invoice(invoice),
             None,

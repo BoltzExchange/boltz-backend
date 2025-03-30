@@ -3715,7 +3715,7 @@ dependencies = [
 [[package]]
 name = "lightning"
 version = "0.2.0+git"
-source = "git+https://github.com/JssDWt/rust-lightning.git?rev=1dc18c201beef9fc9746e306f06343ec0cec7766#1dc18c201beef9fc9746e306f06343ec0cec7766"
+source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=030a7845d23fa2629353071f53f95dc8ad421377#030a7845d23fa2629353071f53f95dc8ad421377"
 dependencies = [
  "bech32 0.11.0",
  "bitcoin",
@@ -3743,7 +3743,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.34.0+git"
-source = "git+https://github.com/JssDWt/rust-lightning.git?rev=1dc18c201beef9fc9746e306f06343ec0cec7766#1dc18c201beef9fc9746e306f06343ec0cec7766"
+source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=030a7845d23fa2629353071f53f95dc8ad421377#030a7845d23fa2629353071f53f95dc8ad421377"
 dependencies = [
  "bech32 0.11.0",
  "bitcoin",
@@ -3753,7 +3753,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.0+git"
-source = "git+https://github.com/JssDWt/rust-lightning.git?rev=1dc18c201beef9fc9746e306f06343ec0cec7766#1dc18c201beef9fc9746e306f06343ec0cec7766"
+source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=030a7845d23fa2629353071f53f95dc8ad421377#030a7845d23fa2629353071f53f95dc8ad421377"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3772,7 +3772,7 @@ dependencies = [
 [[package]]
 name = "lightning-types"
 version = "0.3.0+git"
-source = "git+https://github.com/JssDWt/rust-lightning.git?rev=1dc18c201beef9fc9746e306f06343ec0cec7766#1dc18c201beef9fc9746e306f06343ec0cec7766"
+source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=030a7845d23fa2629353071f53f95dc8ad421377#030a7845d23fa2629353071f53f95dc8ad421377"
 dependencies = [
  "bitcoin",
 ]
@@ -4637,7 +4637,7 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/JssDWt/rust-lightning.git?rev=1dc18c201beef9fc9746e306f06343ec0cec7766#1dc18c201beef9fc9746e306f06343ec0cec7766"
+source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=030a7845d23fa2629353071f53f95dc8ad421377#030a7845d23fa2629353071f53f95dc8ad421377"
 dependencies = [
  "getrandom 0.2.15",
 ]

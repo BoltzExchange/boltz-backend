@@ -108,6 +108,7 @@ fn get_chain_filters(
             SwapUpdate::TransactionMempool,
             SwapUpdate::TransactionServerMempool,
             SwapUpdate::TransactionServerConfirmed,
+            SwapUpdate::TransactionZeroconfRejected,
         ])),
     ))?;
 

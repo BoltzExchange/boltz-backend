@@ -1325,9 +1325,13 @@ describe('Service', () => {
   });
 
   test('should get transactions', async () => {
-    await expect(service.getTransaction('BTC', '')).resolves.toEqual(
-      rawTransaction,
-    );
+    service.currencies.get('BTC')!.chainClient!.getRawTransactionVerbose = jest
+      .fn()
+      .mockResolvedValue({ hex: rawTransaction, confirmations: 1 });
+    await expect(service.getTransaction('BTC', '')).resolves.toEqual({
+      confirmations: 1,
+      hex: rawTransaction,
+    });
 
     // Throw if currency cannot be found
     const notFound = 'notFound';

@@ -127,7 +127,6 @@ class Swap extends Model implements SwapType {
         invoice: {
           type: new DataTypes.TEXT(),
           allowNull: true,
-          unique: true,
         },
         invoiceAmount: { type: new DataTypes.BIGINT(), allowNull: true },
         acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: true },
@@ -162,7 +161,8 @@ class Swap extends Model implements SwapType {
             fields: ['preimageHash'],
           },
           {
-            unique: true,
+            using: 'HASH',
+            unique: false,
             fields: ['invoice'],
           },
           {

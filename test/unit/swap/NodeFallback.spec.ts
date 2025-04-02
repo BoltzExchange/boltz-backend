@@ -367,6 +367,7 @@ describe('NodeFallback', () => {
       ${'asdf - !  +*##asdf'}
       ${'[["text/plain","Paid to third (Order ID: )"]]'}
       ${'Paid to Cake Pay (Order ID: 6f693cac-20c3-4e3b-a47a-702276fddd8c)'}
+      ${'Online Bookstore: Harry Potter Complete Set $87.50, Programming Rust 2nd Edition $45.99, Kitchen Gadgets Bundle $19.95, Premium Coffee Beans $14.50    Total: $167.94    Jun 15, 2024 09:45 AM'}
     `('should allow visible ASCII characters: $input', ({ input }) => {
       fallback['checkInvoiceMemo'](input);
     });
@@ -404,8 +405,8 @@ describe('NodeFallback', () => {
     });
 
     test('should limit length', () => {
-      const msg = '1'.repeat(101);
-      expect(msg).toHaveLength(101);
+      const msg = '1'.repeat(501);
+      expect(msg).toHaveLength(501);
       expect(() => fallback['checkInvoiceMemo'](msg)).toThrow(
         Errors.INVALID_INVOICE_MEMO().message,
       );

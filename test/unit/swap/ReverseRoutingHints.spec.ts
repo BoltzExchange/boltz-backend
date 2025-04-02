@@ -157,6 +157,20 @@ describe('ReverseRoutingHints', () => {
         });
       });
 
+      test('should handle empty string memo', () => {
+        const memo = '';
+        expect(
+          hints.getHints(sendingCurrency, {
+            memo,
+            onchainAmount: 100_000,
+            version: SwapVersion.Taproot,
+          }),
+        ).toEqual({
+          invoiceMemo: memo,
+          receivedAmount: 99877,
+        });
+      });
+
       test('should encode BIP-21 with custom memo', () => {
         const memo = 'custom text';
         const amount = 100_000;

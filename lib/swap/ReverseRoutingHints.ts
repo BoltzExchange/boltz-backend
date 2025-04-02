@@ -51,8 +51,9 @@ class ReverseRoutingHints {
       ? this.checkDescriptionHash(args.descriptionHash)
       : undefined;
     const invoiceMemo = !isBolt12
-      ? args.memo ||
-        getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine)
+      ? args.memo !== undefined
+        ? args.memo
+        : getSwapMemo(sendingCurrency.symbol, SwapType.ReverseSubmarine)
       : args.invoice?.decoded.description;
 
     const receivedAmount =

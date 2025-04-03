@@ -12,6 +12,7 @@ pub use elements::*;
 pub enum Network {
     Mainnet,
     Testnet,
+    Signet,
     Regtest,
 }
 
@@ -25,6 +26,7 @@ impl Network {
     pub fn bitcoin(&self) -> ::bitcoin::Network {
         match self {
             Network::Mainnet => ::bitcoin::Network::Bitcoin,
+            Network::Signet => ::bitcoin::Network::Signet,
             Network::Testnet => ::bitcoin::Network::Testnet,
             Network::Regtest => ::bitcoin::Network::Regtest,
         }

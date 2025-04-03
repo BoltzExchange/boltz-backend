@@ -19,7 +19,7 @@ impl Elements {
         Ok(Self {
             network: match network {
                 Network::Mainnet => elements::AddressParams::LIQUID,
-                Network::Testnet => elements::AddressParams::LIQUID_TESTNET,
+                Network::Testnet | Network::Signet => elements::AddressParams::LIQUID_TESTNET,
                 Network::Regtest => elements::AddressParams::ELEMENTS,
             },
             keys: Keys::new(seed, path)?,

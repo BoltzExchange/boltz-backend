@@ -215,11 +215,15 @@ const mockGetBalance = jest.fn().mockResolvedValue(mockGetBalanceResult);
 const newAddress = 'bcrt1';
 const mockGetAddress = jest.fn().mockResolvedValue(newAddress);
 
-const mockGetKeysByIndexResult = ECPair.fromPrivateKey(
+const keys = ECPair.fromPrivateKey(
   getHexBuffer(
     'e682c45fff6f6f1d793e8d520d4660ac0f853636d47519614cc5d7e4077b1b82',
   ),
 );
+const mockGetKeysByIndexResult = {
+  publicKey: Buffer.from(keys.publicKey),
+  privateKey: Buffer.from(keys.privateKey!),
+};
 const mockGetKeysByIndex = jest.fn().mockReturnValue(mockGetKeysByIndexResult);
 
 const mockTransaction = {
@@ -1416,10 +1420,10 @@ describe('Service', () => {
     const response = service.deriveKeys('BTC', 123);
 
     expect(response.getPublicKey()).toEqual(
-      getHexString(mockGetKeysByIndexResult.publicKey),
+      getHexString(Buffer.from(mockGetKeysByIndexResult.publicKey)),
     );
     expect(response.getPrivateKey()).toEqual(
-      getHexString(mockGetKeysByIndexResult.privateKey!),
+      getHexString(Buffer.from(mockGetKeysByIndexResult.privateKey!)),
     );
 
     const notFoundSymbol = 'notFound';

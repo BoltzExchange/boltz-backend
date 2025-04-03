@@ -1,7 +1,6 @@
 import { Psbt, PsbtTxInput, Transaction, address, crypto } from 'bitcoinjs-lib';
 import { Networks, OutputType, Scripts } from 'boltz-core';
-import { createServer } from 'net';
-import { AddressInfo } from 'ws';
+import { AddressInfo, createServer } from 'net';
 import { ECPair } from '../lib/ECPairHelper';
 import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';
@@ -34,7 +33,9 @@ export const generateAddress = (
   const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
   const encodeFunction = getPubkeyHashFunction(outputType);
 
-  const outputScript = encodeFunction(crypto.hash160(keys.publicKey)) as Buffer;
+  const outputScript = encodeFunction(
+    crypto.hash160(Buffer.from(keys.publicKey)),
+  ) as Buffer;
 
   return {
     outputScript,
@@ -60,7 +61,7 @@ export const constructTransaction = (
     sequence: rbf ? 0xfffffffd : 0xffffffff,
     witnessUtxo: {
       value: outputAmount + 1,
-      script: Scripts.p2wpkhOutput(crypto.hash160(keys.publicKey)),
+      script: Scripts.p2wpkhOutput(crypto.hash160(Buffer.from(keys.publicKey))),
     },
   } as any as PsbtTxInput);
   psbt.addOutput({
@@ -68,7 +69,10 @@ export const constructTransaction = (
     value: outputAmount,
   });
 
-  psbt.signInput(0, keys);
+  psbt.signInput(0, {
+    publicKey: Buffer.from(keys.publicKey),
+    sign: (hash: Buffer) => Buffer.from(keys.sign(hash)),
+  } as any);
 
   psbt.finalizeAllInputs();
 

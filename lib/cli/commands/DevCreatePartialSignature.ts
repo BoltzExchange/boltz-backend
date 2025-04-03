@@ -47,7 +47,7 @@ export const handler = async (
   const ourKeys = ECPair.fromPrivateKey(getHexBuffer(argv.ourPrivateKey));
   const musig = new Musig(zkp, ourKeys, randomBytes(32), [
     getHexBuffer(argv.theirPublicKey),
-    ourKeys.publicKey,
+    Buffer.from(ourKeys.publicKey),
   ]);
 
   if (argv.tweak !== undefined) {

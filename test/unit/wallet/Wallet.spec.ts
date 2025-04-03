@@ -95,7 +95,15 @@ describe('Wallet', () => {
   };
 
   const getKeysByIndex = (index: number) => {
-    return masterNode.derivePath(`${derivationPath}/${index}`);
+    const keys = masterNode.derivePath(`${derivationPath}/${index}`);
+    return {
+      ...keys,
+      publicKey: Buffer.from(keys.publicKey),
+      privateKey: Buffer.from(keys.privateKey!),
+      sign: (hash: Buffer, lowR?: boolean) =>
+        Buffer.from(keys.sign(hash, lowR)),
+      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+    };
   };
 
   const walletLiquid = new WalletLiquid(
@@ -129,7 +137,9 @@ describe('Wallet', () => {
   test('should get correct address from index', () => {
     const index = 1;
 
-    expect(wallet.getKeysByIndex(index)).toEqual(getKeysByIndex(index));
+    expect(wallet.getKeysByIndex(index).publicKey).toEqual(
+      getKeysByIndex(index).publicKey,
+    );
   });
 
   test('should get new keys', () => {
@@ -137,7 +147,7 @@ describe('Wallet', () => {
 
     const { keys, index } = wallet.getNewKeys();
 
-    expect(keys).toEqual(getKeysByIndex(highestUsedIndex));
+    expect(keys.publicKey).toEqual(getKeysByIndex(highestUsedIndex).publicKey);
     expect(index).toEqual(wallet['highestUsedIndex']);
 
     expect(wallet['highestUsedIndex']).toEqual(highestUsedIndex);

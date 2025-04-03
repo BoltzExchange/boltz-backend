@@ -587,12 +587,12 @@ describe('UtxoNursery', () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
     const ourKeys = ECPair.makeRandom();
-    const theirPublicKey = ECPair.makeRandom().publicKey;
+    const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
 
     const tree = swapTree(
       false,
       randomBytes(32),
-      ourKeys.publicKey,
+      Buffer.from(ourKeys.publicKey),
       theirPublicKey,
       210,
     );

@@ -363,7 +363,7 @@ export const createMusig = (
   theirPublicKey: Buffer,
 ) =>
   new Musig(zkp, ECPair.fromPrivateKey(ourKeys.privateKey!), randomBytes(32), [
-    ourKeys.publicKey,
+    Buffer.from(ourKeys.publicKey),
     theirPublicKey,
   ]);
 

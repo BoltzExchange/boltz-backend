@@ -114,13 +114,18 @@ jest.mock('../../../lib/rates/RateProvider', () => {
 
 const MockedRateProvider = <jest.Mock<RateProvider>>(<any>RateProvider);
 
+const keys = ECPair.fromPrivateKey(
+  getHexBuffer(
+    '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
+  ),
+);
 const mockGetNewKeysResult = {
   index: 21,
-  keys: ECPair.fromPrivateKey(
-    getHexBuffer(
-      '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
-    ),
-  ),
+  keys: {
+    ...keys,
+    publicKey: Buffer.from(keys.publicKey),
+    privateKey: Buffer.from(keys.privateKey!),
+  },
 };
 const mockGetNewKeys = jest.fn().mockReturnValue(mockGetNewKeysResult);
 
@@ -738,7 +743,7 @@ describe('SwapManager', () => {
     );
     const invoiceEncode = bolt11.encode({
       payeeNodeKey: getHexString(
-        ECPair.fromPrivateKey(invoiceSignKeys).publicKey,
+        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
       ),
       satoshis: 200,
       tags: [
@@ -928,7 +933,7 @@ describe('SwapManager', () => {
         satoshis: 200,
         timestamp: getUnixTime(),
         payeeNodeKey: getHexString(
-          ECPair.fromPrivateKey(invoiceSignKeys).publicKey,
+          Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
         ),
         tags: [
           {

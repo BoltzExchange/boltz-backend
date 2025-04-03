@@ -12,8 +12,8 @@ export const handler = (): void => {
 
   console.log(
     stringify({
-      publicKey: getHexString(keys.publicKey),
-      privateKey: getHexString(keys.privateKey as Buffer),
+      publicKey: getHexString(Buffer.from(keys.publicKey)),
+      privateKey: getHexString(Buffer.from(keys.privateKey!)),
     }),
   );
 };

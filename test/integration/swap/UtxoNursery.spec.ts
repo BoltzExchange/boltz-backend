@@ -216,8 +216,8 @@ describe('UtxoNursery', () => {
         orderSide: OrderSide.BUY,
         percentageFee: 100,
         preimageHash: crypto.sha256(preimage),
-        claimPublicKey: claimKeys.publicKey,
-        refundPublicKey: refundKeys.publicKey,
+        claimPublicKey: Buffer.from(claimKeys.publicKey),
+        refundPublicKey: Buffer.from(refundKeys.publicKey),
         sendingTimeoutBlockDelta: 102,
         receivingTimeoutBlockDelta: 101,
         userLockAmount: 101_000,
@@ -391,7 +391,7 @@ describe('UtxoNursery', () => {
         orderSide: OrderSide.SELL,
         baseCurrency: elementsClient.symbol,
         quoteCurrency: bitcoinClient.symbol,
-        refundPublicKey: refundKeys.publicKey,
+        refundPublicKey: Buffer.from(refundKeys.publicKey),
         preimageHash: getHexBuffer(preimageHash),
       });
 

@@ -147,13 +147,13 @@ describe('ChainSwapSigner', () => {
         currency.type === CurrencyType.Liquid,
         crypto.sha256(preimage),
         wallet.getKeysByIndex(keyIndex).publicKey,
-        theirKeys.publicKey,
+        Buffer.from(theirKeys.publicKey),
         timeoutBlockHeight,
       );
 
       const musig = new Musig(zkp, theirKeys, randomBytes(32), [
         wallet.getKeysByIndex(keyIndex).publicKey,
-        theirKeys.publicKey,
+        Buffer.from(theirKeys.publicKey),
       ]);
       const tweakedKey = tweakMusig(currency.type, musig, tree);
 
@@ -215,7 +215,9 @@ describe('ChainSwapSigner', () => {
           transactionVout: lockupDetails.swapOutput.vout,
           lockupTransactionId: lockupDetails.lockupTx.getId(),
           timeoutBlockHeight: lockupDetails.timeoutBlockHeight,
-          theirPublicKey: getHexString(lockupDetails.theirKeys.publicKey),
+          theirPublicKey: getHexString(
+            Buffer.from(lockupDetails.theirKeys.publicKey),
+          ),
           swapTree: JSON.stringify(
             SwapTreeSerializer.serializeSwapTree(lockupDetails.tree),
           ),
@@ -226,7 +228,9 @@ describe('ChainSwapSigner', () => {
           transactionVout: claimDetails.swapOutput.vout,
           lockupTransactionId: claimDetails.lockupTx.getId(),
           timeoutBlockHeight: claimDetails.timeoutBlockHeight,
-          theirPublicKey: getHexString(claimDetails.theirKeys.publicKey),
+          theirPublicKey: getHexString(
+            Buffer.from(claimDetails.theirKeys.publicKey),
+          ),
           swapTree: JSON.stringify(
             SwapTreeSerializer.serializeSwapTree(claimDetails.tree),
           ),

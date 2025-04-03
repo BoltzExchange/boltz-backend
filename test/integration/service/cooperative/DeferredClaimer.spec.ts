@@ -146,8 +146,8 @@ describe('DeferredClaimer', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       id: generateSwapId(SwapVersion.Taproot),
-      theirPublicKey: getHexString(refundKeys.publicKey),
-      refundPublicKey: getHexString(refundKeys.publicKey),
+      theirPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
+      refundPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
       timeoutBlockHeight:
         timeoutBlockHeight ||
         (await bitcoinClient.getBlockchainInfo()).blocks + 100,
@@ -974,7 +974,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(
         CurrencyType.BitcoinLike,
@@ -1019,7 +1019,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.receivingData.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(
         CurrencyType.BitcoinLike,
@@ -1064,7 +1064,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       await expect(
         claimer.broadcastCooperative(

@@ -204,8 +204,8 @@ export const musigFromExtractedKey = (
       ]);
 
       for (const keys of [
-        [compressedKey, ourKeys.publicKey],
-        [ourKeys.publicKey, compressedKey],
+        [compressedKey, Buffer.from(ourKeys.publicKey)],
+        [Buffer.from(ourKeys.publicKey), compressedKey],
       ]) {
         const musig = new Musig(zkp, ourKeys, randomBytes(32), keys);
         const tweakedKey = tweakMusig(type, musig, tree);

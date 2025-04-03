@@ -57,14 +57,16 @@ describe('Utils', () => {
     const tree = swapTree(
       false,
       randomBytes(32),
-      boltzKeys.publicKey,
-      clientKeys.publicKey,
+      Buffer.from(boltzKeys.publicKey),
+      Buffer.from(clientKeys.publicKey),
       123,
     );
-    const musig = new Musig(zkp, clientKeys, randomBytes(32), [
-      boltzKeys.publicKey,
-      clientKeys.publicKey,
-    ]);
+    const musig = new Musig(
+      zkp,
+      clientKeys,
+      randomBytes(32),
+      [boltzKeys.publicKey, clientKeys.publicKey].map(Buffer.from),
+    );
     TaprootUtils.tweakMusig(musig, tree.tree);
 
     const tx = await bitcoinClient.getRawTransaction(
@@ -84,7 +86,7 @@ describe('Utils', () => {
       } as unknown as Wallet,
       tree,
       0,
-      clientKeys.publicKey,
+      Buffer.from(clientKeys.publicKey),
       Buffer.from(musig.getPublicNonce()),
       tx,
       0,
@@ -96,7 +98,10 @@ describe('Utils', () => {
     );
 
     expect(
-      musig.verifyPartial(boltzKeys.publicKey, partialSignature.signature),
+      musig.verifyPartial(
+        Buffer.from(boltzKeys.publicKey),
+        partialSignature.signature,
+      ),
     ).toEqual(true);
   });
 

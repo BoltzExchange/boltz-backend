@@ -58,7 +58,15 @@ class Wallet implements BalancerFetcher {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getKeysByIndex');
     }
 
-    return this.masterNode.derivePath(`${this.derivationPath}/${index}`);
+    const keys = this.masterNode.derivePath(`${this.derivationPath}/${index}`);
+    return {
+      ...keys,
+      publicKey: Buffer.from(keys.publicKey),
+      privateKey: Buffer.from(keys.privateKey!),
+      sign: (hash: Buffer, lowR?: boolean) =>
+        Buffer.from(keys.sign(hash, lowR)),
+      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+    };
   };
 
   /**

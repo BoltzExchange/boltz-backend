@@ -24,7 +24,7 @@ describe('ZeroConfTool', () => {
       }),
     );
 
-    app.get('/accept*', (_, res) => {
+    app.get('/accept{/:id}', (_, res) => {
       res.json({
         observations: {
           bridge: {

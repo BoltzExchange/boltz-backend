@@ -4,7 +4,7 @@ import Logger from '../../../lib/Logger';
 import { getUnixTime } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import InvoiceNursery from '../../../lib/swap/InvoiceNursery';
 import { createInvoice } from './InvoiceUtils';
 

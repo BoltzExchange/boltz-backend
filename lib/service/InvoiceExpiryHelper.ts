@@ -1,5 +1,5 @@
 import { getPairId } from '../Utils';
-import { PairConfig } from '../consts/Types';
+import type { PairConfig } from '../consts/Types';
 import Errors from '../swap/Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 

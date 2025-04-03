@@ -1,8 +1,9 @@
 import Tracing from './Tracing';
 import { Networks } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
-import { Arguments } from 'yargs';
-import Config, { ConfigType, TokenConfig } from './Config';
+import type { Arguments } from 'yargs';
+import type { ConfigType, TokenConfig } from './Config';
+import Config from './Config';
 import { setup } from './Core';
 import { registerExitHandler } from './ExitHandler';
 import Logger from './Logger';
@@ -11,20 +12,18 @@ import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
-import ChainClient, {
-  BlockChainInfoScanned,
-  IChainClient,
-} from './chain/ChainClient';
+import type { BlockChainInfoScanned, IChainClient } from './chain/ChainClient';
+import ChainClient from './chain/ChainClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
-import { NetworkInfo } from './consts/Types';
+import type { NetworkInfo } from './consts/Types';
 import Database from './db/Database';
 import Redis from './db/Redis';
-import ChainTip from './db/models/ChainTip';
+import type ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
-import { LightningClient } from './lightning/LightningClient';
+import type { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 import NotificationClient from './notifications/NotificationClient';
@@ -32,9 +31,11 @@ import NotificationProvider from './notifications/NotificationProvider';
 import Service from './service/Service';
 import Sidecar from './sidecar/Sidecar';
 import NodeSwitch from './swap/NodeSwitch';
-import WalletManager, { Currency } from './wallet/WalletManager';
+import type { Currency } from './wallet/WalletManager';
+import WalletManager from './wallet/WalletManager';
 import EthereumManager from './wallet/ethereum/EthereumManager';
-import { Ethereum, NetworkDetails, Rsk } from './wallet/ethereum/EvmNetworks';
+import type { NetworkDetails } from './wallet/ethereum/EvmNetworks';
+import { Ethereum, Rsk } from './wallet/ethereum/EvmNetworks';
 
 class Boltz {
   private readonly logger: Logger;

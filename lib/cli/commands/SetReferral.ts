@@ -1,11 +1,11 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { deepMerge } from '../../Utils';
+import type { GetReferralsResponse } from '../../proto/boltzrpc_pb';
 import {
   GetReferralsRequest,
-  GetReferralsResponse,
   SetReferralRequest,
 } from '../../proto/boltzrpc_pb';
-import { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'setreferral <id> [config] [amend]';

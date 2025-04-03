@@ -1,18 +1,16 @@
-import { Transaction } from 'liquidjs-lib';
+import type { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
-import { LiquidChainConfig } from '../Config';
-import Logger from '../Logger';
+import type { LiquidChainConfig } from '../Config';
+import type Logger from '../Logger';
 import { allSettledFirst } from '../PromiseUtils';
 import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
-import { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
-import { AddressType, ChainClientEvents } from './ChainClient';
-import ElementsClient, {
-  IElementsClient,
-  LiquidAddressType,
-} from './ElementsClient';
+import type { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
+import type { AddressType, ChainClientEvents } from './ChainClient';
+import type { IElementsClient, LiquidAddressType } from './ElementsClient';
+import ElementsClient from './ElementsClient';
 import TestMempoolAccept from './elements/TestMempoolAccept';
-import { ZeroConfCheck } from './elements/ZeroConfCheck';
+import type { ZeroConfCheck } from './elements/ZeroConfCheck';
 import ZeroConfTool from './elements/ZeroConfTool';
 
 class ElementsWrapper

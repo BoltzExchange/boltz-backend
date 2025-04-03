@@ -1,18 +1,18 @@
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import Swap from '../../../lib/db/models/Swap';
+import type Swap from '../../../lib/db/models/Swap';
 import LightningErrors from '../../../lib/lightning/Errors';
-import { LightningClient } from '../../../lib/lightning/LightningClient';
+import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
 jest.mock('../../../lib/swap/NodeSwitch', () => {

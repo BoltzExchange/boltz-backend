@@ -207,6 +207,8 @@ exports[`Core should construct Taproot Chain Swap details (cooperative: false) 1
       ],
       "type": "Buffer",
     },
+    "sign": [Function],
+    "signSchnorr": [Function],
   },
   "preimage": {
     "data": [
@@ -767,6 +769,8 @@ exports[`Core should construct Taproot Chain Swap details (cooperative: true) 1`
       ],
       "type": "Buffer",
     },
+    "sign": [Function],
+    "signSchnorr": [Function],
   },
   "preimage": undefined,
   "script": {

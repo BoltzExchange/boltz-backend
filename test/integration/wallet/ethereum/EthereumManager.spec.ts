@@ -2,13 +2,13 @@ import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
 import Errors from '../../../../lib/wallet/Errors';
-import Wallet from '../../../../lib/wallet/Wallet';
+import type Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import Contracts from '../../../../lib/wallet/ethereum/contracts/Contracts';
-import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import type Contracts from '../../../../lib/wallet/ethereum/contracts/Contracts';
+import type ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import type { EthereumSetup } from '../EthereumTools';
 import {
-  EthereumSetup,
   fundSignerWallet,
   getContracts,
   getSigner,

@@ -1,7 +1,7 @@
-import { Provider, Signer } from 'ethers';
-import Logger from '../../Logger';
+import type { Provider, Signer } from 'ethers';
+import type Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
-import { NetworkDetails } from './EvmNetworks';
+import type { NetworkDetails } from './EvmNetworks';
 
 class EthereumTransactionTracker {
   constructor(

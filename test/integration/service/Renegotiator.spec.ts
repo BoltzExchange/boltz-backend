@@ -13,18 +13,18 @@ import {
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ExtraFeeRepository from '../../../lib/db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
-import RateProvider from '../../../lib/rates/RateProvider';
-import BalanceCheck from '../../../lib/service/BalanceCheck';
+import type RateProvider from '../../../lib/rates/RateProvider';
+import type BalanceCheck from '../../../lib/service/BalanceCheck';
 import Errors from '../../../lib/service/Errors';
 import Renegotiator from '../../../lib/service/Renegotiator';
-import ChainSwapSigner from '../../../lib/service/cooperative/ChainSwapSigner';
-import EipSigner from '../../../lib/service/cooperative/EipSigner';
+import type ChainSwapSigner from '../../../lib/service/cooperative/ChainSwapSigner';
+import type EipSigner from '../../../lib/service/cooperative/EipSigner';
 import ErrorsSwap from '../../../lib/swap/Errors';
-import EthereumNursery from '../../../lib/swap/EthereumNursery';
-import SwapNursery from '../../../lib/swap/SwapNursery';
-import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import WalletManager from '../../../lib/wallet/WalletManager';
-import Contracts from '../../../lib/wallet/ethereum/contracts/Contracts';
+import type EthereumNursery from '../../../lib/swap/EthereumNursery';
+import type SwapNursery from '../../../lib/swap/SwapNursery';
+import type UtxoNursery from '../../../lib/swap/UtxoNursery';
+import type WalletManager from '../../../lib/wallet/WalletManager';
+import type Contracts from '../../../lib/wallet/ethereum/contracts/Contracts';
 import { bitcoinClient } from '../Nodes';
 import { getContracts, getSigner } from '../wallet/EthereumTools';
 

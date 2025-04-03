@@ -1,5 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { Musig, TaprootUtils, Types, swapTree } from 'boltz-core';
+import type { Types } from 'boltz-core';
+import { Musig, TaprootUtils, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
@@ -10,8 +11,8 @@ import {
   createPartialSignature,
   isPreimageValid,
 } from '../../../../lib/service/cooperative/Utils';
-import Wallet from '../../../../lib/wallet/Wallet';
-import { Currency } from '../../../../lib/wallet/WalletManager';
+import type Wallet from '../../../../lib/wallet/Wallet';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');

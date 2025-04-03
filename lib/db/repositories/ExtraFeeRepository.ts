@@ -2,7 +2,8 @@ import { QueryTypes } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import { getNestedObject } from '../../data/Utils';
 import Database from '../Database';
-import ExtraFee, { ExtraFeeType } from '../models/ExtraFee';
+import type { ExtraFeeType } from '../models/ExtraFee';
+import ExtraFee from '../models/ExtraFee';
 
 type GroupedByYearMonth<T> = Record<string, Record<string, T>>;
 

@@ -1,10 +1,10 @@
 import { Op } from 'sequelize';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ReverseSwap from '../db/models/ReverseSwap';
+import type ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
-import Sidecar from '../sidecar/Sidecar';
+import type Sidecar from '../sidecar/Sidecar';
 
 /**
  * InvoiceNursery takes care of cancelling pending HTLCs of Reverse Swaps with prepay miner fee

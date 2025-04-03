@@ -1,9 +1,9 @@
 import { networks as networksLiquid } from 'liquidjs-lib';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { encode } from 'querystring';
 import { satoshisToCoins } from '../DenominationConverter';
 import ElementsClient from '../chain/ElementsClient';
-import { Currency } from '../wallet/WalletManager';
+import type { Currency } from '../wallet/WalletManager';
 
 class PaymentRequestUtils {
   private prefixes = new Map<string, string>([

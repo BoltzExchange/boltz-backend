@@ -9,7 +9,7 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
+import type ChainSwapData from '../../../../lib/db/models/ChainSwapData';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';

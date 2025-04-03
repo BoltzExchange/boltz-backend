@@ -1,6 +1,8 @@
-import { Op, Order, WhereOptions } from 'sequelize';
+import type { Order, WhereOptions } from 'sequelize';
+import { Op } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
-import ReverseSwap, { ReverseSwapType } from '../models/ReverseSwap';
+import type { ReverseSwapType } from '../models/ReverseSwap';
+import ReverseSwap from '../models/ReverseSwap';
 
 class ReverseSwapRepository {
   public static getReverseSwaps = (

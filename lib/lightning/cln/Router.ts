@@ -1,10 +1,10 @@
 import { getHexBuffer } from '../../Utils';
-import { NodeClient } from '../../proto/cln/node_grpc_pb';
+import type { NodeClient } from '../../proto/cln/node_grpc_pb';
 import * as noderpc from '../../proto/cln/node_pb';
 import * as primivites from '../../proto/cln/primitives_pb';
 import { satToMsat } from '../ChannelUtils';
 import Errors from '../Errors';
-import { Route } from '../LightningClient';
+import type { Route } from '../LightningClient';
 
 export const getRoute = async (
   nodeCaller: <T, U>(

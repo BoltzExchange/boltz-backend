@@ -1,12 +1,12 @@
-import { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import Logger from '../../../../lib/Logger';
-import { Token } from '../../../../lib/consts/Types';
+import type { Token } from '../../../../lib/consts/Types';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
+import type { EthereumSetup } from '../EthereumTools';
 import {
-  EthereumSetup,
   fundSignerWallet,
   getContracts,
   getSigner,

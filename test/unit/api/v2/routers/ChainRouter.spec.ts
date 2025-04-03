@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { mapToObject } from '../../../../../lib/Utils';
 import ChainRouter from '../../../../../lib/api/v2/routers/ChainRouter';
-import Service from '../../../../../lib/service/Service';
+import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
 const mockedRouter = {

@@ -1,14 +1,10 @@
 import { Transaction } from 'bitcoinjs-lib';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { isTxConfirmed, transactionHashToId } from '../../Utils';
-import ChainClient, {
-  AddressType,
-  IChainClient,
-} from '../../chain/ChainClient';
-import WalletProviderInterface, {
-  SentTransaction,
-  WalletBalance,
-} from './WalletProviderInterface';
+import type { IChainClient } from '../../chain/ChainClient';
+import ChainClient, { AddressType } from '../../chain/ChainClient';
+import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import type WalletProviderInterface from './WalletProviderInterface';
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;

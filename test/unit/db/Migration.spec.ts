@@ -1,4 +1,4 @@
-import { Sequelize } from 'sequelize';
+import type { Sequelize } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import Migration from '../../../lib/db/Migration';
 import DatabaseVersion from '../../../lib/db/models/DatabaseVersion';

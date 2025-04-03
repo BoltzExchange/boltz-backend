@@ -1,5 +1,5 @@
 import ConsolidatedEventHandler from '../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
-import ContractEventHandler from '../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
+import type ContractEventHandler from '../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
 
 describe('ConsolidatedEventHandler', () => {
   const emittersV3 = {};

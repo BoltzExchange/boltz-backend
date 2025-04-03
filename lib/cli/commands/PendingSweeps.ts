@@ -1,6 +1,7 @@
-import { Arguments } from 'yargs';
-import { GetPendingSweepsRequest, PendingSweep } from '../../proto/boltzrpc_pb';
-import { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { Arguments } from 'yargs';
+import type { PendingSweep } from '../../proto/boltzrpc_pb';
+import { GetPendingSweepsRequest } from '../../proto/boltzrpc_pb';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'pendingsweeps';

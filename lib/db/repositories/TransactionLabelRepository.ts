@@ -1,6 +1,7 @@
-import Logger from '../../Logger';
-import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
-import { AnySwap } from '../../consts/Types';
+import type Logger from '../../Logger';
+import type { SwapType } from '../../consts/Enums';
+import { swapTypeToPrettyString } from '../../consts/Enums';
+import type { AnySwap } from '../../consts/Types';
 import TransactionLabel from '../models/TransactionLabel';
 
 class TransactionLabelRepository {

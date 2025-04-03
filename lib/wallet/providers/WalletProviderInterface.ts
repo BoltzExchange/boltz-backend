@@ -1,5 +1,5 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 
 type WalletBalance = {
   confirmedBalance: number;

@@ -1,7 +1,9 @@
-import { Request, Response, Router } from 'express';
-import Logger from '../../../Logger';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import type Logger from '../../../Logger';
 import { mapToObject } from '../../../Utils';
-import Service, { NetworkContracts } from '../../../service/Service';
+import type { NetworkContracts } from '../../../service/Service';
+import type Service from '../../../service/Service';
 import {
   createdResponse,
   errorResponse,

@@ -1,4 +1,5 @@
-import Exchange, { makeRequest } from '../Exchange';
+import type Exchange from '../Exchange';
+import { makeRequest } from '../Exchange';
 
 class Bitfinex implements Exchange {
   private static readonly API = 'https://api.bitfinex.com/v2/';

@@ -1,9 +1,11 @@
 import AsyncLock from 'async-lock';
-import { Transaction, crypto } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import { Socket, socket as openSocket } from 'zeromq/v5-compat';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto } from 'bitcoinjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Socket } from 'zeromq/v5-compat';
+import { socket as openSocket } from 'zeromq/v5-compat';
 import { parseTransaction } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   getHexString,
@@ -12,7 +14,7 @@ import {
 } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ChainClient from './ChainClient';
+import type ChainClient from './ChainClient';
 import Errors from './Errors';
 
 type ZmqNotification = {

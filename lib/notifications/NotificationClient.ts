@@ -1,7 +1,7 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type * as sidecarrpc from '../proto/sidecar/boltzr_pb';
-import Sidecar from '../sidecar/Sidecar';
+import type Sidecar from '../sidecar/Sidecar';
 
 class NotificationClient extends TypedEventEmitter<{
   message: string;

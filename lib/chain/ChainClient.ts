@@ -1,11 +1,11 @@
-import { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
 import BaseClient from '../BaseClient';
-import { ChainConfig } from '../Config';
-import Logger from '../Logger';
+import type { ChainConfig } from '../Config';
+import type Logger from '../Logger';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
-import TypedEventEmitter from '../consts/TypedEventEmitter';
-import {
+import type TypedEventEmitter from '../consts/TypedEventEmitter';
+import type {
   AddressInfo,
   Block,
   BlockVerbose,
@@ -20,11 +20,8 @@ import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import MempoolSpace from './MempoolSpace';
 import Rebroadcaster from './Rebroadcaster';
 import RpcClient from './RpcClient';
-import ZmqClient, {
-  SomeTransaction,
-  ZmqNotification,
-  filters,
-} from './ZmqClient';
+import type { SomeTransaction, ZmqNotification } from './ZmqClient';
+import ZmqClient, { filters } from './ZmqClient';
 
 enum AddressType {
   Legacy = 'legacy',

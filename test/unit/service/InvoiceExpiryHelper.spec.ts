@@ -1,5 +1,5 @@
 import { getPairId } from '../../../lib/Utils';
-import { PairConfig } from '../../../lib/consts/Types';
+import type { PairConfig } from '../../../lib/consts/Types';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Errors from '../../../lib/swap/Errors';

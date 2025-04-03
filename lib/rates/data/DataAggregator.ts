@@ -1,5 +1,5 @@
 import { getPairId } from '../../Utils';
-import Exchange from './Exchange';
+import type Exchange from './Exchange';
 import Binance from './exchanges/Binance';
 import Bitfinex from './exchanges/Bitfinex';
 import CoinbasePro from './exchanges/CoinbasePro';

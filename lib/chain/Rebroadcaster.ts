@@ -1,7 +1,7 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { formatError } from '../Utils';
 import RebroadcastRepository from '../db/repositories/RebroadcastRepository';
-import { IChainClient } from './ChainClient';
+import type { IChainClient } from './ChainClient';
 
 class Rebroadcaster {
   constructor(

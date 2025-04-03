@@ -1,8 +1,8 @@
-import BaseClient from '../BaseClient';
-import { ClientStatus } from '../consts/Enums';
-import { NodeType } from '../db/models/ReverseSwap';
-import * as lndrpc from '../proto/lnd/rpc_pb';
-import { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
+import type BaseClient from '../BaseClient';
+import type { ClientStatus } from '../consts/Enums';
+import type { NodeType } from '../db/models/ReverseSwap';
+import type * as lndrpc from '../proto/lnd/rpc_pb';
+import type { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 import { msatToSat } from './ChannelUtils';
 
 enum InvoiceState {

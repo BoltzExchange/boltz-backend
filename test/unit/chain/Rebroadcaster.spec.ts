@@ -1,5 +1,5 @@
 import Logger from '../../../lib/Logger';
-import ChainClient from '../../../lib/chain/ChainClient';
+import type ChainClient from '../../../lib/chain/ChainClient';
 import Rebroadcaster from '../../../lib/chain/Rebroadcaster';
 import RebroadcastRepository from '../../../lib/db/repositories/RebroadcastRepository';
 

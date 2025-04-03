@@ -1,9 +1,8 @@
 import { getHexString } from '../Utils';
-import { HopHint, InvoiceFeature } from '../lightning/LightningClient';
-import {
-  DecodeInvoiceOrOfferResponse,
-  Feature,
-} from '../proto/sidecar/boltzr_pb';
+import type { HopHint } from '../lightning/LightningClient';
+import { InvoiceFeature } from '../lightning/LightningClient';
+import type { DecodeInvoiceOrOfferResponse } from '../proto/sidecar/boltzr_pb';
+import { Feature } from '../proto/sidecar/boltzr_pb';
 
 enum InvoiceType {
   Bolt11,

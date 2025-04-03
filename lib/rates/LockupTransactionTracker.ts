@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
 import type { ConfigType } from '../Config';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   bigIntMax,
   formatError,
@@ -12,21 +12,20 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import { IChainClient } from '../chain/ChainClient';
+import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import DefaultMap from '../consts/DefaultMap';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import PendingLockupTransactionRepository from '../db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ErrorsSwap from '../swap/Errors';
-import { Currency } from '../wallet/WalletManager';
+import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
-import RateProvider from './RateProvider';
+import type RateProvider from './RateProvider';
 
 class LockupTransactionTracker extends TypedEventEmitter<{
   'zeroConf.disabled': string;

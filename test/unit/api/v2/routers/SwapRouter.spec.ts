@@ -3,7 +3,7 @@ import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../../lib/Utils';
 import ApiErrors from '../../../../../lib/api/Errors';
-import SwapInfos from '../../../../../lib/api/SwapInfos';
+import type SwapInfos from '../../../../../lib/api/SwapInfos';
 import SwapRouter from '../../../../../lib/api/v2/routers/SwapRouter';
 import { OrderSide, SwapVersion } from '../../../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRepository';
@@ -12,7 +12,7 @@ import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepos
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../../lib/service/Errors';
-import Service from '../../../../../lib/service/Service';
+import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
 const mockedRouter = {

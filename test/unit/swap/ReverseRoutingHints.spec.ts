@@ -3,11 +3,11 @@ import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
-import { DecodedInvoice } from '../../../lib/lightning/LightningClient';
+import type { DecodedInvoice } from '../../../lib/lightning/LightningClient';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
 import ReverseRoutingHints from '../../../lib/swap/ReverseRoutingHints';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('ReverseRoutingHints', () => {
   const sendingCurrency = {

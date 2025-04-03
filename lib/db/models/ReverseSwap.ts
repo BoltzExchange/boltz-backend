@@ -1,6 +1,7 @@
-import { DataTypes, Model, Sequelize } from 'sequelize';
+import type { Sequelize } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 import { SwapType, SwapVersion } from '../../consts/Enums';
-import { IncorrectAmountDetails } from '../../consts/Types';
+import type { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
 
 enum NodeType {

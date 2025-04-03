@@ -1,8 +1,8 @@
 import { types } from 'pg';
 import Sequelize from 'sequelize';
-import { PostgresConfig } from '../Config';
-import Logger from '../Logger';
-import { Currency } from '../wallet/WalletManager';
+import type { PostgresConfig } from '../Config';
+import type Logger from '../Logger';
+import type { Currency } from '../wallet/WalletManager';
 import Migration from './Migration';
 import ChainSwap from './models/ChainSwap';
 import ChainSwapData from './models/ChainSwapData';

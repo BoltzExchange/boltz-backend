@@ -1,6 +1,7 @@
 import { BIP32Factory } from 'bip32';
 import { mnemonicToSeedSync } from 'bip39';
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto } from 'bitcoinjs-lib';
 import {
   Musig,
   Networks,
@@ -16,7 +17,7 @@ import {
 } from 'boltz-core/dist/lib/liquid';
 import { p2trOutput } from 'boltz-core/dist/lib/swap/Scripts';
 import { randomBytes } from 'crypto';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import { SLIP77Factory } from 'slip77';
 import * as ecc from 'tiny-secp256k1';
@@ -36,9 +37,8 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../../../lib/db/repositories/ChainSwapRepository';
+import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
@@ -46,7 +46,8 @@ import { RefundRejectionReason } from '../../../../lib/service/cooperative/Musig
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../../lib/wallet/WalletLiquid';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
 import { bitcoinClient, elementsClient } from '../../Nodes';

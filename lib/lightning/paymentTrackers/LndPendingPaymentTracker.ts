@@ -1,9 +1,9 @@
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { formatError, getHexBuffer } from '../../Utils';
 import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
 import LightningNursery from '../../swap/LightningNursery';
-import { LightningClient, PaymentResponse } from '../LightningClient';
+import type { LightningClient, PaymentResponse } from '../LightningClient';
 import LndClient from '../LndClient';
 import NodePendingPaymentTracker from './NodePendingPaymentTracker';
 

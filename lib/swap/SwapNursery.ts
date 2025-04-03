@@ -1,15 +1,17 @@
 import AsyncLock from 'async-lock';
-import { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
-import { ContractTransactionResponse } from 'ethers';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { ContractTransactionResponse } from 'ethers';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import { OverPaymentConfig } from '../Config';
-import {
+import type { OverPaymentConfig } from '../Config';
+import type {
   ClaimDetails,
   LiquidClaimDetails,
   LiquidRefundDetails,
   RefundDetails,
+} from '../Core';
+import {
   calculateTransactionFee,
   constructClaimDetails,
   constructClaimTransaction,
@@ -17,7 +19,7 @@ import {
   createMusig,
   parseTransaction,
 } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   calculateEthereumTransactionFee,
   formatError,
@@ -28,7 +30,7 @@ import {
   getRate,
   splitPairId,
 } from '../Utils';
-import { IChainClient } from '../chain/ChainClient';
+import type { IChainClient } from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
   CurrencyType,
@@ -40,43 +42,45 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { AnySwap, ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwap, { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type {
+  AnySwap,
+  ERC20SwapValues,
+  EtherSwapValues,
+} from '../consts/Types';
+import type ChannelCreation from '../db/models/ChannelCreation';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
-import {
-  HtlcState,
-  InvoiceState,
-  LightningClient,
-} from '../lightning/LightningClient';
+import type { LightningClient } from '../lightning/LightningClient';
+import { HtlcState, InvoiceState } from '../lightning/LightningClient';
 import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
-import NotificationClient from '../notifications/NotificationClient';
+import type NotificationClient from '../notifications/NotificationClient';
 import FeeProvider from '../rates/FeeProvider';
-import LockupTransactionTracker from '../rates/LockupTransactionTracker';
-import RateProvider from '../rates/RateProvider';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
-import DeferredClaimer from '../service/cooperative/DeferredClaimer';
-import Sidecar from '../sidecar/Sidecar';
-import Wallet from '../wallet/Wallet';
-import WalletManager, { Currency } from '../wallet/WalletManager';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import ContractHandler from '../wallet/ethereum/contracts/ContractHandler';
+import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
+import type RateProvider from '../rates/RateProvider';
+import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import type ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
+import type DeferredClaimer from '../service/cooperative/DeferredClaimer';
+import type Sidecar from '../sidecar/Sidecar';
+import type Wallet from '../wallet/Wallet';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
+import type EthereumManager from '../wallet/ethereum/EthereumManager';
+import type ContractHandler from '../wallet/ethereum/contracts/ContractHandler';
 import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
 } from '../wallet/ethereum/contracts/ContractUtils';
-import Contracts from '../wallet/ethereum/contracts/Contracts';
-import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import type Contracts from '../wallet/ethereum/contracts/Contracts';
+import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import EthereumNursery from './EthereumNursery';
@@ -84,8 +88,9 @@ import InvoiceNursery from './InvoiceNursery';
 import LightningNursery from './LightningNursery';
 import NodeSwitch from './NodeSwitch';
 import OverpaymentProtector from './OverpaymentProtector';
-import PaymentHandler, { SwapNurseryEvents } from './PaymentHandler';
-import SwapOutputType from './SwapOutputType';
+import type { SwapNurseryEvents } from './PaymentHandler';
+import PaymentHandler from './PaymentHandler';
+import type SwapOutputType from './SwapOutputType';
 import UtxoNursery from './UtxoNursery';
 import TransactionHook from './hooks/TransactionHook';
 

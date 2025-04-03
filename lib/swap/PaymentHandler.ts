@@ -1,6 +1,6 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
-import Logger from '../Logger';
+import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
+import type Logger from '../Logger';
 import {
   formatError,
   getHexBuffer,
@@ -10,24 +10,27 @@ import {
   splitPairId,
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
-import { AnySwap } from '../consts/Types';
-import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type { AnySwap } from '../consts/Types';
+import type ChannelCreation from '../db/models/ChannelCreation';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import { LightningClient, PaymentResponse } from '../lightning/LightningClient';
+import type {
+  LightningClient,
+  PaymentResponse,
+} from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
-import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
+import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
-import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
-import Sidecar from '../sidecar/Sidecar';
-import { Currency } from '../wallet/WalletManager';
-import ChannelNursery from './ChannelNursery';
+import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import type Sidecar from '../sidecar/Sidecar';
+import type { Currency } from '../wallet/WalletManager';
+import type ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
-import NodeSwitch from './NodeSwitch';
+import type NodeSwitch from './NodeSwitch';
 
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash

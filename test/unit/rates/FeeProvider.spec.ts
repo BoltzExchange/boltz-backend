@@ -6,10 +6,10 @@ import {
   SwapType,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import Referral from '../../../lib/db/models/Referral';
+import type Referral from '../../../lib/db/models/Referral';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
-import { ExtraFees } from '../../../lib/service/Service';
+import type { ExtraFees } from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 

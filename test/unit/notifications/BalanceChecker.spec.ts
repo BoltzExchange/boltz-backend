@@ -1,4 +1,4 @@
-import { BaseCurrencyConfig, CurrencyConfig } from '../../../lib/Config';
+import type { BaseCurrencyConfig, CurrencyConfig } from '../../../lib/Config';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
 import { liquidSymbol } from '../../../lib/consts/LiquidTypes';

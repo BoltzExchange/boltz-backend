@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { capitalizeFirstLetter, getHexString } from '../../Utils';
 import { UnblindOutputsRequest } from '../../proto/boltzrpc_pb';
 import { callback, loadBoltzClient } from '../Command';

@@ -1,13 +1,11 @@
 import { parseTransaction } from '../../Core';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
-import { IElementsClient } from '../../chain/ElementsClient';
+import type { IElementsClient } from '../../chain/ElementsClient';
 import { CurrencyType } from '../../consts/Enums';
-import WalletProviderInterface, {
-  SentTransaction,
-  WalletBalance,
-} from './WalletProviderInterface';
+import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import type WalletProviderInterface from './WalletProviderInterface';
 
 class ElementsWalletProvider implements WalletProviderInterface {
   public static readonly assetLabel = 'bitcoin';

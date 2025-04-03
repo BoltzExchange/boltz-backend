@@ -10,7 +10,7 @@ import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
-import WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
+import type WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
 
 describe('WalletLiquid', () => {
   const slip77 = SLIP77Factory(ecc);

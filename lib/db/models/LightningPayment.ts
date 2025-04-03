@@ -1,4 +1,5 @@
-import { DataTypes, Model, Sequelize } from 'sequelize';
+import type { Sequelize } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 import { NodeType } from './ReverseSwap';
 import Swap from './Swap';
 

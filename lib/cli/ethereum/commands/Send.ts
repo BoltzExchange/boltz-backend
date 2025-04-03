@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { etherDecimals } from '../../../consts/Consts';
 import BuilderComponents from '../../BuilderComponents';
 import {

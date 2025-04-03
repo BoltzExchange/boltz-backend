@@ -1,6 +1,6 @@
 import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
@@ -15,15 +15,16 @@ import {
   SwapVersion,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
-import Swap from '../../db/models/Swap';
-import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import type Swap from '../../db/models/Swap';
+import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import ClnClient from '../../lightning/cln/ClnClient';
 import { Payment } from '../../proto/lnd/rpc_pb';
 import SwapNursery from '../../swap/SwapNursery';
-import WalletManager, { Currency } from '../../wallet/WalletManager';
+import type { Currency } from '../../wallet/WalletManager';
+import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import { createPartialSignature, isPreimageValid } from './Utils';
 

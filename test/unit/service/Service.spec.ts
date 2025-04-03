@@ -2,12 +2,12 @@ import { address } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { Provider } from 'ethers';
+import type { Provider } from 'ethers';
 import {
   Transaction as LiquidTransaction,
   networks as liquidNetworks,
 } from 'liquidjs-lib';
-import { ConfigType } from '../../../lib/Config';
+import type { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import {
@@ -34,8 +34,8 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import { PairConfig } from '../../../lib/consts/Types';
-import Swap from '../../../lib/db/models/Swap';
+import type { PairConfig } from '../../../lib/consts/Types';
+import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ExtraFeeRepository from '../../../lib/db/repositories/ExtraFeeRepository';
@@ -48,21 +48,22 @@ import { satToMsat } from '../../../lib/lightning/ChannelUtils';
 import LightningErrors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
+import type { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
+import type { WebHookData } from '../../../lib/service/Service';
 import Service, {
-  WebHookData,
   cancelledViaCliFailureReason,
 } from '../../../lib/service/Service';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import SwapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
-import Wallet from '../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import type Wallet from '../../../lib/wallet/Wallet';
+import type { Currency } from '../../../lib/wallet/WalletManager';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import packageJson from '../../../package.json';
 import { createInvoice } from '../swap/InvoiceUtils';

@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { SwapUpdateEvent } from '../consts/Enums';
-import { ChainSwapTransactions } from '../service/TransactionFetcher';
+import type { SwapUpdateEvent } from '../consts/Enums';
+import type { ChainSwapTransactions } from '../service/TransactionFetcher';
 
 type PartialSignature = {
   pubNonce: string;

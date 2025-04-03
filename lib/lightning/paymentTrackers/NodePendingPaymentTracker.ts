@@ -1,9 +1,10 @@
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { getHexString, stringify } from '../../Utils';
 import { LightningPaymentStatus } from '../../db/models/LightningPayment';
-import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
+import type { NodeType } from '../../db/models/ReverseSwap';
+import { nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import LightningPaymentRepository from '../../db/repositories/LightningPaymentRepository';
-import { LightningClient, PaymentResponse } from '../LightningClient';
+import type { LightningClient, PaymentResponse } from '../LightningClient';
 
 abstract class NodePendingPaymentTracker {
   protected constructor(

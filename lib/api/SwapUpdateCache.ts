@@ -1,5 +1,5 @@
-import Redis from '../db/Redis';
-import { SwapUpdate } from '../service/EventHandler';
+import type Redis from '../db/Redis';
+import type { SwapUpdate } from '../service/EventHandler';
 
 abstract class SwapUpdateCache {
   abstract size(): Promise<number>;

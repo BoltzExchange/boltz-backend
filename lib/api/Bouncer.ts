@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { getUnixTime } from '../Utils';
-import Referral from '../db/models/Referral';
+import type Referral from '../db/models/Referral';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 
 class Bouncer {

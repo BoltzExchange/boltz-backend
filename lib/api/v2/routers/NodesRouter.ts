@@ -1,6 +1,7 @@
-import { Request, Response, Router } from 'express';
-import Logger from '../../../Logger';
-import Service from '../../../service/Service';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import type Logger from '../../../Logger';
+import type Service from '../../../service/Service';
 import { successResponse, validateRequest } from '../../Utils';
 import RouterBase from './RouterBase';
 

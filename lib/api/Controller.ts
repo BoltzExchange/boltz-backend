@@ -1,15 +1,15 @@
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import path from 'path';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { getVersion, mapToObject, stringify } from '../Utils';
 import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
 import LndClient from '../lightning/LndClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import NodeInfo from '../service/NodeInfo';
-import Service from '../service/Service';
+import type Service from '../service/Service';
 import Bouncer from './Bouncer';
-import SwapInfos from './SwapInfos';
+import type SwapInfos from './SwapInfos';
 import {
   checkPreimageHashLength,
   createdResponse,

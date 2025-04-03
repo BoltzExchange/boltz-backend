@@ -1,5 +1,6 @@
-import { Request, Response, Router } from 'express';
-import Logger from '../../../Logger';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import type Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
@@ -7,13 +8,13 @@ import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
-import Service, { ExtraFees, WebHookData } from '../../../service/Service';
-import ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
-import MusigSigner, {
-  PartialSignature,
-} from '../../../service/cooperative/MusigSigner';
+import type { ExtraFees, WebHookData } from '../../../service/Service';
+import type Service from '../../../service/Service';
+import type ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
+import type { PartialSignature } from '../../../service/cooperative/MusigSigner';
+import type MusigSigner from '../../../service/cooperative/MusigSigner';
 import ApiErrors from '../../Errors';
-import SwapInfos from '../../SwapInfos';
+import type SwapInfos from '../../SwapInfos';
 import {
   checkPreimageHashLength,
   createdResponse,

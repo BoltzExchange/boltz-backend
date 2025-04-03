@@ -1,5 +1,7 @@
-import { DataTypes, Model, Sequelize } from 'sequelize';
-import { OrderSide, SwapType } from '../../consts/Enums';
+import type { Sequelize } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
+import type { OrderSide } from '../../consts/Enums';
+import { SwapType } from '../../consts/Enums';
 
 type Limits = {
   minimal?: number;

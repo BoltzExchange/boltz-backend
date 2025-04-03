@@ -1,6 +1,7 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { RescanRequest } from '../../proto/boltzrpc_pb';
-import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
+import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'rescan <symbol> <startHeight> [includeMempool]';

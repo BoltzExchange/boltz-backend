@@ -1,9 +1,9 @@
-import { Request, Response } from 'express';
-import Logger from '../Logger';
+import type { Request, Response } from 'express';
+import type Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
 import MarkedSwapRepository from '../db/repositories/MarkedSwapRepository';
 import ServiceErrors from '../service/Errors';
-import Sidecar from '../sidecar/Sidecar';
+import type Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 
 export type ApiType = 'string' | 'number' | 'boolean' | 'object';

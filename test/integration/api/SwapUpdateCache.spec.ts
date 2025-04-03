@@ -1,8 +1,5 @@
-import {
-  MapCache,
-  RedisCache,
-  SwapUpdateCache,
-} from '../../../lib/api/SwapUpdateCache';
+import type { SwapUpdateCache } from '../../../lib/api/SwapUpdateCache';
+import { MapCache, RedisCache } from '../../../lib/api/SwapUpdateCache';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import { redis } from '../Nodes';
 

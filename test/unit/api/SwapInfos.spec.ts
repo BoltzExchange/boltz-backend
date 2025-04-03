@@ -10,17 +10,16 @@ import {
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
 import TypedEventEmitter from '../../../lib/consts/TypedEventEmitter';
-import ReverseSwap from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../../lib/db/repositories/ChainSwapRepository';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
+import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
 import EventHandler from '../../../lib/service/EventHandler';
-import Service from '../../../lib/service/Service';
+import type Service from '../../../lib/service/Service';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 
 describe('SwapInfos', () => {

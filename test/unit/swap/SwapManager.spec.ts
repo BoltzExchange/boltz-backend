@@ -25,26 +25,27 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
+import type PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import SwapManager, {
-  ChannelCreationInfo,
-} from '../../../lib/swap/SwapManager';
+import type { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
+import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import Wallet from '../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { raceCall } from '../../Utils';
 

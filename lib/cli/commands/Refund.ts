@@ -2,7 +2,7 @@ import {
   extractClaimPublicKeyFromReverseSwapTree,
   extractClaimPublicKeyFromSwapTree,
 } from 'boltz-core';
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { constructRefundTransaction } from '../../Core';
 import { stringify } from '../../Utils';
 import BuilderComponents from '../BuilderComponents';

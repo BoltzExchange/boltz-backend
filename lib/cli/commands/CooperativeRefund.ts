@@ -3,12 +3,13 @@ import {
   extractClaimPublicKeyFromReverseSwapTree,
   extractClaimPublicKeyFromSwapTree,
 } from 'boltz-core';
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { parseTransaction } from '../../Core';
 import { ECPair } from '../../ECPairHelper';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import BoltzApiClient from '../BoltzApiClient';
-import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
+import BuilderComponents from '../BuilderComponents';
 import { currencyTypeFromNetwork, parseNetwork } from '../Command';
 import {
   finalizeCooperativeTransaction,

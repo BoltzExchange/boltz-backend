@@ -1,15 +1,16 @@
-import { BIP32Interface } from 'bip32';
-import { Network } from 'bitcoinjs-lib';
+import type { BIP32Interface } from 'bip32';
+import type { Network } from 'bitcoinjs-lib';
 import { fromOutputScript, toOutputScript } from '../Core';
-import Logger from '../Logger';
-import { CurrencyType } from '../consts/Enums';
+import type Logger from '../Logger';
+import type { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/repositories/KeyRepository';
 import Errors from './Errors';
-import WalletProviderInterface, {
+import type {
   BalancerFetcher,
   SentTransaction,
   WalletBalance,
 } from './providers/WalletProviderInterface';
+import type WalletProviderInterface from './providers/WalletProviderInterface';
 
 class Wallet implements BalancerFetcher {
   public readonly symbol: string;

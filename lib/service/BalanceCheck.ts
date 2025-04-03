@@ -1,4 +1,4 @@
-import WalletManager from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 
 class BalanceCheck {

@@ -1,4 +1,4 @@
-import { Overrides, Provider } from 'ethers';
+import type { Overrides, Provider } from 'ethers';
 import { getHexBuffer } from '../../Utils';
 
 /**

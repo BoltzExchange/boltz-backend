@@ -1,9 +1,12 @@
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { NodeType } from '../../db/models/ReverseSwap';
-import { HopHint, RoutingHintsProvider } from '../../lightning/LightningClient';
-import LndClient from '../../lightning/LndClient';
-import ClnClient from '../../lightning/cln/ClnClient';
-import { Currency } from '../../wallet/WalletManager';
+import type {
+  HopHint,
+  RoutingHintsProvider,
+} from '../../lightning/LightningClient';
+import type LndClient from '../../lightning/LndClient';
+import type ClnClient from '../../lightning/cln/ClnClient';
+import type { Currency } from '../../wallet/WalletManager';
 import RoutingHintsLnd from './RoutingHintsLnd';
 
 type Providers = { lnd?: RoutingHintsLnd; cln?: ClnClient };

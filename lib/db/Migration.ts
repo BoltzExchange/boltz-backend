@@ -1,9 +1,11 @@
 import { Transaction } from 'bitcoinjs-lib';
-import bolt11, { RoutingInfo } from 'bolt11';
+import type { RoutingInfo } from 'bolt11';
+import bolt11 from 'bolt11';
 import { detectSwap } from 'boltz-core';
 import { Transaction as EthersTransaction } from 'ethers';
-import { DataTypes, Op, QueryTypes, Sequelize } from 'sequelize';
-import Logger from '../Logger';
+import type { Sequelize } from 'sequelize';
+import { DataTypes, Op, QueryTypes } from 'sequelize';
+import type Logger from '../Logger';
 import {
   createApiCredential,
   formatError,
@@ -14,7 +16,7 @@ import {
   splitPairId,
 } from '../Utils';
 import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
-import { Currency } from '../wallet/WalletManager';
+import type { Currency } from '../wallet/WalletManager';
 import { Rsk } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
@@ -24,7 +26,8 @@ import LightningPayment, {
 } from './models/LightningPayment';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
-import Referral, { ReferralConfig } from './models/Referral';
+import type { ReferralConfig } from './models/Referral';
+import Referral from './models/Referral';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';

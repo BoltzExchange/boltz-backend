@@ -1,6 +1,6 @@
-import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
@@ -15,13 +15,10 @@ import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import EipSigner from '../../../../lib/service/cooperative/EipSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
-import Sidecar from '../../../../lib/sidecar/Sidecar';
-import WalletManager from '../../../../lib/wallet/WalletManager';
-import {
-  EthereumSetup,
-  getContracts,
-  getSigner,
-} from '../../wallet/EthereumTools';
+import type Sidecar from '../../../../lib/sidecar/Sidecar';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
+import type { EthereumSetup } from '../../wallet/EthereumTools';
+import { getContracts, getSigner } from '../../wallet/EthereumTools';
 
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwap: jest.fn().mockResolvedValue(null),

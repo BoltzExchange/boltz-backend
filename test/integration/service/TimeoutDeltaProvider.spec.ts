@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { ConfigType } from '../../../lib/Config';
+import type { ConfigType } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { splitPairId } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
@@ -7,7 +7,7 @@ import Errors from '../../../lib/service/Errors';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import {
   bitcoinClient,
   bitcoinLndClient,

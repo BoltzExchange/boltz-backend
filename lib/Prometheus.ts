@@ -1,20 +1,21 @@
-import express, { Response } from 'express';
+import type { Response } from 'express';
+import express from 'express';
 import { Gauge, Registry, collectDefaultMetrics } from 'prom-client';
-import Logger from './Logger';
+import type Logger from './Logger';
 import { getPairId } from './Utils';
-import Api from './api/Api';
+import type Api from './api/Api';
 import ElementsClient from './chain/ElementsClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import ZeroConfTool from './chain/elements/ZeroConfTool';
 import { SwapVersion } from './consts/Enums';
-import { PairConfig } from './consts/Types';
+import type { PairConfig } from './consts/Types';
 import ReferralRepository from './db/repositories/ReferralRepository';
 import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
-import {
+import type {
   SubmarinePairTypeTaproot,
   SwapTypes,
 } from './rates/providers/RateProviderTaproot';
-import Service from './service/Service';
+import type Service from './service/Service';
 
 type PrometheusConfig = {
   host?: string;

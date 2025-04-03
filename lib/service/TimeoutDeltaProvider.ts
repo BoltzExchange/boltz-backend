@@ -1,5 +1,5 @@
-import { ConfigType } from '../Config';
-import Logger from '../Logger';
+import type { ConfigType } from '../Config';
+import type Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -16,16 +16,18 @@ import {
   SwapVersion,
   swapTypeToPrettyString,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import Swap from '../db/models/Swap';
+import type { PairConfig } from '../consts/Types';
+import type Swap from '../db/models/Swap';
 import { msatToSat } from '../lightning/ChannelUtils';
-import { InvoiceFeature, LightningClient } from '../lightning/LightningClient';
+import type { LightningClient } from '../lightning/LightningClient';
+import { InvoiceFeature } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
-import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
-import Sidecar from '../sidecar/Sidecar';
-import NodeSwitch from '../swap/NodeSwitch';
-import { Currency } from '../wallet/WalletManager';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
+import type Sidecar from '../sidecar/Sidecar';
+import type NodeSwitch from '../swap/NodeSwitch';
+import type { Currency } from '../wallet/WalletManager';
+import type EthereumManager from '../wallet/ethereum/EthereumManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import Errors from './Errors';
 import RoutingOffsets from './RoutingOffsets';

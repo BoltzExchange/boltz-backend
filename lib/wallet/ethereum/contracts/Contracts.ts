@@ -1,14 +1,15 @@
 import { ContractABIs } from 'boltz-core';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import { Contract, Signer } from 'ethers';
-import { ContractsConfig } from '../../../Config';
-import Logger from '../../../Logger';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { Signer } from 'ethers';
+import { Contract } from 'ethers';
+import type { ContractsConfig } from '../../../Config';
+import type Logger from '../../../Logger';
 import DefaultMap from '../../../consts/DefaultMap';
 import Errors from '../../../wallet/Errors';
-import ConsolidatedEventHandler from '../ConsolidatedEventHandler';
-import { NetworkDetails } from '../EvmNetworks';
-import InjectedProvider from '../InjectedProvider';
+import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
+import type { NetworkDetails } from '../EvmNetworks';
+import type InjectedProvider from '../InjectedProvider';
 import ContractEventHandler from './ContractEventHandler';
 import ContractHandler from './ContractHandler';
 

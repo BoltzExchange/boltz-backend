@@ -1,18 +1,19 @@
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType, Scripts } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import {
+import type {
   ContractTransactionResponse,
   TransactionReceipt,
   TransactionResponse,
-  getAddress,
 } from 'ethers';
-import { Transaction as LiquidTransaction, confidential } from 'liquidjs-lib';
+import { getAddress } from 'ethers';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { confidential } from 'liquidjs-lib';
 import os from 'os';
 import path from 'path';
 import packageJson from '../package.json';
 import commitHash from './Version';
-import { IChainClient } from './chain/ChainClient';
+import type { IChainClient } from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
 import { OrderSide, SwapType, SwapVersion } from './consts/Enums';
 import Errors from './service/Errors';

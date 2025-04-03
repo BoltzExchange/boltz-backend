@@ -1,6 +1,6 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { formatError } from '../Utils';
-import LndClient from './LndClient';
+import type LndClient from './LndClient';
 
 class ConnectionHelper {
   constructor(private logger: Logger) {}

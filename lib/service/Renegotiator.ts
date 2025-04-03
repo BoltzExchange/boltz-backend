@@ -1,36 +1,37 @@
 import { parseTransaction } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { isTxConfirmed } from '../Utils';
+import type { OrderSide } from '../consts/Enums';
 import {
   CurrencyType,
-  OrderSide,
   PercentageFeeType,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
   swapTypeToPrettyString,
 } from '../consts/Enums';
-import Referral from '../db/models/Referral';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type Referral from '../db/models/Referral';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
-import FeeProvider, { ChainSwapMinerFees } from '../rates/FeeProvider';
-import RateProvider from '../rates/RateProvider';
+import type { ChainSwapMinerFees } from '../rates/FeeProvider';
+import FeeProvider from '../rates/FeeProvider';
+import type RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
-import SwapNursery from '../swap/SwapNursery';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type SwapNursery from '../swap/SwapNursery';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import EthereumErrors from '../wallet/ethereum/Errors';
 import {
   formatERC20SwapValues,
   formatEtherSwapValues,
 } from '../wallet/ethereum/contracts/ContractUtils';
-import BalanceCheck from './BalanceCheck';
+import type BalanceCheck from './BalanceCheck';
 import Errors from './Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
-import ChainSwapSigner from './cooperative/ChainSwapSigner';
-import EipSigner from './cooperative/EipSigner';
+import type ChainSwapSigner from './cooperative/ChainSwapSigner';
+import type EipSigner from './cooperative/EipSigner';
 
 class Renegotiator {
   private static readonly minimumLeftUntilExpiryMinutes = 60;

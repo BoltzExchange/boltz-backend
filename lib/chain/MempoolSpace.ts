@@ -1,5 +1,6 @@
-import axios, { AxiosResponse } from 'axios';
-import Logger from '../Logger';
+import type { AxiosResponse } from 'axios';
+import axios from 'axios';
+import type Logger from '../Logger';
 import { formatError, stringify } from '../Utils';
 
 type RecommendedFees = {

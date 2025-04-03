@@ -25,7 +25,7 @@ import {
   SwapVersion,
 } from '../../../../lib/consts/Enums';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
-import Swap from '../../../../lib/db/models/Swap';
+import type Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
@@ -34,9 +34,10 @@ import Errors from '../../../../lib/service/Errors';
 import MusigSigner, {
   RefundRejectionReason,
 } from '../../../../lib/service/cooperative/MusigSigner';
-import SwapNursery from '../../../../lib/swap/SwapNursery';
-import Wallet from '../../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type SwapNursery from '../../../../lib/swap/SwapNursery';
+import type Wallet from '../../../../lib/wallet/Wallet';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import { waitForFunctionToBeTrue } from '../../../Utils';
 import {
   bitcoinClient,

@@ -1,15 +1,15 @@
 import { ContractABIs } from 'boltz-core';
-import { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { Signer } from 'ethers';
 import {
   Contract,
   Wallet as EthersWallet,
   MaxUint256,
-  Signer,
   Transaction,
   getAddress,
 } from 'ethers';
-import { EthereumConfig, RskConfig } from '../../Config';
-import Logger from '../../Logger';
+import type { EthereumConfig, RskConfig } from '../../Config';
+import type Logger from '../../Logger';
 import { stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
 import ChainTipRepository from '../../db/repositories/ChainTipRepository';
@@ -19,7 +19,8 @@ import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ConsolidatedEventHandler from './ConsolidatedEventHandler';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
-import { Ethereum, NetworkDetails, Rsk } from './EvmNetworks';
+import type { NetworkDetails } from './EvmNetworks';
+import { Ethereum, Rsk } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 import SequentialSigner from './SequentialSigner';
 import Contracts from './contracts/Contracts';

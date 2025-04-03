@@ -1,5 +1,5 @@
-import Logger from '../../Logger';
-import NotificationClient from '../../notifications/NotificationClient';
+import type Logger from '../../Logger';
+import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
 import Hook from './Hook';
 

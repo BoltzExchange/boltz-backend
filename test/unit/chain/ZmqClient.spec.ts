@@ -1,15 +1,14 @@
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { Socket, socket as openSocket } from 'zeromq/v5-compat';
+import type { Socket } from 'zeromq/v5-compat';
+import { socket as openSocket } from 'zeromq/v5-compat';
 import Logger from '../../../lib/Logger';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
-import ChainClient from '../../../lib/chain/ChainClient';
+import type ChainClient from '../../../lib/chain/ChainClient';
 import Errors from '../../../lib/chain/Errors';
-import ZmqClient, {
-  ZmqNotification,
-  filters,
-} from '../../../lib/chain/ZmqClient';
+import type { ZmqNotification } from '../../../lib/chain/ZmqClient';
+import ZmqClient, { filters } from '../../../lib/chain/ZmqClient';
 import { CurrencyType } from '../../../lib/consts/Enums';
 import {
   generateAddress,

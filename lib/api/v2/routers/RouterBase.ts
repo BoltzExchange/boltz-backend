@@ -1,6 +1,6 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
-import { Request, Response, Router } from 'express';
-import Logger from '../../../Logger';
+import type { Request, Response, Router } from 'express';
+import type Logger from '../../../Logger';
 import Tracing from '../../../Tracing';
 import { formatError } from '../../../Utils';
 import { errorResponse } from '../../Utils';

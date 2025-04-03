@@ -29,14 +29,14 @@ import {
   SwapType,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import Swap from '../../../../lib/db/models/Swap';
+import type Swap from '../../../../lib/db/models/Swap';
 import Errors from '../../../../lib/service/Errors';
-import CoopSignerBase, {
-  SwapToClaim,
-} from '../../../../lib/service/cooperative/CoopSignerBase';
+import type { SwapToClaim } from '../../../../lib/service/cooperative/CoopSignerBase';
+import CoopSignerBase from '../../../../lib/service/cooperative/CoopSignerBase';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import { bitcoinClient } from '../../Nodes';
 

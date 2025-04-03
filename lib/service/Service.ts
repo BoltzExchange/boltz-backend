@@ -1,11 +1,14 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { OutputType, SwapTreeSerializer } from 'boltz-core';
-import { Provider } from 'ethers';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import { Op, Order } from 'sequelize';
-import { ConfigType } from '../Config';
+import type { Transaction } from 'bitcoinjs-lib';
+import type { SwapTreeSerializer } from 'boltz-core';
+import { OutputType } from 'boltz-core';
+import type { Provider } from 'ethers';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Order } from 'sequelize';
+import { Op } from 'sequelize';
+import type { ConfigType } from '../Config';
 import { parseTransaction } from '../Core';
-import Logger, { LogLevel } from '../Logger';
+import type { LogLevel } from '../Logger';
+import type Logger from '../Logger';
 import {
   calculateEthereumTransactionFeeWithReceipt,
   calculateLiquidTransactionFee,
@@ -44,13 +47,12 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../consts/Enums';
-import { AnySwap, PairConfig } from '../consts/Types';
-import Referral from '../db/models/Referral';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type { AnySwap, PairConfig } from '../consts/Types';
+import type Referral from '../db/models/Referral';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import PairRepository from '../db/repositories/PairRepository';
@@ -60,10 +62,11 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import LightningErrors from '../lightning/Errors';
-import { HopHint, InvoiceFeature } from '../lightning/LightningClient';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/cln/ClnClient';
-import NotificationClient from '../notifications/NotificationClient';
+import type { HopHint } from '../lightning/LightningClient';
+import { InvoiceFeature } from '../lightning/LightningClient';
+import type LndClient from '../lightning/LndClient';
+import type ClnClient from '../lightning/cln/ClnClient';
+import type NotificationClient from '../notifications/NotificationClient';
 import {
   Balances,
   ChainInfo,
@@ -76,20 +79,23 @@ import {
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
-import { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
-import {
+import type { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
+import type {
   ChainPairTypeTaproot,
   ReversePairTypeTaproot,
   SubmarinePairTypeTaproot,
 } from '../rates/providers/RateProviderTaproot';
-import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
-import Sidecar from '../sidecar/Sidecar';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
+import type Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
-import { SwapNurseryEvents } from '../swap/PaymentHandler';
-import SwapManager, { ChannelCreationInfo } from '../swap/SwapManager';
+import type { SwapNurseryEvents } from '../swap/PaymentHandler';
+import type { ChannelCreationInfo } from '../swap/SwapManager';
+import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import BalanceCheck from './BalanceCheck';
 import ElementsService from './ElementsService';
 import Errors from './Errors';

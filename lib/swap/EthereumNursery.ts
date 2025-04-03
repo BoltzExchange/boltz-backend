@@ -1,6 +1,7 @@
-import { Transaction, TransactionReceipt, TransactionResponse } from 'ethers';
+import type { TransactionReceipt, TransactionResponse } from 'ethers';
+import { Transaction } from 'ethers';
 import { Op } from 'sequelize';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -17,22 +18,21 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
-import Wallet from '../wallet/Wallet';
-import WalletManager from '../wallet/WalletManager';
-import EthereumManager from '../wallet/ethereum/EthereumManager';
-import ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import type Wallet from '../wallet/Wallet';
+import type WalletManager from '../wallet/WalletManager';
+import type EthereumManager from '../wallet/ethereum/EthereumManager';
+import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
-import OverpaymentProtector from './OverpaymentProtector';
-import TransactionHook from './hooks/TransactionHook';
+import type OverpaymentProtector from './OverpaymentProtector';
+import type TransactionHook from './hooks/TransactionHook';
 
 class EthereumNursery extends TypedEventEmitter<{
   // EtherSwap

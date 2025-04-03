@@ -1,23 +1,15 @@
-import { Network, Transaction } from 'bitcoinjs-lib';
-import {
-  Musig,
-  OutputType,
-  RefundDetails,
-  TaprootUtils,
-  Types,
-  detectSwap,
-} from 'boltz-core';
-import {
-  LiquidRefundDetails,
-  TaprootUtils as LiquidTaprootDetails,
-} from 'boltz-core/dist/lib/liquid';
-import { ECPairInterface } from 'ecpair';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
+import type { Network, Transaction } from 'bitcoinjs-lib';
+import type { Musig, RefundDetails, Types } from 'boltz-core';
+import { OutputType, TaprootUtils, detectSwap } from 'boltz-core';
+import type { LiquidRefundDetails } from 'boltz-core/dist/lib/liquid';
+import { TaprootUtils as LiquidTaprootDetails } from 'boltz-core/dist/lib/liquid';
+import type { ECPairInterface } from 'ecpair';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
 import { constructClaimTransaction, setup } from '../Core';
 import { getHexBuffer } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
-import { PartialSignature } from './BoltzApiClient';
+import type { PartialSignature } from './BoltzApiClient';
 import { getWalletStub, musigFromExtractedKey } from './Command';
 
 export const setupCooperativeTransaction = async (

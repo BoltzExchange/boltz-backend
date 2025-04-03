@@ -5,7 +5,7 @@ import Errors from '../../../lib/swap/Errors';
 import NodeFallback from '../../../lib/swap/NodeFallback';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import RoutingHints from '../../../lib/swap/routing/RoutingHints';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
 let nodeForReverseSwap: any;

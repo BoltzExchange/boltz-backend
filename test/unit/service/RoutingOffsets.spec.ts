@@ -1,4 +1,4 @@
-import { ConfigType } from '../../../lib/Config';
+import type { ConfigType } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { getPairId } from '../../../lib/Utils';
 import RoutingOffsets from '../../../lib/service/RoutingOffsets';

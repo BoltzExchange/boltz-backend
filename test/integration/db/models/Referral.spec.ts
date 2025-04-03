@@ -2,9 +2,8 @@ import Logger from '../../../../lib/Logger';
 import { createApiCredential } from '../../../../lib/Utils';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
-import ReferralRepository, {
-  ReferralType,
-} from '../../../../lib/db/repositories/ReferralRepository';
+import type { ReferralType } from '../../../../lib/db/repositories/ReferralRepository';
+import ReferralRepository from '../../../../lib/db/repositories/ReferralRepository';
 
 describe('Referral', () => {
   const db = new Database(Logger.disabledLogger, Database.memoryDatabase);

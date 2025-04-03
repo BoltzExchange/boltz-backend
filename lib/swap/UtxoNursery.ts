@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
-import { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
   calculateTransactionFee,
@@ -10,7 +10,7 @@ import {
   parseTransaction,
   tweakMusig,
 } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -21,7 +21,7 @@ import {
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
-import { IChainClient } from '../chain/ChainClient';
+import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import ElementsWrapper from '../chain/ElementsWrapper';
 import type { SomeTransaction } from '../chain/ZmqClient';
@@ -32,20 +32,20 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import LockupTransactionTracker from '../rates/LockupTransactionTracker';
-import Sidecar from '../sidecar/Sidecar';
-import Wallet from '../wallet/Wallet';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
+import type Sidecar from '../sidecar/Sidecar';
+import type Wallet from '../wallet/Wallet';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
-import OverpaymentProtector from './OverpaymentProtector';
-import TransactionHook from './hooks/TransactionHook';
+import type OverpaymentProtector from './OverpaymentProtector';
+import type TransactionHook from './hooks/TransactionHook';
 
 class UtxoNursery extends TypedEventEmitter<{
   // Swap

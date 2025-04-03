@@ -1,4 +1,5 @@
-import Pair, { PairType } from '../models/Pair';
+import type { PairType } from '../models/Pair';
+import Pair from '../models/Pair';
 
 class PairRepository {
   public static getPairs = (): Promise<Pair[]> => {

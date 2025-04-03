@@ -1,5 +1,5 @@
-import { MinSwapSizeMultipliersConfig } from '../Config';
-import Logger from '../Logger';
+import type { MinSwapSizeMultipliersConfig } from '../Config';
+import type Logger from '../Logger';
 import {
   getPairId,
   minutesToMilliseconds,
@@ -14,15 +14,15 @@ import {
   swapTypeToPrettyString,
   swapTypeToString,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type { PairConfig } from '../consts/Types';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import FeeProvider from './FeeProvider';
 import RateCalculator from './RateCalculator';
 import DataAggregator from './data/DataAggregator';
-import RateProviderBase, {
-  MinSwapSizeMultipliers,
-} from './providers/RateProviderBase';
+import type { MinSwapSizeMultipliers } from './providers/RateProviderBase';
+import type RateProviderBase from './providers/RateProviderBase';
 import RateProviderLegacy from './providers/RateProviderLegacy';
 import RateProviderTaproot from './providers/RateProviderTaproot';
 

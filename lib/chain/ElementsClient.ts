@@ -1,13 +1,12 @@
-import { Transaction, confidential } from 'liquidjs-lib';
-import { ChainConfig } from '../Config';
-import Logger from '../Logger';
+import type { Transaction } from 'liquidjs-lib';
+import { confidential } from 'liquidjs-lib';
+import type { ChainConfig } from '../Config';
+import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
-import {
-  AddressInfo,
-  LiquidBalances,
-  liquidSymbol,
-} from '../consts/LiquidTypes';
-import ChainClient, { AddressType, IChainClient } from './ChainClient';
+import type { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
+import { liquidSymbol } from '../consts/LiquidTypes';
+import type { AddressType, IChainClient } from './ChainClient';
+import ChainClient from './ChainClient';
 
 enum LiquidAddressType {
   Blech32 = 'blech32',

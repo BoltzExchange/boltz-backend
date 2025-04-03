@@ -1,7 +1,8 @@
 import ops from '@boltz/bitcoin-ops';
 import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { Transaction, crypto, script } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto, script } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { networks as networkLiquid } from 'liquidjs-lib';
@@ -15,7 +16,7 @@ import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import Wallet from '../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
-import {
+import type {
   SentTransaction,
   WalletBalance,
 } from '../../../lib/wallet/providers/WalletProviderInterface';

@@ -1,9 +1,9 @@
-import { CurrencyConfig } from '../../../lib/Config';
+import type { CurrencyConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import NodeInfo from '../../../lib/service/NodeInfo';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 
 const getNodeInfo = (symbol: string) => ({
   pubkey: `${symbol}identityPubkey`,

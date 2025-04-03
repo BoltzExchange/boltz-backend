@@ -1,23 +1,22 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
 import { getHexBuffer, getHexString, minutesToMilliseconds } from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
-import LightningPayment, {
-  LightningPaymentStatus,
-} from '../db/models/LightningPayment';
+import type LightningPayment from '../db/models/LightningPayment';
+import { LightningPaymentStatus } from '../db/models/LightningPayment';
 import { NodeType, nodeTypeToPrettyString } from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
+import type Swap from '../db/models/Swap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
-import Sidecar from '../sidecar/Sidecar';
-import { Currency } from '../wallet/WalletManager';
+import type Sidecar from '../sidecar/Sidecar';
+import type { Currency } from '../wallet/WalletManager';
 import LightningErrors from './Errors';
-import { LightningClient, PaymentResponse } from './LightningClient';
-import LndClient from './LndClient';
-import ClnClient from './cln/ClnClient';
+import type { LightningClient, PaymentResponse } from './LightningClient';
+import type LndClient from './LndClient';
+import type ClnClient from './cln/ClnClient';
 import ClnPendingPaymentTracker from './paymentTrackers/ClnPendingPaymentTracker';
 import LndPendingPaymentTracker from './paymentTrackers/LndPendingPaymentTracker';
-import NodePendingPaymentTracker from './paymentTrackers/NodePendingPaymentTracker';
+import type NodePendingPaymentTracker from './paymentTrackers/NodePendingPaymentTracker';
 
 type LightningNodes = Record<NodeType, LightningClient | undefined>;
 

@@ -1,17 +1,16 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString, minutesToMilliseconds } from '../../../lib/Utils';
-import LightningPayment, {
-  LightningPaymentStatus,
-} from '../../../lib/db/models/LightningPayment';
+import type LightningPayment from '../../../lib/db/models/LightningPayment';
+import { LightningPaymentStatus } from '../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
+import type Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import LightningErrors from '../../../lib/lightning/Errors';
-import { LightningClient } from '../../../lib/lightning/LightningClient';
+import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
-import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
+import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 
 describe('PendingPaymentTracker', () => {
   const paymentTimeoutMinutes = 30;

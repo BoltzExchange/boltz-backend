@@ -1,15 +1,14 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { getHexString, stringify } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
-import ReverseSwap, {
-  NodeType,
-  nodeTypeToPrettyString,
-} from '../db/models/ReverseSwap';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import { NodeType, nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
-import { LightningClient } from '../lightning/LightningClient';
-import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
-import { Currency } from '../wallet/WalletManager';
+import type { LightningClient } from '../lightning/LightningClient';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
+import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 
 type NodeAmountThreshold = {

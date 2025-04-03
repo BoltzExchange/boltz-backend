@@ -1,5 +1,5 @@
-import { ContractTransactionResponse } from 'ethers';
-import { Arguments } from 'yargs';
+import type { ContractTransactionResponse } from 'ethers';
+import type { Arguments } from 'yargs';
 import { getHexBuffer } from '../../../Utils';
 import {
   queryERC20SwapValues,

@@ -1,7 +1,6 @@
 import { Op } from 'sequelize';
-import ReverseRoutingHint, {
-  ReverseRoutingHintsType,
-} from '../models/ReverseRoutingHint';
+import type { ReverseRoutingHintsType } from '../models/ReverseRoutingHint';
+import ReverseRoutingHint from '../models/ReverseRoutingHint';
 
 class ReverseRoutingHintRepository {
   public static addHint = (hints: ReverseRoutingHintsType) =>

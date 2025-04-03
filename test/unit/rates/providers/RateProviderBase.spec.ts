@@ -1,8 +1,7 @@
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
-import RateProviderBase, {
-  MinSwapSizeMultipliers,
-} from '../../../../lib/rates/providers/RateProviderBase';
+import type { MinSwapSizeMultipliers } from '../../../../lib/rates/providers/RateProviderBase';
+import RateProviderBase from '../../../../lib/rates/providers/RateProviderBase';
 
 jest.mock('../../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {

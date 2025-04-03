@@ -1,8 +1,8 @@
 import { crypto } from 'bitcoinjs-lib';
+import type { Types } from 'boltz-core';
 import {
   Scripts,
   SwapTreeSerializer,
-  Types,
   reverseSwapScript,
   reverseSwapTree,
   swapScript,
@@ -13,11 +13,11 @@ import {
   reverseSwapTree as reverseSwapTreeLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op } from 'sequelize';
-import { SwapConfig } from '../Config';
+import type { SwapConfig } from '../Config';
 import { createMusig, tweakMusig } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   generateSwapId,
@@ -34,50 +34,52 @@ import {
   splitPairId,
 } from '../Utils';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
+import type { OrderSide } from '../consts/Enums';
 import {
   ChannelCreationType,
   CurrencyType,
   FinalChainSwapEvents,
-  OrderSide,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
   swapVersionToString,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import { ChainSwapDataType } from '../db/models/ChainSwapData';
-import ReverseSwap, { NodeType } from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type { PairConfig } from '../consts/Types';
+import type { ChainSwapDataType } from '../db/models/ChainSwapData';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import { NodeType } from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
-import { HopHint, LightningClient } from '../lightning/LightningClient';
-import NotificationClient from '../notifications/NotificationClient';
-import LockupTransactionTracker from '../rates/LockupTransactionTracker';
-import RateProvider from '../rates/RateProvider';
-import BalanceCheck from '../service/BalanceCheck';
+import type { HopHint, LightningClient } from '../lightning/LightningClient';
+import type NotificationClient from '../notifications/NotificationClient';
+import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
+import type RateProvider from '../rates/RateProvider';
+import type BalanceCheck from '../service/BalanceCheck';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
-import PaymentRequestUtils from '../service/PaymentRequestUtils';
+import type PaymentRequestUtils from '../service/PaymentRequestUtils';
 import Renegotiator from '../service/Renegotiator';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
 import EipSigner from '../service/cooperative/EipSigner';
-import DecodedInvoice, { InvoiceType } from '../sidecar/DecodedInvoice';
-import Sidecar from '../sidecar/Sidecar';
-import WalletLiquid from '../wallet/WalletLiquid';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
+import { InvoiceType } from '../sidecar/DecodedInvoice';
+import type Sidecar from '../sidecar/Sidecar';
+import type WalletLiquid from '../wallet/WalletLiquid';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
 import NodeSwitch from './NodeSwitch';
 import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
-import SwapOutputType from './SwapOutputType';
+import type SwapOutputType from './SwapOutputType';
 import CreationHook from './hooks/CreationHook';
 import RoutingHints from './routing/RoutingHints';
 

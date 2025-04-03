@@ -5,13 +5,13 @@ import {
   SwapType,
 } from '../../consts/Enums';
 import Database from '../Database';
-import Referral, {
+import type {
   DirectionalPremium,
   ReferralConfig,
   ReferralPairConfig,
-  ReferralType,
 } from '../models/Referral';
-import { StatsDate } from './StatsRepository';
+import Referral, { ReferralType } from '../models/Referral';
+import type { StatsDate } from './StatsRepository';
 
 type ReferralSumRow = StatsDate & {
   pair: string;

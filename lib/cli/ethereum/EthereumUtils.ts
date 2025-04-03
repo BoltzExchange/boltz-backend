@@ -1,19 +1,19 @@
 import { ContractABIs } from 'boltz-core';
-import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import {
   Contract,
-  HDNodeWallet,
+  type HDNodeWallet,
   JsonRpcProvider,
-  Provider,
-  Signer,
+  type Provider,
+  type Signer,
   Wallet,
 } from 'ethers';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import * as process from 'process';
-import Config, { ConfigType } from '../../Config';
+import Config, { type ConfigType } from '../../Config';
 
 const getBoltzFilePath = (file: string): string =>
   path.join(process.env.HOME!, '.boltz', file);

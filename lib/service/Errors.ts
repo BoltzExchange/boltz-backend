@@ -1,6 +1,6 @@
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from '../consts/Enums';
-import { Error } from '../consts/Types';
+import type { Error } from '../consts/Types';
 
 export default {
   CURRENCY_NOT_FOUND: (currency: string): Error => ({

@@ -1,10 +1,7 @@
-import {
-  ChannelCredentials,
-  ClientReadableStream,
-  Metadata,
-} from '@grpc/grpc-js';
+import type { ChannelCredentials, ClientReadableStream } from '@grpc/grpc-js';
+import { Metadata } from '@grpc/grpc-js';
 import BaseClient from '../../BaseClient';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import { ClientStatus } from '../../consts/Enums';
 import { NodeType } from '../../db/models/ReverseSwap';
@@ -14,25 +11,27 @@ import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
 import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
-import { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
+import type { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
 import Errors from '../Errors';
 import { grpcOptions, unaryCall } from '../GrpcUtils';
-import {
+import type {
   ChannelInfo,
   DecodedInvoice,
   EventTypes,
   HopHint,
   Htlc,
-  HtlcState,
   Invoice,
-  InvoiceFeature,
-  InvoiceState,
   LightningClient,
   NodeInfo,
   PaymentResponse,
   Route,
   RoutingHintsProvider,
+} from '../LightningClient';
+import {
+  HtlcState,
+  InvoiceFeature,
+  InvoiceState,
   calculatePaymentFee,
 } from '../LightningClient';
 import { getRoute } from './Router';

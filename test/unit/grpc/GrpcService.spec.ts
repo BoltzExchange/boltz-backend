@@ -1,4 +1,4 @@
-import { ServiceError } from '@grpc/grpc-js';
+import type { ServiceError } from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import {
@@ -6,17 +6,17 @@ import {
   getHexString,
   removeHexPrefix,
 } from '../../../lib/Utils';
-import Api from '../../../lib/api/Api';
+import type Api from '../../../lib/api/Api';
 import { CurrencyType } from '../../../lib/consts/Enums';
-import PendingEthereumTransaction from '../../../lib/db/models/PendingEthereumTransaction';
+import type PendingEthereumTransaction from '../../../lib/db/models/PendingEthereumTransaction';
 import PendingEthereumTransactionRepository from '../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
-import CreationHook from '../../../lib/swap/hooks/CreationHook';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
+import type CreationHook from '../../../lib/swap/hooks/CreationHook';
+import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const getInfoData = {

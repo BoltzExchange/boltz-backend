@@ -1,33 +1,35 @@
-import {
+import type {
   AddressLike,
-  AlchemyProvider,
   BigNumberish,
   Block,
   BlockTag,
   FeeData,
   Filter,
-  InfuraProvider,
-  JsonRpcProvider,
   Listener,
   Log,
   Network,
   Provider,
   ProviderEvent,
-  Transaction,
   TransactionReceipt,
   TransactionRequest,
   TransactionResponse,
 } from 'ethers';
 import {
+  AlchemyProvider,
+  InfuraProvider,
+  JsonRpcProvider,
+  Transaction,
+} from 'ethers';
+import type {
   EthProviderServiceConfig,
   EthereumConfig,
   RskConfig,
 } from '../../Config';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import Errors from './Errors';
-import { NetworkDetails } from './EvmNetworks';
+import type { NetworkDetails } from './EvmNetworks';
 
 enum EthProviderService {
   Node = 'Node',

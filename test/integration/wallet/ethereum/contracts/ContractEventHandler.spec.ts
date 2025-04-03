@@ -1,18 +1,14 @@
 import { crypto } from 'bitcoinjs-lib';
-import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import { Ethereum } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractEventHandler from '../../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
-import {
-  EthereumSetup,
-  fundSignerWallet,
-  getContracts,
-  getSigner,
-} from '../../EthereumTools';
+import type { EthereumSetup } from '../../EthereumTools';
+import { fundSignerWallet, getContracts, getSigner } from '../../EthereumTools';
 
 type Transactions = {
   lockup?: string;

@@ -1,9 +1,12 @@
 import { Transaction } from 'liquidjs-lib';
-import { UnblindedOutput, unblindOutput } from '../Core';
+import type { UnblindedOutput } from '../Core';
+import { unblindOutput } from '../Core';
 import { getHexBuffer } from '../Utils';
-import ElementsClient, { IElementsClient } from '../chain/ElementsClient';
-import WalletLiquid from '../wallet/WalletLiquid';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type { IElementsClient } from '../chain/ElementsClient';
+import ElementsClient from '../chain/ElementsClient';
+import type WalletLiquid from '../wallet/WalletLiquid';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 
 class ElementsService {

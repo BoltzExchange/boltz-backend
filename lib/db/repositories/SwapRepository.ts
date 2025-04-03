@@ -1,6 +1,8 @@
-import { Op, Order, WhereOptions } from 'sequelize';
+import type { Order, WhereOptions } from 'sequelize';
+import { Op } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
-import Swap, { SwapType } from '../models/Swap';
+import type { SwapType } from '../models/Swap';
+import Swap from '../models/Swap';
 
 class SwapRepository {
   public static getSwaps = (

@@ -1,11 +1,11 @@
 import { Musig, SwapTreeSerializer } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { setup, tweakMusig, zkp } from '../../Core';
 import { ECPair } from '../../ECPairHelper';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
-import { BuilderTypes } from '../BuilderComponents';
+import type { BuilderTypes } from '../BuilderComponents';
 
 export const command =
   'dev-createpartial <ourPrivateKey> <theirPublicKey> <theirPubNonce> <hash> [tweak] [isLiquid]';
@@ -47,7 +47,7 @@ export const handler = async (
   const ourKeys = ECPair.fromPrivateKey(getHexBuffer(argv.ourPrivateKey));
   const musig = new Musig(zkp, ourKeys, randomBytes(32), [
     getHexBuffer(argv.theirPublicKey),
-    ourKeys.publicKey,
+    Buffer.from(ourKeys.publicKey),
   ]);
 
   if (argv.tweak !== undefined) {

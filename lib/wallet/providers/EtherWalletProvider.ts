@@ -1,12 +1,10 @@
-import { Signer } from 'ethers';
-import Logger from '../../Logger';
+import type { Signer } from 'ethers';
+import type Logger from '../../Logger';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import { getGasPrices } from '../ethereum/EthereumUtils';
-import { NetworkDetails } from '../ethereum/EvmNetworks';
-import WalletProviderInterface, {
-  SentTransaction,
-  WalletBalance,
-} from './WalletProviderInterface';
+import type { NetworkDetails } from '../ethereum/EvmNetworks';
+import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import type WalletProviderInterface from './WalletProviderInterface';
 
 class EtherWalletProvider implements WalletProviderInterface {
   // The gas needed for sending Ether is 21000

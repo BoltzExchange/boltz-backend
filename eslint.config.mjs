@@ -33,6 +33,7 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/adjacent-overload-signatures': 'off',
       '@typescript-eslint/no-unsafe-declaration-merging': 'off',
 

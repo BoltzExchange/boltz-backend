@@ -1,4 +1,4 @@
-import { Transaction } from 'liquidjs-lib';
+import type { Transaction } from 'liquidjs-lib';
 
 export interface ZeroConfCheck {
   get name(): string;

@@ -33,17 +33,17 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import Swap from '../../../../lib/db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../../../lib/db/repositories/ChainSwapRepository';
+import type Swap from '../../../../lib/db/models/Swap';
+import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import Errors from '../../../../lib/service/Errors';
 import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import Contracts, {
@@ -53,8 +53,8 @@ import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvi
 import ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../Utils';
 import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
+import type { EthereumSetup } from '../../wallet/EthereumTools';
 import {
-  EthereumSetup,
   fundSignerWallet,
   getContracts,
   getSigner,
@@ -146,8 +146,8 @@ describe('DeferredClaimer', () => {
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
       id: generateSwapId(SwapVersion.Taproot),
-      theirPublicKey: getHexString(refundKeys.publicKey),
-      refundPublicKey: getHexString(refundKeys.publicKey),
+      theirPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
+      refundPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
       timeoutBlockHeight:
         timeoutBlockHeight ||
         (await bitcoinClient.getBlockchainInfo()).blocks + 100,
@@ -974,7 +974,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(
         CurrencyType.BitcoinLike,
@@ -1019,7 +1019,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.receivingData.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(
         CurrencyType.BitcoinLike,
@@ -1064,7 +1064,7 @@ describe('DeferredClaimer', () => {
 
       const musig = new Musig(secp, refundKeys, randomBytes(32), [
         btcWallet.getKeysByIndex(swap.keyIndex!).publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       await expect(
         claimer.broadcastCooperative(

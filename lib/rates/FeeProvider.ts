@@ -1,4 +1,4 @@
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   getChainCurrency,
   getPairId,
@@ -20,12 +20,12 @@ import {
   SwapVersion,
   swapTypeToString,
 } from '../consts/Enums';
-import { PairConfig } from '../consts/Types';
-import Referral from '../db/models/Referral';
-import { ExtraFees } from '../service/Service';
-import WalletManager from '../wallet/WalletManager';
+import type { PairConfig } from '../consts/Types';
+import type Referral from '../db/models/Referral';
+import type { ExtraFees } from '../service/Service';
+import type WalletManager from '../wallet/WalletManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
-import DataAggregator from './data/DataAggregator';
+import type DataAggregator from './data/DataAggregator';
 
 type TransactionSizesForVersion = {
   normalClaim: number;

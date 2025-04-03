@@ -1,24 +1,22 @@
 import { existsSync, unlinkSync } from 'fs';
-import { ConfigType } from '../../../lib/Config';
+import type { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
-import { PairConfig } from '../../../lib/consts/Types';
+import type { PairConfig } from '../../../lib/consts/Types';
 import { msatToSat } from '../../../lib/lightning/ChannelUtils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import Errors from '../../../lib/service/Errors';
-import TimeoutDeltaProvider, {
-  PairTimeoutBlocksDelta,
-} from '../../../lib/service/TimeoutDeltaProvider';
-import DecodedInvoice, {
-  InvoiceType,
-} from '../../../lib/sidecar/DecodedInvoice';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type { PairTimeoutBlocksDelta } from '../../../lib/service/TimeoutDeltaProvider';
+import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { Currency } from '../../../lib/wallet/WalletManager';
-import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
+import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum, Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const currencies = [

@@ -1,5 +1,6 @@
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
-import ContractEventHandler, { Events } from './contracts/ContractEventHandler';
+import type { Events } from './contracts/ContractEventHandler';
+import type ContractEventHandler from './contracts/ContractEventHandler';
 
 class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
   private readonly handlers: ContractEventHandler[] = [];

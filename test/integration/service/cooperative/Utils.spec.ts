@@ -1,5 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
-import { Musig, TaprootUtils, Types, swapTree } from 'boltz-core';
+import type { Types } from 'boltz-core';
+import { Musig, TaprootUtils, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
@@ -10,8 +11,8 @@ import {
   createPartialSignature,
   isPreimageValid,
 } from '../../../../lib/service/cooperative/Utils';
-import Wallet from '../../../../lib/wallet/Wallet';
-import { Currency } from '../../../../lib/wallet/WalletManager';
+import type Wallet from '../../../../lib/wallet/Wallet';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
@@ -57,14 +58,16 @@ describe('Utils', () => {
     const tree = swapTree(
       false,
       randomBytes(32),
-      boltzKeys.publicKey,
-      clientKeys.publicKey,
+      Buffer.from(boltzKeys.publicKey),
+      Buffer.from(clientKeys.publicKey),
       123,
     );
-    const musig = new Musig(zkp, clientKeys, randomBytes(32), [
-      boltzKeys.publicKey,
-      clientKeys.publicKey,
-    ]);
+    const musig = new Musig(
+      zkp,
+      clientKeys,
+      randomBytes(32),
+      [boltzKeys.publicKey, clientKeys.publicKey].map(Buffer.from),
+    );
     TaprootUtils.tweakMusig(musig, tree.tree);
 
     const tx = await bitcoinClient.getRawTransaction(
@@ -84,7 +87,7 @@ describe('Utils', () => {
       } as unknown as Wallet,
       tree,
       0,
-      clientKeys.publicKey,
+      Buffer.from(clientKeys.publicKey),
       Buffer.from(musig.getPublicNonce()),
       tx,
       0,
@@ -96,7 +99,10 @@ describe('Utils', () => {
     );
 
     expect(
-      musig.verifyPartial(boltzKeys.publicKey, partialSignature.signature),
+      musig.verifyPartial(
+        Buffer.from(boltzKeys.publicKey),
+        partialSignature.signature,
+      ),
     ).toEqual(true);
   });
 

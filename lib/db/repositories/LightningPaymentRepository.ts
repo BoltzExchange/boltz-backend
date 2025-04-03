@@ -1,8 +1,8 @@
+import type { LightningPaymentType } from '../models/LightningPayment';
 import LightningPayment, {
   LightningPaymentStatus,
-  LightningPaymentType,
 } from '../models/LightningPayment';
-import { NodeType } from '../models/ReverseSwap';
+import type { NodeType } from '../models/ReverseSwap';
 import Swap from '../models/Swap';
 
 enum Errors {

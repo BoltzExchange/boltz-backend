@@ -1,7 +1,8 @@
-import { ServerDuplexStream, status } from '@grpc/grpc-js';
-import Logger from '../../Logger';
+import type { ServerDuplexStream } from '@grpc/grpc-js';
+import { status } from '@grpc/grpc-js';
+import type Logger from '../../Logger';
 import { formatError } from '../../Utils';
-import NotificationClient from '../../notifications/NotificationClient';
+import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
 
 interface HookResponse {

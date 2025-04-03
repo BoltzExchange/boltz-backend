@@ -1,8 +1,9 @@
-import { Request, Response, Router } from 'express';
-import Logger from '../../../Logger';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import type Logger from '../../../Logger';
 import ReferralStats from '../../../data/ReferralStats';
 import Stats from '../../../data/Stats';
-import Referral from '../../../db/models/Referral';
+import type Referral from '../../../db/models/Referral';
 import ExtraFeeRepository from '../../../db/repositories/ExtraFeeRepository';
 import Bouncer from '../../Bouncer';
 import { errorResponse, successResponse } from '../../Utils';

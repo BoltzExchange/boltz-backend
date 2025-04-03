@@ -1,4 +1,4 @@
-import { ServiceError, sendUnaryData } from '@grpc/grpc-js';
+import type { ServiceError, sendUnaryData } from '@grpc/grpc-js';
 import fs from 'fs';
 import { createServer } from 'net';
 import path from 'path';
@@ -9,8 +9,8 @@ import {
   getCertificate,
 } from '../../../lib/grpc/Certificates';
 import GrpcServer from '../../../lib/grpc/GrpcServer';
-import GrpcService from '../../../lib/grpc/GrpcService';
-import { BoltzClient } from '../../../lib/proto/boltzrpc_grpc_pb';
+import type GrpcService from '../../../lib/grpc/GrpcService';
+import type { BoltzClient } from '../../../lib/proto/boltzrpc_grpc_pb';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import { getPort } from '../../Utils';
 

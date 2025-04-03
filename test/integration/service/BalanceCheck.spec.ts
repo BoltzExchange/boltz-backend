@@ -1,7 +1,7 @@
 import Logger from '../../../lib/Logger';
 import BalanceCheck from '../../../lib/service/BalanceCheck';
 import Errors from '../../../lib/service/Errors';
-import WalletManager from '../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../../lib/wallet/providers/CoreWalletProvider';
 import { bitcoinClient } from '../Nodes';
 

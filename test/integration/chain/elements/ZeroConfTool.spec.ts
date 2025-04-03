@@ -1,5 +1,5 @@
 import express from 'express';
-import http from 'http';
+import type http from 'http';
 import Logger from '../../../../lib/Logger';
 import ZeroConfTool from '../../../../lib/chain/elements/ZeroConfTool';
 import { getPort } from '../../../Utils';
@@ -24,7 +24,7 @@ describe('ZeroConfTool', () => {
       }),
     );
 
-    app.get('/accept*', (_, res) => {
+    app.get('/accept{/:id}', (_, res) => {
       res.json({
         observations: {
           bridge: {

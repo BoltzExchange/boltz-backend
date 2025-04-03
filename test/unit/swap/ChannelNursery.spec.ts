@@ -7,14 +7,14 @@ import {
   OrderSide,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
-import ChannelCreation from '../../../lib/db/models/ChannelCreation';
-import Swap from '../../../lib/db/models/Swap';
+import type ChannelCreation from '../../../lib/db/models/ChannelCreation';
+import type Swap from '../../../lib/db/models/Swap';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
-import { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
+import type { ChannelPoint } from '../../../lib/proto/lnd/rpc_pb';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { wait } from '../../Utils';
 
 let mockGetSwapResult: any = {

@@ -1,9 +1,9 @@
-import { Transaction } from 'liquidjs-lib';
-import Logger from '../../Logger';
+import type { Transaction } from 'liquidjs-lib';
+import type Logger from '../../Logger';
 import { sleep } from '../../PromiseUtils';
 import { liquidSymbol } from '../../consts/LiquidTypes';
-import ElementsClient from '../ElementsClient';
-import { ZeroConfCheck } from './ZeroConfCheck';
+import type ElementsClient from '../ElementsClient';
+import type { ZeroConfCheck } from './ZeroConfCheck';
 
 class TestMempoolAccept implements ZeroConfCheck {
   private static readonly regtestChain = 'liquidregtest';

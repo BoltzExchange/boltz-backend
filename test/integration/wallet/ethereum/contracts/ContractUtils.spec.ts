@@ -1,9 +1,9 @@
 import { crypto } from 'bitcoinjs-lib';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
-import {
+import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../../../../../lib/consts/Types';
@@ -13,7 +13,8 @@ import {
   queryEtherSwapValues,
   queryEtherSwapValuesFromLock,
 } from '../../../../../lib/wallet/ethereum/contracts/ContractUtils';
-import { EthereumSetup, getContracts, getSigner } from '../../EthereumTools';
+import type { EthereumSetup } from '../../EthereumTools';
+import { getContracts, getSigner } from '../../EthereumTools';
 
 describe('ContractUtils', () => {
   let setup: EthereumSetup;

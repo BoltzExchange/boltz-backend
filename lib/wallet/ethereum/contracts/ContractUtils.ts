@@ -1,13 +1,13 @@
-import {
+import type {
   ERC20Swap,
   LockupEvent as ERC20SwapLockupEvent,
 } from 'boltz-core/typechain/ERC20Swap';
-import {
+import type {
   EtherSwap,
   LockupEvent as EtherSwapLockupEvent,
 } from 'boltz-core/typechain/EtherSwap';
-import { Provider, Result } from 'ethers';
-import { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
+import type { Provider, Result } from 'ethers';
+import type { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
 import Errors from '../Errors';
 import { parseBuffer } from '../EthereumUtils';
 

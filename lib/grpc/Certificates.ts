@@ -1,9 +1,9 @@
-import { KeyCertPair } from '@grpc/grpc-js';
+import type { KeyCertPair } from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
 import forge from 'node-forge';
 import path from 'path';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 
 export enum CertificatePrefix {
   CA = 'ca',

@@ -1,15 +1,16 @@
-import { BIP32Interface } from 'bip32';
-import { Network } from 'bitcoinjs-lib';
+import type { BIP32Interface } from 'bip32';
+import type { Network } from 'bitcoinjs-lib';
 import { fromOutputScript, toOutputScript } from '../Core';
-import Logger from '../Logger';
-import { CurrencyType } from '../consts/Enums';
+import type Logger from '../Logger';
+import type { CurrencyType } from '../consts/Enums';
 import KeyRepository from '../db/repositories/KeyRepository';
 import Errors from './Errors';
-import WalletProviderInterface, {
+import type {
   BalancerFetcher,
   SentTransaction,
   WalletBalance,
 } from './providers/WalletProviderInterface';
+import type WalletProviderInterface from './providers/WalletProviderInterface';
 
 class Wallet implements BalancerFetcher {
   public readonly symbol: string;
@@ -58,7 +59,15 @@ class Wallet implements BalancerFetcher {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getKeysByIndex');
     }
 
-    return this.masterNode.derivePath(`${this.derivationPath}/${index}`);
+    const keys = this.masterNode.derivePath(`${this.derivationPath}/${index}`);
+    return {
+      ...keys,
+      publicKey: Buffer.from(keys.publicKey),
+      privateKey: Buffer.from(keys.privateKey!),
+      sign: (hash: Buffer, lowR?: boolean) =>
+        Buffer.from(keys.sign(hash, lowR)),
+      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+    };
   };
 
   /**

@@ -1,20 +1,21 @@
-import { Network } from 'bitcoinjs-lib';
+import type { Network } from 'bitcoinjs-lib';
+import type { Types } from 'boltz-core';
 import {
   Networks,
   SwapTreeSerializer,
-  Types,
   extractClaimPublicKeyFromReverseSwapTree,
   extractRefundPublicKeyFromReverseSwapTree,
 } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { LEAF_VERSION_TAPSCRIPT } from 'liquidjs-lib/src/bip341';
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { parseTransaction } from '../../Core';
 import { ECPair } from '../../ECPairHelper';
 import { getHexBuffer, getHexString, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
 import BoltzApiClient from '../BoltzApiClient';
-import BuilderComponents, { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
+import BuilderComponents from '../BuilderComponents';
 import {
   finalizeCooperativeTransaction,
   prepareCooperativeTransaction,

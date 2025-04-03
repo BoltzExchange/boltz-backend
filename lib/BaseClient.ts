@@ -1,4 +1,4 @@
-import Logger from './Logger';
+import type Logger from './Logger';
 import { racePromise } from './PromiseUtils';
 import { ClientStatus } from './consts/Enums';
 import TypedEventEmitter from './consts/TypedEventEmitter';

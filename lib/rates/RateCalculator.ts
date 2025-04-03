@@ -1,6 +1,6 @@
 import { getPairId } from '../Utils';
 import Errors from './Errors';
-import DataAggregator from './data/DataAggregator';
+import type DataAggregator from './data/DataAggregator';
 
 class RateCalculator {
   constructor(private aggregator: DataAggregator) {}

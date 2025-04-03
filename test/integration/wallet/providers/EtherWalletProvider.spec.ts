@@ -5,7 +5,8 @@ import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
+import type { EthereumSetup } from '../EthereumTools';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
 
 describe('EtherWalletProvider', () => {
   let database: Database;

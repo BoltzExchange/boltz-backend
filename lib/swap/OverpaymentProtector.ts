@@ -1,5 +1,5 @@
-import { OverPaymentConfig } from '../Config';
-import Logger from '../Logger';
+import type { OverPaymentConfig } from '../Config';
+import type Logger from '../Logger';
 import { SwapType } from '../consts/Enums';
 
 class OverpaymentProtector {

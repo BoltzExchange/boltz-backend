@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { GetInfoRequest } from '../../proto/boltzrpc_pb';
 import { callback, loadBoltzClient } from '../Command';
 

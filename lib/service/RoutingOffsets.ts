@@ -1,5 +1,5 @@
-import { ConfigType } from '../Config';
-import Logger from '../Logger';
+import type { ConfigType } from '../Config';
+import type Logger from '../Logger';
 import { getPairId, mapToObject, stringify } from '../Utils';
 
 type Params = {

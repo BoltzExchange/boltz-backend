@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import NodesRouter from '../../../../../lib/api/v2/routers/NodesRouter';
-import Service from '../../../../../lib/service/Service';
+import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
 const mockedRouter = {

@@ -1,6 +1,10 @@
-import { BaseCurrencyConfig, NotificationConfig, TokenConfig } from '../Config';
+import type {
+  BaseCurrencyConfig,
+  NotificationConfig,
+  TokenConfig,
+} from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -15,22 +19,22 @@ import {
   OrderSide,
   SwapType,
 } from '../consts/Enums';
-import { AnySwap } from '../consts/Types';
-import ChainSwapData from '../db/models/ChainSwapData';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type { AnySwap } from '../consts/Types';
+import type ChainSwapData from '../db/models/ChainSwapData';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/cln/ClnClient';
-import { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
-import Service from '../service/Service';
-import Sidecar from '../sidecar/Sidecar';
-import WalletManager from '../wallet/WalletManager';
+import type LndClient from '../lightning/LndClient';
+import type ClnClient from '../lightning/cln/ClnClient';
+import type { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
+import type Service from '../service/Service';
+import type Sidecar from '../sidecar/Sidecar';
+import type WalletManager from '../wallet/WalletManager';
 import BalanceChecker from './BalanceChecker';
 import CommandHandler from './CommandHandler';
 import { Emojis } from './Markup';
-import NotificationClient from './NotificationClient';
+import type NotificationClient from './NotificationClient';
 
 // TODO: test balance and service alerts
 // TODO: use events instead of intervals to check connections and balances

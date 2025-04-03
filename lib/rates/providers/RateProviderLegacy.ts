@@ -5,11 +5,13 @@ import {
   SwapType,
   SwapVersion,
 } from '../../consts/Enums';
-import { PairConfig } from '../../consts/Types';
+import type { PairConfig } from '../../consts/Types';
 import Errors from '../../service/Errors';
-import { Currency } from '../../wallet/WalletManager';
-import FeeProvider, { MinerFeesForVersion } from '../FeeProvider';
-import RateProviderBase, { MinSwapSizeMultipliers } from './RateProviderBase';
+import type { Currency } from '../../wallet/WalletManager';
+import type { MinerFeesForVersion } from '../FeeProvider';
+import type FeeProvider from '../FeeProvider';
+import type { MinSwapSizeMultipliers } from './RateProviderBase';
+import RateProviderBase from './RateProviderBase';
 
 type PairTypeLegacy = {
   hash: string;

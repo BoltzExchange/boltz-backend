@@ -1,7 +1,7 @@
 import AsyncLock from 'async-lock';
 import bolt11 from 'bolt11';
 import { Op } from 'sequelize';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import {
   formatError,
   getChainCurrency,
@@ -12,14 +12,14 @@ import {
 } from '../Utils';
 import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ChannelCreation from '../db/models/ChannelCreation';
-import Swap from '../db/models/Swap';
+import type ChannelCreation from '../db/models/ChannelCreation';
+import type Swap from '../db/models/Swap';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ConnectionHelper from '../lightning/ConnectionHelper';
-import LndClient from '../lightning/LndClient';
-import { ChannelPoint } from '../proto/lnd/rpc_pb';
-import { Currency } from '../wallet/WalletManager';
+import type LndClient from '../lightning/LndClient';
+import type { ChannelPoint } from '../proto/lnd/rpc_pb';
+import type { Currency } from '../wallet/WalletManager';
 
 // TODO: cln compatibility
 

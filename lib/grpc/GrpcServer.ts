@@ -1,10 +1,11 @@
-import { KeyCertPair, Server, ServerCredentials } from '@grpc/grpc-js';
+import type { KeyCertPair } from '@grpc/grpc-js';
+import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { GrpcConfig } from '../Config';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { BoltzService } from '../proto/boltzrpc_grpc_pb';
 import { CertificatePrefix, getCertificate } from './Certificates';
 import Errors from './Errors';
-import GrpcService from './GrpcService';
+import type GrpcService from './GrpcService';
 import { loggingInterceptor } from './Interceptors';
 
 class GrpcServer {

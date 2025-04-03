@@ -2,8 +2,8 @@ import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { Transaction, address, crypto } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import type { ClaimDetails } from 'boltz-core';
 import {
-  ClaimDetails,
   Networks,
   OutputType,
   Scripts,
@@ -44,12 +44,12 @@ import Logger from '../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../lib/Utils';
 import { CurrencyType, SwapType, SwapVersion } from '../../lib/consts/Enums';
 import Database from '../../lib/db/Database';
-import ChainSwapData from '../../lib/db/models/ChainSwapData';
-import Swap from '../../lib/db/models/Swap';
-import SwapOutputType from '../../lib/swap/SwapOutputType';
+import type ChainSwapData from '../../lib/db/models/ChainSwapData';
+import type Swap from '../../lib/db/models/Swap';
+import type SwapOutputType from '../../lib/swap/SwapOutputType';
 import Wallet from '../../lib/wallet/Wallet';
 import WalletLiquid from '../../lib/wallet/WalletLiquid';
-import { Currency } from '../../lib/wallet/WalletManager';
+import type { Currency } from '../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
 import { bitcoinClient, elementsClient } from './Nodes';
@@ -218,7 +218,7 @@ describe('Core', () => {
     const redeemScript = swapScript(
       crypto.sha256(preimage),
       claimKeys.keys.publicKey,
-      refundKeys.publicKey,
+      Buffer.from(refundKeys.publicKey),
       2,
     );
     const outputScript = p2wshOutput(redeemScript);
@@ -257,7 +257,7 @@ describe('Core', () => {
       redeemScript,
       txHash: tx.getHash(),
       type: OutputType.Bech32,
-      keys: wallet.getKeysByIndex(claimKeys.index),
+      keys: expect.anything(),
     });
   });
 
@@ -270,10 +270,13 @@ describe('Core', () => {
       false,
       crypto.sha256(preimage),
       claimKeys.keys.publicKey,
-      refundKeys.publicKey,
+      Buffer.from(refundKeys.publicKey),
       2,
     );
-    const musig = createMusig(claimKeys.keys, refundKeys.publicKey);
+    const musig = createMusig(
+      claimKeys.keys,
+      Buffer.from(refundKeys.publicKey),
+    );
     const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
     const outputScript = p2trOutput(tweakedKey);
 
@@ -298,7 +301,7 @@ describe('Core', () => {
         keyIndex: claimKeys.index,
         version: SwapVersion.Taproot,
         lockupTransactionVout: output.vout,
-        theirPublicKey: refundKeys.publicKey,
+        theirPublicKey: Buffer.from(refundKeys.publicKey),
         redeemScript: SwapTreeSerializer.serializeSwapTree(tree),
       } as unknown as Swap,
       tx,
@@ -308,7 +311,7 @@ describe('Core', () => {
     expect(claimDetails.vout).toEqual(output.vout);
     expect(claimDetails.preimage).toEqual(preimage);
     expect(claimDetails.value).toEqual(output.value);
-    expect(claimDetails.keys).toEqual(claimKeys.keys);
+    expect(claimDetails.keys.publicKey).toEqual(claimKeys.keys.publicKey);
     expect(claimDetails.txHash).toEqual(tx.getHash());
     expect(claimDetails.script).toEqual(output.script);
     expect(claimDetails.type).toEqual(OutputType.Taproot);
@@ -341,10 +344,10 @@ describe('Core', () => {
         false,
         crypto.sha256(preimage),
         claimKeys.publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
         2,
       );
-      const musig = createMusig(claimKeys, refundKeys.publicKey);
+      const musig = createMusig(claimKeys, Buffer.from(refundKeys.publicKey));
       const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
 
       const lockupTransaction = Transaction.fromHex(
@@ -360,7 +363,7 @@ describe('Core', () => {
           type: SwapType.Chain,
           keyIndex: claimKeysIndex,
           transactionVout: output.vout,
-          theirPublicKey: getHexString(refundKeys.publicKey),
+          theirPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
           swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
         } as Partial<ChainSwapData> as ChainSwapData,
         lockupTransaction,
@@ -382,7 +385,10 @@ describe('Core', () => {
     );
     const musig = createMusig(ourKeys, theirPublicKey);
 
-    expect(musig.publicKeys).toEqual([ourKeys.publicKey, theirPublicKey]);
+    expect(musig.publicKeys).toEqual([
+      Buffer.from(ourKeys.publicKey),
+      theirPublicKey,
+    ]);
     expect(musig.getAggregatedPublicKey()).toMatchSnapshot();
   });
 
@@ -425,7 +431,9 @@ describe('Core', () => {
   test('should hash Bitcoin transactions for witness v1', async () => {
     const keys = ECPair.makeRandom();
 
-    const outputScript = Scripts.p2trOutput(toXOnly(keys.publicKey));
+    const outputScript = Scripts.p2trOutput(
+      toXOnly(Buffer.from(keys.publicKey)),
+    );
     const amountSent = 100_000;
 
     const tx = parseTransaction(
@@ -464,7 +472,7 @@ describe('Core', () => {
       0,
     );
 
-    spendTx.setWitness(0, [keys.signSchnorr(hash)]);
+    spendTx.setWitness(0, [Buffer.from(keys.signSchnorr(hash))]);
 
     await bitcoinClient.sendRawTransaction(spendTx.toHex());
   });
@@ -472,7 +480,9 @@ describe('Core', () => {
   test('should hash Liquid transactions for witness v1', async () => {
     const keys = ECPair.makeRandom();
 
-    const outputScript = Scripts.p2trOutput(toXOnly(keys.publicKey));
+    const outputScript = Scripts.p2trOutput(
+      toXOnly(Buffer.from(keys.publicKey)),
+    );
     const amountSent = 100_000;
 
     const tx = parseTransaction(
@@ -535,7 +545,7 @@ describe('Core', () => {
       0,
     );
 
-    spendTx.setWitness(0, [keys.signSchnorr(hash)]);
+    spendTx.setWitness(0, [Buffer.from(keys.signSchnorr(hash))]);
 
     await elementsClient.sendRawTransaction(spendTx.toHex());
   });

@@ -9,9 +9,9 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import LightningNursery from '../../../lib/swap/LightningNursery';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
 type htlcAcceptedCallback = (invoice: string) => Promise<void>;

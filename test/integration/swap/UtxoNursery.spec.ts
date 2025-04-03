@@ -1,12 +1,11 @@
-import { Transaction, crypto, networks } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto, networks } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import fs from 'fs';
-import {
-  Transaction as LiquidTransaction,
-  networks as liquidNetworks,
-} from 'liquidjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import { networks as liquidNetworks } from 'liquidjs-lib';
 import path from 'path';
 import { parseTransaction, setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
@@ -21,10 +20,10 @@ import Database from '../../../lib/db/Database';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
+import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
-import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import type TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
@@ -32,8 +31,9 @@ import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
+import type { Currency } from '../../../lib/wallet/WalletManager';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import { wait } from '../../Utils';
 import {
   bitcoinClient,
@@ -216,8 +216,8 @@ describe('UtxoNursery', () => {
         orderSide: OrderSide.BUY,
         percentageFee: 100,
         preimageHash: crypto.sha256(preimage),
-        claimPublicKey: claimKeys.publicKey,
-        refundPublicKey: refundKeys.publicKey,
+        claimPublicKey: Buffer.from(claimKeys.publicKey),
+        refundPublicKey: Buffer.from(refundKeys.publicKey),
         sendingTimeoutBlockDelta: 102,
         receivingTimeoutBlockDelta: 101,
         userLockAmount: 101_000,
@@ -391,7 +391,7 @@ describe('UtxoNursery', () => {
         orderSide: OrderSide.SELL,
         baseCurrency: elementsClient.symbol,
         quoteCurrency: bitcoinClient.symbol,
-        refundPublicKey: refundKeys.publicKey,
+        refundPublicKey: Buffer.from(refundKeys.publicKey),
         preimageHash: getHexBuffer(preimageHash),
       });
 

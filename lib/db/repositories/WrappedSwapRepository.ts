@@ -1,8 +1,8 @@
 import { getHexString } from '../../Utils';
 import { SwapType, SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
-import ReverseSwap from '../models/ReverseSwap';
-import { ChainSwapInfo } from './ChainSwapRepository';
+import type ReverseSwap from '../models/ReverseSwap';
+import type { ChainSwapInfo } from './ChainSwapRepository';
 
 class WrappedSwapRepository {
   public static setStatus = async <T extends ReverseSwap | ChainSwapInfo>(

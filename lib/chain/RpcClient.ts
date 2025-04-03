@@ -1,8 +1,8 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { existsSync, readFileSync } from 'fs';
 import http from 'http';
-import { ChainConfig } from '../Config';
-import Logger from '../Logger';
+import type { ChainConfig } from '../Config';
+import type Logger from '../Logger';
 import Tracing from '../Tracing';
 import { formatError } from '../Utils';
 import Errors from './Errors';

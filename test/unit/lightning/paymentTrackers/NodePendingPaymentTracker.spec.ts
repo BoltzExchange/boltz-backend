@@ -4,7 +4,7 @@ import { getHexString } from '../../../../lib/Utils';
 import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayment';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
-import { LightningClient } from '../../../../lib/lightning/LightningClient';
+import type { LightningClient } from '../../../../lib/lightning/LightningClient';
 import NodePendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/NodePendingPaymentTracker';
 
 class MockTracker extends NodePendingPaymentTracker {

@@ -1,18 +1,10 @@
 import { generateMnemonic } from 'bip39';
 import { ContractABIs } from 'boltz-core';
-import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import {
-  Block,
-  Contract,
-  JsonRpcProvider,
-  Provider,
-  Signer,
-  TransactionResponse,
-  Wallet,
-  getCreateAddress,
-} from 'ethers';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { Block, Provider, Signer, TransactionResponse } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet, getCreateAddress } from 'ethers';
 
 export type EthereumSetup = {
   mnemonic: string;

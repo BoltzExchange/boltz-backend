@@ -1,27 +1,28 @@
 import { parseTransaction } from '../Core';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { formatError, getChainCurrency, splitPairId } from '../Utils';
 import {
   SwapType,
   SwapUpdateEvent,
   swapTypeToPrettyString,
 } from '../consts/Enums';
-import { AnySwap } from '../consts/Types';
-import Redis from '../db/Redis';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type { AnySwap } from '../consts/Types';
+import type Redis from '../db/Redis';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ServiceErrors from '../service/Errors';
-import EventHandler, { SwapUpdate } from '../service/EventHandler';
-import Service from '../service/Service';
+import type { SwapUpdate } from '../service/EventHandler';
+import EventHandler from '../service/EventHandler';
+import type Service from '../service/Service';
 import { getCurrency } from '../service/Utils';
 import SwapNursery from '../swap/SwapNursery';
-import { MapCache, RedisCache, SwapUpdateCache } from './SwapUpdateCache';
+import type { SwapUpdateCache } from './SwapUpdateCache';
+import { MapCache, RedisCache } from './SwapUpdateCache';
 
 class SwapInfos {
   public readonly cache: SwapUpdateCache;

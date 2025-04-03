@@ -2,8 +2,8 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import Errors from '../../../lib/api/Errors';
+import type { ApiArgument } from '../../../lib/api/Utils';
 import {
-  ApiArgument,
   checkPreimageHashLength,
   errorResponse,
   markSwap,
@@ -11,7 +11,7 @@ import {
   validateRequest,
 } from '../../../lib/api/Utils';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { mockRequest, mockResponse } from './Utils';
 
 jest.mock('../../../lib/db/repositories/MarkedSwapRepository', () => ({

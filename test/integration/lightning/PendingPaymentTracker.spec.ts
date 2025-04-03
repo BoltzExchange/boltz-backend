@@ -13,7 +13,7 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import LightningErrors from '../../../lib/lightning/Errors';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import Sidecar from '../../../lib/sidecar/Sidecar';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinLndClient, clnClient, waitForClnChainSync } from '../Nodes';
 import { createSubmarineSwapData } from '../db/repositories/Fixtures';
 import { sidecar, startSidecar } from '../sidecar/Utils';

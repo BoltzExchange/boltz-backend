@@ -1,20 +1,15 @@
 import { credentials } from '@grpc/grpc-js';
-import { Network, Transaction } from 'bitcoinjs-lib';
-import {
-  Musig,
-  Networks,
-  SwapTreeSerializer,
-  Types,
-  detectSwap,
-} from 'boltz-core';
+import type { Network, Transaction } from 'bitcoinjs-lib';
+import type { Types } from 'boltz-core';
+import { Musig, Networks, SwapTreeSerializer, detectSwap } from 'boltz-core';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import * as console from 'console';
 import { randomBytes } from 'crypto';
-import { ECPairInterface } from 'ecpair';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import type { ECPairInterface } from 'ecpair';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import path from 'path';
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import {
   parseTransaction,
   setup,
@@ -30,7 +25,7 @@ import GrpcServer from '../grpc/GrpcServer';
 import { grpcOptions } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
-import { RpcType } from './BuilderComponents';
+import type { RpcType } from './BuilderComponents';
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -204,8 +199,8 @@ export const musigFromExtractedKey = (
       ]);
 
       for (const keys of [
-        [compressedKey, ourKeys.publicKey],
-        [ourKeys.publicKey, compressedKey],
+        [compressedKey, Buffer.from(ourKeys.publicKey)],
+        [Buffer.from(ourKeys.publicKey), compressedKey],
       ]) {
         const musig = new Musig(zkp, ourKeys, randomBytes(32), keys);
         const tweakedKey = tweakMusig(type, musig, tree);

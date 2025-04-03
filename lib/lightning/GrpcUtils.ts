@@ -1,4 +1,4 @@
-import { Metadata, ServiceError } from '@grpc/grpc-js';
+import type { Metadata, ServiceError } from '@grpc/grpc-js';
 
 export const grpcOptions = (sslTargetNameOverride?: string) => {
   const options = {

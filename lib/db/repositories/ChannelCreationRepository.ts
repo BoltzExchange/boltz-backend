@@ -1,8 +1,7 @@
-import { WhereOptions } from 'sequelize';
+import type { WhereOptions } from 'sequelize';
 import { ChannelCreationStatus } from '../../consts/Enums';
-import ChannelCreation, {
-  ChannelCreationType,
-} from '../models/ChannelCreation';
+import type { ChannelCreationType } from '../models/ChannelCreation';
+import ChannelCreation from '../models/ChannelCreation';
 
 class ChannelCreationRepository {
   public static getChannelCreation = (

@@ -3,7 +3,7 @@ import { Transaction, address, confidential } from 'liquidjs-lib';
 import Logger from '../../../../lib/Logger';
 import { getHexBuffer } from '../../../../lib/Utils';
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
-import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import type { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 import { elementsClient } from '../../Nodes';
 
 const testAddress =

@@ -20,7 +20,7 @@ export const createInvoice = (
     },
     satoshis: satoshis || 100,
     timestamp: timestamp || getUnixTime(),
-    payeeNodeKey: getHexString(invoiceSigningKeys.publicKey),
+    payeeNodeKey: getHexString(Buffer.from(invoiceSigningKeys.publicKey)),
     tags: [
       {
         data: preimageHash || getHexString(randomBytes(32)),
@@ -33,6 +33,6 @@ export const createInvoice = (
     ],
   });
 
-  return bolt11.sign(invoiceEncode, invoiceSigningKeys.privateKey!)
+  return bolt11.sign(invoiceEncode, Buffer.from(invoiceSigningKeys.privateKey!))
     .paymentRequest!;
 };

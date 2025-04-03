@@ -1,11 +1,12 @@
-import axios, { AxiosResponse } from 'axios';
-import { Transaction } from 'liquidjs-lib';
-import Logger from '../../Logger';
+import type { AxiosResponse } from 'axios';
+import axios from 'axios';
+import type { Transaction } from 'liquidjs-lib';
+import type Logger from '../../Logger';
 import { sleep } from '../../PromiseUtils';
 import { formatError } from '../../Utils';
 import { liquidSymbol } from '../../consts/LiquidTypes';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
-import { ZeroConfCheck } from './ZeroConfCheck';
+import type { ZeroConfCheck } from './ZeroConfCheck';
 
 export type ZeroConfToolConfig = {
   endpoint: string;

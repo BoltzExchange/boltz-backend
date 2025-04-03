@@ -2,20 +2,20 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
 import { SwapType } from '../../../lib/consts/Enums';
-import LightningPayment from '../../../lib/db/models/LightningPayment';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
+import type LightningPayment from '../../../lib/db/models/LightningPayment';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import { satToMsat } from '../../../lib/lightning/ChannelUtils';
-import { LightningClient } from '../../../lib/lightning/LightningClient';
+import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import ClnClient from '../../../lib/lightning/cln/ClnClient';
-import DecodedInvoice, {
-  InvoiceType,
-} from '../../../lib/sidecar/DecodedInvoice';
+import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
+import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('NodeSwitch', () => {
   const createNode = (

@@ -29,14 +29,14 @@ import {
   SwapType,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import Swap from '../../../../lib/db/models/Swap';
+import type Swap from '../../../../lib/db/models/Swap';
 import Errors from '../../../../lib/service/Errors';
-import CoopSignerBase, {
-  SwapToClaim,
-} from '../../../../lib/service/cooperative/CoopSignerBase';
+import type { SwapToClaim } from '../../../../lib/service/cooperative/CoopSignerBase';
+import CoopSignerBase from '../../../../lib/service/cooperative/CoopSignerBase';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import { bitcoinClient } from '../../Nodes';
 
@@ -80,11 +80,14 @@ describe('CoopSignerBase', () => {
       false,
       crypto.sha256(preimage),
       wallet.getKeysByIndex(keyIndex).publicKey,
-      refundKeys.publicKey,
+      Buffer.from(refundKeys.publicKey),
       timeoutBlockHeight,
     );
     const tweakedKey = TaprootUtils.tweakMusig(
-      createMusig(wallet.getKeysByIndex(keyIndex)!, refundKeys.publicKey),
+      createMusig(
+        wallet.getKeysByIndex(keyIndex)!,
+        Buffer.from(refundKeys.publicKey),
+      ),
       tree.tree,
     );
 
@@ -106,7 +109,7 @@ describe('CoopSignerBase', () => {
           type: SwapType.Submarine,
           lockupTransactionId: txId,
           version: SwapVersion.Taproot,
-          theirPublicKey: refundKeys.publicKey,
+          theirPublicKey: Buffer.from(refundKeys.publicKey),
           id: generateSwapId(SwapVersion.Taproot),
           redeemScript: JSON.stringify(
             SwapTreeSerializer.serializeSwapTree(tree),
@@ -198,7 +201,7 @@ describe('CoopSignerBase', () => {
       );
       const musig = new Musig(zkp, refundKeys, randomBytes(32), [
         wallet.getKeysByIndex(keyIndex)!.publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(CurrencyType.BitcoinLike, musig, tree);
       musig.aggregateNonces([[coopDetails.publicKey, coopDetails.pubNonce]]);
@@ -234,7 +237,7 @@ describe('CoopSignerBase', () => {
       );
       const musig = new Musig(zkp, refundKeys, randomBytes(32), [
         wallet.getKeysByIndex(keyIndex)!.publicKey,
-        refundKeys.publicKey,
+        Buffer.from(refundKeys.publicKey),
       ]);
       tweakMusig(CurrencyType.BitcoinLike, musig, tree);
       musig.aggregateNonces([[coopDetails.publicKey, coopDetails.pubNonce]]);

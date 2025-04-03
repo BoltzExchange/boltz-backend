@@ -1,8 +1,8 @@
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { formatError } from '../../Utils';
 import { NodeType } from '../../db/models/ReverseSwap';
 import LightningNursery from '../../swap/LightningNursery';
-import { LightningClient, PaymentResponse } from '../LightningClient';
+import type { LightningClient, PaymentResponse } from '../LightningClient';
 import ClnClient from '../cln/ClnClient';
 import NodePendingPaymentTracker from './NodePendingPaymentTracker';
 

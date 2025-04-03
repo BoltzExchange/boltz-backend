@@ -9,9 +9,8 @@ import {
 } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
 import ChainSwap from '../../../../lib/db/models/ChainSwap';
-import ChainSwapData, {
-  ChainSwapDataType,
-} from '../../../../lib/db/models/ChainSwapData';
+import type { ChainSwapDataType } from '../../../../lib/db/models/ChainSwapData';
+import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
 import Pair from '../../../../lib/db/models/Pair';
 import ChainSwapRepository, {
   ChainSwapInfo,

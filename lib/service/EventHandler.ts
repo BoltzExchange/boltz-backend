@@ -1,6 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { saneStringify } from '../Utils';
 import {
   SwapType,
@@ -8,9 +8,9 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import { AnySwap, IncorrectAmountDetails } from '../consts/Types';
-import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseSwap from '../db/models/ReverseSwap';
+import type { AnySwap, IncorrectAmountDetails } from '../consts/Types';
+import type ChannelCreation from '../db/models/ChannelCreation';
+import type ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
 
 type TransactionInfo = {

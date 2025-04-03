@@ -1,6 +1,6 @@
 import { concatErrorCode } from '../Utils';
 import { ErrorCodePrefix } from './Enums';
-import { Error } from './Types';
+import type { Error } from './Types';
 
 export default {
   IS_DISCONNECTED: (clientName: string): Error => ({

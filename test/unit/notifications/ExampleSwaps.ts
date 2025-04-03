@@ -6,9 +6,10 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import { ChannelCreationType } from '../../../lib/db/models/ChannelCreation';
-import { NodeType, ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
-import { SwapType } from '../../../lib/db/models/Swap';
+import type { ChannelCreationType } from '../../../lib/db/models/ChannelCreation';
+import type { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type { SwapType } from '../../../lib/db/models/Swap';
 
 export const swapExample = {
   id: '123456',

@@ -1,15 +1,13 @@
-import {
-  ClientDuplexStream,
-  ClientReadableStream,
-  Metadata,
-} from '@grpc/grpc-js';
+import type { ClientDuplexStream, ClientReadableStream } from '@grpc/grpc-js';
+import { Metadata } from '@grpc/grpc-js';
 import { Status } from '@grpc/grpc-js/build/src/constants';
 import child_process from 'node:child_process';
 import path from 'path';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
-import { ConfigType } from '../Config';
-import Logger, { LogLevel } from '../Logger';
+import type { ConfigType } from '../Config';
+import type Logger from '../Logger';
+import { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
 import {
   formatError,
@@ -18,7 +16,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import SwapInfos from '../api/SwapInfos';
+import type SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
@@ -26,7 +24,8 @@ import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/sidecar/boltzr_pb';
 import { SendSwapUpdateRequest } from '../proto/sidecar/boltzr_pb';
-import EventHandler, { SwapUpdate } from '../service/EventHandler';
+import type { SwapUpdate } from '../service/EventHandler';
+import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
 
 type Update = { id: string; status: SwapUpdate };

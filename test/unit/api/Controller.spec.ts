@@ -5,7 +5,7 @@ import Controller from '../../../lib/api/Controller';
 import SwapInfos from '../../../lib/api/SwapInfos';
 import { SwapUpdateEvent, SwapVersion } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
-import Swap from '../../../lib/db/models/Swap';
+import type Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
 import Service from '../../../lib/service/Service';
 import { mockRequest, mockResponse } from './Utils';

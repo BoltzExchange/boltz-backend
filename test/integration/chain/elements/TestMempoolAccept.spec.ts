@@ -1,4 +1,4 @@
-import { Transaction } from 'liquidjs-lib';
+import type { Transaction } from 'liquidjs-lib';
 import Logger from '../../../../lib/Logger';
 import TestMempoolAccept from '../../../../lib/chain/elements/TestMempoolAccept';
 import { elementsClient } from '../../Nodes';

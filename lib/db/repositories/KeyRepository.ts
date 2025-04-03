@@ -1,4 +1,5 @@
-import KeyProvider, { KeyProviderType } from '../models/KeyProvider';
+import type { KeyProviderType } from '../models/KeyProvider';
+import KeyProvider from '../models/KeyProvider';
 
 class KeyRepository {
   public static getKeyProviders = (): Promise<KeyProviderType[]> => {

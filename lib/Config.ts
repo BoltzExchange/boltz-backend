@@ -1,18 +1,18 @@
 import toml from '@iarna/toml';
 import fs from 'fs';
 import path from 'path';
-import { Arguments } from 'yargs';
-import { PrometheusConfig } from './Prometheus';
+import type { Arguments } from 'yargs';
+import type { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
-import { ZeroConfToolConfig } from './chain/elements/ZeroConfTool';
+import type { ZeroConfToolConfig } from './chain/elements/ZeroConfTool';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
-import { PairConfig } from './consts/Types';
-import { RedisConfig } from './db/Redis';
-import { LndConfig } from './lightning/LndClient';
-import { ClnConfig } from './lightning/cln/Types';
-import { SidecarConfig } from './sidecar/Sidecar';
-import { NodeSwitchConfig } from './swap/NodeSwitch';
+import type { PairConfig } from './consts/Types';
+import type { RedisConfig } from './db/Redis';
+import type { LndConfig } from './lightning/LndClient';
+import type { ClnConfig } from './lightning/cln/Types';
+import type { SidecarConfig } from './sidecar/Sidecar';
+import type { NodeSwitchConfig } from './swap/NodeSwitch';
 
 type PostgresConfig = {
   host: string;

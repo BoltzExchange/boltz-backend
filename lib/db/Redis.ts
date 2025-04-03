@@ -1,5 +1,5 @@
 import { createClient } from 'redis';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { formatError } from '../Utils';
 
 export type RedisConfig = {

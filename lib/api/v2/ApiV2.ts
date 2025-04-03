@@ -1,13 +1,13 @@
-import { Application } from 'express';
-import Logger from '../../Logger';
-import Service from '../../service/Service';
-import SwapInfos from '../SwapInfos';
+import type { Application } from 'express';
+import type Logger from '../../Logger';
+import type Service from '../../service/Service';
+import type SwapInfos from '../SwapInfos';
 import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
 import InfoRouter from './routers/InfoRouter';
 import NodesRouter from './routers/NodesRouter';
 import ReferralRouter from './routers/ReferralRouter';
-import RouterBase from './routers/RouterBase';
+import type RouterBase from './routers/RouterBase';
 import SwapRouter from './routers/SwapRouter';
 
 class ApiV2 {

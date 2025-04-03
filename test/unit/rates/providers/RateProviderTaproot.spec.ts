@@ -1,6 +1,6 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
-import Referral from '../../../../lib/db/models/Referral';
+import type Referral from '../../../../lib/db/models/Referral';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderTaproot from '../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../lib/service/Errors';

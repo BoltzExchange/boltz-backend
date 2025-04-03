@@ -1,5 +1,5 @@
 import { crypto } from 'bitcoinjs-lib';
-import { Types } from 'boltz-core';
+import type { Types } from 'boltz-core';
 import {
   createMusig,
   hashForWitnessV1,
@@ -7,10 +7,10 @@ import {
   tweakMusig,
 } from '../../Core';
 import { getHexString } from '../../Utils';
-import Wallet from '../../wallet/Wallet';
-import { Currency } from '../../wallet/WalletManager';
+import type Wallet from '../../wallet/Wallet';
+import type { Currency } from '../../wallet/WalletManager';
 import Errors from '../Errors';
-import { PartialSignature } from './MusigSigner';
+import type { PartialSignature } from './MusigSigner';
 
 export const isPreimageValid = (
   swap: { preimageHash: string },

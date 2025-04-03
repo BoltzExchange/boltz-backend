@@ -1,7 +1,8 @@
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
-import {
+import type {
   Block,
   BlockVerbose,
   RawTransaction,

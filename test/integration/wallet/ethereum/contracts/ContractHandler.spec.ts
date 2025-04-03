@@ -1,29 +1,24 @@
 import { crypto } from 'bitcoinjs-lib';
-import { ERC20 } from 'boltz-core/typechain/ERC20';
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type { ERC20 } from 'boltz-core/typechain/ERC20';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Wallet } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import { SwapType } from '../../../../../lib/consts/Enums';
-import { AnySwap } from '../../../../../lib/consts/Types';
+import type { AnySwap } from '../../../../../lib/consts/Types';
 import Database from '../../../../../lib/db/Database';
 import TransactionLabel from '../../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../../lib/db/repositories/TransactionLabelRepository';
 import Errors from '../../../../../lib/wallet/ethereum/Errors';
 import { Ethereum } from '../../../../../lib/wallet/ethereum/EvmNetworks';
-import ContractHandler, {
-  BatchClaimValues,
-} from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import type { BatchClaimValues } from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import ContractHandler from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
 import ERC20WalletProvider from '../../../../../lib/wallet/providers/ERC20WalletProvider';
 import { wait } from '../../../../Utils';
-import {
-  EthereumSetup,
-  fundSignerWallet,
-  getContracts,
-  getSigner,
-} from '../../EthereumTools';
+import type { EthereumSetup } from '../../EthereumTools';
+import { fundSignerWallet, getContracts, getSigner } from '../../EthereumTools';
 
 describe('ContractHandler', () => {
   let database: Database;

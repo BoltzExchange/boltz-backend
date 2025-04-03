@@ -1,12 +1,10 @@
-import { Signer } from 'ethers';
-import Logger from '../../Logger';
-import { Token } from '../../consts/Types';
+import type { Signer } from 'ethers';
+import type Logger from '../../Logger';
+import type { Token } from '../../consts/Types';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import { getGasPrices } from '../ethereum/EthereumUtils';
-import WalletProviderInterface, {
-  SentTransaction,
-  WalletBalance,
-} from './WalletProviderInterface';
+import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
+import type WalletProviderInterface from './WalletProviderInterface';
 
 class ERC20WalletProvider implements WalletProviderInterface {
   public readonly symbol: string;

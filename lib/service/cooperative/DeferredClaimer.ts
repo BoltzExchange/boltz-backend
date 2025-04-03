@@ -1,13 +1,10 @@
 import AsyncLock from 'async-lock';
-import { Job, scheduleJob } from 'node-schedule';
-import { SwapConfig } from '../../Config';
-import {
-  ClaimDetails,
-  LiquidClaimDetails,
-  calculateTransactionFee,
-  constructClaimTransaction,
-} from '../../Core';
-import Logger from '../../Logger';
+import type { Job } from 'node-schedule';
+import { scheduleJob } from 'node-schedule';
+import type { SwapConfig } from '../../Config';
+import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
+import { calculateTransactionFee, constructClaimTransaction } from '../../Core';
+import type Logger from '../../Logger';
 import {
   arrayToChunks,
   calculateEthereumTransactionFee,
@@ -25,26 +22,31 @@ import {
   SwapVersion,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
-import { AnySwap, ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
-import ChannelCreation from '../../db/models/ChannelCreation';
-import Swap from '../../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../db/repositories/ChainSwapRepository';
+import type {
+  AnySwap,
+  ERC20SwapValues,
+  EtherSwapValues,
+} from '../../consts/Types';
+import type ChannelCreation from '../../db/models/ChannelCreation';
+import type Swap from '../../db/models/Swap';
+import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
-import SwapOutputType from '../../swap/SwapOutputType';
-import WalletManager, { Currency } from '../../wallet/WalletManager';
+import type SwapOutputType from '../../swap/SwapOutputType';
+import type { Currency } from '../../wallet/WalletManager';
+import type WalletManager from '../../wallet/WalletManager';
 import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
 } from '../../wallet/ethereum/contracts/ContractUtils';
 import Contracts from '../../wallet/ethereum/contracts/Contracts';
-import ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
+import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
-import CoopSignerBase, { SwapToClaim } from './CoopSignerBase';
+import type { SwapToClaim } from './CoopSignerBase';
+import CoopSignerBase from './CoopSignerBase';
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
   preimage: Buffer;

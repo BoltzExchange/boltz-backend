@@ -1,4 +1,5 @@
-import { ChannelCredentials, credentials } from '@grpc/grpc-js';
+import type { ChannelCredentials } from '@grpc/grpc-js';
+import { credentials } from '@grpc/grpc-js';
 import fs from 'fs';
 import Errors from '../Errors';
 

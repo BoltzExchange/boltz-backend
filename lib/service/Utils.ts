@@ -1,5 +1,5 @@
 import { getUnixTime } from '../Utils';
-import { Currency } from '../wallet/WalletManager';
+import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 

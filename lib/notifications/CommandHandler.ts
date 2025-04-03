@@ -1,7 +1,7 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../DenominationConverter';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import Tracing from '../Tracing';
 import { checkEvmAddress, formatError, mapToObject, stringify } from '../Utils';
 import {
@@ -13,24 +13,23 @@ import {
   swapTypeToPrettyString,
   swapTypeToString,
 } from '../consts/Enums';
-import { AnySwap } from '../consts/Types';
+import type { AnySwap } from '../consts/Types';
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
-import ChannelCreation from '../db/models/ChannelCreation';
-import ReverseRoutingHint from '../db/models/ReverseRoutingHint';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type ChannelCreation from '../db/models/ChannelCreation';
+import type ReverseRoutingHint from '../db/models/ReverseRoutingHint';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import FeeRepository from '../db/repositories/FeeRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import Service from '../service/Service';
+import type Service from '../service/Service';
 import { codeBlock } from './Markup';
-import NotificationClient from './NotificationClient';
+import type NotificationClient from './NotificationClient';
 
 enum Command {
   Help = 'help',

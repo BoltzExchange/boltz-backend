@@ -1,7 +1,7 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { getHexString } from '../../Utils';
 import { GetPendingEvmTransactionsRequest } from '../../proto/boltzrpc_pb';
-import { ApiType, BuilderTypes } from '../BuilderComponents';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
 export const command = 'pendingevmtransactions';

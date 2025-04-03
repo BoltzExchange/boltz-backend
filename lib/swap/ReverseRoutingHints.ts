@@ -1,13 +1,15 @@
 import { crypto } from 'bitcoinjs-lib';
 import { ECPair } from '../ECPairHelper';
 import { getHexString, getSwapMemo } from '../Utils';
-import { SwapType, SwapVersion } from '../consts/Enums';
+import type { SwapVersion } from '../consts/Enums';
+import { SwapType } from '../consts/Enums';
 import { transactionToLndScid } from '../lightning/ChannelUtils';
-import { HopHint } from '../lightning/LightningClient';
-import RateProvider from '../rates/RateProvider';
-import PaymentRequestUtils from '../service/PaymentRequestUtils';
-import DecodedInvoice from '../sidecar/DecodedInvoice';
-import WalletManager, { Currency } from '../wallet/WalletManager';
+import type { HopHint } from '../lightning/LightningClient';
+import type RateProvider from '../rates/RateProvider';
+import type PaymentRequestUtils from '../service/PaymentRequestUtils';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
+import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 
 type SwapHints = {

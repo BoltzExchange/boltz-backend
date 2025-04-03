@@ -1,4 +1,4 @@
-import { OverPaymentConfig } from '../../../lib/Config';
+import type { OverPaymentConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { SwapType } from '../../../lib/consts/Enums';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';

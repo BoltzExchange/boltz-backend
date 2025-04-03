@@ -1,5 +1,5 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
   getChainCurrency,
@@ -7,16 +7,15 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
-import ChainSwapData from '../db/models/ChainSwapData';
-import ReverseSwap from '../db/models/ReverseSwap';
-import Swap from '../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../db/repositories/ChainSwapRepository';
+import type ChainSwapData from '../db/models/ChainSwapData';
+import type ReverseSwap from '../db/models/ReverseSwap';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import Wallet from '../wallet/Wallet';
-import { Currency } from '../wallet/WalletManager';
+import type Wallet from '../wallet/Wallet';
+import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import { calculateTimeoutDate, getCurrency } from './Utils';
 

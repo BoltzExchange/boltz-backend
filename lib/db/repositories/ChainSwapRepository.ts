@@ -1,4 +1,5 @@
-import { Op, Order, WhereOptions } from 'sequelize';
+import type { Order, WhereOptions } from 'sequelize';
+import { Op } from 'sequelize';
 import {
   getHexString,
   getSendingReceivingCurrency,
@@ -10,10 +11,12 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../consts/Enums';
-import { IncorrectAmountDetails } from '../../consts/Types';
+import type { IncorrectAmountDetails } from '../../consts/Types';
 import Database from '../Database';
-import ChainSwap, { ChainSwapType } from '../models/ChainSwap';
-import ChainSwapData, { ChainSwapDataType } from '../models/ChainSwapData';
+import type { ChainSwapType } from '../models/ChainSwap';
+import ChainSwap from '../models/ChainSwap';
+import type { ChainSwapDataType } from '../models/ChainSwapData';
+import ChainSwapData from '../models/ChainSwapData';
 
 class ChainSwapInfo {
   constructor(

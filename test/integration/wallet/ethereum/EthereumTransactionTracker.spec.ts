@@ -2,7 +2,8 @@ import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import EthereumTransactionTracker from '../../../../lib/wallet/ethereum/EthereumTransactionTracker';
 import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
+import type { EthereumSetup } from '../EthereumTools';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
 
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 

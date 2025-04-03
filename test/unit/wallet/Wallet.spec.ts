@@ -1,7 +1,8 @@
 import ops from '@boltz/bitcoin-ops';
 import { BIP32Factory } from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { Transaction, crypto, script } from 'bitcoinjs-lib';
+import type { Transaction } from 'bitcoinjs-lib';
+import { crypto, script } from 'bitcoinjs-lib';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { networks as networkLiquid } from 'liquidjs-lib';
@@ -15,7 +16,7 @@ import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import Wallet from '../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import LndWalletProvider from '../../../lib/wallet/providers/LndWalletProvider';
-import {
+import type {
   SentTransaction,
   WalletBalance,
 } from '../../../lib/wallet/providers/WalletProviderInterface';
@@ -95,7 +96,15 @@ describe('Wallet', () => {
   };
 
   const getKeysByIndex = (index: number) => {
-    return masterNode.derivePath(`${derivationPath}/${index}`);
+    const keys = masterNode.derivePath(`${derivationPath}/${index}`);
+    return {
+      ...keys,
+      publicKey: Buffer.from(keys.publicKey),
+      privateKey: Buffer.from(keys.privateKey!),
+      sign: (hash: Buffer, lowR?: boolean) =>
+        Buffer.from(keys.sign(hash, lowR)),
+      signSchnorr: (hash: Buffer) => Buffer.from(keys.signSchnorr(hash)),
+    };
   };
 
   const walletLiquid = new WalletLiquid(
@@ -129,7 +138,9 @@ describe('Wallet', () => {
   test('should get correct address from index', () => {
     const index = 1;
 
-    expect(wallet.getKeysByIndex(index)).toEqual(getKeysByIndex(index));
+    expect(wallet.getKeysByIndex(index).publicKey).toEqual(
+      getKeysByIndex(index).publicKey,
+    );
   });
 
   test('should get new keys', () => {
@@ -137,7 +148,7 @@ describe('Wallet', () => {
 
     const { keys, index } = wallet.getNewKeys();
 
-    expect(keys).toEqual(getKeysByIndex(highestUsedIndex));
+    expect(keys.publicKey).toEqual(getKeysByIndex(highestUsedIndex).publicKey);
     expect(index).toEqual(wallet['highestUsedIndex']);
 
     expect(wallet['highestUsedIndex']).toEqual(highestUsedIndex);

@@ -1,5 +1,5 @@
 import { Transaction } from 'ethers';
-import { RskConfig } from '../../../../lib/Config';
+import type { RskConfig } from '../../../../lib/Config';
 import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import Errors from '../../../../lib/wallet/ethereum/Errors';

@@ -1,11 +1,15 @@
-import { BaseCurrencyConfig, PreferredWallet, TokenConfig } from '../Config';
+import type {
+  BaseCurrencyConfig,
+  PreferredWallet,
+  TokenConfig,
+} from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { liquidSymbol } from '../consts/LiquidTypes';
-import { Balances } from '../proto/boltzrpc_pb';
-import Service from '../service/Service';
+import type { Balances } from '../proto/boltzrpc_pb';
+import type Service from '../service/Service';
 import { Emojis } from './Markup';
-import NotificationClient from './NotificationClient';
+import type NotificationClient from './NotificationClient';
 
 enum BalanceType {
   Wallet,

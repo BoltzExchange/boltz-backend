@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { connectEthereum } from '../EthereumUtils';
 
 export const command = 'mine <blocks>';

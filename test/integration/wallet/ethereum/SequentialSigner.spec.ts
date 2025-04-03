@@ -1,6 +1,7 @@
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import SequentialSigner from '../../../../lib/wallet/ethereum/SequentialSigner';
-import { EthereumSetup, fundSignerWallet, getSigner } from '../EthereumTools';
+import type { EthereumSetup } from '../EthereumTools';
+import { fundSignerWallet, getSigner } from '../EthereumTools';
 
 describe('SequentialSigner', () => {
   let setup: EthereumSetup;

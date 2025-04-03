@@ -3,15 +3,14 @@ import { Networks } from 'boltz-core';
 import { Op } from 'sequelize';
 import { getHexString, getUnixTime, reverseBuffer } from '../../../lib/Utils';
 import { OrderSide } from '../../../lib/consts/Enums';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../../lib/db/repositories/ChainSwapRepository';
+import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
 import TransactionFetcher from '../../../lib/service/TransactionFetcher';
-import Wallet from '../../../lib/wallet/Wallet';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type Wallet from '../../../lib/wallet/Wallet';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../Nodes';
 import { getSigner } from '../wallet/EthereumTools';
 

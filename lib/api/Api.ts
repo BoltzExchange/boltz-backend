@@ -1,8 +1,9 @@
-import express, { Application, NextFunction, Request, Response } from 'express';
+import type { Application, NextFunction, Request, Response } from 'express';
+import express from 'express';
 import { ApiConfig } from '../Config';
-import Logger from '../Logger';
-import Redis from '../db/Redis';
-import Service from '../service/Service';
+import type Logger from '../Logger';
+import type Redis from '../db/Redis';
+import type Service from '../service/Service';
 import Controller from './Controller';
 import SwapInfos from './SwapInfos';
 import { errorResponse } from './Utils';

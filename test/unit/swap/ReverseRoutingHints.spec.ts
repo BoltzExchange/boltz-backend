@@ -3,11 +3,11 @@ import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
-import { DecodedInvoice } from '../../../lib/lightning/LightningClient';
+import type { DecodedInvoice } from '../../../lib/lightning/LightningClient';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
 import ReverseRoutingHints from '../../../lib/swap/ReverseRoutingHints';
-import { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('ReverseRoutingHints', () => {
   const sendingCurrency = {
@@ -97,8 +97,8 @@ describe('ReverseRoutingHints', () => {
         const address =
           'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
         const keys = ECPair.makeRandom();
-        const signature = keys.signSchnorr(
-          crypto.sha256(Buffer.from(address, 'utf-8')),
+        const signature = Buffer.from(
+          keys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
         );
 
         expect(
@@ -106,7 +106,7 @@ describe('ReverseRoutingHints', () => {
             userAddress: address,
             onchainAmount: amount,
             version: SwapVersion.Taproot,
-            claimPublicKey: keys.publicKey,
+            claimPublicKey: Buffer.from(keys.publicKey),
             userAddressSignature: signature,
             descriptionHash: descriptionHash
               ? getHexBuffer(descriptionHash)
@@ -129,7 +129,7 @@ describe('ReverseRoutingHints', () => {
           routingHint: [
             [
               {
-                nodeId: getHexString(keys.publicKey),
+                nodeId: getHexString(Buffer.from(keys.publicKey)),
                 chanId: ReverseRoutingHints['routingHintChanId'],
                 feeBaseMsat: 0,
                 cltvExpiryDelta: 81,
@@ -177,8 +177,8 @@ describe('ReverseRoutingHints', () => {
         const address =
           'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
         const keys = ECPair.makeRandom();
-        const signature = keys.signSchnorr(
-          crypto.sha256(Buffer.from(address, 'utf-8')),
+        const signature = Buffer.from(
+          keys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
         );
 
         expect(
@@ -187,7 +187,7 @@ describe('ReverseRoutingHints', () => {
             userAddress: address,
             onchainAmount: amount,
             version: SwapVersion.Taproot,
-            claimPublicKey: keys.publicKey,
+            claimPublicKey: Buffer.from(keys.publicKey),
             userAddressSignature: signature,
           }),
         ).toEqual({
@@ -202,7 +202,7 @@ describe('ReverseRoutingHints', () => {
           routingHint: [
             [
               {
-                nodeId: getHexString(keys.publicKey),
+                nodeId: getHexString(Buffer.from(keys.publicKey)),
                 chanId: ReverseRoutingHints['routingHintChanId'],
                 feeBaseMsat: 0,
                 cltvExpiryDelta: 81,
@@ -224,7 +224,7 @@ describe('ReverseRoutingHints', () => {
           userAddress: address,
           onchainAmount: amount,
           version: SwapVersion.Taproot,
-          claimPublicKey: keys.publicKey,
+          claimPublicKey: Buffer.from(keys.publicKey),
           userAddressSignature: Buffer.alloc(1),
         }),
       ).toThrow(Errors.INVALID_ADDRESS().message);
@@ -235,8 +235,10 @@ describe('ReverseRoutingHints', () => {
       const address =
         'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
       const keys = ECPair.makeRandom();
-      const signature = keys.signSchnorr(
-        crypto.sha256(Buffer.from('not the address', 'utf-8')),
+      const signature = Buffer.from(
+        keys.signSchnorr(
+          crypto.sha256(Buffer.from('not the address', 'utf-8')),
+        ),
       );
 
       expect(() =>
@@ -244,7 +246,7 @@ describe('ReverseRoutingHints', () => {
           userAddress: address,
           onchainAmount: amount,
           version: SwapVersion.Taproot,
-          claimPublicKey: keys.publicKey,
+          claimPublicKey: Buffer.from(keys.publicKey),
           userAddressSignature: signature,
         }),
       ).toThrow(Errors.INVALID_ADDRESS_SIGNATURE().message);
@@ -258,8 +260,8 @@ describe('ReverseRoutingHints', () => {
       'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
 
     test('should add magic routing hint', () => {
-      const signature = signingKeys.signSchnorr(
-        crypto.sha256(Buffer.from(address, 'utf-8')),
+      const signature = Buffer.from(
+        signingKeys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
       );
 
       const res = hints.getHints(sendingCurrency, {
@@ -307,8 +309,10 @@ describe('ReverseRoutingHints', () => {
     });
 
     test('should throw for invalid address signatures', () => {
-      const signature = signingKeys.signSchnorr(
-        crypto.sha256(Buffer.from('not the address', 'utf-8')),
+      const signature = Buffer.from(
+        signingKeys.signSchnorr(
+          crypto.sha256(Buffer.from('not the address', 'utf-8')),
+        ),
       );
 
       expect(() =>

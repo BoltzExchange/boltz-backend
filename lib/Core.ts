@@ -1,14 +1,11 @@
 import Tracing from './Tracing';
 import { SpanKind, context, trace } from '@opentelemetry/api';
-import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
-import { BIP32Interface } from 'bip32';
-import {
-  Network,
-  Transaction,
-  TxOutput,
-  address,
-  initEccLib,
-} from 'bitcoinjs-lib';
+import type { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
+import zkpInit from '@vulpemventures/secp256k1-zkp';
+import type { BIP32Interface } from 'bip32';
+import type { Network, TxOutput } from 'bitcoinjs-lib';
+import { Transaction, address, initEccLib } from 'bitcoinjs-lib';
+import type { Types } from 'boltz-core';
 import {
   ClaimDetails,
   Musig,
@@ -16,7 +13,6 @@ import {
   RefundDetails,
   SwapTreeSerializer,
   TaprootUtils,
-  Types,
   constructClaimTransaction as constructClaimTransactionBitcoin,
   constructRefundTransaction as constructRefundTransactionBitcoin,
   detectSwap,
@@ -32,14 +28,14 @@ import {
   init as initLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
-import { ECPairInterface } from 'ecpair';
+import type { ECPairInterface } from 'ecpair';
+import type { TxOutput as LiquidTxOutput } from 'liquidjs-lib';
 import {
   Transaction as LiquidTransaction,
-  TxOutput as LiquidTxOutput,
   confidential,
   address as liquidAddress,
 } from 'liquidjs-lib';
-import { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
+import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import * as ecc from 'tiny-secp256k1';
 import { ECPair } from './ECPairHelper';
 import {
@@ -49,8 +45,8 @@ import {
   getHexString,
   reverseBuffer,
 } from './Utils';
-import { IChainClient } from './chain/ChainClient';
-import { SomeTransaction } from './chain/ZmqClient';
+import type { IChainClient } from './chain/ChainClient';
+import type { SomeTransaction } from './chain/ZmqClient';
 import {
   CurrencyType,
   SwapType,
@@ -58,12 +54,12 @@ import {
   currencyTypeToString,
 } from './consts/Enums';
 import { liquidSymbol } from './consts/LiquidTypes';
-import ChainSwapData from './db/models/ChainSwapData';
-import Swap from './db/models/Swap';
-import SwapOutputType from './swap/SwapOutputType';
-import Wallet from './wallet/Wallet';
-import WalletLiquid from './wallet/WalletLiquid';
-import { Currency } from './wallet/WalletManager';
+import type ChainSwapData from './db/models/ChainSwapData';
+import type Swap from './db/models/Swap';
+import type SwapOutputType from './swap/SwapOutputType';
+import type Wallet from './wallet/Wallet';
+import type WalletLiquid from './wallet/WalletLiquid';
+import type { Currency } from './wallet/WalletManager';
 
 type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
   value: number;
@@ -363,7 +359,7 @@ export const createMusig = (
   theirPublicKey: Buffer,
 ) =>
   new Musig(zkp, ECPair.fromPrivateKey(ourKeys.privateKey!), randomBytes(32), [
-    ourKeys.publicKey,
+    Buffer.from(ourKeys.publicKey),
     theirPublicKey,
   ]);
 

@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { DeriveKeysRequest } from '../../proto/boltzrpc_pb';
 import BuilderComponents from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';

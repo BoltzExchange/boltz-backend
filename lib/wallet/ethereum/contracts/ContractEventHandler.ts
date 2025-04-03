@@ -1,17 +1,17 @@
-import { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
-import { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import {
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import type {
   ContractEventPayload,
   Provider,
   Transaction,
   TransactionResponse,
 } from 'ethers';
-import Logger from '../../../Logger';
+import type Logger from '../../../Logger';
 import { formatError } from '../../../Utils';
 import TypedEventEmitter from '../../../consts/TypedEventEmitter';
-import { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
+import type { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
 import { parseBuffer } from '../EthereumUtils';
-import { NetworkDetails } from '../EvmNetworks';
+import type { NetworkDetails } from '../EvmNetworks';
 import { formatERC20SwapValues, formatEtherSwapValues } from './ContractUtils';
 
 type Events = {

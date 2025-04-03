@@ -1,7 +1,7 @@
 import { Transaction, address } from 'bitcoinjs-lib';
 import { Networks, Scripts, SwapTreeSerializer, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { ECPairInterface } from 'ecpair';
+import type { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
@@ -23,11 +23,11 @@ import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepositor
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
-import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
+import type LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import Errors from '../../../lib/swap/Errors';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
+import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 
 type blockCallback = (height: number) => void;
@@ -587,12 +587,12 @@ describe('UtxoNursery', () => {
     const checkSwapOutputs = nursery['checkOutputs'];
 
     const ourKeys = ECPair.makeRandom();
-    const theirPublicKey = ECPair.makeRandom().publicKey;
+    const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
 
     const tree = swapTree(
       false,
       randomBytes(32),
-      ourKeys.publicKey,
+      Buffer.from(ourKeys.publicKey),
       theirPublicKey,
       210,
     );

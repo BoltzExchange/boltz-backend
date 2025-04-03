@@ -15,16 +15,15 @@ import {
   SwapType,
   SwapVersion,
 } from '../../consts/Enums';
-import { ChainSwapPairConfig, PairConfig } from '../../consts/Types';
-import Referral from '../../db/models/Referral';
+import type { ChainSwapPairConfig, PairConfig } from '../../consts/Types';
+import type Referral from '../../db/models/Referral';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
-import { Currency } from '../../wallet/WalletManager';
-import FeeProvider, {
-  ChainSwapMinerFees,
-  ReverseMinerFees,
-} from '../FeeProvider';
-import RateProviderBase, { MinSwapSizeMultipliers } from './RateProviderBase';
+import type { Currency } from '../../wallet/WalletManager';
+import type { ChainSwapMinerFees, ReverseMinerFees } from '../FeeProvider';
+import FeeProvider from '../FeeProvider';
+import type { MinSwapSizeMultipliers } from './RateProviderBase';
+import RateProviderBase from './RateProviderBase';
 
 type PairLimits = {
   minimal: number;

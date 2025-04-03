@@ -1,9 +1,10 @@
-import { ServerDuplexStream, handleUnaryCall } from '@grpc/grpc-js';
-import { Transaction as TransactionLiquid } from 'liquidjs-lib';
+import type { ServerDuplexStream, handleUnaryCall } from '@grpc/grpc-js';
+import type { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import process from 'process';
 import { parseTransaction } from '../Core';
 import { dumpHeap } from '../HeapDump';
-import Logger, { LogLevel as BackendLevel } from '../Logger';
+import type Logger from '../Logger';
+import { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import {
   getHexBuffer,
@@ -12,15 +13,16 @@ import {
   removeHexPrefix,
   stringify,
 } from '../Utils';
-import Api from '../api/Api';
+import type Api from '../api/Api';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
-import Referral, { ReferralConfig } from '../db/models/Referral';
+import type { ReferralConfig } from '../db/models/Referral';
+import type Referral from '../db/models/Referral';
 import PendingEthereumTransactionRepository from '../db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
-import Service from '../service/Service';
+import type Service from '../service/Service';
 import Sidecar from '../sidecar/Sidecar';
 import { Rsk } from '../wallet/ethereum/EvmNetworks';
 

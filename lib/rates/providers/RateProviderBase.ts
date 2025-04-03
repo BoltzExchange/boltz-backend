@@ -1,14 +1,10 @@
 import { getChainCurrency, getLightningCurrency } from '../../Utils';
-import {
-  BaseFeeType,
-  OrderSide,
-  SwapType,
-  SwapVersion,
-} from '../../consts/Enums';
-import { PairConfig } from '../../consts/Types';
+import type { OrderSide } from '../../consts/Enums';
+import { BaseFeeType, SwapType, SwapVersion } from '../../consts/Enums';
+import type { PairConfig } from '../../consts/Types';
 import NodeSwitch from '../../swap/NodeSwitch';
-import { Currency } from '../../wallet/WalletManager';
-import FeeProvider from '../FeeProvider';
+import type { Currency } from '../../wallet/WalletManager';
+import type FeeProvider from '../FeeProvider';
 
 type MinSwapSizeMultipliers = Record<SwapType, number>;
 

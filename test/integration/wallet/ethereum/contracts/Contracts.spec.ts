@@ -1,11 +1,12 @@
 import Logger from '../../../../../lib/Logger';
 import Errors from '../../../../../lib/wallet/Errors';
-import ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
-import InjectedProvider from '../../../../../lib/wallet/ethereum/InjectedProvider';
+import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
+import type InjectedProvider from '../../../../../lib/wallet/ethereum/InjectedProvider';
 import Contracts, {
   Feature,
 } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
-import { EthereumSetup, getContracts, getSigner } from '../../EthereumTools';
+import type { EthereumSetup } from '../../EthereumTools';
+import { getContracts, getSigner } from '../../EthereumTools';
 
 describe('Contracts', () => {
   let setup: EthereumSetup;

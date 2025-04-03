@@ -25,26 +25,27 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import ReverseSwap, { NodeType } from '../../../lib/db/models/ReverseSwap';
-import Swap from '../../../lib/db/models/Swap';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
-import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
+import type PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import SwapManager, {
-  ChannelCreationInfo,
-} from '../../../lib/swap/SwapManager';
+import type { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
+import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import Wallet from '../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../lib/wallet/WalletManager';
+import type { Currency } from '../../../lib/wallet/WalletManager';
+import WalletManager from '../../../lib/wallet/WalletManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { raceCall } from '../../Utils';
 
@@ -114,13 +115,18 @@ jest.mock('../../../lib/rates/RateProvider', () => {
 
 const MockedRateProvider = <jest.Mock<RateProvider>>(<any>RateProvider);
 
+const keys = ECPair.fromPrivateKey(
+  getHexBuffer(
+    '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
+  ),
+);
 const mockGetNewKeysResult = {
   index: 21,
-  keys: ECPair.fromPrivateKey(
-    getHexBuffer(
-      '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
-    ),
-  ),
+  keys: {
+    ...keys,
+    publicKey: Buffer.from(keys.publicKey),
+    privateKey: Buffer.from(keys.privateKey!),
+  },
 };
 const mockGetNewKeys = jest.fn().mockReturnValue(mockGetNewKeysResult);
 
@@ -738,7 +744,7 @@ describe('SwapManager', () => {
     );
     const invoiceEncode = bolt11.encode({
       payeeNodeKey: getHexString(
-        ECPair.fromPrivateKey(invoiceSignKeys).publicKey,
+        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
       ),
       satoshis: 200,
       tags: [
@@ -928,7 +934,7 @@ describe('SwapManager', () => {
         satoshis: 200,
         timestamp: getUnixTime(),
         payeeNodeKey: getHexString(
-          ECPair.fromPrivateKey(invoiceSignKeys).publicKey,
+          Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
         ),
         tags: [
           {

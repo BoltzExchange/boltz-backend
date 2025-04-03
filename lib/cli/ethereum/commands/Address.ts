@@ -1,4 +1,4 @@
-import { Arguments } from 'yargs';
+import type { Arguments } from 'yargs';
 import { stringify } from '../../../Utils';
 import { connectEthereum } from '../EthereumUtils';
 

@@ -1,6 +1,9 @@
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { minutesToMilliseconds } from '../../Utils';
-import { HopHint, RoutingHintsProvider } from '../../lightning/LightningClient';
+import type {
+  HopHint,
+  RoutingHintsProvider,
+} from '../../lightning/LightningClient';
 import LndClient from '../../lightning/LndClient';
 
 class RoutingHintsLnd implements RoutingHintsProvider {

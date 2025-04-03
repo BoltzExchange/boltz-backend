@@ -25,7 +25,7 @@ import {
   SwapVersion,
 } from '../../../../lib/consts/Enums';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
-import Swap from '../../../../lib/db/models/Swap';
+import type Swap from '../../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
@@ -34,9 +34,10 @@ import Errors from '../../../../lib/service/Errors';
 import MusigSigner, {
   RefundRejectionReason,
 } from '../../../../lib/service/cooperative/MusigSigner';
-import SwapNursery from '../../../../lib/swap/SwapNursery';
-import Wallet from '../../../../lib/wallet/Wallet';
-import WalletManager, { Currency } from '../../../../lib/wallet/WalletManager';
+import type SwapNursery from '../../../../lib/swap/SwapNursery';
+import type Wallet from '../../../../lib/wallet/Wallet';
+import type { Currency } from '../../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../../lib/wallet/WalletManager';
 import { waitForFunctionToBeTrue } from '../../../Utils';
 import {
   bitcoinClient,
@@ -121,14 +122,14 @@ describe('MusigSigner', () => {
     const tree = swapTree(
       false,
       crypto.sha256(preimage),
-      claimKeys.publicKey,
-      refundKeys.publicKey,
+      Buffer.from(claimKeys.publicKey),
+      Buffer.from(refundKeys.publicKey),
       (await bitcoinClient.getBlockchainInfo()).blocks + 21,
     );
 
     const musig = new Musig(zkp, refundKeys, randomBytes(32), [
-      claimKeys.publicKey,
-      refundKeys.publicKey,
+      Buffer.from(claimKeys.publicKey),
+      Buffer.from(refundKeys.publicKey),
     ]);
     const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
 
@@ -173,7 +174,7 @@ describe('MusigSigner', () => {
       pair: 'BTC/BTC',
       version: SwapVersion.Taproot,
       status: SwapUpdateEvent.InvoiceFailedToPay,
-      refundPublicKey: getHexString(refundKeys.publicKey),
+      refundPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
       preimageHash: getHexString(crypto.sha256(preimage)),
       invoice: (await bitcoinLndClient2.addInvoice(123)).paymentRequest,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
@@ -191,7 +192,10 @@ describe('MusigSigner', () => {
     musig.aggregateNonces([[claimKeys.publicKey, boltzPartialSig.pubNonce]]);
     musig.initializeSession(await hashForWitnessV1(btcCurrency, refundTx, 0));
     musig.signPartial();
-    musig.addPartial(claimKeys.publicKey, boltzPartialSig.signature);
+    musig.addPartial(
+      Buffer.from(claimKeys.publicKey),
+      boltzPartialSig.signature,
+    );
 
     refundTx.setWitness(0, [musig.aggregatePartials()]);
 
@@ -365,15 +369,17 @@ describe('MusigSigner', () => {
       const tree = reverseSwapTree(
         false,
         crypto.sha256(preimage),
-        claimKeys.publicKey,
-        refundKeys.publicKey,
+        Buffer.from(claimKeys.publicKey),
+        Buffer.from(refundKeys.publicKey),
         (await bitcoinClient.getBlockchainInfo()).blocks + 21,
       );
 
-      const musig = new Musig(zkp, claimKeys, randomBytes(32), [
-        refundKeys.publicKey,
-        claimKeys.publicKey,
-      ]);
+      const musig = new Musig(
+        zkp,
+        claimKeys,
+        randomBytes(32),
+        [refundKeys.publicKey, claimKeys.publicKey].map(Buffer.from),
+      );
       const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
 
       const swapOutputScript = Scripts.p2trOutput(tweakedKey);
@@ -417,7 +423,7 @@ describe('MusigSigner', () => {
         pair: 'BTC/BTC',
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.TransactionConfirmed,
-        claimPublicKey: getHexString(claimKeys.publicKey),
+        claimPublicKey: getHexString(Buffer.from(claimKeys.publicKey)),
         preimageHash: getHexString(crypto.sha256(preimage)),
         redeemScript: JSON.stringify(
           SwapTreeSerializer.serializeSwapTree(tree),
@@ -453,7 +459,10 @@ describe('MusigSigner', () => {
       ]);
       musig.initializeSession(await hashForWitnessV1(btcCurrency, claimTx, 0));
       musig.signPartial();
-      musig.addPartial(refundKeys.publicKey, boltzPartialSig!.signature);
+      musig.addPartial(
+        Buffer.from(refundKeys.publicKey),
+        boltzPartialSig!.signature,
+      );
 
       claimTx.setWitness(0, [musig.aggregatePartials()]);
 

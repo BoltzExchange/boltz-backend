@@ -1,11 +1,9 @@
 import { coinsToSatoshis } from '../../../../lib/DenominationConverter';
 import Logger from '../../../../lib/Logger';
-import {
-  ListUnspentRequest,
-  ListUnspentResponse,
-} from '../../../../lib/proto/lnd/rpc_pb';
+import type { ListUnspentResponse } from '../../../../lib/proto/lnd/rpc_pb';
+import { ListUnspentRequest } from '../../../../lib/proto/lnd/rpc_pb';
 import LndWalletProvider from '../../../../lib/wallet/providers/LndWalletProvider';
-import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import type { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 import { wait } from '../../../Utils';
 import { bitcoinClient, bitcoinLndClient } from '../../Nodes';
 

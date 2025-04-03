@@ -1,6 +1,6 @@
 import AsyncLock from 'async-lock';
 import { Op } from 'sequelize';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import {
   getChainCurrency,
   getHexBuffer,
@@ -10,14 +10,14 @@ import {
 } from '../../Utils';
 import { etherDecimals } from '../../consts/Consts';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
-import Swap from '../../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../db/repositories/ChainSwapRepository';
+import type Swap from '../../db/models/Swap';
+import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
-import Sidecar from '../../sidecar/Sidecar';
-import WalletManager, { Currency } from '../../wallet/WalletManager';
-import ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
+import type Sidecar from '../../sidecar/Sidecar';
+import type { Currency } from '../../wallet/WalletManager';
+import type WalletManager from '../../wallet/WalletManager';
+import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import MusigSigner from './MusigSigner';
 

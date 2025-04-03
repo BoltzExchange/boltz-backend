@@ -1,9 +1,9 @@
-import { Transaction } from 'bitcoinjs-lib';
-import { Musig, SwapTreeSerializer } from 'boltz-core';
-import { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
+import type { Transaction } from 'bitcoinjs-lib';
+import type { Musig } from 'boltz-core';
+import { SwapTreeSerializer } from 'boltz-core';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
+import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
 import {
-  ClaimDetails,
-  LiquidClaimDetails,
   calculateTransactionFee,
   constructClaimDetails,
   constructClaimTransaction,
@@ -12,19 +12,20 @@ import {
   parseTransaction,
   tweakMusig,
 } from '../../Core';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
-import { IChainClient } from '../../chain/ChainClient';
+import type { IChainClient } from '../../chain/ChainClient';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
-import { AnySwap } from '../../consts/Types';
-import ChainSwapData from '../../db/models/ChainSwapData';
-import Swap from '../../db/models/Swap';
-import { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import type { AnySwap } from '../../consts/Types';
+import type ChainSwapData from '../../db/models/ChainSwapData';
+import type Swap from '../../db/models/Swap';
+import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
-import SwapOutputType from '../../swap/SwapOutputType';
-import Wallet from '../../wallet/Wallet';
-import WalletManager, { Currency } from '../../wallet/WalletManager';
+import type SwapOutputType from '../../swap/SwapOutputType';
+import type Wallet from '../../wallet/Wallet';
+import type { Currency } from '../../wallet/WalletManager';
+import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
 
 type CooperativeDetails = {

@@ -1,13 +1,13 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import AsyncLock from 'async-lock';
-import {
-  AbstractSigner,
+import type {
   Provider,
   Signer,
   TransactionRequest,
   TypedDataDomain,
   TypedDataField,
 } from 'ethers';
+import { AbstractSigner } from 'ethers';
 import Tracing from '../../Tracing';
 import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';

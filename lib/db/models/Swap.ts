@@ -1,4 +1,5 @@
-import { DataTypes, Model, Sequelize } from 'sequelize';
+import type { Sequelize } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 import {
   getChainCurrency,
   getLightningCurrency,
@@ -9,7 +10,7 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../consts/Enums';
-import { IncorrectAmountDetails } from '../../consts/Types';
+import type { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
 
 type SwapType = {

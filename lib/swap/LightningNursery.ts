@@ -1,19 +1,20 @@
 import AsyncLock from 'async-lock';
 import { crypto } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
-import Logger from '../Logger';
+import type Logger from '../Logger';
 import { formatError, getHexBuffer } from '../Utils';
 import { SwapUpdateEvent } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import ReverseSwap from '../db/models/ReverseSwap';
+import type ReverseSwap from '../db/models/ReverseSwap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import LightningErrors from '../lightning/Errors';
-import { InvoiceState, LightningClient } from '../lightning/LightningClient';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/cln/ClnClient';
-import Sidecar from '../sidecar/Sidecar';
-import { Currency } from '../wallet/WalletManager';
+import type { LightningClient } from '../lightning/LightningClient';
+import { InvoiceState } from '../lightning/LightningClient';
+import type LndClient from '../lightning/LndClient';
+import type ClnClient from '../lightning/cln/ClnClient';
+import type Sidecar from '../sidecar/Sidecar';
+import type { Currency } from '../wallet/WalletManager';
 
 class LightningNursery extends TypedEventEmitter<{
   'invoice.paid': ReverseSwap;

@@ -1,27 +1,29 @@
 import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import { Op } from 'sequelize';
-import Logger from '../../Logger';
+import type Logger from '../../Logger';
 import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import {
   CurrencyType,
   SwapUpdateEvent,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
-import Swap from '../../db/models/Swap';
-import ChainSwapRepository, {
-  ChainSwapInfo,
-} from '../../db/repositories/ChainSwapRepository';
+import type Swap from '../../db/models/Swap';
+import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
-import SwapOutputType from '../../swap/SwapOutputType';
-import WalletManager, { Currency } from '../../wallet/WalletManager';
+import type SwapOutputType from '../../swap/SwapOutputType';
+import type { Currency } from '../../wallet/WalletManager';
+import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
-import CoopSignerBase, {
+import type {
   CooperativeClientDetails,
   CooperativeDetails,
   SwapToClaim,
 } from './CoopSignerBase';
-import MusigSigner, { PartialSignature } from './MusigSigner';
+import CoopSignerBase from './CoopSignerBase';
+import type { PartialSignature } from './MusigSigner';
+import MusigSigner from './MusigSigner';
 import { createPartialSignature, isPreimageValid } from './Utils';
 
 type TheirSigningData = {

@@ -5,7 +5,7 @@ import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../../lib/Logger';
 import { AddressType } from '../../../../lib/chain/ChainClient';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
-import { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import type { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
 import { bitcoinClient, bitcoinLndClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');

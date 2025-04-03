@@ -1,10 +1,10 @@
-import { MinSwapSizeMultipliersConfig } from '../../../lib/Config';
+import type { MinSwapSizeMultipliersConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
-import { PairConfig } from '../../../lib/consts/Types';
+import type { PairConfig } from '../../../lib/consts/Types';
 import Errors from '../../../lib/rates/Errors';
 import RateProvider from '../../../lib/rates/RateProvider';
-import WalletManager from '../../../lib/wallet/WalletManager';
+import type WalletManager from '../../../lib/wallet/WalletManager';
 
 jest.mock('../../../lib/rates/FeeProvider', () => {
   return jest.fn().mockImplementation(() => {

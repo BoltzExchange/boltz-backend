@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { getVersion } from '../../../../../lib/Utils';
 import InfoRouter from '../../../../../lib/api/v2/routers/InfoRouter';
-import Service from '../../../../../lib/service/Service';
+import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
 const mockedRouter = {

@@ -10,8 +10,11 @@ import {
   SwapType,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
-import { ERC20SwapValues, EtherSwapValues } from '../../../lib/consts/Types';
-import Swap from '../../../lib/db/models/Swap';
+import type {
+  ERC20SwapValues,
+  EtherSwapValues,
+} from '../../../lib/consts/Types';
+import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -19,8 +22,8 @@ import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepos
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
-import TransactionHook from '../../../lib/swap/hooks/TransactionHook';
-import Wallet from '../../../lib/wallet/Wallet';
+import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
+import type Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';

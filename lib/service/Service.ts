@@ -29,6 +29,8 @@ import {
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength, errorsNotToLog } from '../api/Utils';
+import type { Timeouts as ArkTimeouts } from '../chain/ArkClient';
+import type ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -94,6 +96,7 @@ import type { SwapNurseryEvents } from '../swap/PaymentHandler';
 import type { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
+import type Wallet from '../wallet/Wallet';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import BalanceCheck from './BalanceCheck';
@@ -542,6 +545,13 @@ class Service {
           absolute: calculateEthereumTransactionFeeWithReceipt(receipt),
         };
       }
+
+      case CurrencyType.Ark: {
+        return {
+          absolute: 0,
+          satPerVbyte: 0,
+        };
+      }
     }
   };
 
@@ -564,16 +574,21 @@ class Service {
         : [];
 
       await Promise.all(
-        [wallet, ...lightningClients].map(async (bf) => {
-          const res = await bf.getBalance();
+        [wallet, ...lightningClients, currency?.arkNode]
+          .filter(
+            (bf): bf is Wallet | LndClient | ClnClient | ArkClient =>
+              bf !== undefined,
+          )
+          .map(async (bf) => {
+            const res = await bf.getBalance();
 
-          const walletBal = new Balances.WalletBalance();
+            const walletBal = new Balances.WalletBalance();
 
-          walletBal.setConfirmed(res.confirmedBalance);
-          walletBal.setUnconfirmed(res.unconfirmedBalance);
+            walletBal.setConfirmed(res.confirmedBalance);
+            walletBal.setUnconfirmed(res.unconfirmedBalance);
 
-          balances.getWalletsMap().set(bf.serviceName(), walletBal);
-        }),
+            balances.getWalletsMap().set(bf.serviceName(), walletBal);
+          }),
       );
 
       await Promise.all(
@@ -818,6 +833,9 @@ class Service {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
         return estimateFeeForProvider(currency.provider);
+      } else if (currency.arkNode) {
+        // ARK is 0 fee for now
+        return 0;
       } else {
         throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
       }
@@ -1106,7 +1124,8 @@ class Service {
     id: string;
     address: string;
     canBeRouted: boolean;
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
@@ -1147,6 +1166,7 @@ class Service {
     ) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
+      case CurrencyType.Ark:
         if (args.refundPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
@@ -1213,6 +1233,7 @@ class Service {
       address,
       swapTree,
       timeoutBlockHeight,
+      timeoutBlockHeights,
       blindingKey,
       redeemScript,
       claimAddress,
@@ -1254,6 +1275,7 @@ class Service {
       claimAddress,
       claimPublicKey,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     };
   };
 
@@ -1574,7 +1596,8 @@ class Service {
     address: string;
     expectedAmount: number;
     acceptZeroConf: boolean;
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
@@ -1643,6 +1666,7 @@ class Service {
         redeemScript: createdSwap.redeemScript,
         claimPublicKey: createdSwap.claimPublicKey,
         timeoutBlockHeight: createdSwap.timeoutBlockHeight,
+        timeoutBlockHeights: createdSwap.timeoutBlockHeights,
       };
     } catch (error) {
       const channelCreation =
@@ -1779,7 +1803,8 @@ class Service {
     onchainAmount?: number;
     minerFeeInvoice?: string;
 
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     prepayMinerFeeAmount?: number;
 
@@ -1788,6 +1813,31 @@ class Service {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
+
+    const side = this.getOrderSide(args.orderSide);
+    const referralId = await this.getReferralId(
+      args.referralId,
+      args.routingNode,
+    );
+    const {
+      base,
+      quote,
+      referral,
+      rate: pairRate,
+    } = await this.getPair(
+      args.pairId,
+      side,
+      args.version,
+      SwapType.ReverseSubmarine,
+      referralId,
+    );
+
+    const { sending, receiving } = getSendingReceivingCurrency(
+      base,
+      quote,
+      side,
+    );
+    const sendingCurrency = getCurrency(this.currencies, sending);
 
     if (args.invoice !== undefined && args.preimageHash !== undefined) {
       throw Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED();
@@ -1823,24 +1873,6 @@ class Service {
       preimageHash,
     );
 
-    const side = this.getOrderSide(args.orderSide);
-    const referralId = await this.getReferralId(
-      args.referralId,
-      args.routingNode,
-    );
-    const {
-      base,
-      quote,
-      referral,
-      rate: pairRate,
-    } = await this.getPair(
-      args.pairId,
-      side,
-      args.version,
-      SwapType.ReverseSubmarine,
-      referralId,
-    );
-
     if (args.pairHash !== undefined) {
       this.rateProvider.providers[args.version].validatePairHash(
         args.pairHash,
@@ -1850,18 +1882,12 @@ class Service {
       );
     }
 
-    const { sending, receiving } = getSendingReceivingCurrency(
-      base,
-      quote,
-      side,
-    );
-    const sendingCurrency = getCurrency(this.currencies, sending);
-
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
     switch (sendingCurrency.type) {
       case CurrencyType.Liquid:
       case CurrencyType.BitcoinLike:
+      case CurrencyType.Ark:
         if (args.claimPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
         }
@@ -2033,6 +2059,7 @@ class Service {
       refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     } = await this.swapManager.createReverseSwap({
       referralId,
       percentageFee,
@@ -2041,7 +2068,6 @@ class Service {
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
-
       prepayMinerFeeOnchainAmount,
       orderSide: side,
       baseCurrency: base,
@@ -2084,6 +2110,7 @@ class Service {
       lockupAddress,
       refundPublicKey,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     };
 
     if (args.invoice === undefined) {

@@ -23,9 +23,9 @@ type GrpcMethodFunction = (
   listener: (err: ServiceError, response: GrpcResponse) => unknown,
 ) => any;
 
-export const unaryCall = <T, U>(
-  client: any,
-  methodName: string,
+export const unaryCall = <C, T, U>(
+  client: C,
+  methodName: keyof C,
   params: T,
   meta: Metadata,
   toObject = true,

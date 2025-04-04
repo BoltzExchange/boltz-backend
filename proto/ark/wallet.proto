@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package fulmine.v1;
+
+import "google/api/annotations.proto";
+
+// WalletService is used to create, or restore an HD Wallet.
+// It stores signing seed used for signing of transactions.
+// After an HD Wallet is created, the seeds are encrypted and persisted.
+// Every time a WalletService is (re)started, it needs to be unlocked with the
+// encryption password.
+service WalletService {
+  // GenSeed returns signing seed that should be used to create a new HD Wallet.
+  rpc GenSeed(GenSeedRequest) returns (GenSeedResponse) {
+    option (google.api.http) = {
+      get: "/v1/wallet/genseed"
+    };
+  };
+
+  // CreateWallet creates an HD Wallet based on signing seeds,
+  // encrypts them with the password and persists the encrypted seeds.
+  rpc CreateWallet(CreateWalletRequest) returns (CreateWalletResponse) {
+    option (google.api.http) = {
+      post: "/v1/wallet/create"
+      body: "*"
+    };
+  };
+
+  // Unlock tries to unlock the HD Wallet using the given password.
+  rpc Unlock(UnlockRequest) returns (UnlockResponse) {
+    option (google.api.http) = {
+      post: "/v1/wallet/unlock"
+      body: "*"
+    };
+  };
+
+  // Lock locks the HD wallet.
+  rpc Lock(LockRequest) returns (LockResponse) {
+    option (google.api.http) = {
+      post: "/v1/wallet/lock"
+      body: "*"
+    };
+  };
+
+  // ChangePassword changes the password used to encrypt/decrypt the HD seeds.
+  // It requires the wallet to be locked.
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse) {
+    option (google.api.http) = {
+      post: "/v1/password/change"
+      body: "*"
+    };
+  };
+
+  // RestoreWallet restores an HD Wallet based on signing seeds,
+  // encrypts them with the password and persists the encrypted seeds.
+  rpc RestoreWallet(RestoreWalletRequest) returns (stream RestoreWalletResponse) {
+    option (google.api.http) = {
+      post: "/v1/wallet/restore"
+      body: "*"
+    };
+  };
+
+  // Status returns info about the status of the wallet.
+  rpc Status(StatusRequest) returns (StatusResponse) {
+    option (google.api.http) = {
+      get: "/v1/wallet/status"
+    };
+  };
+
+  // Auth verifies whether the given password is valid without unlocking the wallet
+  rpc Auth(AuthRequest) returns (AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/wallet/auth"
+      body: "*"
+    };
+  };
+}
+
+message GenSeedRequest{}
+message GenSeedResponse{
+  // A hex secret key from where deriving signing key pairs.
+  string hex = 1;
+  // The same secret key but in nsec (nip19) format.
+  string nsec = 2;
+}
+
+message CreateWalletRequest{
+  // The private key from where signing key pairs are derived.
+  // In 64 chars hexadecimal format.
+  string private_key = 1;
+  // The password to decrypt HD wallet. After creation, the wallet is locked
+  // and the same password is required to unlock it.
+  string password = 2;
+  // The url of the Server to connect to.
+  string server_url = 3;
+}
+message CreateWalletResponse{}
+
+message UnlockRequest{
+  // The password to unlock the wallet.
+  string password = 1;
+}
+message UnlockResponse{}
+
+message LockRequest{
+  // The password to lock the wallet.
+  string password = 1;
+}
+message LockResponse{}
+
+message ChangePasswordRequest{
+  // The current password used to encrypt the walley.
+  string current_password = 1;
+
+  // The new password replacing the current one.
+  string new_password = 2;
+}
+message ChangePasswordResponse{}
+
+message RestoreWalletRequest{
+  // The mnemonic from where deriving signing key pairs.
+  string mnemonic = 1;
+
+  // The password to decrypt HD wallet. After restoration, the wallet is locked
+  // and the same password is required to unlock it.
+  string password = 2;
+  // The url of the Server to connect to.
+  string server_url = 3;
+}
+message RestoreWalletResponse{}
+
+message StatusRequest{}
+message StatusResponse{
+  // Whether the wallet is initialized with seeds.
+  bool initialized = 1;
+
+  // Whether the wallet is in sync.
+  bool synced = 2;
+
+  // Whether the wallet is unlocked.
+  bool unlocked = 3;
+}
+
+message AuthRequest {
+  string password = 1;
+}
+
+message AuthResponse {
+  bool verified = 1;
+}

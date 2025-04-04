@@ -73,6 +73,54 @@ function startClns () {
   echo "Started CLNs"
 }
 
+function startEsplora () {
+  echo "Starting Esplora"
+
+  nohup electrs-bitcoin --network regtest --http-addr 0.0.0.0:3000 --jsonrpc-import --daemon-rpc-addr 127.0.0.1:18443 --cookie esplora:8VHqtTLrj2a4fVfcU89KcoQabZT0rVlg29aOeoTH_5o > /dev/null 2>&1 & num="0"
+
+  echo "Started Esplora"
+}
+
+function startAsp () {
+  echo "Starting ASP"
+
+  export ARKD_DATADIR=/root/.arkd
+  export ARKD_WALLET_DATADIR=/root/.arkd/wallet
+  export ARKD_NETWORK=regtest
+  export ARKD_DB_TYPE=sqlite
+  export ARKD_LIVE_STORE_TYPE=inmemory
+  export ARKD_EVENT_DB_TYPE=badger
+  export ARKD_TX_BUILDER_TYPE=covenantless
+  export ARKD_ROUND_INTERVAL=10
+  export ARKD_MIN_RELAY_FEE=200
+  export ARKD_NO_TLS=true
+  export ARKD_NO_MACAROONS=true
+  export ARKD_ALLOW_ZERO_FEES=true
+  export ARKD_WALLET_ADDR=127.0.0.1:6060
+  export ARKD_ALLOW_CSV_BLOCK_TYPE=true
+
+  export ARKD_WALLET_NETWORK=regtest
+  export ARKD_WALLET_BITCOIND_RPC_HOST=127.0.0.1:18443
+  export ARKD_WALLET_BITCOIND_RPC_USER=asp
+  export ARKD_WALLET_BITCOIND_RPC_PASS=HqaIq2XiXq8ClbtDyv_uKELWr6Vn511-FlgHIkOTWAQ
+
+  mkdir -p /root/.arkd
+  nohup arkd-wallet > /root/.arkd/wallet-logs.txt 2>&1 & num="0"
+  sleep 15
+  nohup arkd > /root/.arkd/logs.txt 2>&1 & num="0"
+
+  echo "Started ASP"
+}
+
+function startFulmine () {
+  echo "Starting Fulmine"
+
+  export FULMINE_NO_MACAROONS=true
+  nohup fulmine > /root/.arkd/fulmine-logs.txt 2>&1 & num="0"
+
+  echo "Started Fulmine"
+}
+
 function stopNodes () {
   killall bitcoind
   killall elementsd

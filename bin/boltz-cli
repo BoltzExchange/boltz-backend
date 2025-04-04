@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
 const path = require('path');
+const os = require('os');
+
+const getBoltzDir = () => {
+  const home = os.homedir();
+  return process.platform === 'darwin' 
+    ? path.join(home, 'Library', 'Application Support', 'Boltz')
+    : path.join(home, '.boltz');
+};
 
 require('yargs')
   .options({
@@ -30,7 +38,7 @@ require('yargs')
     },
     'rpc.certificates': {
       describe: 'gRPC SSL certificates folder',
-      default: path.join(process.env.HOME, '.boltz', 'certificates'),
+      default: path.join(getBoltzDir(), 'certificates'),
       type: 'string',
     },
     'api.endpoint': {

@@ -802,7 +802,7 @@ class ClnClient
     toObject = true,
   ): Promise<U> => {
     return unaryCall(
-      this.nodeClient,
+      this.nodeClient!,
       methodName,
       params,
       this.nodeMeta,
@@ -814,7 +814,7 @@ class ClnClient
     methodName: keyof HoldClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.holdClient, methodName, params, this.holdMeta, true);
+    return unaryCall(this.holdClient!, methodName, params, this.holdMeta, true);
   };
 
   private handleSubscriptionError = async (

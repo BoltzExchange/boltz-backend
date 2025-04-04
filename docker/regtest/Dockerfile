@@ -1,16 +1,25 @@
-ARG UBUNTU_VERSION
+ARG UBUNTU_VERSION=24.04
 
-ARG BITCOIN_VERSION
-ARG ELEMENTS_VERSION
+ARG BITCOIN_VERSION=latest
+ARG ELEMENTS_VERSION=latest
 
-ARG LND_VERSION
-ARG C_LIGHTNING_VERSION
+ARG LND_VERSION=latest
+ARG C_LIGHTNING_VERSION=latest
+
+ARG ELECTRS_VERSION=latest
+ARG ASP_VERSION=latest
+ARG FULMINE_VERSION=latest
 
 FROM boltz/bitcoin-core:${BITCOIN_VERSION} AS bitcoin-core
 FROM boltz/elements:${ELEMENTS_VERSION} AS elements-core
 
 FROM boltz/lnd:${LND_VERSION} AS lnd
 FROM boltz/c-lightning:${C_LIGHTNING_VERSION} AS cln
+
+FROM boltz/electrs:${ELECTRS_VERSION} AS electrs
+
+FROM ghcr.io/arkade-os/arkd:${ASP_VERSION} AS asp
+FROM ghcr.io/arklabshq/fulmine:${FULMINE_VERSION} AS fulmine
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -45,6 +54,10 @@ COPY --from=bitcoin-core /bin/bitcoin-cli /bin/
 
 COPY --from=elements-core /bin/elementsd /bin/
 COPY --from=elements-core /bin/elements-cli /bin/
+
+COPY --from=electrs /usr/local/bin/electrs-bitcoin /bin/
+COPY --from=asp /app /bin/
+COPY --from=fulmine /app /bin/
 
 # Copy the LND executables
 COPY --from=lnd /bin/lnd /bin/

@@ -15,6 +15,11 @@ class TypedEventEmitter<
 
   public emit = <K extends keyof T>(event: K, arg: T[K]): boolean =>
     super.emit(event as string | symbol, arg);
+
+  public removeListener = <K extends keyof T>(
+    event: K,
+    listener: (arg: T[K]) => void,
+  ): this => super.removeListener(event as string | symbol, listener);
 }
 
 export default TypedEventEmitter;

@@ -265,4 +265,4 @@ const nodeTypeToPrettyString = (type: NodeType) => {
 };
 
 export default ReverseSwap;
-export { ReverseSwapType, NodeType, nodeTypeToPrettyString };
+export { NodeType, nodeTypeToPrettyString, ReverseSwapType };

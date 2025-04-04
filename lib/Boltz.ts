@@ -12,8 +12,11 @@ import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
-import type { BlockChainInfoScanned, IChainClient } from './chain/ChainClient';
-import ChainClient from './chain/ChainClient';
+import ArkClient from './chain/ArkClient';
+import ChainClient, {
+  type BlockChainInfoScanned,
+  type IChainClient,
+} from './chain/ChainClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
 import type { NetworkInfo } from './consts/Types';
@@ -278,6 +281,15 @@ class Boltz {
               .map((client) => this.connectLightningClient(client)),
           );
 
+          if (currency.arkNode) {
+            const chainClient = this.currencies.get('BTC')?.chainClient;
+            if (chainClient === undefined) {
+              throw 'BTC chain client is required for ARK node connection';
+            }
+
+            prms.push(this.connectArkNode(currency.arkNode, chainClient));
+          }
+
           return prms;
         }),
       );
@@ -340,6 +352,13 @@ class Boltz {
           }
         }
       }
+
+      Array.from(this.currencies.values()).forEach((currency) => {
+        if (currency.arkNode) {
+          this.logger.debug(`Rescanning ${currency.symbol} node`);
+          rescanPromises.push(currency.arkNode.subscription.rescan());
+        }
+      });
 
       await Promise.all(rescanPromises);
       await this.sidecar.rescanMempool();
@@ -430,6 +449,20 @@ class Boltz {
       }
 
       this.logStatus(service, info);
+    } catch (error) {
+      this.logCouldNotConnect(service, error);
+    }
+  };
+
+  private connectArkNode = async (
+    client: ArkClient,
+    chainClient: IChainClient,
+  ) => {
+    const service = `${client.symbol} ${client.serviceName()}`;
+
+    try {
+      await client.connect(chainClient);
+      this.logStatus(service, await client.getInfo());
     } catch (error) {
       this.logCouldNotConnect(service, error);
     }
@@ -531,6 +564,18 @@ class Boltz {
         ),
         limits: {
           ...this.config.liquid,
+        },
+      });
+    }
+
+    if (this.config.ark) {
+      result.set(ArkClient.symbol, {
+        type: CurrencyType.Ark,
+        symbol: ArkClient.symbol,
+        arkNode: new ArkClient(this.logger, this.config.ark),
+        limits: {
+          ...this.config.ark,
+          minWalletBalance: this.config.ark.minWalletBalance ?? 0,
         },
       });
     }

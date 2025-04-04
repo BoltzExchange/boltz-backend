@@ -154,7 +154,7 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should set block times of tokens', () => {
-    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(8);
+    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(9);
     expect(TimeoutDeltaProvider.blockTimes.get('USDT')).toEqual(
       TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
     );

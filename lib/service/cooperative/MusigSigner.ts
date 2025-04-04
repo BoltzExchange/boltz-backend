@@ -1,3 +1,4 @@
+import { Transaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import type Logger from '../../Logger';
@@ -9,10 +10,12 @@ import {
   splitPairId,
 } from '../../Utils';
 import {
+  CurrencyType,
   FailedSwapUpdateEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import { RefundStatus } from '../../db/models/RefundTransaction';
@@ -136,6 +139,53 @@ class MusigSigner {
     await SwapRepository.setRefundSignatureCreated(swap.id);
 
     return sig;
+  };
+
+  public signRefundArk = async (
+    swapId: string,
+    transaction: string,
+  ): Promise<string> => {
+    const swap = await SwapRepository.getSwap({ id: swapId });
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(swapId);
+    }
+
+    const currency = this.currencies.get(swap.chainCurrency);
+    if (
+      currency === undefined ||
+      currency.type !== CurrencyType.Ark ||
+      currency.arkNode === undefined
+    ) {
+      throw new Error(
+        `currency is not ${currencyTypeToString(CurrencyType.Ark)}`,
+      );
+    }
+
+    await this.validateEligibility(swap);
+
+    const psbt = Transaction.fromPSBT(Buffer.from(transaction, 'base64'));
+    if (psbt.inputsLength !== 1) {
+      throw new Error('transaction must have exactly one input');
+    }
+
+    {
+      const input = psbt.getInput(0);
+      if (
+        input.txid === undefined ||
+        getHexString(Buffer.from(input.txid)) !== swap.lockupTransactionId ||
+        input.index !== swap.lockupTransactionVout
+      ) {
+        throw new Error('transaction is not for this swap');
+      }
+    }
+
+    this.logger.debug(
+      `Creating partial signature for refund of ARK Swap ${swap.id}`,
+    );
+
+    await SwapRepository.setRefundSignatureCreated(swap.id);
+
+    return await currency.arkNode.signTransaction(transaction);
   };
 
   public signReverseSwapClaim = (

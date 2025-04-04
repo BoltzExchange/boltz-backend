@@ -202,6 +202,7 @@ export enum CurrencyType {
   Ether,
   ERC20,
   Liquid,
+  Ark,
 }
 
 export const currencyTypeToString = (version: CurrencyType): string => {
@@ -217,6 +218,9 @@ export const currencyTypeToString = (version: CurrencyType): string => {
 
     case CurrencyType.Liquid:
       return 'Liquid';
+
+    case CurrencyType.Ark:
+      return 'Ark';
   }
 };
 

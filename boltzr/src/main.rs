@@ -42,7 +42,15 @@ mod profiling;
 #[command(author = "Boltz", about = "Boltz Backend sidecar", version, about, long_about = None)]
 struct Args {
     /// Path to the config file
-    #[arg(short, long, default_value_t = String::from(format!("{}/.boltz/boltz.conf", dirs::home_dir().unwrap_or_else(|| "".into()).display())))]
+    #[arg(short, long, default_value_t = {
+        let home = dirs::home_dir().unwrap_or_else(|| "".into());
+        let config_dir = if cfg!(target_os = "macos") {
+            home.join("Library/Application Support/Boltz")
+        } else {
+            home.join(".boltz")
+        };
+        config_dir.join("boltz.conf").to_string_lossy().into_owned()
+    })]
     config: String,
 
     /// Log level of the application

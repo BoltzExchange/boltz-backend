@@ -196,7 +196,7 @@ export const capitalizeFirstLetter = (input: string): string => {
 export const resolveHome = (filename: string): string => {
   if (os.platform() !== 'win32') {
     if (filename.charAt(0) === '~') {
-      return path.join(process.env.HOME!, filename.slice(1));
+      return path.join(os.homedir(), filename.slice(1));
     }
   }
 
@@ -295,9 +295,9 @@ export const getSystemHomeDir = (): string => {
     case 'win32':
       return process.env.LOCALAPPDATA!;
     case 'darwin':
-      return path.join(process.env.HOME!, 'Library', 'Application Support');
+      return path.join(os.homedir(), 'Library', 'Application Support');
     default:
-      return process.env.HOME!;
+      return os.homedir();
   }
 };
 

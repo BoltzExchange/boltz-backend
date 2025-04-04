@@ -8,6 +8,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ArkClient from '../chain/ArkClient';
 import {
   CurrencyType,
   SwapType,
@@ -186,6 +187,10 @@ class RateProvider {
    * Returns whether 0-conf should be accepted for a specific amount on a specified chain
    */
   public acceptZeroConf = (chainCurrency: string, amount: number): boolean => {
+    if (chainCurrency === ArkClient.symbol) {
+      return true;
+    }
+
     const limits = this.zeroConfAmounts.get(chainCurrency);
 
     if (limits) {

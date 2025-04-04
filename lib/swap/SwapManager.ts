@@ -38,6 +38,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import type { Timeouts } from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import type { OrderSide } from '../consts/Enums';
 import {
@@ -105,7 +106,8 @@ type SetSwapInvoiceResponse = {
 
 type CreatedSwap = {
   id: string;
-  timeoutBlockHeight: number;
+  timeoutBlockHeight?: number;
+  timeoutBlockHeights?: Timeouts;
 
   // This is either the generated address for Bitcoin like chains, or the address of the contract
   // to which the user should send the lockup transaction for Ether and ERC20 tokens
@@ -127,7 +129,8 @@ type CreatedSwap = {
 };
 
 type CreatedOnchainSwap = {
-  timeoutBlockHeight: number;
+  timeoutBlockHeight?: number;
+  timeoutBlockHeights?: Timeouts;
 
   // Only set for Taproot swaps
   refundPublicKey?: string;
@@ -166,6 +169,9 @@ type CreatedChainSwap = {
   claimDetails: CreatedChainSwapDetails;
   lockupDetails: CreatedChainSwapDetails;
 };
+
+// TODO: what is a reasonable value here?
+const arkClaimDelay = 16;
 
 class SwapManager {
   public currencies = new Map<string, Currency>();
@@ -453,7 +459,6 @@ class SwapManager {
       await SwapRepository.addSwap({
         id,
         pair,
-
         keyIndex: index,
         version: args.version,
         orderSide: args.orderSide,
@@ -461,14 +466,47 @@ class SwapManager {
         lockupAddress: result.address,
         paymentTimeout: args.paymentTimeout,
         status: SwapUpdateEvent.SwapCreated,
-        timeoutBlockHeight: result.timeoutBlockHeight,
         createdRefundSignature: false,
         preimageHash: getHexString(args.preimageHash),
+        timeoutBlockHeight: result.timeoutBlockHeight,
         refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript:
           args.version === SwapVersion.Legacy
             ? result.redeemScript
             : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
+      });
+    } else if (receivingCurrency.type === CurrencyType.Ark) {
+      const vHtlc = await receivingCurrency.arkNode!.createVHtlc(
+        args.preimageHash,
+        arkClaimDelay,
+        args.timeoutBlockDelta,
+        undefined,
+        args.refundPublicKey!,
+      );
+      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
+        {
+          address: vHtlc.vHtlc.address,
+          preimageHash: args.preimageHash,
+        },
+      ]);
+
+      result.claimPublicKey =
+        (await receivingCurrency.arkNode!.getInfo())!.pubkey;
+      result.address = vHtlc.vHtlc.address;
+      result.timeoutBlockHeights = vHtlc.timeouts;
+
+      await SwapRepository.addSwap({
+        id,
+        pair,
+        version: args.version,
+        orderSide: args.orderSide,
+        lockupAddress: vHtlc.vHtlc.address,
+        status: SwapUpdateEvent.SwapCreated,
+        preimageHash: getHexString(args.preimageHash),
+        createdRefundSignature: false,
+        timeoutBlockHeight: result.timeoutBlockHeights.refund,
+        refundPublicKey: getHexString(args.refundPublicKey!),
+        redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
     } else {
       result.address = await this.getLockupContractAddress(
@@ -486,7 +524,6 @@ class SwapManager {
       await SwapRepository.addSwap({
         id,
         pair,
-
         version: args.version,
         referral: args.referralId,
         orderSide: args.orderSide,
@@ -1014,6 +1051,51 @@ class SwapManager {
           signature: args.userAddressSignature,
         });
       }
+    } else if (sendingCurrency.type === CurrencyType.Ark) {
+      const vHtlc = await sendingCurrency.arkNode!.createVHtlc(
+        args.preimageHash,
+        arkClaimDelay,
+        args.onchainTimeoutBlockDelta,
+        args.claimPublicKey!,
+        undefined,
+      );
+      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
+        {
+          address: vHtlc.vHtlc.address,
+          preimageHash: args.preimageHash,
+        },
+      ]);
+
+      result.refundPublicKey = (
+        await sendingCurrency.arkNode!.getInfo()
+      ).pubkey;
+      result.lockupAddress = vHtlc.vHtlc.address;
+
+      result.timeoutBlockHeights = vHtlc.timeouts;
+
+      await ReverseSwapRepository.addReverseSwap({
+        id,
+        pair,
+        minerFeeInvoice,
+        node: nodeType,
+        version: args.version,
+        fee: args.percentageFee,
+        invoice: paymentRequest,
+        referral: args.referralId,
+        orderSide: args.orderSide,
+        onchainAmount: args.onchainAmount,
+        lockupAddress: result.lockupAddress,
+        status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
+        timeoutBlockHeight: Math.floor(
+          vHtlc.height + vHtlc.timeouts.unilateralRefundWithoutReceiver,
+        ),
+        preimageHash: getHexString(args.preimageHash),
+        claimPublicKey: getHexString(args.claimPublicKey!),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
+        redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
+      });
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
@@ -1284,9 +1366,9 @@ class SwapManager {
       );
 
       if (
+        isReverse &&
         (swap.status === SwapUpdateEvent.SwapCreated ||
-          swap.status === SwapUpdateEvent.MinerFeePaid) &&
-        isReverse
+          swap.status === SwapUpdateEvent.MinerFeePaid)
       ) {
         const reverseSwap = swap as ReverseSwap;
 
@@ -1311,11 +1393,11 @@ class SwapManager {
         );
         lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
       } else if (
+        isReverse &&
         (swap.status === SwapUpdateEvent.TransactionMempool ||
-          swap.status === SwapUpdateEvent.TransactionConfirmed) &&
-        isReverse
+          swap.status === SwapUpdateEvent.TransactionConfirmed)
       ) {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
+        const { chainClient, arkNode } = this.currencies.get(chainCurrency)!;
 
         if (chainClient) {
           const transactionId = reverseBuffer(
@@ -1330,15 +1412,29 @@ class SwapManager {
               wallet.decodeAddress(swap.lockupAddress),
             );
           }
+        } else if (arkNode) {
+          arkNode.subscription.subscribeAddresses([
+            {
+              address: swap.lockupAddress,
+              preimageHash: getHexBuffer(swap.preimageHash),
+            },
+          ]);
         }
       } else {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
+        const { arkNode, chainClient } = this.currencies.get(chainCurrency)!;
 
         if (chainClient) {
           const wallet = this.walletManager.wallets.get(chainCurrency)!;
           const outputScript = wallet.decodeAddress(swap.lockupAddress);
 
           chainClient.addOutputFilter(outputScript);
+        } else if (arkNode) {
+          arkNode.subscription.subscribeAddresses([
+            {
+              address: swap.lockupAddress,
+              preimageHash: getHexBuffer(swap.preimageHash),
+            },
+          ]);
         }
       }
     }

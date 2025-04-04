@@ -101,12 +101,12 @@ interface IHoldService_ITrackAll extends grpc.MethodDefinition<hold_pb.TrackAllR
     responseSerialize: grpc.serialize<hold_pb.TrackAllResponse>;
     responseDeserialize: grpc.deserialize<hold_pb.TrackAllResponse>;
 }
-interface IHoldService_IOnionMessages extends grpc.MethodDefinition<hold_pb.OnionMessagesRequest, hold_pb.OnionMessage> {
+interface IHoldService_IOnionMessages extends grpc.MethodDefinition<hold_pb.OnionMessageResponse, hold_pb.OnionMessage> {
     path: "/hold.Hold/OnionMessages";
-    requestStream: false;
+    requestStream: true;
     responseStream: true;
-    requestSerialize: grpc.serialize<hold_pb.OnionMessagesRequest>;
-    requestDeserialize: grpc.deserialize<hold_pb.OnionMessagesRequest>;
+    requestSerialize: grpc.serialize<hold_pb.OnionMessageResponse>;
+    requestDeserialize: grpc.deserialize<hold_pb.OnionMessageResponse>;
     responseSerialize: grpc.serialize<hold_pb.OnionMessage>;
     responseDeserialize: grpc.deserialize<hold_pb.OnionMessage>;
 }
@@ -123,7 +123,7 @@ export interface IHoldServer extends grpc.UntypedServiceImplementation {
     clean: grpc.handleUnaryCall<hold_pb.CleanRequest, hold_pb.CleanResponse>;
     track: grpc.handleServerStreamingCall<hold_pb.TrackRequest, hold_pb.TrackResponse>;
     trackAll: grpc.handleServerStreamingCall<hold_pb.TrackAllRequest, hold_pb.TrackAllResponse>;
-    onionMessages: grpc.handleServerStreamingCall<hold_pb.OnionMessagesRequest, hold_pb.OnionMessage>;
+    onionMessages: grpc.handleBidiStreamingCall<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
 }
 
 export interface IHoldClient {
@@ -152,8 +152,9 @@ export interface IHoldClient {
     track(request: hold_pb.TrackRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     trackAll(request: hold_pb.TrackAllRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
     trackAll(request: hold_pb.TrackAllRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
-    onionMessages(request: hold_pb.OnionMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.OnionMessage>;
-    onionMessages(request: hold_pb.OnionMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.OnionMessage>;
+    onionMessages(): grpc.ClientDuplexStream<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
+    onionMessages(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
+    onionMessages(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
 }
 
 export class HoldClient extends grpc.Client implements IHoldClient {
@@ -183,6 +184,6 @@ export class HoldClient extends grpc.Client implements IHoldClient {
     public track(request: hold_pb.TrackRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackResponse>;
     public trackAll(request: hold_pb.TrackAllRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
     public trackAll(request: hold_pb.TrackAllRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.TrackAllResponse>;
-    public onionMessages(request: hold_pb.OnionMessagesRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.OnionMessage>;
-    public onionMessages(request: hold_pb.OnionMessagesRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<hold_pb.OnionMessage>;
+    public onionMessages(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
+    public onionMessages(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<hold_pb.OnionMessageResponse, hold_pb.OnionMessage>;
 }

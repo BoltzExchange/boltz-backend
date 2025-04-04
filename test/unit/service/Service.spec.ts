@@ -444,7 +444,8 @@ const pairsTaprootSubmarine = new Map<string, Map<string, any>>([
         {
           rate: 1,
           limits: {
-            minimal: 1,
+            minimal: 1_000,
+            minimalBatched: 1,
             maximal: 1_000_000,
           },
           hash: 'hashOfBtcBtcPair',

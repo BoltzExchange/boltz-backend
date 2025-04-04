@@ -1,7 +1,8 @@
 import type { MinSwapSizeMultipliersConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
-import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
+import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { PairConfig } from '../../../lib/consts/Types';
+import type Swap from '../../../lib/db/models/Swap';
 import Errors from '../../../lib/rates/Errors';
 import RateProvider from '../../../lib/rates/RateProvider';
 import type WalletManager from '../../../lib/wallet/WalletManager';
@@ -116,6 +117,39 @@ describe('RateProvider', () => {
     ${'L-BTC'} | ${100_001} | ${false}
   `('should check if 0-conf is accepted', ({ currency, amount, expected }) => {
     expect(rateProvider.acceptZeroConf(currency, amount)).toEqual(expected);
+  });
+
+  describe('isBatchOnly', () => {
+    rateProvider.providers[SwapVersion.Taproot].getSubmarinePairs = jest
+      .fn()
+      .mockReturnValue(
+        new Map([
+          ['L-BTC', new Map([['BTC', { limits: { minimal: 100_000 } }]])],
+        ]),
+      );
+
+    test.each`
+      pair           | orderSide         | type                         | version                | invoiceAmount | expected
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${21}         | ${true}
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${100_001}    | ${false}
+      ${'L-BTC/BTC'} | ${OrderSide.BUY}  | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${50}         | ${false}
+      ${'BTC/L-BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${SwapVersion.Taproot} | ${75}         | ${false}
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${SwapVersion.Taproot} | ${50}         | ${false}
+      ${'L-BTC/BTC'} | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${SwapVersion.Legacy}  | ${50}         | ${false}
+    `(
+      'should check if swap is batch only: $pair, $orderSide, $invoiceAmount',
+      ({ pair, orderSide, type, version, invoiceAmount, expected }) => {
+        expect(
+          rateProvider.isBatchOnly({
+            pair,
+            orderSide,
+            type,
+            version,
+            invoiceAmount,
+          } as unknown as Swap),
+        ).toEqual(expected);
+      },
+    );
   });
 
   test('should init', async () => {

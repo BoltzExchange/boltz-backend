@@ -34,6 +34,7 @@ import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
+import type RateProvider from '../../rates/RateProvider';
 import type SwapOutputType from '../../swap/SwapOutputType';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
@@ -85,6 +86,7 @@ class DeferredClaimer extends CoopSignerBase<{
   constructor(
     logger: Logger,
     private readonly currencies: Map<string, Currency>,
+    private readonly rateProvider: RateProvider,
     walletManager: WalletManager,
     swapOutputType: SwapOutputType,
     private readonly config: SwapConfig,
@@ -266,6 +268,13 @@ class DeferredClaimer extends CoopSignerBase<{
     publicKey: Buffer;
     transactionHash: Buffer;
   }> => {
+    if (this.rateProvider.isBatchOnly(swap)) {
+      this.logger.debug(
+        `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} is batch-only`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+    }
+
     const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
     if (toClaim === undefined) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();

@@ -15,7 +15,11 @@ import {
   SwapType,
   SwapVersion,
 } from '../../consts/Enums';
-import type { ChainSwapPairConfig, PairConfig } from '../../consts/Types';
+import type {
+  ChainSwapPairConfig,
+  PairConfig,
+  SubmarinePairConfig,
+} from '../../consts/Types';
 import type Referral from '../../db/models/Referral';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
@@ -40,7 +44,9 @@ type PairLimitWithZeroConf = PairLimits & {
 };
 
 type SubmarinePairTypeTaproot = PairTypeTaproot & {
-  limits: PairLimitWithZeroConf;
+  limits: PairLimitWithZeroConf & {
+    minimalBatched?: number;
+  };
   fees: {
     percentage: number;
     minerFees: number;
@@ -421,33 +427,52 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         orderSide,
         type,
       ),
-    };
+    } as SwapTypes['limits'];
 
     if (type === SwapType.ReverseSubmarine) {
       return result;
     }
 
     const chainCurrency = getChainCurrency(base, quote, orderSide, false);
+    (
+      result as
+        | SubmarinePairTypeTaproot['limits']
+        | ChainPairTypeTaproot['limits']
+    ).maximalZeroConf = this.zeroConfAmounts.get(chainCurrency)!;
 
-    return {
-      ...result,
-      maximalZeroConf: this.zeroConfAmounts.get(chainCurrency)!,
-    };
+    if (type === SwapType.Chain) {
+      return result;
+    }
+
+    if (
+      config.submarineSwap !== undefined &&
+      config.submarineSwap.minBatchedAmount !== undefined
+    ) {
+      (result as SubmarinePairTypeTaproot['limits']).minimalBatched =
+        config.submarineSwap.minBatchedAmount;
+    }
+
+    return result;
   };
 
   private getPairLimit = (
-    entry: keyof (ChainSwapPairConfig | PairConfig),
+    entry: keyof (PairConfig | SubmarinePairConfig | ChainSwapPairConfig),
     config: PairConfig,
     type: SwapType,
   ): number => {
-    if (type !== SwapType.Chain) {
+    if (type === SwapType.ReverseSubmarine) {
       return config[entry];
     }
 
-    const chainSwapConfigVar = config.chainSwap
-      ? config.chainSwap[entry]
-      : undefined;
-    return chainSwapConfigVar || config[entry];
+    let specificConfig: SubmarinePairConfig | ChainSwapPairConfig | undefined =
+      undefined;
+    if (type === SwapType.Submarine) {
+      specificConfig = config.submarineSwap;
+    } else if (type === SwapType.Chain) {
+      specificConfig = config.chainSwap;
+    }
+
+    return specificConfig?.[entry] || config[entry];
   };
 
   private isPossibleCombination = (

@@ -60,6 +60,11 @@ describe('RateProviderTaproot', () => {
         minSwapAmount: 100_000,
         maxSwapAmount: 1_000_000,
       },
+
+      submarineSwap: {
+        minSwapAmount: 10_000,
+        minBatchedAmount: 1_000,
+      },
     },
   ];
 
@@ -154,7 +159,7 @@ describe('RateProviderTaproot', () => {
 
     test.each`
       type                         | initialMin | initialMax   | limitMin   | limitMax | expectedMin | expectedMax | getPairs                      | pairPath
-      ${SwapType.Submarine}        | ${1_000}   | ${1_000_000} | ${200_000} | ${800}   | ${200_000}  | ${800}      | ${provider.getSubmarinePairs} | ${'L-BTC->BTC'}
+      ${SwapType.Submarine}        | ${10_000}  | ${1_000_000} | ${200_000} | ${800}   | ${200_000}  | ${800}      | ${provider.getSubmarinePairs} | ${'L-BTC->BTC'}
       ${SwapType.ReverseSubmarine} | ${1_000}   | ${1_000_000} | ${750_000} | ${1_500} | ${750_000}  | ${1_500}    | ${provider.getReversePairs}   | ${'BTC->L-BTC'}
       ${SwapType.Chain}            | ${100_000} | ${1_000_000} | ${300_000} | ${4_000} | ${300_000}  | ${4_000}    | ${provider.getChainPairs}     | ${'BTC->L-BTC'}
     `(
@@ -604,8 +609,9 @@ describe('RateProviderTaproot', () => {
         provider['getLimits']('L-BTC/BTC', side, SwapType.Submarine, 1),
       ).toEqual({
         maximalZeroConf,
-        minimal: 1_000,
+        minimal: 10_000,
         maximal: 1_000_000,
+        minimalBatched: 1_000,
       });
     },
   );
@@ -630,7 +636,6 @@ describe('RateProviderTaproot', () => {
   describe('getPairLimit', () => {
     test.each`
       type
-      ${SwapType.Submarine}
       ${SwapType.ReverseSubmarine}
     `('should use standard config for type $type', ({ type }) => {
       const value = 100_000;
@@ -640,8 +645,11 @@ describe('RateProviderTaproot', () => {
           'maxSwapAmount',
           {
             maxSwapAmount: value,
+            submarineSwap: {
+              maxSwapAmount: value + 1,
+            },
             chainSwap: {
-              maxSwapAmount: value,
+              maxSwapAmount: value + 2,
             },
           } as any,
           type,
@@ -649,51 +657,74 @@ describe('RateProviderTaproot', () => {
       ).toEqual(value);
     });
 
-    test('should coalesce from standard config when chain swap config is undefined', () => {
-      const value = 100_000;
+    test.each`
+      type
+      ${SwapType.Chain}
+      ${SwapType.Submarine}
+    `(
+      'should coalesce from standard config when type $type swap config is undefined',
+      ({ type }) => {
+        const value = 100_000;
 
-      expect(
-        provider['getPairLimit'](
-          'maxSwapAmount',
-          {
-            maxSwapAmount: value,
-          } as any,
-          SwapType.Chain,
-        ),
-      ).toEqual(value);
-    });
-
-    test('should coalesce from standard config when value in chain swap config is undefined', () => {
-      const value = 100_000;
-
-      expect(
-        provider['getPairLimit'](
-          'maxSwapAmount',
-          {
-            maxSwapAmount: value,
-            chainSwap: {},
-          } as any,
-          SwapType.Chain,
-        ),
-      ).toEqual(value);
-    });
-
-    test('should use value from chain swap config when defined and type is chain swap', () => {
-      const value = 100_000;
-
-      expect(
-        provider['getPairLimit'](
-          'maxSwapAmount',
-          {
-            maxSwapAmount: 123,
-            chainSwap: {
+        expect(
+          provider['getPairLimit'](
+            'maxSwapAmount',
+            {
               maxSwapAmount: value,
-            },
-          } as any,
-          SwapType.Chain,
-        ),
-      ).toEqual(value);
-    });
+            } as any,
+            type,
+          ),
+        ).toEqual(value);
+      },
+    );
+
+    test.each`
+      type
+      ${SwapType.Chain}
+      ${SwapType.Submarine}
+    `(
+      'should coalesce from standard config when value in type $type swap config is undefined',
+      ({ type }) => {
+        const value = 100_000;
+
+        expect(
+          provider['getPairLimit'](
+            'maxSwapAmount',
+            {
+              maxSwapAmount: value,
+              chainSwap: {},
+              submarineSwap: {},
+            } as any,
+            type,
+          ),
+        ).toEqual(value);
+      },
+    );
+
+    test.each`
+      type                  | chain | submarine | expected
+      ${SwapType.Chain}     | ${1}  | ${2}      | ${1}
+      ${SwapType.Submarine} | ${1}  | ${2}      | ${2}
+    `(
+      'should use value from chain swap config when defined and type is $type',
+      ({ type, chain, submarine, expected }) => {
+        expect(
+          provider['getPairLimit'](
+            'maxSwapAmount',
+            {
+              maxSwapAmount: 123,
+              chainSwap: {
+                maxSwapAmount: chain,
+              },
+              submarineSwap: {
+                maxSwapAmount: submarine,
+              },
+            } as any,
+            type,
+          ),
+        ).toEqual(expected);
+      },
+    );
   });
 
   test.each`

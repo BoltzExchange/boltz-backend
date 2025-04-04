@@ -73,6 +73,45 @@ function startClns () {
   echo "Started CLNs"
 }
 
+function startEsplora () {
+  echo "Starting Esplora"
+
+  nohup electrs-bitcoin --network regtest --http-addr 0.0.0.0:3000 --jsonrpc-import --daemon-rpc-addr 127.0.0.1:18443 --cookie esplora:8VHqtTLrj2a4fVfcU89KcoQabZT0rVlg29aOeoTH_5o > /dev/null 2>&1 & num="0"
+
+  echo "Started Esplora"
+}
+
+function startAsp () {
+  echo "Starting ASP"
+
+  export ARK_DATADIR=/root/.arkd
+  export ARK_WALLET_DATADIR=/root/.arkd/wallet
+  export ARK_NETWORK=regtest
+  export ARK_TX_BUILDER_TYPE=covenantless
+  export ARK_ROUND_INTERVAL=10
+  export ARK_MIN_RELAY_FEE=200
+  export ARK_NO_TLS=true
+  export ARK_NO_MACAROONS=true
+  export ARK_BITCOIND_RPC_HOST=127.0.0.1:18443
+  export ARK_BITCOIND_RPC_USER=asp
+  export ARK_BITCOIND_RPC_PASS=HqaIq2XiXq8ClbtDyv_uKELWr6Vn511-FlgHIkOTWAQ
+  export ARK_ALLOW_ZERO_FEES=true
+
+  mkdir -p /root/.arkd
+  nohup arkd > /root/.arkd/logs.txt 2>&1 & num="0"
+
+  echo "Started ASP"
+}
+
+function startFulmine () {
+  echo "Starting Fulmine"
+
+  export FULMINE_NO_MACAROONS=true
+  nohup fulmine > /root/.arkd/fulmine-logs.txt 2>&1 & num="0"
+
+  echo "Started Fulmine"
+}
+
 function stopNodes () {
   killall bitcoind
   killall elementsd

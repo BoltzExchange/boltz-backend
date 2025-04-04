@@ -1,6 +1,8 @@
 import type { Transaction } from 'bitcoinjs-lib';
+import { crypto } from 'bitcoinjs-lib';
 import type { SwapTreeSerializer } from 'boltz-core';
 import { OutputType } from 'boltz-core';
+import { randomBytes } from 'crypto';
 import type { Provider } from 'ethers';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { Order } from 'sequelize';
@@ -29,6 +31,7 @@ import {
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength } from '../api/Utils';
+import type { ArkSwapTree } from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -540,6 +543,13 @@ class Service {
           absolute: calculateEthereumTransactionFeeWithReceipt(receipt),
         };
       }
+
+      case CurrencyType.Ark: {
+        return {
+          absolute: 0,
+          satPerVbyte: 0,
+        };
+      }
     }
   };
 
@@ -816,6 +826,9 @@ class Service {
         return currency.chainClient.estimateFee(numBlocks);
       } else if (currency.provider) {
         return estimateFeeForProvider(currency.provider);
+      } else if (currency.arkNode) {
+        // TODO: get actual fees
+        return 0;
       } else {
         throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);
       }
@@ -1110,6 +1123,8 @@ class Service {
     claimPublicKey?: string;
     swapTree?: SwapTreeSerializer.SerializedTree;
 
+    arkSwapTree?: ArkSwapTree;
+
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
 
@@ -1142,6 +1157,7 @@ class Service {
     ) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
+      case CurrencyType.Ark:
         if (args.refundPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('refundPublicKey');
         }
@@ -1207,6 +1223,7 @@ class Service {
       id,
       address,
       swapTree,
+      arkSwapTree,
       timeoutBlockHeight,
       blindingKey,
       redeemScript,
@@ -1243,6 +1260,7 @@ class Service {
       address,
       swapTree,
       referralId,
+      arkSwapTree,
       canBeRouted,
       blindingKey,
       redeemScript,
@@ -1578,6 +1596,8 @@ class Service {
     claimPublicKey?: string;
     swapTree?: SwapTreeSerializer.SerializedTree;
 
+    arkSwapTree?: ArkSwapTree;
+
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
 
@@ -1634,6 +1654,7 @@ class Service {
         swapTree: createdSwap.swapTree,
         referralId: createdSwap.referralId,
         blindingKey: createdSwap.blindingKey,
+        arkSwapTree: createdSwap.arkSwapTree,
         claimAddress: createdSwap.claimAddress,
         redeemScript: createdSwap.redeemScript,
         claimPublicKey: createdSwap.claimPublicKey,
@@ -1784,6 +1805,37 @@ class Service {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
+    const side = this.getOrderSide(args.orderSide);
+    const referralId = await this.getReferralId(
+      args.referralId,
+      args.routingNode,
+    );
+    const {
+      base,
+      quote,
+      referral,
+      rate: pairRate,
+    } = await this.getPair(
+      args.pairId,
+      side,
+      args.version,
+      SwapType.ReverseSubmarine,
+      referralId,
+    );
+
+    const { sending, receiving } = getSendingReceivingCurrency(
+      base,
+      quote,
+      side,
+    );
+    const sendingCurrency = getCurrency(this.currencies, sending);
+
+    let preimage: Buffer | undefined = undefined;
+    if (sendingCurrency.type === CurrencyType.Ark) {
+      preimage = randomBytes(32);
+      args.preimageHash = crypto.sha256(preimage);
+    }
+
     if (args.invoice !== undefined && args.preimageHash !== undefined) {
       throw Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED();
     }
@@ -1818,24 +1870,6 @@ class Service {
       preimageHash,
     );
 
-    const side = this.getOrderSide(args.orderSide);
-    const referralId = await this.getReferralId(
-      args.referralId,
-      args.routingNode,
-    );
-    const {
-      base,
-      quote,
-      referral,
-      rate: pairRate,
-    } = await this.getPair(
-      args.pairId,
-      side,
-      args.version,
-      SwapType.ReverseSubmarine,
-      referralId,
-    );
-
     if (args.pairHash !== undefined) {
       this.rateProvider.providers[args.version].validatePairHash(
         args.pairHash,
@@ -1845,18 +1879,12 @@ class Service {
       );
     }
 
-    const { sending, receiving } = getSendingReceivingCurrency(
-      base,
-      quote,
-      side,
-    );
-    const sendingCurrency = getCurrency(this.currencies, sending);
-
     // Not the pretties way and also not the right spot to do input validation but
     // only at this point in time the type of the sending currency is known
     switch (sendingCurrency.type) {
       case CurrencyType.Liquid:
       case CurrencyType.BitcoinLike:
+      case CurrencyType.Ark:
         if (args.claimPublicKey === undefined) {
           throw ApiErrors.UNDEFINED_PARAMETER('claimPublicKey');
         }
@@ -2025,10 +2053,12 @@ class Service {
       redeemScript,
       refundAddress,
       lockupAddress,
+      arkLockupParams,
       refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
     } = await this.swapManager.createReverseSwap({
+      preimage,
       referralId,
       percentageFee,
       onchainAmount,
@@ -2036,7 +2066,6 @@ class Service {
       onchainTimeoutBlockDelta,
       lightningTimeoutBlockDelta,
       prepayMinerFeeInvoiceAmount,
-
       prepayMinerFeeOnchainAmount,
       orderSide: side,
       baseCurrency: base,
@@ -2068,6 +2097,14 @@ class Service {
     }
 
     await this.createExtraFees(id, extraFee, args.extraFees);
+
+    if (arkLockupParams !== undefined) {
+      await this.swapManager.nursery.lockupVtxo(
+        arkLockupParams.swap,
+        sendingCurrency.arkNode!,
+        arkLockupParams.lightningClient,
+      );
+    }
 
     const response: any = {
       id,

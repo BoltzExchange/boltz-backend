@@ -129,6 +129,7 @@
     "eslint-plugin-node": "^11.1.0",
     "git-cliff": "^2.9.1",
     "globals": "^16.2.0",
+    "google-proto-files": "^4.2.0",
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.13.0",
     "jest": "^30.0.0",

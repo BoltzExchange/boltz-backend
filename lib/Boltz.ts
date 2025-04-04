@@ -12,8 +12,11 @@ import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
-import type { BlockChainInfoScanned, IChainClient } from './chain/ChainClient';
-import ChainClient from './chain/ChainClient';
+import ArkClient from './chain/ArkClient';
+import ChainClient, {
+  type BlockChainInfoScanned,
+  type IChainClient,
+} from './chain/ChainClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
 import type { NetworkInfo } from './consts/Types';
@@ -277,6 +280,10 @@ class Boltz {
               .map((client) => this.connectLightningClient(client)),
           );
 
+          if (currency.arkNode) {
+            prms.push(this.connectArkNode(currency.arkNode));
+          }
+
           return prms;
         }),
       );
@@ -434,6 +441,17 @@ class Boltz {
     }
   };
 
+  private connectArkNode = async (client: ArkClient) => {
+    const service = `${client.symbol} ${client.serviceName()}`;
+
+    try {
+      await client.connect();
+      this.logStatus(service, await client.getInfo());
+    } catch (error) {
+      this.logCouldNotConnect(service, error);
+    }
+  };
+
   private parseCurrencies = (): Map<string, Currency> => {
     const result = new Map<string, Currency>();
 
@@ -523,6 +541,18 @@ class Boltz {
         chainClient: new ElementsWrapper(this.logger, chain),
         limits: {
           ...this.config.liquid,
+        },
+      });
+    }
+
+    if (this.config.ark) {
+      result.set(ArkClient.symbol, {
+        type: CurrencyType.Ark,
+        symbol: ArkClient.symbol,
+        arkNode: new ArkClient(this.logger, this.config.ark),
+        limits: {
+          // TODO: config
+          minWalletBalance: 0,
         },
       });
     }

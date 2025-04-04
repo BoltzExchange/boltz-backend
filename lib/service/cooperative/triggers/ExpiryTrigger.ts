@@ -1,4 +1,8 @@
-import { CurrencyType, SwapType } from '../../../consts/Enums';
+import {
+  CurrencyType,
+  SwapType,
+  currencyTypeToString,
+} from '../../../consts/Enums';
 import type Swap from '../../../db/models/Swap';
 import type { ChainSwapInfo } from '../../../db/repositories/ChainSwapRepository';
 import type { Currency } from '../../../wallet/WalletManager';
@@ -44,6 +48,9 @@ class ExpiryTrigger extends SweepTrigger {
       case CurrencyType.Ether:
       case CurrencyType.ERC20:
         return await currency.provider!.getBlockNumber();
+
+      case CurrencyType.Ark:
+        throw `${currencyTypeToString(currency.type)} has no block height`;
     }
   };
 }

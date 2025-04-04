@@ -597,6 +597,57 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * /swap/submarine/{id}/refund/ark:
+     *   post:
+     *     description: Signs cooperative refund transactions for Ark Submarine Swaps
+     *     tags: [Submarine]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: ["transaction"]
+     *             properties:
+     *               transaction:
+     *                 type: string
+     *                 description: Partially signed Bitcoin transaction (PSBT) encoded in base64
+     *     responses:
+     *       '200':
+     *         description: The signed refund transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               required: ["transaction"]
+     *               properties:
+     *                 transaction:
+     *                   type: string
+     *                   description: Signed PSBT, encoded in base64
+     *       '400':
+     *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/submarine/:id/refund/ark', this.handleError(this.refundArk));
+
+    /**
+     * @openapi
      * components:
      *   schemas:
      *     SubmarineClaimDetails:
@@ -2514,6 +2565,23 @@ class SwapRouter extends RouterBase {
         partialSignature: getHexString(sig.signature),
       });
     };
+
+  private refundArk = async (req: Request, res: Response) => {
+    const { id } = validateRequest(req.params, [
+      { name: 'id', type: 'string' },
+    ]);
+
+    const { transaction } = validateRequest(req.body, [
+      { name: 'transaction', type: 'string' },
+    ]);
+
+    successResponse(res, {
+      transaction: await this.service.musigSigner.signRefundArk(
+        id,
+        transaction,
+      ),
+    });
+  };
 
   private refundEvm = async (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [

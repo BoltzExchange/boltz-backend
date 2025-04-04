@@ -33,6 +33,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
+import type { ArkSwapTree } from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import type { OrderSide } from '../consts/Enums';
 import {
@@ -108,6 +109,8 @@ type CreatedSwap = {
   claimPublicKey?: string;
   swapTree?: SwapTreeSerializer.SerializedTree;
 
+  arkSwapTree?: ArkSwapTree;
+
   // Specified when either Ether or ERC20 tokens or swapped to Lightning
   // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
   claimAddress?: string;
@@ -138,6 +141,11 @@ type CreatedOnchainSwap = {
 type CreatedReverseSwap = {
   id: string;
 
+  arkLockupParams?: {
+    swap: ReverseSwap;
+    lightningClient: LightningClient;
+  };
+
   invoice: string;
   minerFeeInvoice: string | undefined;
 
@@ -156,6 +164,9 @@ type CreatedChainSwap = {
   claimDetails: CreatedChainSwapDetails;
   lockupDetails: CreatedChainSwapDetails;
 };
+
+// TODO: what is a reasonable value here?
+const arkClaimDelay = 16;
 
 class SwapManager {
   public currencies = new Map<string, Currency>();
@@ -436,7 +447,6 @@ class SwapManager {
       await SwapRepository.addSwap({
         id,
         pair,
-
         keyIndex: index,
         version: args.version,
         orderSide: args.orderSide,
@@ -444,13 +454,45 @@ class SwapManager {
         lockupAddress: result.address,
         paymentTimeout: args.paymentTimeout,
         status: SwapUpdateEvent.SwapCreated,
-        timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
+        timeoutBlockHeight: result.timeoutBlockHeight,
         refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript:
           args.version === SwapVersion.Legacy
             ? result.redeemScript
             : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
+      });
+    } else if (receivingCurrency.type === CurrencyType.Ark) {
+      const vHtlc = await receivingCurrency.arkNode!.createVHtlc(
+        args.preimageHash,
+        arkClaimDelay,
+        args.timeoutBlockDelta,
+        undefined,
+        args.refundPublicKey!,
+      );
+      await receivingCurrency.arkNode!.subscribeAddresses([vHtlc.getAddress()]);
+
+      result.address = vHtlc.getAddress();
+      // TODO: little sketchy, but works for now
+      result.arkSwapTree = vHtlc.getSwapTree()!.toObject()!;
+
+      // TODO: check if bitcoin core is available on startup
+      const { chainClient } = this.currencies.get('BTC')!;
+      result.timeoutBlockHeight =
+        (await chainClient!.getBlockchainInfo()).blocks +
+        args.timeoutBlockDelta;
+
+      await SwapRepository.addSwap({
+        id,
+        pair,
+        version: args.version,
+        orderSide: args.orderSide,
+        lockupAddress: vHtlc.getAddress(),
+        status: SwapUpdateEvent.SwapCreated,
+        preimageHash: getHexString(args.preimageHash),
+        timeoutBlockHeight: result.timeoutBlockHeight,
+        refundPublicKey: getHexString(args.refundPublicKey!),
+        redeemScript: JSON.stringify(vHtlc.getSwapTree()!.toObject()),
       });
     } else {
       result.address = await this.getLockupContractAddress(
@@ -468,7 +510,6 @@ class SwapManager {
       await SwapRepository.addSwap({
         id,
         pair,
-
         version: args.version,
         referral: args.referralId,
         orderSide: args.orderSide,
@@ -705,6 +746,9 @@ class SwapManager {
     // Only required for Swaps to Ether and ERC20 tokens
     // Address of the user to which the coins will be sent after a successful claim transaction
     claimAddress?: string;
+
+    // Set for ARK swaps
+    preimage?: Buffer;
 
     userAddress?: string;
     userAddressSignature?: Buffer;
@@ -978,6 +1022,49 @@ class SwapManager {
           signature: getHexString(args.userAddressSignature),
         });
       }
+    } else if (sendingCurrency.type === CurrencyType.Ark) {
+      const vHtlc = await sendingCurrency.arkNode!.createVHtlc(
+        args.preimageHash,
+        arkClaimDelay,
+        args.onchainTimeoutBlockDelta,
+        args.claimPublicKey!,
+        undefined,
+      );
+
+      result.lockupAddress = vHtlc.getAddress();
+
+      // TODO: check if bitcoin core is available on startup
+      const { chainClient } = this.currencies.get('BTC')!;
+      result.timeoutBlockHeight = result.timeoutBlockHeight =
+        (await chainClient!.getBlockchainInfo()).blocks +
+        args.onchainTimeoutBlockDelta;
+
+      const swap = await ReverseSwapRepository.addReverseSwap({
+        id,
+        pair,
+        minerFeeInvoice,
+        node: nodeType,
+        version: args.version,
+        fee: args.percentageFee,
+        invoice: paymentRequest,
+        referral: args.referralId,
+        orderSide: args.orderSide,
+        onchainAmount: args.onchainAmount,
+        lockupAddress: result.lockupAddress,
+        status: SwapUpdateEvent.SwapCreated,
+        invoiceAmount: args.holdInvoiceAmount,
+        timeoutBlockHeight: result.timeoutBlockHeight,
+        preimageHash: getHexString(args.preimageHash),
+        preimage: getHexString(args.preimage!),
+        claimPublicKey: getHexString(args.claimPublicKey!),
+        minerFeeInvoicePreimage: minerFeeInvoicePreimage,
+        minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
+        redeemScript: JSON.stringify(vHtlc.getSwapTree()!.toObject()),
+      });
+      result.arkLockupParams = {
+        swap,
+        lightningClient,
+      };
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;

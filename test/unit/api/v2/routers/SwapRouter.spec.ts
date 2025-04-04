@@ -94,6 +94,7 @@ describe('SwapRouter', () => {
         pubNonce: getHexBuffer('2111'),
         signature: getHexBuffer('2112'),
       }),
+      signRefundArk: jest.fn().mockResolvedValue('signedPsbt'),
     },
 
     swapManager: {
@@ -242,13 +243,17 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(12);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(13);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/refund/ark',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -822,6 +827,29 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.pubNonce),
       getHexBuffer(reqBody.transaction),
       reqBody.index,
+    );
+  });
+
+  test('should refund ark submarine swaps', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const reqBody = {
+      transaction: 'psbt',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundArk'](mockRequest(reqBody, {}, reqParams), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      transaction: 'signedPsbt',
+    });
+
+    expect(service.musigSigner.signRefundArk).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signRefundArk).toHaveBeenCalledWith(
+      reqParams.id,
+      reqBody.transaction,
     );
   });
 

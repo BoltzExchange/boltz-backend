@@ -13,6 +13,20 @@ function waitForLndToSync () {
   sleep 5
 }
 
+function waitForArkdToSync () {
+  echo "Waiting for ASP to sync"
+
+  while true; do
+    balance=$(arkd wallet balance 2>&1)
+    if ! echo "$balance" | grep "still syncing" > /dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+
+  echo "ASP synced"
+}
+
 function openChannel () {
   nodeAddress=$($1 getnewaddress)
   lndAddress=$($2 newaddress p2wkh | jq -r '.address')
@@ -86,6 +100,10 @@ elements-cli rescanblockchain > /dev/null
 startClns
 startLnds
 
+startAsp
+startFulmine
+startEsplora
+
 mkdir /root/.lightning/regtest/certs
 mkdir /root/.lightning/regtest/hold
 
@@ -123,6 +141,40 @@ echo "Opened channels to CLN"
 
 waitForClnChannel "lightning-cli"
 waitForClnChannel "lightning-cli --regtest --lightning-dir /root/.lightning2"
+
+# ASP setup
+echo "Funding ASP"
+
+arkd wallet create --password ark > /dev/null
+waitForArkdToSync
+
+bitcoin-cli sendtoaddress $(arkd wallet address) 25 > /dev/null
+bitcoin-cli generatetoaddress 1 $(bitcoin-cli getnewaddress) > /dev/null
+
+arkd wallet unlock --password ark > /dev/null
+
+# Fulmine setup
+echo "Funding Fulmine"
+
+curl -s -X POST http://localhost:7001/api/v1/wallet/create \
+  -H "Content-Type: application/json" \
+  -d '{"private_key": "693b0b993e69953c35838e96c8c41430e0ae881c2faa1bc95e203cdaec5f3fdf", "password": "ark", "server_url": "http://localhost:7070"}' > /dev/null
+
+curl -s -X POST http://localhost:7001/api/v1/wallet/unlock \
+  -H "Content-Type: application/json" \
+  -d '{"password": "ark"}' > /dev/null
+
+fulmineAddress=$(curl -s -X GET http://localhost:7001/api/v1/address | jq -r .address)
+fulmineAddress=${fulmineAddress#bitcoin:}
+fulmineAddress=${fulmineAddress%%\?*}
+
+bitcoin-cli sendtoaddress ${fulmineAddress} 1 > /dev/null
+bitcoin-cli generatetoaddress 1 $(bitcoin-cli getnewaddress) > /dev/null
+
+sleep 30
+
+killall fulmine
+killall arkd
 
 stopCln
 stopLnds

@@ -1,0 +1,368 @@
+syntax = "proto3";
+
+package fulmine.v1;
+
+import "ark/types.proto";
+import "google/api/annotations.proto";
+
+service Service {
+  // GetAddress returns offchain address
+  rpc GetAddress(GetAddressRequest) returns (GetAddressResponse) {
+    option (google.api.http) = {
+      get: "/v1/address"
+    };
+  };
+  // GetBalance returns ark balance
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse) {
+    option (google.api.http) = {
+      get: "/v1/balance"
+    };
+  };
+  // GetInfo returns info about the ark account
+  rpc GetInfo(GetInfoRequest) returns (GetInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/info"
+    };
+  };
+  // GetOnboardAddress returns onchain address and invoice for requested amount
+  rpc GetOnboardAddress(GetOnboardAddressRequest) returns (GetOnboardAddressResponse) {
+    option (google.api.http) = {
+      post: "/v1/onboard"
+      body: "*"
+    };
+  };
+  // Returns round info for optional round_id (no round_id returns current round info)
+  rpc GetRoundInfo(GetRoundInfoRequest) returns (GetRoundInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/round/{round_id}"
+    };
+  };
+  // GetTransactionHistory returns virtual transactions history
+  rpc GetTransactionHistory(GetTransactionHistoryRequest) returns (GetTransactionHistoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/transactions"
+    };
+  };
+  // Redeems an ark note by joining a round
+  rpc RedeemNote(RedeemNoteRequest) returns (RedeemNoteResponse) {
+    option (google.api.http) = {
+      post: "/v1/note/redeem"
+      body: "*"
+    };
+  };
+  // Settle vtxos and boarding utxos
+  rpc Settle(SettleRequest) returns (SettleResponse) {
+    option (google.api.http) = {
+      get: "/v1/settle"
+    };
+  };
+  // Send asks to send amount to ark address by joining a round
+  rpc SendOffChain(SendOffChainRequest) returns (SendOffChainResponse) {
+    option (google.api.http) = {
+      post: "/v1/send/offchain"
+      body: "*"
+    };
+  };
+  // SendOnChain asks to send requested amount to requested onchain address
+  rpc SendOnChain(SendOnChainRequest) returns (SendOnChainResponse) {
+    option (google.api.http) = {
+      post: "/v1/send/onchain"
+      body: "*"
+    };
+  };
+  rpc SignTransaction(SignTransactionRequest) returns (SignTransactionResponse) {
+    option (google.api.http) = {
+      post: "/v1/transaction/sign"
+      body: "*"
+    };
+  }
+  // CreateVHTLCAddress computes a VHTLC address
+  rpc CreateVHTLC(CreateVHTLCRequest) returns (CreateVHTLCResponse) {
+    option (google.api.http) = {
+      post: "/v1/vhtlc"
+      body: "*"
+    };
+  };
+  // ClaimVHTLC = self send vHTLC -> VTXO
+  rpc ClaimVHTLC(ClaimVHTLCRequest) returns (ClaimVHTLCResponse) {
+    option (google.api.http) = {
+      post: "/v1/vhtlc/claim"
+      body: "*"
+    };
+  };
+  rpc RefundVHTLCWithoutReceiver(RefundVHTLCWithoutReceiverRequest) returns (RefundVHTLCWithoutReceiverResponse) {
+    option (google.api.http) = {
+      post: "/v1/vhtlc/refundWithoutReceiver"
+      body: "*"
+    };
+  }
+  // ListVHTLC = list all vhtlc OR filter by preimage_hash
+  rpc ListVHTLC(ListVHTLCRequest) returns (ListVHTLCResponse) {
+    option (google.api.http) = {
+      get: "/v1/vhtlc"
+    };
+  };
+  rpc CreateInvoice(CreateInvoiceRequest) returns (CreateInvoiceResponse) {
+    option (google.api.http) = {
+      post: "/v1/invoice"
+      body: "*"
+    };
+  }
+  rpc PayInvoice(PayInvoiceRequest) returns (PayInvoiceResponse) {
+    option (google.api.http) = {
+      post: "/v1/invoice/pay"
+      body: "*"
+    };
+  }
+  rpc IsInvoiceSettled(IsInvoiceSettledRequest) returns (IsInvoiceSettledResponse) {
+    option (google.api.http) = {
+      get: "/v1/invoice/status"
+    };
+  }
+  // GetDelegatePublicKey retrieves the Fulmine's public key to be included in VTXO scripts.
+  rpc GetDelegatePublicKey(GetDelegatePublicKeyRequest) returns (GetDelegatePublicKeyResponse) {
+    option (google.api.http) = {
+      get: "/v1/delegate/pubkey"
+    };
+  }
+  // WatchAddressForRollover watches an address for rollover
+  rpc WatchAddressForRollover(WatchAddressForRolloverRequest) returns (WatchAddressForRolloverResponse) {
+    option (google.api.http) = {
+      post: "/v1/delegate/watch"
+      body: "*"
+    };
+  };
+  // UnwatchAddress unsubscribes an address from vtxo rollover
+  rpc UnwatchAddress(UnwatchAddressRequest) returns (UnwatchAddressResponse) {
+    option (google.api.http) = {
+      post: "/v1/delegate/unwatch"
+      body: "*"
+    };
+  };
+  // ListWatchedAddresses lists all watched addresses
+  rpc ListWatchedAddresses(ListWatchedAddressesRequest) returns (ListWatchedAddressesResponse) {
+    option (google.api.http) = {
+      get: "/v1/delegate/watched"
+    };
+  };
+}
+
+message GetAddressRequest {}
+message GetAddressResponse {
+  string address = 1;
+  string pubkey = 2;
+}
+
+message GetBalanceRequest {}
+message GetBalanceResponse {
+  uint64 amount = 1;
+}
+
+message GetInfoRequest {}
+message GetInfoResponse {
+  enum Network {
+    NETWORK_UNSPECIFIED = 0;
+    NETWORK_MAINNET = 1;
+    NETWORK_TESTNET = 2;
+    NETWORK_REGTEST = 3;
+  }
+  // The bitcoin network on which Fulmine is runnig.
+  Network network = 1;
+  // The ark address prefix (ark | tark).
+  string addr_prefix = 2;
+  // The URL of the server to which Fulmine is connected to if already initialized.
+  string server_url = 3;
+  // info about the current version of the ark wallet.
+  BuildInfo build_info = 4;
+  string pubkey = 5;
+}
+
+message GetOnboardAddressRequest {
+  uint64 amount = 1;
+}
+message GetOnboardAddressResponse {
+  string address = 1;
+}
+
+message GetRoundInfoRequest {
+  string round_id = 1;
+}
+message GetRoundInfoResponse {
+  Round round = 1;
+}
+
+message GetTransactionHistoryRequest {}
+message GetTransactionHistoryResponse {
+  repeated TransactionInfo transactions = 1;
+}
+
+message RedeemNoteRequest {
+  string note = 1;
+}
+message RedeemNoteResponse {
+  string txid = 1;
+}
+
+message SettleRequest {}
+message SettleResponse {
+  string txid = 1;
+}
+
+message SendOffChainRequest {
+  string address = 1;
+  uint64 amount = 2;
+}
+message SendOffChainResponse {
+  string txid = 1;
+}
+
+message SendOnChainRequest {
+  string address = 1;
+  uint64 amount = 2;
+}
+message SendOnChainResponse {
+  string txid = 1;
+}
+
+message SignTransactionRequest {
+  string tx = 1;
+}
+message SignTransactionResponse {
+  string signed_tx = 1;
+}
+
+message CreateVHTLCRequest {
+  string preimage_hash = 1;
+  string sender_pubkey = 2; 
+  string receiver_pubkey = 3; 
+  // Optional absolute locktime for refund condition (in blocks)
+  uint32 refund_locktime = 4;
+  // Optional unilateral claim delay (relative timelock)
+  RelativeLocktime unilateral_claim_delay = 5;
+  // Optional unilateral refund delay (relative timelock)
+  RelativeLocktime unilateral_refund_delay = 6;
+  // Optional unilateral refund without receiver delay (relative timelock)
+  RelativeLocktime unilateral_refund_without_receiver_delay = 7;
+}
+message CreateVHTLCResponse {
+  string address = 1;
+  string claim_pubkey = 2;
+  string refund_pubkey = 3;
+  string server_pubkey = 4;
+  TaprootTree swap_tree = 5;
+  int64 refund_locktime = 6;
+  int64 unilateral_claim_delay = 7;
+  int64 unilateral_refund_delay = 8;
+  int64 unilateral_refund_without_receiver_delay = 9;
+}
+
+message ClaimVHTLCRequest {
+  string preimage = 1;
+}
+message ClaimVHTLCResponse {
+  string redeem_txid = 1;
+}
+
+message RefundVHTLCWithoutReceiverRequest {
+  string preimage_hash = 1;
+}
+message RefundVHTLCWithoutReceiverResponse {
+  string redeem_txid = 1;
+}
+
+message ListVHTLCRequest {
+  string preimage_hash_filter = 1;
+}
+message ListVHTLCResponse {
+  repeated Vtxo vhtlcs = 1;
+}
+
+message CreateInvoiceRequest {
+  uint64 amount = 1;
+  string memo = 2;
+  string preimage = 3;
+}
+message CreateInvoiceResponse {
+  string invoice = 1;
+  string preimage_hash = 2;
+}
+
+message PayInvoiceRequest {
+  string invoice = 1;
+}
+message PayInvoiceResponse {
+  string preimage = 1;
+}
+
+message TaprootTree {
+  TaprootLeaf claim_leaf = 1;
+  TaprootLeaf refund_leaf = 2;
+  TaprootLeaf refund_without_boltz_leaf = 3;
+  TaprootLeaf unilateral_claim_leaf = 4;
+  TaprootLeaf unilateral_refund_leaf = 5;
+  TaprootLeaf unilateral_refund_without_boltz_leaf = 6;
+}
+
+message TaprootLeaf {
+  int32 version = 1;
+  string output = 2;
+}
+
+message IsInvoiceSettledRequest {
+  string invoice = 1;
+}
+
+message IsInvoiceSettledResponse {
+  bool settled = 1;
+}
+
+// RelativeLocktime represents a relative timelock
+message RelativeLocktime {
+  enum LocktimeType {
+    LOCKTIME_TYPE_UNSPECIFIED = 0;
+    LOCKTIME_TYPE_BLOCK = 1;
+    LOCKTIME_TYPE_SECOND = 2;
+  }
+  LocktimeType type = 1;
+  uint32 value = 2;
+}
+
+// Request for getting the delegate public key. No fields required.
+message GetDelegatePublicKeyRequest {
+  // No fields needed
+}
+
+// Response containing the delegate public key.
+message GetDelegatePublicKeyResponse {
+  // The Fulmine's public key to be used for delegate operations, encoded in hex
+  string public_key = 1;
+}
+
+message WatchAddressForRolloverRequest {
+    RolloverAddress rollover_address = 1;
+}
+
+message WatchAddressForRolloverResponse {}
+
+message UnwatchAddressRequest {
+  string address = 1;  // The address to stop watching
+}
+
+message UnwatchAddressResponse {}
+
+message ListWatchedAddressesRequest {
+}
+
+message ListWatchedAddressesResponse {
+  repeated RolloverAddress addresses = 1;  // List of all watched addresses
+}
+
+message RolloverAddress {
+  string address = 1;            // The watched address
+  Tapscripts taproot_tree = 2;   // Full taproot tree as list of hex tapscripts
+  string destination_address = 3; // Where funds will be rolled over to
+}
+
+message Tapscripts {
+  repeated string scripts = 1;
+}

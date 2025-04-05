@@ -134,6 +134,7 @@ rust-bip39 = "1.0.0"
 elements-miniscript = "0.4.0"
 rand = "0.9.0"
 tokio-stream = "0.1.17"
+payjoin = { version = "0.23.0", features = ["io"] }
 
 [build-dependencies]
 built = { version = "0.7.7", features = ["git2"] }

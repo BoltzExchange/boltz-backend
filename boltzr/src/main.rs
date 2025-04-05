@@ -31,6 +31,7 @@ mod tracing_setup;
 mod utils;
 mod wallet;
 mod webhook;
+mod payjoin;
 
 #[cfg(feature = "metrics")]
 mod metrics;

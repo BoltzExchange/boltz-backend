@@ -38,6 +38,7 @@ import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRep
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import type RateProvider from '../../../../lib/rates/RateProvider';
 import Errors from '../../../../lib/service/Errors';
 import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
@@ -122,6 +123,10 @@ describe('DeferredClaimer', () => {
     Networks.bitcoinRegtest,
   );
 
+  const rateProvider = {
+    isBatchOnly: jest.fn().mockReturnValue(false),
+  } as unknown as RateProvider;
+
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
   } as WalletManager;
@@ -129,6 +134,7 @@ describe('DeferredClaimer', () => {
   const claimer = new DeferredClaimer(
     Logger.disabledLogger,
     new Map<string, Currency>([['BTC', btcCurrency]]),
+    rateProvider,
     walletManager,
     new SwapOutputType(OutputType.Bech32),
     {
@@ -959,6 +965,19 @@ describe('DeferredClaimer', () => {
           orderSide: OrderSide.BUY,
         } as any),
       ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+    });
+
+    test('should throw when getting cooperative details for a swap that is batch only', async () => {
+      const swap = {
+        swap: 'data',
+      } as unknown as Swap;
+
+      rateProvider.isBatchOnly = jest.fn().mockReturnValue(true);
+      await expect(claimer.getCooperativeDetails(swap)).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(),
+      );
+
+      rateProvider.isBatchOnly = jest.fn().mockReturnValue(false);
     });
   });
 

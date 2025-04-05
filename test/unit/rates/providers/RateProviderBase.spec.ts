@@ -80,8 +80,8 @@ describe('RateProviderBase', () => {
     ${'BTC'}   | ${'BTC'} | ${2} | ${1_000}   | ${undefined}      | ${SwapType.Submarine}        | ${2_674 * 2}
     ${'BTC'}   | ${'BTC'} | ${1} | ${50_000}  | ${undefined}      | ${SwapType.Submarine}        | ${50_000}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${undefined}                 | ${1_000}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${2_674}
-    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${2_674}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Submarine}        | ${1_000}
+    ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.ReverseSubmarine} | ${1_000}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.ReverseSubmarine} | ${1_000}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.BUY}  | ${SwapType.Chain}            | ${2_674 * 3}
     ${'L-BTC'} | ${'BTC'} | ${1} | ${1_000}   | ${OrderSide.SELL} | ${SwapType.Chain}            | ${2_674 * 3}

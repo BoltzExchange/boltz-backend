@@ -1,17 +1,177 @@
-use payjoin::receive::v2::*;
+use anyhow::{anyhow, Result};
+use bitcoin::{Address, Amount};
+use payjoin::{persist::NoopPersister, receive::{v2::*, ImplementationError, ReplyableError}};
+use tracing::log::{info, debug, trace};
 
+use payjoin::bitcoin::consensus::encode::serialize_hex;
 
-pub async fn receive_payjoin(address: bitcoin::Address, amount: u64) -> Result<(), anyhow::Error> {
-    let directory = "https://payjo.in";
+mod wallet;
 
-    let ohttp_keys = payjoin::io::fetch_ohttp_keys("https://pj.bobspacebkk.com","https://payjo.in").await?;
+const OHTTP_RELAY: &str = "https://ohttp.payjo.in";
+const DIRECTORY: &str = "https://payjo.in";
 
-    let receiver = NewReceiver::new(
+struct PayjoinReceiver {}
+
+pub async fn receive_payjoin(address: Address, amount: Amount) -> Result<()> {
+    let ohttp_keys = payjoin::io::fetch_ohttp_keys(OHTTP_RELAY,DIRECTORY).await?;
+
+    let token = NewReceiver::new(
         address,
-        directory,
+        DIRECTORY,
         ohttp_keys,
         None,
-    );
+    )
+        .expect("Failed to create receiver")
+        .persist(&mut payjoin::persist::NoopPersister)
+        .expect("Failed to persist receiver");
+
+    let receiver = Receiver::load(token, &mut NoopPersister)
+        .expect("Failed to create receiver");
+
+    spawn_payjoin_receiver(receiver, None).await?;
+
+    // loop {
+    //     let (req, ctx) = receiver.extract_req(OHTTP_RELAY)
+    //         .expect("Failed to extract request");
+
+    //     let resp = reqwest::Client::new()
+    //         .post(req.url)
+    //         .body(req.body)
+    //         .header("Content-Type", req.content_type)
+    //         .send()
+    //         .await?;
+
+    //     match receiver.process_res(
+    //         resp.bytes().await?.to_vec().as_slice(),
+    //         ctx
+    //     ).expect("Failed to process response") {
+    //         Some(res) => {
+    //             let tx = receiver.extract_req(OHTTP_RELAY)?;
+    //             return Ok(tx);
+    //         }
+    //         None => {
+    //             continue;
+    //         }
+    //     }
+    // }
+
+
+    // let resp = receiver.process_req(req, amount).await?;
+
+    // let tx = receiver.extract_tx(resp).await?;
 
     Ok(())
+}
+
+async fn spawn_payjoin_receiver(
+    mut receiver: Receiver,
+    amount: Option<bitcoin::Amount>,
+) -> Result<()> {
+    info!("Receive session established");
+    let mut pj_uri = receiver.pj_uri();
+    pj_uri.amount = amount;
+    info!("Request Payjoin by sharing this Payjoin Uri:");
+    info!("{}", pj_uri);
+
+    let receiver = long_poll_fallback(&mut receiver).await?;
+
+    info!("Fallback transaction received. Consider broadcasting this to get paid if the Payjoin fails:");
+    info!("{}", serialize_hex(&receiver.extract_tx_to_schedule_broadcast()));
+    let mut payjoin_proposal = match process_v2_proposal(receiver.clone()) {
+        Ok(proposal) => proposal,
+        Err(payjoin::receive::Error::ReplyToSender(e)) => {
+            todo!("Handle recoverable error")
+            // return Err(
+            //     handle_recoverable_error(e, receiver, &self.config.v2()?.ohttp_relay).await
+            // );
+        }
+        Err(e) => return Err(e.into()),
+    };
+    let (req, ohttp_ctx) = payjoin_proposal
+        .extract_req(OHTTP_RELAY)
+        .map_err(|e| anyhow!("v2 req extraction failed {}", e))?;
+    info!("Got a request from the sender. Responding with a Payjoin proposal.");
+    let res = post_request(req).await?;
+    payjoin_proposal
+        .process_res(&res.bytes().await?, ohttp_ctx)
+        .map_err(|e| anyhow!("Failed to deserialize response {}", e))?;
+    let payjoin_psbt = payjoin_proposal.psbt().clone();
+    info!(
+        "Response successful. Watch mempool for successful Payjoin. TXID: {}",
+        payjoin_psbt.extract_tx_unchecked_fee_rate().clone().compute_txid()
+    );
+    //self.db.clear_recv_session()?;
+    Ok(())
+}
+
+async fn long_poll_fallback(receiver: &mut Receiver) -> Result<UncheckedProposal> {
+    loop {
+        let (req, context) = receiver.extract_req(OHTTP_RELAY)?;
+        println!("Polling receive request...");
+        let ohttp_response = post_request(req).await?;
+        let proposal = receiver
+            .process_res(ohttp_response.bytes().await?.to_vec().as_slice(), context)
+            .map_err(|_| anyhow!("GET fallback failed"))?;
+        debug!("got response");
+        if let Some(proposal) = proposal {
+            break Ok(proposal);
+        }
+    }
+}
+
+async fn post_request(req: payjoin::Request) -> Result<reqwest::Response> {
+    Ok(reqwest::Client::new()
+            .post(req.url)
+            .body(req.body)
+            .header("Content-Type", req.content_type)
+            .send()
+            .await?)
+}
+
+fn process_v2_proposal(proposal: UncheckedProposal) -> Result<PayjoinProposal, payjoin::receive::Error> {
+    // TODO get wallet from self
+    let wallet = wallet::BitcoindWallet::new()
+        .expect("Failed to create wallet");
+
+    // in a payment processor where the sender could go offline, this is where you schedule to broadcast the original_tx
+    let _to_broadcast_in_failure_case = proposal.extract_tx_to_schedule_broadcast();
+
+    // Receive Check 1: Can Broadcast
+    let proposal =
+        proposal.check_broadcast_suitability(None, |tx| Ok(wallet.can_broadcast(tx)?))?;
+    trace!("check1");
+
+    // Receive Check 2: receiver can't sign for proposal inputs
+    let proposal = proposal.check_inputs_not_owned(|input| Ok(wallet.is_mine(input)?))?;
+    trace!("check2");
+
+    // Receive Check 3: have we seen this input before? More of a check for non-interactive i.e. payment processor receivers.
+    let payjoin = proposal
+        .check_no_inputs_seen_before(|input| {
+            // TODO check db if input seen before
+            Ok(false)
+        })?;
+    trace!("check3");
+
+    let wants_inputs = payjoin
+        .identify_receiver_outputs(|output_script| Ok(wallet.is_mine(output_script)?))?
+        .commit_outputs();
+
+    let provisional_payjoin = try_contributing_inputs(wants_inputs.clone())
+        .expect("Failed to try contributing inputs");
+
+    let payjoin_proposal = provisional_payjoin.finalize_proposal(
+        |psbt| Ok(wallet.process_psbt(psbt)?),
+        None,
+        None, // TODO max fee rate
+    )?;
+    let payjoin_proposal_psbt = payjoin_proposal.psbt();
+    debug!("Receiver's Payjoin proposal PSBT Rsponse: {:#?}", payjoin_proposal_psbt);
+    Ok(payjoin_proposal)
+}
+
+/// Try to contribute a boltz backend input to the payjoin
+/// TODO depend on wallet as argument
+fn try_contributing_inputs(wants_inputs: WantsInputs) -> Result<ProvisionalProposal> {
+    todo!("try contributing boltz backend input")
 }

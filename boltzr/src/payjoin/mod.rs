@@ -5,6 +5,8 @@ use tracing::log::{info, debug, trace};
 
 use payjoin::bitcoin::consensus::encode::serialize_hex;
 
+use std::str::FromStr;
+
 mod wallet;
 
 const OHTTP_RELAY: &str = "https://ohttp.payjo.in";
@@ -12,7 +14,19 @@ const DIRECTORY: &str = "https://payjo.in";
 
 struct PayjoinReceiver {}
 
-pub async fn receive_payjoin(address: Address, amount: Amount) -> Result<()> {
+/// Initialize a payjoin from a gRPC request
+/// 
+/// Return the Payjoin Uri as a string
+async fn receive_payjoin_adapter<'a>(address: String, sats: Option<u64>, label: Option<String>) -> Result<String> {
+    let address = Address::from_str(&address)?  
+        .assume_checked();
+    let amount = sats.map(|s| Amount::from_sat(s));
+    let pj_uri = receive_payjoin(address, amount, label).await?;
+    Ok(pj_uri.to_string())
+}
+
+/// Receive a payjoin request and return the Payjoin Uri
+async fn receive_payjoin<'a>(address: Address, amount: Option<Amount>, label: Option<String>) -> Result<payjoin::PjUri<'a>> {
     let ohttp_keys = payjoin::io::fetch_ohttp_keys(OHTTP_RELAY,DIRECTORY).await?;
 
     let token = NewReceiver::new(
@@ -28,51 +42,23 @@ pub async fn receive_payjoin(address: Address, amount: Amount) -> Result<()> {
     let receiver = Receiver::load(token, &mut NoopPersister)
         .expect("Failed to create receiver");
 
-    spawn_payjoin_receiver(receiver, None).await?;
-
-    // loop {
-    //     let (req, ctx) = receiver.extract_req(OHTTP_RELAY)
-    //         .expect("Failed to extract request");
-
-    //     let resp = reqwest::Client::new()
-    //         .post(req.url)
-    //         .body(req.body)
-    //         .header("Content-Type", req.content_type)
-    //         .send()
-    //         .await?;
-
-    //     match receiver.process_res(
-    //         resp.bytes().await?.to_vec().as_slice(),
-    //         ctx
-    //     ).expect("Failed to process response") {
-    //         Some(res) => {
-    //             let tx = receiver.extract_req(OHTTP_RELAY)?;
-    //             return Ok(tx);
-    //         }
-    //         None => {
-    //             continue;
-    //         }
-    //     }
-    // }
-
-
-    // let resp = receiver.process_req(req, amount).await?;
-
-    // let tx = receiver.extract_tx(resp).await?;
-
-    Ok(())
+    let pj_uri = pj_uri_with_extras(&receiver, amount, label)?;
+    tokio::spawn(spawn_payjoin_receiver(receiver));
+    info!("Request Payjoin by sharing this Payjoin Uri: \n{}", pj_uri);
+    Ok(pj_uri)
 }
 
-async fn spawn_payjoin_receiver(
-    mut receiver: Receiver,
-    amount: Option<bitcoin::Amount>,
-) -> Result<()> {
-    info!("Receive session established");
+fn pj_uri_with_extras<'a>(receiver: &Receiver, amount: Option<bitcoin::Amount>, label: Option<String>) -> Result<payjoin::PjUri<'a>> {
     let mut pj_uri = receiver.pj_uri();
     pj_uri.amount = amount;
-    info!("Request Payjoin by sharing this Payjoin Uri:");
-    info!("{}", pj_uri);
+    pj_uri.label = label.map(|l| l.into());
+    Ok(pj_uri)
+}
 
+async fn spawn_payjoin_receiver<'a>(
+    mut receiver: Receiver,
+) -> Result<()> {
+    info!("Receive session established");
     let receiver = long_poll_fallback(&mut receiver).await?;
 
     info!("Fallback transaction received. Consider broadcasting this to get paid if the Payjoin fails:");

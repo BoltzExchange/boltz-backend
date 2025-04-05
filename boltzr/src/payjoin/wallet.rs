@@ -1,5 +1,11 @@
 
-use anyhow::Result;
+use std::sync::Arc;
+use std::str::FromStr;
+
+use anyhow::{anyhow, Context, Result};
+use bitcoin::consensus::encode::{deserialize, serialize_hex};
+use bitcoin::consensus::Encodable;
+use bitcoincore_rpc::{Auth, Client, RpcApi};
 use payjoin::bitcoin::psbt::Psbt;
 use payjoin::bitcoin::{
     Address, Network, Script, Transaction, Txid,
@@ -9,12 +15,19 @@ use payjoin::receive::InputPair;
 /// Implementation of PayjoinWallet for bitcoind
 #[derive(Clone, Debug)]
 pub struct BitcoindWallet {
-
+    pub bitcoind: Arc<Client>,
 }
 
 impl BitcoindWallet {
+    /// Create a new BitcoindWallet
+    /// 
+    /// FIXME get client from config argument
     pub fn new() -> Result<Self> {
-        Ok(Self {})
+        let client = Client::new(
+            "127.0.0.1:18443",
+            Auth::CookieFile("../docker/regtest/data/core/cookies/.bitcoin-cookie".into()),
+        )?;
+        Ok(Self { bitcoind: Arc::new(client) })
     }
 }
 
@@ -24,30 +37,50 @@ impl BitcoindWallet {
     /// Does not include bip32 derivations in the PSBT
     pub fn process_psbt(&self, psbt: &Psbt) -> Result<Psbt> {
         let psbt_str = psbt.to_string();
-        todo!("wallet process psbt");
+        let processed = self
+            .bitcoind
+            .wallet_process_psbt(&psbt_str, None, None, Some(false))
+            .context("Failed to process PSBT")?
+            .psbt;
+        Psbt::from_str(&processed).context("Failed to parse processed PSBT")
     }
 
     /// Finalize a PSBT and extract the transaction
     pub fn finalize_psbt(&self, psbt: &Psbt) -> Result<Transaction> {
-        todo!("wallet finalize psbt");
+        let result = self
+            .bitcoind
+            .finalize_psbt(&psbt.to_string(), Some(true))
+            .context("Failed to finalize PSBT")?;
+        let tx = deserialize(&result.hex.ok_or_else(|| anyhow!("Incomplete PSBT"))?)?;
+        Ok(tx)
     }
 
     /// Check if a transaction can be broadcast
     pub fn can_broadcast(&self, tx: &Transaction) -> Result<bool> {
-        // FIXME
-        Ok(true)
+        let raw_tx = serialize_hex(&tx);
+        let mempool_results = self.bitcoind.test_mempool_accept(&[raw_tx])?;
+        match mempool_results.first() {
+            Some(result) => Ok(result.allowed),
+            None => Err(anyhow!("No mempool results returned on broadcast check",)),
+        }
     }
 
     /// Broadcast a raw transaction
     pub fn broadcast_tx(&self, tx: &Transaction) -> Result<Txid> {
-        todo!("wallet broadcast tx");
+        let mut serialized_tx = Vec::new();
+        tx.consensus_encode(&mut serialized_tx)?;
+        self.bitcoind
+            .send_raw_transaction(&serialized_tx)
+            .context("Failed to broadcast transaction")
     }
 
     /// Check if a script belongs to this wallet
     pub fn is_mine(&self, script: &Script) -> Result<bool> {
-        if let Ok(_address) = Address::from_script(script, self.network()?) {
-           // FIXME
-           Ok(true)
+        if let Ok(address) = Address::from_script(script, self.network()?) {
+            self.bitcoind
+                .get_address_info(&address)
+                .map(|info| info.is_mine.unwrap_or(false))
+                .context("Failed to get address info")
         } else {
             Ok(false)
         }
@@ -60,18 +93,56 @@ impl BitcoindWallet {
 
     /// List unspent UTXOs
     pub fn list_unspent(&self) -> Result<Vec<InputPair>> {
-        // FIXME
-        Ok(vec![])
+        let unspent = self
+            .bitcoind
+            .list_unspent(None, None, None, None, None)
+            .context("Failed to list unspent")?;
+        Ok(unspent.into_iter().map(input_pair_from_list_unspent).collect())
     }
 
     /// Get the network this wallet is operating on
     pub fn network(&self) -> Result<Network> {
-        todo!("get network")
+        self.bitcoind
+            .get_blockchain_info()
+            .map_err(|_| anyhow!("Failed to get blockchain info"))
+            .map(|info| info.chain)
     }
 }
 
 pub fn input_pair_from_list_unspent(
-    // utxo: bitcoincore_rpc::bitcoincore_rpc_json::ListUnspentResultEntry,
+    utxo: bitcoincore_rpc::bitcoincore_rpc_json::ListUnspentResultEntry,
 ) -> InputPair {
-    unimplemented!("input pair from list unspent")
+    use bitcoin::psbt::Input;
+    use bitcoin::{OutPoint, TxIn, TxOut};
+
+    let psbtin = Input {
+        // NOTE: non_witness_utxo is not necessary because bitcoin-cli always supplies
+        // witness_utxo, even for non-witness inputs
+        witness_utxo: Some(TxOut {
+            value: utxo.amount,
+            script_pubkey: utxo.script_pub_key.clone(),
+        }),
+        redeem_script: utxo.redeem_script.clone(),
+        witness_script: utxo.witness_script.clone(),
+        ..Default::default()
+    };
+    let txin = TxIn {
+        previous_output: OutPoint { txid: utxo.txid, vout: utxo.vout },
+        ..Default::default()
+    };
+    InputPair::new(txin, psbtin).expect("Input pair should be valid")
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Not much of a unit test but great for the hackathon
+    /// make sure we can create a wallet with static config.
+    /// 
+    /// ENSURE boltz/regtest docker container is running before this test
+    #[test]
+    fn new_wallet() {
+        BitcoindWallet::new().unwrap();
+    }
 }

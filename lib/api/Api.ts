@@ -82,6 +82,7 @@ class Api {
 
     // GET requests
     this.app.route('/version').get(controller.version);
+    this.app.route('/hello').get(controller.helloWorld);
 
     this.app.route('/getpairs').get(controller.getPairs);
     this.app.route('/getnodes').get(controller.getNodes);

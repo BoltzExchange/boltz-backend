@@ -1058,6 +1058,46 @@ export namespace ScanMempoolResponse {
 
 }
 
+export class GetHelloWorldRequest extends jspb.Message { 
+    getName(): string;
+    setName(value: string): GetHelloWorldRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetHelloWorldRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetHelloWorldRequest): GetHelloWorldRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetHelloWorldRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetHelloWorldRequest;
+    static deserializeBinaryFromReader(message: GetHelloWorldRequest, reader: jspb.BinaryReader): GetHelloWorldRequest;
+}
+
+export namespace GetHelloWorldRequest {
+    export type AsObject = {
+        name: string,
+    }
+}
+
+export class GetHelloWorldResponse extends jspb.Message { 
+    getMessage(): string;
+    setMessage(value: string): GetHelloWorldResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetHelloWorldResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetHelloWorldResponse): GetHelloWorldResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetHelloWorldResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetHelloWorldResponse;
+    static deserializeBinaryFromReader(message: GetHelloWorldResponse, reader: jspb.BinaryReader): GetHelloWorldResponse;
+}
+
+export namespace GetHelloWorldResponse {
+    export type AsObject = {
+        message: string,
+    }
+}
+
 export enum LogLevel {
     ERROR = 0,
     WARN = 1,

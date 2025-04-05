@@ -41,6 +41,18 @@ class Controller {
     });
   };
 
+  public helloWorld = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const name = req.query.name as string || 'World';
+      const response = await this.service.sidecar.getHelloWorld(name);
+      successResponse(res, {
+        message: response.message,
+      });
+    } catch (error) {
+      errorResponse(this.logger, req, res, error);
+    }
+  };
+
   public getPairs = (_: Request, res: Response): void => {
     const data = this.service.getPairs();
 

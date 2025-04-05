@@ -21,6 +21,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     isMarked: IBoltzRService_IIsMarked;
     scanMempool: IBoltzRService_IScanMempool;
+    getHelloWorld: IBoltzRService_IGetHelloWorld;
 }
 
 interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse> {
@@ -140,6 +141,15 @@ interface IBoltzRService_IScanMempool extends grpc.MethodDefinition<boltzr_pb.Sc
     responseSerialize: grpc.serialize<boltzr_pb.ScanMempoolResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolResponse>;
 }
+interface IBoltzRService_IGetHelloWorld extends grpc.MethodDefinition<boltzr_pb.GetHelloWorldRequest, boltzr_pb.GetHelloWorldResponse> {
+    path: "/boltzr.BoltzR/GetHelloWorld";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.GetHelloWorldRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.GetHelloWorldRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.GetHelloWorldResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.GetHelloWorldResponse>;
+}
 
 export const BoltzRService: IBoltzRService;
 
@@ -157,6 +167,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
     scanMempool: grpc.handleUnaryCall<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse>;
+    getHelloWorld: grpc.handleUnaryCall<boltzr_pb.GetHelloWorldRequest, boltzr_pb.GetHelloWorldResponse>;
 }
 
 export interface IBoltzRClient {
@@ -197,6 +208,9 @@ export interface IBoltzRClient {
     scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
+    getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
+    getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzRClient extends grpc.Client implements IBoltzRClient {
@@ -237,4 +251,7 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    public getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
+    public getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
+    public getHelloWorld(request: boltzr_pb.GetHelloWorldRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.GetHelloWorldResponse) => void): grpc.ClientUnaryCall;
 }

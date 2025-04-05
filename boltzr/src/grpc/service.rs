@@ -8,13 +8,14 @@ use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
     Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
-    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
-    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
-    LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetHelloWorldRequest,
+    GetHelloWorldResponse, GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse,
+    IsMarkedRequest, IsMarkedResponse, LogLevel, ScanMempoolRequest, ScanMempoolResponse,
+    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
+    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
+    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse,
+    SwapUpdate, SwapUpdateRequest, SwapUpdateResponse, bolt11_invoice, bolt12_invoice,
+    decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -698,6 +699,19 @@ where
 
         Ok(Response::new(ScanMempoolResponse {
             transactions: transaction_serialized,
+        }))
+    }
+
+    async fn get_hello_world(
+        &self,
+        request: Request<GetHelloWorldRequest>,
+    ) -> Result<Response<GetHelloWorldResponse>, Status> {
+        tracing::log::info!("get_hello_world");
+        let name = request.get_ref().name.clone();
+        let message = format!("Hello, {}! Welcome to Boltz!", name);
+        
+        Ok(Response::new(GetHelloWorldResponse {
+            message,
         }))
     }
 }

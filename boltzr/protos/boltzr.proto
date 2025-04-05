@@ -24,6 +24,8 @@ service BoltzR {
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
+
+  rpc GetHelloWorld (GetHelloWorldRequest) returns (GetHelloWorldResponse);
 }
 
 message GetInfoRequest {}
@@ -237,4 +239,12 @@ message ScanMempoolResponse {
   }
 
   map<string, Transactions> transactions = 1;
+}
+
+message GetHelloWorldRequest {
+  string name = 1;
+}
+
+message GetHelloWorldResponse {
+  string message = 1;
 }

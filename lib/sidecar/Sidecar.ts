@@ -542,6 +542,13 @@ class Sidecar extends BaseClient<
     }
   };
 
+  public getHelloWorld = async (name: string) => {
+    return this.unaryNodeCall<
+      sidecarrpc.GetHelloWorldRequest,
+      sidecarrpc.GetHelloWorldResponse.AsObject
+    >('getHelloWorld', new sidecarrpc.GetHelloWorldRequest().setName(name));
+  };
+
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
     const req = new sidecarrpc.SendWebHookRequest();
     req.setId(swapId);

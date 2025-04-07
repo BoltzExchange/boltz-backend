@@ -3,7 +3,6 @@ use dashmap::DashMap;
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
-use tokio_util::bytes::Buf;
 use tracing::{debug, info, instrument, trace};
 
 fn ipv4_ranges_default() -> String {
@@ -68,7 +67,7 @@ impl CountryCodes {
         debug!("Marking swaps from countries: {}", countries.join(", "));
 
         let csvs = try_join_all(
-            [&config.ip_v4_ranges, &config.ip_v6_ranges].map(|url| Self::fetch_file(url)),
+            [&config.ip_v4_ranges, &config.ip_v6_ranges].map(|url| Self::get_ranges(url)),
         )
         .await?;
         info!("Fetched country codes for IP ranges");
@@ -77,7 +76,7 @@ impl CountryCodes {
             let mut reader = csv::ReaderBuilder::new()
                 .delimiter(b',')
                 .has_headers(false)
-                .from_reader(csv.reader());
+                .from_reader(&*csv);
 
             for row in reader.deserialize() {
                 let row: CsvRow = row?;
@@ -109,13 +108,18 @@ impl CountryCodes {
         false
     }
 
-    async fn fetch_file(url: &str) -> Result<axum::body::Bytes> {
-        Ok(reqwest::Client::new()
-            .get(url)
-            .send()
-            .await?
-            .bytes()
-            .await?)
+    async fn get_ranges(url_or_path: &str) -> Result<Vec<u8>> {
+        if url_or_path.starts_with("http://") || url_or_path.starts_with("https://") {
+            Ok(reqwest::Client::new()
+                .get(url_or_path)
+                .send()
+                .await?
+                .bytes()
+                .await?
+                .to_vec())
+        } else {
+            Ok(tokio::fs::read(url_or_path).await?)
+        }
     }
 }
 

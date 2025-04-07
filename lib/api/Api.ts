@@ -22,7 +22,7 @@ class Api {
     redis?: Redis,
   ) {
     this.app = express();
-    this.app.set('trust proxy', 'loopback');
+    this.app.set('trust proxy', true);
 
     this.app.use(
       express.json({

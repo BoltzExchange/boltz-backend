@@ -1,4 +1,5 @@
 import { getChainCurrency, getLightningCurrency } from '../../Utils';
+import ElementsClient from '../../chain/ElementsClient';
 import type { OrderSide } from '../../consts/Enums';
 import { BaseFeeType, SwapType, SwapVersion } from '../../consts/Enums';
 import type { PairConfig } from '../../consts/Types';
@@ -50,6 +51,15 @@ abstract class RateProviderBase<T> {
     orderSide?: OrderSide,
     type?: SwapType,
   ) => {
+    // Liquid fees are stable
+    if (
+      type !== undefined &&
+      type !== SwapType.Chain &&
+      (base === ElementsClient.symbol || quote === ElementsClient.symbol)
+    ) {
+      return configuredMinima;
+    }
+
     const minima = [configuredMinima];
 
     const isReverse = type === SwapType.ReverseSubmarine;

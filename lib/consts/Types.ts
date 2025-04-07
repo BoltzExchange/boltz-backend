@@ -29,12 +29,18 @@ export type Token = {
   decimals: number;
 };
 
-export type ChainSwapPairConfig = {
-  buyFee?: number;
-  sellFee?: number;
-
+export type PairLimits = {
   minSwapAmount?: number;
   maxSwapAmount?: number;
+};
+
+export type SubmarinePairConfig = PairLimits & {
+  minBatchedAmount?: number;
+};
+
+export type ChainSwapPairConfig = PairLimits & {
+  buyFee?: number;
+  sellFee?: number;
 };
 
 export type PairConfig = {
@@ -62,6 +68,7 @@ export type PairConfig = {
   maxSwapAmount: number;
 
   chainSwap?: ChainSwapPairConfig;
+  submarineSwap?: SubmarinePairConfig;
 
   isLegacy?: boolean;
 };

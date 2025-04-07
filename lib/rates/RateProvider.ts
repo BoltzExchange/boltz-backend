@@ -2,8 +2,10 @@ import type { MinSwapSizeMultipliersConfig } from '../Config';
 import type Logger from '../Logger';
 import {
   getPairId,
+  getSendingReceivingCurrency,
   minutesToMilliseconds,
   objectMap,
+  splitPairId,
   stringify,
 } from '../Utils';
 import {
@@ -15,6 +17,8 @@ import {
   swapTypeToString,
 } from '../consts/Enums';
 import type { PairConfig } from '../consts/Types';
+import type Swap from '../db/models/Swap';
+import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -189,6 +193,32 @@ class RateProvider {
     } else {
       return false;
     }
+  };
+
+  public isBatchOnly = (swap: Swap | ChainSwapInfo): boolean => {
+    if (
+      swap.type !== SwapType.Submarine ||
+      swap.version === SwapVersion.Legacy
+    ) {
+      return false;
+    }
+
+    const { base, quote } = splitPairId(swap.pair);
+    const { sending, receiving } = getSendingReceivingCurrency(
+      base,
+      quote,
+      swap.orderSide,
+    );
+
+    const pairConfig = this.providers[SwapVersion.Taproot]
+      .getSubmarinePairs()
+      .get(receiving)
+      ?.get(sending);
+    if (pairConfig === undefined) {
+      return false;
+    }
+
+    return (swap as Swap).invoiceAmount! < pairConfig.limits.minimal;
   };
 
   public has = (pairId: string) => this.configPairs.has(pairId);

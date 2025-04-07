@@ -54,6 +54,13 @@ describe('PaymentRequestUtils', () => {
     );
   });
 
+  test('should not encode BIP-21 with scientific notation', () => {
+    const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
+    expect(pru.encodeBip21('BTC', address, 42)).toEqual(
+      `bitcoin:${address}?amount=0.00000042`,
+    );
+  });
+
   test.each`
     satoshis
     ${undefined}

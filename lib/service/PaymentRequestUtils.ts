@@ -43,7 +43,11 @@ class PaymentRequestUtils {
     const params: Record<string, string> = {};
 
     if (satoshis !== undefined && satoshis !== 0) {
-      params.amount = `${satoshisToCoins(satoshis)}`;
+      // Ensure we don't get scientific notation for small numbers
+      params.amount = satoshisToCoins(satoshis).toLocaleString('en-US', {
+        useGrouping: false,
+        maximumFractionDigits: 8,
+      });
     }
 
     if (label !== undefined) {

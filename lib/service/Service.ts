@@ -2327,10 +2327,15 @@ class Service {
     );
 
     if (limits) {
-      if (Math.floor(amount) > limits.maximal)
+      const minimal =
+        (limits as SubmarinePairTypeTaproot['limits']).minimalBatched ||
+        limits.minimal;
+
+      if (Math.floor(amount) > limits.maximal) {
         throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
-      if (Math.ceil(amount) < limits.minimal)
-        throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
+      } else if (Math.ceil(amount) < minimal) {
+        throw Errors.BENEATH_MINIMAL_AMOUNT(amount, minimal);
+      }
     } else {
       throw Errors.PAIR_NOT_FOUND(pairId);
     }

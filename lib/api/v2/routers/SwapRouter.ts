@@ -96,7 +96,10 @@ class SwapRouter extends RouterBase {
      *           properties:
      *             minimal:
      *               type: number
-     *               description: Minimal amount that can be swapped in satoshis
+     *               description: Minimal amount that can be swapped in satoshis for cooperative claims
+     *             minimalBatched:
+     *               type: number
+     *               description: Minimal amount that can be swapped in satoshis for batched claims
      *             maximal:
      *               type: number
      *               description: Maximal amount that can be swapped in satoshis

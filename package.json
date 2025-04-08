@@ -17,7 +17,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 .",
-    "prettier": "npx prettier docs '{lib,test}/**/*.ts' bin",
+    "prettier": "npx prettier docs '{lib,test}/**/*.ts' '!docs/*' bin",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
     "db:start": "npm run docker:dragonfly:start && docker run --name boltz-db --rm -v ~/.boltz/db:/var/lib/postgresql/data -e PGDATA=/var/lib/postgresql/data/pgdata -e POSTGRES_DB=boltz -e POSTGRES_USER=boltz -e POSTGRES_PASSWORD=boltz -d -p 5432:5432 postgres:17-alpine && npm run db:setup",

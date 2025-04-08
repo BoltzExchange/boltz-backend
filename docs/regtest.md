@@ -8,21 +8,12 @@ description: >-
 
 Prerequisites:
 
-- The latest
-  [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-  installed. We recommend using
-  [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm
-  installs: `nvm install --lts`
-- [Docker](https://docs.docker.com/engine/install/) or
-  [Orbstack](https://orbstack.dev/) for Apple Silicon Macs
+* The latest [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
+* [Docker](https://docs.docker.com/engine/install/) or [Orbstack](https://orbstack.dev/) for Apple Silicon Macs
 
-The regtest environment of the Boltz Backend is based on
-[boltz/regtest](https://hub.docker.com/r/boltz/regtest). To start the images run
-`npm run docker:start` and to stop them again use `npm run docker:stop` to stop
-and remove the containers.
+The regtest environment of the Boltz Backend is based on [boltz/regtest](https://hub.docker.com/r/boltz/regtest). To start the images run `npm run docker:start` and to stop them again use `npm run docker:stop` to stop and remove the containers.
 
-To use the nodes in the container with the Boltz Backend, use a configuration
-file in `~/.boltz/boltz.conf` similar to this one:
+To use the nodes in the container with the Boltz Backend, use a configuration file in `~/.boltz/boltz.conf` similar to this one:
 
 ```toml
 [postgres]
@@ -170,8 +161,7 @@ erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     maxWalletBalance = 500_000_000_000
 ```
 
-We recommend adding aliases to control executables of Boltz and nodes to your
-`.bashrc`:
+We recommend adding aliases to control executables of Boltz and nodes to your `.bashrc`:
 
 ```bash
 # Boltz Docker regtest

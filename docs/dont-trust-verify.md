@@ -50,7 +50,7 @@ OP_0
 Examples for generating all of these addresses with `Node.js` can be found in the [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/v2.0.1/lib/swap/Scripts.ts) reference library.
 
 {% hint style="info" %}
-Address verification applies to all swap types involving a UTXO chain. A list of Bitcoin mainchain Opcodes with description can be found on the \[Bitcoin Wiki]\(https://en.bitcoin.it/wiki/Script).
+Address verification applies to all swap types involving a UTXO chain. A list of Bitcoin mainchain Opcodes with description can be found on the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
 {% endhint %}
 
 ## Lightning Invoice Verification
@@ -71,6 +71,10 @@ Boltz API clients should check that EVM swaps are carried out using a legitimate
 ## Taproot Swaps Script Path Fallback
 
 Key path spends in the Taproot Swap protocol rely on Boltz cooperating. Should Boltz disappear or refuse to cooperate, for Chain and Normal Submarine Swaps, Boltz API clients must implement a fallback to the script path to be able to enforce claim and refund transactions.
+
+## Blockchain Interaction
+
+Boltz provides [endpoints](https://api.boltz.exchange/swagger#/Chain/) for querying blockchain data and broadcasting transactions. For trust minimization, we advise to use self-hosted infrastructure or external services (e.g., [blockstream.info](https://blockstream.info/) or [mempool.space](https://mempool.space/)) to verify blockchain information obtained from Boltz.
 
 ## General Measurements
 

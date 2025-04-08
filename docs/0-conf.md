@@ -15,7 +15,7 @@ As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf. 
 _0-conf Swaps are subject to network conditions and only available on UTXO chains like Bitcoin or Liquid._
 
 {% hint style="info" %}
-Because of \[growing adoption of\`mempoolfullrbf\`]\(https://github.com/bitcoin/bitcoin/pull/28132) by a significant set of miners, Boltz is currently \*\*not\*\* accepting 0-conf transactions on the Bitcoin mainchain.
+Because of [growing adoption of mempoolfullrbf](https://github.com/bitcoin/bitcoin/pull/28132) by a significant set of miners, Boltz is **not** accepting 0-conf transactions on the Bitcoin mainchain.
 {% endhint %}
 
 ## Limits

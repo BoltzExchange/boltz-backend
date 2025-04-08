@@ -217,9 +217,12 @@ where
                 self.retry_count.remove(&hook.id());
                 self.hook_state.set_state(&hook, WebHookState::Ok)?;
 
-                if let Err(err) = self.successful_calls.send((hook, res.to_vec())) {
-                    warn!("Failed to send successful WebHook call to channel: {}", err);
+                if self.successful_calls.receiver_count() > 0 {
+                    if let Err(err) = self.successful_calls.send((hook, res.to_vec())) {
+                        warn!("Failed to send successful WebHook call to channel: {}", err);
+                    }
                 }
+
                 Ok(CallResult::Success)
             }
             Err(err) => {

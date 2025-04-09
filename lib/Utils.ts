@@ -18,6 +18,9 @@ import { etherDecimals } from './consts/Consts';
 import { OrderSide, SwapType, SwapVersion } from './consts/Enums';
 import Errors from './service/Errors';
 
+const nodemailer = require('nodemailer');
+const emailConfig = require('../emailConfig.json');
+
 export const TAPROOT_NOT_SUPPORTED = 'taproot not supported';
 
 const {
@@ -646,3 +649,27 @@ export const roundToDecimals = (value: number, decimals: number): number =>
 
 export const removeHexPrefix = (hex: string): string =>
   hex.startsWith('0x') ? hex.substring(2) : hex;
+
+export const sendEmail = (subject, text, logger) => {
+  if (
+    emailConfig.SENSITIVE_MAILER_TRANSPORT &&
+    emailConfig.SENSITIVE_EMAIL_FROM &&
+    emailConfig.EMAIL_TO
+  ) {
+    const transporter = nodemailer.createTransport(
+      emailConfig.SENSITIVE_MAILER_TRANSPORT,
+    );
+
+    const mailConfigurations = {
+      from: emailConfig.SENSITIVE_EMAIL_FROM,
+      to: emailConfig.EMAIL_TO,
+      subject: emailConfig.TESTNET ? `[TESTNET] ${subject}` : subject,
+      text,
+    };
+
+    transporter.sendMail(mailConfigurations, function (error, info) {
+      if (error) throw Error(error);
+      logger.verbose('Email Sent Successfully', { info });
+    });
+  }
+};

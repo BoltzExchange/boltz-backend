@@ -95,3 +95,6 @@ docker/regtest/data/cln/plugins
 
 # Test artifacts
 test/integration/sidecar/sidecar
+
+# Email config
+emailConfig.json

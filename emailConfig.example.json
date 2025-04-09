@@ -1,0 +1,13 @@
+{
+    "SENSITIVE_MAILER_TRANSPORT": {
+        "host": "smtp.protonmail.ch",
+        "port": 587,
+        "auth": {
+            "user": "xxx@zeusln.com",
+            "pass": "xxx"
+        }
+    },
+    "SENSITIVE_EMAIL_FROM": "xxx@zeusln.com",
+    "EMAIL_TO": "yyy@nyxmail.com",
+    "TESTNET": false
+}

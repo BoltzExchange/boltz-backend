@@ -1,7 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type Logger from '../Logger';
-import { saneStringify } from '../Utils';
+import { saneStringify, sendEmail } from '../Utils';
 import {
   SwapType,
   SwapUpdateEvent,
@@ -132,6 +132,12 @@ class EventHandler extends TypedEventEmitter<{
     this.nursery.on('invoice.settled', (swap) => {
       this.logger.verbose(`Reverse swap ${swap.id} succeeded`);
 
+      sendEmail(
+        'ZEUS Swaps: Reverse swap completed',
+        JSON.stringify(swap),
+        this.logger,
+      );
+
       this.emit('swap.update', {
         id: swap.id,
         status: {
@@ -195,6 +201,12 @@ class EventHandler extends TypedEventEmitter<{
     this.nursery.on('claim', ({ swap, channelCreation }) => {
       this.logger.verbose(
         `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} succeeded`,
+      );
+
+      sendEmail(
+        'ZEUS Swaps: Swap completed',
+        JSON.stringify(swap),
+        this.logger,
       );
 
       this.emit('swap.update', {

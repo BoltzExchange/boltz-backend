@@ -9,27 +9,15 @@ description: >-
 
 Prerequisites:
 
-- The latest
-  [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-  installed. We recommend using
-  [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm
-  installs: `nvm install --lts`
-- [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript`
-  code)
+* The latest [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed. We recommend using [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm installs: `nvm install --lts`
+* [rsync](https://github.com/WayneD/rsync) (needed to compile the `TypeScript` code)
 
-Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin
-mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc.
-Bitcoin/Elements Core must:
+Boltz Backend requires a synced Bitcoin Core Instance to connect to the Bitcoin mainchain. Similarly, Elements Core to connect to the Liquid sidechain etc. Bitcoin/Elements Core must:
 
-- Have the transaction index enabled: `txindex=1`
-- Enable ZeroMQ streams for raw blocks and raw transactions:
-  (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
+* Have the transaction index enabled: `txindex=1`
+* Enable ZeroMQ streams for raw blocks and raw transactions: (`zmqpubrawblock=tcp://<host>:<port>` and `zmqpubrawtx=tcp://<host>:<port>`)
 
-Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or
-[CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to
-be present. For LND, no special configuration is needed, all
-[official release binaries](https://github.com/lightningnetwork/lnd/releases)
-are compatible.
+Boltz requires a [LND](https://github.com/LightningNetwork/lnd) or [CLN](https://github.com/ElementsProject/lightning/) node running on Bitcoin to be present. For LND, no special configuration is needed, all [official release binaries](https://github.com/lightningnetwork/lnd/releases) are compatible.
 
 ## Config Sample
 
@@ -351,8 +339,7 @@ zeroConfWaitTime = 1_000
 
 ## Database migrations
 
-To migrate from an SQLite database to PostgreSQL, use the following script with
-[pgloader](https://pgloader.io/):
+To migrate from an SQLite database to PostgreSQL, use the following script with [pgloader](https://pgloader.io/):
 
 ```
 load database

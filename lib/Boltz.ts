@@ -26,6 +26,7 @@ import GrpcService from './grpc/GrpcService';
 import type { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
+import EmailNotifier from './notifications/EmailNotifier';
 import NotificationClient from './notifications/NotificationClient';
 import NotificationProvider from './notifications/NotificationProvider';
 import Service from './service/Service';
@@ -50,6 +51,7 @@ class Boltz {
   private readonly redis?: Redis;
 
   private readonly notifications?: NotificationProvider;
+  private readonly emailNotifier?: EmailNotifier;
 
   private readonly api!: Api;
   private readonly grpcServer!: GrpcServer;
@@ -215,6 +217,18 @@ class Boltz {
         this.config.prometheus,
         this.config.pairs,
       );
+
+      if (this.config.email?.enabled) {
+        this.emailNotifier = new EmailNotifier(
+          this.config.email,
+          this.logger,
+          this.service,
+          this.walletManager,
+          this.sidecar,
+        );
+      } else {
+        this.logger.info('Email notifications disabled');
+      }
     } catch (error) {
       this.logger.error(`Could not start Boltz: ${formatError(error)}`);
       Sidecar.stop().then();
@@ -275,6 +289,7 @@ class Boltz {
       );
 
       await this.notifications?.init();
+      this.emailNotifier?.init();
 
       await this.grpcServer.listen();
       await this.api.init();

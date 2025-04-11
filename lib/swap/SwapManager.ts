@@ -481,10 +481,8 @@ class SwapManager {
       // TODO: little sketchy, but works for now
       result.arkSwapTree = vHtlc.getSwapTree()!.toObject()!;
 
-      // TODO: check if bitcoin core is available on startup
-      const { chainClient } = this.currencies.get('BTC')!;
       result.timeoutBlockHeight =
-        (await chainClient!.getBlockchainInfo()).blocks +
+        (await receivingCurrency.arkNode!.getBlockHeight()) +
         args.timeoutBlockDelta;
 
       await SwapRepository.addSwap({
@@ -1052,10 +1050,8 @@ class SwapManager {
 
       result.lockupAddress = vHtlc.getAddress();
 
-      // TODO: check if bitcoin core is available on startup
-      const { chainClient } = this.currencies.get('BTC')!;
-      result.timeoutBlockHeight = result.timeoutBlockHeight =
-        (await chainClient!.getBlockchainInfo()).blocks +
+      result.timeoutBlockHeight =
+        (await sendingCurrency.arkNode!.getBlockHeight()) +
         args.onchainTimeoutBlockDelta;
 
       const swap = await ReverseSwapRepository.addReverseSwap({

@@ -150,9 +150,8 @@ class TimeoutDeltaProvider {
     let currentBlock: number;
 
     switch (chainCurrency.type) {
-      // TODO: how to set that?
       case CurrencyType.Ark:
-        currentBlock = 0;
+        currentBlock = await chainCurrency.arkNode!.getBlockHeight();
         break;
 
       case CurrencyType.BitcoinLike:

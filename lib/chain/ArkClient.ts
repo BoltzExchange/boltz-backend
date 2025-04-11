@@ -11,6 +11,7 @@ import * as notificationrpc from '../proto/ark/notification_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
 import type * as arkrpcTypes from '../proto/ark/types_pb';
+import type { IChainClient } from './ChainClient';
 
 export type ArkConfig = {
   host: string;
@@ -33,6 +34,8 @@ class ArkClient extends BaseClient<
 > {
   public static readonly symbol = 'ARK';
 
+  private chainClient?: IChainClient;
+
   private client!: ServiceClient;
   private notificationClient!: NotificationServiceClient;
   private readonly meta: Metadata = new Metadata();
@@ -44,10 +47,12 @@ class ArkClient extends BaseClient<
     super(logger, ArkClient.symbol);
   }
 
-  public connect = async (): Promise<boolean> => {
+  public connect = async (chainClient: IChainClient): Promise<boolean> => {
     if (this.isConnected()) {
       return true;
     }
+
+    this.chainClient = chainClient;
 
     this.client = new ServiceClient(
       `${this.config.host}:${this.config.port}`,
@@ -85,6 +90,14 @@ class ArkClient extends BaseClient<
       arkrpc.GetInfoRequest,
       arkrpc.GetInfoResponse.AsObject
     >('getInfo', new arkrpc.GetInfoRequest());
+  };
+
+  public getBlockHeight = async (): Promise<number> => {
+    if (this.chainClient === undefined) {
+      throw 'chain client not set';
+    }
+
+    return (await this.chainClient.getBlockchainInfo()).blocks;
   };
 
   public getBalance = async (): Promise<number> => {

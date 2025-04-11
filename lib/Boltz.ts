@@ -281,7 +281,12 @@ class Boltz {
           );
 
           if (currency.arkNode) {
-            prms.push(this.connectArkNode(currency.arkNode));
+            const chainClient = this.currencies.get('BTC')?.chainClient;
+            if (chainClient === undefined) {
+              throw 'BTC chain client is required for ARK node connection';
+            }
+
+            prms.push(this.connectArkNode(currency.arkNode, chainClient));
           }
 
           return prms;
@@ -441,11 +446,14 @@ class Boltz {
     }
   };
 
-  private connectArkNode = async (client: ArkClient) => {
+  private connectArkNode = async (
+    client: ArkClient,
+    chainClient: IChainClient,
+  ) => {
     const service = `${client.symbol} ${client.serviceName()}`;
 
     try {
-      await client.connect();
+      await client.connect(chainClient);
       this.logStatus(service, await client.getInfo());
     } catch (error) {
       this.logCouldNotConnect(service, error);

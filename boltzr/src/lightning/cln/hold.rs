@@ -189,7 +189,7 @@ impl Hold {
         let mut request_bytes = vec![];
         request.write(&mut request_bytes)?;
 
-        let hook = InvoiceHook::new(&request_bytes, offer.url, None);
+        let hook = InvoiceHook::new(&request_bytes, offer.url, offer.offer, None);
         let hook_id = hook.id();
 
         let mut receiver = self.invoice_caller.subscribe_successful_calls();
@@ -311,6 +311,7 @@ impl Hold {
                             .call(InvoiceHook::new(
                                 &invoice_request,
                                 offer.url,
+                                offer.offer,
                                 Some(reply_blinded_path),
                             ))
                             .await

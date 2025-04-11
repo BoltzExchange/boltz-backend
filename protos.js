@@ -14,9 +14,16 @@ const protocPath = path.join(
 );
 const protocGenTsPath = path.join(__dirname, 'node_modules/.bin/protoc-gen-ts');
 
+const googleApisPath = path.join(__dirname, 'node_modules/google-proto-files');
+
 const protoPaths = [
   [`--proto_path ${protoDir} ${protoDir}/*.proto`, libDir],
   [`--proto_path ${protoDir} ${protoDir}/**/*.proto`, libDir],
+  [
+    `--proto_path ${protoDir} ${googleApisPath}/google/api/annotations.proto`,
+    libDir,
+  ],
+  [`--proto_path ${protoDir} ${googleApisPath}/google/api/http.proto`, libDir],
   [
     `--proto_path ${protoDirHold} ${protoDirHold}/*.proto`,
     path.join(libDir, 'hold'),
@@ -31,12 +38,14 @@ for (const [path, lib] of protoPaths) {
   try {
     childProcess.execSync(
       `${protocPath} ${[
+        `--proto_path ${googleApisPath}`,
         `--grpc_out="grpc_js:${lib}"`,
         `--js_out="import_style=commonjs,binary:${lib}"`,
       ].join(' ')} ${path}`,
     );
     childProcess.execSync(
       `${protocPath} ${[
+        `--proto_path ${googleApisPath}`,
         `--plugin="protoc-gen-ts=${protocGenTsPath}"`,
         `--ts_out="grpc_js:${lib}"`,
       ].join(' ')} ${path}`,

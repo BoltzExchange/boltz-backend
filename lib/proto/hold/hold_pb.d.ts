@@ -623,24 +623,9 @@ export namespace TrackAllResponse {
     }
 }
 
-export class OnionMessagesRequest extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): OnionMessagesRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: OnionMessagesRequest): OnionMessagesRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: OnionMessagesRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): OnionMessagesRequest;
-    static deserializeBinaryFromReader(message: OnionMessagesRequest, reader: jspb.BinaryReader): OnionMessagesRequest;
-}
-
-export namespace OnionMessagesRequest {
-    export type AsObject = {
-    }
-}
-
 export class OnionMessage extends jspb.Message { 
+    getId(): number;
+    setId(value: number): OnionMessage;
 
     hasPathsecret(): boolean;
     clearPathsecret(): void;
@@ -691,6 +676,7 @@ export class OnionMessage extends jspb.Message {
 
 export namespace OnionMessage {
     export type AsObject = {
+        id: number,
         pathsecret: Uint8Array | string,
         replyBlindedpath?: OnionMessage.ReplyBlindedPath.AsObject,
         invoiceRequest: Uint8Array | string,
@@ -810,6 +796,34 @@ export namespace OnionMessage {
         }
     }
 
+}
+
+export class OnionMessageResponse extends jspb.Message { 
+    getId(): number;
+    setId(value: number): OnionMessageResponse;
+    getAction(): HookAction;
+    setAction(value: HookAction): OnionMessageResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): OnionMessageResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: OnionMessageResponse): OnionMessageResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: OnionMessageResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OnionMessageResponse;
+    static deserializeBinaryFromReader(message: OnionMessageResponse, reader: jspb.BinaryReader): OnionMessageResponse;
+}
+
+export namespace OnionMessageResponse {
+    export type AsObject = {
+        id: number,
+        action: HookAction,
+    }
+}
+
+export enum HookAction {
+    CONTINUE = 0,
+    RESOLVE = 1,
 }
 
 export enum InvoiceState {

@@ -2,6 +2,7 @@ import { Transaction } from 'bitcoinjs-lib';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type Logger from '../Logger';
 import { saneStringify } from '../Utils';
+import ArkClient from '../chain/ArkClient';
 import {
   SwapType,
   SwapUpdateEvent,
@@ -22,6 +23,8 @@ type TransactionInfo = {
 
 type SwapUpdate = {
   status: SwapUpdateEvent;
+
+  preimage?: string;
 
   zeroConfRejected?: boolean;
   transaction?: TransactionInfo;
@@ -132,11 +135,17 @@ class EventHandler extends TypedEventEmitter<{
     this.nursery.on('invoice.settled', (swap) => {
       this.logger.verbose(`Reverse swap ${swap.id} succeeded`);
 
+      const status: SwapUpdate = {
+        status: SwapUpdateEvent.InvoiceSettled,
+      };
+
+      if (swap.onchainSymbol === ArkClient.symbol) {
+        status.preimage = swap.preimage!;
+      }
+
       this.emit('swap.update', {
         id: swap.id,
-        status: {
-          status: SwapUpdateEvent.InvoiceSettled,
-        },
+        status,
       });
       this.emit('swap.success', { swap });
     });

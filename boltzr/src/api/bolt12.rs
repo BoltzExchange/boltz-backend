@@ -36,6 +36,15 @@ pub struct UpdateRequest {
 pub struct UpdateResponse {}
 
 #[derive(Deserialize)]
+pub struct DeleteRequest {
+    offer: String,
+    signature: String,
+}
+
+#[derive(Serialize)]
+pub struct DeleteResponse {}
+
+#[derive(Deserialize)]
 pub struct ParamsPath {
     pub currency: String,
     pub receiving: String,
@@ -99,17 +108,9 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let signature = match hex::decode(body.signature) {
+    let signature = match parse_signature(body.signature) {
         Ok(signature) => signature,
-        Err(err) => {
-            return Ok((
-                StatusCode::UNPROCESSABLE_ENTITY,
-                Json(ApiError {
-                    error: err.to_string(),
-                }),
-            )
-                .into_response());
-        }
+        Err(err) => return Ok(*err),
     };
 
     let cln = match state
@@ -123,6 +124,33 @@ where
 
     cln.hold.update_offer(body.offer, body.url, &signature)?;
     Ok((StatusCode::OK, Json(UpdateResponse {})).into_response())
+}
+
+pub async fn delete<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(currency): Path<String>,
+    Json(body): Json<DeleteRequest>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let signature = match parse_signature(body.signature) {
+        Ok(signature) => signature,
+        Err(err) => return Ok(*err),
+    };
+
+    let cln = match state
+        .manager
+        .get_currency(&currency)
+        .and_then(|currency| currency.cln)
+    {
+        Some(cln) => cln,
+        None => return Ok(no_cln_error()),
+    };
+
+    cln.hold.delete_offer(body.offer, &signature)?;
+    Ok((StatusCode::OK, Json(DeleteResponse {})).into_response())
 }
 
 pub async fn params<S, M>(
@@ -195,6 +223,21 @@ fn no_cln_error() -> Response<Body> {
         }),
     )
         .into_response()
+}
+
+fn parse_signature(signature: String) -> std::result::Result<Vec<u8>, Box<Response<Body>>> {
+    match hex::decode(signature) {
+        Ok(signature) => Ok(signature),
+        Err(err) => Err(Box::new(
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(ApiError {
+                    error: err.to_string(),
+                }),
+            )
+                .into_response(),
+        )),
+    }
 }
 
 #[cfg(test)]

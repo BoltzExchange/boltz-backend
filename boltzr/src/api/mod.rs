@@ -144,6 +144,10 @@ where
                 patch(bolt12::update::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/bolt12/delete",
+                post(bolt12::delete::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/bolt12/{receiving}",
                 get(bolt12::params::<S, M>),
             )

@@ -35,6 +35,11 @@ use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, error, info, instrument, warn};
 
+const ERR_INVALID_SIGNATURE: &str = "invalid signature";
+const ERR_NO_OFFER_REGISTERED: &str = "no offer for this signing public key was registered";
+
+const OFFER_DELETE_MESSAGE: &str = "DELETE";
+
 #[derive(Debug, Deserialize)]
 struct InvoiceRequestResponse {
     pub invoice: String,
@@ -119,7 +124,7 @@ impl Hold {
     }
 
     pub fn add_offer(&self, offer: String, url: String) -> Result<()> {
-        let signer = Self::prepare_offer(self.network, &offer, &url)?;
+        let signer = Self::prepare_offer(self.network, &offer, Some(&url))?;
         if self.offer_helper.get_by_signer(&signer)?.is_some() {
             return Err(anyhow!(
                 "an offer for this signing public key was registered already"
@@ -137,29 +142,32 @@ impl Hold {
     }
 
     pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
-        let signer = Self::prepare_offer(self.network, &offer, &url)?;
+        let signer: Vec<u8> = Self::prepare_offer(self.network, &offer, Some(&url))?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
-            return Err(anyhow!(
-                "no offer for this signing public key was registered"
-            ));
+            return Err(anyhow!(ERR_NO_OFFER_REGISTERED));
         }
 
-        let secp = Secp256k1::verification_only();
-        if secp
-            .verify_schnorr(
-                &Signature::from_slice(signature)?,
-                &Message::from_digest(
-                    *bitcoin_hashes::Sha256::hash(url.as_bytes()).as_byte_array(),
-                ),
-                &PublicKey::from_slice(&signer)?.to_x_only_pubkey(),
-            )
-            .is_err()
-        {
-            return Err(anyhow!("invalid signature"));
+        if !Self::schnor_signature_valid(&signer, signature, &url)? {
+            return Err(anyhow!(ERR_INVALID_SIGNATURE));
         }
 
         self.offer_helper.update(&signer, url)?;
         info!("Updated offer");
+        Ok(())
+    }
+
+    pub fn delete_offer(&self, offer: String, signature: &[u8]) -> Result<()> {
+        let signer = Self::prepare_offer(self.network, &offer, None)?;
+        if self.offer_helper.get_by_signer(&signer)?.is_none() {
+            return Err(anyhow!(ERR_NO_OFFER_REGISTERED));
+        }
+
+        if !Self::schnor_signature_valid(&signer, signature, OFFER_DELETE_MESSAGE)? {
+            return Err(anyhow!(ERR_INVALID_SIGNATURE));
+        }
+
+        self.offer_helper.delete(&signer)?;
+        info!("Deleted offer");
         Ok(())
     }
 
@@ -376,9 +384,11 @@ impl Hold {
         self.offer_helper.get_by_signer(&signing_pubkey.serialize())
     }
 
-    fn prepare_offer(network: wallet::Network, offer: &str, url: &str) -> Result<Vec<u8>> {
-        if let Some(err) = validate_url(url, network == wallet::Network::Regtest) {
-            return Err(anyhow!("invalid URL: {}", err));
+    fn prepare_offer(network: wallet::Network, offer: &str, url: Option<&str>) -> Result<Vec<u8>> {
+        if let Some(url) = url {
+            if let Some(err) = validate_url(url, network == wallet::Network::Regtest) {
+                return Err(anyhow!("invalid URL: {}", err));
+            }
         }
 
         let decoded = match crate::lightning::invoice::decode(network, offer)? {
@@ -447,6 +457,19 @@ impl Hold {
         Ok((onion.1.blinding_point, packet_bytes))
     }
 
+    fn schnor_signature_valid(signer: &[u8], signature: &[u8], message: &str) -> Result<bool> {
+        let secp = Secp256k1::verification_only();
+        Ok(secp
+            .verify_schnorr(
+                &Signature::from_slice(signature)?,
+                &Message::from_digest(
+                    *bitcoin_hashes::Sha256::hash(message.as_bytes()).as_byte_array(),
+                ),
+                &PublicKey::from_slice(signer)?.to_x_only_pubkey(),
+            )
+            .is_ok())
+    }
+
     fn entropy_source() -> ([u8; 32], RandomBytes) {
         let mut entropy_bytes = [0u8; 32];
         let mut rng = rand::rng();
@@ -490,10 +513,13 @@ mod test {
 
     const OFFER: &str = "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcsjgp07s6z7e3lz8gun0tfslclfs8w48v6uq9vfwuura5g4kn60fffu4qzwrsgl9ed40gujkc3s0ln56ek2yn5xcj289m5mwgpeagkr20dkdvqzqe4h4njxfj9j9fl2smkxg66ctcrcznw47d95jpnnaax2e327judevqzczqa77ng8hpls7wnwknm2t7v93swf9du4j90l58yclfza9ju87aer5vklmwt0veucef7lch3vggrkj0u253wznwv0ganr2mfr9hhymtj3q8spuwlemh2n4sghlmqf5qq";
     const HOOK: &str = "https://bol.tz/nice_hook";
+    const PRIVATE_KEY: &str = "ac0ee106ecc58bfff9b106d6e26b51ee2d37c8a85eb2eed0b6c71d0a9d910b61";
+    const PRIVATE_KEY_INVALID: &str =
+        "f73ef753b278653899d79b8b0ca525a48be5c2902b6b21303c86f9a3c62c216a";
 
     #[tokio::test]
     async fn test_add_offer() {
-        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -518,7 +544,7 @@ mod test {
 
     #[tokio::test]
     async fn test_add_offer_already_registered() {
-        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -544,8 +570,8 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_add_offer_update_offer() {
-        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
+    async fn test_update_offer() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -571,11 +597,7 @@ mod test {
         hold.offer_helper = Arc::new(offer_helper);
 
         let secp = Secp256k1::signing_only();
-        let keypair = Keypair::from_seckey_str(
-            &secp,
-            "ac0ee106ecc58bfff9b106d6e26b51ee2d37c8a85eb2eed0b6c71d0a9d910b61",
-        )
-        .unwrap();
+        let keypair = Keypair::from_seckey_str(&secp, PRIVATE_KEY).unwrap();
         let sig = secp.sign_schnorr_no_aux_rand(
             &Message::from_digest(
                 *bitcoin_hashes::Sha256::hash(new_hook.as_bytes()).as_byte_array(),
@@ -588,8 +610,8 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_add_offer_update_offer_not_registered() {
-        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
+    async fn test_update_offer_not_registered() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -615,8 +637,8 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_add_offer_update_offer_invalid_signature() {
-        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap();
+    async fn test_update_offer_invalid_signature() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
 
         let mut hold = cln_client().await.hold;
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -638,11 +660,7 @@ mod test {
         let new_hook = "https://bol.tz/new_hook";
 
         let secp = Secp256k1::signing_only();
-        let keypair = Keypair::from_seckey_str(
-            &secp,
-            "f73ef753b278653899d79b8b0ca525a48be5c2902b6b21303c86f9a3c62c216a",
-        )
-        .unwrap();
+        let keypair = Keypair::from_seckey_str(&secp, PRIVATE_KEY_INVALID).unwrap();
         let sig = secp.sign_schnorr_no_aux_rand(
             &Message::from_digest(
                 *bitcoin_hashes::Sha256::hash(new_hook.as_bytes()).as_byte_array(),
@@ -658,10 +676,110 @@ mod test {
         );
     }
 
+    #[tokio::test]
+    async fn test_delete_offer() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, None).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer_cp.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: HOOK.to_string(),
+                }))
+            });
+
+        offer_helper
+            .expect_delete()
+            .with(eq(signer.clone()))
+            .returning(|_| Ok(1));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        let secp = Secp256k1::signing_only();
+        let keypair = Keypair::from_seckey_str(&secp, PRIVATE_KEY).unwrap();
+        let sig = secp.sign_schnorr_no_aux_rand(
+            &Message::from_digest(
+                *bitcoin_hashes::Sha256::hash(OFFER_DELETE_MESSAGE.as_bytes()).as_byte_array(),
+            ),
+            &keypair,
+        );
+
+        hold.delete_offer(OFFER.to_uppercase(), &sig.serialize())
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_delete_offer_not_registered() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, None).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| Ok(None));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        assert_eq!(
+            hold.delete_offer(OFFER.to_uppercase(), &[])
+                .unwrap_err()
+                .to_string(),
+            ERR_NO_OFFER_REGISTERED
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_offer_invalid_signature() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, None).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer_cp.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: HOOK.to_string(),
+                }))
+            });
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        let secp = Secp256k1::signing_only();
+        let keypair = Keypair::from_seckey_str(&secp, PRIVATE_KEY_INVALID).unwrap();
+        let sig = secp.sign_schnorr_no_aux_rand(
+            &Message::from_digest(
+                *bitcoin_hashes::Sha256::hash(OFFER_DELETE_MESSAGE.as_bytes()).as_byte_array(),
+            ),
+            &keypair,
+        );
+
+        assert_eq!(
+            hold.delete_offer(OFFER.to_uppercase(), &sig.serialize())
+                .unwrap_err()
+                .to_string(),
+            ERR_INVALID_SIGNATURE
+        );
+    }
+
     #[test]
     fn test_prepare_offer() {
         assert_eq!(
-            Hold::prepare_offer(wallet::Network::Regtest, OFFER, HOOK).unwrap(),
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap(),
             hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
                 .unwrap()
         );
@@ -670,7 +788,7 @@ mod test {
     #[test]
     fn test_prepare_offer_invalid_url() {
         assert_eq!(
-            Hold::prepare_offer(wallet::Network::Regtest, "OFFER", "INVALID URL")
+            Hold::prepare_offer(wallet::Network::Regtest, "OFFER", Some("INVALID URL"))
                 .unwrap_err()
                 .to_string(),
             "invalid URL: relative URL without a base"
@@ -680,7 +798,7 @@ mod test {
     #[test]
     fn test_prepare_offer_allow_http_regtest() {
         assert_eq!(
-            Hold::prepare_offer(wallet::Network::Regtest, OFFER, "http://bol.tz").unwrap(),
+            Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some("http://bol.tz")).unwrap(),
             hex::decode("03b49fc5522e14dcc7a3b31ab69196f726d72880f00f1dfceeea9d608bff604d00")
                 .unwrap()
         );
@@ -689,7 +807,7 @@ mod test {
     #[test]
     fn test_prepare_offer_no_http_mainnet() {
         assert_eq!(
-            Hold::prepare_offer(wallet::Network::Mainnet, "invalid", "http://bol.tz")
+            Hold::prepare_offer(wallet::Network::Mainnet, "invalid", Some("http://bol.tz"))
                 .unwrap_err()
                 .to_string(),
             "invalid URL: only HTTPS URLs are permitted"
@@ -699,7 +817,7 @@ mod test {
     #[test]
     fn test_prepare_offer_invalid_offer() {
         assert_eq!(
-            Hold::prepare_offer(wallet::Network::Regtest, "invalid", HOOK)
+            Hold::prepare_offer(wallet::Network::Regtest, "invalid", Some(HOOK))
                 .unwrap_err()
                 .to_string(),
             "invalid invoice: ParseError(Bech32Error(Parse(Char(InvalidChar('i')))))"

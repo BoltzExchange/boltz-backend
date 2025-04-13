@@ -228,6 +228,7 @@ async fn main() {
             max_retries: None,
             retry_interval: None,
         }),
+        network == wallet::Network::Regtest,
         db::helpers::web_hook::WebHookHelperDatabase::new(db_pool.clone()),
     );
 

@@ -16,6 +16,7 @@ impl StatusCaller {
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
+        allow_insecure: bool,
         web_hook_helper: WebHookHelperDatabase,
     ) -> Self {
         Self {
@@ -23,6 +24,7 @@ impl StatusCaller {
                 cancellation_token,
                 NAME.to_string(),
                 config,
+                allow_insecure,
                 web_hook_helper,
             ),
         }
@@ -58,6 +60,7 @@ pub mod test {
                 max_retries: None,
                 retry_interval: None,
             },
+            true,
             WebHookHelperDatabase::new(get_pool()),
         )
     }

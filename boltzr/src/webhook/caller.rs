@@ -5,6 +5,8 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::Debug;
+use std::net::IpAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp, fmt};
@@ -33,6 +35,7 @@ pub enum CallResult {
 pub enum UrlError {
     MoreThanMaxLen,
     HttpsRequired,
+    InvalidHost,
 }
 
 impl fmt::Display for UrlError {
@@ -42,6 +45,7 @@ impl fmt::Display for UrlError {
                 f.write_str("URL length is more than the maximum length permitted")
             }
             UrlError::HttpsRequired => f.write_str("only HTTPS URLs are permitted"),
+            UrlError::InvalidHost => f.write_str("invalid host"),
         }
     }
 }
@@ -87,6 +91,7 @@ where
     retry_count: Arc<DashMap<H::Id, u64>>,
     successful_calls: Sender<(H, Vec<u8>)>,
 
+    allow_insecure: bool,
     request_timeout: Duration,
     max_retries: u64,
     retry_interval: Duration,
@@ -102,6 +107,7 @@ where
         cancellation_token: CancellationToken,
         name: String,
         config: Config,
+        allow_insecure: bool,
         hook_state: S,
     ) -> Self {
         let max_retries = config.max_retries.unwrap_or(DEFAULT_MAX_RETRIES);
@@ -115,6 +121,7 @@ where
         Self {
             name,
             max_retries,
+            allow_insecure,
             cancellation_token,
             successful_calls: tx,
             hook_state: Arc::new(hook_state),
@@ -172,6 +179,16 @@ where
         if self.hook_state.should_be_skipped(&hook, &data) {
             trace!("Skipping call to {} WebHook for {}", self.name, hook.id());
             return Ok(CallResult::NotIncluded);
+        }
+
+        if let Err(err) = check_ip(&hook.url(), self.allow_insecure).await {
+            warn!(
+                "IP check failed for {} WebHook {}: {}",
+                self.name,
+                hook.id(),
+                err
+            );
+            return Ok(CallResult::Failed);
         }
 
         debug!(
@@ -346,21 +363,76 @@ where
     }
 }
 
-pub fn validate_url(url: &str, allow_http: bool) -> Option<Box<dyn Error>> {
+pub fn validate_url(url: &str, allow_http: bool) -> Result<()> {
     if url.len() > MAX_URL_LENGTH {
-        return Some(UrlError::MoreThanMaxLen.into());
+        return Err(UrlError::MoreThanMaxLen.into());
     }
 
     let url = match Url::parse(url) {
         Ok(url) => url,
-        Err(err) => return Some(err.into()),
+        Err(err) => return Err(err.into()),
     };
 
     if !allow_http && url.scheme() != "https" {
-        return Some(UrlError::HttpsRequired.into());
+        return Err(UrlError::HttpsRequired.into());
     }
 
-    None
+    Ok(())
+}
+
+pub async fn check_ip(url: &str, allow_insecure: bool) -> Result<()> {
+    if allow_insecure {
+        return Ok(());
+    }
+
+    const DNS_LOOKUP_TIMEOUT: u64 = 2;
+
+    fn sanitize_ipv6(host: &str) -> &str {
+        host.strip_prefix("[")
+            .unwrap_or(host)
+            .strip_suffix("]")
+            .unwrap_or(host)
+    }
+
+    let url = Url::parse(url)?;
+    let host = url.host_str().ok_or(UrlError::InvalidHost)?;
+
+    let ips = match IpAddr::from_str(sanitize_ipv6(host)) {
+        Ok(ip) => vec![ip],
+        Err(_) => tokio::time::timeout(
+            tokio::time::Duration::from_secs(DNS_LOOKUP_TIMEOUT),
+            tokio::net::lookup_host(format!(
+                "{}:{}",
+                host,
+                url.port_or_known_default().unwrap_or(443)
+            )),
+        )
+        .await??
+        .map(|sock| sock.ip())
+        .collect(),
+    };
+
+    if ips.iter().any(|ip| match ip {
+        IpAddr::V4(ip) => {
+            ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_multicast()
+                || ip.is_broadcast()
+                || ip.is_private()
+                || ip.is_unspecified()
+        }
+        IpAddr::V6(ip) => {
+            ip.is_loopback()
+                || ip.is_multicast()
+                || ip.is_unicast_link_local()
+                || ip.is_unique_local()
+                || ip.is_unspecified()
+        }
+    }) {
+        return Err(UrlError::InvalidHost.into());
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -374,6 +446,7 @@ mod caller_test {
     use axum::routing::post;
     use axum::{Extension, Json, Router};
     use mockall::{mock, predicate};
+    use rstest::rstest;
     use serde_json::json;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -424,6 +497,7 @@ mod caller_test {
                 retry_interval: Some(60),
                 request_timeout: Some(10),
             },
+            true,
             web_hook_helper,
         );
 
@@ -481,6 +555,7 @@ mod caller_test {
                 retry_interval: Some(60),
                 request_timeout: Some(10),
             },
+            true,
             web_hook_helper,
         );
 
@@ -528,6 +603,7 @@ mod caller_test {
                 retry_interval: Some(60),
                 request_timeout: Some(10),
             },
+            true,
             web_hook_helper,
         );
 
@@ -591,6 +667,7 @@ mod caller_test {
                 retry_interval: Some(60),
                 request_timeout: Some(10),
             },
+            true,
             web_hook_helper,
         );
 
@@ -671,6 +748,7 @@ mod caller_test {
                 retry_interval: Some(1),
                 request_timeout: Some(1),
             },
+            true,
             web_hook_helper,
         );
 
@@ -766,6 +844,7 @@ mod caller_test {
                 retry_interval: Some(5),
                 request_timeout: Some(5),
             },
+            true,
             web_hook_helper,
         );
 
@@ -844,6 +923,7 @@ mod caller_test {
                 retry_interval: Some(5),
                 request_timeout: Some(5),
             },
+            true,
             web_hook_helper,
         );
 
@@ -903,6 +983,7 @@ mod caller_test {
                 retry_interval: Some(5),
                 request_timeout: Some(5),
             },
+            true,
             web_hook_helper,
         );
 
@@ -913,7 +994,7 @@ mod caller_test {
 
     #[test]
     fn test_validate_url_valid() {
-        assert!(validate_url("https://bol.tz", false).is_none());
+        assert!(validate_url("https://bol.tz", false).is_ok());
     }
 
     #[test]
@@ -923,6 +1004,7 @@ mod caller_test {
                 &(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>(),
                 false
             )
+            .err()
             .unwrap()
             .to_string(),
             UrlError::MoreThanMaxLen.to_string(),
@@ -932,7 +1014,10 @@ mod caller_test {
     #[test]
     fn test_validate_url_parse_fail() {
         assert_eq!(
-            validate_url("invalid url", false).unwrap().to_string(),
+            validate_url("invalid url", false)
+                .err()
+                .unwrap()
+                .to_string(),
             "relative URL without a base",
         );
     }
@@ -940,14 +1025,51 @@ mod caller_test {
     #[test]
     fn test_validate_url_not_https() {
         assert_eq!(
-            validate_url("http://bol.tz", false).unwrap().to_string(),
+            validate_url("http://bol.tz", false)
+                .err()
+                .unwrap()
+                .to_string(),
             UrlError::HttpsRequired.to_string(),
         );
     }
 
     #[test]
     fn test_validate_url_allow_http() {
-        assert!(validate_url("http://bol.tz", true).is_none());
+        assert!(validate_url("http://bol.tz", true).is_ok());
+    }
+
+    #[rstest]
+    #[case("https://8.8.8.8", true)] // Valid public IP v4
+    #[case("https://[2001:4860:4860::8888]", true)] // Valid public IP v6
+    #[case("https://bol.tz", true)] // Valid public domain
+    #[case("https://127.0.0.1", false)] // Loopback v4
+    #[case("https://192.168.1.1", false)] // Private v4
+    #[case("https://10.0.0.1", false)] // Private v4
+    #[case("https://172.16.0.1", false)] // Private v4
+    #[case("https://169.254.1.1", false)] // Link-local v4
+    #[case("https://224.0.0.1", false)] // Multicast v4
+    #[case("https://255.255.255.255", false)] // Broadcast v4
+    #[case("http://[::1]", false)] // Loopback v6
+    #[case("http://[fe80::1]", false)] // Link-local v6
+    #[case("http://[ff00::1]", false)] // Multicast v6
+    #[case("invalid-url", false)] // Invalid URL format
+    #[case("https://", false)] // Invalid URL format
+    #[case("https://example.invalid", false)] // Non-resolvable TLD
+    #[tokio::test]
+    async fn test_check_ip(#[case] url: &str, #[case] should_pass: bool) {
+        let result = check_ip(url, false).await;
+        assert_eq!(result.is_ok(), should_pass, "err: {:?}", result.err());
+    }
+
+    #[rstest]
+    #[case("https://127.0.0.1", true)] // Loopback v4 allowed with insecure
+    #[case("https://192.168.1.1", true)] // Private v4 allowed with insecure
+    #[case("https://[::1]", true)] // Loopback v6 allowed with insecure
+    #[case("https://[fe80::1]", true)] // Link-local v6 allowed with insecure
+    #[tokio::test]
+    async fn test_check_ip_allow_insecure(#[case] url: &str, #[case] should_pass: bool) {
+        let result = check_ip(url, true).await;
+        assert_eq!(result.is_ok(), should_pass, "err: {:?}", result.err());
     }
 
     async fn start_server(port: u16) -> (CancellationToken, Arc<Mutex<Vec<WebHookCallParams>>>) {

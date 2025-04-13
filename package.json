@@ -139,5 +139,9 @@
     "ts-jest": "^29.3.1",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.29.0"
+  },
+  "optionalDependencies": {
+    "@types/nodemailer": "^6.4.17",
+    "nodemailer": "^6.10.0"
   }
 }

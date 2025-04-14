@@ -14,6 +14,18 @@ import type { ClnConfig } from './lightning/cln/Types';
 import type { SidecarConfig } from './sidecar/Sidecar';
 import type { NodeSwitchConfig } from './swap/NodeSwitch';
 
+type EmailConfig = {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure?: boolean;
+  user?: string;
+  pass?: string;
+  to: string;
+  from: string;
+  subjectPrefix?: string;
+};
+
 type PostgresConfig = {
   host: string;
   port: number;
@@ -221,6 +233,8 @@ type ConfigType = {
   ethereum: EthereumConfig;
 
   sidecar: SidecarConfig;
+
+  email?: EmailConfig;
 };
 
 class Config {
@@ -534,4 +548,5 @@ export {
   NotificationConfig,
   EthProviderServiceConfig,
   MinSwapSizeMultipliersConfig,
+  EmailConfig,
 };

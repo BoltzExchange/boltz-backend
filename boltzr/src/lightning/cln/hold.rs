@@ -104,6 +104,7 @@ impl Hold {
                 max_retries: Some(2),
                 retry_interval: Some(10),
             },
+            network == wallet::Network::Regtest,
         );
 
         {
@@ -386,7 +387,7 @@ impl Hold {
 
     fn prepare_offer(network: wallet::Network, offer: &str, url: Option<&str>) -> Result<Vec<u8>> {
         if let Some(url) = url {
-            if let Some(err) = validate_url(url, network == wallet::Network::Regtest) {
+            if let Err(err) = validate_url(url, network == wallet::Network::Regtest) {
                 return Err(anyhow!("invalid URL: {}", err));
             }
         }

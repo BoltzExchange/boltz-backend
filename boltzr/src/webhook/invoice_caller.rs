@@ -112,12 +112,17 @@ impl HookState<InvoiceHook> for InvoiceHookState {
 }
 
 impl InvoiceCaller {
-    pub fn new(cancellation_token: CancellationToken, config: Config) -> Self {
+    pub fn new(
+        cancellation_token: CancellationToken,
+        config: Config,
+        allow_insecure: bool,
+    ) -> Self {
         Self {
             caller: Caller::new(
                 cancellation_token,
                 NAME.to_string(),
                 config,
+                allow_insecure,
                 InvoiceHookState::new(),
             ),
         }

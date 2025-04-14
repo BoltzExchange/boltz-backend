@@ -2,11 +2,14 @@ use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::Offer;
 use crate::db::schema::offers;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, insert_into, update};
+use diesel::{
+    ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, delete, insert_into, update,
+};
 
 pub trait OfferHelper {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
     fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
+    fn delete(&self, signer: &[u8]) -> QueryResponse<usize>;
     fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
     fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;
 }
@@ -33,6 +36,12 @@ impl OfferHelper for OfferHelperDatabase {
         Ok(update(offers::dsl::offers)
             .filter(offers::dsl::signer.eq(signer))
             .set(offers::dsl::url.eq(url))
+            .execute(&mut self.pool.get()?)?)
+    }
+
+    fn delete(&self, signer: &[u8]) -> QueryResponse<usize> {
+        Ok(delete(offers::dsl::offers)
+            .filter(offers::dsl::signer.eq(signer))
             .execute(&mut self.pool.get()?)?)
     }
 
@@ -76,6 +85,7 @@ pub mod test {
         impl OfferHelper for OfferHelper {
             fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
             fn update(&self, signer: &[u8], url: String) -> QueryResponse<usize>;
+            fn delete(&self, signer: &[u8]) -> QueryResponse<usize>;
             fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
             fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;
         }

@@ -190,6 +190,12 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the currency has no BOLT12 support
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *
  *   patch:
  *     tags: [Lightning]
@@ -230,6 +236,62 @@
  *               type: object
  *       '400':
  *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the currency has no BOLT12 support
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /lightning/{currency}/bolt12/delete:
+ *   post:
+ *     tags: [Lightning]
+ *     description: Deletes a BOLT12 offer
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - offer
+ *               - signature
+ *             properties:
+ *               offer:
+ *                 type: string
+ *                 description: The BOLT12 offer
+ *               signature:
+ *                 type: string
+ *                 description: Schnorr signature of the SHA256 hash of "DELETE"
+ *     responses:
+ *       '200':
+ *         description: BOLT12 offer deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       '400':
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the currency has no BOLT12 support
  *         content:
  *           application/json:
  *             schema:

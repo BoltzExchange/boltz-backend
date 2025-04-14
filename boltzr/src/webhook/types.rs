@@ -65,6 +65,7 @@ pub struct SwapUpdateCallData {
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct InvoiceRequestCallData {
+    pub offer: String,
     #[serde(rename = "invoiceRequest")]
     pub invoice_request: String,
 }

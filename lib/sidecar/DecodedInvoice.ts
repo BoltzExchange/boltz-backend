@@ -94,7 +94,7 @@ class DecodedInvoice {
 
   public get paths(): {
     nodeId: Buffer | undefined;
-    shortChannelId: number | undefined;
+    shortChannelId: string | undefined;
   }[] {
     if (this.res.bolt12Invoice) {
       return this.res.bolt12Invoice.pathsList.map((path) => ({
@@ -103,7 +103,7 @@ class DecodedInvoice {
             ? Buffer.from(path.nodeId as string, 'base64')
             : undefined,
         shortChannelId:
-          path.shortChannelId !== 0 ? path.shortChannelId : undefined,
+          path.shortChannelId !== '' ? path.shortChannelId : undefined,
       }));
     }
 

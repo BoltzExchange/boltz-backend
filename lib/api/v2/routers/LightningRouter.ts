@@ -334,7 +334,7 @@
  *                   required: ["channelId"]
  *                   properties:
  *                     channelId:
- *                       type: integer
+ *                       type: string
  *                       description: Channel ID to use for magic routing hints
  *       '400':
  *         description: Invalid request parameters

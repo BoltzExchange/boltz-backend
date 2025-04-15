@@ -553,7 +553,7 @@ where
                                         .iter()
                                         .map(|hop| bolt11_invoice::routing_hints::RoutingHint {
                                             node: hop.src_node_id.encode(),
-                                            channel_id: hop.short_channel_id,
+                                            channel_id: hop.short_channel_id.to_string(),
                                             base_fee_msat: hop.fees.base_msat,
                                             ppm_fee: hop.fees.proportional_millionths,
                                             cltv_expiry_delta: hop.cltv_expiry_delta as u64,
@@ -626,7 +626,7 @@ where
                                         }
                                         IntroductionNode::DirectedShortChannelId(_, channel_id) => {
                                             boltzr::bolt12_invoice::path::IntroductionNode::ShortChannelId(
-                                                *channel_id,
+                                                channel_id.to_string(),
                                             )
                                         }
                                     }),

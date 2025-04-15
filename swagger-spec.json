@@ -863,7 +863,7 @@
                       ],
                       "properties": {
                         "channelId": {
-                          "type": "integer",
+                          "type": "string",
                           "description": "Channel ID to use for magic routing hints"
                         }
                       }

@@ -161,7 +161,7 @@ message Bolt11Invoice {
   message RoutingHints {
     message RoutingHint {
       bytes node = 1;
-      uint64 channel_id = 2;
+      string channel_id = 2;
 
       uint32 base_fee_msat = 3;
       uint32 ppm_fee = 4;
@@ -196,7 +196,7 @@ message Bolt12Invoice {
   message Path {
     oneof introduction_node {
       bytes node_id = 1;
-      uint64 short_channel_id = 2;
+      string short_channel_id = 2;
     }
 
     uint32 base_fee_msat = 3;

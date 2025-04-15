@@ -178,6 +178,7 @@ class Service {
     );
 
     this.paymentRequestUtils = new PaymentRequestUtils(
+      this.sidecar,
       this.currencies.get(ElementsClient.symbol),
     );
     this.timeoutDeltaProvider = new TimeoutDeltaProvider(
@@ -1529,12 +1530,12 @@ class Service {
     return {
       expectedAmount,
       acceptZeroConf,
-      bip21: this.paymentRequestUtils.encodeBip21(
+      bip21: (await this.paymentRequestUtils.encodeBip21(
         chainCurrency,
         swap.lockupAddress,
         expectedAmount,
         getSwapMemo(lightningCurrency, SwapType.Submarine),
-      )!,
+      ))!,
     };
   };
 

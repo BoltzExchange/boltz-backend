@@ -41,7 +41,7 @@ impl RpcClient {
 
         Ok(Self {
             symbol,
-            endpoint: format!("http://{}:{}", config.host, config.port),
+            endpoint: format!("http://{}:{}/wallet/default", config.host, config.port),
             cookie: format!("Basic {}", BASE64_STANDARD.encode(auth)),
         })
     }

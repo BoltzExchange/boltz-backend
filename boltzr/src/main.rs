@@ -8,6 +8,7 @@ use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws::{self};
 use clap::Parser;
+use payjoin::PayjoinManager;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task;
@@ -24,6 +25,7 @@ mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
+mod payjoin;
 mod service;
 mod swap;
 mod tracing_setup;
@@ -253,7 +255,7 @@ async fn main() {
 
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
-        currencies,
+        currencies.clone(),
         db_pool.clone(),
         network,
         &config.pairs.unwrap_or_default(),
@@ -265,12 +267,19 @@ async fn main() {
         }
     };
 
+    let payjoin_manager = Arc::new(
+        PayjoinManager::new(currencies)
+            .await
+            .expect("Failed to initialize PayjoinManager"),
+    );
+
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
         log_reload_handler,
         service.clone(),
         swap_manager.clone(),
+        payjoin_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,

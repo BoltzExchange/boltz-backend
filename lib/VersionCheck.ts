@@ -78,7 +78,7 @@ class VersionCheck {
   > = {
     [ChainClient.serviceName]: {
       minimal: 220000,
-      maximal: 280100,
+      maximal: 290000,
     },
     [ClnClient.serviceName]: {
       minimal: '25.02',

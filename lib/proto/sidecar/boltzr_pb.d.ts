@@ -700,8 +700,8 @@ export namespace Bolt11Invoice {
             getNode_asU8(): Uint8Array;
             getNode_asB64(): string;
             setNode(value: Uint8Array | string): RoutingHint;
-            getChannelId(): number;
-            setChannelId(value: number): RoutingHint;
+            getChannelId(): string;
+            setChannelId(value: string): RoutingHint;
             getBaseFeeMsat(): number;
             setBaseFeeMsat(value: number): RoutingHint;
             getPpmFee(): number;
@@ -732,7 +732,7 @@ export namespace Bolt11Invoice {
         export namespace RoutingHint {
             export type AsObject = {
                 node: Uint8Array | string,
-                channelId: number,
+                channelId: string,
                 baseFeeMsat: number,
                 ppmFee: number,
                 cltvExpiryDelta: number,
@@ -860,8 +860,8 @@ export namespace Bolt12Invoice {
 
         hasShortChannelId(): boolean;
         clearShortChannelId(): void;
-        getShortChannelId(): number;
-        setShortChannelId(value: number): Path;
+        getShortChannelId(): string;
+        setShortChannelId(value: string): Path;
         getBaseFeeMsat(): number;
         setBaseFeeMsat(value: number): Path;
         getPpmFee(): number;
@@ -884,7 +884,7 @@ export namespace Bolt12Invoice {
     export namespace Path {
         export type AsObject = {
             nodeId: Uint8Array | string,
-            shortChannelId: number,
+            shortChannelId: string,
             baseFeeMsat: number,
             ppmFee: number,
             cltvExpiryDelta: number,

@@ -151,10 +151,7 @@ class ReverseRoutingHints {
   ) => {
     if (
       !decoded.paths.some(
-        (path) =>
-          path.shortChannelId !== undefined &&
-          path.shortChannelId.toString() ===
-            ReverseRoutingHints.routingHintChanId,
+        (path) => path.shortChannelId === ReverseRoutingHints.routingHintChanId,
       )
     ) {
       throw Errors.MAGIC_ROUTING_HINT_MISSING();

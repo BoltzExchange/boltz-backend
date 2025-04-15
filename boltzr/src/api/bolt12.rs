@@ -53,7 +53,7 @@ pub struct ParamsPath {
 #[derive(Serialize)]
 pub struct MagicRoutingHintParams {
     #[serde(rename = "channelId")]
-    pub channel_id: u64,
+    pub channel_id: &'static str,
 }
 
 #[derive(Serialize)]

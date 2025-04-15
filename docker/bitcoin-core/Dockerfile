@@ -8,9 +8,9 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   wget \
+  cmake \
   libtool \
   python3 \
-  automake \
   libdb-dev \
   pkg-config \
   libdb++-dev \
@@ -36,29 +36,24 @@ RUN tar -xzf *.tar.gz
 
 WORKDIR /bitcoin-${VERSION}
 
-RUN ./autogen.sh
-RUN ./configure \
-    --prefix=${BITCOIN_PREFIX} \
-    --enable-endomorphism \
-    --mandir=/usr/share/man \
-    --disable-ccache \
-    --disable-tests \
-    --disable-bench \
-    --disable-fuzz \
-    --disable-fuzz-binary \
-    --without-gui \
-    --with-daemon \
-    --with-utils \
-    --with-libs \
-    --with-incompatible-bdb
+RUN cmake -B build \
+  -DCMAKE_INSTALL_PREFIX=${BITCOIN_PREFIX} \
+  -DWITH_CCACHE=OFF \
+  -DBUILD_TESTS=OFF \
+  -DBUILD_BENCH=OFF \
+  -DBUILD_FOR_FUZZING=OFF \
+  -DBUILD_FUZZ_BINARY=OFF \
+  -DBUILD_GUI=OFF \
+  -DBUILD_DAEMON=ON \
+  -DWITH_ZMQ=ON \
+  -DWITH_BDB=ON \
+  -DWARN_INCOMPATIBLE_BDB=ON
 
-RUN make -j$(nproc)
-RUN make install
+RUN cmake --build build -j$(nproc)
+RUN cmake --install build
 
 RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoind
-RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-tx
 RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-cli
-RUN strip --strip-all ${BITCOIN_PREFIX}/bin/bitcoin-wallet
 
 # Assemble the final image
 FROM ubuntu:${UBUNTU_VERSION}

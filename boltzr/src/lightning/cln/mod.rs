@@ -1,3 +1,4 @@
+use crate::api::ws::OfferSubscriptions;
 use crate::chain::BaseClient;
 use crate::db::helpers::offer::OfferHelper;
 use crate::lightning::cln::cln_rpc::{
@@ -49,6 +50,7 @@ impl Cln {
         network: wallet::Network,
         config: &Config,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
+        offer_subscriptions: OfferSubscriptions,
     ) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
             .domain_name("cln")
@@ -74,9 +76,10 @@ impl Cln {
                 cancellation_token,
                 symbol,
                 network,
+                &config.hold,
                 cln.clone(),
                 offer_helper.clone(),
-                &config.hold,
+                offer_subscriptions,
             )
             .await?,
             cln,
@@ -90,8 +93,8 @@ impl Cln {
         amount_msat: u64,
     ) -> anyhow::Result<String> {
         if let Some(offer) = self.offer_helper.get_offer(&offer)? {
-            debug!("Fetching invoice for offer via Webhook");
-            return self.hold.fetch_invoice_webhook(offer, amount_msat).await;
+            debug!("Fetching invoice for offer directly");
+            return self.hold.fetch_invoice(offer, amount_msat).await;
         }
 
         let res = self
@@ -236,6 +239,7 @@ impl BaseClient for Cln {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::api::ws::OfferSubscriptions;
     use crate::lightning::cln::cln_rpc::{OfferRequest, OfferResponse};
     use rstest::*;
     use std::path::Path;
@@ -305,6 +309,7 @@ pub mod test {
                 },
             },
             Arc::new(offer_helper),
+            OfferSubscriptions::new(crate::wallet::Network::Regtest),
         )
         .await
         .unwrap()

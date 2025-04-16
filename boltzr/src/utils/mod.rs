@@ -1,8 +1,10 @@
 pub mod pair;
-
+mod timeout_map;
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
+
+pub use timeout_map::TimeoutMap;
 
 pub fn get_version() -> String {
     format!(

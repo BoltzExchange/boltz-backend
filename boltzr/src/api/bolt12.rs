@@ -19,7 +19,7 @@ use std::sync::Arc;
 #[derive(Deserialize)]
 pub struct CreateRequest {
     offer: String,
-    url: String,
+    url: Option<String>,
 }
 
 #[derive(Serialize)]

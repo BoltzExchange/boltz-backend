@@ -1,7 +1,12 @@
+use crate::api::ws::Config;
+use crate::api::ws::offer_subscriptions::InvoiceRequestParams;
+use crate::api::ws::types::SwapStatus;
+use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
 use async_tungstenite::tungstenite::Message;
 use futures::{SinkExt, StreamExt};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::error::Error;
@@ -11,8 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::api::ws::Config;
-use crate::api::ws::types::SwapStatus;
+use super::OfferSubscriptions;
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -24,11 +28,17 @@ pub trait SwapInfos {
     async fn fetch_status_info(&self, ids: &[String]);
 }
 
-struct WsConnectionGuard;
+struct WsConnectionGuard {
+    connection_id: u64,
+    offer_subscriptions: OfferSubscriptions,
+}
 
 impl Drop for WsConnectionGuard {
     fn drop(&mut self) {
         trace!("Closing socket");
+
+        self.offer_subscriptions
+            .connection_dropped(self.connection_id);
 
         #[cfg(feature = "metrics")]
         metrics::gauge!(crate::metrics::WEBSOCKET_OPEN_COUNT).decrement(1);
@@ -44,18 +54,29 @@ struct ErrorResponse {
 enum SubscriptionChannel {
     #[serde(rename = "swap.update")]
     SwapUpdate,
+    #[serde(rename = "invoice.request")]
+    InvoiceRequest,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct SubscribeRequest {
-    channel: SubscriptionChannel,
-    args: Vec<String>,
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(tag = "channel")]
+enum SubscribeRequest {
+    #[serde(rename = "swap.update")]
+    SwapUpdate { args: Vec<String> },
+    #[serde(rename = "invoice.request")]
+    InvoiceRequest { args: Vec<InvoiceRequestParams> },
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 struct UnsubscribeRequest {
     channel: SubscriptionChannel,
     args: Vec<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct InvoiceCreated {
+    id: String,
+    invoice: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -65,6 +86,8 @@ enum WsRequest {
     Subscribe(SubscribeRequest),
     #[serde(rename = "unsubscribe")]
     Unsubscribe(UnsubscribeRequest),
+    #[serde(rename = "invoice")]
+    Invoice(InvoiceCreated),
     #[serde(rename = "ping")]
     Ping,
 }
@@ -86,11 +109,18 @@ struct UnsubscribeResponse {
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct UpdateResponse {
+struct UpdateResponse<T> {
     channel: SubscriptionChannel,
-    args: Vec<SwapStatus>,
+    args: Vec<T>,
 
     timestamp: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct InvoiceRequest {
+    id: String,
+    #[serde(flatten)]
+    data: InvoiceRequestCallData,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -101,7 +131,11 @@ enum WsResponse {
     #[serde(rename = "unsubscribe")]
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
-    Update(UpdateResponse),
+    Update(UpdateResponse<SwapStatus>),
+    #[serde(rename = "invoice.request")]
+    InvoiceRequest(UpdateResponse<InvoiceRequest>),
+    #[serde(rename = "error")]
+    Error(ErrorResponse),
     #[serde(rename = "pong")]
     Pong,
 }
@@ -114,6 +148,8 @@ pub struct Status<S> {
 
     swap_infos: S,
     swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+
+    offer_subscriptions: OfferSubscriptions,
 }
 
 impl<S> Status<S>
@@ -125,11 +161,13 @@ where
         config: Config,
         swap_infos: S,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        offer_subscriptions: OfferSubscriptions,
     ) -> Self {
         Status {
             swap_infos,
             cancellation_token,
             swap_status_update_tx,
+            offer_subscriptions,
             address: format!("{}:{}", config.host, config.port),
         }
     }
@@ -183,7 +221,12 @@ where
         #[cfg(feature = "metrics")]
         metrics::gauge!(crate::metrics::WEBSOCKET_OPEN_COUNT).increment(1);
 
-        let _guard = WsConnectionGuard;
+        let connection_id = self.get_connection_id();
+
+        let _guard = WsConnectionGuard {
+            connection_id,
+            offer_subscriptions: self.offer_subscriptions.clone(),
+        };
 
         let mut ping_interval = tokio::time::interval(Duration::from_secs(PING_INTERVAL_SECS));
         let mut activity_check_interval =
@@ -194,6 +237,7 @@ where
 
         let mut subscribed_ids = HashSet::<String>::new();
 
+        let mut invoice_request_rx = self.offer_subscriptions.connection_added(connection_id);
         let mut swap_status_update_rx = self.swap_status_update_tx.subscribe();
 
         loop {
@@ -212,7 +256,7 @@ where
                             Message::Text(msg) => {
                                 last_activity = Instant::now();
 
-                                let res = match self.handle_message(&mut subscribed_ids, msg.as_ref()).await {
+                                let res = match self.handle_message(connection_id, &mut subscribed_ids, msg.as_ref()).await {
                                     Ok(res) => res.map(|res| serde_json::to_string(&res)),
                                     Err(res) => Some(serde_json::to_string(&res)),
                                 };
@@ -222,6 +266,7 @@ where
                                         Ok(res) => {
                                             if let Err(err) = ws_sender.send(Message::text(res)).await {
                                                 trace!("Could not send message: {}", err);
+                                                break;
                                             }
                                         },
                                         Err(err) => {
@@ -291,6 +336,42 @@ where
                         },
                     }
                 },
+                invoice_request = invoice_request_rx.recv() => {
+                    if let Some(invoice_request) = invoice_request {
+                        last_activity = Instant::now();
+
+                        let timestamp = match Self::get_timestamp() {
+                            Ok(res) => res,
+                            Err(err) => {
+                                error!("Could not get UNIX time: {}", err);
+                                break;
+                            }
+                        };
+
+                        let msg = match serde_json::to_string(&WsResponse::InvoiceRequest(UpdateResponse {
+                            timestamp,
+                            channel: SubscriptionChannel::InvoiceRequest,
+                            args: vec![InvoiceRequest {
+                                id: invoice_request.id().to_string(),
+                                data: InvoiceRequestCallData {
+                                    offer: invoice_request.offer,
+                                    invoice_request: invoice_request.invoice_request,
+                                },
+                            }],
+                        })) {
+                            Ok(res) => res,
+                            Err(err) => {
+                                error!("Could not serialize invoice request: {}", err);
+                                break;
+                            }
+                        };
+
+                        if let Err(err) = ws_sender.send(Message::text(msg)).await {
+                            trace!("Could not send invoice request: {}", err);
+                            break;
+                        }
+                    }
+                },
                 _ = ping_interval.tick() => {
                     trace!("Pinging WebSocket");
                     if let Err(err) = ws_sender.send(Message::Ping(bytes::Bytes::new())).await {
@@ -314,6 +395,7 @@ where
 
     async fn handle_message(
         &self,
+        connection_id: u64,
         subscribed_ids: &mut HashSet<String>,
         msg: &[u8],
     ) -> Result<Option<WsResponse>, ErrorResponse> {
@@ -337,24 +419,56 @@ where
         };
 
         match msg {
-            WsRequest::Subscribe(sub) => match sub.channel {
-                SubscriptionChannel::SwapUpdate => {
-                    for id in &sub.args {
+            WsRequest::Subscribe(sub) => match sub {
+                SubscribeRequest::SwapUpdate { args } => {
+                    for id in &args {
                         subscribed_ids.insert(id.clone());
                     }
 
-                    self.swap_infos.fetch_status_info(&sub.args).await;
+                    self.swap_infos.fetch_status_info(&args).await;
 
                     Ok(Some(WsResponse::Subscribe(SubscribeResponse {
                         timestamp: match get_timestamp() {
                             Some(time) => time,
                             None => return Ok(None),
                         },
-                        args: sub.args,
+                        args,
                         channel: SubscriptionChannel::SwapUpdate,
                     })))
                 }
+                SubscribeRequest::InvoiceRequest { args } => {
+                    if let Err(err) = self
+                        .offer_subscriptions
+                        .offers_subscribe(connection_id, &args)
+                    {
+                        return Ok(Some(WsResponse::Error(ErrorResponse {
+                            error: format!("could not subscribe to offers: {}", err),
+                        })));
+                    }
+
+                    Ok(Some(WsResponse::Subscribe(SubscribeResponse {
+                        timestamp: match get_timestamp() {
+                            Some(time) => time,
+                            None => return Ok(None),
+                        },
+                        channel: SubscriptionChannel::InvoiceRequest,
+                        args: args.into_iter().map(|arg| arg.offer).collect(),
+                    })))
+                }
             },
+            WsRequest::Invoice(invoice) => {
+                match invoice.id.parse::<u64>() {
+                    Ok(id) => self
+                        .offer_subscriptions
+                        .received_invoice_response(id, invoice.invoice),
+                    Err(err) => {
+                        return Ok(Some(WsResponse::Error(ErrorResponse {
+                            error: format!("invalid invoice id: {}", err),
+                        })));
+                    }
+                };
+                Ok(None)
+            }
             WsRequest::Unsubscribe(unsub) => {
                 for id in &unsub.args {
                     subscribed_ids.remove(id);
@@ -373,6 +487,17 @@ where
         }
     }
 
+    fn get_connection_id(&self) -> u64 {
+        let mut rng = rand::rng();
+
+        loop {
+            let id = rng.random();
+            if !self.offer_subscriptions.connection_id_known(id) {
+                return id;
+            }
+        }
+    }
+
     fn get_timestamp() -> Result<String, SystemTimeError> {
         Ok(SystemTime::now()
             .duration_since(UNIX_EPOCH)?
@@ -383,11 +508,11 @@ where
 
 #[cfg(test)]
 mod status_test {
-    use crate::api::ws::Config;
     use crate::api::ws::status::{
         ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
     use crate::api::ws::types::SwapStatus;
+    use crate::api::ws::{Config, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
     use futures::{SinkExt, StreamExt};
@@ -801,6 +926,7 @@ mod status_test {
                 status_tx: status_tx.clone(),
             },
             status_tx.clone(),
+            OfferSubscriptions::new(crate::wallet::Network::Regtest),
         );
         tokio::spawn(async move {
             status.start().await.unwrap();

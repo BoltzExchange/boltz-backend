@@ -27,6 +27,7 @@ import type LockupTransactionTracker from '../../../lib/rates/LockupTransactionT
 import Errors from '../../../lib/swap/Errors';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
+import { Action } from '../../../lib/swap/hooks/Hook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 
@@ -663,7 +664,7 @@ describe('UtxoNursery', () => {
       });
     });
 
-    transactionHook.hook = jest.fn().mockReturnValue(false);
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
@@ -671,6 +672,44 @@ describe('UtxoNursery', () => {
     transactionHook.hook = jest.fn().mockReturnValue(true);
 
     await failPromise;
+  });
+
+  test('should hold transactions when action is Hold', async () => {
+    const checkSwapOutputs = nursery['checkOutputs'];
+
+    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    transaction.ins[0].sequence = 0xffffffff;
+    transaction.ins[1].sequence = 0xffffffff;
+
+    mockGetSwapResult = {
+      id: 'hold',
+      acceptZeroConf: true,
+      redeemScript: sampleRedeemScript,
+    };
+
+    mockGetRawTransactionVerboseResult = () => ({
+      confirmations: 1,
+    });
+
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Hold);
+
+    const logHoldingSpy = jest.spyOn(nursery as any, 'logHoldingTransaction');
+
+    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(logHoldingSpy).toHaveBeenCalledTimes(1);
+    expect(logHoldingSpy).toHaveBeenCalledWith(
+      btcWallet.symbol,
+      mockGetSwapResult,
+      transaction,
+      expect.anything(),
+    );
+
+    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
+
+    logHoldingSpy.mockRestore();
+    transactionHook.hook = jest.fn().mockReturnValue(true);
   });
 
   test('should handle claimed Reverse Swaps', async () => {

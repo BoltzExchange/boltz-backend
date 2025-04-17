@@ -3,6 +3,7 @@ import Logger from '../../../../lib/Logger';
 import { SwapType } from '../../../../lib/consts/Enums';
 import * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
 import CreationHook from '../../../../lib/swap/hooks/CreationHook';
+import { Action } from '../../../../lib/swap/hooks/Hook';
 
 describe('CreationHook', () => {
   let hook: CreationHook;
@@ -51,8 +52,8 @@ describe('CreationHook', () => {
 
     test.each`
       action                    | result
-      ${boltzrpc.Action.ACCEPT} | ${true}
-      ${boltzrpc.Action.REJECT} | ${false}
+      ${boltzrpc.Action.ACCEPT} | ${Action.Accept}
+      ${boltzrpc.Action.REJECT} | ${Action.Reject}
     `('should handle hook on data $action', ({ action, result }) => {
       const pendingHookId = '1';
       const pendingHook = jest.fn();
@@ -88,7 +89,7 @@ describe('CreationHook', () => {
           symbolReceiving: 'BTC',
           invoiceAmount: 1,
         }),
-      ).resolves.toEqual(hook['defaultAction']);
+      ).resolves.toEqual(hook['handleAction'](hook['defaultAction']));
     });
 
     test('should resolve default action if hook is not resolved after timeout', async () => {
@@ -107,7 +108,9 @@ describe('CreationHook', () => {
 
       jest.runAllTimers();
 
-      await expect(promise).resolves.toEqual(hook['defaultAction']);
+      await expect(promise).resolves.toEqual(
+        hook['handleAction'](hook['defaultAction']),
+      );
       expect(hook['pendingHooks'].has(id)).toEqual(false);
     });
 
@@ -128,7 +131,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.Submarine, params);
-      hook['pendingHooks'].get(params.id)?.(true);
+      hook['pendingHooks'].get(params.id)?.(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -158,7 +161,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.ReverseSubmarine, params);
-      hook['pendingHooks'].get(params.id)?.(true);
+      hook['pendingHooks'].get(params.id)?.(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -188,7 +191,7 @@ describe('CreationHook', () => {
       };
 
       const promise = hook.hook(SwapType.Chain, params);
-      hook['pendingHooks'].get(params.id)?.(true);
+      hook['pendingHooks'].get(params.id)?.(Action.Accept);
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
@@ -200,6 +203,37 @@ describe('CreationHook', () => {
         params.userLockAmount,
       );
     });
+  });
+
+  describe('handleAction', () => {
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      hook['logger'] = {
+        warn: jest.fn(),
+      } as any;
+    });
+
+    test.each([
+      { action: Action.Accept, expected: true },
+      { action: Action.Hold, expected: true },
+      { action: Action.Reject, expected: false },
+    ])(
+      'should return $expected when action is $action',
+      ({ action, expected }) => {
+        const result = hook['handleAction'](action);
+
+        expect(result).toEqual(expected);
+
+        if (action === Action.Hold) {
+          expect(hook['logger'].warn).toHaveBeenCalledWith(
+            'Hold not implemented for swap creation hook',
+          );
+        } else {
+          expect(hook['logger'].warn).not.toHaveBeenCalled();
+        }
+      },
+    );
   });
 
   test('closeStream', () => {

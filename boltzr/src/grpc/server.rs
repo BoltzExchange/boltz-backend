@@ -169,7 +169,7 @@ mod server_test {
     use crate::notifications::commands::Commands;
     use crate::swap::manager::SwapManager;
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use async_trait::async_trait;
     use mockall::{mock, predicate::*};
     use std::collections::HashMap;
@@ -211,7 +211,7 @@ mod server_test {
                 amount: U256,
                 token_address: Option<Address>,
                 timeout: u64,
-            ) -> anyhow::Result<PrimitiveSignature>;
+            ) -> anyhow::Result<Signature>;
         }
     }
 

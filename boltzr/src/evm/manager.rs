@@ -1,7 +1,7 @@
 use crate::evm::RefundSigner;
 use crate::evm::refund_signer::LocalRefundSigner;
 use alloy::network::{AnyNetwork, EthereumWallet};
-use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
@@ -93,7 +93,7 @@ impl RefundSigner for Manager {
         amount: U256,
         token_address: Option<Address>,
         timeout: u64,
-    ) -> anyhow::Result<PrimitiveSignature> {
+    ) -> anyhow::Result<Signature> {
         match self.refund_signers.get(&contract_version) {
             Some(signer) => {
                 signer

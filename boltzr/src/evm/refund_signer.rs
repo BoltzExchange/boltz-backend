@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::RootProvider;
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
@@ -84,7 +84,7 @@ impl LocalRefundSigner {
         amount: U256,
         token_address: Option<Address>,
         timeout: u64,
-    ) -> anyhow::Result<PrimitiveSignature> {
+    ) -> anyhow::Result<Signature> {
         info!(
             "Signing cooperative {} refund",
             if token_address.is_none() {

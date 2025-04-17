@@ -17,3 +17,7 @@ It is important to design Boltz API clients, especially on mobile, in a way that
 ## Retry Mechanism
 
 API clients should account for temporary network failures and, e.g., retry claiming swaps or sending payments. On mobile, claim logic should be triggered on app start and work independently of which part of the app the user navigates to. This also goes for WebView integrations of our [Web App](https://github.com/BoltzExchange/boltz-web-app).
+
+## Lockup Transaction Handling
+
+API clients must ensure to fund Boltz swaps via a single lockup transaction. If multiple transactions fund the same lockup address, only the first is used for the swap; others are ignored. The swap will fail if this first transaction's amount is insufficient. Following a swap failure, Boltz facilitates cooperative refunds for all outputs sent to the address.

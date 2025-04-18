@@ -50,7 +50,7 @@ export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
 
 export const bitcoinLndClient2 = new LndClient(Logger.disabledLogger, 'BTC', {
   host,
-  port: 10011,
+  port: 10012,
   certpath: `${lndDataPath}/certificates/tls.cert`,
   macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
   maxPaymentFeeRatio: 0.01,

@@ -764,7 +764,7 @@ class SwapManager {
       quote: args.quoteCurrency,
     });
 
-    const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
+    const hints = await this.reverseRoutingHints.getHints(sendingCurrency, args);
 
     let nodeType: NodeType;
     let lightningClient: LightningClient;

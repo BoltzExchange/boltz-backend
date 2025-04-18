@@ -6,6 +6,7 @@ use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::grpc::tls::load_certificates;
 use crate::notifications::NotificationClient;
+use crate::payjoin::PayjoinManager;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
@@ -39,6 +40,7 @@ pub struct Server<M, W, N> {
 
     service: Arc<Service>,
     manager: Arc<M>,
+    payjoin_manager: Arc<PayjoinManager>,
 
     web_hook_helper: Box<W>,
     web_hook_status_caller: StatusCaller,
@@ -65,6 +67,7 @@ where
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
+        payjoin_manager: Arc<PayjoinManager>,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
@@ -75,6 +78,7 @@ where
             config,
             service,
             manager,
+            payjoin_manager,
             refund_signer,
             web_hook_helper,
             cancellation_token,
@@ -104,6 +108,7 @@ where
             self.log_reload_handler.clone(),
             self.service.clone(),
             self.manager.clone(),
+            self.payjoin_manager.clone(),
             self.status_fetcher.clone(),
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),

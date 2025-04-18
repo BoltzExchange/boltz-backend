@@ -1058,6 +1058,58 @@ export namespace ScanMempoolResponse {
 
 }
 
+export class GetPayjoinUriRequest extends jspb.Message { 
+    getAddress(): string;
+    setAddress(value: string): GetPayjoinUriRequest;
+
+    hasSatoshis(): boolean;
+    clearSatoshis(): void;
+    getSatoshis(): number | undefined;
+    setSatoshis(value: number): GetPayjoinUriRequest;
+
+    hasLabel(): boolean;
+    clearLabel(): void;
+    getLabel(): string | undefined;
+    setLabel(value: string): GetPayjoinUriRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPayjoinUriRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPayjoinUriRequest): GetPayjoinUriRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPayjoinUriRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPayjoinUriRequest;
+    static deserializeBinaryFromReader(message: GetPayjoinUriRequest, reader: jspb.BinaryReader): GetPayjoinUriRequest;
+}
+
+export namespace GetPayjoinUriRequest {
+    export type AsObject = {
+        address: string,
+        satoshis?: number,
+        label?: string,
+    }
+}
+
+export class GetPayjoinUriResponse extends jspb.Message { 
+    getUri(): string;
+    setUri(value: string): GetPayjoinUriResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetPayjoinUriResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetPayjoinUriResponse): GetPayjoinUriResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetPayjoinUriResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetPayjoinUriResponse;
+    static deserializeBinaryFromReader(message: GetPayjoinUriResponse, reader: jspb.BinaryReader): GetPayjoinUriResponse;
+}
+
+export namespace GetPayjoinUriResponse {
+    export type AsObject = {
+        uri: string,
+    }
+}
+
 export enum LogLevel {
     ERROR = 0,
     WARN = 1,

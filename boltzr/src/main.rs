@@ -9,6 +9,7 @@ use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws;
 use clap::Parser;
+use payjoin::PayjoinManager;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task;
@@ -25,6 +26,7 @@ mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
+mod payjoin;
 mod service;
 mod swap;
 mod tracing_setup;
@@ -42,7 +44,15 @@ mod profiling;
 #[command(author = "Boltz", about = "Boltz Backend sidecar", version, about, long_about = None)]
 struct Args {
     /// Path to the config file
-    #[arg(short, long, default_value_t = String::from(format!("{}/.boltz/boltz.conf", dirs::home_dir().unwrap_or_else(|| "".into()).display())))]
+    #[arg(short, long, default_value_t = {
+        let home = dirs::home_dir().unwrap_or_else(|| "".into());
+        let config_dir = if cfg!(target_os = "macos") {
+            home.join("Library/Application Support/Boltz")
+        } else {
+            home.join(".boltz")
+        };
+        config_dir.join("boltz.conf").to_string_lossy().into_owned()
+    })]
     config: String,
 
     /// Log level of the application
@@ -257,12 +267,19 @@ async fn main() {
         }
     };
 
+    let payjoin_manager = Arc::new(
+        PayjoinManager::new()
+            .await
+            .expect("Failed to initialize PayjoinManager"),
+    );
+
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
         log_reload_handler,
         service.clone(),
         swap_manager.clone(),
+        payjoin_manager.clone(),
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,

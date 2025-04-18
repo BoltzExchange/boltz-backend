@@ -4,6 +4,7 @@ import { encode } from 'querystring';
 import { satoshisToCoins } from '../DenominationConverter';
 import ElementsClient from '../chain/ElementsClient';
 import type { Currency } from '../wallet/WalletManager';
+import Sidecar from '../sidecar/Sidecar';
 
 class PaymentRequestUtils {
   private prefixes = new Map<string, string>([
@@ -14,7 +15,7 @@ class PaymentRequestUtils {
 
   private readonly lbtcAssetHash?: string;
 
-  constructor(liquid?: Currency) {
+  constructor(private readonly sidecar: Sidecar, liquid?: Currency) {
     if (liquid) {
       this.lbtcAssetHash = (liquid.network as LiquidNetwork)!.assetHash;
 
@@ -27,12 +28,17 @@ class PaymentRequestUtils {
   /**
    * Encode a BIP21 payment request
    */
-  public encodeBip21 = (
+  public encodeBip21 = async (
     symbol: string,
     address: string,
     satoshis?: number,
     label?: string,
-  ): string | undefined => {
+  ): Promise<string | undefined> => {
+    if (symbol === 'BTC') { 
+      let payjoin_uri = await this.sidecar.getPayjoinUri(address, satoshis, label);
+      return payjoin_uri;
+    }
+
     const prefix = this.getBip21Prefix(symbol);
     const isLbtc = symbol === ElementsClient.symbol;
 

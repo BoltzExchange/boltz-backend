@@ -24,6 +24,8 @@ service BoltzR {
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
+
+  rpc GetPayjoinUri (GetPayjoinUriRequest) returns (GetPayjoinUriResponse);
 }
 
 message GetInfoRequest {}
@@ -237,4 +239,14 @@ message ScanMempoolResponse {
   }
 
   map<string, Transactions> transactions = 1;
+}
+
+message GetPayjoinUriRequest {
+  string address = 1;
+  optional uint64 satoshis = 2;
+  optional string label = 3;
+}
+
+message GetPayjoinUriResponse {
+  string uri = 1;
 }

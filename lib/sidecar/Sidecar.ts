@@ -541,6 +541,22 @@ class Sidecar extends BaseClient<
     }
   };
 
+  public getPayjoinUri = async (address: string, satoshis?: number, label?: string): Promise<string> => {
+    const req = new sidecarrpc.GetPayjoinUriRequest();
+    req.setAddress(address);
+    if (satoshis !== undefined) {
+      req.setSatoshis(satoshis);
+    }
+    if (label !== undefined) {
+      req.setLabel(label);
+    }
+    let res = await this.unaryNodeCall<
+      sidecarrpc.GetPayjoinUriRequest,
+      sidecarrpc.GetPayjoinUriResponse.AsObject
+    >('getPayjoinUri', req, true);
+    return res.uri;
+  };
+
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
     const req = new sidecarrpc.SendWebHookRequest();
     req.setId(swapId);

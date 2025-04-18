@@ -752,24 +752,24 @@ class UtxoNursery extends TypedEventEmitter<{
         return;
       }
 
-      if (
-        this.overpaymentProtector.isUnacceptableOverpay(
-          swap.type,
-          updatedSwap.expectedAmount,
-          outputValue,
-        )
-      ) {
-        chainClient.removeOutputFilter(swapOutput.script);
-        this.emit('swap.lockup.failed', {
-          swap: updatedSwap,
-          reason: Errors.OVERPAID_AMOUNT(
-            outputValue,
-            updatedSwap.expectedAmount,
-          ).message,
-        });
-
-        return;
-      }
+      //if (
+      //  this.overpaymentProtector.isUnacceptableOverpay(
+      //    swap.type,
+      //    updatedSwap.expectedAmount,
+      //    outputValue,
+      //  )
+      //) {
+      //  chainClient.removeOutputFilter(swapOutput.script);
+      //  this.emit('swap.lockup.failed', {
+      //    swap: updatedSwap,
+      //    reason: Errors.OVERPAID_AMOUNT(
+      //      outputValue,
+      //      updatedSwap.expectedAmount,
+      //    ).message,
+      //  });
+      //
+      //  return;
+      //}
     }
 
     if (

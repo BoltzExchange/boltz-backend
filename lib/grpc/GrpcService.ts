@@ -348,6 +348,19 @@ class GrpcService {
     });
   };
 
+  public checkTransaction: handleUnaryCall<
+    boltzrpc.CheckTransactionRequest,
+    boltzrpc.CheckTransactionResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { symbol, id } = call.request.toObject();
+
+      await this.service.checkTransaction(symbol, id);
+
+      return new boltzrpc.CheckTransactionResponse();
+    });
+  };
+
   public getLabel: handleUnaryCall<
     boltzrpc.GetLabelRequest,
     boltzrpc.GetLabelResponse

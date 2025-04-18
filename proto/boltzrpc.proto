@@ -43,6 +43,7 @@ service Boltz {
   rpc ListSwaps (ListSwapsRequest) returns (ListSwapsResponse);
 
   rpc Rescan (RescanRequest) returns (RescanResponse);
+  rpc CheckTransaction (CheckTransactionRequest) returns (CheckTransactionResponse);
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
@@ -232,6 +233,12 @@ message RescanResponse {
   uint64 end_height = 2;
 }
 
+message CheckTransactionRequest {
+  string symbol = 1;
+  string id = 2;
+}
+message CheckTransactionResponse {}
+
 message SetSwapStatusRequest {
   string id = 1;
   string status = 2;
@@ -345,6 +352,7 @@ message CalculateTransactionFeeResponse {
 enum Action {
   ACCEPT = 0;
   REJECT = 1;
+  HOLD = 2;
 }
 
 message SwapCreationResponse {

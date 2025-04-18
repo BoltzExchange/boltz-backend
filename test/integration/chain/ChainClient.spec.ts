@@ -1,3 +1,4 @@
+import type { Transaction } from 'bitcoinjs-lib';
 import { OutputType } from 'boltz-core';
 import { getHexBuffer, reverseBuffer } from '../../../lib/Utils';
 import Rebroadcaster from '../../../lib/chain/Rebroadcaster';
@@ -169,6 +170,57 @@ describe('ChainClient', () => {
     });
 
     expect(bitcoinClient['zmqClient'].relevantInputs.size).toEqual(0);
+  });
+
+  describe('checkTransaction', () => {
+    test('should check transaction and emit event', async () => {
+      const txId = await bitcoinClient.sendToAddress(
+        generateAddress(OutputType.Bech32).address,
+        1000,
+        undefined,
+        false,
+        '',
+      );
+
+      const txPromise = new Promise<{
+        transaction: Transaction;
+        confirmed: boolean;
+      }>((resolve) => {
+        bitcoinClient.once('transaction', resolve);
+      });
+
+      await bitcoinClient.checkTransaction(txId);
+
+      const { transaction, confirmed } = await txPromise;
+      expect(transaction).toBeDefined();
+      expect(confirmed).toEqual(false);
+    });
+
+    test('should check confirmed transaction', async () => {
+      const txId = await bitcoinClient.sendToAddress(
+        generateAddress(OutputType.Bech32).address,
+        1000,
+        undefined,
+        false,
+        '',
+      );
+
+      await bitcoinClient.generate(1);
+      await wait(100);
+
+      const txPromise = new Promise<{
+        transaction: Transaction;
+        confirmed: boolean;
+      }>((resolve) => {
+        bitcoinClient.once('transaction', resolve);
+      });
+
+      await bitcoinClient.checkTransaction(txId);
+
+      const { transaction, confirmed } = await txPromise;
+      expect(transaction).toBeDefined();
+      expect(confirmed).toEqual(true);
+    });
   });
 
   test('should emit an event when a block gets mined', async () => {

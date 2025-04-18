@@ -35,6 +35,7 @@ class GrpcServer {
       sweepSwaps: grpcService.sweepSwaps,
       listSwaps: grpcService.listSwaps,
       rescan: grpcService.rescan,
+      checkTransaction: grpcService.checkTransaction,
       setSwapStatus: grpcService.setSwapStatus,
       allowRefund: grpcService.allowRefund,
       devHeapDump: grpcService.devHeapDump,

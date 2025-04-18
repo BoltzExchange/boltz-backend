@@ -1060,6 +1060,66 @@ describe('Service', () => {
     });
   });
 
+  describe('checkTransaction', () => {
+    const mockCheckTransaction = jest.fn().mockResolvedValue(undefined);
+    const mockContractEventHandlerCheckTransaction = jest
+      .fn()
+      .mockResolvedValue(undefined);
+
+    beforeEach(() => {
+      currencies.get('BTC')!.chainClient!.checkTransaction =
+        mockCheckTransaction;
+      service.walletManager.ethereumManagers[0].contractEventHandler.checkTransaction =
+        mockContractEventHandlerCheckTransaction;
+    });
+
+    test('should check transaction on chain with chainClient', async () => {
+      const symbol = 'BTC';
+      const txId =
+        '02b1eda582decb797b19d8968f23f43de04d9cd343e83f7345a28ed91ceb7bb6';
+
+      await service.checkTransaction(symbol, txId);
+
+      expect(mockCheckTransaction).toHaveBeenCalledTimes(1);
+      expect(mockCheckTransaction).toHaveBeenCalledWith(txId);
+    });
+
+    test('should check transaction on chain with provider', async () => {
+      const symbol = 'ETH';
+      const txId =
+        '0x1d5c0fdc8d1816b730d37373510e7054f6e09fbbbfae1e6ad1067b3f13406cfe';
+
+      await service.checkTransaction(symbol, txId);
+
+      expect(mockContractEventHandlerCheckTransaction).toHaveBeenCalledTimes(1);
+      expect(mockContractEventHandlerCheckTransaction).toHaveBeenCalledWith(
+        txId,
+      );
+    });
+
+    test('should throw when checking transaction for currency that does not exist', async () => {
+      const symbol = 'NONEXISTENT';
+      const txId = '1234567890';
+
+      await expect(service.checkTransaction(symbol, txId)).rejects.toEqual(
+        Errors.CURRENCY_NOT_FOUND(symbol),
+      );
+    });
+
+    test('should throw when checking transaction on currency with no chain support', async () => {
+      const symbol = 'NO_CHAIN';
+      currencies.set(symbol, { symbol } as any);
+
+      const txId = '1234567890';
+
+      await expect(service.checkTransaction(symbol, txId)).rejects.toEqual(
+        Errors.NO_CHAIN_FOR_SYMBOL(),
+      );
+
+      currencies.delete(symbol);
+    });
+  });
+
   describe('calculateTransactionFee', () => {
     afterAll(() => {
       currencies.get('BTC')!.chainClient!.getRawTransaction =

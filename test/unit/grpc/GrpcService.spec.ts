@@ -142,6 +142,7 @@ jest.mock('../../../lib/service/Service', () => {
       sendCoins: mockSendCoins,
       addReferral: mockAddReferral,
       rescan: jest.fn().mockResolvedValue(831106),
+      checkTransaction: jest.fn().mockResolvedValue(undefined),
     };
   });
 });
@@ -556,6 +557,27 @@ describe('GrpcService', () => {
 
       expect(service.rescan).toHaveBeenCalledTimes(1);
       expect(service.rescan).toHaveBeenCalledWith(symbol, startHeight, true);
+    });
+  });
+
+  describe('checkTransaction', () => {
+    test('should check transaction', async () => {
+      const symbol = 'BTC';
+      const id = 'someTxId';
+
+      await new Promise<void>((resolve) => {
+        grpcService.checkTransaction(
+          createCall({ symbol, id }),
+          createCallback((error, response) => {
+            expect(error).toEqual(null);
+            expect(response).toBeInstanceOf(boltzrpc.CheckTransactionResponse);
+            resolve();
+          }),
+        );
+      });
+
+      expect(service.checkTransaction).toHaveBeenCalledTimes(1);
+      expect(service.checkTransaction).toHaveBeenCalledWith(symbol, id);
     });
   });
 

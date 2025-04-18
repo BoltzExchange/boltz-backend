@@ -468,6 +468,27 @@ class Service {
     return endHeight;
   };
 
+  public checkTransaction = async (symbol: string, id: string) => {
+    this.logger.info(`Checking ${symbol} transaction: ${id}`);
+
+    const currency = getCurrency(this.currencies, symbol);
+
+    if (currency.chainClient) {
+      await currency.chainClient.checkTransaction(id);
+    } else if (currency.provider) {
+      const manager = this.walletManager.ethereumManagers.find((manager) =>
+        manager.hasSymbol(symbol),
+      );
+      if (manager === undefined) {
+        throw Errors.NO_CHAIN_FOR_SYMBOL();
+      }
+
+      await manager.contractEventHandler.checkTransaction(id);
+    } else {
+      throw Errors.NO_CHAIN_FOR_SYMBOL();
+    }
+  };
+
   public calculateTransactionFee = async (
     symbol: string,
     transactionId: string,

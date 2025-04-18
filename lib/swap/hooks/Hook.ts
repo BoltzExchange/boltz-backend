@@ -10,15 +10,21 @@ interface HookResponse {
   getAction(): boltzrpc.Action;
 }
 
+const enum Action {
+  Accept,
+  Reject,
+  Hold,
+}
+
 class Hook<Req, Res extends HookResponse> {
-  private readonly pendingHooks = new Map<string, (action: boolean) => void>();
+  private readonly pendingHooks = new Map<string, (action: Action) => void>();
 
   private stream?: ServerDuplexStream<Res, Req> = undefined;
 
   constructor(
-    private readonly logger: Logger,
+    protected readonly logger: Logger,
     private readonly name: string,
-    private readonly defaultAction: boolean,
+    private readonly defaultAction: Action,
     private readonly hookResolveTimeout: number,
     private readonly notificationClient?: NotificationClient,
   ) {}
@@ -59,12 +65,12 @@ class Hook<Req, Res extends HookResponse> {
 
       const hook = this.pendingHooks.get(data.getId());
       if (hook !== undefined) {
-        hook(data.getAction() === boltzrpc.Action.ACCEPT);
+        hook(this.parseGrpcAction(data.getAction()));
       }
     });
   };
 
-  protected sendHook = (id: string, request: Req): Promise<boolean> => {
+  protected sendHook = (id: string, request: Req): Promise<Action> => {
     if (this.stream === undefined) {
       this.logger.silly(
         `gRPC ${this.name} hook is not connected, returning default action`,
@@ -72,8 +78,8 @@ class Hook<Req, Res extends HookResponse> {
       return Promise.resolve(this.defaultAction);
     }
 
-    const hook = new Promise<boolean>((resolve) => {
-      const resolver = (action: boolean) => {
+    const hook = new Promise<Action>((resolve) => {
+      const resolver = (action: Action) => {
         this.pendingHooks.delete(id);
         if (!action) {
           this.logger.warn(`Hook ${this.name} rejected for ${id}`);
@@ -88,7 +94,7 @@ class Hook<Req, Res extends HookResponse> {
         }
       }, this.hookResolveTimeout);
 
-      this.pendingHooks.set(id, (action: boolean) => {
+      this.pendingHooks.set(id, (action: Action) => {
         clearTimeout(timeout);
         resolver(action);
       });
@@ -118,6 +124,20 @@ class Hook<Req, Res extends HookResponse> {
 
     this.notificationClient.sendMessage(message, true, true);
   };
+
+  private parseGrpcAction = (action: boltzrpc.Action): Action => {
+    switch (action) {
+      case boltzrpc.Action.ACCEPT:
+        return Action.Accept;
+      case boltzrpc.Action.REJECT:
+        return Action.Reject;
+      case boltzrpc.Action.HOLD:
+        return Action.Hold;
+      default:
+        throw new Error(`unknown action: ${action}`);
+    }
+  };
 }
 
 export default Hook;
+export { Action };

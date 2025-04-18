@@ -32,6 +32,7 @@ import type EthereumManager from '../wallet/ethereum/EthereumManager';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
+import { Action } from './hooks/Hook';
 import type TransactionHook from './hooks/TransactionHook';
 
 class EthereumNursery extends TypedEventEmitter<{
@@ -245,21 +246,30 @@ class EthereumNursery extends TypedEventEmitter<{
       }
     }
 
-    if (
-      !(await this.transactionHook.hook(
+    {
+      const action = await this.transactionHook.hook(
         this.ethereumManager.networkDetails.name,
         transaction.hash!,
         getHexBuffer(
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
         true,
-      ))
-    ) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
+      );
+
+      switch (action) {
+        case Action.Hold:
+          this.logger.warn(
+            `Holding lockup in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+          );
+          return;
+
+        case Action.Reject:
+          this.emit('lockup.failed', {
+            swap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
+          return;
+      }
     }
 
     this.emit('eth.lockup', {
@@ -374,21 +384,30 @@ class EthereumNursery extends TypedEventEmitter<{
       }
     }
 
-    if (
-      !(await this.transactionHook.hook(
+    {
+      const action = await this.transactionHook.hook(
         wallet.symbol,
         transaction.hash!,
         getHexBuffer(
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
         true,
-      ))
-    ) {
-      this.emit('lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
+      );
+
+      switch (action) {
+        case Action.Hold:
+          this.logger.debug(
+            `Holding lockup in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transaction.hash}`,
+          );
+          return;
+
+        case Action.Reject:
+          this.emit('lockup.failed', {
+            swap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
+          return;
+      }
     }
 
     this.emit('erc20.lockup', {

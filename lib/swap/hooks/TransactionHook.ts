@@ -1,14 +1,14 @@
 import type Logger from '../../Logger';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
-import Hook from './Hook';
+import Hook, { Action } from './Hook';
 
 class TransactionHook extends Hook<
   boltzrpc.TransactionHookRequest,
   boltzrpc.TransactionHookResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(logger, 'transaction', true, 20_000, notificationClient);
+    super(logger, 'transaction', Action.Hold, 60_000, notificationClient);
   }
 
   public hook = (
@@ -17,7 +17,7 @@ class TransactionHook extends Hook<
     tx: Buffer,
     confirmed: boolean,
     vout?: number,
-  ) => {
+  ): Promise<Action> => {
     const msg = new boltzrpc.TransactionHookRequest();
     msg.setSymbol(symbol);
     msg.setId(id);

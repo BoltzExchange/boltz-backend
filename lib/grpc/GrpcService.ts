@@ -48,21 +48,21 @@ class GrpcService {
     boltzrpc.GetInfoRequest,
     boltzrpc.GetInfoResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, () => this.service.getInfo());
+    await handleCallback(call, callback, () => this.service.getInfo());
   };
 
   public getBalance: handleUnaryCall<
     boltzrpc.GetBalanceRequest,
     boltzrpc.GetBalanceResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, () => this.service.getBalance());
+    await handleCallback(call, callback, () => this.service.getBalance());
   };
 
   public deriveKeys: handleUnaryCall<
     boltzrpc.DeriveKeysRequest,
     boltzrpc.DeriveKeysResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol, index } = call.request.toObject();
       return this.service.deriveKeys(symbol, index);
     });
@@ -72,7 +72,7 @@ class GrpcService {
     boltzrpc.DeriveBlindingKeyRequest,
     boltzrpc.DeriveBlindingKeyResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { address } = call.request.toObject();
       const { publicKey, privateKey } =
         this.service.elementsService.deriveBlindingKeys(address);
@@ -89,7 +89,7 @@ class GrpcService {
     boltzrpc.UnblindOutputsRequest,
     boltzrpc.UnblindOutputsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const outputs =
         call.request.hasId() && call.request.getId() !== ''
           ? await this.service.elementsService.unblindOutputsFromId(
@@ -132,7 +132,7 @@ class GrpcService {
     boltzrpc.GetAddressRequest,
     boltzrpc.GetAddressResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol, label } = call.request.toObject();
       const address = await this.service.getAddress(symbol, label);
 
@@ -147,7 +147,7 @@ class GrpcService {
     boltzrpc.SendCoinsRequest,
     boltzrpc.SendCoinsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { vout, transactionId } = await this.service.sendCoins(
         call.request.toObject(),
       );
@@ -166,7 +166,7 @@ class GrpcService {
     boltzrpc.AddReferralRequest,
     boltzrpc.AddReferralResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id, feeShare, routingNode } = call.request.toObject();
 
       const { apiKey, apiSecret } = await this.service.addReferral({
@@ -188,7 +188,7 @@ class GrpcService {
     boltzrpc.SetSwapStatusRequest,
     boltzrpc.SetSwapStatusResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id, status } = call.request.toObject();
 
       await this.service.setSwapStatus(id, status);
@@ -201,7 +201,7 @@ class GrpcService {
     boltzrpc.AllowRefundRequest,
     boltzrpc.AllowRefundResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id } = call.request.toObject();
       await this.service.allowRefund(id);
 
@@ -213,7 +213,7 @@ class GrpcService {
     boltzrpc.GetLockedFundsRequest,
     boltzrpc.GetLockedFundsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const lockedFunds = await this.service.getLockedFunds();
 
       const response = new boltzrpc.GetLockedFundsResponse();
@@ -249,7 +249,7 @@ class GrpcService {
     boltzrpc.GetPendingSweepsRequest,
     boltzrpc.GetPendingSweepsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const response = new boltzrpc.GetPendingSweepsResponse();
       const pendingSweeps = this.service.getPendingSweeps();
       const pendingSweepsGrpcMap = response.getPendingSweepsMap();
@@ -279,7 +279,7 @@ class GrpcService {
     boltzrpc.SweepSwapsRequest,
     boltzrpc.SweepSwapsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol } = call.request.toObject();
 
       const claimed = symbol
@@ -310,7 +310,7 @@ class GrpcService {
     boltzrpc.ListSwapsRequest,
     boltzrpc.ListSwapsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { status, limit } = call.request.toObject();
 
       const swaps = await this.service.listSwaps(
@@ -331,7 +331,7 @@ class GrpcService {
     boltzrpc.RescanRequest,
     boltzrpc.RescanResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol, startHeight, includeMempool } = call.request.toObject();
 
       const endHeight = await this.service.rescan(
@@ -352,7 +352,7 @@ class GrpcService {
     boltzrpc.GetLabelRequest,
     boltzrpc.GetLabelResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { txId } = call.request.toObject();
       const label = await TransactionLabelRepository.getLabel(txId);
       if (label == null) {
@@ -370,7 +370,7 @@ class GrpcService {
     boltzrpc.GetPendingEvmTransactionsRequest,
     boltzrpc.GetPendingEvmTransactionsResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const response = new boltzrpc.GetPendingEvmTransactionsResponse();
       const txsGrpcList = response.getTransactionsList();
 
@@ -416,7 +416,7 @@ class GrpcService {
     boltzrpc.SetLogLevelRequest,
     boltzrpc.SetLogLevelResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       let level: BackendLevel;
 
       switch (call.request.getLevel()) {
@@ -455,7 +455,7 @@ class GrpcService {
     boltzrpc.DevHeapDumpRequest,
     boltzrpc.DevHeapDumpResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const filePath =
         call.request.getPath() || `${getUnixTime()}.heapsnapshot`;
 
@@ -470,7 +470,7 @@ class GrpcService {
     boltzrpc.CalculateTransactionFeeRequest,
     boltzrpc.CalculateTransactionFeeResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol, transactionId } = call.request.toObject();
 
       const { absolute, satPerVbyte, gwei } =
@@ -523,7 +523,7 @@ class GrpcService {
       return ref;
     };
 
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id } = call.request.toObject();
 
       if (id == undefined || id === '') {
@@ -552,7 +552,7 @@ class GrpcService {
     boltzrpc.SetReferralRequest,
     boltzrpc.SetReferralResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id, config } = call.request.toObject();
 
       const referral = await ReferralRepository.getReferralById(id);
@@ -581,7 +581,7 @@ class GrpcService {
     boltzrpc.DevClearSwapUpdateCacheRequest,
     boltzrpc.DevClearSwapUpdateCacheResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { id } = call.request.toObject();
 
       if (id !== undefined && id != null && id !== '') {
@@ -595,18 +595,19 @@ class GrpcService {
       return new boltzrpc.DevClearSwapUpdateCacheResponse();
     });
   };
-
-  private handleCallback = async <R, T>(
-    call: R,
-    callback: (error: any, res: T | null) => void,
-    handler: (call: R) => Promise<T>,
-  ) => {
-    try {
-      callback(null, await handler(call));
-    } catch (error) {
-      callback(typeof error === 'string' ? { message: error } : error, null);
-    }
-  };
 }
 
+const handleCallback = async <R, T>(
+  call: R,
+  callback: (error: any, res: T | null) => void,
+  handler: (call: R) => Promise<T>,
+) => {
+  try {
+    callback(null, await handler(call));
+  } catch (error) {
+    callback(typeof error === 'string' ? { message: error } : error, null);
+  }
+};
+
 export default GrpcService;
+export { handleCallback };

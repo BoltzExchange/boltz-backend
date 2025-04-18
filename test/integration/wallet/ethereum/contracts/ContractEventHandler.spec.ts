@@ -371,6 +371,46 @@ describe('ContractEventHandler', () => {
     await Promise.all([lockupPromise, claimPromise, refundPromise]);
   });
 
+  describe('checkTransaction', () => {
+    test('should check transaction', async () => {
+      const lockupPromise = new Promise<void>((resolve) => {
+        contractEventHandler.once(
+          'eth.lockup',
+          async ({ version, transaction, etherSwapValues }) => {
+            expect(version).toEqual(contractsVersion);
+            expect(transaction).toEqual(
+              await setup.provider.getTransaction(
+                transactions.etherSwap.lockup!,
+              ),
+            );
+            expect(etherSwapValues).toEqual({
+              amount,
+              timelock,
+              preimageHash: crypto.sha256(preimage),
+              refundAddress: await setup.signer.getAddress(),
+              claimAddress: await setup.etherBase.getAddress(),
+            });
+            resolve();
+          },
+        );
+      });
+
+      await contractEventHandler.checkTransaction(
+        transactions.etherSwap.lockup!,
+      );
+
+      await lockupPromise;
+    });
+
+    test('should throw when transaction is not found', async () => {
+      await expect(
+        contractEventHandler.checkTransaction(
+          '0xc94dbe074d07f650a2658357677f5c669e79e30eb13a5f5367138b3eb25c5db6',
+        ),
+      ).rejects.toEqual(new Error('transaction not found'));
+    });
+  });
+
   test('should check for missed events', async () => {
     contractEventHandler['rescanLastHeight'] =
       await setup.provider.getBlockNumber();

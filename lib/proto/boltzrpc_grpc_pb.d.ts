@@ -24,6 +24,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     sweepSwaps: IBoltzService_ISweepSwaps;
     listSwaps: IBoltzService_IListSwaps;
     rescan: IBoltzService_IRescan;
+    checkTransaction: IBoltzService_ICheckTransaction;
     getLabel: IBoltzService_IGetLabel;
     getPendingEvmTransactions: IBoltzService_IGetPendingEvmTransactions;
     getReferrals: IBoltzService_IGetReferrals;
@@ -180,6 +181,15 @@ interface IBoltzService_IRescan extends grpc.MethodDefinition<boltzrpc_pb.Rescan
     responseSerialize: grpc.serialize<boltzrpc_pb.RescanResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.RescanResponse>;
 }
+interface IBoltzService_ICheckTransaction extends grpc.MethodDefinition<boltzrpc_pb.CheckTransactionRequest, boltzrpc_pb.CheckTransactionResponse> {
+    path: "/boltzrpc.Boltz/CheckTransaction";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.CheckTransactionRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.CheckTransactionRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.CheckTransactionResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.CheckTransactionResponse>;
+}
 interface IBoltzService_IGetLabel extends grpc.MethodDefinition<boltzrpc_pb.GetLabelRequest, boltzrpc_pb.GetLabelResponse> {
     path: "/boltzrpc.Boltz/GetLabel";
     requestStream: false;
@@ -290,6 +300,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     sweepSwaps: grpc.handleUnaryCall<boltzrpc_pb.SweepSwapsRequest, boltzrpc_pb.SweepSwapsResponse>;
     listSwaps: grpc.handleUnaryCall<boltzrpc_pb.ListSwapsRequest, boltzrpc_pb.ListSwapsResponse>;
     rescan: grpc.handleUnaryCall<boltzrpc_pb.RescanRequest, boltzrpc_pb.RescanResponse>;
+    checkTransaction: grpc.handleUnaryCall<boltzrpc_pb.CheckTransactionRequest, boltzrpc_pb.CheckTransactionResponse>;
     getLabel: grpc.handleUnaryCall<boltzrpc_pb.GetLabelRequest, boltzrpc_pb.GetLabelResponse>;
     getPendingEvmTransactions: grpc.handleUnaryCall<boltzrpc_pb.GetPendingEvmTransactionsRequest, boltzrpc_pb.GetPendingEvmTransactionsResponse>;
     getReferrals: grpc.handleUnaryCall<boltzrpc_pb.GetReferralsRequest, boltzrpc_pb.GetReferralsResponse>;
@@ -351,6 +362,9 @@ export interface IBoltzClient {
     rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
@@ -433,6 +447,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public rescan(request: boltzrpc_pb.RescanRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
     public rescan(request: boltzrpc_pb.RescanRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.RescanResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzrpc_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;
     public getLabel(request: boltzrpc_pb.GetLabelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetLabelResponse) => void): grpc.ClientUnaryCall;

@@ -27,6 +27,12 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
     );
   };
 
+  public checkTransaction = async (id: string): Promise<void> => {
+    await Promise.all(
+      this.handlers.map((handler) => handler.checkTransaction(id)),
+    );
+  };
+
   public destroy = () => {
     this.handlers.forEach((handler) => handler.destroy());
   };

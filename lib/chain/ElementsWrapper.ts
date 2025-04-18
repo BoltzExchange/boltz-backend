@@ -115,6 +115,9 @@ class ElementsWrapper
     // Only rescan with the public client to avoid duplicate events
     this.publicClient().rescanChain(startHeight);
 
+  public checkTransaction = (transactionId: string) =>
+    allSettledFirst(this.clients.map((c) => c.checkTransaction(transactionId)));
+
   public addInputFilter = (inputHash: Buffer) =>
     this.clients.forEach((c) => c.addInputFilter(inputHash));
 

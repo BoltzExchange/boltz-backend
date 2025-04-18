@@ -43,6 +43,7 @@ service Boltz {
   rpc ListSwaps (ListSwapsRequest) returns (ListSwapsResponse);
 
   rpc Rescan (RescanRequest) returns (RescanResponse);
+  rpc CheckTransaction (CheckTransactionRequest) returns (CheckTransactionResponse);
 
   rpc GetLabel (GetLabelRequest) returns (GetLabelResponse);
 
@@ -231,6 +232,12 @@ message RescanResponse {
   uint64 start_height = 1;
   uint64 end_height = 2;
 }
+
+message CheckTransactionRequest {
+  string symbol = 1;
+  string id = 2;
+}
+message CheckTransactionResponse {}
 
 message SetSwapStatusRequest {
   string id = 1;

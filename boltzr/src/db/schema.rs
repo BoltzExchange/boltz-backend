@@ -14,7 +14,7 @@ diesel::table! {
     offers (signer) {
         signer -> Binary,
         offer -> Text,
-        url -> Text,
+        url -> Nullable<Text>,
     }
 }
 

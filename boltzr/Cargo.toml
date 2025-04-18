@@ -9,21 +9,21 @@ build = "build.rs"
 [features]
 default = ["metrics", "loki", "otel"]
 metrics = [
-    "dep:metrics",
-    "dep:axum-prometheus",
-    "dep:metrics-process",
-    "dep:metrics-exporter-prometheus",
+	"dep:metrics",
+	"dep:axum-prometheus",
+	"dep:metrics-process",
+	"dep:metrics-exporter-prometheus",
 ]
 loki = ["dep:tracing-loki"]
 otel = [
-    "dep:pyroscope",
-    "dep:opentelemetry",
-    "dep:diesel-tracing",
-    "dep:opentelemetry_sdk",
-    "dep:pyroscope_pprofrs",
-    "dep:opentelemetry-otlp",
-    "dep:tracing-opentelemetry",
-    "dep:opentelemetry-semantic-conventions",
+	"dep:pyroscope",
+	"dep:opentelemetry",
+	"dep:diesel-tracing",
+	"dep:opentelemetry_sdk",
+	"dep:pyroscope_pprofrs",
+	"dep:opentelemetry-otlp",
+	"dep:tracing-opentelemetry",
+	"dep:opentelemetry-semantic-conventions",
 ]
 
 [profile.release]
@@ -35,9 +35,9 @@ panic = "abort"
 [dependencies]
 axum = "0.8.3"
 bitcoin_hashes = "0.16.0"
-clap = { version = "4.5.34", features = ["derive"] }
+clap = { version = "4.5.36", features = ["derive"] }
 crossbeam-channel = "0.5.15"
-ctrlc = { version = "3.4.5", features = ["termination"] }
+ctrlc = { version = "3.4.6", features = ["termination"] }
 dirs = "6.0.0"
 num_cpus = "1.16.0"
 prost = "0.13.5"
@@ -46,10 +46,10 @@ reqwest = { version = "0.12.15", features = ["json"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.44.2", features = [
-    "rt-multi-thread",
-    "macros",
-    "process",
-    "net",
+	"rt-multi-thread",
+	"macros",
+	"process",
+	"net",
 ] }
 toml = "0.8.20"
 tonic = { version = "0.13.0", features = ["prost", "tls-ring"] }
@@ -61,57 +61,57 @@ futures = "0.3.31"
 metrics-process = { version = "2.4.0", optional = true }
 metrics-exporter-prometheus = { version = "0.16.2", optional = true, default-features = false }
 axum-prometheus = { version = "0.6.1", default-features = false, optional = true, features = [
-    "prometheus",
+	"prometheus",
 ] }
 metrics = { version = "0.24.1", optional = true }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8.10"
-diesel = { version = "2.2.8", default-features = false, features = [
-    "postgres",
-    "r2d2",
-    "chrono",
-    "serde_json",
-    "32-column-tables",
+diesel = { version = "2.2.9", default-features = false, features = [
+	"postgres",
+	"r2d2",
+	"chrono",
+	"serde_json",
+	"32-column-tables",
 ] }
 strum_macros = "0.27.1"
 strum = "0.27.1"
 dashmap = "6.1.0"
-opentelemetry = { version = "0.29.0", optional = true }
+opentelemetry = { version = "0.29.1", optional = true }
 opentelemetry-semantic-conventions = { version = "0.29.0", optional = true, features = [
-    "semconv_experimental",
+	"semconv_experimental",
 ] }
 opentelemetry_sdk = { version = "0.29.0", optional = true, features = [
-    "rt-tokio",
+	"rt-tokio",
 ] }
 opentelemetry-otlp = { version = "0.29.0", optional = true }
 tracing-opentelemetry = { version = "0.30.0", optional = true }
 diesel-tracing = { version = "0.3.1", optional = true, features = [
-    "postgres",
-    "r2d2",
-    "statement-fields",
+	"postgres",
+	"r2d2",
+	"statement-fields",
 ] }
-alloy = { version = "0.13.0", features = [
-    "reqwest",
-    "sol-types",
-    "serde",
-    "eip712",
-    "signer-local",
-    "signer-mnemonic",
-    "providers",
-    "transports",
-    "contract",
-    "json",
+alloy = { version = "0.14.0", features = [
+	"reqwest",
+	"sol-types",
+	"serde",
+	"eip712",
+	"signer-local",
+	"signer-mnemonic",
+	"providers",
+	"transports",
+	"contract",
+	"json",
 ] }
 async-tungstenite = { version = "0.29.1", features = [
-    "tokio-native-tls",
-    "tokio-runtime",
+	"tokio-native-tls",
+	"tokio-runtime",
 ] }
 async-trait = "0.1.88"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev = "030a7845d23fa2629353071f53f95dc8ad421377", features = [
-    "std",
+	"std",
 ] }
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.11.0"
@@ -122,18 +122,18 @@ rust-s3 = "0.35.1"
 cron = "0.15.0"
 chrono = "0.4.40"
 fedimint-tonic-lnd = { version = "0.2.0", features = [
-    "lightningrpc",
+	"lightningrpc",
 ], default-features = false }
-flate2 = "1.1.0"
+flate2 = "1.1.1"
 pyroscope = { version = "0.5.8", optional = true }
-pyroscope_pprofrs = { version = "0.2.8", optional = true }
+pyroscope_pprofrs = { version = "0.2.10", optional = true }
 csv = "1.3.1"
 axum-extra = { version = "0.10.1", features = ["typed-header"] }
-redis = { version = "0.29.2", features = ["tokio-comp", "r2d2"] }
+redis = { version = "0.29.5", features = ["tokio-comp", "r2d2"] }
 bytes = "1.10.1"
 rust-bip39 = "1.0.0"
 elements-miniscript = "0.4.0"
-rand = "0.9.0"
+rand = "0.9.1"
 tokio-stream = "0.1.17"
 
 [build-dependencies]

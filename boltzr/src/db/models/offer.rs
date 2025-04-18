@@ -5,5 +5,5 @@ use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 pub struct Offer {
     pub signer: Vec<u8>,
     pub offer: String,
-    pub url: String,
+    pub url: Option<String>,
 }

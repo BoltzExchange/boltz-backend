@@ -610,8 +610,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "offer",
-                  "url"
+                  "offer"
                 ],
                 "properties": {
                   "offer": {

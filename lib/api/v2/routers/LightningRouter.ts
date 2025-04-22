@@ -169,7 +169,6 @@
  *             type: object
  *             required:
  *               - offer
- *               - url
  *             properties:
  *               offer:
  *                 type: string

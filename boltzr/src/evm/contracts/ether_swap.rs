@@ -26,7 +26,7 @@ pub const NAME: &str = "EtherSwap";
 
 pub struct EtherSwapContract<P, N> {
     #[allow(dead_code)]
-    contract: EtherSwapInstance<(), P, N>,
+    contract: EtherSwapInstance<P, N>,
 
     version: u8,
     eip712domain: Eip712Domain,
@@ -47,7 +47,7 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
 
         let ether_swap = EtherSwap::new(address, provider.clone());
         let chain_id = provider.get_chain_id().await?;
-        let version = ether_swap.version().call().await?._0;
+        let version = ether_swap.version().call().await?;
         info!(
             "Found {} ({}) version: {}",
             NAME,
@@ -114,7 +114,7 @@ mod test {
 
         assert_eq!(
             contract.version(),
-            contract.contract.version().call().await.unwrap()._0
+            contract.contract.version().call().await.unwrap()
         );
     }
 
@@ -128,13 +128,7 @@ mod test {
         let hash = contract.eip712_domain().hash_struct();
         assert_eq!(
             hash,
-            contract
-                .contract
-                .DOMAIN_SEPARATOR()
-                .call()
-                .await
-                .unwrap()
-                ._0
+            contract.contract.DOMAIN_SEPARATOR().call().await.unwrap().0
         );
     }
 }

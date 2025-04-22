@@ -740,7 +740,7 @@ mod test {
     use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
+    use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use anyhow::anyhow;
     use async_trait::async_trait;
     use mockall::mock;
@@ -819,7 +819,7 @@ mod test {
                 amount: U256,
                 token_address: Option<Address>,
                 timeout: u64,
-            ) -> anyhow::Result<PrimitiveSignature>;
+            ) -> anyhow::Result<Signature>;
         }
     }
 
@@ -962,9 +962,7 @@ mod test {
         let sig_str = "0xd247cfedc0c62ea93f4f3093a3b2941c329773f140ab0cdc04a641376982d34e0aa7152cb2dd9036fad543646a3fdc8b22c8d83e62e13684d61f630afdd08b0f1c";
         signer
             .expect_sign_cooperative_refund()
-            .returning(|_, _, _, _, _| {
-                Ok(alloy::primitives::PrimitiveSignature::from_str(sig_str).unwrap())
-            });
+            .returning(|_, _, _, _, _| Ok(Signature::from_str(sig_str).unwrap()));
         svc.refund_signer = Some(Arc::new(signer));
 
         let res = svc

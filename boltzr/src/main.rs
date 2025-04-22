@@ -7,7 +7,7 @@ use crate::db::helpers::offer::OfferHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
-use api::ws;
+use api::ws::{self};
 use clap::Parser;
 use serde::Serialize;
 use std::sync::Arc;
@@ -28,6 +28,7 @@ mod notifications;
 mod service;
 mod swap;
 mod tracing_setup;
+mod types;
 mod utils;
 mod wallet;
 mod webhook;
@@ -145,7 +146,7 @@ async fn main() {
         }
     });
 
-    let (network, currencies) = match connect_nodes(
+    let (network, currencies, offer_subscriptions) = match connect_nodes(
         cancellation_token.clone(),
         KeysHelperDatabase::new(db_pool.clone()),
         config.mnemonic_path,
@@ -298,6 +299,7 @@ async fn main() {
         config.sidecar.ws,
         grpc_server.status_fetcher(),
         swap_status_update_tx,
+        offer_subscriptions,
     );
 
     let grpc_handle = tokio::spawn(async move {

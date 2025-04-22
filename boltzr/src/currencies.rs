@@ -1,3 +1,4 @@
+use crate::api::ws::OfferSubscriptions;
 use crate::chain::BaseClient;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
@@ -38,7 +39,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
-) -> anyhow::Result<(wallet::Network, Currencies)> {
+) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
         None => return Err(anyhow!("no mnemonic path")),
@@ -46,6 +47,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     let seed = Mnemonic::from_str(mnemonic.trim())?.to_seed("");
 
     let network = parse_network(network)?;
+    let offer_subscriptions = OfferSubscriptions::new(network);
 
     let mut curs = HashMap::new();
 
@@ -90,6 +92,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                                         network,
                                         &config,
                                         offer_helper.clone(),
+                                        offer_subscriptions.clone(),
                                     )
                                     .await,
                                 )
@@ -144,7 +147,7 @@ pub async fn connect_nodes<K: KeysHelper>(
         );
     }
 
-    Ok((network, Arc::new(curs)))
+    Ok((network, Arc::new(curs), offer_subscriptions))
 }
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {

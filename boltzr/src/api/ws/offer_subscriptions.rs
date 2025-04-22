@@ -32,7 +32,7 @@ pub struct OfferSubscriptions {
 
     pending_hooks: Arc<TimeoutMap<HookId, InvoiceHook<types::False>>>,
 
-    all_offers: Arc<DashMap<OfferId, ConnectionId>>,
+    all_offers: Arc<DashMap<OfferId, (String, ConnectionId)>>,
     offer_subscriptions: Arc<DashMap<ConnectionId, mpsc::Sender<InvoiceHook<types::False>>>>,
 
     invoice_response_tx: broadcast::Sender<(InvoiceHook<types::False>, String)>,
@@ -61,7 +61,7 @@ impl OfferSubscriptions {
 
     pub fn connection_dropped(&self, connection_id: u64) {
         self.offer_subscriptions.remove(&connection_id);
-        self.all_offers.retain(|_, id| *id != connection_id);
+        self.all_offers.retain(|_, (_, id)| *id != connection_id);
     }
 
     pub fn connection_id_known(&self, connection_id: u64) -> bool {
@@ -73,7 +73,7 @@ impl OfferSubscriptions {
             Some(connection_id) => {
                 self.pending_hooks.insert(hook.id(), hook.clone());
                 self.offer_subscriptions
-                    .get_mut(&connection_id)
+                    .get_mut(&connection_id.1)
                     .unwrap()
                     .send(hook)
                     .await?;
@@ -124,18 +124,36 @@ impl OfferSubscriptions {
                 return Err(anyhow!("invalid signature"));
             }
 
-            to_insert.push(offer_id);
+            to_insert.push((offer.offer.clone(), offer_id));
         }
 
         if !self.offer_subscriptions.contains_key(&connection_id) {
             return Ok(());
         }
 
-        for id in to_insert {
-            self.all_offers.insert(id, connection_id);
+        for (offer, id) in to_insert {
+            self.all_offers.insert(id, (offer, connection_id));
         }
 
         Ok(())
+    }
+
+    /// Unsubscribes from offers. Returns the offers that the connection is still subscribed to
+    pub fn offers_unsubscribe(
+        &self,
+        connection_id: ConnectionId,
+        offers: &[String],
+    ) -> Result<Vec<String>> {
+        for offer in offers {
+            self.all_offers.remove(&self.hash_offer(offer)?.1);
+        }
+
+        Ok(self
+            .all_offers
+            .iter()
+            .filter(|entry| entry.value().1 == connection_id)
+            .map(|entry| entry.value().0.clone())
+            .collect())
     }
 
     fn hash_offer(&self, offer: &str) -> Result<(PublicKey, OfferId)> {
@@ -205,7 +223,10 @@ mod test {
         let (_, offer_id) = subs.hash_offer(OFFER).unwrap();
 
         assert!(subs.all_offers.contains_key(&offer_id));
-        assert_eq!(subs.all_offers.get(&offer_id).unwrap().value(), &id);
+        assert_eq!(
+            subs.all_offers.get(&offer_id).unwrap().value(),
+            &(OFFER.to_string(), id)
+        );
 
         subs.connection_dropped(id);
 
@@ -268,7 +289,7 @@ mod test {
                 .get(&subs.hash_offer(OFFER).unwrap().1)
                 .unwrap()
                 .value(),
-            &connection_id
+            &(OFFER.to_string(), connection_id)
         );
     }
 
@@ -306,6 +327,38 @@ mod test {
             "invalid signature"
         );
         assert!(subs.all_offers.is_empty());
+    }
+
+    #[test]
+    fn offers_unsubscribe() {
+        let subs = OfferSubscriptions::new(Network::Regtest);
+
+        let connection_id = 21;
+        subs.connection_added(connection_id);
+        subs.offers_subscribe(
+            connection_id,
+            &[InvoiceRequestParams {
+                offer: OFFER.to_string(),
+                signature: hex::encode(sign_message(OFFER_SUBSCRIBE_MESSAGE).serialize()),
+            }],
+        )
+        .unwrap();
+
+        let (_, offer_id) = subs.hash_offer(OFFER).unwrap();
+        assert!(subs.all_offers.contains_key(&offer_id));
+
+        let remaining_offers = subs
+            .offers_unsubscribe(connection_id, &[OFFER.to_string()])
+            .unwrap();
+
+        assert!(remaining_offers.is_empty());
+        assert!(!subs.all_offers.contains_key(&offer_id));
+
+        // Should not panic
+        assert!(
+            subs.offers_unsubscribe(connection_id, &["nonexistent_offer".to_string()])
+                .is_err()
+        );
     }
 
     #[test]

@@ -12,10 +12,14 @@ The Swagger specifications of the latest Boltz REST API can be found :point\_rig
 
 ## WebSocket
 
-Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket. The endpoints are available at:
+The endpoints are available at:
 
 * Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
 * Mainnet: `wss://api.boltz.exchange/v2/ws`
+
+### Swap Updates
+
+Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket.
 
 To subscribe to swap status updates, send a message like below. `args` is a list of swap ids to subscribe to.
 
@@ -73,6 +77,83 @@ The backend will respond with a message that contains all swap ids the WebSocket
   "args": ["swap id 2"]
 }
 ```
+
+### BOLT12 Invoice Requests
+
+Clients can subscribe to invoice requests for BOLT12 offers they created via WebSockets. That is alternative to webhook calls for environments that can't receive webhook calls.
+
+To subscribe to invoice requests for specific offers, send a message like below. `args` is a list of objects, each containing the BOLT12 `offer` string and a schnorr signature by the signing key of the offer of the SHA256 hash of `SUBSCRIBE` serialized as HEX.
+
+```json
+{
+  "op": "subscribe",
+  "channel": "invoice.request",
+  "args": [
+    {
+      "offer": "lno1...",
+      "signature": "0fcdee..."
+    }
+  ]
+}
+```
+
+Boltz API will respond with a message like below to confirm the subscription, echoing the subscribed offers.
+
+```json
+{
+  "event": "subscribe",
+  "channel": "invoice.request",
+  "args": ["lno1..."]
+}
+```
+
+When an invoice for one of the subscribed offers is requested, it will send an `invoice.request` event. This message includes an unique `id` for this specific request, the `offer` for which an invoice is requested and the `invoiceRequest` itself serialized as HEX.
+
+```json
+{
+  "event": "request",
+  "channel": "invoice.request",
+  "args": [
+    {
+      "id": "1234567890123456789",
+      "offer": "lno1...",
+      "invoiceRequest": "0010fbb94b0461..."
+    }
+  ]
+}
+```
+
+The client must then generate the requested BOLT12 invoice and send it back using the `invoice` operation, referencing the `id` of the invoice request.
+
+```json
+{
+  "op": "invoice",
+  "id": "1234567890123456789",
+  "invoice": "lni1..."
+}
+```
+
+To unsubscribe from invoice requests for specific offers, send an `unsubscribe` message. `args` should contain the offer strings to unsubscribe from.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "invoice.request",
+  "args": ["lno1..."]
+}
+```
+
+The backend will respond with a message containing all offer ids the WebSocket is still subscribed to for invoice requests.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "invoice.request",
+  "args": ["lno2..."]
+}
+```
+
+### Application Level Pings
 
 To ensure the connection is alive, besides the native WebSocket pings, Boltz API will also respond to application-level pings, which is useful when the WebSocket client cannot control the low-level WebSocket connection (like on browsers). To send a ping, send a message like below.
 

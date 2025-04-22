@@ -132,7 +132,7 @@ enum WsResponse {
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
     Update(UpdateResponse<SwapStatus>),
-    #[serde(rename = "invoice.request")]
+    #[serde(rename = "request")]
     InvoiceRequest(UpdateResponse<InvoiceRequest>),
     #[serde(rename = "error")]
     Error(ErrorResponse),
@@ -470,17 +470,36 @@ where
                 Ok(None)
             }
             WsRequest::Unsubscribe(unsub) => {
-                for id in &unsub.args {
-                    subscribed_ids.remove(id);
-                }
+                let leftover_subscriptions = match unsub.channel {
+                    SubscriptionChannel::SwapUpdate => {
+                        for id in &unsub.args {
+                            subscribed_ids.remove(id);
+                        }
+
+                        subscribed_ids.iter().cloned().collect()
+                    }
+                    SubscriptionChannel::InvoiceRequest => {
+                        match self
+                            .offer_subscriptions
+                            .offers_unsubscribe(connection_id, &unsub.args)
+                        {
+                            Ok(res) => res,
+                            Err(err) => {
+                                return Ok(Some(WsResponse::Error(ErrorResponse {
+                                    error: format!("could not unsubscribe from offers: {}", err),
+                                })));
+                            }
+                        }
+                    }
+                };
 
                 Ok(Some(WsResponse::Unsubscribe(UnsubscribeResponse {
                     timestamp: match get_timestamp() {
                         Some(time) => time,
                         None => return Ok(None),
                     },
-                    channel: SubscriptionChannel::SwapUpdate,
-                    args: subscribed_ids.iter().cloned().collect(),
+                    channel: unsub.channel,
+                    args: leftover_subscriptions,
                 })))
             }
             WsRequest::Ping => Ok(Some(WsResponse::Pong)),

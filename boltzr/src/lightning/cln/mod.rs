@@ -43,7 +43,10 @@ pub struct Cln {
 }
 
 impl Cln {
-    #[instrument(name = "Cln::new", skip(config, offer_helper))]
+    #[instrument(
+        name = "Cln::new",
+        skip(cancellation_token, network, config, offer_helper, offer_subscriptions)
+    )]
     pub async fn new(
         cancellation_token: CancellationToken,
         symbol: &str,

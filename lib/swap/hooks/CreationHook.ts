@@ -2,7 +2,7 @@ import type Logger from '../../Logger';
 import { SwapType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
-import Hook from './Hook';
+import Hook, { Action } from './Hook';
 
 type RequestParamsBase = {
   id: string;
@@ -33,10 +33,13 @@ class CreationHook extends Hook<
   boltzrpc.SwapCreationResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(logger, 'swap creation', true, 2_500, notificationClient);
+    super(logger, 'swap creation', Action.Accept, 2_500, notificationClient);
   }
 
-  public hook = (type: SwapType, params: RequestParams): Promise<boolean> => {
+  public hook = async (
+    type: SwapType,
+    params: RequestParams,
+  ): Promise<boolean> => {
     const msg = new boltzrpc.SwapCreation();
     msg.setId(params.id);
     msg.setSymbolSending(params.symbolSending);
@@ -73,7 +76,15 @@ class CreationHook extends Hook<
       }
     }
 
-    return this.sendHook(params.id, msg);
+    return this.handleAction(await this.sendHook(params.id, msg));
+  };
+
+  private handleAction = (action: Action) => {
+    if (action === Action.Hold) {
+      this.logger.warn('Hold not implemented for swap creation hook');
+    }
+
+    return action !== Action.Reject;
   };
 }
 

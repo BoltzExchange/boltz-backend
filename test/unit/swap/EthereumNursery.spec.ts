@@ -22,6 +22,7 @@ import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepos
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
+import { Action } from '../../../lib/swap/hooks/Hook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import type Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
@@ -499,7 +500,7 @@ describe('EthereumNursery', () => {
   });
 
   test('should reject EtherSwap lockup transaction from blocked addresses', async () => {
-    transactionHook.hook = jest.fn().mockReturnValue(false);
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
 
     const lockupPromise = new Promise<void>((resolve) => {
       nursery.once('lockup.failed', ({ reason }) => {
@@ -528,7 +529,47 @@ describe('EthereumNursery', () => {
 
     await lockupPromise;
 
-    transactionHook.hook = jest.fn().mockReturnValue(true);
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
+  });
+
+  test('should hold EtherSwap lockup transaction when action is Hold', async () => {
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Hold);
+
+    let lockupEmitted = false;
+    let lockupFailed = false;
+
+    nursery.on('eth.lockup', () => {
+      lockupEmitted = true;
+    });
+
+    nursery.on('lockup.failed', () => {
+      lockupFailed = true;
+    });
+
+    mockGetSwapResult = {
+      pair: 'ETH/BTC',
+      expectedAmount: 10,
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      timeoutBlockHeight: 11102219,
+    };
+
+    await emitEthLockup({
+      transaction: exampleTransaction,
+      etherSwapValues: {
+        claimAddress: mockAddress,
+        amount: BigInt('100000000000'),
+        preimageHash: getHexString(examplePreimageHash),
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+      } as any,
+    });
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+    expect(lockupEmitted).toEqual(false);
+    expect(lockupFailed).toEqual(false);
+
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });
 
   test('should reject overpaid EtherSwap lockup transactions', async () => {
@@ -825,7 +866,7 @@ describe('EthereumNursery', () => {
   });
 
   test('should reject ERC20Swap lockup transaction from blocked addresses', async () => {
-    transactionHook.hook = jest.fn().mockReturnValue(false);
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
 
     const lockupPromise = new Promise<void>((resolve) => {
       nursery.once('lockup.failed', ({ reason }) => {
@@ -855,7 +896,48 @@ describe('EthereumNursery', () => {
 
     await lockupPromise;
 
-    transactionHook.hook = jest.fn().mockReturnValue(true);
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
+  });
+
+  test('should hold ERC20Swap lockup transaction when action is Hold', async () => {
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Hold);
+
+    let lockupEmitted = false;
+    let lockupFailed = false;
+
+    nursery.on('erc20.lockup', () => {
+      lockupEmitted = true;
+    });
+
+    nursery.on('lockup.failed', () => {
+      lockupFailed = true;
+    });
+
+    mockGetSwapResult = {
+      pair: 'BTC/USDT',
+      expectedAmount: 10,
+      orderSide: OrderSide.BUY,
+      type: SwapType.Submarine,
+      timeoutBlockHeight: 11102222,
+    };
+
+    await emitErc20Lockup({
+      transaction: exampleTransaction,
+      erc20SwapValues: {
+        claimAddress: mockAddress,
+        amount: BigInt('1000'),
+        tokenAddress: mockTokenAddress,
+        timelock: mockGetSwapResult.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+    });
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+    expect(lockupEmitted).toEqual(false);
+    expect(lockupFailed).toEqual(false);
+
+    transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });
 
   test('should reject overpaid ERC20 lockup transactions', async () => {

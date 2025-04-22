@@ -58,6 +58,8 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
   private version!: bigint;
 
+  private provider!: Provider;
+
   private etherSwap!: EtherSwap;
   private erc20Swap!: ERC20Swap;
 
@@ -78,6 +80,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     erc20Swap: ERC20Swap,
   ): Promise<void> => {
     this.version = version;
+    this.provider = provider;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
     this.networkDetails = networkDetails;
@@ -107,11 +110,26 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     }
   };
 
-  public rescan = async (startHeight: number): Promise<void> => {
+  public rescan = async (
+    startHeight: number,
+    endHeight?: number,
+  ): Promise<void> => {
     const [etherLockups, etherClaims, etherRefunds] = await Promise.all([
-      this.etherSwap.queryFilter(this.etherSwap.filters.Lockup(), startHeight),
-      this.etherSwap.queryFilter(this.etherSwap.filters.Claim(), startHeight),
-      this.etherSwap.queryFilter(this.etherSwap.filters.Refund(), startHeight),
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Lockup(),
+        startHeight,
+        endHeight,
+      ),
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Claim(),
+        startHeight,
+        endHeight,
+      ),
+      this.etherSwap.queryFilter(
+        this.etherSwap.filters.Refund(),
+        startHeight,
+        endHeight,
+      ),
     ]);
 
     for (const event of etherLockups) {
@@ -140,9 +158,21 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     }
 
     const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Lockup(), startHeight),
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Claim(), startHeight),
-      this.erc20Swap.queryFilter(this.erc20Swap.filters.Refund(), startHeight),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Lockup(),
+        startHeight,
+        endHeight,
+      ),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Claim(),
+        startHeight,
+        endHeight,
+      ),
+      this.erc20Swap.queryFilter(
+        this.erc20Swap.filters.Refund(),
+        startHeight,
+        endHeight,
+      ),
     ]);
 
     for (const event of erc20Lockups) {
@@ -169,6 +199,17 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         preimageHash: parseBuffer(event.topics[1]),
       });
     }
+  };
+
+  public checkTransaction = async (id: string): Promise<void> => {
+    const tx = await this.provider.getTransaction(id);
+    if (tx === null || tx.blockNumber === null) {
+      throw new Error('transaction not found');
+    }
+
+    // Rescan from the block before to the one after the transaction
+    // Just easier than trying to filter events from the tx itself
+    await this.rescan(tx.blockNumber - 1, tx.blockNumber + 1);
   };
 
   private subscribeContractEvents = async () => {

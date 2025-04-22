@@ -1,8 +1,9 @@
 import type { Transaction } from 'bitcoinjs-lib';
 import BaseClient from '../BaseClient';
 import type { ChainConfig } from '../Config';
+import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
-import { formatError, getHexString } from '../Utils';
+import { formatError, getHexString, isTxConfirmed } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
 import type TypedEventEmitter from '../consts/TypedEventEmitter';
 import type {
@@ -51,6 +52,7 @@ interface IChainClient<T extends SomeTransaction = SomeTransaction>
   connect(): Promise<void>;
 
   rescanChain(startHeight: number): Promise<void>;
+  checkTransaction(id: string): Promise<void>;
 
   addInputFilter(inputHash: Buffer): void;
   addOutputFilter(outputScript: Buffer): void;
@@ -244,6 +246,16 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
   public rescanChain = async (startHeight: number): Promise<void> => {
     await this.zmqClient.rescanChain(startHeight);
+  };
+
+  public checkTransaction = async (id: string): Promise<void> => {
+    const rawTx = await this.getRawTransactionVerbose(id);
+    const transaction = parseTransaction(this.currencyType, rawTx.hex) as T;
+
+    this.emit('transaction', {
+      transaction,
+      confirmed: isTxConfirmed(rawTx),
+    });
   };
 
   public sendRawTransaction = async (

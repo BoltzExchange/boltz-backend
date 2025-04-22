@@ -856,6 +856,46 @@ export namespace RescanResponse {
     }
 }
 
+export class CheckTransactionRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): CheckTransactionRequest;
+    getId(): string;
+    setId(value: string): CheckTransactionRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckTransactionRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckTransactionRequest): CheckTransactionRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckTransactionRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckTransactionRequest;
+    static deserializeBinaryFromReader(message: CheckTransactionRequest, reader: jspb.BinaryReader): CheckTransactionRequest;
+}
+
+export namespace CheckTransactionRequest {
+    export type AsObject = {
+        symbol: string,
+        id: string,
+    }
+}
+
+export class CheckTransactionResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckTransactionResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckTransactionResponse): CheckTransactionResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckTransactionResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckTransactionResponse;
+    static deserializeBinaryFromReader(message: CheckTransactionResponse, reader: jspb.BinaryReader): CheckTransactionResponse;
+}
+
+export namespace CheckTransactionResponse {
+    export type AsObject = {
+    }
+}
+
 export class SetSwapStatusRequest extends jspb.Message { 
     getId(): string;
     setId(value: string): SetSwapStatusRequest;
@@ -1761,4 +1801,5 @@ export enum LogLevel {
 export enum Action {
     ACCEPT = 0,
     REJECT = 1,
+    HOLD = 2,
 }

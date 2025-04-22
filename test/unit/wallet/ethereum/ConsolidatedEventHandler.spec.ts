@@ -5,6 +5,7 @@ describe('ConsolidatedEventHandler', () => {
   const emittersV3 = {};
   const eventsV3 = {
     rescan: jest.fn(),
+    checkTransaction: jest.fn(),
     on: jest.fn().mockImplementation((event, callback) => {
       emittersV3[event] = callback;
     }),
@@ -13,6 +14,7 @@ describe('ConsolidatedEventHandler', () => {
   const emittersV4 = {};
   const eventsV4 = {
     rescan: jest.fn(),
+    checkTransaction: jest.fn(),
     on: jest.fn().mockImplementation((event, callback) => {
       emittersV4[event] = callback;
     }),
@@ -64,5 +66,17 @@ describe('ConsolidatedEventHandler', () => {
 
     expect(eventsV3.rescan).toHaveBeenCalledWith(startHeight);
     expect(eventsV4.rescan).toHaveBeenCalledWith(startHeight);
+  });
+
+  test('should check transactions on all event handlers', async () => {
+    const handler = new ConsolidatedEventHandler();
+    handler.register(eventsV3);
+    handler.register(eventsV4);
+
+    const transactionId = '0xtesttxid';
+    await handler.checkTransaction(transactionId);
+
+    expect(eventsV3.checkTransaction).toHaveBeenCalledWith(transactionId);
+    expect(eventsV4.checkTransaction).toHaveBeenCalledWith(transactionId);
   });
 });

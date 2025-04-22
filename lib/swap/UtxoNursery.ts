@@ -45,6 +45,7 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
+import { Action } from './hooks/Hook';
 import type TransactionHook from './hooks/TransactionHook';
 
 class UtxoNursery extends TypedEventEmitter<{
@@ -185,21 +186,34 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
-    if (
-      !(await this.transactionHook.hook(
+    {
+      const action = await this.transactionHook.hook(
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
         swapOutput.vout,
-      ))
-    ) {
-      chainClient.removeOutputFilter(swapOutput.script);
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
+      );
+
+      switch (action) {
+        case Action.Hold:
+          chainClient.removeOutputFilter(swapOutput.script);
+          this.logHoldingTransaction(
+            wallet.symbol,
+            swap,
+            transaction,
+            swapOutput,
+          );
+          return;
+
+        case Action.Reject:
+          chainClient.removeOutputFilter(swapOutput.script);
+          this.emit('chainSwap.lockup.failed', {
+            swap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
+          return;
+      }
     }
 
     if (!confirmed) {
@@ -772,20 +786,32 @@ class UtxoNursery extends TypedEventEmitter<{
       }
     }
 
-    if (
-      !(await this.transactionHook.hook(
+    {
+      const action = await this.transactionHook.hook(
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
         swapOutput.vout,
-      ))
-    ) {
-      this.emit('swap.lockup.failed', {
-        swap: updatedSwap,
-        reason: Errors.BLOCKED_ADDRESS().message,
-      });
-      return;
+      );
+
+      switch (action) {
+        case Action.Hold:
+          this.logHoldingTransaction(
+            wallet.symbol,
+            updatedSwap,
+            transaction,
+            swapOutput,
+          );
+          return;
+
+        case Action.Reject:
+          this.emit('swap.lockup.failed', {
+            swap: updatedSwap,
+            reason: Errors.BLOCKED_ADDRESS().message,
+          });
+          return;
+      }
     }
 
     // Confirmed transactions do not have to be checked for 0-conf criteria
@@ -917,6 +943,18 @@ class UtxoNursery extends TypedEventEmitter<{
   ) =>
     this.logger.verbose(
       `Found ${confirmed ? '' : 'un'}confirmed ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
+      }: ${transaction.getId()}:${swapOutput.vout}`,
+    );
+
+  private logHoldingTransaction = (
+    symbol: string,
+    swap: Swap | ChainSwapInfo,
+    transaction: Transaction | LiquidTransaction,
+    swapOutput: ReturnType<typeof detectSwap>,
+  ) =>
+    this.logger.warn(
+      `Holding ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
       }: ${transaction.getId()}:${swapOutput.vout}`,
     );

@@ -73,9 +73,9 @@ class Hook<Req, Res extends HookResponse> {
   protected sendHook = (id: string, request: Req): Promise<Action> => {
     if (this.stream === undefined) {
       this.logger.silly(
-        `gRPC ${this.name} hook is not connected, returning default action`,
+        `gRPC ${this.name} hook is not connected, returning accept action`,
       );
-      return Promise.resolve(this.defaultAction);
+      return Promise.resolve(Action.Accept);
     }
 
     const hook = new Promise<Action>((resolve) => {

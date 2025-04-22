@@ -79,7 +79,11 @@ describe('CreationHook', () => {
   });
 
   describe('swapCreationHook', () => {
-    test('should resolve default action if stream is not connected', async () => {
+    test('should resolve accept action if stream is not connected', async () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      hook['defaultAction'] = Action.Hold;
+
       expect(hook['stream']).toBeUndefined();
 
       await expect(
@@ -89,7 +93,7 @@ describe('CreationHook', () => {
           symbolReceiving: 'BTC',
           invoiceAmount: 1,
         }),
-      ).resolves.toEqual(hook['handleAction'](hook['defaultAction']));
+      ).resolves.toEqual(hook['handleAction'](Action.Accept));
     });
 
     test('should resolve default action if hook is not resolved after timeout', async () => {

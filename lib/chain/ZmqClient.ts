@@ -395,19 +395,13 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 
     return new Promise<Socket>((resolve, reject) => {
       const socket = openSocket('sub').monitor(0, 0);
-      this.sockets.push(socket);
 
-      const timeoutHandle = setTimeout(
-        () =>
-          reject(
-            Errors.ZMQ_CONNECTION_TIMEOUT(
-              this.symbol,
-              filter,
-              sanitizedAddress,
-            ),
-          ),
-        ZmqClient.connectTimeout,
-      );
+      const timeoutHandle = setTimeout(() => {
+        socket.close();
+        reject(
+          Errors.ZMQ_CONNECTION_TIMEOUT(this.symbol, filter, sanitizedAddress),
+        );
+      }, ZmqClient.connectTimeout);
 
       socket.on('connect', () => {
         this.logger.debug(
@@ -415,6 +409,8 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
         );
 
         clearTimeout(timeoutHandle);
+        this.sockets.push(socket);
+
         resolve(socket);
       });
 

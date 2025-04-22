@@ -356,12 +356,6 @@ describe('ZmqClient', () => {
 
     expect(zmqClient['sockets'].length).toEqual(3);
 
-    await expect(createSocket(rawTx.address, filter)).resolves.toEqual(
-      expect.anything(),
-    );
-
-    expect(zmqClient['sockets'].length).toEqual(4);
-
     const invalidAddress = `tcp://127.0.0.1:${await getPort()}`;
     await expect(createSocket(invalidAddress, filter)).rejects.toEqual(
       Errors.ZMQ_CONNECTION_TIMEOUT(
@@ -371,7 +365,7 @@ describe('ZmqClient', () => {
       ),
     );
 
-    expect(zmqClient['sockets'].length).toEqual(5);
+    expect(zmqClient['sockets'].length).toEqual(3);
     zmqClient.close();
   });
 

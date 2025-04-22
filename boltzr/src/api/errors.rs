@@ -79,43 +79,62 @@ pub async fn error_middleware(request: Request<Body>, next: Next) -> Response<Bo
 }
 
 pub async fn logging_middleware(request: Request<Body>, next: Next) -> Response<Body> {
+    let request_method = request.method().clone();
     let request_uri = request.uri().clone();
-    let response = next.run(request).await;
+    let (parts, body) = request.into_parts();
+
+    let (request_body_bytes, request_body_str) = match read_body(body).await {
+        Ok(body) => body,
+        Err(err) => (
+            axum::body::Bytes::new(),
+            Some(format!("could not handle request body: {}", err)),
+        ),
+    };
+
+    let response = next
+        .run(Request::from_parts(parts, Body::from(request_body_bytes)))
+        .await;
     if !response.status().is_server_error() && !response.status().is_client_error() {
         return response;
     }
 
     let (parts, body) = response.into_parts();
-    let body_bytes = match axum::body::to_bytes(body, API_ERROR_BODY_SIZE).await {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiError {
-                    error: format!("could not handle body: {}", err),
-                }),
-            )
-                .into_response();
-        }
+    let (response_body_bytes, response_body_str) = match read_body(body).await {
+        Ok(body) => body,
+        Err(err) => (
+            axum::body::Bytes::new(),
+            Some(format!("could not handle response body: {}", err)),
+        ),
     };
 
-    if !body_bytes.is_empty() {
-        let body_str = match std::str::from_utf8(&body_bytes) {
-            Ok(str) => str.to_string(),
-            Err(_) => "unreadable body".to_string(),
-        };
-        warn!(
-            status = parts.status.as_u16(),
-            "Request to {} failed with {}: {}", request_uri, parts.status, body_str,
-        );
-    } else {
-        warn!(
-            status = parts.status.as_u16(),
-            "Request to {} failed with {}", request_uri, parts.status
-        );
-    }
+    warn!(
+        status = parts.status.as_u16(),
+        "Request to {} {}{} failed with {}{}",
+        request_method,
+        request_uri,
+        match request_body_str {
+            Some(str) => format!(" ({})", str),
+            None => "".to_string(),
+        },
+        parts.status.as_u16(),
+        match response_body_str {
+            Some(str) => format!(": {}", str),
+            None => "".to_string(),
+        },
+    );
 
-    Response::from_parts(parts, Body::from(body_bytes))
+    Response::from_parts(parts, Body::from(response_body_bytes))
+}
+
+async fn read_body(body: Body) -> anyhow::Result<(axum::body::Bytes, Option<String>)> {
+    let body_bytes = axum::body::to_bytes(body, API_ERROR_BODY_SIZE).await?;
+
+    if body_bytes.is_empty() {
+        Ok((body_bytes, None))
+    } else {
+        let body_str = std::str::from_utf8(&body_bytes)?.to_string();
+        Ok((body_bytes, Some(body_str)))
+    }
 }
 
 #[cfg(test)]

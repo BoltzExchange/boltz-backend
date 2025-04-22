@@ -1752,8 +1752,8 @@ dependencies = [
  "http-body-util",
  "lightning",
  "lightning-invoice 0.33.2",
- "metrics 0.24.1",
- "metrics-exporter-prometheus 0.16.2",
+ "metrics 0.24.2",
+ "metrics-exporter-prometheus 0.17.0",
  "metrics-process",
  "mockall",
  "num_cpus",
@@ -1922,9 +1922,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.36"
+version = "4.5.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2df961d8c8a0d08aa9945718ccf584145eee3f3aa06cddbeac12933781102e04"
+checksum = "eccb054f56cbd38340b380d4a8e69ef1f02f1af43db2f0cc817a4774d80ae071"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1932,9 +1932,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.36"
+version = "4.5.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132dbda40fb6753878316a489d5a1242a8ef2f0d9e47ba01c951ea8aa7d013a5"
+checksum = "efd9466fac8543255d3b1fcad4762c5e116ffe808c8a3043d4263cd4fd4862a2"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2569,9 +2569,9 @@ dependencies = [
 
 [[package]]
 name = "elements"
-version = "0.25.1"
+version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8ab681914c4d96235d4c30d6a758f4aeb4eace26837f4995ca84bf7ea3189ea"
+checksum = "81b2569d3495bfdfce36c504fd4d78752ff4a7699f8a33e6f3ee523bddf9f6ad"
 dependencies = [
  "bech32 0.11.0",
  "bitcoin",
@@ -3905,9 +3905,9 @@ dependencies = [
 
 [[package]]
 name = "metrics"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a7deb012b3b2767169ff203fadb4c6b0b82b947512e5eb9e0b78c2e186ad9e3"
+checksum = "25dea7ac8057892855ec285c440160265225438c3c45072613c25a4b26e98ef5"
 dependencies = [
  "ahash",
  "portable-atomic",
@@ -3932,16 +3932,16 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.16.2"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
+checksum = "df88858cd28baaaf2cfc894e37789ed4184be0e1351157aec7bf3c2266c793fd"
 dependencies = [
  "base64 0.22.1",
  "indexmap 2.7.0",
- "metrics 0.24.1",
+ "metrics 0.24.2",
  "metrics-util 0.19.0",
  "quanta",
- "thiserror 1.0.63",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -3953,7 +3953,7 @@ dependencies = [
  "libc",
  "libproc",
  "mach2",
- "metrics 0.24.1",
+ "metrics 0.24.2",
  "once_cell",
  "procfs",
  "rlimit",
@@ -3984,7 +3984,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.15.2",
- "metrics 0.24.1",
+ "metrics 0.24.2",
  "quanta",
  "rand 0.8.5",
  "rand_xoshiro",

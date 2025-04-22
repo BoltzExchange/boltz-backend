@@ -1766,6 +1766,7 @@ dependencies = [
  "pyroscope_pprofrs",
  "r2d2",
  "rand 0.9.1",
+ "rapidfuzz",
  "rcgen",
  "redis",
  "reqwest",
@@ -5162,6 +5163,12 @@ checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
 dependencies = [
  "rand_core 0.6.4",
 ]
+
+[[package]]
+name = "rapidfuzz"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "270e04e5ea61d40841942bb15e451c29ee1618637bcf97fc7ede5dd4a9b1601b"
 
 [[package]]
 name = "raw-cpuid"

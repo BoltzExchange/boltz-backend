@@ -5,6 +5,7 @@ use crate::swap::manager::SwapManager;
 use alloy::hex;
 use anyhow::Result;
 use axum::extract::Path;
+use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
@@ -15,6 +16,11 @@ use std::sync::Arc;
 pub struct LightningInfoParams {
     currency: String,
     node: String,
+}
+
+#[derive(Deserialize)]
+pub struct SearchQuery {
+    alias: String,
 }
 
 pub async fn node_info<S, M>(
@@ -61,6 +67,28 @@ where
             .service
             .lightning_info
             .get_channels(&currency, &node)
+            .await
+        {
+            Ok(res) => (StatusCode::OK, Json(res)).into_response(),
+            Err(err) => handle_info_fetch_error(err),
+        },
+    )
+}
+
+pub async fn search<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(currency): Path<String>,
+    Query(query): Query<SearchQuery>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    Ok(
+        match state
+            .service
+            .lightning_info
+            .find_node_by_alias(&currency, &query.alias)
             .await
         {
             Ok(res) => (StatusCode::OK, Json(res)).into_response(),

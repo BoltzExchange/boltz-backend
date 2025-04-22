@@ -136,6 +136,10 @@ where
                 get(lightning::channels::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/search",
+                get(lightning::search::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/bolt12",
                 post(bolt12::create::<S, M>),
             )

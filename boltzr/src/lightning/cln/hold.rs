@@ -41,6 +41,7 @@ const ERR_INVALID_SIGNATURE: &str = "invalid signature";
 const ERR_NO_OFFER_REGISTERED: &str = "no offer for this signing public key was registered";
 
 const OFFER_DELETE_MESSAGE: &str = "DELETE";
+const OFFER_UPDATE_NO_URL_MESSAGE: &str = "UPDATE";
 
 const INVOICE_FETCH_TIMEOUT_SECONDS: u64 = 30;
 
@@ -149,13 +150,17 @@ impl Hold {
         Ok(())
     }
 
-    pub fn update_offer(&self, offer: String, url: String, signature: &[u8]) -> Result<()> {
-        let signer = Self::prepare_offer(self.network, &offer, Some(&url))?;
+    pub fn update_offer(&self, offer: String, url: Option<String>, signature: &[u8]) -> Result<()> {
+        let signer = Self::prepare_offer(self.network, &offer, url.as_deref())?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
             return Err(anyhow!(ERR_NO_OFFER_REGISTERED));
         }
 
-        if !Self::schnor_signature_valid(&signer, signature, &url)? {
+        if !Self::schnor_signature_valid(
+            &signer,
+            signature,
+            url.as_deref().unwrap_or(OFFER_UPDATE_NO_URL_MESSAGE),
+        )? {
             return Err(anyhow!(ERR_INVALID_SIGNATURE));
         }
 
@@ -690,7 +695,7 @@ mod test {
         let new_hook = "https://bol.tz/new_hook";
         offer_helper
             .expect_update()
-            .with(eq(signer.clone()), eq(new_hook.to_string()))
+            .with(eq(signer.clone()), eq(Some(new_hook.to_string())))
             .returning(|_, _| Ok(1));
 
         hold.offer_helper = Arc::new(offer_helper);
@@ -704,7 +709,51 @@ mod test {
             &keypair,
         );
 
-        hold.update_offer(OFFER.to_uppercase(), new_hook.to_string(), &sig.serialize())
+        hold.update_offer(
+            OFFER.to_uppercase(),
+            Some(new_hook.to_string()),
+            &sig.serialize(),
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_offer_no_url() {
+        let signer = Hold::prepare_offer(wallet::Network::Regtest, OFFER, Some(HOOK)).unwrap();
+
+        let mut hold = cln_client().await.hold;
+        let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
+
+        let signer_cp = signer.clone();
+        offer_helper
+            .expect_get_by_signer()
+            .with(eq(signer_cp.clone()))
+            .returning(move |_| {
+                Ok(Some(Offer {
+                    signer: signer_cp.clone(),
+                    offer: OFFER.to_lowercase(),
+                    url: Some(HOOK.to_string()),
+                }))
+            });
+
+        offer_helper
+            .expect_update()
+            .with(eq(signer.clone()), eq(None))
+            .returning(|_, _| Ok(1));
+
+        hold.offer_helper = Arc::new(offer_helper);
+
+        let secp = Secp256k1::signing_only();
+        let keypair = Keypair::from_seckey_str(&secp, PRIVATE_KEY).unwrap();
+        let sig = secp.sign_schnorr_no_aux_rand(
+            &Message::from_digest(
+                *bitcoin_hashes::Sha256::hash(OFFER_UPDATE_NO_URL_MESSAGE.as_bytes())
+                    .as_byte_array(),
+            ),
+            &keypair,
+        );
+
+        hold.update_offer(OFFER.to_uppercase(), None, &sig.serialize())
             .unwrap();
     }
 
@@ -726,7 +775,7 @@ mod test {
         assert_eq!(
             hold.update_offer(
                 OFFER.to_uppercase(),
-                "https://bol.tz/new_hook".to_string(),
+                Some("https://bol.tz/new_hook".to_string()),
                 &[],
             )
             .unwrap_err()
@@ -768,9 +817,13 @@ mod test {
         );
 
         assert_eq!(
-            hold.update_offer(OFFER.to_uppercase(), new_hook.to_string(), &sig.serialize(),)
-                .unwrap_err()
-                .to_string(),
+            hold.update_offer(
+                OFFER.to_uppercase(),
+                Some(new_hook.to_string()),
+                &sig.serialize(),
+            )
+            .unwrap_err()
+            .to_string(),
             "invalid signature"
         );
     }

@@ -256,7 +256,6 @@
  *             type: object
  *             required:
  *               - offer
- *               - url
  *               - signature
  *             properties:
  *               offer:
@@ -264,10 +263,10 @@
  *                 description: The BOLT12 offer
  *               url:
  *                 type: string
- *                 description: Webhook to call to fetch invoices for the offer
+ *                 description: Webhook to call to fetch invoices for the offer. Omit to remove
  *               signature:
  *                 type: string
- *                 description: Schnorr signature of the SHA256 hash of the new URL
+ *                 description: Schnorr signature of the SHA256 hash of the new URL, or "UPDATE" if no URL is provided
  *     responses:
  *       '200':
  *         description: BOLT12 offer updated successfully
@@ -282,7 +281,13 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
- *         description: When the currency has no BOLT12 support
+ *         description: When the currency has no BOLT12 support or the offer was not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '422':
+ *         description: When the signature is invalid hex
  *         content:
  *           application/json:
  *             schema:
@@ -332,7 +337,13 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
- *         description: When the currency has no BOLT12 support
+ *         description: When the currency has no BOLT12 support or the offer was not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '422':
+ *         description: When the signature is invalid hex
  *         content:
  *           application/json:
  *             schema:

@@ -124,6 +124,14 @@ IMAGES: dict[str, Image] = {
                 name="C_LIGHTNING_VERSION",
                 value=C_LIGHTNING_VERSION,
             ),
+            BuildArgument(
+                name="ASP_VERSION",
+                value="v0.5.9",
+            ),
+            BuildArgument(
+                name="FULMINE_VERSION",
+                value="v0.1.8",
+            ),
         ],
     ),
 }
@@ -218,9 +226,7 @@ def build_images(
             )
         else:
             extra_tag = "" if no_latest else f"-t {name}:latest"
-            command = (
-                f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
-            )
+            command = f"docker build --load -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
 
         if no_cache:
             command = command + " --no-cache"

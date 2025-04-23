@@ -28,6 +28,8 @@ docker run \
   -p 9735:9735 \
   -p 9293:9293 \
   -p 9292:9292 \
+  -p 7000:7000 \
+  -p 7001:7001 \
   boltz/regtest:4.9.0
 
 docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"

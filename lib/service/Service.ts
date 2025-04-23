@@ -818,7 +818,7 @@ class Service {
       } else if (currency.provider) {
         return estimateFeeForProvider(currency.provider);
       } else if (currency.arkNode) {
-        // TODO: get actual fees
+        // ARK is 0 fee for now
         return 0;
       } else {
         throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);

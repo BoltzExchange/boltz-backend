@@ -6,12 +6,21 @@ use crate::lightning::cln::cln_rpc::ListchannelsChannels;
 use alloy::hex;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use rapidfuzz::distance::jaro_winkler;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+const MAX_DISTANCE: f64 = 0.1;
 const CACHE_TTL_SECS: u64 = 3_600;
+
+struct SearchResult<T> {
+    pub distance: f64,
+    pub node: T,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
@@ -76,6 +85,7 @@ impl From<(ListchannelsChannels, Node)> for Channel {
 
 #[async_trait]
 pub trait LightningInfo {
+    async fn find_node_by_alias(&self, symbol: &str, alias: &str) -> Result<Vec<Node>>;
     async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>>;
     async fn get_node_info(&self, symbol: &str, node: &[u8]) -> Result<Node>;
 }
@@ -84,11 +94,17 @@ pub trait LightningInfo {
 pub struct ClnLightningInfo {
     cache: Cache,
     currencies: Currencies,
+
+    nodes: Arc<RwLock<HashMap<String, HashMap<String, Node>>>>,
 }
 
 impl ClnLightningInfo {
     pub fn new(cache: Cache, currencies: Currencies) -> Self {
-        let info = Self { cache, currencies };
+        let info = Self {
+            cache,
+            currencies,
+            nodes: Arc::new(RwLock::new(HashMap::new())),
+        };
 
         {
             let interval_duration = Duration::from_secs(CACHE_TTL_SECS - 60);
@@ -146,7 +162,7 @@ impl ClnLightningInfo {
                     Some(CACHE_TTL_SECS),
                 )
                 .await?;
-            node_infos.insert(node.nodeid, node_info);
+            node_infos.insert(id_hex, node_info);
         }
 
         let mut channels_to_nodes = HashMap::<Vec<u8>, Vec<Channel>>::new();
@@ -155,7 +171,7 @@ impl ClnLightningInfo {
                 continue;
             }
 
-            let source_info = match node_infos.get(&channel.source) {
+            let source_info = match node_infos.get(&hex::encode(&channel.source)) {
                 Some(info) => info,
                 None => continue,
             };
@@ -176,6 +192,8 @@ impl ClnLightningInfo {
                 .await?;
         }
 
+        self.nodes.write().await.insert(symbol, node_infos);
+
         Ok(())
     }
 
@@ -190,6 +208,38 @@ impl ClnLightningInfo {
 
 #[async_trait]
 impl LightningInfo for ClnLightningInfo {
+    async fn find_node_by_alias(&self, symbol: &str, alias: &str) -> Result<Vec<Node>> {
+        let alias = alias.to_lowercase();
+        let comparator = jaro_winkler::BatchComparator::new(alias.chars());
+
+        let nodes = self.nodes.read().await;
+        let nodes = match nodes.get(symbol) {
+            Some(nodes) => nodes,
+            None => return Err(anyhow!("no nodes for {}", symbol)),
+        };
+
+        let mut nodes = nodes
+            .values()
+            .filter_map(|node| {
+                node.alias.as_ref().and_then(|cmp| {
+                    let cmp = cmp.to_lowercase();
+                    let distance = comparator.distance(cmp.chars());
+                    if distance <= MAX_DISTANCE || cmp.contains(&alias) {
+                        Some(SearchResult {
+                            distance,
+                            node: node.clone(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        nodes.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+
+        Ok(nodes.into_iter().map(|r| r.node).collect())
+    }
+
     async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>> {
         if let Some(channels) = self
             .cache
@@ -217,6 +267,7 @@ impl LightningInfo for ClnLightningInfo {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::lightning::cln::test::cln_client;
@@ -253,6 +304,92 @@ mod test {
                 lnd: None,
             },
         )]))
+    }
+
+    #[tokio::test]
+    async fn test_find_node_by_alias() {
+        let mem_cache = MemCache::new();
+        let cache = Cache::Memory(mem_cache);
+        let currencies = get_currencies().await;
+
+        let info = ClnLightningInfo::new(cache.clone(), currencies.clone());
+
+        let mut nodes = HashMap::new();
+        nodes.insert(
+            "1".to_string(),
+            Node {
+                id: "1".to_string(),
+                alias: None,
+                color: None,
+            },
+        );
+        nodes.insert(
+            "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2".to_string(),
+            Node {
+                id: "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2"
+                    .to_string(),
+                alias: Some("Boltz".to_string()),
+                color: None,
+            },
+        );
+        nodes.insert(
+            "02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018".to_string(),
+            Node {
+                id: "02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018"
+                    .to_string(),
+                alias: Some("Boltz|CLN".to_string()),
+                color: None,
+            },
+        );
+        nodes.insert(
+            "033d8656219478701227199cbd6f670335c8d408a92ae88b962c49d4dc0e83e025".to_string(),
+            Node {
+                id: "033d8656219478701227199cbd6f670335c8d408a92ae88b962c49d4dc0e83e025"
+                    .to_string(),
+                alias: Some("bfx-lnd0".to_string()),
+                color: None,
+            },
+        );
+        nodes.insert(
+            "03cde60a6323f7122d5178255766e38114b4722ede08f7c9e0c5df9b912cc201d6".to_string(),
+            Node {
+                id: "03cde60a6323f7122d5178255766e38114b4722ede08f7c9e0c5df9b912cc201d6"
+                    .to_string(),
+                alias: Some("bfx-lnd1".to_string()),
+                color: None,
+            },
+        );
+        info.nodes.write().await.insert("BTC".to_string(), nodes);
+
+        let nodes = info.find_node_by_alias("BTC", "test").await;
+        assert!(nodes.is_ok());
+        assert!(nodes.unwrap().is_empty());
+
+        let nodes = info.find_node_by_alias("BTC", "BOLTZ").await;
+        assert!(nodes.is_ok());
+        let nodes = nodes.unwrap();
+        assert_eq!(nodes.len(), 2);
+        assert!(nodes.iter().any(|n| n.alias == Some("Boltz".to_string())));
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.alias == Some("Boltz|CLN".to_string()))
+        );
+
+        let nodes = info.find_node_by_alias("BTC", "bfx").await;
+        assert!(nodes.is_ok());
+        let nodes = nodes.unwrap();
+        assert_eq!(nodes.len(), 2);
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.alias == Some("bfx-lnd0".to_string()))
+        );
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.alias == Some("bfx-lnd1".to_string()))
+        );
     }
 
     #[tokio::test]

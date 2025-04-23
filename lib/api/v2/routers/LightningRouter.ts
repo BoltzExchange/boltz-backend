@@ -150,6 +150,48 @@
 
 /**
  * @openapi
+ * /lightning/{currency}/search:
+ *   get:
+ *     tags: [Lightning]
+ *     description: Search for lightning nodes by alias
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *       - in: query
+ *         name: alias
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Alias of the node to search for
+ *     responses:
+ *       '200':
+ *         description: List of matching lightning nodes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/LightningNode'
+ *       '400':
+ *         description: Invalid request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the node cannot be found or the currency is not supported
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
  * /lightning/{currency}/bolt12:
  *   post:
  *     tags: [Lightning]

@@ -395,7 +395,7 @@ class FeeProvider {
       }
 
       case ArkClient.symbol:
-        // TODO: set actual fee
+        // ARK is 0 fee for now
         this.minerFees.set(chainCurrency, {
           [SwapVersion.Taproot]: {
             normal: 0,

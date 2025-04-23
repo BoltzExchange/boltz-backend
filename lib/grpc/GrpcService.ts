@@ -356,7 +356,7 @@ class GrpcService {
     boltzrpc.CheckTransactionRequest,
     boltzrpc.CheckTransactionResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { symbol, id } = call.request.toObject();
 
       await this.service.checkTransaction(symbol, id);

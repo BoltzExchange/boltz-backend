@@ -1414,8 +1414,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       channelCreation: channelCreation || undefined,
       swap:
         swap.type === SwapType.Submarine
-          ? // TODO
-            await SwapRepository.setMinerFee(swap as Swap, 0)
+          ? await SwapRepository.setMinerFee(swap as Swap, 0)
           : await ChainSwapRepository.setClaimMinerFee(
               swap as ChainSwapInfo,
               preimage,

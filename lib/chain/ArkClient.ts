@@ -16,8 +16,12 @@ import type { IChainClient } from './ChainClient';
 export type ArkConfig = {
   host: string;
   port: number;
+
+  minWalletBalance?: number;
+  maxZeroConfAmount?: number;
 };
 
+// TODO: nicer type
 export type ArkSwapTree = arkrpc.TaprootTree.AsObject;
 
 type ArkAddress = {
@@ -141,7 +145,7 @@ class ArkClient extends BaseClient<
   };
 
   /**
-   * @param preimageHash - Should be the SHA256 of the preimage
+   * @param preimageHash - SHA256 of the preimage
    */
   public createVHtlc = async (
     preimageHash: Buffer,

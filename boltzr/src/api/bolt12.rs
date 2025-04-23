@@ -28,7 +28,7 @@ pub struct CreateResponse {}
 #[derive(Deserialize)]
 pub struct UpdateRequest {
     offer: String,
-    url: String,
+    url: Option<String>,
     signature: String,
 }
 

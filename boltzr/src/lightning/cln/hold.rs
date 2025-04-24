@@ -105,9 +105,9 @@ impl Hold {
 
         let invoice_caller = InvoiceCaller::new(
             cancellation_token,
-            // Tight limits because the invoice requests time out quickly
             crate::webhook::caller::Config {
-                request_timeout: Some(15),
+                // To give mobile clients a chance to wake up and respond
+                request_timeout: Some(60),
                 max_retries: Some(2),
                 retry_interval: Some(10),
             },

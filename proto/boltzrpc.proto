@@ -386,18 +386,19 @@ message SwapCreation {
 }
 
 message TransactionHookResponse {
-  string id = 1;
+  string id = 1; // swap id
   Action action = 2;
 }
 
 message TransactionHookRequest {
   string symbol = 1;
-  string id = 2;
+  string id = 2; // swap id
   bytes tx = 3;
   bool confirmed = 4;
   
   // Set for UTXO based chains
   optional uint64 vout = 5;
+  string tx_id = 6;
 }
 
 message SetLogLevelRequest {

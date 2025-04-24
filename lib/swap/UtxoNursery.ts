@@ -192,6 +192,7 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
+        swap.id,
         swapOutput.vout,
       );
 
@@ -283,6 +284,7 @@ class UtxoNursery extends TypedEventEmitter<{
             SwapUpdateEvent.InvoiceSet,
             SwapUpdateEvent.TransactionMempool,
             SwapUpdateEvent.TransactionZeroConfRejected,
+            SwapUpdateEvent.TransactionConfirmed,
           ],
         },
         lockupAddress: address,
@@ -792,6 +794,7 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
+        swap.id,
         swapOutput.vout,
       );
 

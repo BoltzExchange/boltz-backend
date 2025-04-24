@@ -254,6 +254,7 @@ class EthereumNursery extends TypedEventEmitter<{
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
         true,
+        swap.id,
       );
 
       switch (action) {
@@ -392,6 +393,7 @@ class EthereumNursery extends TypedEventEmitter<{
           removeHexPrefix(Transaction.from(transaction).serialized!),
         ),
         true,
+        swap.id,
       );
 
       switch (action) {

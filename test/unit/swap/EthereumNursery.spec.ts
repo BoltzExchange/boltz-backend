@@ -515,6 +515,7 @@ describe('EthereumNursery', () => {
       type: SwapType.Submarine,
       orderSide: OrderSide.SELL,
       timeoutBlockHeight: 11102219,
+      id: 'test-eth-swap-id',
     };
 
     emitEthLockup({
@@ -528,6 +529,15 @@ describe('EthereumNursery', () => {
     });
 
     await lockupPromise;
+
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      'Ethereum',
+      exampleTransaction.hash,
+      expect.any(Buffer),
+      true,
+      mockGetSwapResult.id,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });
@@ -552,6 +562,7 @@ describe('EthereumNursery', () => {
       type: SwapType.Submarine,
       orderSide: OrderSide.SELL,
       timeoutBlockHeight: 11102219,
+      id: 'test-eth-hold-id',
     };
 
     await emitEthLockup({
@@ -568,6 +579,15 @@ describe('EthereumNursery', () => {
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(false);
+
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      'Ethereum',
+      exampleTransaction.hash,
+      expect.any(Buffer),
+      true,
+      mockGetSwapResult.id,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });
@@ -881,6 +901,7 @@ describe('EthereumNursery', () => {
       orderSide: OrderSide.BUY,
       type: SwapType.Submarine,
       timeoutBlockHeight: 11102222,
+      id: 'test-erc20-swap-id',
     };
 
     emitErc20Lockup({
@@ -895,6 +916,15 @@ describe('EthereumNursery', () => {
     });
 
     await lockupPromise;
+
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      'USDT',
+      exampleTransaction.hash,
+      expect.any(Buffer),
+      true,
+      mockGetSwapResult.id,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });
@@ -919,6 +949,7 @@ describe('EthereumNursery', () => {
       orderSide: OrderSide.BUY,
       type: SwapType.Submarine,
       timeoutBlockHeight: 11102222,
+      id: 'test-erc20-hold-id',
     };
 
     await emitErc20Lockup({
@@ -936,6 +967,15 @@ describe('EthereumNursery', () => {
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
     expect(lockupEmitted).toEqual(false);
     expect(lockupFailed).toEqual(false);
+
+    expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      'USDT',
+      exampleTransaction.hash,
+      expect.any(Buffer),
+      true,
+      mockGetSwapResult.id,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
   });

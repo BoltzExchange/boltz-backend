@@ -276,6 +276,7 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.InvoiceSet,
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionZeroConfRejected,
+          SwapUpdateEvent.TransactionConfirmed,
         ],
       },
     });
@@ -668,6 +669,14 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      btcWallet.symbol,
+      transaction.getId(),
+      transaction.toBuffer(),
+      false,
+      mockGetSwapResult.id,
+      0,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(true);
 
@@ -698,6 +707,14 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      btcWallet.symbol,
+      transaction.getId(),
+      transaction.toBuffer(),
+      false,
+      mockGetSwapResult.id,
+      0,
+    );
     expect(logHoldingSpy).toHaveBeenCalledTimes(1);
     expect(logHoldingSpy).toHaveBeenCalledWith(
       btcWallet.symbol,

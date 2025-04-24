@@ -1624,6 +1624,8 @@ export class TransactionHookRequest extends jspb.Message {
     clearVout(): void;
     getVout(): number | undefined;
     setVout(value: number): TransactionHookRequest;
+    getTxId(): string;
+    setTxId(value: string): TransactionHookRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TransactionHookRequest.AsObject;
@@ -1642,6 +1644,7 @@ export namespace TransactionHookRequest {
         tx: Uint8Array | string,
         confirmed: boolean,
         vout?: number,
+        txId: string,
     }
 }
 

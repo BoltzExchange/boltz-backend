@@ -49,7 +49,7 @@ impl S3 {
             config.endpoint
         );
         if let Some(port) = config.port {
-            endpoint += format!(":{}", port).as_str();
+            endpoint += format!(":{port}").as_str();
         }
         debug!("Using bucket {} at {}", config.bucket, endpoint);
 

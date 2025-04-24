@@ -120,7 +120,7 @@ where
         let key = format!("prometheus:query:{}:{}", hasher.finish(), step);
 
         if self.include_start_end_in_key {
-            format!("{}:{}:{}", key, start, end)
+            format!("{key}:{start}:{end}")
         } else {
             key
         }
@@ -165,8 +165,7 @@ pub fn pair_fees_query(instance: &str, pair: &str, kind: SwapType, referral: &st
 
 pub fn max_routing_fee_query(instance: &str, pair: &str, referral: &str) -> String {
     format!(
-        "boltz_pair_max_routing_fee{{instance=\"{}\", pair=\"{}\", referral=\"{}\"}}",
-        instance, pair, referral
+        "boltz_pair_max_routing_fee{{instance=\"{instance}\", pair=\"{pair}\", referral=\"{referral}\"}}"
     )
 }
 

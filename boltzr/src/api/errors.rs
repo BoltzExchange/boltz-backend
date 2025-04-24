@@ -68,7 +68,7 @@ pub async fn error_middleware(request: Request<Body>, next: Next) -> Response<Bo
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiError {
-                    error: format!("could not handle body: {}", err),
+                    error: format!("could not handle body: {err}"),
                 }),
             )
                 .into_response();
@@ -87,7 +87,7 @@ pub async fn logging_middleware(request: Request<Body>, next: Next) -> Response<
         Ok(body) => body,
         Err(err) => (
             axum::body::Bytes::new(),
-            Some(format!("could not handle request body: {}", err)),
+            Some(format!("could not handle request body: {err}")),
         ),
     };
 
@@ -103,7 +103,7 @@ pub async fn logging_middleware(request: Request<Body>, next: Next) -> Response<
         Ok(body) => body,
         Err(err) => (
             axum::body::Bytes::new(),
-            Some(format!("could not handle response body: {}", err)),
+            Some(format!("could not handle response body: {err}")),
         ),
     };
 
@@ -113,12 +113,12 @@ pub async fn logging_middleware(request: Request<Body>, next: Next) -> Response<
         request_method,
         request_uri,
         match request_body_str {
-            Some(str) => format!(" ({})", str),
+            Some(str) => format!(" ({str})"),
             None => "".to_string(),
         },
         parts.status.as_u16(),
         match response_body_str {
-            Some(str) => format!(": {}", str),
+            Some(str) => format!(": {str}"),
             None => "".to_string(),
         },
     );

@@ -104,7 +104,7 @@ fn decode_node(node: &str) -> Result<Vec<u8>, Box<axum::http::Response<axum::bod
         (
             StatusCode::BAD_REQUEST,
             Json(ApiError {
-                error: format!("invalid node: {}", err),
+                error: format!("invalid node: {err}"),
             }),
         )
             .into_response()
@@ -163,6 +163,6 @@ mod test {
 
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
-        assert_eq!(error.error, format!("invalid node: {}", expected));
+        assert_eq!(error.error, format!("invalid node: {expected}"));
     }
 }

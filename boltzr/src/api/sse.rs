@@ -88,7 +88,7 @@ mod test {
 
         let id = "swapId";
         let client = eventsource_client::ClientBuilder::for_url(
-            format!("http://127.0.0.1:{}/streamswapstatus?id={}", port, id).as_str(),
+            format!("http://127.0.0.1:{port}/streamswapstatus?id={id}").as_str(),
         )
         .unwrap()
         .build();

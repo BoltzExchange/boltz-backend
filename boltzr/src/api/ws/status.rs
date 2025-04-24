@@ -442,7 +442,7 @@ where
                         .offers_subscribe(connection_id, &args)
                     {
                         return Ok(Some(WsResponse::Error(ErrorResponse {
-                            error: format!("could not subscribe to offers: {}", err),
+                            error: format!("could not subscribe to offers: {err}"),
                         })));
                     }
 
@@ -463,7 +463,7 @@ where
                         .received_invoice_response(id, invoice.invoice),
                     Err(err) => {
                         return Ok(Some(WsResponse::Error(ErrorResponse {
-                            error: format!("invalid invoice id: {}", err),
+                            error: format!("invalid invoice id: {err}"),
                         })));
                     }
                 };
@@ -486,7 +486,7 @@ where
                             Ok(res) => res,
                             Err(err) => {
                                 return Ok(Some(WsResponse::Error(ErrorResponse {
-                                    error: format!("could not unsubscribe from offers: {}", err),
+                                    error: format!("could not unsubscribe from offers: {err}"),
                                 })));
                             }
                         }
@@ -579,7 +579,7 @@ mod status_test {
         let port = 12_001;
         let (cancel, _) = create_server(port).await;
 
-        async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
+        async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
             .await
             .unwrap();
         cancel.cancel();
@@ -590,10 +590,9 @@ mod status_test {
         let port = 12_002;
         let (cancel, _) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 
@@ -616,10 +615,9 @@ mod status_test {
         let port = 12_003;
         let (cancel, _) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 
@@ -655,10 +653,9 @@ mod status_test {
         let port = 12_004;
         let (cancel, _) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 
@@ -689,10 +686,9 @@ mod status_test {
         let port = 12_005;
         let (cancel, _) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 
@@ -771,10 +767,9 @@ mod status_test {
         let port = 12_006;
         let (cancel, update_tx) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 
@@ -843,10 +838,9 @@ mod status_test {
         let port = 12_007;
         let (cancel, update_tx) = create_server(port).await;
 
-        let (client, _) =
-            async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{}", port))
-                .await
-                .unwrap();
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
 
         let (mut tx, mut rx) = client.split();
 

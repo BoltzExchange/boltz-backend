@@ -360,7 +360,7 @@ mod server_test {
         CancellationToken,
         JoinHandle<()>,
     ) {
-        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{}", port));
+        let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{port}"));
 
         let token = CancellationToken::new();
         let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);

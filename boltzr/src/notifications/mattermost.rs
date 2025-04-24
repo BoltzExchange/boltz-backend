@@ -31,7 +31,7 @@ impl Display for MattermostError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             MattermostError::ChannelNotFound(channel) => {
-                write!(f, "could not find channel: {}", channel)
+                write!(f, "could not find channel: {channel}")
             }
             MattermostError::WebSocketClosed => {
                 write!(f, "WebSocket closed")

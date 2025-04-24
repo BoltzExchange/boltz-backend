@@ -211,7 +211,7 @@ mod test {
             parse_network(Some(String::from(network)))
                 .unwrap_err()
                 .to_string(),
-            format!("invalid network: {}", network)
+            format!("invalid network: {network}")
         );
     }
 }

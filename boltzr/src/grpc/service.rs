@@ -148,7 +148,7 @@ where
         }) {
             return Err(Status::new(
                 Code::Internal,
-                format!("could not change log level: {}", err),
+                format!("could not change log level: {err}"),
             ));
         }
 
@@ -184,7 +184,7 @@ where
             Ok(_) => Ok(Response::new(SendMessageResponse::default())),
             Err(err) => Err(Status::new(
                 Code::Internal,
-                format!("sending message failed: {}", err),
+                format!("sending message failed: {err}"),
             )),
         }
     }
@@ -427,7 +427,7 @@ where
             Err(err) => {
                 return Err(Status::new(
                     Code::InvalidArgument,
-                    format!("could not parse preimage hash: {}", err),
+                    format!("could not parse preimage hash: {err}"),
                 ));
             }
         };
@@ -436,7 +436,7 @@ where
             Err(err) => {
                 return Err(Status::new(
                     Code::InvalidArgument,
-                    format!("could not parse amount: {}", err),
+                    format!("could not parse amount: {err}"),
                 ));
             }
         };
@@ -446,7 +446,7 @@ where
                 Err(err) => {
                     return Err(Status::new(
                         Code::InvalidArgument,
-                        format!("could not parse token address: {}", err),
+                        format!("could not parse token address: {err}"),
                     ));
                 }
             },
@@ -461,14 +461,14 @@ where
                         Err(err) => {
                             return Err(Status::new(
                                 Code::NotFound,
-                                format!("no refund signer for contract: {}", err),
+                                format!("no refund signer for contract: {err}"),
                             ));
                         }
                     },
                     Err(err) => {
                         return Err(Status::new(
                             Code::InvalidArgument,
-                            format!("could not parse contract address: {}", err),
+                            format!("could not parse contract address: {err}"),
                         ));
                     }
                 },
@@ -493,7 +493,7 @@ where
             Err(err) => {
                 return Err(Status::new(
                     Code::Internal,
-                    format!("signing failed: {}", err),
+                    format!("signing failed: {err}"),
                 ));
             }
         };
@@ -660,7 +660,7 @@ where
             })),
             Err(err) => Err(Status::new(
                 Code::InvalidArgument,
-                format!("could not parse IP: {}", err),
+                format!("could not parse IP: {err}"),
             )),
         }
     }
@@ -937,10 +937,7 @@ mod test {
             .err()
             .unwrap();
         assert_eq!(err.code(), Code::NotFound);
-        assert_eq!(
-            err.message(),
-            format!("could not find hook for swap {}", id)
-        );
+        assert_eq!(err.message(), format!("could not find hook for swap {id}"));
     }
 
     #[tokio::test]

@@ -200,7 +200,7 @@ pub mod test {
         let port = 13_001;
         let (cancel, _) = start(port).await;
 
-        let res = reqwest::get(format!("http://127.0.0.1:{}", port))
+        let res = reqwest::get(format!("http://127.0.0.1:{port}"))
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::NOT_FOUND);

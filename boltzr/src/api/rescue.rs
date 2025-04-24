@@ -34,7 +34,7 @@ impl<'de> Deserialize<'de> for XpubDeserialize {
             {
                 match Xpub::from_str(value) {
                     Ok(xpub) => Ok(XpubDeserialize(xpub)),
-                    Err(err) => Err(E::custom(format!("invalid xpub: {}", err))),
+                    Err(err) => Err(E::custom(format!("invalid xpub: {err}"))),
                 }
             }
         }

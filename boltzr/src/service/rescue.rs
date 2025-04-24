@@ -315,7 +315,7 @@ impl SwapRescue {
             let key = xpub
                 .derive_pub(
                     secp,
-                    &DerivationPath::from_str(&format!("{}/{}", derivation_path, i))?,
+                    &DerivationPath::from_str(&format!("{derivation_path}/{i}"))?,
                 )
                 .map(|derived| derived.public_key)?;
 
@@ -531,7 +531,7 @@ mod test {
             .err()
             .unwrap()
             .to_string(),
-            format!("no key index for {}", id)
+            format!("no key index for {id}")
         );
     }
 
@@ -576,7 +576,7 @@ mod test {
                 .err()
                 .unwrap()
                 .to_string(),
-            format!("no public key for {}", id)
+            format!("no public key for {id}")
         );
     }
 
@@ -588,7 +588,7 @@ mod test {
                 .err()
                 .unwrap()
                 .to_string(),
-            format!("no key mapping for {}", id)
+            format!("no key mapping for {id}")
         );
     }
 

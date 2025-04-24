@@ -24,7 +24,7 @@ pub fn split_pair(pair: &str) -> anyhow::Result<Pair> {
 }
 
 pub fn concat_pair(base: &str, quote: &str) -> String {
-    format!("{}/{}", base, quote)
+    format!("{base}/{quote}")
 }
 
 #[cfg(test)]
@@ -46,7 +46,7 @@ mod test {
     fn test_split_pair_invalid(#[case] pair: &str) {
         assert_eq!(
             split_pair(pair).unwrap_err().to_string(),
-            format!("invalid pair: {}", pair)
+            format!("invalid pair: {pair}")
         );
     }
 

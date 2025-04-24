@@ -81,7 +81,7 @@ class Hook<Req, Res extends HookResponse> {
     const hook = new Promise<Action>((resolve) => {
       const resolver = (action: Action) => {
         this.pendingHooks.delete(id);
-        if (!action) {
+        if (action === Action.Reject) {
           this.logger.warn(`Hook ${this.name} rejected for ${id}`);
         }
         resolve(action);

@@ -1,7 +1,7 @@
 pub const CODE_BLOCK: &str = "```";
 
 pub fn format_prefix(prefix: &str) -> String {
-    format!("[{}]: ", prefix)
+    format!("[{prefix}]: ")
 }
 
 pub fn split_message(max_len: usize, message: &str) -> Vec<String> {
@@ -26,7 +26,7 @@ pub fn split_message(max_len: usize, message: &str) -> Vec<String> {
     if is_code_block {
         split
             .iter()
-            .map(|entry| format!("{}json\n{}\n{}", CODE_BLOCK, entry, CODE_BLOCK))
+            .map(|entry| format!("{CODE_BLOCK}json\n{entry}\n{CODE_BLOCK}"))
             .collect()
     } else {
         split

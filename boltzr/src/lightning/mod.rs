@@ -12,7 +12,7 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::NoBolt12Support(reason) => write!(f, "no BOLT12 support: {}", reason),
+            Error::NoBolt12Support(reason) => write!(f, "no BOLT12 support: {reason}"),
         }
     }
 }

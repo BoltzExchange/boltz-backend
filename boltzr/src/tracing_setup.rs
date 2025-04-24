@@ -134,7 +134,7 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
     };
 
     tracing::subscriber::set_global_default(Registry::default().with(layers))
-        .unwrap_or_else(|e| panic!("Could not set tracing subscriber: {}", e));
+        .unwrap_or_else(|e| panic!("Could not set tracing subscriber: {e}"));
 
     reloader
 }
@@ -226,7 +226,7 @@ fn env_filter(log_level: String, is_otel: bool) -> EnvFilter {
             built_info::PKG_NAME,
             log_level,
             if is_otel {
-                format!(",diesel_tracing::pg={}", log_level)
+                format!(",diesel_tracing::pg={log_level}")
             } else {
                 "".to_string()
             }

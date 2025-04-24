@@ -88,7 +88,7 @@ impl<'de> Deserialize<'de> for SwapType {
                     "submarine" => Ok(SwapType::Submarine),
                     "reverse" => Ok(SwapType::Reverse),
                     "chain" => Ok(SwapType::Chain),
-                    _ => Err(E::custom(format!("invalid swap type: {}", value))),
+                    _ => Err(E::custom(format!("invalid swap type: {value}"))),
                 }
             }
         }

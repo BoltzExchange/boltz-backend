@@ -480,7 +480,7 @@ mod caller_test {
 
         let hook = WebHook {
             id: id.to_string(),
-            url: format!("http://127.0.0.1:{}", port),
+            url: format!("http://127.0.0.1:{port}"),
             ..Default::default()
         };
 
@@ -583,7 +583,7 @@ mod caller_test {
         let port = 10003;
         let hook = WebHook {
             id: id.to_string(),
-            url: format!("http://127.0.0.1:{}/fail", port),
+            url: format!("http://127.0.0.1:{port}/fail"),
             ..Default::default()
         };
 
@@ -647,7 +647,7 @@ mod caller_test {
 
         let id = "gm";
         let port = 10004;
-        let url = format!("http://127.0.0.1:{}", port);
+        let url = format!("http://127.0.0.1:{port}");
         let hook = WebHook {
             id: id.to_string(),
             url: url.clone(),
@@ -705,7 +705,7 @@ mod caller_test {
         let status = "some.update";
 
         let hook = WebHook {
-            url: format!("http://127.0.0.1:{}", port),
+            url: format!("http://127.0.0.1:{port}"),
             id: id.to_string(),
             state: WebHookState::Failed.as_ref().to_string(),
             hash_swap_id: false,
@@ -721,7 +721,7 @@ mod caller_test {
         web_hook_helper
             .expect_get_retry_data()
             .with(predicate::eq(WebHook {
-                url: format!("http://127.0.0.1:{}", port),
+                url: format!("http://127.0.0.1:{port}"),
                 id: id.to_string(),
                 state: WebHookState::Failed.as_ref().to_string(),
                 hash_swap_id: false,
@@ -791,7 +791,7 @@ mod caller_test {
         let status = "some.update";
         let id_two = "gm2";
         let status_two = "other.update";
-        let url = format!("http://127.0.0.1:{}", port);
+        let url = format!("http://127.0.0.1:{port}");
 
         web_hook_helper
             .expect_get_by_state()
@@ -887,7 +887,7 @@ mod caller_test {
 
         let id = "gm";
         let status = "some.update";
-        let url = format!("http://127.0.0.1:{}", port);
+        let url = format!("http://127.0.0.1:{port}");
 
         web_hook_helper
             .expect_get_by_state()
@@ -1104,7 +1104,7 @@ mod caller_test {
                 received_calls: received_calls.clone(),
             })));
 
-        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
+        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
             .await
             .unwrap();
 

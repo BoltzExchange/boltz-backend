@@ -13,7 +13,7 @@ impl Display for AlertError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AlertError::RequestFailed(status) => {
-                write!(f, "alert request failed with status code: {}", status)
+                write!(f, "alert request failed with status code: {status}")
             }
         }
     }
@@ -79,7 +79,7 @@ mod test {
         let port = 12_101;
         let (cancellation_token, calls) = start_server(port).await;
 
-        let client = Client::new(format!("http://127.0.0.1:{}/", port));
+        let client = Client::new(format!("http://127.0.0.1:{port}/"));
         let title = "test";
 
         assert!(client.send_alert(title.to_string()).await.is_ok());
@@ -104,7 +104,7 @@ mod test {
         let port = 12_102;
         let (cancellation_token, _) = start_server(port).await;
 
-        let client = Client::new(format!("http://127.0.0.1:{}/fail", port));
+        let client = Client::new(format!("http://127.0.0.1:{port}/fail"));
         assert_eq!(
             client
                 .send_alert("test fail".to_string())
@@ -150,7 +150,7 @@ mod test {
                 received_calls: received_calls.clone(),
             })));
 
-        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
+        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
             .await
             .unwrap();
 

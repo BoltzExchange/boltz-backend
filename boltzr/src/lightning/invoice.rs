@@ -23,7 +23,7 @@ impl Display for InvoiceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             InvoiceError::InvalidNetwork => write!(f, "invalid network"),
-            InvoiceError::DecodeError(data) => write!(f, "invalid invoice: {}", data),
+            InvoiceError::DecodeError(data) => write!(f, "invalid invoice: {data}"),
         }
     }
 }
@@ -95,14 +95,14 @@ fn parse(invoice_or_offer: &str) -> Result<Invoice, InvoiceError> {
 fn decode_bolt12_offer(offer: &str) -> Result<Invoice, InvoiceError> {
     match lightning::offers::offer::Offer::from_str(offer) {
         Ok(offer) => Ok(Invoice::Offer(Box::new(offer))),
-        Err(err) => Err(InvoiceError::DecodeError(format!("{:?}", err))),
+        Err(err) => Err(InvoiceError::DecodeError(format!("{err:?}"))),
     }
 }
 
 fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
     let dec = match CheckedHrpstring::new::<NoChecksum>(invoice) {
         Ok(dec) => dec,
-        Err(err) => return Err(InvoiceError::DecodeError(format!("{:?}", err))),
+        Err(err) => return Err(InvoiceError::DecodeError(format!("{err:?}"))),
     };
     if dec.hrp().to_lowercase() != BECH32_BOLT12_INVOICE_HRP {
         return Err(InvoiceError::DecodeError("invalid HRP".to_string()));
@@ -111,14 +111,14 @@ fn decode_bolt12_invoice(invoice: &str) -> Result<Invoice, InvoiceError> {
     let data = dec.byte_iter().collect::<Vec<_>>();
     match lightning::offers::invoice::Bolt12Invoice::try_from(data) {
         Ok(invoice) => Ok(Invoice::Bolt12(Box::new(invoice))),
-        Err(err) => Err(InvoiceError::DecodeError(format!("{:?}", err))),
+        Err(err) => Err(InvoiceError::DecodeError(format!("{err:?}"))),
     }
 }
 
 fn decode_bolt11(invoice: &str) -> Result<Invoice, InvoiceError> {
     match lightning_invoice::Bolt11Invoice::from_str(invoice) {
         Ok(invoice) => Ok(Invoice::Bolt11(Box::new(invoice))),
-        Err(err) => Err(InvoiceError::DecodeError(format!("{:?}", err))),
+        Err(err) => Err(InvoiceError::DecodeError(format!("{err:?}"))),
     }
 }
 

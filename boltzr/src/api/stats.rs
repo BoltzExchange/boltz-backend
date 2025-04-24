@@ -81,7 +81,7 @@ where
     };
 
     let res = pair_stats
-        .get_pair_stats(&format!("{}/{}", from, to), swap_type, referral)
+        .get_pair_stats(&format!("{from}/{to}"), swap_type, referral)
         .await?;
 
     Ok(match res {
@@ -173,7 +173,7 @@ mod test {
         let res = setup_router(true)
             .oneshot(
                 Request::builder()
-                    .uri(format!("/v2/swap/{}/stats/BTC/BTC", swap_type))
+                    .uri(format!("/v2/swap/{swap_type}/stats/BTC/BTC"))
                     .header("Referral", PRO_REFERRAL)
                     .body(Body::empty())
                     .unwrap(),
@@ -185,7 +185,7 @@ mod test {
 
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
-        assert_eq!(error.error, format!("invalid swap type: {}", swap_type));
+        assert_eq!(error.error, format!("invalid swap type: {swap_type}"));
     }
 
     #[rstest]
@@ -225,7 +225,7 @@ mod test {
         let input = "invalid";
         assert_eq!(
             parse_swap_type(input).err().unwrap().to_string(),
-            format!("invalid swap type: {}", input)
+            format!("invalid swap type: {input}")
         );
     }
 }

@@ -43,8 +43,8 @@ fn generate_or_load_certificate(
     file_name: &str,
     parent: Option<(&KeyPair, &rcgen::Certificate)>,
 ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn Error>> {
-    let key_path = directory.join(format!("{}-key.pem", file_name));
-    let cert_path = directory.join(format!("{}.pem", file_name));
+    let key_path = directory.join(format!("{file_name}-key.pem"));
+    let cert_path = directory.join(format!("{file_name}.pem"));
 
     if !key_path.exists() || !cert_path.exists() {
         debug!("Creating new certificates for: {}", name);

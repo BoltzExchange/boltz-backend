@@ -198,11 +198,11 @@ impl ClnLightningInfo {
     }
 
     fn cache_key_node(symbol: &str, id: &str) -> String {
-        format!("cln:{}:node:{}", symbol, id)
+        format!("cln:{symbol}:node:{id}")
     }
 
     fn cache_key_channels(symbol: &str, destination: &str) -> String {
-        format!("cln:{}:channels:{}", symbol, destination)
+        format!("cln:{symbol}:channels:{destination}")
     }
 }
 

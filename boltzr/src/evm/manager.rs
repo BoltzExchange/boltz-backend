@@ -154,7 +154,7 @@ mod test {
     #[serial(mnemonic)]
     async fn test_from_mnemonic_file_trailing_whitespace() {
         let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
-        fs::write(mnemonic_file.clone(), format!("{}\n", MNEMONIC)).unwrap();
+        fs::write(mnemonic_file.clone(), format!("{MNEMONIC}\n")).unwrap();
 
         let signer = Manager::from_mnemonic_file(
             mnemonic_file.to_str().unwrap().to_string(),

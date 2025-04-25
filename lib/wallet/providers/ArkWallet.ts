@@ -16,11 +16,7 @@ class ArkWallet implements WalletProviderInterface {
   public serviceName = (): string => this.node.serviceName();
 
   public getBalance = async (): Promise<WalletBalance> => {
-    const balance = await this.node.getBalance();
-    return {
-      confirmedBalance: balance,
-      unconfirmedBalance: 0,
-    };
+    return await this.node.getBalance();
   };
 
   // TODO: label support

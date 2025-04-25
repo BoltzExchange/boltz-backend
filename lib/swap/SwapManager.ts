@@ -475,7 +475,12 @@ class SwapManager {
         undefined,
         args.refundPublicKey!,
       );
-      await receivingCurrency.arkNode!.subscribeAddresses([vHtlc.getAddress()]);
+      await receivingCurrency.arkNode!.subscribeAddresses([
+        {
+          address: vHtlc.getAddress(),
+          preimageHash: args.preimageHash,
+        },
+      ]);
 
       result.address = vHtlc.getAddress();
       // TODO: little sketchy, but works for now
@@ -1350,9 +1355,9 @@ class SwapManager {
       );
 
       if (
+        isReverse &&
         (swap.status === SwapUpdateEvent.SwapCreated ||
-          swap.status === SwapUpdateEvent.MinerFeePaid) &&
-        isReverse
+          swap.status === SwapUpdateEvent.MinerFeePaid)
       ) {
         const reverseSwap = swap as ReverseSwap;
 
@@ -1377,9 +1382,9 @@ class SwapManager {
         );
         lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
       } else if (
+        isReverse &&
         (swap.status === SwapUpdateEvent.TransactionMempool ||
-          swap.status === SwapUpdateEvent.TransactionConfirmed) &&
-        isReverse
+          swap.status === SwapUpdateEvent.TransactionConfirmed)
       ) {
         const { chainClient } = this.currencies.get(chainCurrency)!;
 
@@ -1398,13 +1403,20 @@ class SwapManager {
           }
         }
       } else {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
+        const { arkNode, chainClient } = this.currencies.get(chainCurrency)!;
 
         if (chainClient) {
           const wallet = this.walletManager.wallets.get(chainCurrency)!;
           const outputScript = wallet.decodeAddress(swap.lockupAddress);
 
           chainClient.addOutputFilter(outputScript);
+        } else if (arkNode) {
+          arkNode.subscribeAddresses([
+            {
+              address: swap.lockupAddress,
+              preimageHash: getHexBuffer(swap.preimageHash),
+            },
+          ]);
         }
       }
     }

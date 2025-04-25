@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
-import ArkClient from '../chain/ArkClient';
+import ArkClient, { type VHtlc } from '../chain/ArkClient';
 import {
   CurrencyType,
   SwapUpdateEvent,
@@ -9,7 +9,6 @@ import {
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type Swap from '../db/models/Swap';
 import SwapRepository from '../db/repositories/SwapRepository';
-import type { Vtxo } from '../proto/ark/types_pb';
 import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
@@ -40,33 +39,18 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private bindEvent = (arkNode: ArkClient) => {
-    arkNode.on('ark.vhtlc.found', async (notification) => {
-      if (notification.newVtxosList.length === 0) {
-        return;
-      }
-
-      // TODO: how to handle that?
-      if (notification.newVtxosList.length > 1) {
-        this.logger.warn(
-          `Found ${notification.newVtxosList.length} new VHTLCs for ${notification.address}`,
-        );
-        return;
-      }
-
-      await this.handleVhtlc(
-        notification.address,
-        notification.newVtxosList[0],
-      );
+    arkNode.on('ark.vhtlc.found', async (vHtlc) => {
+      await this.handleVhtlc(vHtlc);
     });
   };
 
-  private handleVhtlc = async (address: string, vHtlc: Vtxo.AsObject) => {
+  private handleVhtlc = async (vHtlc: VHtlc) => {
     // TODO: Chain swaps
     const swap = await SwapRepository.getSwap({
       status: {
         [Op.in]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.InvoiceSet],
       },
-      lockupAddress: address,
+      lockupAddress: vHtlc.address,
     });
 
     if (swap === null || swap === undefined) {
@@ -74,16 +58,14 @@ class ArkNursery extends TypedEventEmitter<{
     }
 
     this.logger.info(
-      `Found ${ArkClient.symbol} lockup VHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.outpoint!.txid}:${vHtlc.outpoint!.vout}`,
+      `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
     );
 
-    if (swap.expectedAmount! < vHtlc.receiver!.amount) {
+    if (swap.expectedAmount! < vHtlc.amount) {
       this.emit('ark.vhtlc.failed', {
         swap,
-        reason: Errors.INSUFFICIENT_AMOUNT(
-          vHtlc.receiver!.amount,
-          swap.expectedAmount!,
-        ).message,
+        reason: Errors.INSUFFICIENT_AMOUNT(vHtlc.amount, swap.expectedAmount!)
+          .message,
       });
       return;
     }
@@ -92,15 +74,13 @@ class ArkNursery extends TypedEventEmitter<{
       this.overpaymentProtector.isUnacceptableOverpay(
         swap.type,
         swap.expectedAmount!,
-        vHtlc.receiver!.amount,
+        vHtlc.amount,
       )
     ) {
       this.emit('ark.vhtlc.failed', {
         swap,
-        reason: Errors.OVERPAID_AMOUNT(
-          vHtlc.receiver!.amount,
-          swap.expectedAmount!,
-        ).message,
+        reason: Errors.OVERPAID_AMOUNT(vHtlc.amount, swap.expectedAmount!)
+          .message,
       });
       return;
     }
@@ -108,13 +88,13 @@ class ArkNursery extends TypedEventEmitter<{
     this.emit('ark.vhtlc', {
       swap: await SwapRepository.setLockupTransaction(
         swap,
-        vHtlc.outpoint!.txid,
-        vHtlc.receiver!.amount,
+        vHtlc.txId,
+        vHtlc.amount,
         // TODO: how to handle out of round?
         true,
-        vHtlc.outpoint!.vout,
+        vHtlc.vout,
       ),
-      lockupTransactionId: vHtlc.outpoint!.txid,
+      lockupTransactionId: vHtlc.txId,
     });
   };
 }

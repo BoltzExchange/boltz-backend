@@ -32,6 +32,7 @@ import {
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength } from '../api/Utils';
 import type { ArkSwapTree } from '../chain/ArkClient';
+import type ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -97,6 +98,7 @@ import type { SwapNurseryEvents } from '../swap/PaymentHandler';
 import type { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
+import type Wallet from '../wallet/Wallet';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import BalanceCheck from './BalanceCheck';
@@ -572,16 +574,21 @@ class Service {
         : [];
 
       await Promise.all(
-        [wallet, ...lightningClients].map(async (bf) => {
-          const res = await bf.getBalance();
+        [wallet, ...lightningClients, currency?.arkNode]
+          .filter(
+            (bf): bf is Wallet | LndClient | ClnClient | ArkClient =>
+              bf !== undefined,
+          )
+          .map(async (bf) => {
+            const res = await bf.getBalance();
 
-          const walletBal = new Balances.WalletBalance();
+            const walletBal = new Balances.WalletBalance();
 
-          walletBal.setConfirmed(res.confirmedBalance);
-          walletBal.setUnconfirmed(res.unconfirmedBalance);
+            walletBal.setConfirmed(res.confirmedBalance);
+            walletBal.setUnconfirmed(res.unconfirmedBalance);
 
-          balances.getWalletsMap().set(bf.serviceName(), walletBal);
-        }),
+            balances.getWalletsMap().set(bf.serviceName(), walletBal);
+          }),
       );
 
       await Promise.all(

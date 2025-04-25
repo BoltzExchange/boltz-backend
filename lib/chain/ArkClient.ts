@@ -10,7 +10,7 @@ import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
 import * as notificationrpc from '../proto/ark/notification_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
-import type * as arkrpcTypes from '../proto/ark/types_pb';
+import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import type { IChainClient } from './ChainClient';
 
 export type ArkConfig = {
@@ -30,10 +30,21 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
-// TODO: rescan on startup
+type VHtlc = {
+  address: string;
+  txId: string;
+  vout: number;
+  amount: number;
+};
+
+type SubscribedAddress = {
+  address: string;
+  preimageHash: Buffer;
+};
+
 class ArkClient extends BaseClient<
   BaseClientEvents & {
-    'ark.vhtlc.found': arkrpcTypes.Notification.AsObject;
+    'ark.vhtlc.found': VHtlc;
   }
 > {
   public static readonly symbol = 'ARK';
@@ -43,6 +54,7 @@ class ArkClient extends BaseClient<
   private client!: ServiceClient;
   private notificationClient!: NotificationServiceClient;
   private readonly meta: Metadata = new Metadata();
+  private readonly subscribedAddresses = new Set<SubscribedAddress>();
 
   constructor(
     protected readonly logger: Logger,
@@ -104,13 +116,16 @@ class ArkClient extends BaseClient<
     return (await this.chainClient.getBlockchainInfo()).blocks;
   };
 
-  public getBalance = async (): Promise<number> => {
+  public getBalance = async (): Promise<WalletBalance> => {
     const balance = await this.unaryCall<
       arkrpc.GetBalanceRequest,
       arkrpc.GetBalanceResponse.AsObject
     >('getBalance', new arkrpc.GetBalanceRequest());
 
-    return balance.amount;
+    return {
+      confirmedBalance: balance.amount,
+      unconfirmedBalance: 0,
+    };
   };
 
   public getAddress = async (): Promise<ArkAddress> => {
@@ -182,9 +197,13 @@ class ArkClient extends BaseClient<
     >('createVHTLC', req, false);
   };
 
-  public subscribeAddresses = async (addresses: string[]) => {
+  public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
+    for (const address of addresses) {
+      this.subscribedAddresses.add(address);
+    }
+
     const req = new notificationrpc.SubscribeForAddressesRequest();
-    req.setAddressesList(addresses);
+    req.setAddressesList(addresses.map((a) => a.address));
 
     await this.unaryNotificationCall<
       notificationrpc.SubscribeForAddressesRequest,
@@ -203,15 +222,74 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
+  public rescan = async () => {
+    const toRescan = Array.from(this.subscribedAddresses);
+    this.subscribedAddresses.clear();
+
+    for (const { address, preimageHash } of toRescan) {
+      try {
+        const req = new arkrpc.ListVHTLCRequest();
+        req.setPreimageHashFilter(getHexString(crypto.ripemd160(preimageHash)));
+
+        const res = await this.unaryCall<
+          arkrpc.ListVHTLCRequest,
+          arkrpc.ListVHTLCResponse.AsObject
+        >('listVHTLC', req, true);
+
+        if (res.vhtlcsList.length === 0) {
+          continue;
+        }
+
+        if (res.vhtlcsList.length > 1) {
+          this.logger.warn(
+            `Found ${res.vhtlcsList.length} new vHTLCs for ${address}`,
+          );
+        }
+
+        const vhtlc = res.vhtlcsList[0];
+        this.emit('ark.vhtlc.found', {
+          address,
+          txId: vhtlc.outpoint!.txid,
+          vout: vhtlc.outpoint!.vout,
+          amount: vhtlc.receiver!.amount,
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        // Ignored because fulmine throws when there was nothing sent to that vHTLC
+      }
+    }
+  };
+
   private streamVhtlcs = async () => {
     const req = new notificationrpc.GetVtxoNotificationsRequest();
     const stream = this.notificationClient.getVtxoNotifications(req);
 
     stream.on('data', (res: notificationrpc.GetVtxoNotificationsResponse) => {
-      const notification = res.getNotification();
-      if (notification) {
-        this.emit('ark.vhtlc.found', notification.toObject());
+      const notification = res.getNotification()?.toObject();
+      if (notification === undefined) {
+        return;
       }
+
+      if (notification.newVtxosList.length === 0) {
+        return;
+      }
+
+      // TODO: how to handle that?
+      if (notification.newVtxosList.length > 1) {
+        this.logger.warn(
+          `Found ${notification.newVtxosList.length} new vHTLCs for ${notification.address}`,
+        );
+        return;
+      }
+
+      const vhtlc = notification.newVtxosList[0];
+      this.emit('ark.vhtlc.found', {
+        address: notification.address,
+        txId: vhtlc.outpoint!.txid,
+        vout: vhtlc.outpoint!.vout,
+        amount: vhtlc.receiver!.amount,
+      });
     });
 
     stream.on('error', (err) => {
@@ -247,3 +325,4 @@ class ArkClient extends BaseClient<
 }
 
 export default ArkClient;
+export type { VHtlc };

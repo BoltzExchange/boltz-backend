@@ -352,6 +352,13 @@ class Boltz {
         }
       }
 
+      Array.from(this.currencies.values()).forEach((currency) => {
+        if (currency.arkNode) {
+          this.logger.debug(`Rescanning ${currency.symbol} ARK node`);
+          rescanPromises.push(currency.arkNode.rescan());
+        }
+      });
+
       await Promise.all(rescanPromises);
       await this.sidecar.rescanMempool();
       this.logger.info('Finished rescanning');

@@ -234,11 +234,12 @@ describe('GrpcServer', () => {
 
   test('should throw when binding to port fails', async () => {
     const port = await getPort();
+    const host = '127.0.0.1';
     const server = new GrpcServer(
       Logger.disabledLogger,
       {
         port,
-        host: '127.0.0.1',
+        host,
         certificates: certsDir,
       },
       grpcService,
@@ -246,7 +247,7 @@ describe('GrpcServer', () => {
 
     // Have something else use the port
     const collisionServer = createServer();
-    collisionServer.listen(port, () => {});
+    collisionServer.listen(port, host, () => {});
 
     await expect(server.listen()).rejects.toEqual(expect.anything());
 

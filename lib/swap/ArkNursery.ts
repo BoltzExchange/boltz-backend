@@ -61,6 +61,14 @@ class ArkNursery extends TypedEventEmitter<{
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
     );
 
+    await SwapRepository.setLockupTransaction(
+      swap,
+      vHtlc.txId,
+      vHtlc.amount,
+      true,
+      vHtlc.vout,
+    );
+
     if (swap.expectedAmount! < vHtlc.amount) {
       this.emit('ark.vhtlc.failed', {
         swap,

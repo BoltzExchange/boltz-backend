@@ -79,6 +79,7 @@
     "@opentelemetry/instrumentation-winston": "^0.45.0",
     "@opentelemetry/sdk-node": "^0.200.0",
     "@pyroscope/nodejs": "^0.4.5",
+    "@scure/btc-signer": "^1.8.0",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
     "axios": "^1.9.0",

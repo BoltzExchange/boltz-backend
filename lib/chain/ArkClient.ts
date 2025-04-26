@@ -159,6 +159,17 @@ class ArkClient extends BaseClient<
     return response.txid;
   };
 
+  public signTransaction = async (transaction: string): Promise<string> => {
+    const req = new arkrpc.SignTransactionRequest();
+    req.setTx(transaction);
+
+    const res = await this.unaryCall<
+      arkrpc.SignTransactionRequest,
+      arkrpc.SignTransactionResponse.AsObject
+    >('signTransaction', req, true);
+    return res.signedTx;
+  };
+
   /**
    * @param preimageHash - SHA256 of the preimage
    */

@@ -12,11 +12,11 @@ class TransactionHook extends Hook<
   }
 
   public hook = (
+    swapId: string,
     symbol: string,
     txId: string,
     tx: Buffer,
     confirmed: boolean,
-    swapId: string,
     vout?: number,
   ): Promise<Action> => {
     const msg = new boltzrpc.TransactionHookRequest();

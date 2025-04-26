@@ -707,11 +707,11 @@ describe('UtxoNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       btcWallet.symbol,
       transaction.getId(),
       transaction.toBuffer(),
       false,
-      mockGetSwapResult.id,
       0,
     );
 
@@ -745,11 +745,11 @@ describe('UtxoNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       btcWallet.symbol,
       transaction.getId(),
       transaction.toBuffer(),
       false,
-      mockGetSwapResult.id,
       0,
     );
     expect(logHoldingSpy).toHaveBeenCalledTimes(1);

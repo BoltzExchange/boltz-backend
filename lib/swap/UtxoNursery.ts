@@ -188,11 +188,11 @@ class UtxoNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
-        swap.id,
         swapOutput.vout,
       );
 
@@ -791,11 +791,11 @@ class UtxoNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
-        swap.id,
         swapOutput.vout,
       );
 

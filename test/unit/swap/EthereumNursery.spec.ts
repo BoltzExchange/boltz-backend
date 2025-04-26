@@ -532,11 +532,11 @@ describe('EthereumNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       'Ethereum',
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
-      mockGetSwapResult.id,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -582,11 +582,11 @@ describe('EthereumNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       'Ethereum',
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
-      mockGetSwapResult.id,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -919,11 +919,11 @@ describe('EthereumNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       'USDT',
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
-      mockGetSwapResult.id,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -970,11 +970,11 @@ describe('EthereumNursery', () => {
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
       'USDT',
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
-      mockGetSwapResult.id,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);

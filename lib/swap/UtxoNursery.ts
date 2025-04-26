@@ -315,6 +315,7 @@ class UtxoNursery extends TypedEventEmitter<{
               SwapUpdateEvent.TransactionMempool,
               SwapUpdateEvent.TransactionLockupFailed,
               SwapUpdateEvent.TransactionZeroConfRejected,
+              SwapUpdateEvent.TransactionConfirmed,
             ],
           },
         },

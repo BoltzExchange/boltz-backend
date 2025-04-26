@@ -20,8 +20,8 @@ class TransactionHook extends Hook<
     vout?: number,
   ): Promise<Action> => {
     const msg = new boltzrpc.TransactionHookRequest();
-    msg.setSymbol(symbol);
     msg.setId(swapId);
+    msg.setSymbol(symbol);
     msg.setTx(tx);
     msg.setConfirmed(confirmed);
     msg.setTxId(txId);

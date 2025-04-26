@@ -188,6 +188,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),
@@ -283,6 +284,7 @@ class UtxoNursery extends TypedEventEmitter<{
             SwapUpdateEvent.InvoiceSet,
             SwapUpdateEvent.TransactionMempool,
             SwapUpdateEvent.TransactionZeroConfRejected,
+            SwapUpdateEvent.TransactionConfirmed,
           ],
         },
         lockupAddress: address,
@@ -313,6 +315,7 @@ class UtxoNursery extends TypedEventEmitter<{
               SwapUpdateEvent.TransactionMempool,
               SwapUpdateEvent.TransactionLockupFailed,
               SwapUpdateEvent.TransactionZeroConfRejected,
+              SwapUpdateEvent.TransactionConfirmed,
             ],
           },
         },
@@ -788,6 +791,7 @@ class UtxoNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         wallet.symbol,
         transaction.getId(),
         transaction.toBuffer(),

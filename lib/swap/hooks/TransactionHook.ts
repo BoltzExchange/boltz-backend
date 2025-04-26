@@ -12,22 +12,24 @@ class TransactionHook extends Hook<
   }
 
   public hook = (
+    swapId: string,
     symbol: string,
-    id: string,
+    txId: string,
     tx: Buffer,
     confirmed: boolean,
     vout?: number,
   ): Promise<Action> => {
     const msg = new boltzrpc.TransactionHookRequest();
+    msg.setId(swapId);
     msg.setSymbol(symbol);
-    msg.setId(id);
     msg.setTx(tx);
     msg.setConfirmed(confirmed);
+    msg.setTxId(txId);
     if (vout !== undefined) {
       msg.setVout(vout);
     }
 
-    return this.sendHook(id, msg);
+    return this.sendHook(swapId, msg);
   };
 }
 

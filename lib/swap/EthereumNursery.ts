@@ -248,6 +248,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         this.ethereumManager.networkDetails.name,
         transaction.hash!,
         getHexBuffer(
@@ -386,6 +387,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
     {
       const action = await this.transactionHook.hook(
+        swap.id,
         wallet.symbol,
         transaction.hash!,
         getHexBuffer(

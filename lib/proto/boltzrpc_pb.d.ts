@@ -1609,14 +1609,16 @@ export namespace TransactionHookResponse {
 }
 
 export class TransactionHookRequest extends jspb.Message { 
-    getSymbol(): string;
-    setSymbol(value: string): TransactionHookRequest;
     getId(): string;
     setId(value: string): TransactionHookRequest;
+    getSymbol(): string;
+    setSymbol(value: string): TransactionHookRequest;
     getTx(): Uint8Array | string;
     getTx_asU8(): Uint8Array;
     getTx_asB64(): string;
     setTx(value: Uint8Array | string): TransactionHookRequest;
+    getTxId(): string;
+    setTxId(value: string): TransactionHookRequest;
     getConfirmed(): boolean;
     setConfirmed(value: boolean): TransactionHookRequest;
 
@@ -1637,9 +1639,10 @@ export class TransactionHookRequest extends jspb.Message {
 
 export namespace TransactionHookRequest {
     export type AsObject = {
-        symbol: string,
         id: string,
+        symbol: string,
         tx: Uint8Array | string,
+        txId: string,
         confirmed: boolean,
         vout?: number,
     }

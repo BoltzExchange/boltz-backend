@@ -276,6 +276,7 @@ describe('UtxoNursery', () => {
           SwapUpdateEvent.InvoiceSet,
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionZeroConfRejected,
+          SwapUpdateEvent.TransactionConfirmed,
         ],
       },
     });
@@ -395,6 +396,43 @@ describe('UtxoNursery', () => {
 
     mockGetSwapsResult = [];
     nursery['checkSwapTransaction'] = realCheckSwapTransaction;
+  });
+
+  test('should check both swap types with correct status filters', async () => {
+    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    const address = encodeAddress(transaction.outs[0].script);
+    const checkOutputs = nursery['checkOutputs'];
+    await checkOutputs(btcChainClient, btcWallet, transaction, true);
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockGetSwap).toHaveBeenCalledWith({
+      lockupAddress: address,
+      status: {
+        [Op.or]: [
+          SwapUpdateEvent.SwapCreated,
+          SwapUpdateEvent.InvoiceSet,
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionZeroConfRejected,
+          SwapUpdateEvent.TransactionConfirmed,
+        ],
+      },
+    });
+
+    expect(ChainSwapRepository.getChainSwapByData).toHaveBeenCalledTimes(1);
+    expect(ChainSwapRepository.getChainSwapByData).toHaveBeenCalledWith(
+      { lockupAddress: address },
+      {
+        status: {
+          [Op.or]: [
+            SwapUpdateEvent.SwapCreated,
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionLockupFailed,
+            SwapUpdateEvent.TransactionZeroConfRejected,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+      },
+    );
   });
 
   test('should handle unconfirmed Swap outputs', async () => {
@@ -668,6 +706,14 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
+      btcWallet.symbol,
+      transaction.getId(),
+      transaction.toBuffer(),
+      false,
+      0,
+    );
 
     transactionHook.hook = jest.fn().mockReturnValue(true);
 
@@ -698,6 +744,14 @@ describe('UtxoNursery', () => {
     await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
+    expect(transactionHook.hook).toHaveBeenCalledWith(
+      mockGetSwapResult.id,
+      btcWallet.symbol,
+      transaction.getId(),
+      transaction.toBuffer(),
+      false,
+      0,
+    );
     expect(logHoldingSpy).toHaveBeenCalledTimes(1);
     expect(logHoldingSpy).toHaveBeenCalledWith(
       btcWallet.symbol,

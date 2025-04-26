@@ -33,7 +33,7 @@ import {
   reverseBuffer,
   splitPairId,
 } from '../Utils';
-import type { ArkSwapTree } from '../chain/ArkClient';
+import type { Timeouts } from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import type { OrderSide } from '../consts/Enums';
 import {
@@ -96,7 +96,8 @@ type SetSwapInvoiceResponse = {
 
 type CreatedSwap = {
   id: string;
-  timeoutBlockHeight: number;
+  timeoutBlockHeight?: number;
+  timeoutBlockHeights?: Timeouts;
 
   // This is either the generated address for Bitcoin like chains, or the address of the contract
   // to which the user should send the lockup transaction for Ether and ERC20 tokens
@@ -109,8 +110,6 @@ type CreatedSwap = {
   claimPublicKey?: string;
   swapTree?: SwapTreeSerializer.SerializedTree;
 
-  arkSwapTree?: ArkSwapTree;
-
   // Specified when either Ether or ERC20 tokens or swapped to Lightning
   // So that the user can specify the claim address (Boltz) in the lockup transaction to the contract
   claimAddress?: string;
@@ -120,7 +119,8 @@ type CreatedSwap = {
 };
 
 type CreatedOnchainSwap = {
-  timeoutBlockHeight: number;
+  timeoutBlockHeight?: number;
+  timeoutBlockHeights?: Timeouts;
 
   // Only set for Taproot swaps
   refundPublicKey?: string;
@@ -472,30 +472,28 @@ class SwapManager {
       );
       await receivingCurrency.arkNode!.subscribeAddresses([
         {
-          address: vHtlc.getAddress(),
+          address: vHtlc.vHtlc.address,
           preimageHash: args.preimageHash,
         },
       ]);
 
-      result.address = vHtlc.getAddress();
-      // TODO: little sketchy, but works for now
-      result.arkSwapTree = vHtlc.getSwapTree()!.toObject()!;
-
-      result.timeoutBlockHeight =
-        (await receivingCurrency.arkNode!.getBlockHeight()) +
-        args.timeoutBlockDelta;
+      result.claimPublicKey =
+        (await receivingCurrency.arkNode!.getInfo())!.pubkey;
+      result.address = vHtlc.vHtlc.address;
+      result.timeoutBlockHeights = vHtlc.timeouts;
 
       await SwapRepository.addSwap({
         id,
         pair,
         version: args.version,
         orderSide: args.orderSide,
-        lockupAddress: vHtlc.getAddress(),
+        lockupAddress: vHtlc.vHtlc.address,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
-        timeoutBlockHeight: result.timeoutBlockHeight,
+        timeoutBlockHeight:
+          result.timeoutBlockHeights.unilateralRefundWithoutReceiver,
         refundPublicKey: getHexString(args.refundPublicKey!),
-        redeemScript: JSON.stringify(vHtlc.getSwapTree()!.toObject()),
+        redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
     } else {
       result.address = await this.getLockupContractAddress(
@@ -1034,11 +1032,12 @@ class SwapManager {
         undefined,
       );
 
-      result.lockupAddress = vHtlc.getAddress();
+      result.refundPublicKey = (
+        await sendingCurrency.arkNode!.getInfo()
+      ).pubkey;
+      result.lockupAddress = vHtlc.vHtlc.address;
 
-      result.timeoutBlockHeight =
-        (await sendingCurrency.arkNode!.getBlockHeight()) +
-        args.onchainTimeoutBlockDelta;
+      result.timeoutBlockHeights = vHtlc.timeouts;
 
       const swap = await ReverseSwapRepository.addReverseSwap({
         id,
@@ -1054,13 +1053,13 @@ class SwapManager {
         lockupAddress: result.lockupAddress,
         status: SwapUpdateEvent.SwapCreated,
         invoiceAmount: args.holdInvoiceAmount,
-        timeoutBlockHeight: result.timeoutBlockHeight,
+        timeoutBlockHeight: vHtlc.timeouts.unilateralRefundWithoutReceiver,
         preimageHash: getHexString(args.preimageHash),
         preimage: getHexString(args.preimage!),
         claimPublicKey: getHexString(args.claimPublicKey!),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
-        redeemScript: JSON.stringify(vHtlc.getSwapTree()!.toObject()),
+        redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
       result.arkLockupParams = {
         swap,

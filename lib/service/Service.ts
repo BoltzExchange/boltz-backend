@@ -31,7 +31,7 @@ import {
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength } from '../api/Utils';
-import type { ArkSwapTree } from '../chain/ArkClient';
+import type { Timeouts as ArkTimeouts } from '../chain/ArkClient';
 import type ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
@@ -1112,7 +1112,8 @@ class Service {
     id: string;
     address: string;
     canBeRouted: boolean;
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
@@ -1120,8 +1121,6 @@ class Service {
     // Only set for Taproot swaps
     claimPublicKey?: string;
     swapTree?: SwapTreeSerializer.SerializedTree;
-
-    arkSwapTree?: ArkSwapTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -1218,8 +1217,8 @@ class Service {
       id,
       address,
       swapTree,
-      arkSwapTree,
       timeoutBlockHeight,
+      timeoutBlockHeights,
       blindingKey,
       redeemScript,
       claimAddress,
@@ -1255,13 +1254,13 @@ class Service {
       address,
       swapTree,
       referralId,
-      arkSwapTree,
       canBeRouted,
       blindingKey,
       redeemScript,
       claimAddress,
       claimPublicKey,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     };
   };
 
@@ -1586,7 +1585,8 @@ class Service {
     address: string;
     expectedAmount: number;
     acceptZeroConf: boolean;
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     // Is undefined when Ether or ERC20 tokens are swapped to Lightning
     redeemScript?: string;
@@ -1594,8 +1594,6 @@ class Service {
     // Only set for Taproot swaps
     claimPublicKey?: string;
     swapTree?: SwapTreeSerializer.SerializedTree;
-
-    arkSwapTree?: ArkSwapTree;
 
     // Is undefined when Bitcoin or Litecoin is swapped to Lightning
     claimAddress?: string;
@@ -1653,11 +1651,11 @@ class Service {
         swapTree: createdSwap.swapTree,
         referralId: createdSwap.referralId,
         blindingKey: createdSwap.blindingKey,
-        arkSwapTree: createdSwap.arkSwapTree,
         claimAddress: createdSwap.claimAddress,
         redeemScript: createdSwap.redeemScript,
         claimPublicKey: createdSwap.claimPublicKey,
         timeoutBlockHeight: createdSwap.timeoutBlockHeight,
+        timeoutBlockHeights: createdSwap.timeoutBlockHeights,
       };
     } catch (error) {
       const channelCreation =
@@ -1738,7 +1736,8 @@ class Service {
     onchainAmount?: number;
     minerFeeInvoice?: string;
 
-    timeoutBlockHeight: number;
+    timeoutBlockHeight?: number;
+    timeoutBlockHeights?: ArkTimeouts;
 
     prepayMinerFeeAmount?: number;
 
@@ -2013,6 +2012,7 @@ class Service {
       refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     } = await this.swapManager.createReverseSwap({
       preimage,
       referralId,
@@ -2072,6 +2072,7 @@ class Service {
       lockupAddress,
       refundPublicKey,
       timeoutBlockHeight,
+      timeoutBlockHeights,
     };
 
     if (args.invoice === undefined) {

@@ -21,8 +21,11 @@ export type ArkConfig = {
   maxZeroConfAmount?: number;
 };
 
-// TODO: nicer type
-export type ArkSwapTree = arkrpc.TaprootTree.AsObject;
+export type Timeouts = {
+  unilateralClaim: number;
+  unilateralRefund: number;
+  unilateralRefundWithoutReceiver: number;
+};
 
 type ArkAddress = {
   address: string;
@@ -179,7 +182,10 @@ class ArkClient extends BaseClient<
     refundDelay: number,
     claimPublicKey?: Buffer,
     refundPublicKey?: Buffer,
-  ): Promise<arkrpc.CreateVHTLCResponse> => {
+  ): Promise<{
+    vHtlc: arkrpc.CreateVHTLCResponse.AsObject;
+    timeouts: Timeouts;
+  }> => {
     const createDelay = (delay: number) => {
       const timeout = new arkrpc.RelativeLocktime();
       timeout.setType(arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK);
@@ -198,14 +204,26 @@ class ArkClient extends BaseClient<
       req.setSenderPubkey(getHexString(refundPublicKey));
     }
 
-    req.setUnilateralClaimDelay(createDelay(claimDelay));
-    req.setUnilateralRefundDelay(createDelay(refundDelay));
-    req.setUnilateralRefundWithoutReceiverDelay(createDelay(refundDelay));
+    const currentHeight = await this.getBlockHeight();
+    const timeouts: Timeouts = {
+      unilateralClaim: currentHeight + claimDelay,
+      unilateralRefund: currentHeight + refundDelay,
+      unilateralRefundWithoutReceiver: currentHeight + refundDelay,
+    };
 
-    return await this.unaryCall<
-      arkrpc.CreateVHTLCRequest,
-      arkrpc.CreateVHTLCResponse
-    >('createVHTLC', req, false);
+    req.setUnilateralClaimDelay(createDelay(timeouts.unilateralClaim));
+    req.setUnilateralRefundDelay(createDelay(timeouts.unilateralRefund));
+    req.setUnilateralRefundWithoutReceiverDelay(
+      createDelay(timeouts.unilateralRefundWithoutReceiver),
+    );
+
+    return {
+      timeouts,
+      vHtlc: await this.unaryCall<
+        arkrpc.CreateVHTLCRequest,
+        arkrpc.CreateVHTLCResponse.AsObject
+      >('createVHTLC', req, true),
+    };
   };
 
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
@@ -308,7 +326,7 @@ class ArkClient extends BaseClient<
     });
 
     stream.on('end', () => {
-      this.logger.info('Stream of VHTLCs ended');
+      this.logger.warn('Stream of vHTLCs ended');
     });
   };
 

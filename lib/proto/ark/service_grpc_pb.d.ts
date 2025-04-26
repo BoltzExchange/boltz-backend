@@ -22,6 +22,7 @@ interface IServiceService extends grpc.ServiceDefinition<grpc.UntypedServiceImpl
     signTransaction: IServiceService_ISignTransaction;
     createVHTLC: IServiceService_ICreateVHTLC;
     claimVHTLC: IServiceService_IClaimVHTLC;
+    refundVHTLCWithoutReceiver: IServiceService_IRefundVHTLCWithoutReceiver;
     listVHTLC: IServiceService_IListVHTLC;
     createInvoice: IServiceService_ICreateInvoice;
     payInvoice: IServiceService_IPayInvoice;
@@ -149,6 +150,15 @@ interface IServiceService_IClaimVHTLC extends grpc.MethodDefinition<ark_service_
     responseSerialize: grpc.serialize<ark_service_pb.ClaimVHTLCResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.ClaimVHTLCResponse>;
 }
+interface IServiceService_IRefundVHTLCWithoutReceiver extends grpc.MethodDefinition<ark_service_pb.RefundVHTLCWithoutReceiverRequest, ark_service_pb.RefundVHTLCWithoutReceiverResponse> {
+    path: "/fulmine.v1.Service/RefundVHTLCWithoutReceiver";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.RefundVHTLCWithoutReceiverRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.RefundVHTLCWithoutReceiverRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
+}
 interface IServiceService_IListVHTLC extends grpc.MethodDefinition<ark_service_pb.ListVHTLCRequest, ark_service_pb.ListVHTLCResponse> {
     path: "/fulmine.v1.Service/ListVHTLC";
     requestStream: false;
@@ -238,6 +248,7 @@ export interface IServiceServer extends grpc.UntypedServiceImplementation {
     signTransaction: grpc.handleUnaryCall<ark_service_pb.SignTransactionRequest, ark_service_pb.SignTransactionResponse>;
     createVHTLC: grpc.handleUnaryCall<ark_service_pb.CreateVHTLCRequest, ark_service_pb.CreateVHTLCResponse>;
     claimVHTLC: grpc.handleUnaryCall<ark_service_pb.ClaimVHTLCRequest, ark_service_pb.ClaimVHTLCResponse>;
+    refundVHTLCWithoutReceiver: grpc.handleUnaryCall<ark_service_pb.RefundVHTLCWithoutReceiverRequest, ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
     listVHTLC: grpc.handleUnaryCall<ark_service_pb.ListVHTLCRequest, ark_service_pb.ListVHTLCResponse>;
     createInvoice: grpc.handleUnaryCall<ark_service_pb.CreateInvoiceRequest, ark_service_pb.CreateInvoiceResponse>;
     payInvoice: grpc.handleUnaryCall<ark_service_pb.PayInvoiceRequest, ark_service_pb.PayInvoiceResponse>;
@@ -288,6 +299,9 @@ export interface IServiceClient {
     claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
     claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
     claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
+    refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
@@ -355,6 +369,9 @@ export class ServiceClient extends grpc.Client implements IServiceClient {
     public claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
     public claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
     public claimVHTLC(request: ark_service_pb.ClaimVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ClaimVHTLCResponse) => void): grpc.ClientUnaryCall;
+    public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;

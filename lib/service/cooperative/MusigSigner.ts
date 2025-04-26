@@ -112,7 +112,7 @@ class MusigSigner {
   public signRefundArk = async (
     swapId: string,
     transaction: string,
-  ): Promise<{ transaction: string }> => {
+  ): Promise<string> => {
     const swap = await SwapRepository.getSwap({ id: swapId });
     if (!swap) {
       throw Errors.SWAP_NOT_FOUND(swapId);
@@ -148,9 +148,7 @@ class MusigSigner {
       `Creating partial signature for refund of ARK Swap ${swap.id}`,
     );
 
-    return {
-      transaction: await currency.arkNode.signTransaction(transaction),
-    };
+    return await currency.arkNode.signTransaction(transaction);
   };
 
   public signReverseSwapClaim = (

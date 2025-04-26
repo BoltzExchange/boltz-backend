@@ -113,6 +113,8 @@ export class GetInfoResponse extends jspb.Message {
     clearBuildInfo(): void;
     getBuildInfo(): ark_types_pb.BuildInfo | undefined;
     setBuildInfo(value?: ark_types_pb.BuildInfo): GetInfoResponse;
+    getPubkey(): string;
+    setPubkey(value: string): GetInfoResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetInfoResponse.AsObject;
@@ -130,6 +132,7 @@ export namespace GetInfoResponse {
         addrPrefix: string,
         serverUrl: string,
         buildInfo?: ark_types_pb.BuildInfo.AsObject,
+        pubkey: string,
     }
 
     export enum Network {
@@ -595,6 +598,46 @@ export class ClaimVHTLCResponse extends jspb.Message {
 }
 
 export namespace ClaimVHTLCResponse {
+    export type AsObject = {
+        redeemTxid: string,
+    }
+}
+
+export class RefundVHTLCWithoutReceiverRequest extends jspb.Message { 
+    getPreimageHash(): string;
+    setPreimageHash(value: string): RefundVHTLCWithoutReceiverRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RefundVHTLCWithoutReceiverRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RefundVHTLCWithoutReceiverRequest): RefundVHTLCWithoutReceiverRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RefundVHTLCWithoutReceiverRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RefundVHTLCWithoutReceiverRequest;
+    static deserializeBinaryFromReader(message: RefundVHTLCWithoutReceiverRequest, reader: jspb.BinaryReader): RefundVHTLCWithoutReceiverRequest;
+}
+
+export namespace RefundVHTLCWithoutReceiverRequest {
+    export type AsObject = {
+        preimageHash: string,
+    }
+}
+
+export class RefundVHTLCWithoutReceiverResponse extends jspb.Message { 
+    getRedeemTxid(): string;
+    setRedeemTxid(value: string): RefundVHTLCWithoutReceiverResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RefundVHTLCWithoutReceiverResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RefundVHTLCWithoutReceiverResponse): RefundVHTLCWithoutReceiverResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RefundVHTLCWithoutReceiverResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RefundVHTLCWithoutReceiverResponse;
+    static deserializeBinaryFromReader(message: RefundVHTLCWithoutReceiverResponse, reader: jspb.BinaryReader): RefundVHTLCWithoutReceiverResponse;
+}
+
+export namespace RefundVHTLCWithoutReceiverResponse {
     export type AsObject = {
         redeemTxid: string,
     }

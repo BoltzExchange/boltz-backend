@@ -90,6 +90,12 @@ service Service {
       body: "*"
     };
   };
+  rpc RefundVHTLCWithoutReceiver(RefundVHTLCWithoutReceiverRequest) returns (RefundVHTLCWithoutReceiverResponse) {
+    option (google.api.http) = {
+      post: "/v1/vhtlc/refundWithoutReceiver"
+      body: "*"
+    };
+  }
   // ListVHTLC = list all vhtlc OR filter by preimage_hash
   rpc ListVHTLC(ListVHTLCRequest) returns (ListVHTLCResponse) {
     option (google.api.http) = {
@@ -168,6 +174,7 @@ message GetInfoResponse {
   string server_url = 3;
   // info about the current version of the ark wallet.
   BuildInfo build_info = 4;
+  string pubkey = 5;
 }
 
 message GetOnboardAddressRequest {
@@ -253,6 +260,13 @@ message ClaimVHTLCRequest {
   string preimage = 1;
 }
 message ClaimVHTLCResponse {
+  string redeem_txid = 1;
+}
+
+message RefundVHTLCWithoutReceiverRequest {
+  string preimage_hash = 1;
+}
+message RefundVHTLCWithoutReceiverResponse {
   string redeem_txid = 1;
 }
 

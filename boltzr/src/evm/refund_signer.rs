@@ -231,7 +231,7 @@ pub mod test {
             ProviderBuilder::new()
                 .network::<AnyNetwork>()
                 .wallet(EthereumWallet::from(claim_keys.clone()))
-                .on_http(PROVIDER.parse().unwrap()),
+                .connect_http(PROVIDER.parse().unwrap()),
         );
 
         let token = ERC20::new(TOKEN_ADDRESS.parse().unwrap(), provider.clone());
@@ -325,7 +325,7 @@ pub mod test {
             ProviderBuilder::new()
                 .network::<AnyNetwork>()
                 .wallet(EthereumWallet::from(claim_keys.clone()))
-                .on_http(PROVIDER.parse().unwrap()),
+                .connect_http(PROVIDER.parse().unwrap()),
             &ContractAddresses {
                 ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                 erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
@@ -338,7 +338,7 @@ pub mod test {
         let provider = ProviderBuilder::new()
             .network::<AnyNetwork>()
             .wallet(EthereumWallet::from(refund_keys.clone()))
-            .on_http(PROVIDER.parse().unwrap());
+            .connect_http(PROVIDER.parse().unwrap());
 
         (claim_keys, refund_keys, signer, provider)
     }

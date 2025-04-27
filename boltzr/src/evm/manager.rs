@@ -44,7 +44,7 @@ impl Manager {
         let provider = ProviderBuilder::new()
             .network::<AnyNetwork>()
             .wallet(EthereumWallet::from(signer.clone()))
-            .on_http(config.provider_endpoint.parse()?);
+            .connect_http(config.provider_endpoint.parse()?);
 
         let chain_id = provider.get_chain_id().await?;
         info!("Connected to EVM chain with id: {}", chain_id);

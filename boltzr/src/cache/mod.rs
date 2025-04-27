@@ -21,22 +21,23 @@ pub enum Cache {
 }
 
 impl Cache {
-    pub async fn get<V: DeserializeOwned>(&self, key: &str) -> Result<Option<V>> {
+    pub async fn get<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
         match self {
-            Cache::Redis(redis) => redis.get(key).await,
-            Cache::Memory(memory) => memory.get(key),
+            Cache::Redis(redis) => redis.get(key, field).await,
+            Cache::Memory(memory) => memory.get(key, field),
         }
     }
 
     pub async fn set<V: Serialize + Sync>(
         &self,
         key: &str,
+        field: &str,
         value: &V,
         ttl: Option<u64>,
     ) -> Result<()> {
         match self {
-            Cache::Redis(redis) => redis.set(key, value, ttl).await,
-            Cache::Memory(memory) => memory.set(key, value, ttl),
+            Cache::Redis(redis) => redis.set(key, field, value, ttl).await,
+            Cache::Memory(memory) => memory.set(key, field, value, ttl),
         }
     }
 }

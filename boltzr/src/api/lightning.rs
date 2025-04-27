@@ -19,6 +19,12 @@ pub struct LightningInfoParams {
 }
 
 #[derive(Deserialize)]
+pub struct ChannelInfoParams {
+    currency: String,
+    id: String,
+}
+
+#[derive(Deserialize)]
 pub struct SearchQuery {
     alias: String,
 }
@@ -67,6 +73,27 @@ where
             .service
             .lightning_info
             .get_channels(&currency, &node)
+            .await
+        {
+            Ok(res) => (StatusCode::OK, Json(res)).into_response(),
+            Err(err) => handle_info_fetch_error(err),
+        },
+    )
+}
+
+pub async fn channel<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(ChannelInfoParams { currency, id }): Path<ChannelInfoParams>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    Ok(
+        match state
+            .service
+            .lightning_info
+            .get_channel(&currency, id)
             .await
         {
             Ok(res) => (StatusCode::OK, Json(res)).into_response(),

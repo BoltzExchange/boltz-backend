@@ -537,6 +537,7 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
+      SwapType.Submarine,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -587,6 +588,7 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
+      SwapType.Submarine,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -924,6 +926,7 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
+      SwapType.Submarine,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);
@@ -975,6 +978,7 @@ describe('EthereumNursery', () => {
       exampleTransaction.hash,
       expect.any(Buffer),
       true,
+      SwapType.Submarine,
     );
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Accept);

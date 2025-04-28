@@ -398,8 +398,10 @@ message TransactionHookRequest {
   bytes tx = 3;
   string tx_id = 4;
   bool confirmed = 5;
+  uint32 swap_type = 6;
+
   // Set for UTXO based chains
-  optional uint64 vout = 6;
+  optional uint64 vout = 7;
 }
 
 message SetLogLevelRequest {

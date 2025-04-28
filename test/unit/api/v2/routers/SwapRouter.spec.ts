@@ -414,6 +414,7 @@ describe('SwapRouter', () => {
       SwapVersion.Taproot,
       undefined,
       undefined,
+      undefined,
     );
 
     expect(MarkedSwapRepository.addMarkedSwap).toHaveBeenCalledTimes(1);
@@ -447,6 +448,7 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
       reqBody.webhook,
       undefined,
     );
@@ -477,6 +479,7 @@ describe('SwapRouter', () => {
       undefined,
       undefined,
       SwapVersion.Taproot,
+      undefined,
       undefined,
       reqBody.extraFees,
     );
@@ -566,6 +569,7 @@ describe('SwapRouter', () => {
       SwapVersion.Taproot,
       undefined,
       undefined,
+      undefined,
     );
   });
 
@@ -591,6 +595,7 @@ describe('SwapRouter', () => {
       reqBody.referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
       undefined,
       undefined,
     );
@@ -623,6 +628,35 @@ describe('SwapRouter', () => {
       referralId,
       undefined,
       SwapVersion.Taproot,
+      undefined,
+      undefined,
+      undefined,
+    );
+  });
+
+  test('should create submarine swaps with paymentTimeout', async () => {
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      paymentTimeout: 10,
+      refundPublicKey: '0021',
+    };
+
+    const res = mockResponse();
+    await swapRouter['createSubmarine'](mockRequest(reqBody), res);
+
+    expect(service.createSwapWithInvoice).toHaveBeenCalledTimes(1);
+    expect(service.createSwapWithInvoice).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+      OrderSide.BUY,
+      getHexBuffer(reqBody.refundPublicKey),
+      reqBody.invoice.toLowerCase(),
+      undefined,
+      undefined,
+      undefined,
+      SwapVersion.Taproot,
+      reqBody.paymentTimeout,
       undefined,
       undefined,
     );

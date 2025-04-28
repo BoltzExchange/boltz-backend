@@ -100,7 +100,7 @@ const decodeInvoice = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 17;
+  private static latestSchemaVersion = 18;
 
   private toBackFill: number[] = [];
 
@@ -732,6 +732,21 @@ class Migration {
         await this.sequelize.query(
           'ALTER TABLE swaps DROP CONSTRAINT swaps_invoice_key;',
         );
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 17: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Swap.tableName, 'paymentTimeout', {
+            type: new DataTypes.INTEGER(),
+            allowNull: true,
+            validate: {
+              min: 1,
+            },
+          });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

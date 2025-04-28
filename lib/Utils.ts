@@ -157,6 +157,29 @@ export const minutesToMilliseconds = (minutes: number): number => {
 };
 
 /**
+ * Convert seconds into milliseconds
+ */
+export const secondsToMilliseconds = (seconds: number): number => {
+  return seconds * 1000;
+};
+
+/**
+ * Applies a function to a value only if the value is not null or undefined
+ * If the value is null or undefined, returns undefined
+ *
+ * @param value - The value to check and potentially transform
+ * @param fn - The function to apply to the non-null/undefined value
+ *
+ * @returns The result of applying the function to the value, or undefined if the value is null/undefined
+ */
+export const nullishPipe = <T, V>(
+  value: T,
+  fn: (value: NonNullable<T>) => V,
+): V | undefined => {
+  return value === null || value === undefined ? undefined : fn(value);
+};
+
+/**
  * Splits a derivation path into multiple parts
  */
 export const splitDerivationPath = (

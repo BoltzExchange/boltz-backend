@@ -2924,6 +2924,10 @@
             "type": "string",
             "description": "Referral ID to be used for the Submarine swap"
           },
+          "paymentTimeout": {
+            "type": "number",
+            "description": "Payment timeout in seconds"
+          },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
           }

@@ -1077,6 +1077,7 @@ class Service {
     preimageHash: Buffer;
     version: SwapVersion;
     webHook?: WebHookData;
+    paymentTimeout?: number;
     channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
@@ -1107,6 +1108,15 @@ class Service {
 
     referralId?: string;
   }> => {
+    if (args.paymentTimeout) {
+      if (args.paymentTimeout < 1 || args.paymentTimeout > 3_600) {
+        throw Errors.INVALID_PAYMENT_TIMEOUT();
+      }
+
+      // Round away all decimal places
+      args.paymentTimeout = Math.floor(args.paymentTimeout);
+    }
+
     await this.checkSwapWithPreimageExists(args.preimageHash);
 
     const { base, quote } = splitPairId(args.pairId);
@@ -1194,12 +1204,12 @@ class Service {
       orderSide,
       referralId,
       timeoutBlockDelta,
-
       baseCurrency: base,
       quoteCurrency: quote,
       version: args.version,
       channel: args.channel,
       preimageHash: args.preimageHash,
+      paymentTimeout: args.paymentTimeout,
       refundPublicKey: args.refundPublicKey,
     });
 
@@ -1542,6 +1552,7 @@ class Service {
     referralId?: string,
     channel?: ChannelCreationInfo,
     version: SwapVersion = SwapVersion.Legacy,
+    paymentTimeout?: number,
     webHook?: WebHookData,
     extraFees?: ExtraFees,
   ): Promise<{
@@ -1589,6 +1600,7 @@ class Service {
       webHook,
       orderSide,
       referralId,
+      paymentTimeout,
       refundPublicKey,
       preimageHash: decodedInvoice.paymentHash!,
     });

@@ -132,6 +132,10 @@ where
                 get(lightning::node_info::<S, M>),
             )
             .route(
+                "/v2/lightning/{currency}/channel/{id}",
+                get(lightning::channel::<S, M>),
+            )
+            .route(
                 "/v2/lightning/{currency}/channels/{node}",
                 get(lightning::channels::<S, M>),
             )

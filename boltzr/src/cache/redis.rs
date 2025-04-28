@@ -24,9 +24,10 @@ impl Redis {
 }
 
 impl Redis {
-    pub async fn get<V: DeserializeOwned>(&self, key: &str) -> Result<Option<V>> {
-        let res: Option<String> = redis::cmd("GET")
+    pub async fn get<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
+        let res: Option<String> = redis::cmd("HGET")
             .arg(key)
+            .arg(field)
             .query_async(&mut self.connection.clone())
             .await?;
 
@@ -39,18 +40,31 @@ impl Redis {
     pub async fn set<V: Serialize + Sync>(
         &self,
         key: &str,
+        field: &str,
         value: &V,
         ttl: Option<u64>,
     ) -> Result<()> {
         let json_value = serde_json::to_string(value)?;
-        let mut cmd = redis::cmd("SET");
-        cmd.arg(key).arg(&json_value);
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        pipe.cmd("HSET")
+            .arg(key)
+            .arg(field)
+            .arg(&json_value)
+            .ignore();
 
         if let Some(ttl) = ttl {
-            cmd.arg("EX").arg(ttl);
+            pipe.cmd("HEXPIRE")
+                .arg(key)
+                .arg(ttl)
+                .arg("FIELDS")
+                .arg(1)
+                .arg(field)
+                .ignore();
         }
 
-        cmd.exec_async(&mut self.connection.clone()).await?;
+        pipe.exec_async(&mut self.connection.clone()).await?;
         Ok(())
     }
 }
@@ -75,13 +89,14 @@ mod test {
         .await
         .unwrap();
 
-        let key = "test:data";
+        let key = "test";
+        let field = "data";
         let data = Data {
             data: "is super hard to compute".to_string(),
         };
 
-        cache.set(key, &data, None).await.unwrap();
-        assert_eq!(cache.get::<Data>(key).await.unwrap().unwrap(), data);
+        cache.set(key, field, &data, None).await.unwrap();
+        assert_eq!(cache.get::<Data>(key, field).await.unwrap().unwrap(), data);
     }
 
     #[tokio::test]
@@ -92,7 +107,7 @@ mod test {
         .await
         .unwrap();
 
-        assert!(cache.get::<Data>("empty").await.unwrap().is_none());
+        assert!(cache.get::<Data>("empty", "field").await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -103,11 +118,13 @@ mod test {
         .await
         .unwrap();
 
-        let key = "test:no_ttl";
+        let key = "test";
+        let field = "no_ttl";
 
         cache
             .set(
                 key,
+                field,
                 &Data {
                     data: "ttl".to_string(),
                 },
@@ -116,8 +133,9 @@ mod test {
             .await
             .unwrap();
 
-        let ttl: u64 = redis::cmd("TTL")
+        let ttl: u64 = redis::cmd("FIELDTTL")
             .arg(key)
+            .arg(field)
             .query_async(&mut cache.connection.clone())
             .await
             .unwrap();
@@ -133,12 +151,14 @@ mod test {
         .await
         .unwrap();
 
-        let key = "test:ttl";
+        let key = "test";
+        let field = "ttl";
 
         let ttl_set = 21;
         cache
             .set(
                 key,
+                field,
                 &Data {
                     data: "ttl".to_string(),
                 },
@@ -147,8 +167,9 @@ mod test {
             .await
             .unwrap();
 
-        let ttl: u64 = redis::cmd("TTL")
+        let ttl: u64 = redis::cmd("FIELDTTL")
             .arg(key)
+            .arg(field)
             .query_async(&mut cache.connection.clone())
             .await
             .unwrap();

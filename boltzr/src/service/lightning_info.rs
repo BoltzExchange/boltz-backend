@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 
 const MAX_DISTANCE: f64 = 0.1;
 const CACHE_TTL_SECS: u64 = 3_600;
@@ -31,8 +31,9 @@ pub struct Node {
     pub color: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ChannelInfo {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelPolicy {
+    pub active: bool,
     #[serde(rename = "baseFeeMillisatoshi")]
     pub base_fee_millisatoshi: u32,
     #[serde(rename = "feePpm")]
@@ -58,7 +59,23 @@ pub struct Channel {
     #[serde(rename = "capacity", skip_serializing_if = "Option::is_none")]
     pub capacity_sat: Option<u64>,
     pub active: bool,
-    pub info: ChannelInfo,
+    pub info: ChannelPolicy,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChannelInfoSide {
+    pub node: Node,
+    #[serde(flatten)]
+    pub policy: ChannelPolicy,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChannelInfo {
+    #[serde(rename = "shortChannelId")]
+    pub short_channel_id: String,
+    #[serde(rename = "capacity", skip_serializing_if = "Option::is_none")]
+    pub capacity_sat: Option<u64>,
+    pub policies: Vec<ChannelInfoSide>,
 }
 
 impl From<(ListchannelsChannels, Node)> for Channel {
@@ -72,7 +89,8 @@ impl From<(ListchannelsChannels, Node)> for Channel {
             short_channel_id: v.0.short_channel_id,
             capacity_sat: v.0.amount_msat.map(|a| a.msat / 1_000),
             active: v.0.active,
-            info: ChannelInfo {
+            info: ChannelPolicy {
+                active: v.0.active,
                 base_fee_millisatoshi: v.0.base_fee_millisatoshi,
                 fee_ppm: v.0.fee_per_millionth,
                 delay: v.0.delay,
@@ -87,6 +105,7 @@ impl From<(ListchannelsChannels, Node)> for Channel {
 pub trait LightningInfo {
     async fn find_node_by_alias(&self, symbol: &str, alias: &str) -> Result<Vec<Node>>;
     async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>>;
+    async fn get_channel(&self, symbol: &str, short_channel_id: String) -> Result<ChannelInfo>;
     async fn get_node_info(&self, symbol: &str, node: &[u8]) -> Result<Node>;
 }
 
@@ -143,52 +162,59 @@ impl ClnLightningInfo {
         info
     }
 
+    #[instrument(name = "ClnLightningInfo::update_cache", skip_all, fields(symbol = cln.symbol()))]
     async fn update_cache(&self, cln: &mut Cln) -> Result<()> {
         let symbol = cln.symbol();
         info!("Updating {} lightning gossip", symbol);
 
-        let mut node_infos = HashMap::new();
-        for node in cln.list_nodes(None).await? {
-            let id_hex = hex::encode(&node.nodeid);
-            let node_info = Node {
-                id: id_hex.clone(),
-                alias: node.alias,
-                color: node.color.map(hex::encode),
-            };
-            self.cache
-                .set(
-                    &Self::cache_key_node(&symbol, &id_hex),
-                    &node_info,
-                    Some(CACHE_TTL_SECS),
-                )
-                .await?;
-            node_infos.insert(id_hex, node_info);
-        }
+        let node_infos = self.update_nodes(&symbol, cln).await?;
 
+        let mut channel_infos = HashMap::<String, ChannelInfo>::new();
         let mut channels_to_nodes = HashMap::<Vec<u8>, Vec<Channel>>::new();
-        for channel in cln.list_channels(None).await? {
-            if !channel.public {
+
+        for channel_raw in cln.list_channels(None).await? {
+            if !channel_raw.public {
                 continue;
             }
 
-            let source_info = match node_infos.get(&hex::encode(&channel.source)) {
+            let source_info = match node_infos.get(&hex::encode(&channel_raw.source)) {
                 Some(info) => info,
                 None => continue,
             };
 
+            let destination = channel_raw.destination.clone();
+            let channel: Channel = (channel_raw, source_info.clone()).into();
+
+            channel_infos
+                .entry(channel.short_channel_id.clone())
+                .or_insert_with(|| ChannelInfo {
+                    short_channel_id: channel.short_channel_id.clone(),
+                    capacity_sat: channel.capacity_sat,
+                    policies: Vec::new(),
+                })
+                .policies
+                .push(ChannelInfoSide {
+                    node: source_info.clone(),
+                    policy: channel.info.clone(),
+                });
+
             channels_to_nodes
-                .entry(channel.destination.clone())
+                .entry(destination)
                 .or_default()
-                .push((channel, source_info.clone()).into());
+                .push(channel);
         }
 
         for (destination, channels) in channels_to_nodes {
+            let (key, field) = Self::cache_key_channels(&symbol, hex::encode(destination));
             self.cache
-                .set(
-                    &Self::cache_key_channels(&symbol, &hex::encode(destination)),
-                    &channels,
-                    Some(CACHE_TTL_SECS),
-                )
+                .set(&key, &field, &channels, Some(CACHE_TTL_SECS))
+                .await?;
+        }
+
+        for (short_channel_id, channel_info) in channel_infos {
+            let (key, field) = Self::cache_key_channel(&symbol, short_channel_id);
+            self.cache
+                .set(&key, &field, &channel_info, Some(CACHE_TTL_SECS))
                 .await?;
         }
 
@@ -197,12 +223,46 @@ impl ClnLightningInfo {
         Ok(())
     }
 
-    fn cache_key_node(symbol: &str, id: &str) -> String {
-        format!("cln:{symbol}:node:{id}")
+    #[instrument(name = "ClnLightningInfo::update_nodes", skip(self, cln))]
+    async fn update_nodes(&self, symbol: &str, cln: &mut Cln) -> Result<HashMap<String, Node>> {
+        let mut infos = HashMap::new();
+        for node in cln.list_nodes(None).await? {
+            let id_hex = hex::encode(&node.nodeid);
+            let node_info = Node {
+                id: id_hex.clone(),
+                alias: node.alias,
+                color: node.color.map(hex::encode),
+            };
+            let (key, field) = Self::cache_key_node(symbol, id_hex.clone());
+            self.cache
+                .set(&key, &field, &node_info, Some(CACHE_TTL_SECS))
+                .await?;
+            infos.insert(id_hex, node_info);
+        }
+
+        Ok(infos)
     }
 
-    fn cache_key_channels(symbol: &str, destination: &str) -> String {
-        format!("cln:{symbol}:channels:{destination}")
+    fn scid_lnd_to_cln(s: &str) -> Result<String> {
+        let big: u128 = s.parse::<u128>()?;
+
+        let block: u128 = big >> 40;
+        let tx: u128 = (big >> 16) & 0x00FF_FFFF;
+        let output: u128 = big & 0xFFFF;
+
+        Ok(format!("{block}x{tx}x{output}"))
+    }
+
+    fn cache_key_node(symbol: &str, id: String) -> (String, String) {
+        (format!("cln:{symbol}:node"), id)
+    }
+
+    fn cache_key_channel(symbol: &str, short_channel_id: String) -> (String, String) {
+        (format!("cln:{symbol}:channel"), short_channel_id)
+    }
+
+    fn cache_key_channels(symbol: &str, destination: String) -> (String, String) {
+        (format!("cln:{symbol}:channels"), destination)
     }
 }
 
@@ -241,23 +301,32 @@ impl LightningInfo for ClnLightningInfo {
     }
 
     async fn get_channels(&self, symbol: &str, destination: &[u8]) -> Result<Vec<Channel>> {
-        if let Some(channels) = self
-            .cache
-            .get(&Self::cache_key_channels(symbol, &hex::encode(destination)))
-            .await?
-        {
+        let (key, field) = Self::cache_key_channels(symbol, hex::encode(destination));
+        if let Some(channels) = self.cache.get(&key, &field).await? {
             return Ok(channels);
         }
 
         Err(anyhow!("no channels for node"))
     }
 
+    async fn get_channel(&self, symbol: &str, short_channel_id: String) -> Result<ChannelInfo> {
+        let short_channel_id = short_channel_id.to_lowercase();
+        let short_channel_id = match short_channel_id.contains("x") {
+            true => short_channel_id,
+            false => Self::scid_lnd_to_cln(&short_channel_id)?,
+        };
+
+        let (key, field) = Self::cache_key_channel(symbol, short_channel_id);
+        if let Some(channel) = self.cache.get(&key, &field).await? {
+            return Ok(channel);
+        }
+
+        Err(anyhow!("channel not found"))
+    }
+
     async fn get_node_info(&self, symbol: &str, node: &[u8]) -> Result<Node> {
-        if let Some(node) = self
-            .cache
-            .get(&Self::cache_key_node(symbol, &hex::encode(node)))
-            .await?
-        {
+        let (key, field) = Self::cache_key_node(symbol, hex::encode(node));
+        if let Some(node) = self.cache.get(&key, &field).await? {
             return Ok(node);
         }
 
@@ -275,6 +344,7 @@ mod test {
     use crate::wallet::{Bitcoin, Network};
     use alloy::hex;
     use bip39::Mnemonic;
+    use rstest::rstest;
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -446,16 +516,36 @@ mod test {
         assert!(!channels.is_empty());
     }
 
+    #[rstest]
+    #[case("770697178071957505", "700945x2144x1")]
+    #[case("983071147500699649", "894098x1975x1")]
+    #[case("982893026614312960", "893936x1934x0")]
+    #[case("982865538763587585", "893911x1018x1")]
+    #[case("982274001646911489", "893373x3140x1")]
+    fn test_scid_lnd_to_cln(#[case] lnd_scid: &str, #[case] expected: &str) {
+        let result = ClnLightningInfo::scid_lnd_to_cln(lnd_scid);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected);
+    }
+
+    #[test]
+    fn test_scid_lnd_to_cln_invalid_input() {
+        let result = ClnLightningInfo::scid_lnd_to_cln("not a number");
+        assert!(result.is_err());
+    }
+
     #[tokio::test]
     async fn test_cache_keys() {
         let symbol = "BTC";
-        let id = "03abcdef1234567890";
+        let id = "03abcdef1234567890".to_string();
 
-        let node_key = ClnLightningInfo::cache_key_node(symbol, id);
-        assert_eq!(node_key, "cln:BTC:node:03abcdef1234567890");
+        let (key, field) = ClnLightningInfo::cache_key_node(symbol, id.clone());
+        assert_eq!(key, "cln:BTC:node");
+        assert_eq!(field, id);
 
-        let channels_key = ClnLightningInfo::cache_key_channels(symbol, id);
-        assert_eq!(channels_key, "cln:BTC:channels:03abcdef1234567890");
+        let (key, field) = ClnLightningInfo::cache_key_channels(symbol, id.clone());
+        assert_eq!(key, "cln:BTC:channels");
+        assert_eq!(field, id);
     }
 
     #[tokio::test]

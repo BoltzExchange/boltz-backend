@@ -27,10 +27,13 @@
  *           type: string
  *           description: Color code the node
  *
- *     LightningChannelInfo:
+ *     LightningChannelPolicy:
  *       type: object
- *       required: ["baseFeeMillisatoshi", "feePpm", "delay"]
+ *       required: ["active", "baseFeeMillisatoshi", "feePpm", "delay"]
  *       properties:
+ *         active:
+ *           type: boolean
+ *           description: Whether the channel is active
  *         baseFeeMillisatoshi:
  *           type: number
  *           description: Base fee of the channel in millisatoshi
@@ -63,7 +66,23 @@
  *           type: boolean
  *           description: Whether the channel can be used
  *         info:
- *           $ref: '#/components/schemas/LightningChannelInfo'
+ *           $ref: '#/components/schemas/LightningChannelPolicy'
+ *
+ *     LightningChannelInfo:
+ *       type: object
+ *       required: ["shortChannelId", "capacity", "policies"]
+ *       properties:
+ *         shortChannelId:
+ *           type: string
+ *           description: ID of the channel
+ *         capacity:
+ *           type: number
+ *           description: Capacity of the channel in satoshi
+ *         policies:
+ *           type: array
+ *           description: Policies of the channel partners
+ *           items:
+ *             $ref: '#/components/schemas/LightningChannelPolicy'
  */
 
 /**
@@ -100,6 +119,46 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  *       '404':
  *         description: When the node cannot be found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /lightning/{currency}/channel/{id}:
+ *   get:
+ *     tags: [Lightning]
+ *     description: Gets information about a specific lightning channel
+ *     parameters:
+ *       - in: path
+ *         name: currency
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Currency of the lightning network to use
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the channel to get information for (LND and CLN style accepted)
+ *     responses:
+ *       '200':
+ *         description: Information about the lightning channel
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LightningChannelInfo'
+ *       '400':
+ *         description: Unprocessable request parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the channel cannot be found or the currency is not supported
  *         content:
  *           application/json:
  *             schema:

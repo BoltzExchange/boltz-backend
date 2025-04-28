@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub const PROMETHEUS_QUERY_STEP: &str = "10m";
+const PROMETHEUS_CACHE_KEY: &str = "prometheus:query";
 const PROMETHEUS_QUERY_TTL: u64 = 120;
 
 #[derive(Deserialize, Debug)]
@@ -113,16 +114,16 @@ where
         }
     }
 
-    fn get_cache_key(&self, query: &str, step: &str, start: u64, end: u64) -> String {
+    fn get_cache_key(&self, query: &str, step: &str, start: u64, end: u64) -> (&str, String) {
         // Some caches might not like the unescaped query string, so we hash it
         let mut hasher = DefaultHasher::new();
         query.hash(&mut hasher);
-        let key = format!("prometheus:query:{}:{}", hasher.finish(), step);
+        let key = format!("{}:{}", hasher.finish(), step);
 
         if self.include_start_end_in_key {
-            format!("{key}:{start}:{end}")
+            (PROMETHEUS_CACHE_KEY, format!("{key}:{start}:{end}"))
         } else {
-            key
+            (PROMETHEUS_CACHE_KEY, key)
         }
     }
 }
@@ -139,14 +140,14 @@ where
         start: u64,
         end: u64,
     ) -> Result<Vec<RangeResult>> {
-        let cache_key = self.get_cache_key(query, step, start, end);
-        if let Some(cached) = self.cache.get(&cache_key).await? {
+        let (key, field) = self.get_cache_key(query, step, start, end);
+        if let Some(cached) = self.cache.get(key, &field).await? {
             return Ok(cached);
         }
 
         let res = self.client.query(query, step, start, end).await?;
         self.cache
-            .set(&cache_key, &res, Some(PROMETHEUS_QUERY_TTL))
+            .set(key, &field, &res, Some(PROMETHEUS_QUERY_TTL))
             .await?;
 
         Ok(res)
@@ -217,12 +218,11 @@ pub mod test {
         let res = client.query(query, step, 1, 2).await.unwrap();
         assert_eq!(res, prom.query(query, step, 1, 2).await.unwrap());
 
+        let (key, field) = client.get_cache_key(query, step, 1, 2);
+
         assert_eq!(cache.map.len(), 1);
         assert_eq!(
-            cache
-                .get::<Vec<RangeResult>>(&client.get_cache_key(query, step, 1, 2))
-                .unwrap()
-                .unwrap(),
+            cache.get::<Vec<RangeResult>>(key, &field).unwrap().unwrap(),
             res
         );
 
@@ -246,7 +246,10 @@ pub mod test {
         query.hash(&mut hasher);
         assert_eq!(
             client.get_cache_key(query, step, start, end),
-            format!("prometheus:query:{}:{}", hasher.finish(), step)
+            (
+                PROMETHEUS_CACHE_KEY,
+                format!("{}:{}", hasher.finish(), step)
+            )
         );
     }
 
@@ -266,12 +269,9 @@ pub mod test {
         query.hash(&mut hasher);
         assert_eq!(
             client.get_cache_key(query, step, start, end),
-            format!(
-                "prometheus:query:{}:{}:{}:{}",
-                hasher.finish(),
-                step,
-                start,
-                end
+            (
+                PROMETHEUS_CACHE_KEY,
+                format!("{}:{}:{}:{}", hasher.finish(), step, start, end)
             )
         );
     }

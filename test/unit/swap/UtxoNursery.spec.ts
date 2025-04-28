@@ -448,6 +448,7 @@ describe('UtxoNursery', () => {
       id: '0conf',
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
+      type: SwapType.Submarine,
     };
 
     mockGetRawTransactionVerboseResult = () => ({
@@ -600,6 +601,7 @@ describe('UtxoNursery', () => {
       id: '0conf',
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
+      type: SwapType.Submarine,
     };
 
     expect.assertions(3);
@@ -688,6 +690,7 @@ describe('UtxoNursery', () => {
       id: '0conf',
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
+      type: SwapType.Submarine,
     };
 
     mockGetRawTransactionVerboseResult = () => ({
@@ -712,6 +715,7 @@ describe('UtxoNursery', () => {
       transaction.getId(),
       transaction.toBuffer(),
       false,
+      SwapType.Submarine,
       0,
     );
 
@@ -731,6 +735,7 @@ describe('UtxoNursery', () => {
       id: 'hold',
       acceptZeroConf: true,
       redeemScript: sampleRedeemScript,
+      type: SwapType.Submarine,
     };
 
     mockGetRawTransactionVerboseResult = () => ({
@@ -750,6 +755,7 @@ describe('UtxoNursery', () => {
       transaction.getId(),
       transaction.toBuffer(),
       false,
+      SwapType.Submarine,
       0,
     );
     expect(logHoldingSpy).toHaveBeenCalledTimes(1);

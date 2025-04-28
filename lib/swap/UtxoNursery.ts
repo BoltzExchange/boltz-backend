@@ -193,6 +193,7 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
+        swap.type,
         swapOutput.vout,
       );
 
@@ -796,6 +797,7 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction.getId(),
         transaction.toBuffer(),
         confirmed,
+        swap.type,
         swapOutput.vout,
       );
 

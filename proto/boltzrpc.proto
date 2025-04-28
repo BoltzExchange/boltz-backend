@@ -336,6 +336,12 @@ enum LogLevel {
   SILLY = 5;
 }
 
+enum SwapType {
+  SUBMARINE = 0;
+  REVERSE = 1;
+  CHAIN = 2;
+}
+
 message CalculateTransactionFeeRequest {
   string symbol = 1;
   string transaction_id = 2;
@@ -394,12 +400,14 @@ message TransactionHookResponse {
 message TransactionHookRequest {
   // Swap ID
   string id = 1;
-  string symbol = 2;
-  bytes tx = 3;
-  string tx_id = 4;
-  bool confirmed = 5;
+  SwapType swap_type = 2;
+  string symbol = 3;
+  bytes tx = 4;
+  string tx_id = 5;
+  bool confirmed = 6;
+
   // Set for UTXO based chains
-  optional uint64 vout = 6;
+  optional uint64 vout = 7;
 }
 
 message SetLogLevelRequest {

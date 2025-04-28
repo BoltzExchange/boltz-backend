@@ -1,3 +1,5 @@
+import * as boltzrpc from '../proto/boltzrpc_pb';
+
 export enum ErrorCodePrefix {
   General = 0,
   Grpc = 1,
@@ -159,6 +161,19 @@ export const stringToSwapType = (type: string): SwapType => {
   }
 
   throw `invalid swap type: ${type}`;
+};
+
+export const swapTypeToGrpcSwapType = (type: SwapType): boltzrpc.SwapType => {
+  switch (type) {
+    case SwapType.Submarine:
+      return boltzrpc.SwapType.SUBMARINE;
+    case SwapType.ReverseSubmarine:
+      return boltzrpc.SwapType.REVERSE;
+    case SwapType.Chain:
+      return boltzrpc.SwapType.CHAIN;
+    default:
+      throw `invalid swap type: ${type}`;
+  }
 };
 
 export enum BaseFeeType {

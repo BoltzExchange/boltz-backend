@@ -1611,6 +1611,8 @@ export namespace TransactionHookResponse {
 export class TransactionHookRequest extends jspb.Message { 
     getId(): string;
     setId(value: string): TransactionHookRequest;
+    getSwapType(): SwapType;
+    setSwapType(value: SwapType): TransactionHookRequest;
     getSymbol(): string;
     setSymbol(value: string): TransactionHookRequest;
     getTx(): Uint8Array | string;
@@ -1640,6 +1642,7 @@ export class TransactionHookRequest extends jspb.Message {
 export namespace TransactionHookRequest {
     export type AsObject = {
         id: string,
+        swapType: SwapType,
         symbol: string,
         tx: Uint8Array | string,
         txId: string,
@@ -1799,6 +1802,12 @@ export enum LogLevel {
     VERBOSE = 3,
     DEBUG = 4,
     SILLY = 5,
+}
+
+export enum SwapType {
+    SUBMARINE = 0,
+    REVERSE = 1,
+    CHAIN = 2,
 }
 
 export enum Action {

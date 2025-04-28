@@ -227,4 +227,8 @@ export default {
     message: 'preimage hash or invoice must be specified',
     code: concatErrorCode(ErrorCodePrefix.Service, 57),
   }),
+  INVALID_PAYMENT_TIMEOUT: (): Error => ({
+    message: 'invalid payment timeout',
+    code: concatErrorCode(ErrorCodePrefix.Service, 58),
+  }),
 };

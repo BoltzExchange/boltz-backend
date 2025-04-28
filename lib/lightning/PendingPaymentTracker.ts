@@ -1,6 +1,12 @@
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { getHexBuffer, getHexString, minutesToMilliseconds } from '../Utils';
+import {
+  getHexBuffer,
+  getHexString,
+  minutesToMilliseconds,
+  nullishPipe,
+  secondsToMilliseconds,
+} from '../Utils';
 import DefaultMap from '../consts/DefaultMap';
 import type LightningPayment from '../db/models/LightningPayment';
 import { LightningPaymentStatus } from '../db/models/LightningPayment';
@@ -178,7 +184,7 @@ class PendingPaymentTracker {
     }
 
     await this.checkInvoiceTimeout(
-      swap.id,
+      swap,
       paymentHash,
       lightningClient.type,
       payments,
@@ -194,14 +200,15 @@ class PendingPaymentTracker {
   };
 
   private checkInvoiceTimeout = async (
-    swapId: string,
+    swap: Pick<Swap, 'id' | 'paymentTimeout'>,
     paymentHash: string,
     lightningClientType: NodeType,
     payments: LightningPayment[],
   ) => {
-    if (payments.length === 0 || this.paymentTimeoutMinutes === undefined) {
-      return;
-    }
+    // Prefer the payment timeout from the swap, if it exists
+    const timeout =
+      nullishPipe(swap.paymentTimeout, secondsToMilliseconds) ??
+      nullishPipe(this.paymentTimeoutMinutes, minutesToMilliseconds);
 
     const relevantTimestamps = payments
       .filter(
@@ -209,15 +216,12 @@ class PendingPaymentTracker {
       )
       .map((p) => p.createdAt.getTime());
 
-    if (relevantTimestamps.length === 0) {
+    if (timeout === undefined || relevantTimestamps.length === 0) {
       return;
     }
 
-    if (
-      Date.now() - Math.min(...relevantTimestamps) >
-      minutesToMilliseconds(this.paymentTimeoutMinutes)
-    ) {
-      this.logger.warn(`Payment for ${swapId} (${paymentHash}) has timed out`);
+    if (Date.now() - Math.min(...relevantTimestamps) > timeout) {
+      this.logger.warn(`Payment for ${swap.id} (${paymentHash}) has timed out`);
 
       const err = LightningErrors.PAYMENT_TIMED_OUT();
       await LightningPaymentRepository.setStatus(

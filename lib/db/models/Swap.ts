@@ -26,6 +26,7 @@ type SwapType = {
 
   routingFee?: number;
   minerFee?: number;
+  paymentTimeout?: number;
 
   pair: string;
   orderSide: number;
@@ -61,6 +62,7 @@ class Swap extends Model implements SwapType {
 
   public routingFee?: number;
   public minerFee?: number;
+  public paymentTimeout?: number;
 
   public pair!: string;
   public orderSide!: number;
@@ -111,6 +113,13 @@ class Swap extends Model implements SwapType {
         referral: { type: new DataTypes.STRING(255), allowNull: true },
         routingFee: { type: new DataTypes.INTEGER(), allowNull: true },
         minerFee: { type: new DataTypes.BIGINT(), allowNull: true },
+        paymentTimeout: {
+          type: new DataTypes.INTEGER(),
+          allowNull: true,
+          validate: {
+            min: 1,
+          },
+        },
         pair: { type: new DataTypes.STRING(255), allowNull: false },
         orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
         status: { type: new DataTypes.STRING(255), allowNull: false },

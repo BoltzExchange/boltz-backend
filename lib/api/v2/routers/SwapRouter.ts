@@ -193,6 +193,9 @@ class SwapRouter extends RouterBase {
      *         referralId:
      *           type: string
      *           description: Referral ID to be used for the Submarine swap
+     *         paymentTimeout:
+     *           type: number
+     *           description: Payment timeout in seconds
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
      */
@@ -1766,16 +1769,25 @@ class SwapRouter extends RouterBase {
   };
 
   private createSubmarine = async (req: Request, res: Response) => {
-    const { to, from, invoice, webhook, pairHash, refundPublicKey, extraFees } =
-      validateRequest(req.body, [
-        { name: 'to', type: 'string' },
-        { name: 'from', type: 'string' },
-        { name: 'webhook', type: 'object', optional: true },
-        { name: 'invoice', type: 'string', optional: true },
-        { name: 'pairHash', type: 'string', optional: true },
-        { name: 'extraFees', type: 'object', optional: true },
-        { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
-      ]);
+    const {
+      to,
+      from,
+      invoice,
+      webhook,
+      pairHash,
+      extraFees,
+      paymentTimeout,
+      refundPublicKey,
+    } = validateRequest(req.body, [
+      { name: 'to', type: 'string' },
+      { name: 'from', type: 'string' },
+      { name: 'webhook', type: 'object', optional: true },
+      { name: 'invoice', type: 'string', optional: true },
+      { name: 'pairHash', type: 'string', optional: true },
+      { name: 'extraFees', type: 'object', optional: true },
+      { name: 'paymentTimeout', type: 'number', optional: true },
+      { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+    ]);
     const referralId = parseReferralId(req);
 
     const { pairId, orderSide } = this.service.convertToPairAndSide(from, to);
@@ -1794,6 +1806,7 @@ class SwapRouter extends RouterBase {
         referralId,
         undefined,
         SwapVersion.Taproot,
+        paymentTimeout,
         webHookData,
         extraFeesData,
       );
@@ -1808,6 +1821,7 @@ class SwapRouter extends RouterBase {
         orderSide,
         referralId,
         preimageHash,
+        paymentTimeout,
         refundPublicKey,
         webHook: webHookData,
         version: SwapVersion.Taproot,

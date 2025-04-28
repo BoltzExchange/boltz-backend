@@ -9,6 +9,7 @@ import {
   getPubkeyHashFunction,
   getScriptHashFunction,
   mapToObject,
+  nullishPipe,
   objectMap,
   splitChannelPoint,
   stringify,
@@ -181,6 +182,60 @@ describe('Utils', () => {
     const milliseconds = random * 60 * 1000;
 
     expect(utils.minutesToMilliseconds(random)).toEqual(milliseconds);
+  });
+
+  test.each`
+    seconds | expectedMilliseconds
+    ${0}    | ${0}
+    ${1}    | ${1_000}
+    ${60}   | ${60_000}
+    ${0.5}  | ${500}
+    ${-1}   | ${-1_000}
+  `(
+    'should convert $seconds seconds into $expectedMilliseconds milliseconds',
+    ({ seconds, expectedMilliseconds }) => {
+      expect(utils.secondsToMilliseconds(seconds)).toEqual(
+        expectedMilliseconds,
+      );
+    },
+  );
+
+  describe('nullishPipe', () => {
+    test('should return undefined for null input', () => {
+      const fn = jest.fn((value) => value * 2);
+      expect(nullishPipe(null, fn)).toBeUndefined();
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    test('should return undefined for undefined input', () => {
+      const fn = jest.fn((value) => value * 2);
+      expect(nullishPipe(undefined, fn)).toBeUndefined();
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    test('should apply function for non-nullish number input', () => {
+      const value = 5;
+      const fn = jest.fn((val: number) => val * 2);
+      expect(nullishPipe(value, fn)).toEqual(10);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith(value);
+    });
+
+    test('should apply function for non-nullish string input', () => {
+      const value = 'test';
+      const fn = jest.fn((val: string) => val.toUpperCase());
+      expect(nullishPipe(value, fn)).toEqual('TEST');
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith(value);
+    });
+
+    test('should apply function for non-nullish object input', () => {
+      const value = { a: 1 };
+      const fn = jest.fn((val: { a: number }) => ({ ...val, b: 2 }));
+      expect(nullishPipe(value, fn)).toEqual({ a: 1, b: 2 });
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith(value);
+    });
   });
 
   test('should get rate', () => {

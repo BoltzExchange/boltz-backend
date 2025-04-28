@@ -331,7 +331,7 @@ class SwapManager {
     orderSide: OrderSide;
     preimageHash: Buffer;
     timeoutBlockDelta: number;
-
+    paymentTimeout?: number;
     channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
@@ -442,6 +442,7 @@ class SwapManager {
         orderSide: args.orderSide,
         referral: args.referralId,
         lockupAddress: result.address,
+        paymentTimeout: args.paymentTimeout,
         status: SwapUpdateEvent.SwapCreated,
         timeoutBlockHeight: result.timeoutBlockHeight,
         preimageHash: getHexString(args.preimageHash),
@@ -472,6 +473,7 @@ class SwapManager {
         referral: args.referralId,
         orderSide: args.orderSide,
         lockupAddress: result.address,
+        paymentTimeout: args.paymentTimeout,
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
         timeoutBlockHeight: result.timeoutBlockHeight,

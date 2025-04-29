@@ -1,5 +1,7 @@
 use crate::chain::rpc_client::RpcClient;
-use crate::chain::types::{NetworkInfo, RawMempool, RpcParam};
+use crate::chain::types::{
+    AddressInfo, ListUnspent, NetworkInfo, ProcessPsbt, RawMempool, RpcParam, TestMempoolAccept,
+};
 use crate::chain::utils::{Outpoint, Transaction, parse_transaction};
 use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
@@ -187,6 +189,31 @@ impl Client for ChainClient {
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.client.request("getnetworkinfo", None).await
+    }
+
+    async fn address_info(&self, address: String) -> anyhow::Result<AddressInfo> {
+        self.client
+            .request("getaddressinfo", Some(vec![RpcParam::Str(address)]))
+            .await
+    }
+
+    async fn test_mempool_accept(
+        &self,
+        raw_txs: Vec<String>,
+    ) -> anyhow::Result<Vec<TestMempoolAccept>> {
+        self.client
+            .request("testmempoolaccept", Some(vec![RpcParam::Seq(raw_txs)]))
+            .await
+    }
+
+    async fn list_unspent(&self) -> anyhow::Result<Vec<ListUnspent>> {
+        self.client.request("listunspent", None).await
+    }
+
+    async fn process_psbt(&self, psbt: String) -> anyhow::Result<ProcessPsbt> {
+        self.client
+            .request("walletprocesspsbt", Some(vec![RpcParam::Str(psbt)]))
+            .await
     }
 }
 

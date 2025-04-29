@@ -46,4 +46,15 @@ pub trait Client: BaseClient {
     ) -> Result<Vec<Transaction>>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+
+    async fn address_info(&self, address: String) -> Result<types::AddressInfo>;
+
+    async fn test_mempool_accept(
+        &self,
+        raw_txs: Vec<String>,
+    ) -> anyhow::Result<Vec<types::TestMempoolAccept>>;
+
+    async fn list_unspent(&self) -> anyhow::Result<Vec<types::ListUnspent>>;
+
+    async fn process_psbt(&self, psbt: String) -> anyhow::Result<types::ProcessPsbt>;
 }

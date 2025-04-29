@@ -1,5 +1,5 @@
 use crate::chain::chain_client::ChainClient;
-use crate::chain::types::NetworkInfo;
+use crate::chain::types::{AddressInfo, ListUnspent, NetworkInfo, ProcessPsbt, TestMempoolAccept};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use async_trait::async_trait;
@@ -81,6 +81,25 @@ impl Client for ElementsClient {
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.wallet_client().network_info().await
+    }
+
+    async fn address_info(&self, address: String) -> anyhow::Result<AddressInfo> {
+        self.wallet_client().address_info(address).await
+    }
+
+    async fn test_mempool_accept(
+        &self,
+        raw_txs: Vec<String>,
+    ) -> anyhow::Result<Vec<TestMempoolAccept>> {
+        self.wallet_client().test_mempool_accept(raw_txs).await
+    }
+
+    async fn list_unspent(&self) -> anyhow::Result<Vec<ListUnspent>> {
+        self.wallet_client().list_unspent().await
+    }
+
+    async fn process_psbt(&self, psbt: String) -> anyhow::Result<ProcessPsbt> {
+        self.wallet_client().process_psbt(psbt).await
     }
 }
 

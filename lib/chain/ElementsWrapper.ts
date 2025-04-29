@@ -194,20 +194,30 @@ class ElementsWrapper
   public dumpBlindingKey = (address: string) =>
     this.walletClient().dumpBlindingKey(address);
 
-  public sendToAddress = (
+  public sendToAddress = async (
     address: string,
     amount: number,
     satPerVbyte: number | undefined,
     subtractFeeFromAmount: boolean | undefined,
     label: string,
-  ) =>
-    this.walletClient().sendToAddress(
+  ): Promise<string> => {
+    const txId = await this.walletClient().sendToAddress(
       address,
       amount,
       satPerVbyte,
       subtractFeeFromAmount,
       label,
     );
+
+    // When we send via the lowball client, broadcast the transaction to the public client as well
+    this.sendTransactionToPublicClient(txId).catch((e) => {
+      this.logger.warn(
+        `${this.symbol} failed to send transaction to public client: ${formatError(e)}`,
+      );
+    });
+
+    return txId;
+  };
 
   private walletClient = () => this.lowballClient() || this.publicClient();
 
@@ -227,6 +237,16 @@ class ElementsWrapper
       ...infos.find(([isLowball]) => !isLowball)![1],
       lowball: infos.find(([isLowball]) => isLowball)?.[1],
     };
+  };
+
+  private sendTransactionToPublicClient = async (txId: string) => {
+    const lowball = this.lowballClient();
+    if (lowball === undefined) {
+      return;
+    }
+
+    const rawTx = await lowball.getRawTransaction(txId);
+    await this.publicClient()?.sendRawTransaction(rawTx);
   };
 }
 

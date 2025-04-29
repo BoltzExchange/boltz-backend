@@ -67,6 +67,25 @@ describe('ElementsWrapper', () => {
     });
   });
 
+  test('should send transaction to public client when lowball client is used', async () => {
+    const mockSendRawTransaction = jest.fn();
+    wrapper['publicClient']()['sendRawTransaction'] = mockSendRawTransaction;
+
+    const txId = await wrapper.sendToAddress(
+      await wrapper.getNewAddress(''),
+      10_000,
+      undefined,
+      undefined,
+      '',
+    );
+    await sleep(250);
+
+    expect(mockSendRawTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSendRawTransaction).toHaveBeenCalledWith(
+      await wrapper.getRawTransaction(txId),
+    );
+  });
+
   test('should bubble up status change of public client', () => {
     expect.assertions(1);
 

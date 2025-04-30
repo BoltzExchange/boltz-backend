@@ -4,7 +4,7 @@ description: >-
   integrations.
 ---
 
-# 🤖 REST API v2
+# 🤖 REST API (latest)
 
 ## REST Endpoints
 
@@ -175,7 +175,7 @@ The backend will respond with a `pong` message.
 
 Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
 
-## Submarine Swap (Chain -> Lightning)
+### Submarine Swap (Chain -> Lightning)
 
 {% tabs %}
 {% tab title="TypeScript Bitcoin" %}
@@ -727,7 +727,7 @@ func main() {
 {% endtab %}
 {% endtabs %}
 
-## Reverse Swap (Lightning -> Chain)
+### Reverse Swap (Lightning -> Chain)
 
 {% tabs %}
 {% tab title="TypeScript Bitcoin" %}
@@ -1401,7 +1401,7 @@ func main() {
 {% endtab %}
 {% endtabs %}
 
-## Chain Swap (Chain -> Chain)
+### Chain Swap (Chain -> Chain)
 
 {% tabs %}
 {% tab title="TypeScript Bitcoin -> Liquid" %}

@@ -36,15 +36,3 @@ Supported currencies: Bitcoin, Lightning, Liquid
 Used by e.g.: [StashPay](https://github.com/onionmill/stashpay)
 
 Supported currencies: Bitcoin, Lightning, Liquid
-
-## Python
-
-#### [Boltz Client Python](https://github.com/BoltzExchange/boltz-client-python): Currently unmaintained Boltz API client in Python; based on the _deprecated_ Boltz API v1.
-
-Used by e.g.: [LNbits](https://github.com/lnbits/boltz)
-
-Supported currencies: Bitcoin, Lightning, Liquid
-
-{% hint style="info" %}
-Note: If Python is preferred, we recommend using above mentioned "Breez SDK - Nodeless" with Python bindings.
-{% endhint %}

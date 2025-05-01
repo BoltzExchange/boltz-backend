@@ -3,7 +3,6 @@ use crate::api::errors::{ApiError, AxumError};
 use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
 use crate::db::models::SwapType;
-use crate::swap::magic_routing_hints;
 use crate::swap::manager::SwapManager;
 use alloy::hex;
 use anyhow::Result;
@@ -51,17 +50,9 @@ pub struct ParamsPath {
 }
 
 #[derive(Serialize)]
-pub struct MagicRoutingHintParams {
-    #[serde(rename = "channelId")]
-    pub channel_id: &'static str,
-}
-
-#[derive(Serialize)]
 pub struct ParamsResponse {
     #[serde(rename = "minCltv")]
     pub min_cltv: u64,
-    #[serde(rename = "magicRoutingHint")]
-    pub magic_routing_hint: MagicRoutingHintParams,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -73,8 +64,16 @@ pub struct Bolt12FetchRequest {
 }
 
 #[derive(Deserialize, Serialize)]
+pub struct MagicRoutingHint {
+    pub bip21: String,
+    pub signature: String,
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct Bolt12FetchResponse {
     invoice: String,
+    #[serde(rename = "magicRoutingHint", skip_serializing_if = "Option::is_none")]
+    pub magic_routing_hint: Option<MagicRoutingHint>,
 }
 
 pub async fn create<S, M>(
@@ -184,9 +183,6 @@ where
         StatusCode::OK,
         Json(ParamsResponse {
             min_cltv: lightning_delta,
-            magic_routing_hint: MagicRoutingHintParams {
-                channel_id: magic_routing_hints::CHANNEL_ID,
-            },
         }),
     )
         .into_response())
@@ -208,8 +204,16 @@ where
 
     Ok(match cln {
         Some(mut cln) => {
-            let invoice = cln.fetch_invoice(body.offer, body.amount * 1_000).await?;
-            (StatusCode::CREATED, Json(Bolt12FetchResponse { invoice })).into_response()
+            let (invoice, magic_routing_hint) =
+                cln.fetch_invoice(body.offer, body.amount * 1_000).await?;
+            (
+                StatusCode::CREATED,
+                Json(Bolt12FetchResponse {
+                    invoice,
+                    magic_routing_hint,
+                }),
+            )
+                .into_response()
         }
         None => no_cln_error(),
     })

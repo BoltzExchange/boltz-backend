@@ -1,9 +1,11 @@
 use crate::db::models::{LightningSwap, SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
-use diesel::{AsChangeset, Insertable, Queryable, Selectable};
+use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Default, Clone, Debug)]
+#[derive(
+    Queryable, Identifiable, Selectable, Insertable, AsChangeset, PartialEq, Default, Clone, Debug,
+)]
 #[diesel(table_name = crate::db::schema::reverseSwaps)]
 #[allow(non_snake_case)]
 pub struct ReverseSwap {
@@ -11,8 +13,20 @@ pub struct ReverseSwap {
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
+    pub preimageHash: String,
     pub transactionId: Option<String>,
     pub transactionVout: Option<i32>,
+}
+
+#[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
+#[diesel(primary_key(swapId))]
+#[diesel(belongs_to(ReverseSwap, foreign_key = swapId))]
+#[diesel(table_name = crate::db::schema::reverseRoutingHints)]
+#[allow(non_snake_case)]
+pub struct ReverseRoutingHint {
+    pub swapId: String,
+    pub bip21: String,
+    pub signature: String,
 }
 
 impl SomeSwap for ReverseSwap {
@@ -95,6 +109,7 @@ mod test {
             transactionVout: None,
             id: "reverse id".to_string(),
             pair: "L-BTC/BTC".to_string(),
+            preimageHash: "preimage hash".to_string(),
             status: "transaction.confirmed".to_string(),
             orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
         }

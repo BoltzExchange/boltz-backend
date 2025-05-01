@@ -3,7 +3,6 @@ use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
 use crate::db::helpers::keys::KeysHelperDatabase;
-use crate::db::helpers::offer::OfferHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
@@ -153,7 +152,7 @@ async fn main() {
         config.network,
         config.currencies,
         config.liquid,
-        Arc::new(OfferHelperDatabase::new(db_pool.clone())),
+        db_pool.clone(),
     )
     .await
     {

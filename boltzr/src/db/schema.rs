@@ -55,10 +55,23 @@ diesel::table! {
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
+        preimageHash -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
     }
 }
+
+diesel::table! {
+    #[allow(non_snake_case)]
+    reverseRoutingHints (swapId) {
+        swapId -> Text,
+        bip21 -> Text,
+        signature -> Text,
+    }
+}
+
+joinable!(reverseRoutingHints -> reverseSwaps (swapId));
+allow_tables_to_appear_in_same_query!(reverseSwaps, reverseRoutingHints);
 
 diesel::table! {
     #[allow(non_snake_case)]

@@ -26,6 +26,8 @@ mod stats;
 mod types;
 pub mod ws;
 
+pub use bolt12::MagicRoutingHint;
+
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
     pub host: String,

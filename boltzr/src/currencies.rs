@@ -3,8 +3,10 @@ use crate::chain::BaseClient;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
+use crate::db::Pool;
 use crate::db::helpers::keys::KeysHelper;
-use crate::db::helpers::offer::OfferHelper;
+use crate::db::helpers::offer::OfferHelperDatabase;
+use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;
 use crate::wallet;
@@ -38,7 +40,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
-    offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
+    db: Pool,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
@@ -48,6 +50,9 @@ pub async fn connect_nodes<K: KeysHelper>(
 
     let network = parse_network(network)?;
     let offer_subscriptions = OfferSubscriptions::new(network);
+
+    let offer_helper = Arc::new(OfferHelperDatabase::new(db.clone()));
+    let reverse_swap_helper = Arc::new(ReverseSwapHelperDatabase::new(db.clone()));
 
     let mut curs = HashMap::new();
 
@@ -92,6 +97,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                                         network,
                                         &config,
                                         offer_helper.clone(),
+                                        reverse_swap_helper.clone(),
                                         offer_subscriptions.clone(),
                                     )
                                     .await,

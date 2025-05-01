@@ -195,7 +195,11 @@ impl Hold {
         Ok(())
     }
 
-    pub async fn fetch_invoice(&self, offer: Offer, amount_msat: u64) -> Result<String> {
+    pub async fn fetch_invoice(
+        &self,
+        offer: Offer,
+        amount_msat: u64,
+    ) -> Result<(String, Box<Bolt12Invoice>)> {
         let parsed = match crate::lightning::invoice::decode(self.network, &offer.offer)? {
             Invoice::Offer(offer) => offer,
             _ => return Err(anyhow!("invalid offer")),
@@ -233,9 +237,8 @@ impl Hold {
             debug!("Sending BOLT12 invoice Websocket request");
             Self::wait_for_response(hook_id, receiver, |res| match res {
                 Ok(invoice) => {
-                    // Decode the invoice to make sure it's valid
-                    Self::decode_bolt12_invoice(self.network, &invoice)?;
-                    Ok(invoice)
+                    let decoded = Self::decode_bolt12_invoice(self.network, &invoice)?;
+                    Ok((invoice, decoded))
                 }
                 Err(err) => Err(anyhow!("{err}")),
             })
@@ -247,9 +250,8 @@ impl Hold {
             Self::wait_for_response(hook_id, receiver, |data| {
                 match serde_json::from_slice::<InvoiceRequestResponse>(&data) {
                     Ok(invoice) => {
-                        // Decode the invoice to make sure it's valid
-                        Self::decode_bolt12_invoice(self.network, &invoice.invoice)?;
-                        Ok(invoice.invoice)
+                        let decoded = Self::decode_bolt12_invoice(self.network, &invoice.invoice)?;
+                        Ok((invoice.invoice, decoded))
                     }
                     Err(_) => Err(anyhow!(
                         "{}",
@@ -510,8 +512,8 @@ impl Hold {
     async fn wait_for_response<T, R>(
         id: u64,
         mut receiver: broadcast::Receiver<(InvoiceHook<T>, R)>,
-        parse_response: impl Fn(R) -> Result<String>,
-    ) -> Result<String>
+        parse_response: impl Fn(R) -> Result<(String, Box<Bolt12Invoice>)>,
+    ) -> Result<(String, Box<Bolt12Invoice>)>
     where
         T: types::Bool + Clone,
         R: Clone,

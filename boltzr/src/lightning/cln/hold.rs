@@ -21,6 +21,7 @@ use lightning::blinded_path::{BlindedHop, EmptyNodeIdLookUp};
 use lightning::ln::channelmanager::PaymentId;
 use lightning::ln::inbound_payment::ExpandedKey;
 use lightning::offers::invoice::Bolt12Invoice;
+use lightning::offers::invoice_error::InvoiceError;
 use lightning::offers::invoice_request::InvoiceRequest;
 use lightning::offers::nonce::Nonce;
 use lightning::offers::parse::Bolt12SemanticError;
@@ -48,6 +49,16 @@ const INVOICE_FETCH_TIMEOUT_SECONDS: u64 = 30;
 #[derive(Debug, Deserialize)]
 struct InvoiceRequestResponse {
     pub invoice: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct InvoiceRequestError {
+    pub error: String,
+}
+
+enum InvoiceResponse {
+    Invoice(Box<Bolt12Invoice>),
+    InvoiceError(String),
 }
 
 pub mod hold_rpc {
@@ -220,13 +231,31 @@ impl Hold {
             .await?
         {
             debug!("Sending BOLT12 invoice Websocket request");
-            Self::wait_for_response(hook_id, receiver, Ok).await
+            Self::wait_for_response(hook_id, receiver, |res| match res {
+                Ok(invoice) => {
+                    // Decode the invoice to make sure it's valid
+                    Self::decode_bolt12_invoice(self.network, &invoice)?;
+                    Ok(invoice)
+                }
+                Err(err) => Err(anyhow!("{err}")),
+            })
+            .await
         } else if let Some(url) = offer.url {
             let receiver = self.invoice_caller.subscribe_successful_calls();
             self.invoice_caller.call(hook.with_url(url)).await?;
 
             Self::wait_for_response(hook_id, receiver, |data| {
-                Ok(serde_json::from_slice::<InvoiceRequestResponse>(&data)?.invoice)
+                match serde_json::from_slice::<InvoiceRequestResponse>(&data) {
+                    Ok(invoice) => {
+                        // Decode the invoice to make sure it's valid
+                        Self::decode_bolt12_invoice(self.network, &invoice.invoice)?;
+                        Ok(invoice.invoice)
+                    }
+                    Err(_) => Err(anyhow!(
+                        "{}",
+                        serde_json::from_slice::<InvoiceRequestError>(&data)?.error
+                    )),
+                }
             })
             .await
         } else {
@@ -241,11 +270,23 @@ impl Hold {
         {
             let mut self_cp = self.clone();
             tokio::spawn(async move {
+                let network = self_cp.network;
                 self_cp
                     .handle_response_stream(
                         our_pubkey,
                         self_cp.invoice_caller.subscribe_successful_calls(),
-                        |data| Ok(serde_json::from_slice::<InvoiceRequestResponse>(&data)?.invoice),
+                        |data| {
+                            Ok(
+                                match serde_json::from_slice::<InvoiceRequestResponse>(&data) {
+                                    Ok(invoice) => InvoiceResponse::Invoice(
+                                        Self::decode_bolt12_invoice(network, &invoice.invoice)?,
+                                    ),
+                                    Err(_) => InvoiceResponse::InvoiceError(
+                                        serde_json::from_slice::<InvoiceRequestError>(&data)?.error,
+                                    ),
+                                },
+                            )
+                        },
                     )
                     .await;
             });
@@ -254,11 +295,19 @@ impl Hold {
         {
             let mut self_cp = self.clone();
             tokio::spawn(async move {
+                let network = self_cp.network;
                 self_cp
                     .handle_response_stream(
                         our_pubkey,
                         self_cp.offer_subscriptions.subscribe_invoice_responses(),
-                        Ok,
+                        |res| {
+                            Ok(match res {
+                                Ok(invoice) => InvoiceResponse::Invoice(
+                                    Self::decode_bolt12_invoice(network, &invoice)?,
+                                ),
+                                Err(err) => InvoiceResponse::InvoiceError(err),
+                            })
+                        },
                     )
                     .await;
             });
@@ -380,7 +429,7 @@ impl Hold {
         &mut self,
         our_pubkey: PublicKey,
         mut receiver: broadcast::Receiver<(InvoiceHook<T>, R)>,
-        parse_response: impl Fn(R) -> Result<String>,
+        parse_response: impl Fn(R) -> Result<InvoiceResponse>,
     ) where
         T: types::Bool + Clone,
         R: Clone,
@@ -400,14 +449,14 @@ impl Hold {
                 continue;
             }
 
-            let invoice = match parse_response(res) {
-                Ok(invoice) => invoice,
+            let res = match parse_response(res) {
+                Ok(res) => res,
                 Err(err) => {
                     warn!("Could not parse BOLT12 invoice response: {}", err);
                     continue;
                 }
             };
-            if let Err(err) = self.handle_response(our_pubkey, hook, &invoice).await {
+            if let Err(err) = self.handle_response(our_pubkey, hook, res).await {
                 warn!("Handling BOLT12 invoice response failed: {}", err);
             }
         }
@@ -418,19 +467,14 @@ impl Hold {
         &mut self,
         our_pubkey: PublicKey,
         hook: InvoiceHook<T>,
-        invoice: &str,
+        response: InvoiceResponse,
     ) -> Result<()> {
         let reply_blinded_path = match hook.reply_blinded_path.clone() {
             Some(path) => path,
             None => return Ok(()),
         };
 
-        let invoice = match crate::lightning::invoice::decode(self.network, invoice)? {
-            Invoice::Bolt12(invoice) => invoice,
-            _ => return Err(anyhow!("invalid invoice")),
-        };
-
-        let (blinding_point, onion) = Self::blind_onion(*invoice, reply_blinded_path, our_pubkey)?;
+        let (blinding_point, onion) = Self::blind_onion(response, reply_blinded_path, our_pubkey)?;
         self.cln
             .inject_onion_message(InjectonionmessageRequest {
                 message: onion,
@@ -451,6 +495,16 @@ impl Hold {
         };
 
         self.offer_helper.get_by_signer(&signing_pubkey.serialize())
+    }
+
+    fn decode_bolt12_invoice(
+        network: wallet::Network,
+        invoice: &str,
+    ) -> Result<Box<Bolt12Invoice>> {
+        Ok(match crate::lightning::invoice::decode(network, invoice)? {
+            Invoice::Bolt12(invoice) => invoice,
+            _ => return Err(anyhow!("invalid invoice")),
+        })
     }
 
     async fn wait_for_response<T, R>(
@@ -506,7 +560,7 @@ impl Hold {
     }
 
     fn blind_onion(
-        invoice: Bolt12Invoice,
+        response: InvoiceResponse,
         path: ReplyBlindedPath,
         our_pubkey: PublicKey,
     ) -> Result<(PublicKey, Vec<u8>)> {
@@ -551,7 +605,12 @@ impl Hold {
                         .collect::<Result<Vec<BlindedHop>>>()?,
                 )),
             },
-            OffersMessage::Invoice(invoice),
+            match response {
+                InvoiceResponse::Invoice(invoice) => OffersMessage::Invoice(*invoice),
+                InvoiceResponse::InvoiceError(error) => {
+                    OffersMessage::InvoiceError(InvoiceError::from_string(error))
+                }
+            },
             None,
         )
         .map_err(|e| anyhow!("creating onion failed: {:?}", e))?;

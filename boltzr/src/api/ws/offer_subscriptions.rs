@@ -26,6 +26,11 @@ pub struct InvoiceRequestParams {
     pub signature: String,
 }
 
+type InvoiceResponse = (
+    InvoiceHook<types::False>,
+    std::result::Result<String, String>,
+);
+
 #[derive(Debug, Clone)]
 pub struct OfferSubscriptions {
     network: crate::wallet::Network,
@@ -35,7 +40,7 @@ pub struct OfferSubscriptions {
     all_offers: Arc<DashMap<OfferId, (String, ConnectionId)>>,
     offer_subscriptions: Arc<DashMap<ConnectionId, mpsc::Sender<InvoiceHook<types::False>>>>,
 
-    invoice_response_tx: broadcast::Sender<(InvoiceHook<types::False>, String)>,
+    invoice_response_tx: broadcast::Sender<InvoiceResponse>,
 }
 
 impl OfferSubscriptions {
@@ -45,7 +50,7 @@ impl OfferSubscriptions {
             pending_hooks: Arc::new(TimeoutMap::new(INVOICE_REQUEST_TIMEOUT)),
             all_offers: Arc::new(DashMap::new()),
             offer_subscriptions: Arc::new(DashMap::new()),
-            invoice_response_tx: broadcast::channel::<(InvoiceHook<types::False>, String)>(256).0,
+            invoice_response_tx: broadcast::channel::<InvoiceResponse>(256).0,
         }
     }
 
@@ -83,15 +88,17 @@ impl OfferSubscriptions {
         }
     }
 
-    pub fn received_invoice_response(&self, hook_id: u64, invoice: String) {
+    pub fn received_invoice_response(
+        &self,
+        hook_id: u64,
+        res: std::result::Result<String, String>,
+    ) {
         if let Some(hook) = self.pending_hooks.remove(&hook_id) {
-            let _ = self.invoice_response_tx.send((hook, invoice));
+            let _ = self.invoice_response_tx.send((hook, res));
         }
     }
 
-    pub fn subscribe_invoice_responses(
-        &self,
-    ) -> broadcast::Receiver<(InvoiceHook<types::False>, String)> {
+    pub fn subscribe_invoice_responses(&self) -> broadcast::Receiver<InvoiceResponse> {
         self.invoice_response_tx.subscribe()
     }
 
@@ -259,11 +266,11 @@ mod test {
 
         let invoice = "invoice";
         let mut invoice_sub = subs.subscribe_invoice_responses();
-        subs.received_invoice_response(hook.id(), invoice.to_string());
+        subs.received_invoice_response(hook.id(), Ok(invoice.to_string()));
 
         assert_eq!(
             invoice_sub.recv().await.unwrap(),
-            (hook.clone(), invoice.to_string())
+            (hook.clone(), Ok(invoice.to_string()))
         );
 
         assert!(!subs.pending_hooks.contains_key(&hook.id()));

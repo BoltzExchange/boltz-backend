@@ -79,6 +79,12 @@ struct InvoiceCreated {
     invoice: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+struct InvoiceError {
+    id: String,
+    error: String,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(tag = "op")]
 enum WsRequest {
@@ -88,6 +94,8 @@ enum WsRequest {
     Unsubscribe(UnsubscribeRequest),
     #[serde(rename = "invoice")]
     Invoice(InvoiceCreated),
+    #[serde(rename = "invoice.error")]
+    InvoiceError(InvoiceError),
     #[serde(rename = "ping")]
     Ping,
 }
@@ -460,7 +468,20 @@ where
                 match invoice.id.parse::<u64>() {
                     Ok(id) => self
                         .offer_subscriptions
-                        .received_invoice_response(id, invoice.invoice),
+                        .received_invoice_response(id, Ok(invoice.invoice)),
+                    Err(err) => {
+                        return Ok(Some(WsResponse::Error(ErrorResponse {
+                            error: format!("invalid invoice id: {err}"),
+                        })));
+                    }
+                };
+                Ok(None)
+            }
+            WsRequest::InvoiceError(invoice_error) => {
+                match invoice_error.id.parse::<u64>() {
+                    Ok(id) => self
+                        .offer_subscriptions
+                        .received_invoice_response(id, Err(invoice_error.error)),
                     Err(err) => {
                         return Ok(Some(WsResponse::Error(ErrorResponse {
                             error: format!("invalid invoice id: {err}"),

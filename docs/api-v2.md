@@ -133,6 +133,16 @@ The client must then generate the requested BOLT12 invoice and send it back usin
 }
 ```
 
+In case the client can't create the BOLT12 invoice, it should send an error with a message that will be passed through to the requester of the invoice.
+
+```json
+{
+  "op": "invoice.error",
+  "id": "1234567890123456789",
+  "error": "could not create invoice"
+}
+```
+
 To unsubscribe from invoice requests for specific offers, send an `unsubscribe` message. `args` should contain the offer strings to unsubscribe from.
 
 ```json

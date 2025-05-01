@@ -2,7 +2,7 @@
 
 * [👋 Introduction](README.md)
 * [📙 Libraries](libraries.md)
-* [🤖 REST API v2](api-v2.md)
+* [🤖 REST API (latest)](api-v2.md)
 * [🔁 Swap Types & States](lifecycle.md)
 * [🙋‍♂️ Claim & Refund Transactions](claiming-swaps.md)
 * [⚠️ Common Mistakes](common-mistakes.md)

@@ -150,15 +150,9 @@ export const getWalletStub = (
     type,
     network,
     decodeAddress: () => toOutputScript(type, destinationAddress, network),
-    deriveBlindingKeyFromScript: () => {
-      const key = {
-        privateKey: parseBlindingKey(type, blindingKey!),
-      };
-      return {
-        new: key,
-        legacy: key,
-      };
-    },
+    deriveBlindingKeyFromScript: () => ({
+      privateKey: parseBlindingKey(type, blindingKey!),
+    }),
   }) as any;
 
 export const parseBlindingKey = (type: CurrencyType, blindingKey: string) =>

@@ -1,6 +1,8 @@
+use crate::api::MagicRoutingHint;
 use crate::api::ws::OfferSubscriptions;
 use crate::chain::BaseClient;
 use crate::db::helpers::offer::OfferHelper;
+use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
@@ -38,14 +40,23 @@ pub struct Cln {
     pub hold: hold::Hold,
 
     symbol: String,
+    network: wallet::Network,
     cln: cln_rpc::node_client::NodeClient<Channel>,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
+    reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync + 'static>,
 }
 
 impl Cln {
     #[instrument(
         name = "Cln::new",
-        skip(cancellation_token, network, config, offer_helper, offer_subscriptions)
+        skip(
+            cancellation_token,
+            network,
+            config,
+            offer_helper,
+            reverse_swap_helper,
+            offer_subscriptions
+        )
     )]
     pub async fn new(
         cancellation_token: CancellationToken,
@@ -53,6 +64,7 @@ impl Cln {
         network: wallet::Network,
         config: &Config,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
+        reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync + 'static>,
         offer_subscriptions: OfferSubscriptions,
     ) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
@@ -75,6 +87,7 @@ impl Cln {
 
         Ok(Self {
             symbol: symbol.to_string(),
+            network,
             hold: hold::Hold::new(
                 cancellation_token,
                 symbol,
@@ -87,6 +100,7 @@ impl Cln {
             .await?,
             cln,
             offer_helper,
+            reverse_swap_helper,
         })
     }
 
@@ -94,34 +108,49 @@ impl Cln {
         &mut self,
         offer: String,
         amount_msat: u64,
-    ) -> anyhow::Result<String> {
-        if let Some(offer) = self.offer_helper.get_offer(&offer)? {
+    ) -> anyhow::Result<(String, Option<MagicRoutingHint>)> {
+        let (invoice, decoded) = if let Some(offer) = self.offer_helper.get_offer(&offer)? {
             debug!("Fetching invoice for offer directly");
-            return self.hold.fetch_invoice(offer, amount_msat).await;
-        }
+            self.hold.fetch_invoice(offer, amount_msat).await?
+        } else {
+            let res = self
+                .cln
+                .fetch_invoice(FetchinvoiceRequest {
+                    offer: offer.clone(),
+                    amount_msat: Some(Amount { msat: amount_msat }),
+                    bip353: None,
+                    timeout: None,
+                    quantity: None,
+                    payer_note: None,
+                    payer_metadata: None,
+                    recurrence_start: None,
+                    recurrence_label: None,
+                    recurrence_counter: None,
+                })
+                .await
+                .map_err(Self::parse_error)?;
+            debug!(
+                "Fetched invoice for {}msat for offer {}",
+                amount_msat, offer
+            );
 
-        let res = self
-            .cln
-            .fetch_invoice(FetchinvoiceRequest {
-                offer: offer.clone(),
-                amount_msat: Some(Amount { msat: amount_msat }),
-                bip353: None,
-                timeout: None,
-                quantity: None,
-                payer_note: None,
-                payer_metadata: None,
-                recurrence_start: None,
-                recurrence_label: None,
-                recurrence_counter: None,
-            })
-            .await
-            .map_err(Self::parse_error)?;
-        debug!(
-            "Fetched invoice for {}msat for offer {}",
-            amount_msat, offer
-        );
+            let invoice = res.into_inner().invoice;
+            let decoded = match crate::lightning::invoice::decode(self.network, &invoice)? {
+                crate::lightning::invoice::Invoice::Bolt12(invoice) => invoice,
+                _ => return Err(anyhow!("not a BOLT12 invoice")),
+            };
+            (invoice, decoded)
+        };
 
-        Ok(res.into_inner().invoice)
+        let magic_routing_hint = self
+            .reverse_swap_helper
+            .get_routing_hint(&hex::encode(decoded.payment_hash().0))?
+            .map(|mrh| MagicRoutingHint {
+                bip21: mrh.bip21,
+                signature: mrh.signature,
+            });
+
+        Ok((invoice, magic_routing_hint))
     }
 
     pub async fn list_nodes(&mut self, id: Option<Vec<u8>>) -> anyhow::Result<Vec<ListnodesNodes>> {
@@ -267,6 +296,12 @@ pub mod test {
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
         offer_helper.expect_get_offer().returning(|_| Ok(None));
 
+        let mut reverse_swap_helper =
+            crate::db::helpers::reverse_swap::test::MockReverseSwapHelper::new();
+        reverse_swap_helper
+            .expect_get_routing_hint()
+            .returning(|_| Ok(None));
+
         Cln::new(
             CancellationToken::new(),
             "BTC",
@@ -312,6 +347,7 @@ pub mod test {
                 },
             },
             Arc::new(offer_helper),
+            Arc::new(reverse_swap_helper),
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
         )
         .await

@@ -435,18 +435,11 @@
  *           application/json:
  *             schema:
  *               type: object
- *               required: ["minCltv", "magicRoutingHint"]
+ *               required: ["minCltv"]
  *               properties:
  *                 minCltv:
  *                   type: integer
  *                   description: Minimum CLTV value
- *                 magicRoutingHint:
- *                   type: object
- *                   required: ["channelId"]
- *                   properties:
- *                     channelId:
- *                       type: string
- *                       description: Channel ID to use for magic routing hints
  *       '400':
  *         description: Invalid request parameters
  *         content:
@@ -500,6 +493,8 @@
  *                 invoice:
  *                   type: string
  *                   description: A BOLT12 invoice
+ *                 magicRoutingHint:
+ *                   $ref: '#/components/schemas/ReverseBip21'
  *       '404':
  *         description: When the currency has no BOLT12 support
  *         content:

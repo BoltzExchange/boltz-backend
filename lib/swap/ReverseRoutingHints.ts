@@ -149,14 +149,6 @@ class ReverseRoutingHints {
     userAddress: string,
     userAddressSignature: Buffer,
   ) => {
-    if (
-      !decoded.paths.some(
-        (path) => path.shortChannelId === ReverseRoutingHints.routingHintChanId,
-      )
-    ) {
-      throw Errors.MAGIC_ROUTING_HINT_MISSING();
-    }
-
     if (decoded.payee === undefined) {
       throw Errors.PAYEE_MISSING_FROM_INVOICE();
     }

@@ -214,7 +214,8 @@ mod test {
     use crate::db::helpers::chain_swap::{
         ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
     };
-    use crate::db::helpers::reverse_swap::{ReverseSwapCondition, ReverseSwapHelper};
+    use crate::db::helpers::reverse_swap::ReverseSwapHelper;
+    use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::swap::SwapUpdate;
@@ -245,21 +246,6 @@ mod test {
                 status: SwapUpdate,
                 failure_reason: Option<String>,
             ) -> QueryResponse<usize>;
-        }
-    }
-
-    mock! {
-        ReverseSwapHelper {}
-
-        impl Clone for ReverseSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ReverseSwapHelper for ReverseSwapHelper {
-            fn get_all(
-                &self,
-                condition: ReverseSwapCondition,
-            ) -> QueryResponse<Vec<ReverseSwap>>;
         }
     }
 

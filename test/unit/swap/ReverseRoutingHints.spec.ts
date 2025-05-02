@@ -291,23 +291,6 @@ describe('ReverseRoutingHints', () => {
       });
     });
 
-    test('should throw when magic routing hint is not preset', () => {
-      expect(() =>
-        hints.getHints(sendingCurrency, {
-          userAddress: address,
-          onchainAmount: amount,
-          version: SwapVersion.Taproot,
-          userAddressSignature: Buffer.alloc(1),
-          invoice: {
-            decoded: {
-              payee: signingKeys.publicKey,
-              paths: [],
-            } as Partial<DecodedInvoice> as any,
-          },
-        }),
-      ).toThrow(Errors.MAGIC_ROUTING_HINT_MISSING().message);
-    });
-
     test('should throw for invalid address signatures', () => {
       const signature = Buffer.from(
         signingKeys.signSchnorr(

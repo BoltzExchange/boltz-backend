@@ -1,13 +1,14 @@
 use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
-use crate::db::models::ReverseSwap;
-use crate::db::schema::reverseSwaps;
-use diesel::{QueryDsl, RunQueryDsl, SelectableHelper};
+use crate::db::models::{ReverseRoutingHint, ReverseSwap};
+use crate::db::schema::{reverseRoutingHints, reverseSwaps};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 
 pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;
 
 pub trait ReverseSwapHelper {
     fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
+    fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
 }
 
 #[derive(Clone, Debug)]
@@ -27,5 +28,36 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .select(ReverseSwap::as_select())
             .filter(condition)
             .load(&mut self.pool.get()?)?)
+    }
+
+    fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>> {
+        Ok(reverseRoutingHints::dsl::reverseRoutingHints
+            .inner_join(reverseSwaps::dsl::reverseSwaps)
+            .select(ReverseRoutingHint::as_select())
+            .filter(reverseSwaps::dsl::preimageHash.eq(preimage_hash))
+            .first(&mut self.pool.get()?)
+            .optional()?)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use mockall::mock;
+
+    mock! {
+        pub ReverseSwapHelper {}
+
+        impl Clone for ReverseSwapHelper {
+            fn clone(&self) -> Self;
+        }
+
+        impl ReverseSwapHelper for ReverseSwapHelper {
+            fn get_all(
+                &self,
+                condition: ReverseSwapCondition,
+            ) -> QueryResponse<Vec<ReverseSwap>>;
+            fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
+        }
     }
 }

@@ -84,7 +84,7 @@ pub struct Hold {
     network: wallet::Network,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
     offer_subscriptions: OfferSubscriptions,
-    invoice_caller: InvoiceCaller,
+    invoice_caller: Arc<InvoiceCaller>,
     cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
     hold: hold_rpc::hold_client::HoldClient<Channel>,
 }
@@ -114,7 +114,7 @@ impl Hold {
             .connect()
             .await?;
 
-        let invoice_caller = InvoiceCaller::new(
+        let invoice_caller = Arc::new(InvoiceCaller::new(
             cancellation_token,
             crate::webhook::caller::Config {
                 // To give mobile clients a chance to wake up and respond
@@ -123,7 +123,7 @@ impl Hold {
                 retry_interval: Some(10),
             },
             network == wallet::Network::Regtest,
-        );
+        ));
 
         {
             let invoice_caller = invoice_caller.clone();
@@ -402,11 +402,13 @@ impl Hold {
                         }
 
                         if let Some(url) = offer.url {
-                            if let Err(error) =
-                                self_cp.invoice_caller.call(hook.with_url(url)).await
-                            {
-                                warn!("Sending BOLT12 invoice Webhook failed: {}", error);
-                            }
+                            // To not block the subscription
+                            let invoice_caller = self_cp.invoice_caller.clone();
+                            tokio::spawn(async move {
+                                if let Err(error) = invoice_caller.call(hook.with_url(url)).await {
+                                    warn!("Sending BOLT12 invoice Webhook failed: {}", error);
+                                }
+                            });
                         } else {
                             debug!("No way to reach client for invoice request");
                         }

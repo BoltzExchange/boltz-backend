@@ -5,6 +5,7 @@ import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
+import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
 import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
 import * as notificationrpc from '../proto/ark/notification_pb';
@@ -150,6 +151,7 @@ class ArkClient extends BaseClient<
   public sendOffchain = async (
     address: string,
     amount: number,
+    label: string,
   ): Promise<string> => {
     const req = new arkrpc.SendOffChainRequest();
     req.setAddress(address);
@@ -159,6 +161,12 @@ class ArkClient extends BaseClient<
       arkrpc.SendOffChainRequest,
       arkrpc.SendOffChainResponse.AsObject
     >('sendOffChain', req);
+
+    await TransactionLabelRepository.addLabel(
+      response.txid,
+      ArkClient.symbol,
+      label,
+    );
     return response.txid;
   };
 
@@ -240,7 +248,10 @@ class ArkClient extends BaseClient<
     >('subscribeForAddresses', req);
   };
 
-  public claimVHtlc = async (preimage: Buffer): Promise<string> => {
+  public claimVHtlc = async (
+    preimage: Buffer,
+    label: string,
+  ): Promise<string> => {
     const req = new arkrpc.ClaimVHTLCRequest();
     req.setPreimage(getHexString(preimage));
 
@@ -248,6 +259,12 @@ class ArkClient extends BaseClient<
       arkrpc.ClaimVHTLCRequest,
       arkrpc.ClaimVHTLCResponse.AsObject
     >('claimVHTLC', req);
+
+    await TransactionLabelRepository.addLabel(
+      res.redeemTxid,
+      ArkClient.symbol,
+      label,
+    );
     return res.redeemTxid;
   };
 

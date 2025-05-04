@@ -1153,6 +1153,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       const txId = await arkClient.sendOffchain(
         swap.lockupAddress,
         swap.onchainAmount!,
+        TransactionLabelRepository.lockupLabel(swap),
       );
 
       this.logger.verbose(
@@ -1405,7 +1406,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
-    const claimTransaction = await arkClient.claimVHtlc(preimage);
+    const claimTransaction = await arkClient.claimVHtlc(
+      preimage,
+      TransactionLabelRepository.claimLabel(swap),
+    );
     this.logger.info(
       `Claimed ${arkClient.symbol} VHLTC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
     );

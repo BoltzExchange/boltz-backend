@@ -28,8 +28,10 @@ class ArkWallet implements WalletProviderInterface {
   public sendToAddress = async (
     address: string,
     amount: number,
+    _satPerVbyte: number | undefined,
+    label: string,
   ): Promise<SentTransaction> => {
-    const roundId = await this.node.sendOffchain(address, amount);
+    const roundId = await this.node.sendOffchain(address, amount, label);
     return {
       fee: 0,
       transactionId: roundId,
@@ -37,10 +39,15 @@ class ArkWallet implements WalletProviderInterface {
   };
 
   // TODO: label support
-  public sweepWallet = async (address: string): Promise<SentTransaction> => {
+  public sweepWallet = async (
+    address: string,
+    _satPerVbyte: number | undefined,
+    label: string,
+  ): Promise<SentTransaction> => {
     const txId = await this.node.sendOffchain(
       address,
       (await this.getBalance()).confirmedBalance,
+      label,
     );
     return {
       fee: 0,

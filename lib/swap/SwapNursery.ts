@@ -314,7 +314,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
-    this.arkNursery.on('ark.vhtlc', async ({ swap, lockupTransactionId }) => {
+    this.arkNursery.on('vhtlc.found', async ({ swap, lockupTransactionId }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.emit('transaction', {
           swap,
@@ -349,9 +349,15 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.arkNursery.on('ark.vhtlc.failed', async ({ swap, reason }) => {
+    this.arkNursery.on('vhtlc.failed', async ({ swap, reason }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         await this.lockupFailed(swap, reason);
+      });
+    });
+
+    this.arkNursery.on('vhtlc.expired', async (reverseSwap) => {
+      await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        await this.expireReverseSwap(reverseSwap);
       });
     });
 
@@ -1612,6 +1618,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             await this.refundUtxo(chainCurrency, reverseSwap);
             break;
 
+          case CurrencyType.Ark:
+            await this.refundVtxo(chainCurrency, reverseSwap);
+            break;
+
           case CurrencyType.Ether:
             await this.refundEther(reverseSwap, chainSymbol);
             break;
@@ -1777,6 +1787,34 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         swap,
         minerFee,
         Errors.REFUNDED_COINS(sendingData.transactionId!).message,
+      ),
+    });
+  };
+
+  private refundVtxo = async (chainCurrency: Currency, swap: ReverseSwap) => {
+    const arkClient = chainCurrency.arkNode!;
+    if (arkClient === undefined) {
+      this.logger.error(`Ark node not found for ${chainCurrency.symbol}`);
+      return;
+    }
+
+    const txId = await arkClient.refundVHtlc(
+      getHexBuffer(swap.preimageHash),
+      TransactionLabelRepository.refundLabel(swap),
+    );
+
+    this.logger.info(
+      `Refunded ${chainCurrency.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
+      } in: ${txId}`,
+    );
+
+    this.emit('refund', {
+      refundTransaction: txId,
+      swap: await WrappedSwapRepository.setTransactionRefunded(
+        swap,
+        0,
+        Errors.REFUNDED_COINS(txId).message,
       ),
     });
   };

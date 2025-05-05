@@ -32,7 +32,7 @@ import type EthereumManager from '../wallet/ethereum/EthereumManager';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
-import { Action } from './hooks/Hook';
+import { Action } from './hooks/CreationHook';
 import type TransactionHook from './hooks/TransactionHook';
 
 class EthereumNursery extends TypedEventEmitter<{

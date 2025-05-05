@@ -1,6 +1,6 @@
 import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import * as sidecarrpc from '../../../lib/proto/sidecar/boltzr_pb';
+import * as sidecarrpc from '../../../lib/proto/boltzr_pb';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { clnClient } from '../Nodes';
 import { sidecar, startSidecar } from './Utils';

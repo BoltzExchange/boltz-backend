@@ -109,5 +109,16 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    #[allow(non_snake_case)]
+    payjoinSessions (id) {
+        id -> Text,
+        swapId -> Text,
+        json -> Text,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
+joinable!(payjoinSessions -> swaps (swapId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);
+allow_tables_to_appear_in_same_query!(swaps, payjoinSessions);

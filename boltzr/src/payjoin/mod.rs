@@ -1,12 +1,15 @@
 use crate::chain::Client;
 use crate::currencies::{Currencies, Currency};
+use crate::db::Pool;
+use crate::db::helpers::payjoin::{PayjoinSessionHelper, PayjoinSessionHelperDatabase};
+use crate::db::models::PayjoinSession;
 use anyhow::{Result, anyhow};
 use bitcoin::{Address, Amount, Network, Psbt};
 use payjoin::bitcoin::consensus::encode::serialize_hex;
+use payjoin::persist::{Persister, Value};
 use payjoin::receive::InputPair;
 use payjoin::{
     OhttpKeys,
-    persist::NoopPersister,
     receive::{ImplementationError, v2::*},
 };
 use std::sync::Arc;
@@ -19,16 +22,21 @@ const DIRECTORY: &str = "https://payjo.in";
 pub struct PayjoinManager {
     ohttp_keys: OhttpKeys,
     btc: Currency,
+    payjoin_repo: Arc<PayjoinSessionHelperDatabase>,
 }
 
 impl PayjoinManager {
-    pub async fn new(currencies: Currencies) -> Result<Self> {
+    pub async fn new(currencies: Currencies, pool: Pool) -> Result<Self> {
         let ohttp_keys = payjoin::io::fetch_ohttp_keys(OHTTP_RELAY, DIRECTORY).await?;
         let btc = match currencies.get("BTC") {
             Some(cur) => Ok(cur.clone()),
             None => Err(anyhow!("BTC currency not configured")),
         }?;
-        Ok(Self { ohttp_keys, btc })
+        Ok(Self {
+            ohttp_keys,
+            btc,
+            payjoin_repo: Arc::new(PayjoinSessionHelperDatabase::new(pool)),
+        })
     }
 
     /// Initialize a payjoin from a gRPC request
@@ -37,6 +45,7 @@ impl PayjoinManager {
     pub async fn receive_payjoin_adapter(
         &self,
         address: String,
+        //swap_id: String,
         sats: Option<u64>,
         label: Option<String>,
     ) -> Result<String> {
@@ -50,21 +59,58 @@ impl PayjoinManager {
     async fn receive_payjoin<'a>(
         &self,
         address: Address,
+        //swap: Swap,
         amount: Option<Amount>,
         label: Option<String>,
     ) -> Result<payjoin::PjUri<'a>> {
-        let token = NewReceiver::new(address.clone(), DIRECTORY, self.ohttp_keys.clone(), None)
-            .expect("Failed to create receiver")
-            .persist(&mut payjoin::persist::NoopPersister)
-            .expect("Failed to persist receiver");
+        let new_receiver =
+            NewReceiver::new(address.clone(), DIRECTORY, self.ohttp_keys.clone(), None)?;
+        let mut persister = PayjoinSessionManager {
+            db: self.payjoin_repo.clone(),
+            swap_id: "SWAPID".to_string(),
+        };
+        let token = new_receiver
+            .persist(&mut persister)
+            .map_err(|e| anyhow!("Failed to persist receiver: {}", e))?;
 
-        let receiver =
-            Receiver::load(token, &mut NoopPersister).expect("Failed to create receiver");
+        let receiver = Receiver::load(token, &persister).expect("Failed to create receiver");
 
         let pj_uri = pj_uri_with_extras(&receiver, amount, label)?;
         tokio::spawn(spawn_payjoin_receiver(receiver, address, self.btc.clone()));
         info!("Request Payjoin by sharing this Payjoin Uri: \n{}", pj_uri);
         Ok(pj_uri)
+    }
+
+    //async fn resume_all_sessions(&self) -> Result<()> {}
+}
+
+struct PayjoinSessionManager {
+    db: Arc<PayjoinSessionHelperDatabase>,
+    swap_id: String,
+}
+
+impl PayjoinSessionManager {
+    //fn new() -> Result<Self> {}
+    //async fn spawn_receiver() -> () {}
+}
+
+impl Persister<Receiver> for PayjoinSessionManager {
+    type Token = ReceiverToken;
+    type Error = SessionError; // hack
+    fn save(&mut self, value: Receiver) -> std::result::Result<ReceiverToken, Self::Error> {
+        let token = value.key();
+        let payjoin_session = PayjoinSession {
+            id: token.to_string(),
+            json: serde_json::to_string(&value).expect("should be valid json"),
+            swapId: self.swap_id.clone(),
+        };
+        self.db.insert(&payjoin_session).unwrap();
+        Ok(token)
+    }
+    fn load(&self, key: ReceiverToken) -> std::result::Result<Receiver, Self::Error> {
+        let payjoin_session = self.db.get_by_id(&key.to_string()).unwrap();
+        let receiver = serde_json::from_str(&payjoin_session.json).unwrap();
+        Ok(receiver)
     }
 }
 

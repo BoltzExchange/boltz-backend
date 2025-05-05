@@ -268,7 +268,7 @@ async fn main() {
     };
 
     let payjoin_manager = Arc::new(
-        PayjoinManager::new(currencies)
+        PayjoinManager::new(currencies, db_pool.clone())
             .await
             .expect("Failed to initialize PayjoinManager"),
     );

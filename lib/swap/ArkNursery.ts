@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
+import { getChainCurrency, splitPairId } from '../Utils';
 import ArkClient, { type VHtlc } from '../chain/ArkClient';
 import {
   CurrencyType,
@@ -7,21 +8,24 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
+import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
 
 class ArkNursery extends TypedEventEmitter<{
-  'ark.vhtlc': {
+  'vhtlc.found': {
     swap: Swap;
     lockupTransactionId: string;
   };
-  'ark.vhtlc.failed': {
+  'vhtlc.failed': {
     swap: Swap;
     reason: string;
   };
+  'vhtlc.expired': ReverseSwap;
 }> {
   constructor(
     private readonly logger: Logger,
@@ -34,13 +38,17 @@ class ArkNursery extends TypedEventEmitter<{
     for (const ark of currencies.filter(
       (c) => c.type === CurrencyType.Ark && c.arkNode !== undefined,
     )) {
-      this.bindEvent(ark.arkNode!);
+      this.bindEvents(ark.arkNode!);
     }
   };
 
-  private bindEvent = (arkNode: ArkClient) => {
-    arkNode.on('ark.vhtlc.found', async (vHtlc) => {
+  private bindEvents = (arkNode: ArkClient) => {
+    arkNode.on('vhtlc.found', async (vHtlc) => {
       await this.handleVhtlc(vHtlc);
+    });
+
+    arkNode.on('block', async (blockNumber) => {
+      await this.checkExpiredReverseSwaps(arkNode, blockNumber);
     });
   };
 
@@ -70,7 +78,7 @@ class ArkNursery extends TypedEventEmitter<{
     );
 
     if (swap.expectedAmount! < vHtlc.amount) {
-      this.emit('ark.vhtlc.failed', {
+      this.emit('vhtlc.failed', {
         swap,
         reason: Errors.INSUFFICIENT_AMOUNT(vHtlc.amount, swap.expectedAmount!)
           .message,
@@ -85,7 +93,7 @@ class ArkNursery extends TypedEventEmitter<{
         vHtlc.amount,
       )
     ) {
-      this.emit('ark.vhtlc.failed', {
+      this.emit('vhtlc.failed', {
         swap,
         reason: Errors.OVERPAID_AMOUNT(vHtlc.amount, swap.expectedAmount!)
           .message,
@@ -93,7 +101,7 @@ class ArkNursery extends TypedEventEmitter<{
       return;
     }
 
-    this.emit('ark.vhtlc', {
+    this.emit('vhtlc.found', {
       swap: await SwapRepository.setLockupTransaction(
         swap,
         vHtlc.txId,
@@ -104,6 +112,23 @@ class ArkNursery extends TypedEventEmitter<{
       ),
       lockupTransactionId: vHtlc.txId,
     });
+  };
+
+  private checkExpiredReverseSwaps = async (
+    node: ArkClient,
+    blockNumber: number,
+  ) => {
+    const expirable =
+      await ReverseSwapRepository.getReverseSwapsExpirable(blockNumber);
+
+    for (const swap of expirable) {
+      const { base, quote } = splitPairId(swap.pair);
+      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
+
+      if (chainCurrency === node.symbol) {
+        this.emit('vhtlc.expired', swap);
+      }
+    }
   };
 }
 

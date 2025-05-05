@@ -48,7 +48,8 @@ type SubscribedAddress = {
 
 class ArkClient extends BaseClient<
   BaseClientEvents & {
-    'ark.vhtlc.found': VHtlc;
+    block: number;
+    'vhtlc.found': VHtlc;
   }
 > {
   public static readonly symbol = 'ARK';
@@ -72,7 +73,12 @@ class ArkClient extends BaseClient<
       return true;
     }
 
+    if (this.chainClient !== undefined) {
+      this.chainClient.removeListener('block', this.listenBlocks);
+    }
+
     this.chainClient = chainClient;
+    this.chainClient.on('block', this.listenBlocks);
 
     this.client = new ServiceClient(
       `${this.config.host}:${this.config.port}`,
@@ -268,6 +274,24 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
+  public refundVHtlc = async (preimageHash: Buffer, label: string) => {
+    const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
+    req.setPreimageHash(getHexString(crypto.ripemd160(preimageHash)));
+
+    const res = await this.unaryCall<
+      arkrpc.RefundVHTLCWithoutReceiverRequest,
+      arkrpc.RefundVHTLCWithoutReceiverResponse.AsObject
+    >('refundVHTLCWithoutReceiver', req);
+
+    await TransactionLabelRepository.addLabel(
+      res.redeemTxid,
+      ArkClient.symbol,
+      label,
+    );
+
+    return res.redeemTxid;
+  };
+
   public rescan = async () => {
     const toRescan = Array.from(this.subscribedAddresses);
     this.subscribedAddresses.clear();
@@ -293,7 +317,7 @@ class ArkClient extends BaseClient<
         }
 
         const vhtlc = res.vhtlcsList[0];
-        this.emit('ark.vhtlc.found', {
+        this.emit('vhtlc.found', {
           address,
           txId: vhtlc.outpoint!.txid,
           vout: vhtlc.outpoint!.vout,
@@ -330,7 +354,7 @@ class ArkClient extends BaseClient<
       }
 
       const vhtlc = notification.newVtxosList[0];
-      this.emit('ark.vhtlc.found', {
+      this.emit('vhtlc.found', {
         address: notification.address,
         txId: vhtlc.outpoint!.txid,
         vout: vhtlc.outpoint!.vout,
@@ -345,6 +369,10 @@ class ArkClient extends BaseClient<
     stream.on('end', () => {
       this.logger.warn('Stream of vHTLCs ended');
     });
+  };
+
+  private listenBlocks = (blockNumber: number) => {
+    this.emit('block', blockNumber);
   };
 
   private unaryCall = <T, U>(

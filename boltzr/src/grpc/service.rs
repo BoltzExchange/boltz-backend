@@ -19,11 +19,13 @@ use crate::grpc::service::boltzr::{
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
+use crate::payjoin::PayjoinManager;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
 use alloy::primitives::{Address, FixedBytes};
+use boltzr::{GetPayjoinUriRequest, GetPayjoinUriResponse};
 use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
 use lightning::offers::offer::Amount;
@@ -51,6 +53,7 @@ pub struct BoltzService<M, T> {
 
     service: Arc<Service>,
     manager: Arc<M>,
+    payjoin_manager: Arc<PayjoinManager>,
 
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_status_caller: Arc<StatusCaller>,
@@ -68,6 +71,7 @@ impl<M, T> BoltzService<M, T> {
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
+        payjoin_manager: Arc<PayjoinManager>,
         status_fetcher: StatusFetcher,
         swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
@@ -78,6 +82,7 @@ impl<M, T> BoltzService<M, T> {
         BoltzService {
             manager,
             service,
+            payjoin_manager,
             refund_signer,
             status_fetcher,
             web_hook_status_caller,
@@ -699,6 +704,26 @@ where
         Ok(Response::new(ScanMempoolResponse {
             transactions: transaction_serialized,
         }))
+    }
+
+    #[instrument(name = "grpc::get_payjoin_uri", skip_all)]
+    async fn get_payjoin_uri(
+        &self,
+        request: Request<GetPayjoinUriRequest>,
+    ) -> Result<Response<GetPayjoinUriResponse>, Status> {
+        extract_parent_context(&request);
+
+        let params = request.into_inner();
+        let res = match self
+            .payjoin_manager
+            .receive_payjoin_adapter(params.address, params.satoshis, params.label)
+            .await
+        {
+            Ok(uri) => uri,
+            Err(err) => return Err(Status::new(Code::Internal, err.to_string())),
+        };
+
+        Ok(Response::new(GetPayjoinUriResponse { uri: res }))
     }
 }
 

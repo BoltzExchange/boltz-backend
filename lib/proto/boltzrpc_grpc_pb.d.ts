@@ -29,6 +29,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getPendingEvmTransactions: IBoltzService_IGetPendingEvmTransactions;
     getReferrals: IBoltzService_IGetReferrals;
     setReferral: IBoltzService_ISetReferral;
+    invoiceClnThreshold: IBoltzService_IInvoiceClnThreshold;
     calculateTransactionFee: IBoltzService_ICalculateTransactionFee;
     swapCreationHook: IBoltzService_ISwapCreationHook;
     transactionHook: IBoltzService_ITransactionHook;
@@ -226,6 +227,15 @@ interface IBoltzService_ISetReferral extends grpc.MethodDefinition<boltzrpc_pb.S
     responseSerialize: grpc.serialize<boltzrpc_pb.SetReferralResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SetReferralResponse>;
 }
+interface IBoltzService_IInvoiceClnThreshold extends grpc.MethodDefinition<boltzrpc_pb.InvoiceClnThresholdRequest, boltzrpc_pb.InvoiceClnThresholdResponse> {
+    path: "/boltzrpc.Boltz/InvoiceClnThreshold";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzrpc_pb.InvoiceClnThresholdRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.InvoiceClnThresholdRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.InvoiceClnThresholdResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.InvoiceClnThresholdResponse>;
+}
 interface IBoltzService_ICalculateTransactionFee extends grpc.MethodDefinition<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse> {
     path: "/boltzrpc.Boltz/CalculateTransactionFee";
     requestStream: false;
@@ -305,6 +315,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     getPendingEvmTransactions: grpc.handleUnaryCall<boltzrpc_pb.GetPendingEvmTransactionsRequest, boltzrpc_pb.GetPendingEvmTransactionsResponse>;
     getReferrals: grpc.handleUnaryCall<boltzrpc_pb.GetReferralsRequest, boltzrpc_pb.GetReferralsResponse>;
     setReferral: grpc.handleUnaryCall<boltzrpc_pb.SetReferralRequest, boltzrpc_pb.SetReferralResponse>;
+    invoiceClnThreshold: grpc.handleUnaryCall<boltzrpc_pb.InvoiceClnThresholdRequest, boltzrpc_pb.InvoiceClnThresholdResponse>;
     calculateTransactionFee: grpc.handleUnaryCall<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse>;
     swapCreationHook: grpc.handleBidiStreamingCall<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     transactionHook: grpc.handleBidiStreamingCall<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
@@ -377,6 +388,9 @@ export interface IBoltzClient {
     setReferral(request: boltzrpc_pb.SetReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
     setReferral(request: boltzrpc_pb.SetReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
     setReferral(request: boltzrpc_pb.SetReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
+    invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
+    invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
+    invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
@@ -462,6 +476,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public setReferral(request: boltzrpc_pb.SetReferralRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
     public setReferral(request: boltzrpc_pb.SetReferralRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
     public setReferral(request: boltzrpc_pb.SetReferralRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.SetReferralResponse) => void): grpc.ClientUnaryCall;
+    public invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
+    public invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
+    public invoiceClnThreshold(request: boltzrpc_pb.InvoiceClnThresholdRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.InvoiceClnThresholdResponse) => void): grpc.ClientUnaryCall;
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;

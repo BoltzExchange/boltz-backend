@@ -7,7 +7,7 @@ import {
   removeHexPrefix,
 } from '../../../lib/Utils';
 import type Api from '../../../lib/api/Api';
-import { CurrencyType } from '../../../lib/consts/Enums';
+import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import type PendingEthereumTransaction from '../../../lib/db/models/PendingEthereumTransaction';
 import PendingEthereumTransactionRepository from '../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
@@ -15,6 +15,7 @@ import TransactionLabelRepository from '../../../lib/db/repositories/Transaction
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
+import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
 import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
@@ -1046,6 +1047,48 @@ describe('GrpcService', () => {
           );
         }),
       ).rejects.toEqual({ message: 'could not find referral with id: ref' });
+    });
+  });
+
+  describe('invoicePaymentClnThreshold', () => {
+    test('should get invoice payment cln', async () => {
+      const mock = jest.fn();
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      grpcService['service'].nodeSwitch = {
+        updateClnThresholds: mock,
+      } as Partial<NodeSwitch>;
+
+      await new Promise<boltzrpc.InvoiceClnThresholdResponse>(
+        (resolve, reject) => {
+          grpcService.invoiceClnThreshold(
+            createCall({
+              thresholdsList: [
+                {
+                  type: boltzrpc.SwapType.SUBMARINE,
+                  threshold: 123,
+                },
+              ],
+            }),
+            (error, response) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(response!);
+              }
+            },
+          );
+        },
+      );
+
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(mock).toHaveBeenCalledWith([
+        {
+          type: SwapType.Submarine,
+          threshold: 123,
+        },
+      ]);
     });
   });
 

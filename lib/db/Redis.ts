@@ -27,9 +27,9 @@ class Redis {
     this.logger.info('Connected to Redis');
   };
 
-  public disconnect = async () => {
+  public disconnect = () => {
     this.client.removeAllListeners();
-    await this.client.disconnect();
+    this.client.destroy();
   };
 
   public hashLength = async (key: string): Promise<number> => {
@@ -62,7 +62,7 @@ class Redis {
     const client = this.client;
 
     return (async function* () {
-      let cursor = 0;
+      let cursor = '0';
       do {
         const result = await client.hScan(key, cursor, {
           MATCH: pattern,
@@ -70,13 +70,13 @@ class Redis {
         });
         cursor = result.cursor;
 
-        if (result.tuples.length > 0) {
-          yield result.tuples.map((tuple) => ({
+        if (result.entries.length > 0) {
+          yield result.entries.map((tuple) => ({
             field: tuple.field,
             value: JSON.parse(tuple.value),
           }));
         }
-      } while (cursor !== 0);
+      } while (cursor !== '0');
     })();
   };
 }

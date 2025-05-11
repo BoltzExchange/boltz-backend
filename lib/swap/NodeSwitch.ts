@@ -65,14 +65,7 @@ class NodeSwitch {
       };
     }
 
-    this.logger.info(
-      `CLN invoice threshold: ${stringify({
-        [swapTypeToPrettyString(SwapType.Submarine)]:
-          this.clnAmountThreshold[SwapType.Submarine],
-        [swapTypeToPrettyString(SwapType.ReverseSubmarine)]:
-          this.clnAmountThreshold[SwapType.ReverseSubmarine],
-      })}`,
-    );
+    this.logClnThresholds();
 
     const swapNode =
       cfg?.swapNode !== undefined
@@ -126,6 +119,20 @@ class NodeSwitch {
         return client !== undefined;
       },
     );
+  };
+
+  public updateClnThresholds = (
+    thresholds: { type: SwapType; threshold: number }[],
+  ) => {
+    if (thresholds.some((t) => t.type === SwapType.Chain)) {
+      throw new Error('cannot be set for chain swaps');
+    }
+
+    for (const threshold of thresholds) {
+      this.clnAmountThreshold[threshold.type] = threshold.threshold;
+    }
+
+    this.logClnThresholds();
   };
 
   public getSwapNode = async (
@@ -298,6 +305,17 @@ class NodeSwitch {
     nodeType: NodeType,
   ): LightningClient | undefined => {
     return nodeType === NodeType.LND ? currency.lndClient : currency.clnClient;
+  };
+
+  private logClnThresholds = () => {
+    this.logger.info(
+      `CLN invoice thresholds: ${stringify({
+        [swapTypeToPrettyString(SwapType.Submarine)]:
+          this.clnAmountThreshold[SwapType.Submarine],
+        [swapTypeToPrettyString(SwapType.ReverseSubmarine)]:
+          this.clnAmountThreshold[SwapType.ReverseSubmarine],
+      })}`,
+    );
   };
 }
 

@@ -52,6 +52,7 @@ service Boltz {
   rpc GetReferrals (GetReferralsRequest) returns (GetReferralsResponse);
 
   rpc SetReferral (SetReferralRequest) returns (SetReferralResponse);
+  rpc InvoiceClnThreshold (InvoiceClnThresholdRequest) returns (InvoiceClnThresholdResponse);
 
   rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
 
@@ -299,6 +300,18 @@ message SetReferralRequest {
 }
 
 message SetReferralResponse {}
+
+message InvoiceClnThresholdRequest {
+  message Threshold {
+    SwapType type = 1;
+    // In satoshis
+    uint64 threshold = 2;
+  }
+
+  repeated Threshold thresholds = 1;
+}
+
+message InvoiceClnThresholdResponse {}
 
 message DevHeapDumpRequest {
   optional string path = 1;

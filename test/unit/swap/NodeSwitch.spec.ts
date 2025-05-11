@@ -329,6 +329,38 @@ describe('NodeSwitch', () => {
     expect(NodeSwitch.hasClient(currency, type)).toEqual(has);
   });
 
+  describe('updateClnThresholds', () => {
+    test('should update CLN thresholds', () => {
+      const ns = new NodeSwitch(Logger.disabledLogger, {});
+
+      const threshold = 123;
+      ns.updateClnThresholds([
+        {
+          type: SwapType.Submarine,
+          threshold,
+        },
+      ]);
+
+      expect(ns['clnAmountThreshold']).toEqual({
+        [SwapType.Submarine]: threshold,
+        [SwapType.ReverseSubmarine]: 1_000_000,
+      });
+    });
+
+    test('should throw if swap type is invalid', () => {
+      const ns = new NodeSwitch(Logger.disabledLogger, {});
+
+      expect(() =>
+        ns.updateClnThresholds([
+          {
+            type: SwapType.Chain,
+            threshold: 123,
+          },
+        ]),
+      ).toThrow('cannot be set for chain swaps');
+    });
+  });
+
   describe('getPreferredNode', () => {
     test('should get preferred node for payee', () => {
       const payee = randomBytes(32);

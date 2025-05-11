@@ -176,6 +176,19 @@ export const swapTypeToGrpcSwapType = (type: SwapType): boltzrpc.SwapType => {
   }
 };
 
+export const swapTypeFromGrpcSwapType = (type: boltzrpc.SwapType): SwapType => {
+  switch (type) {
+    case boltzrpc.SwapType.SUBMARINE:
+      return SwapType.Submarine;
+    case boltzrpc.SwapType.REVERSE:
+      return SwapType.ReverseSubmarine;
+    case boltzrpc.SwapType.CHAIN:
+      return SwapType.Chain;
+    default:
+      throw `invalid swap type: ${type}`;
+  }
+};
+
 export enum BaseFeeType {
   NormalClaim,
 

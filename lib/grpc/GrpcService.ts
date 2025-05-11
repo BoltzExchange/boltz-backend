@@ -14,7 +14,11 @@ import {
   stringify,
 } from '../Utils';
 import type Api from '../api/Api';
-import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
+import {
+  CurrencyType,
+  swapTypeFromGrpcSwapType,
+  swapTypeToPrettyString,
+} from '../consts/Enums';
 import type { ReferralConfig } from '../db/models/Referral';
 import type Referral from '../db/models/Referral';
 import PendingEthereumTransactionRepository from '../db/repositories/PendingEthereumTransactionRepository';
@@ -587,6 +591,22 @@ class GrpcService {
       await ReferralRepository.setConfig(referral, parsedConfig);
 
       return new boltzrpc.SetReferralResponse();
+    });
+  };
+
+  public invoiceClnThreshold: handleUnaryCall<
+    boltzrpc.InvoiceClnThresholdRequest,
+    boltzrpc.InvoiceClnThresholdResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { thresholdsList } = call.request.toObject();
+      this.service.nodeSwitch.updateClnThresholds(
+        thresholdsList.map((t) => ({
+          threshold: t.threshold,
+          type: swapTypeFromGrpcSwapType(t.type),
+        })),
+      );
+      return new boltzrpc.InvoiceClnThresholdResponse();
     });
   };
 

@@ -105,7 +105,7 @@ class Boltz {
     registerExitHandler(async () => {
       await this.grpcServer.close();
       await this.db.close();
-      await this.redis?.disconnect();
+      this.redis?.disconnect();
 
       await Profiling.stop();
       await Tracing.stop();

@@ -8,7 +8,7 @@ describe('Redis', () => {
 
   afterAll(async () => {
     await redis['client'].flushDb();
-    await redis.disconnect();
+    redis.disconnect();
   });
 
   describe('hash', () => {

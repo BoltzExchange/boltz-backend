@@ -166,7 +166,7 @@ class Service {
     notifications: NotificationClient | undefined,
     config: ConfigType,
     public walletManager: WalletManager,
-    private nodeSwitch: NodeSwitch,
+    public readonly nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
     public readonly sidecar: Sidecar,
   ) {

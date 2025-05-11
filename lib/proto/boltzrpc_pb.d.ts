@@ -1221,6 +1221,70 @@ export namespace SetReferralResponse {
     }
 }
 
+export class InvoiceClnThresholdRequest extends jspb.Message { 
+    clearThresholdsList(): void;
+    getThresholdsList(): Array<InvoiceClnThresholdRequest.Threshold>;
+    setThresholdsList(value: Array<InvoiceClnThresholdRequest.Threshold>): InvoiceClnThresholdRequest;
+    addThresholds(value?: InvoiceClnThresholdRequest.Threshold, index?: number): InvoiceClnThresholdRequest.Threshold;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoiceClnThresholdRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoiceClnThresholdRequest): InvoiceClnThresholdRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoiceClnThresholdRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoiceClnThresholdRequest;
+    static deserializeBinaryFromReader(message: InvoiceClnThresholdRequest, reader: jspb.BinaryReader): InvoiceClnThresholdRequest;
+}
+
+export namespace InvoiceClnThresholdRequest {
+    export type AsObject = {
+        thresholdsList: Array<InvoiceClnThresholdRequest.Threshold.AsObject>,
+    }
+
+
+    export class Threshold extends jspb.Message { 
+        getType(): SwapType;
+        setType(value: SwapType): Threshold;
+        getThreshold(): number;
+        setThreshold(value: number): Threshold;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Threshold.AsObject;
+        static toObject(includeInstance: boolean, msg: Threshold): Threshold.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Threshold, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Threshold;
+        static deserializeBinaryFromReader(message: Threshold, reader: jspb.BinaryReader): Threshold;
+    }
+
+    export namespace Threshold {
+        export type AsObject = {
+            type: SwapType,
+            threshold: number,
+        }
+    }
+
+}
+
+export class InvoiceClnThresholdResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoiceClnThresholdResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoiceClnThresholdResponse): InvoiceClnThresholdResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoiceClnThresholdResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoiceClnThresholdResponse;
+    static deserializeBinaryFromReader(message: InvoiceClnThresholdResponse, reader: jspb.BinaryReader): InvoiceClnThresholdResponse;
+}
+
+export namespace InvoiceClnThresholdResponse {
+    export type AsObject = {
+    }
+}
+
 export class DevHeapDumpRequest extends jspb.Message { 
 
     hasPath(): boolean;

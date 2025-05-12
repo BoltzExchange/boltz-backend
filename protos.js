@@ -15,31 +15,36 @@ const protocPath = path.join(
 const protocGenTsPath = path.join(__dirname, 'node_modules/.bin/protoc-gen-ts');
 
 const protoPaths = [
-  [`--proto_path ${protoDir} ${protoDir}/*.proto`, libDir],
+  [
+    `--proto_path ${protoDir} ${protoDir}/*.proto`,
+    libDir,
+    ['-I./boltzr/protos'],
+  ],
+  [`--proto_path ${protoDirSidecar} ${protoDirSidecar}/*.proto`, libDir],
   [`--proto_path ${protoDir} ${protoDir}/**/*.proto`, libDir],
   [
     `--proto_path ${protoDirHold} ${protoDirHold}/*.proto`,
     path.join(libDir, 'hold'),
   ],
-  [
-    `--proto_path ${protoDirSidecar} ${protoDirSidecar}/*.proto`,
-    path.join(libDir, 'sidecar'),
-  ],
 ];
 
-for (const [path, lib] of protoPaths) {
+for (const [path, lib, imports] of protoPaths) {
   try {
     childProcess.execSync(
       `${protocPath} ${[
         `--grpc_out="grpc_js:${lib}"`,
         `--js_out="import_style=commonjs,binary:${lib}"`,
-      ].join(' ')} ${path}`,
+      ]
+        .concat(imports || [])
+        .join(' ')} ${path}`,
     );
     childProcess.execSync(
       `${protocPath} ${[
         `--plugin="protoc-gen-ts=${protocGenTsPath}"`,
         `--ts_out="grpc_js:${lib}"`,
-      ].join(' ')} ${path}`,
+      ]
+        .concat(imports || [])
+        .join(' ')} ${path}`,
     );
   } catch (e) {
     console.error(`Could not compile protobuf: ${path}`);

@@ -45,7 +45,7 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
-import { Action } from './hooks/Hook';
+import { Action } from './hooks/CreationHook';
 import type TransactionHook from './hooks/TransactionHook';
 
 class UtxoNursery extends TypedEventEmitter<{

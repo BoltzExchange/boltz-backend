@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "boltzr.proto";
+
 package boltzrpc;
 
 service Boltz {
@@ -58,6 +60,7 @@ service Boltz {
 
   rpc SwapCreationHook (stream SwapCreationResponse) returns (stream SwapCreation);
   rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
+  rpc InvoicePaymentHook (stream InvoicePaymentHookResponse) returns (stream InvoicePaymentHookRequest);
 
   rpc SetLogLevel (SetLogLevelRequest) returns (SetLogLevelResponse);
 
@@ -421,6 +424,22 @@ message TransactionHookRequest {
 
   // Set for UTXO based chains
   optional uint64 vout = 7;
+}
+
+enum Node {
+  LND = 0;
+  CLN = 1;
+}
+
+message InvoicePaymentHookResponse {
+  string id = 1;
+  Node action = 2;
+}
+
+message InvoicePaymentHookRequest {
+  string id = 1;
+  string invoice = 2;
+  boltzr.DecodeInvoiceOrOfferResponse decoded = 3;
 }
 
 message SetLogLevelRequest {

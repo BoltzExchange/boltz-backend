@@ -5,6 +5,7 @@
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
+import * as boltzr_pb from "./boltzr_pb";
 
 export class StopRequest extends jspb.Message { 
 
@@ -1715,6 +1716,58 @@ export namespace TransactionHookRequest {
     }
 }
 
+export class InvoicePaymentHookResponse extends jspb.Message { 
+    getId(): string;
+    setId(value: string): InvoicePaymentHookResponse;
+    getAction(): Node;
+    setAction(value: Node): InvoicePaymentHookResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoicePaymentHookResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoicePaymentHookResponse): InvoicePaymentHookResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoicePaymentHookResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoicePaymentHookResponse;
+    static deserializeBinaryFromReader(message: InvoicePaymentHookResponse, reader: jspb.BinaryReader): InvoicePaymentHookResponse;
+}
+
+export namespace InvoicePaymentHookResponse {
+    export type AsObject = {
+        id: string,
+        action: Node,
+    }
+}
+
+export class InvoicePaymentHookRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): InvoicePaymentHookRequest;
+    getInvoice(): string;
+    setInvoice(value: string): InvoicePaymentHookRequest;
+
+    hasDecoded(): boolean;
+    clearDecoded(): void;
+    getDecoded(): boltzr_pb.DecodeInvoiceOrOfferResponse | undefined;
+    setDecoded(value?: boltzr_pb.DecodeInvoiceOrOfferResponse): InvoicePaymentHookRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoicePaymentHookRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoicePaymentHookRequest): InvoicePaymentHookRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoicePaymentHookRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoicePaymentHookRequest;
+    static deserializeBinaryFromReader(message: InvoicePaymentHookRequest, reader: jspb.BinaryReader): InvoicePaymentHookRequest;
+}
+
+export namespace InvoicePaymentHookRequest {
+    export type AsObject = {
+        id: string,
+        invoice: string,
+        decoded?: boltzr_pb.DecodeInvoiceOrOfferResponse.AsObject,
+    }
+}
+
 export class SetLogLevelRequest extends jspb.Message { 
     getLevel(): LogLevel;
     setLevel(value: LogLevel): SetLogLevelRequest;
@@ -1878,4 +1931,9 @@ export enum Action {
     ACCEPT = 0,
     REJECT = 1,
     HOLD = 2,
+}
+
+export enum Node {
+    LND = 0,
+    CLN = 1,
 }

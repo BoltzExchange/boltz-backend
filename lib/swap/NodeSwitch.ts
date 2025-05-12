@@ -10,6 +10,7 @@ import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import { InvoiceType } from '../sidecar/DecodedInvoice';
 import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
+import InvoicePaymentHook from './hooks/InvoicePaymentHook';
 
 type NodeAmountThreshold = {
   submarine: number;
@@ -38,6 +39,8 @@ class NodeSwitch {
 
   private readonly swapNode?: NodeType;
   private readonly preferredForNode = new Map<string, NodeType>();
+
+  private readonly paymentHook: InvoicePaymentHook;
 
   constructor(
     private readonly logger: Logger,
@@ -98,6 +101,8 @@ class NodeSwitch {
 
       this.preferredForNode.set(node.toLowerCase(), nt);
     }
+
+    this.paymentHook = new InvoicePaymentHook(this.logger);
   }
 
   public static getReverseSwapNode = (
@@ -195,6 +200,26 @@ class NodeSwitch {
     }
 
     return client;
+  };
+
+  public invoicePaymentHook = async (
+    currency: Currency,
+    swap: { id: string; invoice: string },
+    decoded: DecodedInvoice,
+  ): Promise<LightningClient | undefined> => {
+    const nodeType = await this.paymentHook.hook(
+      swap.id,
+      swap.invoice,
+      decoded,
+    );
+    if (nodeType !== undefined) {
+      const node = NodeSwitch.switchOnNodeType(currency, nodeType);
+      if (node !== undefined) {
+        return node;
+      }
+    }
+
+    return undefined;
   };
 
   public getNodeForReverseSwap = (

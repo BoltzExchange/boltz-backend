@@ -27,7 +27,7 @@ import type LockupTransactionTracker from '../../../lib/rates/LockupTransactionT
 import Errors from '../../../lib/swap/Errors';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
-import { Action } from '../../../lib/swap/hooks/Hook';
+import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 

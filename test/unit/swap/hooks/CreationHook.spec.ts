@@ -2,8 +2,7 @@ import { status } from '@grpc/grpc-js';
 import Logger from '../../../../lib/Logger';
 import { SwapType } from '../../../../lib/consts/Enums';
 import * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
-import CreationHook from '../../../../lib/swap/hooks/CreationHook';
-import { Action } from '../../../../lib/swap/hooks/Hook';
+import CreationHook, { Action } from '../../../../lib/swap/hooks/CreationHook';
 
 describe('CreationHook', () => {
   let hook: CreationHook;

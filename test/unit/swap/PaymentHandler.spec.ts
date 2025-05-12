@@ -21,6 +21,7 @@ jest.mock('../../../lib/swap/NodeSwitch', () => {
       getSwapNode: jest
         .fn()
         .mockImplementation((currency) => currency.lndClient),
+      invoicePaymentHook: jest.fn(),
     };
   });
 });
@@ -248,4 +249,52 @@ describe('PaymentHandler', () => {
     expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(2);
     expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
   });
+
+  test.each`
+    hookNodeReturn          | getSwapNodeReturn       | expectedNode            | getSwapNodeCalled
+    ${{ node: 'hookNode' }} | ${{ node: 'swapNode' }} | ${{ node: 'hookNode' }} | ${false}
+    ${undefined}            | ${{ node: 'swapNode' }} | ${{ node: 'swapNode' }} | ${true}
+  `(
+    'should get preferred node (hook: $hookNodeReturn, swap: $getSwapNodeReturn)',
+    async ({
+      hookNodeReturn,
+      getSwapNodeReturn,
+      expectedNode,
+      getSwapNodeCalled,
+    }) => {
+      const decodedInvoice = { type: InvoiceType.Bolt11 };
+      sidecar.decodeInvoiceOrOffer = jest
+        .fn()
+        .mockResolvedValue(decodedInvoice);
+      (nodeSwitch.invoicePaymentHook as jest.Mock).mockResolvedValue(
+        hookNodeReturn,
+      );
+      (nodeSwitch.getSwapNode as jest.Mock).mockResolvedValue(
+        getSwapNodeReturn,
+      );
+
+      const result = await handler['getPreferredNode'](btcCurrency, swap);
+
+      expect(result).toEqual(expectedNode);
+      expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledTimes(1);
+      expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith(swap.invoice);
+      expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledTimes(1);
+      expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledWith(
+        btcCurrency,
+        { id: swap.id, invoice: swap.invoice },
+        decodedInvoice,
+      );
+
+      if (getSwapNodeCalled) {
+        expect(nodeSwitch.getSwapNode).toHaveBeenCalledTimes(1);
+        expect(nodeSwitch.getSwapNode).toHaveBeenCalledWith(
+          btcCurrency,
+          decodedInvoice,
+          swap,
+        );
+      } else {
+        expect(nodeSwitch.getSwapNode).not.toHaveBeenCalled();
+      }
+    },
+  );
 });

@@ -1,8 +1,8 @@
 import { getHexString } from '../Utils';
 import type { HopHint } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
-import type { DecodeInvoiceOrOfferResponse } from '../proto/sidecar/boltzr_pb';
-import { Feature } from '../proto/sidecar/boltzr_pb';
+import type { DecodeInvoiceOrOfferResponse } from '../proto/boltzr_pb';
+import { Feature } from '../proto/boltzr_pb';
 
 enum InvoiceType {
   Bolt11,
@@ -11,12 +11,16 @@ enum InvoiceType {
 }
 
 class DecodedInvoice {
-  constructor(private readonly res: DecodeInvoiceOrOfferResponse.AsObject) {}
+  private readonly decoded: DecodeInvoiceOrOfferResponse.AsObject;
+
+  constructor(public readonly rawRes: DecodeInvoiceOrOfferResponse) {
+    this.decoded = rawRes.toObject();
+  }
 
   public get type(): InvoiceType {
-    if (this.res.bolt11 !== undefined) {
+    if (this.decoded.bolt11 !== undefined) {
       return InvoiceType.Bolt11;
-    } else if (this.res.offer !== undefined) {
+    } else if (this.decoded.offer !== undefined) {
       return InvoiceType.Offer;
     } else {
       return InvoiceType.Bolt12Invoice;
@@ -36,9 +40,9 @@ class DecodedInvoice {
 
   public get payee(): Buffer | undefined {
     const data =
-      this.res.bolt11?.payeePubkey ||
-      this.res.bolt12Invoice?.signingPubkey ||
-      this.res.offer?.signingPubkey;
+      this.decoded.bolt11?.payeePubkey ||
+      this.decoded.bolt12Invoice?.signingPubkey ||
+      this.decoded.offer?.signingPubkey;
 
     if (data === undefined) {
       return undefined;
@@ -48,16 +52,17 @@ class DecodedInvoice {
   }
 
   public get isExpired(): boolean {
-    return this.res.isExpired;
+    return this.decoded.isExpired;
   }
 
   public get amountMsat(): number {
-    return this.res.bolt11?.msat || this.res.bolt12Invoice?.msat || 0;
+    return this.decoded.bolt11?.msat || this.decoded.bolt12Invoice?.msat || 0;
   }
 
   public get paymentHash(): Buffer | undefined {
     const data =
-      this.res.bolt11?.paymentHash || this.res.bolt12Invoice?.paymentHash;
+      this.decoded.bolt11?.paymentHash ||
+      this.decoded.bolt12Invoice?.paymentHash;
 
     if (data === undefined) {
       return undefined;
@@ -67,18 +72,20 @@ class DecodedInvoice {
   }
 
   public get expiryTimestamp(): number {
-    if (this.res.bolt11) {
-      return this.res.bolt11.createdAt + this.res.bolt11.expiry;
-    } else if (this.res.bolt12Invoice) {
-      return this.res.bolt12Invoice.createdAt + this.res.bolt12Invoice.expiry;
+    if (this.decoded.bolt11) {
+      return this.decoded.bolt11.createdAt + this.decoded.bolt11.expiry;
+    } else if (this.decoded.bolt12Invoice) {
+      return (
+        this.decoded.bolt12Invoice.createdAt + this.decoded.bolt12Invoice.expiry
+      );
     }
 
     return 0;
   }
 
   public get routingHints(): HopHint[][] {
-    if (this.res.bolt11) {
-      return this.res.bolt11.hintsList.map((route) =>
+    if (this.decoded.bolt11) {
+      return this.decoded.bolt11.hintsList.map((route) =>
         route.hopsList.map((hop) => ({
           feeBaseMsat: hop.baseFeeMsat,
           chanId: hop.channelId.toString(),
@@ -96,8 +103,8 @@ class DecodedInvoice {
     nodeId: Buffer | undefined;
     shortChannelId: string | undefined;
   }[] {
-    if (this.res.bolt12Invoice) {
-      return this.res.bolt12Invoice.pathsList.map((path) => ({
+    if (this.decoded.bolt12Invoice) {
+      return this.decoded.bolt12Invoice.pathsList.map((path) => ({
         nodeId:
           path.nodeId !== undefined
             ? Buffer.from(path.nodeId as string, 'base64')
@@ -113,8 +120,8 @@ class DecodedInvoice {
   public get features(): Set<InvoiceFeature> {
     return new Set(
       (
-        this.res.bolt11?.featuresList ||
-        this.res.bolt12Invoice?.featuresList ||
+        this.decoded.bolt11?.featuresList ||
+        this.decoded.bolt12Invoice?.featuresList ||
         []
       ).map((feature) => {
         switch (feature) {
@@ -127,8 +134,8 @@ class DecodedInvoice {
 
   public get minFinalCltv(): number {
     return (
-      this.res.bolt11?.minFinalCltvExpiry ||
-      this.res.bolt12Invoice?.pathsList.reduce(
+      this.decoded.bolt11?.minFinalCltvExpiry ||
+      this.decoded.bolt12Invoice?.pathsList.reduce(
         (max, current) =>
           current.cltvExpiryDelta > max ? current.cltvExpiryDelta : max,
         0,
@@ -139,14 +146,14 @@ class DecodedInvoice {
 
   public get description(): string | undefined {
     return (
-      this.res.bolt11?.memo ||
-      this.res.offer?.description ||
-      this.res.bolt12Invoice?.description
+      this.decoded.bolt11?.memo ||
+      this.decoded.offer?.description ||
+      this.decoded.bolt12Invoice?.description
     );
   }
 
   public get descriptionHash() {
-    const data = this.res.bolt11?.descriptionHash;
+    const data = this.decoded.bolt11?.descriptionHash;
     if (data === undefined) {
       return undefined;
     }

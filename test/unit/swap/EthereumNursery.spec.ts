@@ -22,7 +22,7 @@ import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepos
 import Errors from '../../../lib/swap/Errors';
 import EthereumNursery from '../../../lib/swap/EthereumNursery';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
-import { Action } from '../../../lib/swap/hooks/Hook';
+import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import type Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';

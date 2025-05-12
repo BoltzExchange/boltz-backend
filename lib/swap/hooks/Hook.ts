@@ -3,28 +3,26 @@ import { status } from '@grpc/grpc-js';
 import type Logger from '../../Logger';
 import { formatError } from '../../Utils';
 import type NotificationClient from '../../notifications/NotificationClient';
-import * as boltzrpc from '../../proto/boltzrpc_pb';
 
-interface HookResponse {
+interface Action {
+  toString(): string;
+}
+
+interface HookResponse<T> {
   getId(): string;
-  getAction(): boltzrpc.Action;
+  getAction(): T;
 }
 
-const enum Action {
-  Accept,
-  Reject,
-  Hold,
-}
-
-class Hook<Req, Res extends HookResponse> {
-  private readonly pendingHooks = new Map<string, (action: Action) => void>();
+abstract class Hook<T extends Action, P, Req, Res extends HookResponse<T>> {
+  private readonly pendingHooks = new Map<string, (parsed: P) => void>();
 
   private stream?: ServerDuplexStream<Res, Req> = undefined;
 
   constructor(
     protected readonly logger: Logger,
-    private readonly name: string,
-    private readonly defaultAction: Action,
+    protected readonly name: string,
+    private readonly defaultAction: P,
+    private readonly notConnectedAction: P,
     private readonly hookResolveTimeout: number,
     private readonly notificationClient?: NotificationClient,
   ) {}
@@ -65,26 +63,25 @@ class Hook<Req, Res extends HookResponse> {
 
       const hook = this.pendingHooks.get(data.getId());
       if (hook !== undefined) {
-        hook(this.parseGrpcAction(data.getAction()));
+        hook(this.parseGrpcAction(data));
       }
     });
   };
 
-  protected sendHook = (id: string, request: Req): Promise<Action> => {
-    if (this.stream === undefined) {
+  protected isConnected = (): boolean => this.stream !== undefined;
+
+  protected sendHook = (id: string, request: Req): Promise<P> => {
+    if (!this.isConnected()) {
       this.logger.silly(
         `gRPC ${this.name} hook is not connected, returning accept action`,
       );
-      return Promise.resolve(Action.Accept);
+      return Promise.resolve(this.notConnectedAction);
     }
 
-    const hook = new Promise<Action>((resolve) => {
-      const resolver = (action: Action) => {
+    const hook = new Promise<P>((resolve) => {
+      const resolver = (parsed: P) => {
         this.pendingHooks.delete(id);
-        if (action === Action.Reject) {
-          this.logger.warn(`Hook ${this.name} rejected for ${id}`);
-        }
-        resolve(action);
+        resolve(parsed);
       };
 
       const timeout = setTimeout(() => {
@@ -94,17 +91,19 @@ class Hook<Req, Res extends HookResponse> {
         }
       }, this.hookResolveTimeout);
 
-      this.pendingHooks.set(id, (action: Action) => {
+      this.pendingHooks.set(id, (parsed: P) => {
         clearTimeout(timeout);
-        resolver(action);
+        resolver(parsed);
       });
     });
 
     this.logger.silly(`Sending gRPC ${this.name} hook request for ${id}`);
-    this.stream.write(request);
+    this.stream?.write(request);
 
     return hook;
   };
+
+  protected abstract parseGrpcAction(res: HookResponse<T>): P;
 
   private closeStream = () => {
     this.stream?.removeAllListeners();
@@ -124,20 +123,7 @@ class Hook<Req, Res extends HookResponse> {
 
     this.notificationClient.sendMessage(message, true, true);
   };
-
-  private parseGrpcAction = (action: boltzrpc.Action): Action => {
-    switch (action) {
-      case boltzrpc.Action.ACCEPT:
-        return Action.Accept;
-      case boltzrpc.Action.REJECT:
-        return Action.Reject;
-      case boltzrpc.Action.HOLD:
-        return Action.Hold;
-      default:
-        throw new Error(`unknown action: ${action}`);
-    }
-  };
 }
 
 export default Hook;
-export { Action };
+export { HookResponse };

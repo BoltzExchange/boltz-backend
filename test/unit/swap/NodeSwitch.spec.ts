@@ -15,6 +15,7 @@ import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import type InvoicePaymentHook from '../../../lib/swap/hooks/InvoicePaymentHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('NodeSwitch', () => {
@@ -216,6 +217,45 @@ describe('NodeSwitch', () => {
       ).resolves.toEqual(expected);
     },
   );
+
+  describe('invoicePaymentHook', () => {
+    test.each`
+      hookResult      | testCurrency     | expectedClient | description
+      ${NodeType.LND} | ${currency}      | ${lndClient}   | ${'LND'}
+      ${NodeType.CLN} | ${currency}      | ${clnClient}   | ${'CLN'}
+      ${undefined}    | ${currency}      | ${undefined}   | ${'undefined when hook returns undefined'}
+      ${NodeType.LND} | ${{ clnClient }} | ${undefined}   | ${'undefined when hook returns LND but LND client is missing'}
+      ${NodeType.CLN} | ${{ lndClient }} | ${undefined}   | ${'undefined when hook returns CLN but CLN client is missing'}
+    `(
+      'should return $description',
+      async ({ hookResult, testCurrency, expectedClient }) => {
+        const ns = new NodeSwitch(Logger.disabledLogger, {});
+
+        const hook = jest.fn().mockResolvedValue(hookResult);
+
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        ns['paymentHook'] = {
+          hook,
+        } as unknown as InvoicePaymentHook;
+
+        const swap = { id: 'testSwapId', invoice: 'lnbc...' };
+        const decoded = {
+          type: InvoiceType.Bolt11,
+          paymentHash: randomBytes(32),
+          amountMsat: satToMsat(1000),
+          routingHints: [],
+        } as unknown as DecodedInvoice;
+
+        await expect(
+          ns.invoicePaymentHook(testCurrency, swap, decoded),
+        ).resolves.toEqual(expectedClient);
+
+        expect(hook).toHaveBeenCalledTimes(1);
+        expect(hook).toHaveBeenCalledWith(swap.id, swap.invoice, decoded);
+      },
+    );
+  });
 
   describe('xpay handling', () => {
     afterAll(() => {

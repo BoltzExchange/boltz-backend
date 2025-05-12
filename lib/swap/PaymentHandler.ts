@@ -126,11 +126,7 @@ class PaymentHandler {
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
         swap,
-        await this.nodeSwitch.getSwapNode(
-          lightningCurrency,
-          await this.sidecar.decodeInvoiceOrOffer(swap.invoice!),
-          swap,
-        ),
+        await this.getPreferredNode(lightningCurrency, swap),
       );
 
     try {
@@ -350,6 +346,24 @@ class PaymentHandler {
     );
 
     return response.preimage;
+  };
+
+  private getPreferredNode = async (
+    lightningCurrency: Currency,
+    swap: Swap,
+  ) => {
+    const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
+    {
+      const hookNode = await this.nodeSwitch.invoicePaymentHook(
+        lightningCurrency,
+        { id: swap.id, invoice: swap.invoice! },
+        decoded,
+      );
+      if (hookNode !== undefined) {
+        return hookNode;
+      }
+    }
+    return this.nodeSwitch.getSwapNode(lightningCurrency, decoded, swap);
   };
 
   private logPaymentFailure = (swap: Swap, errorMessage: string) => {

@@ -2,7 +2,13 @@ import type Logger from '../../Logger';
 import { SwapType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
-import Hook, { Action } from './Hook';
+import Hook, { type HookResponse } from './Hook';
+
+const enum Action {
+  Accept,
+  Reject,
+  Hold,
+}
 
 type RequestParamsBase = {
   id: string;
@@ -29,11 +35,20 @@ type RequestParams =
   | RequestParamsChain;
 
 class CreationHook extends Hook<
+  boltzrpc.Action,
+  Action,
   boltzrpc.SwapCreation,
   boltzrpc.SwapCreationResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(logger, 'swap creation', Action.Accept, 2_500, notificationClient);
+    super(
+      logger,
+      'swap creation',
+      Action.Accept,
+      Action.Accept,
+      2_500,
+      notificationClient,
+    );
   }
 
   public hook = async (
@@ -79,6 +94,9 @@ class CreationHook extends Hook<
     return this.handleAction(await this.sendHook(params.id, msg));
   };
 
+  protected parseGrpcAction = (res: HookResponse<boltzrpc.Action>): Action =>
+    parseGrpcAction(this.logger, this.name, res.getId(), res.getAction());
+
   private handleAction = (action: Action) => {
     if (action === Action.Hold) {
       this.logger.warn('Hold not implemented for swap creation hook');
@@ -88,4 +106,24 @@ class CreationHook extends Hook<
   };
 }
 
+const parseGrpcAction = (
+  logger: Logger,
+  name: string,
+  id: string,
+  action: boltzrpc.Action,
+): Action => {
+  switch (action) {
+    case boltzrpc.Action.ACCEPT:
+      return Action.Accept;
+    case boltzrpc.Action.REJECT:
+      logger.warn(`Hook ${name} rejected for ${id}`);
+      return Action.Reject;
+    case boltzrpc.Action.HOLD:
+      return Action.Hold;
+    default:
+      throw new Error(`unknown action: ${action}`);
+  }
+};
+
 export default CreationHook;
+export { Action, parseGrpcAction };

@@ -21,9 +21,9 @@ import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
-import { BoltzRClient } from '../proto/sidecar/boltzr_grpc_pb';
-import * as sidecarrpc from '../proto/sidecar/boltzr_pb';
-import { SendSwapUpdateRequest } from '../proto/sidecar/boltzr_pb';
+import { BoltzRClient } from '../proto/boltzr_grpc_pb';
+import * as sidecarrpc from '../proto/boltzr_pb';
+import { SendSwapUpdateRequest } from '../proto/boltzr_pb';
 import type { SwapUpdate } from '../service/EventHandler';
 import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
@@ -299,8 +299,8 @@ class Sidecar extends BaseClient<
     return new DecodedInvoice(
       await this.unaryNodeCall<
         sidecarrpc.DecodeInvoiceOrOfferRequest,
-        sidecarrpc.DecodeInvoiceOrOfferResponse.AsObject
-      >('decodeInvoiceOrOffer', req, true),
+        sidecarrpc.DecodeInvoiceOrOfferResponse
+      >('decodeInvoiceOrOffer', req, false),
     );
   };
 

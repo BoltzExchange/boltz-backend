@@ -7,7 +7,7 @@ import type Api from './api/Api';
 import ElementsClient from './chain/ElementsClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import ZeroConfTool from './chain/elements/ZeroConfTool';
-import { SwapVersion } from './consts/Enums';
+import { SwapType as ST, SwapVersion } from './consts/Enums';
 import type { PairConfig } from './consts/Types';
 import ReferralRepository from './db/repositories/ReferralRepository';
 import StatsRepository, { SwapType } from './db/repositories/StatsRepository';
@@ -287,6 +287,24 @@ class Prometheus {
         help: 'number of swap status messages cached',
         collect: async function () {
           this.set({}, await api.swapInfos.cache.size());
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}cln_amount_threshold`,
+        labelNames: ['type'],
+        help: 'CLN amount threshold for node switch',
+        collect: function () {
+          this.set(
+            { type: 'swap' },
+            service.nodeSwitch.clnAmountThreshold[ST.Submarine],
+          );
+          this.set(
+            { type: 'reverse' },
+            service.nodeSwitch.clnAmountThreshold[ST.ReverseSubmarine],
+          );
         },
       }),
     );

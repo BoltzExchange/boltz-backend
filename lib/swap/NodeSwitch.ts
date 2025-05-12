@@ -26,13 +26,14 @@ type NodeSwitchConfig = {
 };
 
 class NodeSwitch {
-  private static readonly defaultClnAmountThreshold = 1_000_000;
-  private static readonly maxClnRetries = 1;
-
-  private readonly clnAmountThreshold: {
+  public readonly clnAmountThreshold: {
     [SwapType.Submarine]: number;
     [SwapType.ReverseSubmarine]: number;
   };
+
+  private static readonly defaultClnAmountThreshold = 1_000_000;
+  private static readonly maxClnRetries = 1;
+
   private readonly referralIds = new Map<string, NodeType>();
 
   private readonly swapNode?: NodeType;

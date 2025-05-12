@@ -598,7 +598,7 @@ class GrpcService {
     boltzrpc.InvoiceClnThresholdRequest,
     boltzrpc.InvoiceClnThresholdResponse
   > = async (call, callback) => {
-    await this.handleCallback(call, callback, async () => {
+    await handleCallback(call, callback, async () => {
       const { thresholdsList } = call.request.toObject();
       this.service.nodeSwitch.updateClnThresholds(
         thresholdsList.map((t) => ({

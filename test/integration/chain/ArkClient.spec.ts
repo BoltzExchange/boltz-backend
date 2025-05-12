@@ -1,5 +1,8 @@
 import Logger from '../../../lib/Logger';
 import ArkClient from '../../../lib/chain/ArkClient';
+import { bitcoinClient } from '../Nodes';
+
+jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ArkClient', () => {
   const client = new ArkClient(Logger.disabledLogger, {
@@ -7,8 +10,17 @@ describe('ArkClient', () => {
     port: 7000,
   });
 
+  beforeAll(async () => {
+    await bitcoinClient.connect();
+  });
+
+  afterAll(() => {
+    client.disconnect();
+    bitcoinClient.disconnect();
+  });
+
   test('should connect to the Ark node', async () => {
-    await expect(client.connect()).resolves.toBe(true);
+    await expect(client.connect(bitcoinClient)).resolves.toBe(true);
   });
 
   test('should get addresses', async () => {

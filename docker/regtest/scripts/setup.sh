@@ -174,11 +174,6 @@ bitcoin-cli generatetoaddress 1 $(bitcoin-cli getnewaddress) > /dev/null
 sleep 30
 
 killall fulmine
-
-startFulmine
-sleep 30
-
-killall fulmine
 killall arkd
 
 stopCln

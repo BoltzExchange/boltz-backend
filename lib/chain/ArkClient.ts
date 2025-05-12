@@ -1,4 +1,8 @@
-import { Metadata, credentials } from '@grpc/grpc-js';
+import {
+  type ClientReadableStream,
+  Metadata,
+  credentials,
+} from '@grpc/grpc-js';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -58,6 +62,8 @@ class ArkClient extends BaseClient<
 
   private client!: ServiceClient;
   private notificationClient!: NotificationServiceClient;
+  private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
+
   private readonly meta: Metadata = new Metadata();
   private readonly subscribedAddresses = new Set<SubscribedAddress>();
 
@@ -105,6 +111,20 @@ class ArkClient extends BaseClient<
     this.streamVhtlcs();
 
     return true;
+  };
+
+  public disconnect = () => {
+    if (this.vHtlcStream !== undefined) {
+      this.vHtlcStream.cancel();
+      this.vHtlcStream = undefined;
+    }
+
+    this.client.close();
+    this.notificationClient.close();
+
+    this.removeAllListeners();
+
+    this.setClientStatus(ClientStatus.Disconnected);
   };
 
   public serviceName(): string {
@@ -332,41 +352,48 @@ class ArkClient extends BaseClient<
   };
 
   private streamVhtlcs = async () => {
+    if (this.vHtlcStream !== undefined) {
+      this.vHtlcStream.destroy();
+    }
+
     const req = new notificationrpc.GetVtxoNotificationsRequest();
-    const stream = this.notificationClient.getVtxoNotifications(req);
+    this.vHtlcStream = this.notificationClient.getVtxoNotifications(req);
 
-    stream.on('data', (res: notificationrpc.GetVtxoNotificationsResponse) => {
-      const notification = res.getNotification()?.toObject();
-      if (notification === undefined) {
-        return;
-      }
+    this.vHtlcStream.on(
+      'data',
+      (res: notificationrpc.GetVtxoNotificationsResponse) => {
+        const notification = res.getNotification()?.toObject();
+        if (notification === undefined) {
+          return;
+        }
 
-      if (notification.newVtxosList.length === 0) {
-        return;
-      }
+        if (notification.newVtxosList.length === 0) {
+          return;
+        }
 
-      // TODO: how to handle that?
-      if (notification.newVtxosList.length > 1) {
-        this.logger.warn(
-          `Found ${notification.newVtxosList.length} new vHTLCs for ${notification.address}`,
-        );
-        return;
-      }
+        // TODO: how to handle that?
+        if (notification.newVtxosList.length > 1) {
+          this.logger.warn(
+            `Found ${notification.newVtxosList.length} new vHTLCs for ${notification.address}`,
+          );
+          return;
+        }
 
-      const vhtlc = notification.newVtxosList[0];
-      this.emit('vhtlc.found', {
-        address: notification.address,
-        txId: vhtlc.outpoint!.txid,
-        vout: vhtlc.outpoint!.vout,
-        amount: vhtlc.receiver!.amount,
-      });
-    });
+        const vhtlc = notification.newVtxosList[0];
+        this.emit('vhtlc.found', {
+          address: notification.address,
+          txId: vhtlc.outpoint!.txid,
+          vout: vhtlc.outpoint!.vout,
+          amount: vhtlc.receiver!.amount,
+        });
+      },
+    );
 
-    stream.on('error', (err) => {
+    this.vHtlcStream.on('error', (err) => {
       this.logger.error(`Error streaming VHTLCs: ${err}`);
     });
 
-    stream.on('end', () => {
+    this.vHtlcStream.on('end', () => {
       this.logger.warn('Stream of vHTLCs ended');
     });
   };

@@ -20,7 +20,9 @@ cp /root/.elements/liquidregtest/.cookie /cookies/.elements-cookie
 chmod 777 /cookies/.*
 
 startAsp
-sleep 20
+sleep 10
+bitcoin-cli -generate 1 > /dev/null
+sleep 10
 arkd wallet unlock --password ark > /dev/null
 
 startFulmine

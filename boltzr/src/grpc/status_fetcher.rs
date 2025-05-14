@@ -1,7 +1,7 @@
 use crate::api::ws::status::SwapInfos;
 use crate::grpc::service::boltzr::SwapUpdateResponse;
 use async_trait::async_trait;
-use dashmap::DashSet;
+use dashmap::DashMap;
 use std::cell::Cell;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -13,7 +13,7 @@ type StatusSender = Sender<Result<SwapUpdateResponse, Status>>;
 
 #[derive(Clone)]
 pub struct StatusFetcher {
-    buffer: Arc<DashSet<String>>,
+    buffer: Arc<DashMap<u64, Vec<String>>>,
 
     sender: Arc<Mutex<Cell<Option<StatusSender>>>>,
 }
@@ -21,38 +21,39 @@ pub struct StatusFetcher {
 impl StatusFetcher {
     pub fn new() -> Self {
         StatusFetcher {
-            buffer: Arc::new(DashSet::new()),
+            buffer: Arc::new(DashMap::new()),
             sender: Arc::new(Mutex::new(Cell::new(None))),
         }
     }
 
     pub async fn set_sender(&self, sender: Sender<Result<SwapUpdateResponse, Status>>) {
-        let ids = self.buffered_ids().await;
-
-        if !ids.is_empty() {
-            if let Err(err) = sender.send(Ok(SwapUpdateResponse { ids })).await {
+        for entry in self.buffer.iter() {
+            if let Err(err) = sender
+                .send(Ok(SwapUpdateResponse {
+                    id: entry.key().to_string(),
+                    swap_ids: entry.value().to_vec(),
+                }))
+                .await
+            {
                 warn!("Could not fetch status of buffered swaps: {}", err);
-            };
+            }
         }
-
-        self.sender.lock().await.set(Some(sender));
-    }
-
-    async fn buffered_ids(&self) -> Vec<String> {
-        let ids = self.buffer.iter().map(|s| s.clone()).collect();
         self.buffer.clear();
 
-        ids
+        self.sender.lock().await.set(Some(sender));
     }
 }
 
 #[async_trait]
 impl SwapInfos for StatusFetcher {
-    async fn fetch_status_info(&self, ids: &[String]) {
+    async fn fetch_status_info(&self, connection: u64, ids: &[String]) {
         match self.sender.lock().await.get_mut() {
             Some(sender) => {
                 if let Err(err) = sender
-                    .send(Ok(SwapUpdateResponse { ids: ids.to_vec() }))
+                    .send(Ok(SwapUpdateResponse {
+                        id: connection.to_string(),
+                        swap_ids: ids.to_vec(),
+                    }))
                     .await
                 {
                     warn!("Could not fetch status of swaps {:?}: {}", ids, err);
@@ -64,7 +65,7 @@ impl SwapInfos for StatusFetcher {
                     ids.len()
                 );
                 for id in ids {
-                    self.buffer.insert(id.clone());
+                    self.buffer.entry(connection).or_default().push(id.clone());
                 }
             }
         }

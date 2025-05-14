@@ -87,11 +87,13 @@ message SwapUpdate {
 }
 
 message SwapUpdateRequest {
-  repeated SwapUpdate status = 1;
+  optional string id = 1;
+  repeated SwapUpdate status = 2;
 }
 
 message SwapUpdateResponse {
-  repeated string ids = 1;
+  string id = 1;
+  repeated string swap_ids = 2;
 }
 
 message SendSwapUpdateRequest {}

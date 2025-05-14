@@ -42,7 +42,7 @@ pub struct Server<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 }
 
 struct ServerState<S, M> {
@@ -50,7 +50,7 @@ struct ServerState<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 }
 
 impl<S, M> Server<S, M>
@@ -64,7 +64,7 @@ where
         manager: Arc<M>,
         service: Arc<Service>,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
     ) -> Self {
         Server {
             config,
@@ -186,18 +186,18 @@ pub mod test {
 
     #[derive(Debug, Clone)]
     pub struct Fetcher {
-        pub status_tx: Sender<Vec<SwapStatus>>,
+        pub status_tx: Sender<(Option<u64>, Vec<SwapStatus>)>,
     }
 
     #[async_trait]
     impl SwapInfos for Fetcher {
-        async fn fetch_status_info(&self, ids: &[String]) {
+        async fn fetch_status_info(&self, _: u64, ids: &[String]) {
             let mut res = Vec::new();
             ids.iter().for_each(|id| {
                 res.push(SwapStatus::default(id.clone(), "swap.created".into()));
             });
 
-            self.status_tx.send(res).unwrap();
+            self.status_tx.send((None, res)).unwrap();
         }
     }
 
@@ -214,9 +214,9 @@ pub mod test {
         cancel.cancel();
     }
 
-    pub async fn start(port: u16) -> (CancellationToken, Sender<Vec<SwapStatus>>) {
+    pub async fn start(port: u16) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
         let cancel = CancellationToken::new();
-        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<SwapStatus>>(1);
+        let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
 
         let server = Server::new(
             Config {

@@ -59,7 +59,7 @@ pub struct BoltzService<M, T> {
     notification_client: Option<Arc<T>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 }
 
 impl<M, T> BoltzService<M, T> {
@@ -69,7 +69,7 @@ impl<M, T> BoltzService<M, T> {
         service: Arc<Service>,
         manager: Arc<M>,
         status_fetcher: StatusFetcher,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_status_caller: Arc<StatusCaller>,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
@@ -245,8 +245,19 @@ where
             while let Some(res) = in_stream.next().await {
                 match res {
                     Ok(res) => {
+                        let id = match res.id {
+                            Some(id) => match id.parse::<u64>() {
+                                Ok(id) => Some(id),
+                                Err(err) => {
+                                    error!("Invalid swap status update id {id}: {err}");
+                                    None
+                                }
+                            },
+                            None => None,
+                        };
+
                         if let Err(err) = swap_status_update_tx
-                            .send(res.status.iter().map(|entry| entry.into()).collect())
+                            .send((id, res.status.iter().map(|entry| entry.into()).collect()))
                         {
                             error!("Could not propagate swap status update: {}", err);
                             break;
@@ -1104,7 +1115,8 @@ mod test {
     ) {
         let token = CancellationToken::new();
         let refund_signer = Arc::new(MockRefundSigner::new());
-        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
+        let (status_tx, _) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1);
 
         (
             token.clone(),

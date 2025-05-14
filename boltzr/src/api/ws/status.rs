@@ -25,7 +25,7 @@ const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
 
 #[async_trait]
 pub trait SwapInfos {
-    async fn fetch_status_info(&self, ids: &[String]);
+    async fn fetch_status_info(&self, connection: u64, ids: &[String]);
 }
 
 struct WsConnectionGuard {
@@ -155,7 +155,7 @@ pub struct Status<S> {
     address: String,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 
     offer_subscriptions: OfferSubscriptions,
 }
@@ -168,7 +168,7 @@ where
         cancellation_token: CancellationToken,
         config: Config,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         offer_subscriptions: OfferSubscriptions,
     ) -> Self {
         Status {
@@ -304,8 +304,14 @@ where
                 },
                 update = swap_status_update_rx.recv() => {
                     match update {
-                        Ok(res) => {
-                            let relevant_updates: Vec<SwapStatus> = res.iter().filter(|entry| {
+                        Ok((id, updates)) => {
+                            if let Some(id) = id {
+                                if id != connection_id {
+                                    continue;
+                                }
+                            }
+
+                            let relevant_updates: Vec<SwapStatus> = updates.iter().filter(|entry| {
                                 subscribed_ids.contains(&entry.id)
                             }).cloned().collect();
                             if relevant_updates.is_empty() {
@@ -433,7 +439,9 @@ where
                         subscribed_ids.insert(id.clone());
                     }
 
-                    self.swap_infos.fetch_status_info(&args).await;
+                    self.swap_infos
+                        .fetch_status_info(connection_id, &args)
+                        .await;
 
                     Ok(Some(WsResponse::Subscribe(SubscribeResponse {
                         timestamp: match get_timestamp() {
@@ -563,12 +571,12 @@ mod status_test {
 
     #[derive(Debug, Clone)]
     struct Fetcher {
-        status_tx: Sender<Vec<SwapStatus>>,
+        status_tx: Sender<(Option<u64>, Vec<SwapStatus>)>,
     }
 
     #[async_trait]
     impl SwapInfos for Fetcher {
-        async fn fetch_status_info(&self, ids: &[String]) {
+        async fn fetch_status_info(&self, _: u64, ids: &[String]) {
             let mut res = vec![SwapStatus::default(
                 "not relevant".into(),
                 "swap.created".into(),
@@ -577,7 +585,7 @@ mod status_test {
                 res.push(SwapStatus::default(id.clone(), "swap.created".into()));
             });
 
-            self.status_tx.send(res).unwrap();
+            self.status_tx.send((None, res)).unwrap();
         }
     }
 
@@ -808,10 +816,88 @@ mod status_test {
 
             tokio::time::sleep(Duration::from_millis(50)).await;
             update_tx
-                .send(vec![SwapStatus::default(
-                    "ids".into(),
-                    "invoice.set".into(),
-                )])
+                .send((
+                    None,
+                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                ))
+                .unwrap();
+        });
+
+        let mut count = 0;
+
+        loop {
+            let msg = rx.next().await.unwrap().unwrap();
+            if !msg.is_text() {
+                continue;
+            }
+
+            if count < 2 {
+                count += 1;
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+            match res {
+                WsResponse::Update(res) => {
+                    assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
+                    assert_eq!(
+                        res.args,
+                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                    );
+                    assert!(
+                        res.timestamp.parse::<u128>().unwrap()
+                            <= SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis()
+                    );
+                }
+                _ => {
+                    panic!();
+                }
+            };
+            break;
+        }
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_send_update_connection_id() {
+        let port = 12_007;
+        let (cancel, update_tx) = create_server(port).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::text(
+                json!({
+                    "op": "subscribe",
+                    "channel": "swap.update",
+                    "args": vec!["some", "ids"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            update_tx
+                .send((
+                    Some(123),
+                    vec![SwapStatus::default("ids".into(), "ignored".into())],
+                ))
+                .unwrap();
+
+            update_tx
+                .send((
+                    None,
+                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                ))
                 .unwrap();
         });
 
@@ -856,7 +942,7 @@ mod status_test {
 
     #[tokio::test]
     async fn test_unsubscribe() {
-        let port = 12_007;
+        let port = 12_008;
         let (cancel, update_tx) = create_server(port).await;
 
         let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
@@ -879,10 +965,10 @@ mod status_test {
             tokio::time::sleep(Duration::from_millis(50)).await;
 
             update_tx
-                .send(vec![SwapStatus::default(
-                    "ids".into(),
-                    "invoice.set".into(),
-                )])
+                .send((
+                    None,
+                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                ))
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -899,10 +985,13 @@ mod status_test {
             tokio::time::sleep(Duration::from_millis(50)).await;
 
             update_tx
-                .send(vec![SwapStatus::default(
-                    "ids".into(),
-                    "transaction.mempool".into(),
-                )])
+                .send((
+                    None,
+                    vec![SwapStatus::default(
+                        "ids".into(),
+                        "transaction.mempool".into(),
+                    )],
+                ))
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -946,9 +1035,12 @@ mod status_test {
         assert_eq!(update_count, 2);
     }
 
-    async fn create_server(port: u16) -> (CancellationToken, Sender<Vec<SwapStatus>>) {
+    async fn create_server(
+        port: u16,
+    ) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
         let cancel = CancellationToken::new();
-        let (status_tx, _status_rx) = tokio::sync::broadcast::channel::<Vec<SwapStatus>>(1);
+        let (status_tx, _status_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
 
         let status = Status::new(
             cancel.clone(),

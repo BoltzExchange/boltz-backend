@@ -34,3 +34,33 @@ docker run \
 docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"
 docker exec regtest chmod -R 777 /root/.lightning/regtest/certs
 docker exec regtest chmod -R 777 /root/.lightning/plugins
+
+if [[ "$(uname)" == "Darwin" ]]; then
+  wait_for_cookie_files() {
+    local max_attempts=30
+    local attempt=1
+    local bitcoin_cookie_path="/root/.bitcoin/regtest/.cookie"
+    local elements_cookie_path="/root/.elements/liquidregtest/.cookie"
+
+    while [ $attempt -le $max_attempts ]; do
+      if docker exec regtest test -f "$bitcoin_cookie_path" && docker exec regtest test -f "$elements_cookie_path"; then
+        return 0
+      fi
+
+      sleep 1
+      ((attempt++))
+    done
+
+    echo "Cookie file extraction failed"
+    return 1
+  }
+
+  wait_for_cookie_files
+  if [ $? -eq 0 ]; then
+    docker exec regtest cat /root/.bitcoin/regtest/.cookie > "${PWD}/docker/regtest/data/core/cookies/.bitcoin-cookie"
+    chmod 644 "${PWD}/docker/regtest/data/core/cookies/.bitcoin-cookie"
+
+    docker exec regtest cat /root/.elements/liquidregtest/.cookie > "${PWD}/docker/regtest/data/core/cookies/.elements-cookie"
+    chmod 644 "${PWD}/docker/regtest/data/core/cookies/.elements-cookie"
+  fi
+fi

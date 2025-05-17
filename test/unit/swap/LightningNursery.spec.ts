@@ -87,7 +87,13 @@ describe('LightningNursery', () => {
       }),
   } as unknown as Sidecar;
 
-  const nursery = new LightningNursery(Logger.disabledLogger, sidecar);
+  const mockSettleReverseSwapInvoice = jest.fn();
+
+  const nursery = new LightningNursery(
+    Logger.disabledLogger,
+    sidecar,
+    mockSettleReverseSwapInvoice,
+  );
 
   const btcLndClient = MockedLndClient();
   const currencies: Currency[] = [
@@ -367,5 +373,20 @@ describe('LightningNursery', () => {
 
     expect(eventsEmitted).toEqual(1);
     expect(lock.isBusy(invoiceLock)).toEqual(false);
+  });
+
+  test('should settle invoice when preimage is available', async () => {
+    mockGetReverseSwapResult = {
+      invoice,
+      preimage: getHexString(randomBytes(32)),
+    };
+
+    await emitHtlcAccepted(invoice);
+
+    expect(mockSettleReverseSwapInvoice).toHaveBeenCalledTimes(1);
+    expect(mockSettleReverseSwapInvoice).toHaveBeenCalledWith(
+      mockGetReverseSwapResult,
+      getHexBuffer(mockGetReverseSwapResult.preimage!),
+    );
   });
 });

@@ -29,6 +29,10 @@ class LightningNursery extends TypedEventEmitter<{
   constructor(
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
+    private readonly settleReverseSwapInvoice: (
+      reverseSwap: ReverseSwap,
+      preimage: Buffer,
+    ) => Promise<void>,
   ) {
     super();
   }
@@ -145,6 +149,14 @@ class LightningNursery extends TypedEventEmitter<{
       this.logger.verbose(
         `Hold invoice of Reverse Swap ${reverseSwap.id} was accepted`,
       );
+
+      if (reverseSwap.preimage !== null && reverseSwap.preimage !== undefined) {
+        await this.settleReverseSwapInvoice(
+          reverseSwap,
+          getHexBuffer(reverseSwap.preimage!),
+        );
+        return;
+      }
 
       if (
         reverseSwap.minerFeeInvoicePreimage === null ||

@@ -599,7 +599,7 @@ class Sidecar extends BaseClient<
     toObject = true,
   ): Promise<U> => {
     return unaryCall(
-      this.client,
+      this.client!,
       methodName,
       params,
       this.clientMeta,

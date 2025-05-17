@@ -1,0 +1,429 @@
+import {
+  type ClientReadableStream,
+  Metadata,
+  credentials,
+} from '@grpc/grpc-js';
+import { crypto } from 'bitcoinjs-lib';
+import type { BaseClientEvents } from '../BaseClient';
+import BaseClient from '../BaseClient';
+import type Logger from '../Logger';
+import { formatError, getHexString } from '../Utils';
+import { ClientStatus } from '../consts/Enums';
+import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
+import { unaryCall } from '../lightning/GrpcUtils';
+import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
+import * as notificationrpc from '../proto/ark/notification_pb';
+import { ServiceClient } from '../proto/ark/service_grpc_pb';
+import * as arkrpc from '../proto/ark/service_pb';
+import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import type { IChainClient } from './ChainClient';
+
+export type ArkConfig = {
+  host: string;
+  port: number;
+
+  minWalletBalance?: number;
+  maxZeroConfAmount?: number;
+};
+
+export type Timeouts = {
+  unilateralClaim: number;
+  unilateralRefund: number;
+  unilateralRefundWithoutReceiver: number;
+};
+
+type ArkAddress = {
+  address: string;
+  publicKey: string;
+  boardingAddress: string;
+};
+
+type VHtlc = {
+  address: string;
+  txId: string;
+  vout: number;
+  amount: number;
+};
+
+type SubscribedAddress = {
+  address: string;
+  preimageHash: Buffer;
+};
+
+class ArkClient extends BaseClient<
+  BaseClientEvents & {
+    block: number;
+    'vhtlc.found': VHtlc;
+  }
+> {
+  public static readonly symbol = 'ARK';
+
+  private chainClient?: IChainClient;
+
+  private client!: ServiceClient;
+  private notificationClient!: NotificationServiceClient;
+  private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
+
+  private readonly meta: Metadata = new Metadata();
+  private readonly subscribedAddresses = new Set<SubscribedAddress>();
+
+  constructor(
+    protected readonly logger: Logger,
+    private readonly config: ArkConfig,
+  ) {
+    super(logger, ArkClient.symbol);
+  }
+
+  public connect = async (chainClient: IChainClient): Promise<boolean> => {
+    if (this.isConnected()) {
+      return true;
+    }
+
+    if (this.chainClient !== undefined) {
+      this.chainClient.removeListener('block', this.listenBlocks);
+    }
+
+    this.chainClient = chainClient;
+    this.chainClient.on('block', this.listenBlocks);
+
+    this.client = new ServiceClient(
+      `${this.config.host}:${this.config.port}`,
+      credentials.createInsecure(),
+    );
+
+    this.notificationClient = new NotificationServiceClient(
+      `${this.config.host}:${this.config.port}`,
+      credentials.createInsecure(),
+    );
+
+    try {
+      await this.getInfo();
+      this.setClientStatus(ClientStatus.Connected);
+    } catch (error) {
+      this.setClientStatus(ClientStatus.Disconnected);
+      this.logger.error(
+        `Could not connect to ${this.serviceName()}: ${formatError(error)}`,
+      );
+      return false;
+    }
+
+    // TODO: retry on disconnect
+    this.streamVhtlcs();
+
+    return true;
+  };
+
+  public disconnect = () => {
+    if (this.vHtlcStream !== undefined) {
+      this.vHtlcStream.cancel();
+      this.vHtlcStream = undefined;
+    }
+
+    this.client.close();
+    this.notificationClient.close();
+
+    this.removeAllListeners();
+
+    this.setClientStatus(ClientStatus.Disconnected);
+  };
+
+  public serviceName(): string {
+    return 'ARK-node';
+  }
+
+  public getInfo = async () => {
+    return await this.unaryCall<
+      arkrpc.GetInfoRequest,
+      arkrpc.GetInfoResponse.AsObject
+    >('getInfo', new arkrpc.GetInfoRequest());
+  };
+
+  public getBlockHeight = async (): Promise<number> => {
+    if (this.chainClient === undefined) {
+      throw 'chain client not set';
+    }
+
+    return (await this.chainClient.getBlockchainInfo()).blocks;
+  };
+
+  public getBalance = async (): Promise<WalletBalance> => {
+    const balance = await this.unaryCall<
+      arkrpc.GetBalanceRequest,
+      arkrpc.GetBalanceResponse.AsObject
+    >('getBalance', new arkrpc.GetBalanceRequest());
+
+    return {
+      confirmedBalance: balance.amount,
+      unconfirmedBalance: 0,
+    };
+  };
+
+  public getAddress = async (): Promise<ArkAddress> => {
+    const res = await this.unaryCall<
+      arkrpc.GetAddressRequest,
+      arkrpc.GetAddressResponse.AsObject
+    >('getAddress', new arkrpc.GetAddressRequest());
+
+    const [base, queryString] = res.address.split('?');
+    const params = new URLSearchParams(queryString || '');
+
+    return {
+      publicKey: res.pubkey,
+      address: params.get('ark')!,
+      boardingAddress: base.replace('bitcoin:', ''),
+    };
+  };
+
+  public sendOffchain = async (
+    address: string,
+    amount: number,
+    label: string,
+  ): Promise<string> => {
+    const req = new arkrpc.SendOffChainRequest();
+    req.setAddress(address);
+    req.setAmount(amount);
+
+    const response = await this.unaryCall<
+      arkrpc.SendOffChainRequest,
+      arkrpc.SendOffChainResponse.AsObject
+    >('sendOffChain', req);
+
+    await TransactionLabelRepository.addLabel(
+      response.txid,
+      ArkClient.symbol,
+      label,
+    );
+    return response.txid;
+  };
+
+  public signTransaction = async (transaction: string): Promise<string> => {
+    const req = new arkrpc.SignTransactionRequest();
+    req.setTx(transaction);
+
+    const res = await this.unaryCall<
+      arkrpc.SignTransactionRequest,
+      arkrpc.SignTransactionResponse.AsObject
+    >('signTransaction', req, true);
+    return res.signedTx;
+  };
+
+  /**
+   * @param preimageHash - SHA256 of the preimage
+   */
+  public createVHtlc = async (
+    preimageHash: Buffer,
+    claimDelay: number,
+    refundDelay: number,
+    claimPublicKey?: Buffer,
+    refundPublicKey?: Buffer,
+  ): Promise<{
+    vHtlc: arkrpc.CreateVHTLCResponse.AsObject;
+    timeouts: Timeouts;
+  }> => {
+    const createDelay = (delay: number) => {
+      const timeout = new arkrpc.RelativeLocktime();
+      timeout.setType(arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK);
+      timeout.setValue(delay);
+      return timeout;
+    };
+
+    const req = new arkrpc.CreateVHTLCRequest();
+    req.setPreimageHash(getHexString(crypto.ripemd160(preimageHash)));
+
+    if (claimPublicKey) {
+      req.setReceiverPubkey(getHexString(claimPublicKey));
+    }
+
+    if (refundPublicKey) {
+      req.setSenderPubkey(getHexString(refundPublicKey));
+    }
+
+    const currentHeight = await this.getBlockHeight();
+    const timeouts: Timeouts = {
+      unilateralClaim: currentHeight + claimDelay,
+      unilateralRefund: currentHeight + refundDelay,
+      unilateralRefundWithoutReceiver: currentHeight + refundDelay,
+    };
+
+    req.setUnilateralClaimDelay(createDelay(timeouts.unilateralClaim));
+    req.setUnilateralRefundDelay(createDelay(timeouts.unilateralRefund));
+    req.setUnilateralRefundWithoutReceiverDelay(
+      createDelay(timeouts.unilateralRefundWithoutReceiver),
+    );
+
+    return {
+      timeouts,
+      vHtlc: await this.unaryCall<
+        arkrpc.CreateVHTLCRequest,
+        arkrpc.CreateVHTLCResponse.AsObject
+      >('createVHTLC', req, true),
+    };
+  };
+
+  public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
+    for (const address of addresses) {
+      this.subscribedAddresses.add(address);
+    }
+
+    const req = new notificationrpc.SubscribeForAddressesRequest();
+    req.setAddressesList(addresses.map((a) => a.address));
+
+    await this.unaryNotificationCall<
+      notificationrpc.SubscribeForAddressesRequest,
+      notificationrpc.SubscribeForAddressesResponse.AsObject
+    >('subscribeForAddresses', req);
+  };
+
+  public claimVHtlc = async (
+    preimage: Buffer,
+    label: string,
+  ): Promise<string> => {
+    const req = new arkrpc.ClaimVHTLCRequest();
+    req.setPreimage(getHexString(preimage));
+
+    const res = await this.unaryCall<
+      arkrpc.ClaimVHTLCRequest,
+      arkrpc.ClaimVHTLCResponse.AsObject
+    >('claimVHTLC', req);
+
+    await TransactionLabelRepository.addLabel(
+      res.redeemTxid,
+      ArkClient.symbol,
+      label,
+    );
+    return res.redeemTxid;
+  };
+
+  public refundVHtlc = async (preimageHash: Buffer, label: string) => {
+    const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
+    req.setPreimageHash(getHexString(crypto.ripemd160(preimageHash)));
+
+    const res = await this.unaryCall<
+      arkrpc.RefundVHTLCWithoutReceiverRequest,
+      arkrpc.RefundVHTLCWithoutReceiverResponse.AsObject
+    >('refundVHTLCWithoutReceiver', req);
+
+    await TransactionLabelRepository.addLabel(
+      res.redeemTxid,
+      ArkClient.symbol,
+      label,
+    );
+
+    return res.redeemTxid;
+  };
+
+  public rescan = async () => {
+    const toRescan = Array.from(this.subscribedAddresses);
+    this.subscribedAddresses.clear();
+
+    for (const { address, preimageHash } of toRescan) {
+      try {
+        const req = new arkrpc.ListVHTLCRequest();
+        req.setPreimageHashFilter(getHexString(crypto.ripemd160(preimageHash)));
+
+        const res = await this.unaryCall<
+          arkrpc.ListVHTLCRequest,
+          arkrpc.ListVHTLCResponse.AsObject
+        >('listVHTLC', req, true);
+
+        if (res.vhtlcsList.length === 0) {
+          continue;
+        }
+
+        if (res.vhtlcsList.length > 1) {
+          this.logger.warn(
+            `Found ${res.vhtlcsList.length} new vHTLCs for ${address}`,
+          );
+        }
+
+        const vhtlc = res.vhtlcsList[0];
+        this.emit('vhtlc.found', {
+          address,
+          txId: vhtlc.outpoint!.txid,
+          vout: vhtlc.outpoint!.vout,
+          amount: vhtlc.receiver!.amount,
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        // Ignored because fulmine throws when there was nothing sent to that vHTLC
+      }
+    }
+  };
+
+  private streamVhtlcs = async () => {
+    if (this.vHtlcStream !== undefined) {
+      this.vHtlcStream.destroy();
+    }
+
+    const req = new notificationrpc.GetVtxoNotificationsRequest();
+    this.vHtlcStream = this.notificationClient.getVtxoNotifications(req);
+
+    this.vHtlcStream.on(
+      'data',
+      (res: notificationrpc.GetVtxoNotificationsResponse) => {
+        const notification = res.getNotification()?.toObject();
+        if (notification === undefined) {
+          return;
+        }
+
+        if (notification.newVtxosList.length === 0) {
+          return;
+        }
+
+        // TODO: how to handle that?
+        if (notification.newVtxosList.length > 1) {
+          this.logger.warn(
+            `Found ${notification.newVtxosList.length} new vHTLCs for ${notification.address}`,
+          );
+          return;
+        }
+
+        const vhtlc = notification.newVtxosList[0];
+        this.emit('vhtlc.found', {
+          address: notification.address,
+          txId: vhtlc.outpoint!.txid,
+          vout: vhtlc.outpoint!.vout,
+          amount: vhtlc.receiver!.amount,
+        });
+      },
+    );
+
+    this.vHtlcStream.on('error', (err) => {
+      this.logger.error(`Error streaming VHTLCs: ${err}`);
+    });
+
+    this.vHtlcStream.on('end', () => {
+      this.logger.warn('Stream of vHTLCs ended');
+    });
+  };
+
+  private listenBlocks = (blockNumber: number) => {
+    this.emit('block', blockNumber);
+  };
+
+  private unaryCall = <T, U>(
+    methodName: keyof ServiceClient,
+    params: T,
+    asObject: boolean = true,
+  ): Promise<U> => {
+    return unaryCall(this.client, methodName, params, this.meta, asObject);
+  };
+
+  private unaryNotificationCall = <T, U>(
+    methodName: keyof NotificationServiceClient,
+    params: T,
+    asObject: boolean = true,
+  ): Promise<U> => {
+    return unaryCall(
+      this.notificationClient,
+      methodName,
+      params,
+      this.meta,
+      asObject,
+    );
+  };
+}
+
+export default ArkClient;
+export type { VHtlc };

@@ -25,7 +25,7 @@ const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
 
 #[async_trait]
 pub trait SwapInfos {
-    async fn fetch_status_info(&self, ids: &[String]);
+    async fn fetch_status_info(&self, connection: u64, ids: &[String]);
 }
 
 struct WsConnectionGuard {
@@ -155,7 +155,7 @@ pub struct Status<S> {
     address: String,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 
     offer_subscriptions: OfferSubscriptions,
 }
@@ -168,7 +168,7 @@ where
         cancellation_token: CancellationToken,
         config: Config,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         offer_subscriptions: OfferSubscriptions,
     ) -> Self {
         Status {
@@ -304,8 +304,14 @@ where
                 },
                 update = swap_status_update_rx.recv() => {
                     match update {
-                        Ok(res) => {
-                            let relevant_updates: Vec<SwapStatus> = res.iter().filter(|entry| {
+                        Ok((id, updates)) => {
+                            if let Some(id) = id {
+                                if id != connection_id {
+                                    continue;
+                                }
+                            }
+
+                            let relevant_updates: Vec<SwapStatus> = updates.iter().filter(|entry| {
                                 subscribed_ids.contains(&entry.id)
                             }).cloned().collect();
                             if relevant_updates.is_empty() {
@@ -433,7 +439,9 @@ where
                         subscribed_ids.insert(id.clone());
                     }
 
-                    self.swap_infos.fetch_status_info(&args).await;
+                    self.swap_infos
+                        .fetch_status_info(connection_id, &args)
+                        .await;
 
                     Ok(Some(WsResponse::Subscribe(SubscribeResponse {
                         timestamp: match get_timestamp() {

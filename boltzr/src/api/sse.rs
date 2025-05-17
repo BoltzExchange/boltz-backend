@@ -7,6 +7,7 @@ use axum::{Extension, extract::Query};
 use futures_util::stream::Stream;
 use serde::Deserialize;
 use std::convert::Infallible;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 use tracing::{error, trace};
 
@@ -37,10 +38,11 @@ where
     #[cfg(feature = "metrics")]
     metrics::gauge!(crate::metrics::SSE_OPEN_COUNT).increment(1);
 
+    let connection_id = sse_id(&params.id);
     let mut rx = state.swap_status_update_tx.subscribe();
     state
         .swap_infos
-        .fetch_status_info(&[params.id.clone()])
+        .fetch_status_info(connection_id, &[params.id.clone()])
         .await;
 
     Sse::new(try_stream! {
@@ -48,7 +50,13 @@ where
 
         loop {
             match rx.recv().await {
-                Ok(events) => {
+                Ok((id, events)) => {
+                    if let Some(event_id) = id {
+                        if event_id != connection_id {
+                            continue;
+                        }
+                    }
+
                     for e in events {
                         if e.id != params.id {
                             continue;
@@ -72,6 +80,12 @@ where
             }
         }
     })
+}
+
+fn sse_id(swap_id: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    swap_id.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]

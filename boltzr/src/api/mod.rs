@@ -42,7 +42,7 @@ pub struct Server<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 }
 
 struct ServerState<S, M> {
@@ -50,7 +50,7 @@ struct ServerState<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 }
 
 impl<S, M> Server<S, M>
@@ -64,7 +64,7 @@ where
         manager: Arc<M>,
         service: Arc<Service>,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
     ) -> Self {
         Server {
             config,

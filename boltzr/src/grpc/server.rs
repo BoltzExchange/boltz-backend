@@ -47,7 +47,7 @@ pub struct Server<M, W, N> {
     notification_client: Option<Arc<N>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 
     cancellation_token: CancellationToken,
 }
@@ -65,7 +65,7 @@ where
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,

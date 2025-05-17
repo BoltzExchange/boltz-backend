@@ -84,7 +84,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest]
         node-version: [20]
-        rust-version: [stable, nightly]
+        rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
 

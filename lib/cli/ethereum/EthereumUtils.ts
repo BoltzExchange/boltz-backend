@@ -12,11 +12,10 @@ import {
 } from 'ethers';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import * as process from 'process';
 import Config, { type ConfigType } from '../../Config';
 
 const getBoltzFilePath = (file: string): string =>
-  path.join(process.env.HOME!, '.boltz', file);
+  path.join(Config.defaultDataDir, file);
 
 const getBoltzWallet = (): HDNodeWallet => {
   for (const file of ['seedEvm.dat', 'seed.dat']) {

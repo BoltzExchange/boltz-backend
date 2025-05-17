@@ -11,7 +11,7 @@
 * [⏩ 0-conf](0-conf.md)
 * [🪝 Webhooks](webhooks.md)
 * [⚡ BOLT12](bolt12.md)
-* [🏅 Pro](pro.md)
+* [🏅 Boltz Pro](pro.md)
 * [📜 Claim covenants](claim-covenants.md)
 * [🤝 Referral Program](referral-program.md)
 * [🚢 Backend Deployment](deployment.md)

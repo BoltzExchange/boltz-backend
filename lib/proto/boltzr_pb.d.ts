@@ -300,6 +300,11 @@ export namespace SwapUpdate {
 }
 
 export class SwapUpdateRequest extends jspb.Message { 
+
+    hasId(): boolean;
+    clearId(): void;
+    getId(): string | undefined;
+    setId(value: string): SwapUpdateRequest;
     clearStatusList(): void;
     getStatusList(): Array<SwapUpdate>;
     setStatusList(value: Array<SwapUpdate>): SwapUpdateRequest;
@@ -317,15 +322,18 @@ export class SwapUpdateRequest extends jspb.Message {
 
 export namespace SwapUpdateRequest {
     export type AsObject = {
+        id?: string,
         statusList: Array<SwapUpdate.AsObject>,
     }
 }
 
 export class SwapUpdateResponse extends jspb.Message { 
-    clearIdsList(): void;
-    getIdsList(): Array<string>;
-    setIdsList(value: Array<string>): SwapUpdateResponse;
-    addIds(value: string, index?: number): string;
+    getId(): string;
+    setId(value: string): SwapUpdateResponse;
+    clearSwapIdsList(): void;
+    getSwapIdsList(): Array<string>;
+    setSwapIdsList(value: Array<string>): SwapUpdateResponse;
+    addSwapIds(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SwapUpdateResponse.AsObject;
@@ -339,7 +347,8 @@ export class SwapUpdateResponse extends jspb.Message {
 
 export namespace SwapUpdateResponse {
     export type AsObject = {
-        idsList: Array<string>,
+        id: string,
+        swapIdsList: Array<string>,
     }
 }
 

@@ -47,7 +47,7 @@ pub struct Server<M, W, N> {
     notification_client: Option<Arc<N>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 
     cancellation_token: CancellationToken,
 }
@@ -65,7 +65,7 @@ where
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<Vec<SwapStatus>>,
+        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
@@ -243,7 +243,7 @@ mod server_test {
     #[tokio::test]
     async fn test_connect() {
         let token = CancellationToken::new();
-        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<SwapStatus>>(1);
+        let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
 
         let server = Server::<_, _, crate::notifications::mattermost::Client<Commands>>::new(
             token.clone(),
@@ -363,7 +363,8 @@ mod server_test {
         let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{port}"));
 
         let token = CancellationToken::new();
-        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<ws::types::SwapStatus>>(1);
+        let (status_tx, _) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1);
 
         let server = Server::new(
             token.clone(),

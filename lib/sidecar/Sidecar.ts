@@ -317,8 +317,13 @@ class Sidecar extends BaseClient<
   };
 
   private subscribeSwapUpdates = () => {
-    const serializeSwapUpdate = (updates: Update[]) => {
+    const serializeSwapUpdate = (id: string | undefined, updates: Update[]) => {
       const req = new sidecarrpc.SwapUpdateRequest();
+
+      if (id !== undefined) {
+        req.setId(id);
+      }
+
       req.setStatusList(
         updates.map((entry) => {
           const update = new sidecarrpc.SwapUpdate();
@@ -386,7 +391,7 @@ class Sidecar extends BaseClient<
       async (data: sidecarrpc.SwapUpdateResponse) => {
         const status = (
           await Promise.all(
-            data.getIdsList().map(async (id) => ({
+            data.getSwapIdsList().map(async (id) => ({
               id,
               status: await this.swapInfos.get(id),
             })),
@@ -396,7 +401,9 @@ class Sidecar extends BaseClient<
           return;
         }
 
-        this.subscribeSwapUpdatesCall!.write(serializeSwapUpdate(status));
+        this.subscribeSwapUpdatesCall!.write(
+          serializeSwapUpdate(data.getId(), status),
+        );
       },
     );
 
@@ -422,7 +429,7 @@ class Sidecar extends BaseClient<
       }
 
       this.subscribeSwapUpdatesCall.write(
-        serializeSwapUpdate([{ id, status }]),
+        serializeSwapUpdate(undefined, [{ id, status }]),
       );
 
       await this.sendWebHook(id, status.status);

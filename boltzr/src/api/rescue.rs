@@ -85,7 +85,7 @@ mod test {
     use tower::ServiceExt;
 
     fn setup_router() -> Router {
-        let (status_tx, _) = tokio::sync::broadcast::channel::<Vec<SwapStatus>>(1);
+        let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
         Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
             ServerState {
                 manager: Arc::new(MockManager::new()),

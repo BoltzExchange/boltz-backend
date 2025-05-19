@@ -481,6 +481,9 @@
  *               amount:
  *                 type: number
  *                 description: Amount of the invoice that should be fetched in satoshis
+ *               note:
+ *                 type: string
+ *                 description: Optional note to include in the invoice request
  *     responses:
  *       '201':
  *         description: BOLT12 invoice fetched from the offer

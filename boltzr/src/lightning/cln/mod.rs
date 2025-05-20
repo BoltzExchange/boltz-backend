@@ -108,10 +108,11 @@ impl Cln {
         &mut self,
         offer: String,
         amount_msat: u64,
+        note: Option<String>,
     ) -> anyhow::Result<(String, Option<MagicRoutingHint>)> {
         let (invoice, decoded) = if let Some(offer) = self.offer_helper.get_offer(&offer)? {
             debug!("Fetching invoice for offer directly");
-            self.hold.fetch_invoice(offer, amount_msat).await?
+            self.hold.fetch_invoice(offer, amount_msat, note).await?
         } else {
             let res = self
                 .cln
@@ -121,7 +122,7 @@ impl Cln {
                     bip353: None,
                     timeout: None,
                     quantity: None,
-                    payer_note: None,
+                    payer_note: note,
                     payer_metadata: None,
                     recurrence_start: None,
                     recurrence_label: None,

@@ -61,6 +61,7 @@ pub struct Bolt12FetchRequest {
     // In satoshis
     #[serde(deserialize_with = "assert_not_zero")]
     amount: u64,
+    note: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -204,8 +205,9 @@ where
 
     Ok(match cln {
         Some(mut cln) => {
-            let (invoice, magic_routing_hint) =
-                cln.fetch_invoice(body.offer, body.amount * 1_000).await?;
+            let (invoice, magic_routing_hint) = cln
+                .fetch_invoice(body.offer, body.amount * 1_000, body.note)
+                .await?;
             (
                 StatusCode::CREATED,
                 Json(Bolt12FetchResponse {
@@ -318,6 +320,7 @@ mod test {
                         serde_json::to_vec(&Bolt12FetchRequest {
                             amount,
                             offer: offer.bolt12,
+                            note: None,
                         })
                         .unwrap(),
                     ))
@@ -343,6 +346,78 @@ mod test {
     }
 
     #[tokio::test]
+    async fn test_bolt12_fetch_note() {
+        let mut cln = crate::lightning::cln::test::cln_client().await;
+        let offer = cln.offer().await.unwrap();
+
+        let mut manager = MockManager::new();
+        {
+            let cln = cln.clone();
+            manager.expect_get_currency().returning(move |_| {
+                Some(Currency {
+                    network: Network::Regtest,
+                    wallet: Arc::new(
+                        crate::wallet::Bitcoin::new(
+                            Network::Regtest,
+                            &Mnemonic::from_str(
+                                "test test test test test test test test test test test junk",
+                            )
+                            .unwrap()
+                            .to_seed(""),
+                            "m/0/0".to_string(),
+                        )
+                        .unwrap(),
+                    ),
+                    cln: Some(cln.clone()),
+                    lnd: None,
+                    chain: None,
+                })
+            });
+        }
+
+        let amount = 21;
+        let note = "gm";
+
+        let res = setup_router(manager)
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri("/v2/lightning/BTC/bolt12/fetch")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&Bolt12FetchRequest {
+                            amount,
+                            offer: offer.bolt12,
+                            note: Some(note.to_string()),
+                        })
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let invoice = serde_json::from_slice::<Bolt12FetchResponse>(&body)
+            .unwrap()
+            .invoice;
+
+        let decoded = crate::lightning::invoice::decode(Network::Regtest, &invoice).unwrap();
+        match decoded {
+            Invoice::Bolt12(invoice) => {
+                assert_eq!(invoice.amount_msats(), amount * 1_000);
+                assert_eq!(
+                    format!("{}", invoice.payer_note().unwrap()),
+                    note.to_string()
+                );
+            }
+            _ => unreachable!(),
+        };
+    }
+
+    #[tokio::test]
     async fn test_bolt12_fetch_no_cln() {
         let mut manager = MockManager::new();
         manager.expect_get_currency().return_const(None);
@@ -357,6 +432,7 @@ mod test {
                         serde_json::to_vec(&Bolt12FetchRequest {
                             offer: "".to_string(),
                             amount: 1,
+                            note: None,
                         })
                         .unwrap(),
                     ))
@@ -389,6 +465,7 @@ mod test {
                         serde_json::to_vec(&Bolt12FetchRequest {
                             offer: "".to_string(),
                             amount: 0,
+                            note: None,
                         })
                         .unwrap(),
                     ))
@@ -402,7 +479,7 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
             serde_json::from_slice::<ApiError>(&body).unwrap().error,
-            "Failed to deserialize the JSON body into the target type: amount: invalid value: integer `0`, expected value greater than 0 at line 1 column 23"
+            "Failed to deserialize the JSON body into the target type: amount: invalid value: integer `0`, expected value greater than 0 at line 1 column 22"
         );
     }
 }

@@ -199,6 +199,7 @@ impl Hold {
         &self,
         offer: Offer,
         amount_msat: u64,
+        note: Option<String>,
     ) -> Result<(String, Box<Bolt12Invoice>)> {
         let parsed = match crate::lightning::invoice::decode(self.network, &offer.offer)? {
             Invoice::Offer(offer) => offer,
@@ -214,10 +215,15 @@ impl Hold {
         // To avoid annoying error mapping
         let build_invoice_request =
             move || -> std::result::Result<InvoiceRequest, Bolt12SemanticError> {
-                (parsed.request_invoice(&expanded_key, nonce, &secp_ctx, payment_id)?)
-                    .chain(self.network.bitcoin())?
-                    .amount_msats(amount_msat)?
-                    .build_and_sign()
+                let mut req =
+                    (parsed.request_invoice(&expanded_key, nonce, &secp_ctx, payment_id)?)
+                        .chain(self.network.bitcoin())?
+                        .amount_msats(amount_msat)?;
+                if let Some(note) = note {
+                    req = req.payer_note(note);
+                }
+
+                req.build_and_sign()
             };
 
         let request = build_invoice_request().map_err(|e| anyhow!("{:?}", e))?;

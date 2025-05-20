@@ -90,7 +90,7 @@ diesel-tracing = { version = "0.3.1", optional = true, features = [
 	"r2d2",
 	"statement-fields",
 ] }
-alloy = { version = "0.15.10", features = [
+alloy = { version = "1.0.4", features = [
 	"reqwest",
 	"sol-types",
 	"serde",
@@ -115,7 +115,7 @@ lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev
 ] }
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.11.0"
-bitcoin = "0.32.5"
+bitcoin = "0.32.6"
 elements = "0.25.2"
 base64 = "0.22.1"
 rust-s3 = "0.35.1"

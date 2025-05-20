@@ -3,6 +3,120 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.11.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.10.0..v3.11.0) - 2025-05-20
+
+### Bug Fixes
+
+- drop B-Tree indexes on invoices column of swaps (#872) - ([c86144f](https://github.com/BoltzExchange/boltz-backend/commit/c86144ff6ecd64f6313dfb7603c623d8aade8b61))
+- tests broken by BOLT12 reverse swaps - ([6b741f4](https://github.com/BoltzExchange/boltz-backend/commit/6b741f4c5ae8afecda4a36fcf0e2c9d6aa4a5cd8))
+- Docker build with new hold invoice plugin - ([9293318](https://github.com/BoltzExchange/boltz-backend/commit/929331888faf263e2861eff5533d46db2e73999d))
+- missing status of chain swaps for mempool rescans (#873) - ([165df3f](https://github.com/BoltzExchange/boltz-backend/commit/165df3f06e02c627d5d871a8ce253bc3d6b61e2d))
+- prevent webhook channel send when no subscribers exist (#889) - ([be45461](https://github.com/BoltzExchange/boltz-backend/commit/be454614e40fba9733f3551b1838c06bf67e30d3))
+- magic routing hints for BOLT12 invoices (#904) - ([23b4c2c](https://github.com/BoltzExchange/boltz-backend/commit/23b4c2cfabe7c5947e6395ce06fe707a9fe225f7))
+- GrpcServer test on MacOS (#914) - ([84a5674](https://github.com/BoltzExchange/boltz-backend/commit/84a5674ad1e16174d10369a58cd82a27d3704ef0))
+- blinding key parsing in CLI (#923) - ([e4fa5b1](https://github.com/BoltzExchange/boltz-backend/commit/e4fa5b153090ec1340d5fb0af766f02b6de0ed6f))
+- avoid blocking onion messages with webhook calls - ([ad72fb2](https://github.com/BoltzExchange/boltz-backend/commit/ad72fb289d927fe14d6e72febdd413d0a55d15d9))
+- consistent data directory paths in EthereumUtils (#932) - ([23f05dd](https://github.com/BoltzExchange/boltz-backend/commit/23f05dddbb4e9ebe61b6c5b34cc3cf046841a2c6))
+- events being sent twice for multiple WS connections (#930) - ([71f9306](https://github.com/BoltzExchange/boltz-backend/commit/71f9306f64f9acb357f2bd55c14546d39dff8b82))
+
+### Documentation
+
+- Swagger API spec for BOLT12 offer endpoints - ([fab56f4](https://github.com/BoltzExchange/boltz-backend/commit/fab56f4890932e728050750d6710050758627160))
+- fix gitbook integration, make prettier ignore docs folder - ([0ed75d6](https://github.com/BoltzExchange/boltz-backend/commit/0ed75d68b7f51f496ead746df6bf92940f30f11f))
+- #545 #685, minor rewording - ([a255e4c](https://github.com/BoltzExchange/boltz-backend/commit/a255e4c3b4a6ad33810221fa28a0b7ea3ed2d67d))
+- BOLT12 invoice subscription WebSocket - ([3032015](https://github.com/BoltzExchange/boltz-backend/commit/30320151321c5440175710441ed18d7644f027bb))
+- remove boltz-python from library section (#920) - ([debc497](https://github.com/BoltzExchange/boltz-backend/commit/debc4977a45536e5f7d86f2acf20775cb2d72b75))
+
+### Features
+
+- invoice timeout (#856) - ([dc0434c](https://github.com/BoltzExchange/boltz-backend/commit/dc0434c80f833e525b6d73ef2ea3df589bb00242))
+- configurable LND gRPC SSL name override - ([0a22370](https://github.com/BoltzExchange/boltz-backend/commit/0a22370a195987aa8b10e385e96b63920fac732a))
+- generic Webhook caller - ([a263a5a](https://github.com/BoltzExchange/boltz-backend/commit/a263a5aa2d82499f6b3294a1c82a93af306aa7d8))
+- confirmation status in transaction endpoint (#869) - ([3710c9c](https://github.com/BoltzExchange/boltz-backend/commit/3710c9c04232e5511503f9c0cb85c74e813bff12))
+- log failed HTTP requests in sidecar (#871) - ([2961f0c](https://github.com/BoltzExchange/boltz-backend/commit/2961f0c1ae23cd4eb470ac79c5b8a73d8e5b4d01))
+- BOLT12 invoice request webhooks - ([954c739](https://github.com/BoltzExchange/boltz-backend/commit/954c73927ca55b7879a7e326a8dc3c89b3e48014))
+- allow reverse swap creation with BOLT12 invoices - ([bc2f175](https://github.com/BoltzExchange/boltz-backend/commit/bc2f17585e59e828220fa7bc20591cf17f0d250a))
+- magic routing hints support for bolt12 - ([25f1553](https://github.com/BoltzExchange/boltz-backend/commit/25f1553e7e1f788ac308e4d3c9d8cfc9ff4c8174))
+- allow updating BOLT12 offer webhook URL - ([e59bc62](https://github.com/BoltzExchange/boltz-backend/commit/e59bc62781242cd3789e5a366787875bb144b205))
+- check network of BOLT12 offers and invoices - ([a492ae4](https://github.com/BoltzExchange/boltz-backend/commit/a492ae412587ddf2947ebb3d2f7476f0a47c2415))
+- BOLT12 fetch shortcut for registered offers - ([953776b](https://github.com/BoltzExchange/boltz-backend/commit/953776b89ad21805164da77fd1c84512bdfdb064))
+- continue onion message hooks for unknown offers - ([018f870](https://github.com/BoltzExchange/boltz-backend/commit/018f8701ce44da65ff077cd7c26ae48ba1fa7dd8))
+- allow empty reverse swap descriptions - ([59a825b](https://github.com/BoltzExchange/boltz-backend/commit/59a825bdbaee951e84e504317cf66df7e8b70b6b))
+- batch only submarine swaps (#880) - ([0e3eb1f](https://github.com/BoltzExchange/boltz-backend/commit/0e3eb1ff3224a41f0427d83a1b1e8d23745430c2))
+- add offer to invoice requests - ([2c8c856](https://github.com/BoltzExchange/boltz-backend/commit/2c8c85676b7c89b75e2181075ba8ab20c1a3eb61))
+- endpoint to delete BOLT12 offers - ([0291937](https://github.com/BoltzExchange/boltz-backend/commit/0291937da8dadbcfa6cd9f4ad333761c6227722c))
+- Email notifications for swaps (#893) - ([108f952](https://github.com/BoltzExchange/boltz-backend/commit/108f95235d4bd4302b0864ff6361b7a9126df344))
+- Webhook IP safety checks (#902) - ([0924d72](https://github.com/BoltzExchange/boltz-backend/commit/0924d7291b1a2ec72033dbcaf555601132cdf6ec))
+- transaction hook action hold - ([4a481f0](https://github.com/BoltzExchange/boltz-backend/commit/4a481f0a23074e28312ccf489497e1222fee088e))
+- gRPC method to check transaction - ([b00600b](https://github.com/BoltzExchange/boltz-backend/commit/b00600bc7ec6c259626242df6f21145da7a8889f))
+- BOLT12 invoice requests via WebSocket - ([89a9a16](https://github.com/BoltzExchange/boltz-backend/commit/89a9a16282b3aa2707ac2cc55918ca576850ef32))
+- fuzzy search for lightning node alias (#908) - ([c82e4c9](https://github.com/BoltzExchange/boltz-backend/commit/c82e4c92d405272f20ce0e750ec891a0d60a57a0))
+- allow removing url when updating offer (#909) - ([2f7fbc0](https://github.com/BoltzExchange/boltz-backend/commit/2f7fbc06562332d8706426fee714bd7cd9874496))
+- add swap id to transaction hook (#913) - ([581e334](https://github.com/BoltzExchange/boltz-backend/commit/581e334930902135da3230c3ab6951297d50cef4))
+- add swap type to transaction hook (#917) - ([b316f09](https://github.com/BoltzExchange/boltz-backend/commit/b316f092f4878ce88323cc77a49aff9104d24da0))
+- submarine payment retry timeout (#918) - ([38facc3](https://github.com/BoltzExchange/boltz-backend/commit/38facc38759a08c4735701d42fba8cad080059b8))
+- endpoint for lightning channel policies - ([eef814b](https://github.com/BoltzExchange/boltz-backend/commit/eef814b33adcee5b8f70dcab838b7e974378cd20))
+- broadcast Elements transactions via all clients (#919) - ([c80e096](https://github.com/BoltzExchange/boltz-backend/commit/c80e096f5c493075320e8e1d5fb0288fe721d083))
+- allow returning BOLT12 invoice errors (#921) - ([2c34a12](https://github.com/BoltzExchange/boltz-backend/commit/2c34a12169442096942dd2e7b82a8eb117388305))
+- return MRH in BOLT12 fetch response (#922) - ([fd8a287](https://github.com/BoltzExchange/boltz-backend/commit/fd8a287080fb4306a0daa1fc9e62b793090a1d76))
+- dynamic CLN invoice thresholds - ([82a8119](https://github.com/BoltzExchange/boltz-backend/commit/82a8119d77da76f90cdde189f6d383f6acfe3f95))
+- metrics for CLN invoice thresholds (#927) - ([6ba3ddf](https://github.com/BoltzExchange/boltz-backend/commit/6ba3ddf22a1b4fb485dc8d39522004ecda672b2f))
+- invoice payment hook (#925) - ([1433ada](https://github.com/BoltzExchange/boltz-backend/commit/1433ada88d87d183ee6ccbe31dd5cdcbca2ec0aa))
+- allow BOLT12 invoice request payer notes - ([d53bf3d](https://github.com/BoltzExchange/boltz-backend/commit/d53bf3d3f692381879c766c5113f159ad5ef62f4))
+
+### Miscellaneous Chores
+
+- Rust release builds in c-lightning image (#855) - ([0e52eac](https://github.com/BoltzExchange/boltz-backend/commit/0e52eacaee9a56400d494e392bbb4cded25843f2))
+- fix open handles in unit tests - ([1b3e9b3](https://github.com/BoltzExchange/boltz-backend/commit/1b3e9b33c1eb1b283bcefa53c767bdea676bad58))
+- bump dependencies - ([6267256](https://github.com/BoltzExchange/boltz-backend/commit/6267256dbade5b684fe8c2abbf91e57959463f21))
+- include confirmation in transaction hook (#863) - ([7e32d06](https://github.com/BoltzExchange/boltz-backend/commit/7e32d0680f23fdbbcc5db4d78176ab3dfcbe87f6))
+- bump tar-fs from 2.1.1 to 2.1.2 (#867) - ([be23915](https://github.com/BoltzExchange/boltz-backend/commit/be23915a895b5e10837636a08eb81838b8b5fb6f))
+- bump Ubuntu version of Docker images (#866) - ([c01a2e0](https://github.com/BoltzExchange/boltz-backend/commit/c01a2e0a6d12f6dd78ebaaedac85a1cd16d99782))
+- include ca-certificates in CLN image - ([792195d](https://github.com/BoltzExchange/boltz-backend/commit/792195d4fcd6a923bc7ff1d63ea790ababa4b8f9))
+- update dependencies (#870) - ([af95b03](https://github.com/BoltzExchange/boltz-backend/commit/af95b034eee986c683d302bb4853b56d272d3aae))
+- minor cleanup - ([41014fe](https://github.com/BoltzExchange/boltz-backend/commit/41014fe7cd1da065d6f86fd982fdf08513276f9b))
+- update hold invoice plugin - ([28c6ea3](https://github.com/BoltzExchange/boltz-backend/commit/28c6ea3168abdbee9a62bc326256969e68e3d913))
+- switch to upstream lightning dependency - ([fd5d553](https://github.com/BoltzExchange/boltz-backend/commit/fd5d55380ef626d8575d812d102c68abdf99c0e4))
+- bump max invoice description length to 500 (#876) - ([06966c4](https://github.com/BoltzExchange/boltz-backend/commit/06966c4850fe8f1b34c01804d2f34d8f61d3850e))
+- bump elements to v23.2.7 (#878) - ([ed58cb3](https://github.com/BoltzExchange/boltz-backend/commit/ed58cb3a3c5842348ad9ded5ba923b98540c0ff3))
+- bump ecpair and boltz-core to v3 - ([f32d6bc](https://github.com/BoltzExchange/boltz-backend/commit/f32d6bc4aaa358821e8cc6235b456c76c478768f))
+- eslint rule for type imports - ([d99ad49](https://github.com/BoltzExchange/boltz-backend/commit/d99ad49092d5187e4c4bb0b3efdd244ef4a06b80))
+- add signet support (#874) - ([2f412ac](https://github.com/BoltzExchange/boltz-backend/commit/2f412ac7f1859c69cf6495d136eb8eeceff635ca))
+- bump openssl from 0.10.70 to 0.10.72 in /boltzr (#881) - ([6b8d9a8](https://github.com/BoltzExchange/boltz-backend/commit/6b8d9a8e9d5459f6eafc0e19927f2ef543b47822))
+- bump CLN to v25.02.1 (#883) - ([46c3768](https://github.com/BoltzExchange/boltz-backend/commit/46c3768a3a17e377492ce919647a69f621483312))
+- add minimalBatched to swagger (#884) - ([fe06c67](https://github.com/BoltzExchange/boltz-backend/commit/fe06c67def7bf234ba24d21a21aadea4c736437a))
+- bump tokio from 1.44.1 to 1.44.2 in /boltzr (#887) - ([dc0ef38](https://github.com/BoltzExchange/boltz-backend/commit/dc0ef387cf7adfe4c6765ced1ce63503f4addf9c))
+- update Anvil Docker image (#896) - ([8fcada5](https://github.com/BoltzExchange/boltz-backend/commit/8fcada53238b63797098cc5cdad9922989a54a7b))
+- bump crossbeam-channel from 0.5.14 to 0.5.15 in /boltzr (#894) - ([2d0191d](https://github.com/BoltzExchange/boltz-backend/commit/2d0191d27d3fd1e76cff0a2dfe7053af01052d39))
+- bump Bitcoin Core to v29.0 (#903) - ([fff8e34](https://github.com/BoltzExchange/boltz-backend/commit/fff8e34c416fe387a065858584b89153379fb294))
+- update Rust dependencies - ([7030292](https://github.com/BoltzExchange/boltz-backend/commit/703029227c9378245074ef70c095b7bd6521ce3e))
+- bump alloy dependency - ([66c5c89](https://github.com/BoltzExchange/boltz-backend/commit/66c5c898d1fdc513015c841fa1767bba5cd2ea22))
+- improve sidecar HTTP error logging - ([9621a05](https://github.com/BoltzExchange/boltz-backend/commit/9621a0582188d62e0382793d9b1b536cafc5fd00))
+- bump dependencies - ([eb77ad7](https://github.com/BoltzExchange/boltz-backend/commit/eb77ad73dfe945b2bf84e2365b919ab53df492ba))
+- resolve hooks with accept when not connected - ([33aed50](https://github.com/BoltzExchange/boltz-backend/commit/33aed50d9c690dc68242845b06580df3987775c8))
+- correct condition for hook rejection log - ([2722d1f](https://github.com/BoltzExchange/boltz-backend/commit/2722d1f5d784fcfe6ddfcf2370cf60b6830fcd8f))
+- inline format args - ([21e0975](https://github.com/BoltzExchange/boltz-backend/commit/21e0975b4d2fb2db25917e1fff543f49d657b6ee))
+- bump BOLT12 hook timeout (#911) - ([fe90f14](https://github.com/BoltzExchange/boltz-backend/commit/fe90f14e08bf0965b2aa51558baba7562faa051a))
+- build hold in a container for non-Linux hosts (#916) - ([f1f5810](https://github.com/BoltzExchange/boltz-backend/commit/f1f5810561844a7b4de7bfa353a61e608bf3e627))
+- bump dependencies - ([25aef77](https://github.com/BoltzExchange/boltz-backend/commit/25aef7714edf37ed42b44e17b36cbb28b683b417))
+- bump base-x dependency - ([45a08af](https://github.com/BoltzExchange/boltz-backend/commit/45a08afccd060938194dff13d5b50751c46b6676))
+- bump dependencies - ([ab8ce6d](https://github.com/BoltzExchange/boltz-backend/commit/ab8ce6db59bffc712ad0846e85854b690d1531ff))
+- remove Rust Nightly from CI (#935) - ([216dd4c](https://github.com/BoltzExchange/boltz-backend/commit/216dd4c04c420b37fe826f59dcd72f57d217e3d0))
+- bump dependencies - ([22ed16e](https://github.com/BoltzExchange/boltz-backend/commit/22ed16e6b669c8a3a7cc752adff4bdacf347e9ee))
+
+### Refactoring
+
+- transaction hooks (#862) - ([811c197](https://github.com/BoltzExchange/boltz-backend/commit/811c1977450c4fc1d67e84ca9696d38774af4d04))
+- cache entire lightning gossip (#868) - ([3eaa6a5](https://github.com/BoltzExchange/boltz-backend/commit/3eaa6a547a92d5344e58fde6b6711fa2a24420c9))
+- allow HTTP webhooks on regtest - ([1a1402a](https://github.com/BoltzExchange/boltz-backend/commit/1a1402a05998ac59e4bb3d9e4dde95f7feabad80))
+- allow reading IP ranges from files (#886) - ([a6652b6](https://github.com/BoltzExchange/boltz-backend/commit/a6652b6fb99621426b08c1fb2f634dd633f3e800))
+- put lightning data in sets - ([c0a1f6c](https://github.com/BoltzExchange/boltz-backend/commit/c0a1f6c54f466a68abd2939250bd3e08405241c8))
+
+### Tests
+
+- added functionality for BOLT12 reverse swaps - ([4697df1](https://github.com/BoltzExchange/boltz-backend/commit/4697df11d8e91d601893ab8d6014b1f67c0778aa))
+
+---
 ## [3.10.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.9.1..v3.10.0) - 2025-03-12
 
 ### Bug Fixes
@@ -49,6 +163,7 @@ All notable changes to this project will be documented in this file. See [conven
 - fix naming of NodePendingPaymentTracker (#845) - ([ea8c9ee](https://github.com/BoltzExchange/boltz-backend/commit/ea8c9eeccd979b9b4a02c98836250ea07926e052))
 - bump Eclair to v0.12.0 - ([f4cd063](https://github.com/BoltzExchange/boltz-backend/commit/f4cd063cdb71a9921aa6bc3dda0085253807a4f5))
 - bump dependencies - ([4e9ab46](https://github.com/BoltzExchange/boltz-backend/commit/4e9ab467cc5f0fbd7b6dd2845e25d088f792fec8))
+- bump version to v3.10.0 - ([5171f2e](https://github.com/BoltzExchange/boltz-backend/commit/5171f2e7ad0159471d08b2c222fbaaa9a15e6d44))
 
 ### Refactoring
 

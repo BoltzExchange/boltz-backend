@@ -92,7 +92,6 @@ preferredWallet = "core"
     [currencies.chain]
     host = "127.0.0.1"
     port = 18_443
-    cookie = "docker/regtest/data/core/cookies/.bitcoin-cookie"
 
     [currencies.lnd]
     host = "127.0.0.1"
@@ -133,7 +132,6 @@ minWalletBalance = 100_000_000
     [liquid.chain]
     host = "127.0.0.1"
     port = 18884
-    cookie = "docker/regtest/data/core/cookies/.elements-cookie"
 
 [rsk]
 providerEndpoint = "http://127.0.0.1:8545"
@@ -167,8 +165,6 @@ We recommend adding aliases to control executables of Boltz and nodes to your `.
 # Boltz Docker regtest
 boltzDir="<path to the cloned repository>"
 boltzDataDir="$boltzDir/docker/regtest/data"
-
-cookieDir="$boltzDataDir/core/cookies"
 
 alias bitcoin-cli-sim='bitcoin-cli --regtest --rpccookiefile=$cookieDir/.bitcoin-cookie'
 alias elements-cli-sim='elements-cli --regtest --rpcport=18884 --rpccookiefile=$cookieDir/.elements-cookie'

@@ -14,6 +14,8 @@ import type { ClnConfig } from './lightning/cln/Types';
 import type { SidecarConfig } from './sidecar/Sidecar';
 import type { NodeSwitchConfig } from './swap/NodeSwitch';
 
+const defaultRegtestNodesPw = 'anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI';
+
 type EmailConfig = {
   enabled: boolean;
   host: string;
@@ -350,7 +352,8 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 18334,
-            cookie: 'docker/regtest/data/core/cookies/.bitcoin-cookie',
+            user: 'boltz',
+            password: defaultRegtestNodesPw,
           },
 
           lnd: {
@@ -384,7 +387,8 @@ class Config {
           chain: {
             host: '127.0.0.1',
             port: 19334,
-            cookie: 'docker/regtest/data/core/cookies/.litecoin-cookie',
+            user: 'boltz',
+            password: defaultRegtestNodesPw,
           },
 
           lnd: {
@@ -549,4 +553,5 @@ export {
   EthProviderServiceConfig,
   MinSwapSizeMultipliersConfig,
   EmailConfig,
+  defaultRegtestNodesPw,
 };

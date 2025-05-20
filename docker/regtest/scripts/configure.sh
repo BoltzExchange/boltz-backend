@@ -1,7 +1,5 @@
 #!/bin/bash
 
-mkdir /cookies
-
 # Bitcoin Core
 echo "zmqpubrawtx=tcp://0.0.0.0:29000" >> /root/.bitcoin/bitcoin.conf
 echo "zmqpubrawblock=tcp://0.0.0.0:29001" >> /root/.bitcoin/bitcoin.conf

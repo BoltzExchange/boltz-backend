@@ -45,9 +45,11 @@ import {
 import Contracts from '../../wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
-import TimeoutDeltaProvider from '../TimeoutDeltaProvider';
 import type { SwapToClaim } from './CoopSignerBase';
 import CoopSignerBase from './CoopSignerBase';
+import AmountTrigger from './triggers/AmountTrigger';
+import ExpiryTrigger from './triggers/ExpiryTrigger';
+import type SweepTrigger from './triggers/SweepTrigger';
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
   preimage: Buffer;
@@ -81,6 +83,8 @@ class DeferredClaimer extends CoopSignerBase<{
     Map<string, ChainSwapToClaimPreimage>
   >();
 
+  private readonly sweepTriggers: SweepTrigger[];
+
   private batchClaimSchedule?: Job;
 
   constructor(
@@ -100,6 +104,15 @@ class DeferredClaimer extends CoopSignerBase<{
         new Map<string, ChainSwapToClaimPreimage>(),
       );
     }
+
+    this.sweepTriggers = [
+      new ExpiryTrigger(this.currencies, this.config.expiryTolerance),
+      new AmountTrigger(
+        this.logger,
+        this.pendingSweepsValues,
+        this.config.sweepAmountTrigger,
+      ),
+    ];
   }
 
   public init = async () => {
@@ -253,7 +266,13 @@ class DeferredClaimer extends CoopSignerBase<{
       }
     });
 
-    if (await this.expiryTooSoon(chainCurrency, swap)) {
+    if (
+      (
+        await Promise.all(
+          this.sweepTriggers.map((t) => t.check(chainCurrency, swap)),
+        )
+      ).some((result) => result)
+    ) {
       await this.sweepSymbol(chainCurrency);
     }
 
@@ -600,37 +619,6 @@ class DeferredClaimer extends CoopSignerBase<{
     }
 
     return true;
-  };
-
-  private expiryTooSoon = async (
-    chainCurrency: string,
-    swap: Swap | ChainSwapInfo,
-  ) => {
-    let blockHeight: number;
-
-    const currency = this.currencies.get(chainCurrency)!;
-    switch (currency.type) {
-      case CurrencyType.BitcoinLike:
-      case CurrencyType.Liquid:
-        blockHeight = (await currency.chainClient!.getBlockchainInfo()).blocks;
-        break;
-
-      case CurrencyType.Ether:
-      case CurrencyType.ERC20:
-        blockHeight = await currency.provider!.getBlockNumber();
-        break;
-    }
-
-    const timeoutBlockHeight =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).timeoutBlockHeight
-        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
-
-    const minutesLeft =
-      TimeoutDeltaProvider.blockTimes.get(chainCurrency)! *
-      (timeoutBlockHeight - blockHeight);
-
-    return minutesLeft <= this.config.expiryTolerance;
   };
 
   private logNotDeferringReason = (id: string, reason: string) => {

@@ -47,6 +47,7 @@ class GrpcServer {
       calculateTransactionFee: grpcService.calculateTransactionFee,
       swapCreationHook: grpcService.swapCreationHook,
       transactionHook: grpcService.transactionHook,
+      invoicePaymentHook: grpcService.invoicePaymentHook,
       getReferrals: grpcService.getReferrals,
       setReferral: grpcService.setReferral,
       invoiceClnThreshold: grpcService.invoiceClnThreshold,

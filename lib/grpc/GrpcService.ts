@@ -525,6 +525,15 @@ class GrpcService {
     this.service.swapManager.nursery.transactionHook.connectToStream(call);
   };
 
+  public invoicePaymentHook = (
+    call: ServerDuplexStream<
+      boltzrpc.InvoicePaymentHookResponse,
+      boltzrpc.InvoicePaymentHookRequest
+    >,
+  ) => {
+    this.service.nodeSwitch.paymentHook.connectToStream(call);
+  };
+
   public getReferrals: handleUnaryCall<
     boltzrpc.GetReferralsRequest,
     boltzrpc.GetReferralsResponse

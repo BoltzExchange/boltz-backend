@@ -32,6 +32,8 @@ class NodeSwitch {
     [SwapType.ReverseSubmarine]: number;
   };
 
+  public readonly paymentHook: InvoicePaymentHook;
+
   private static readonly defaultClnAmountThreshold = 1_000_000;
   private static readonly maxClnRetries = 1;
 
@@ -39,8 +41,6 @@ class NodeSwitch {
 
   private readonly swapNode?: NodeType;
   private readonly preferredForNode = new Map<string, NodeType>();
-
-  private readonly paymentHook: InvoicePaymentHook;
 
   constructor(
     private readonly logger: Logger,

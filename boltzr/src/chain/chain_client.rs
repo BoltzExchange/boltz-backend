@@ -201,7 +201,6 @@ pub mod test {
     use std::sync::OnceLock;
 
     const PORT: u16 = 18_443;
-    const COOKIE_PATH: &str = "../docker/regtest/data/core/cookies/.bitcoin-cookie";
 
     pub fn get_client() -> ChainClient {
         static CLIENT: OnceLock<ChainClient> = OnceLock::new();
@@ -213,9 +212,9 @@ pub mod test {
                     Config {
                         host: "127.0.0.1".to_string(),
                         port: PORT,
-                        cookie: Some(COOKIE_PATH.to_string()),
-                        user: None,
-                        password: None,
+                        cookie: None,
+                        user: Some("boltz".to_string()),
+                        password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
                     },
                 )
                 .unwrap()

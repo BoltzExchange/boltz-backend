@@ -92,7 +92,8 @@ preferredWallet = "core"
     [currencies.chain]
     host = "127.0.0.1"
     port = 18_443
-    cookie = "docker/regtest/data/core/cookies/.bitcoin-cookie"
+    user = "boltz"
+    password = "anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI"
 
     [currencies.lnd]
     host = "127.0.0.1"
@@ -133,7 +134,8 @@ minWalletBalance = 100_000_000
     [liquid.chain]
     host = "127.0.0.1"
     port = 18884
-    cookie = "docker/regtest/data/core/cookies/.elements-cookie"
+    user = "boltz"
+    password = "anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI"
 
 [rsk]
 providerEndpoint = "http://127.0.0.1:8545"
@@ -168,10 +170,8 @@ We recommend adding aliases to control executables of Boltz and nodes to your `.
 boltzDir="<path to the cloned repository>"
 boltzDataDir="$boltzDir/docker/regtest/data"
 
-cookieDir="$boltzDataDir/core/cookies"
-
-alias bitcoin-cli-sim='bitcoin-cli --regtest --rpccookiefile=$cookieDir/.bitcoin-cookie'
-alias elements-cli-sim='elements-cli --regtest --rpcport=18884 --rpccookiefile=$cookieDir/.elements-cookie'
+alias bitcoin-cli-sim='bitcoin-cli --regtest --rpcport=18884 -rpcuser=boltz -rpcpassword=anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI'
+alias elements-cli-sim='elements-cli --regtest --rpcport=18884 -rpcuser=boltz -rpcpassword=anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI'
 
 lndCert="$boltzDataDir/lnd/certificates/tls.cert"
 lndMacaroon="$boltzDataDir/lnd/macaroons/admin.macaroon"

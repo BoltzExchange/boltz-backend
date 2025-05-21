@@ -1,4 +1,5 @@
 import { resolve } from 'path';
+import { defaultRegtestNodesPw } from '../../lib/Config';
 import Logger from '../../lib/Logger';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
@@ -8,18 +9,13 @@ import ClnClient from '../../lib/lightning/cln/ClnClient';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
-const cookieBasePath = `${resolve(
-  __dirname,
-  '..',
-  '..',
-)}/docker/regtest/data/core/cookies`;
-
 export const bitcoinClient = new ChainClient(
   Logger.disabledLogger,
   {
     host,
     port: 18443,
-    cookie: `${cookieBasePath}/.bitcoin-cookie`,
+    user: 'boltz',
+    password: defaultRegtestNodesPw,
   },
   'BTC',
 );
@@ -27,7 +23,8 @@ export const bitcoinClient = new ChainClient(
 export const elementsConfig = {
   host,
   port: 18884,
-  cookie: `${cookieBasePath}/.elements-cookie`,
+  user: 'boltz',
+  password: defaultRegtestNodesPw,
 };
 export const elementsClient = new ElementsClient(
   Logger.disabledLogger,

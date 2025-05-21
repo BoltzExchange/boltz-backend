@@ -780,6 +780,7 @@ describe('SwapManager', () => {
       symbolSending: 'BTC',
       symbolReceiving: 'BTC',
       referral: swap.referral,
+      invoice,
       invoiceAmount: invoiceEncode.satoshis!,
     });
 

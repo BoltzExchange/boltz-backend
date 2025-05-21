@@ -623,6 +623,7 @@ class SwapManager {
 
     if (
       !(await this.creationHook.hook(swap.type, {
+        invoice,
         invoiceAmount,
         id: swap.id,
         referral: swap.referral,

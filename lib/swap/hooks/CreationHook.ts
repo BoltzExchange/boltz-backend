@@ -19,6 +19,7 @@ type RequestParamsBase = {
 
 type RequestParamsSubmarine = RequestParamsBase & {
   invoiceAmount: number;
+  invoice: string;
 };
 
 type RequestParamsReverse = RequestParamsBase & {
@@ -70,6 +71,9 @@ class CreationHook extends Hook<
         submarine.setInvoiceAmount(
           (params as RequestParamsSubmarine).invoiceAmount,
         );
+
+        submarine.setInvoice((params as RequestParamsSubmarine).invoice);
+
         msg.setSubmarine(submarine);
         break;
       }

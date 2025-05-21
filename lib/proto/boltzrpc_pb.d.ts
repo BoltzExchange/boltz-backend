@@ -1583,6 +1583,8 @@ export namespace SwapCreation {
     export class Submarine extends jspb.Message { 
         getInvoiceAmount(): number;
         setInvoiceAmount(value: number): Submarine;
+        getInvoice(): string;
+        setInvoice(value: string): Submarine;
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Submarine.AsObject;
@@ -1597,6 +1599,7 @@ export namespace SwapCreation {
     export namespace Submarine {
         export type AsObject = {
             invoiceAmount: number,
+            invoice: string,
         }
     }
 

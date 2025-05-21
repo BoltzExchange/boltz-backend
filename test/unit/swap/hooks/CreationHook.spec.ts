@@ -131,6 +131,7 @@ describe('CreationHook', () => {
         symbolSending: 'BTC',
         symbolReceiving: 'L-BTC',
         invoiceAmount: 1_321,
+        invoice: 'lnbc13210n...',
       };
 
       const promise = hook.hook(SwapType.Submarine, params);
@@ -142,9 +143,10 @@ describe('CreationHook', () => {
       expect(written.getSymbolSending()).toEqual(params.symbolSending);
       expect(written.getSymbolReceiving()).toEqual(params.symbolReceiving);
       expect(written.getReferral()).toEqual(params.referral);
-      expect(written.getSubmarine().getInvoiceAmount()).toEqual(
-        params.invoiceAmount,
-      );
+
+      const submarineMessage = written.getSubmarine();
+      expect(submarineMessage.getInvoiceAmount()).toEqual(params.invoiceAmount);
+      expect(submarineMessage.getInvoice()).toEqual(params.invoice);
     });
 
     test('should send reverse swap creation hook request', async () => {

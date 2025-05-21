@@ -385,6 +385,7 @@ message SwapCreationResponse {
 message SwapCreation {
     message Submarine {
     uint64 invoice_amount = 1;
+    string invoice = 2;
   }
 
   message Reverse {

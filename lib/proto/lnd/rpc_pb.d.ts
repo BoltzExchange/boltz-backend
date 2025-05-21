@@ -130,6 +130,8 @@ export namespace SendCustomMessageRequest {
 }
 
 export class SendCustomMessageResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): SendCustomMessageResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendCustomMessageResponse.AsObject;
@@ -143,6 +145,7 @@ export class SendCustomMessageResponse extends jspb.Message {
 
 export namespace SendCustomMessageResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -285,6 +288,10 @@ export class GetTransactionsRequest extends jspb.Message {
     setEndHeight(value: number): GetTransactionsRequest;
     getAccount(): string;
     setAccount(value: string): GetTransactionsRequest;
+    getIndexOffset(): number;
+    setIndexOffset(value: number): GetTransactionsRequest;
+    getMaxTransactions(): number;
+    setMaxTransactions(value: number): GetTransactionsRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetTransactionsRequest.AsObject;
@@ -301,6 +308,8 @@ export namespace GetTransactionsRequest {
         startHeight: number,
         endHeight: number,
         account: string,
+        indexOffset: number,
+        maxTransactions: number,
     }
 }
 
@@ -309,6 +318,10 @@ export class TransactionDetails extends jspb.Message {
     getTransactionsList(): Array<Transaction>;
     setTransactionsList(value: Array<Transaction>): TransactionDetails;
     addTransactions(value?: Transaction, index?: number): Transaction;
+    getLastIndex(): number;
+    setLastIndex(value: number): TransactionDetails;
+    getFirstIndex(): number;
+    setFirstIndex(value: number): TransactionDetails;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TransactionDetails.AsObject;
@@ -323,6 +336,8 @@ export class TransactionDetails extends jspb.Message {
 export namespace TransactionDetails {
     export type AsObject = {
         transactionsList: Array<Transaction.AsObject>,
+        lastIndex: number,
+        firstIndex: number,
     }
 }
 
@@ -1167,6 +1182,8 @@ export namespace ConnectPeerRequest {
 }
 
 export class ConnectPeerResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): ConnectPeerResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ConnectPeerResponse.AsObject;
@@ -1180,6 +1197,7 @@ export class ConnectPeerResponse extends jspb.Message {
 
 export namespace ConnectPeerResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -1204,6 +1222,8 @@ export namespace DisconnectPeerRequest {
 }
 
 export class DisconnectPeerResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): DisconnectPeerResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DisconnectPeerResponse.AsObject;
@@ -1217,6 +1237,7 @@ export class DisconnectPeerResponse extends jspb.Message {
 
 export namespace DisconnectPeerResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -1237,6 +1258,8 @@ export class HTLC extends jspb.Message {
     setForwardingChannel(value: number): HTLC;
     getForwardingHtlcIndex(): number;
     setForwardingHtlcIndex(value: number): HTLC;
+    getLockedIn(): boolean;
+    setLockedIn(value: boolean): HTLC;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): HTLC.AsObject;
@@ -1257,6 +1280,7 @@ export namespace HTLC {
         htlcIndex: number,
         forwardingChannel: number,
         forwardingHtlcIndex: number,
+        lockedIn: boolean,
     }
 }
 
@@ -1593,6 +1617,10 @@ export class ChannelCloseSummary extends jspb.Message {
     addAliasScids(value: number, index?: number): number;
     getZeroConfConfirmedScid(): string;
     setZeroConfConfirmedScid(value: string): ChannelCloseSummary;
+    getCustomChannelData(): Uint8Array | string;
+    getCustomChannelData_asU8(): Uint8Array;
+    getCustomChannelData_asB64(): string;
+    setCustomChannelData(value: Uint8Array | string): ChannelCloseSummary;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChannelCloseSummary.AsObject;
@@ -1621,6 +1649,7 @@ export namespace ChannelCloseSummary {
         resolutionsList: Array<Resolution.AsObject>,
         aliasScidsList: Array<number>,
         zeroConfConfirmedScid: string,
+        customChannelData: Uint8Array | string,
     }
 
     export enum ClosureType {
@@ -2342,6 +2371,10 @@ export class PendingUpdate extends jspb.Message {
     setTxid(value: Uint8Array | string): PendingUpdate;
     getOutputIndex(): number;
     setOutputIndex(value: number): PendingUpdate;
+    getFeePerVbyte(): number;
+    setFeePerVbyte(value: number): PendingUpdate;
+    getLocalCloseTx(): boolean;
+    setLocalCloseTx(value: boolean): PendingUpdate;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PendingUpdate.AsObject;
@@ -2357,10 +2390,14 @@ export namespace PendingUpdate {
     export type AsObject = {
         txid: Uint8Array | string,
         outputIndex: number,
+        feePerVbyte: number,
+        localCloseTx: boolean,
     }
 }
 
 export class InstantUpdate extends jspb.Message { 
+    getNumPendingHtlcs(): number;
+    setNumPendingHtlcs(value: number): InstantUpdate;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InstantUpdate.AsObject;
@@ -2374,6 +2411,7 @@ export class InstantUpdate extends jspb.Message {
 
 export namespace InstantUpdate {
     export type AsObject = {
+        numPendingHtlcs: number,
     }
 }
 
@@ -4447,6 +4485,8 @@ export namespace StopRequest {
 }
 
 export class StopResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): StopResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): StopResponse.AsObject;
@@ -4460,6 +4500,7 @@ export class StopResponse extends jspb.Message {
 
 export namespace StopResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -5507,6 +5548,8 @@ export namespace DeleteAllPaymentsRequest {
 }
 
 export class DeletePaymentResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): DeletePaymentResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeletePaymentResponse.AsObject;
@@ -5520,10 +5563,13 @@ export class DeletePaymentResponse extends jspb.Message {
 
 export namespace DeletePaymentResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
 export class DeleteAllPaymentsResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): DeleteAllPaymentsResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): DeleteAllPaymentsResponse.AsObject;
@@ -5537,6 +5583,7 @@ export class DeleteAllPaymentsResponse extends jspb.Message {
 
 export namespace DeleteAllPaymentsResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -5570,6 +5617,8 @@ export namespace AbandonChannelRequest {
 }
 
 export class AbandonChannelResponse extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): AbandonChannelResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AbandonChannelResponse.AsObject;
@@ -5583,6 +5632,7 @@ export class AbandonChannelResponse extends jspb.Message {
 
 export namespace AbandonChannelResponse {
     export type AsObject = {
+        status: string,
     }
 }
 
@@ -5881,6 +5931,8 @@ export class PolicyUpdateRequest extends jspb.Message {
     clearInboundFee(): void;
     getInboundFee(): InboundFee | undefined;
     setInboundFee(value?: InboundFee): PolicyUpdateRequest;
+    getCreateMissingEdge(): boolean;
+    setCreateMissingEdge(value: boolean): PolicyUpdateRequest;
 
     getScopeCase(): PolicyUpdateRequest.ScopeCase;
 
@@ -5906,6 +5958,7 @@ export namespace PolicyUpdateRequest {
         minHtlcMsat: number,
         minHtlcMsatSpecified: boolean,
         inboundFee?: InboundFee.AsObject,
+        createMissingEdge: boolean,
     }
 
     export enum ScopeCase {
@@ -6264,6 +6317,8 @@ export namespace RestoreChanBackupRequest {
 }
 
 export class RestoreBackupResponse extends jspb.Message { 
+    getNumRestored(): number;
+    setNumRestored(value: number): RestoreBackupResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RestoreBackupResponse.AsObject;
@@ -6277,6 +6332,7 @@ export class RestoreBackupResponse extends jspb.Message {
 
 export namespace RestoreBackupResponse {
     export type AsObject = {
+        numRestored: number,
     }
 }
 
@@ -6298,6 +6354,10 @@ export namespace ChannelBackupSubscription {
 }
 
 export class VerifyChanBackupResponse extends jspb.Message { 
+    clearChanPointsList(): void;
+    getChanPointsList(): Array<string>;
+    setChanPointsList(value: Array<string>): VerifyChanBackupResponse;
+    addChanPoints(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): VerifyChanBackupResponse.AsObject;
@@ -6311,6 +6371,7 @@ export class VerifyChanBackupResponse extends jspb.Message {
 
 export namespace VerifyChanBackupResponse {
     export type AsObject = {
+        chanPointsList: Array<string>,
     }
 }
 
@@ -6802,6 +6863,9 @@ export class RPCMiddlewareRequest extends jspb.Message {
     getMsgId(): number;
     setMsgId(value: number): RPCMiddlewareRequest;
 
+    getMetadataPairsMap(): jspb.Map<string, MetadataValues>;
+    clearMetadataPairsMap(): void;
+
     getInterceptTypeCase(): RPCMiddlewareRequest.InterceptTypeCase;
 
     serializeBinary(): Uint8Array;
@@ -6824,6 +6888,8 @@ export namespace RPCMiddlewareRequest {
         response?: RPCMessage.AsObject,
         regComplete: boolean,
         msgId: number,
+
+        metadataPairsMap: Array<[string, MetadataValues.AsObject]>,
     }
 
     export enum InterceptTypeCase {
@@ -6834,6 +6900,28 @@ export namespace RPCMiddlewareRequest {
         REG_COMPLETE = 8,
     }
 
+}
+
+export class MetadataValues extends jspb.Message { 
+    clearValuesList(): void;
+    getValuesList(): Array<string>;
+    setValuesList(value: Array<string>): MetadataValues;
+    addValues(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): MetadataValues.AsObject;
+    static toObject(includeInstance: boolean, msg: MetadataValues): MetadataValues.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: MetadataValues, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): MetadataValues;
+    static deserializeBinaryFromReader(message: MetadataValues, reader: jspb.BinaryReader): MetadataValues;
+}
+
+export namespace MetadataValues {
+    export type AsObject = {
+        valuesList: Array<string>,
+    }
 }
 
 export class StreamAuth extends jspb.Message { 

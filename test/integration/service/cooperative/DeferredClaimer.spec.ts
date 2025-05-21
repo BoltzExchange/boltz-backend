@@ -41,6 +41,7 @@ import TransactionLabelRepository from '../../../../lib/db/repositories/Transact
 import type RateProvider from '../../../../lib/rates/RateProvider';
 import Errors from '../../../../lib/service/Errors';
 import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer';
+import AmountTrigger from '../../../../lib/service/cooperative/triggers/AmountTrigger';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
@@ -148,6 +149,7 @@ describe('DeferredClaimer', () => {
     const refundKeys = ECPair.makeRandom();
     const swap = {
       pair: 'L-BTC/BTC',
+      onchainAmount: 100_000,
       type: SwapType.Submarine,
       orderSide: OrderSide.BUY,
       version: SwapVersion.Taproot,
@@ -185,7 +187,7 @@ describe('DeferredClaimer', () => {
       await bitcoinClient.getRawTransaction(
         await bitcoinClient.sendToAddress(
           btcWallet.encodeAddress(p2trOutput(tweakedKey)),
-          100_000,
+          swap.onchainAmount!,
           undefined,
           false,
           '',
@@ -554,6 +556,39 @@ describe('DeferredClaimer', () => {
       });
 
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+
+      expect(
+        claimer.pendingSweeps()[SwapType.Submarine].get('BTC'),
+      ).toBeUndefined();
+    });
+
+    test('should trigger claim when sweepAmountTrigger is reached', async () => {
+      const { swap, preimage } = await createClaimableOutput();
+
+      expect.assertions(4);
+
+      claimer.once('claim', (args) => {
+        expect(args.swap).toEqual({
+          ...swap,
+          minerFee: expect.anything(),
+          status: SwapUpdateEvent.TransactionClaimed,
+        });
+        expect(args.channelCreation).toBeUndefined();
+      });
+
+      const trigger = claimer['sweepTriggers'].find(
+        (trigger) => trigger instanceof AmountTrigger,
+      )!;
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      trigger['sweepAmountTrigger'] = swap.onchainAmount!;
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      trigger['sweepAmountTrigger'] = undefined;
 
       expect(
         claimer.pendingSweeps()[SwapType.Submarine].get('BTC'),

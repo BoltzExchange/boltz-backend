@@ -179,6 +179,7 @@ type SwapConfig = {
   deferredClaimSymbols: string[];
   batchClaimInterval: string;
   expiryTolerance: number;
+  sweepAmountTrigger?: number;
 
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
 

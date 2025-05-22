@@ -4,9 +4,7 @@
 boltzDir=$(pwd)
 boltzDataDir="$boltzDir/docker/regtest/data"
 
-cookieDir="$boltzDataDir/core/cookies"
-
-alias bitcoin-cli-sim='bitcoin-cli --regtest --rpccookiefile=$cookieDir/.bitcoin-cookie'
+alias bitcoin-cli-sim='bitcoin-cli --regtest -rpcuser=boltz -rpcpassword=anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI'
 
 lndCert="$boltzDataDir/lnd/certificates/tls.cert"
 lndMacaroon="$boltzDataDir/lnd/macaroons/admin.macaroon"

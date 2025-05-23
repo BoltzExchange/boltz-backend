@@ -434,7 +434,7 @@ enum Node {
 
 message InvoicePaymentHookResponse {
   string id = 1;
-  Node action = 2;
+  optional Node action = 2;
 }
 
 message InvoicePaymentHookRequest {

@@ -1722,7 +1722,10 @@ export namespace TransactionHookRequest {
 export class InvoicePaymentHookResponse extends jspb.Message { 
     getId(): string;
     setId(value: string): InvoicePaymentHookResponse;
-    getAction(): Node;
+
+    hasAction(): boolean;
+    clearAction(): void;
+    getAction(): Node | undefined;
     setAction(value: Node): InvoicePaymentHookResponse;
 
     serializeBinary(): Uint8Array;
@@ -1738,7 +1741,7 @@ export class InvoicePaymentHookResponse extends jspb.Message {
 export namespace InvoicePaymentHookResponse {
     export type AsObject = {
         id: string,
-        action: Node,
+        action?: Node,
     }
 }
 

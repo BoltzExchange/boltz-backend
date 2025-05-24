@@ -6,8 +6,8 @@ import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook, { type HookResponse } from './Hook';
 
 class InvoicePaymentHook extends Hook<
-  boltzrpc.Node,
-  NodeType,
+  boltzrpc.Node | undefined,
+  NodeType | undefined,
   boltzrpc.InvoicePaymentHookRequest,
   boltzrpc.InvoicePaymentHookResponse
 > {
@@ -38,19 +38,29 @@ class InvoicePaymentHook extends Hook<
 
     const res = await this.sendHook(swapId, msg);
 
-    this.logger.debug(
-      `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res)}`,
-    );
+    if (res !== undefined) {
+      this.logger.debug(
+        `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res)}`,
+      );
+    } else {
+      this.logger.debug(
+        `Invoice payment hook for ${swapId} returned without preference`,
+      );
+    }
 
     return res;
   };
 
-  protected parseGrpcAction = (res: HookResponse<boltzrpc.Node>): NodeType => {
+  protected parseGrpcAction = (
+    res: HookResponse<boltzrpc.Node | undefined>,
+  ): NodeType | undefined => {
     switch (res.getAction()) {
       case boltzrpc.Node.CLN:
         return NodeType.CLN;
       case boltzrpc.Node.LND:
         return NodeType.LND;
+      default:
+        return undefined;
     }
   };
 }

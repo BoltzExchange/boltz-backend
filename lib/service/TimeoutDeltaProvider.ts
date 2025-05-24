@@ -18,6 +18,7 @@ import {
 } from '../consts/Enums';
 import type { PairConfig } from '../consts/Types';
 import type Swap from '../db/models/Swap';
+import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import type { LightningClient } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
@@ -214,6 +215,20 @@ class TimeoutDeltaProvider {
     cltvLimit: number,
   ) => {
     try {
+      if (decodedInvoice.paymentHash !== undefined) {
+        const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+          preimageHash: getHexString(decodedInvoice.paymentHash),
+        });
+
+        if (reverseSwap !== null && reverseSwap !== undefined) {
+          const reverseDecoded = await this.sidecar.decodeInvoiceOrOffer(
+            reverseSwap.invoice,
+          );
+
+          return Math.max(reverseDecoded.minFinalCltv, 144);
+        }
+      }
+
       // TODO: fix this for bolt12
       if (decodedInvoice.type === InvoiceType.Bolt12Invoice) {
         return 144;

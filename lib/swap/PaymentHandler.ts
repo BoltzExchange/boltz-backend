@@ -22,6 +22,7 @@ import type {
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
+import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -77,6 +78,8 @@ class PaymentHandler {
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
 
+  public readonly selfPaymentClient: SelfPaymentClient;
+
   private lastResetMissionControl: number | undefined = undefined;
 
   constructor(
@@ -91,7 +94,9 @@ class PaymentHandler {
       eventName: K,
       arg: SwapNurseryEvents[K],
     ) => void,
-  ) {}
+  ) {
+    this.selfPaymentClient = new SelfPaymentClient(this.logger);
+  }
 
   public payInvoice = async (
     swap: Swap,
@@ -111,6 +116,17 @@ class PaymentHandler {
           SwapUpdateEvent.InvoicePending,
         ),
       );
+    }
+
+    {
+      const res = await this.selfPaymentClient.handleSelfPayment(swap);
+      if (res.isSelf) {
+        if (res.result !== undefined) {
+          return await this.settleInvoice(swap, res.result);
+        }
+
+        return undefined;
+      }
     }
 
     const { base, quote } = splitPairId(swap.pair);

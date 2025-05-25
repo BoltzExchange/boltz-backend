@@ -99,7 +99,7 @@ abstract class Hook<T, P, Req, Res extends HookResponse<T>> {
     return hook;
   };
 
-  protected abstract parseGrpcAction(res: HookResponse<T>): P;
+  protected abstract parseGrpcAction(res: Res): P;
 
   private closeStream = () => {
     this.stream?.removeAllListeners();

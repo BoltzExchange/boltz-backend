@@ -40,6 +40,7 @@ describe('InvoicePaymentHook', () => {
       'should parse gRPC node $grpcNode to NodeType $expectedNodeType',
       ({ grpcNode, expectedNodeType }) => {
         const mockResponse = {
+          hasAction: () => true,
           getAction: () => grpcNode,
         } as boltzrpc.InvoicePaymentHookResponse;
 
@@ -47,5 +48,12 @@ describe('InvoicePaymentHook', () => {
         expect(result).toBe(expectedNodeType);
       },
     );
+
+    test('should return undefined if no action', () => {
+      const mockResponse = {
+        hasAction: () => false,
+      } as boltzrpc.InvoicePaymentHookResponse;
+      expect(hook['parseGrpcAction'](mockResponse)).toBeUndefined();
+    });
   });
 });

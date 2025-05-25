@@ -3,7 +3,7 @@ import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
-import Hook, { type HookResponse } from './Hook';
+import Hook from './Hook';
 
 class InvoicePaymentHook extends Hook<
   boltzrpc.Node | undefined,
@@ -52,8 +52,12 @@ class InvoicePaymentHook extends Hook<
   };
 
   protected parseGrpcAction = (
-    res: HookResponse<boltzrpc.Node | undefined>,
+    res: boltzrpc.InvoicePaymentHookResponse,
   ): NodeType | undefined => {
+    if (!res.hasAction()) {
+      return undefined;
+    }
+
     switch (res.getAction()) {
       case boltzrpc.Node.CLN:
         return NodeType.CLN;

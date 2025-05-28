@@ -19,6 +19,7 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, info, instrument};
 
 mod hold;
+mod invoice_fetcher;
 
 pub use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
 

@@ -5,6 +5,7 @@ use crate::db::models::Offer;
 use crate::lightning::cln::cln_rpc::{GetinfoRequest, InjectonionmessageRequest};
 use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
 use crate::lightning::cln::hold::hold_rpc::{GetInfoRequest, OnionMessageResponse};
+use crate::lightning::cln::invoice_fetcher::InvoiceFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::types;
 use crate::wallet;
@@ -33,7 +34,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, error, info, instrument, warn};
@@ -43,18 +44,6 @@ const ERR_NO_OFFER_REGISTERED: &str = "no offer for this signing public key was 
 
 const OFFER_DELETE_MESSAGE: &str = "DELETE";
 const OFFER_UPDATE_NO_URL_MESSAGE: &str = "UPDATE";
-
-const INVOICE_FETCH_TIMEOUT_SECONDS: u64 = 30;
-
-#[derive(Debug, Deserialize)]
-struct InvoiceRequestResponse {
-    pub invoice: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct InvoiceRequestError {
-    pub error: String,
-}
 
 enum InvoiceResponse {
     Invoice(Box<Bolt12Invoice>),
@@ -83,10 +72,9 @@ pub struct Hold {
     symbol: String,
     network: wallet::Network,
     offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
-    offer_subscriptions: OfferSubscriptions,
-    invoice_caller: Arc<InvoiceCaller>,
     cln: crate::lightning::cln::cln_rpc::node_client::NodeClient<Channel>,
     hold: hold_rpc::hold_client::HoldClient<Channel>,
+    invoice_fetcher: Arc<InvoiceFetcher>,
 }
 
 impl Hold {
@@ -132,14 +120,19 @@ impl Hold {
             });
         }
 
+        let invoice_fetcher = Arc::new(InvoiceFetcher::new(
+            network,
+            offer_subscriptions,
+            invoice_caller,
+        ));
+
         Ok(Self {
             cln,
             network,
             offer_helper,
-            invoice_caller,
-            offer_subscriptions,
             symbol: symbol.to_string(),
             hold: hold_rpc::hold_client::HoldClient::new(channel),
+            invoice_fetcher,
         })
     }
 
@@ -231,95 +224,14 @@ impl Hold {
         let mut request_bytes = vec![];
         request.write(&mut request_bytes)?;
 
-        let hook = InvoiceHook::new(offer.offer, &request_bytes, None);
-        let hook_id = hook.id();
-
-        let receiver = self.offer_subscriptions.subscribe_invoice_responses();
-        if self
-            .offer_subscriptions
-            .request_invoice(hook.clone())
-            .await?
-        {
-            debug!("Sending BOLT12 invoice Websocket request");
-            Self::wait_for_response(hook_id, receiver, |res| match res {
-                Ok(invoice) => {
-                    let decoded = Self::decode_bolt12_invoice(self.network, &invoice)?;
-                    Ok((invoice, decoded))
-                }
-                Err(err) => Err(anyhow!("{err}")),
-            })
-            .await
-        } else if let Some(url) = offer.url {
-            let receiver = self.invoice_caller.subscribe_successful_calls();
-            self.invoice_caller.call(hook.with_url(url)).await?;
-
-            Self::wait_for_response(hook_id, receiver, |data| {
-                match serde_json::from_slice::<InvoiceRequestResponse>(&data) {
-                    Ok(invoice) => {
-                        let decoded = Self::decode_bolt12_invoice(self.network, &invoice.invoice)?;
-                        Ok((invoice.invoice, decoded))
-                    }
-                    Err(_) => Err(anyhow!(
-                        "{}",
-                        serde_json::from_slice::<InvoiceRequestError>(&data)?.error
-                    )),
-                }
-            })
-            .await
-        } else {
-            Err(anyhow!("no way to reach client"))
-        }
+        let hook: InvoiceHook<types::False> =
+            InvoiceHook::new(offer.offer.clone(), &request_bytes, None);
+        self.invoice_fetcher.fetch_invoice(offer, hook).await
     }
 
     async fn stream_onion_messages(&mut self) -> Result<()> {
         let our_pubkey = self.cln.getinfo(GetinfoRequest {}).await?.into_inner().id;
         let our_pubkey = PublicKey::from_slice(&our_pubkey)?;
-
-        {
-            let mut self_cp = self.clone();
-            tokio::spawn(async move {
-                let network = self_cp.network;
-                self_cp
-                    .handle_response_stream(
-                        our_pubkey,
-                        self_cp.invoice_caller.subscribe_successful_calls(),
-                        |data| {
-                            Ok(
-                                match serde_json::from_slice::<InvoiceRequestResponse>(&data) {
-                                    Ok(invoice) => InvoiceResponse::Invoice(
-                                        Self::decode_bolt12_invoice(network, &invoice.invoice)?,
-                                    ),
-                                    Err(_) => InvoiceResponse::InvoiceError(
-                                        serde_json::from_slice::<InvoiceRequestError>(&data)?.error,
-                                    ),
-                                },
-                            )
-                        },
-                    )
-                    .await;
-            });
-        }
-
-        {
-            let mut self_cp = self.clone();
-            tokio::spawn(async move {
-                let network = self_cp.network;
-                self_cp
-                    .handle_response_stream(
-                        our_pubkey,
-                        self_cp.offer_subscriptions.subscribe_invoice_responses(),
-                        |res| {
-                            Ok(match res {
-                                Ok(invoice) => InvoiceResponse::Invoice(
-                                    Self::decode_bolt12_invoice(network, &invoice)?,
-                                ),
-                                Err(err) => InvoiceResponse::InvoiceError(err),
-                            })
-                        },
-                    )
-                    .await;
-            });
-        }
 
         let (response_tx, response_rx) = mpsc::channel(256);
         let mut stream = self
@@ -385,39 +297,27 @@ impl Hold {
                         response_msg(msg.id, HookAction::Resolve).await;
 
                         let hook = InvoiceHook::new(
-                            offer.offer,
+                            offer.offer.clone(),
                             &invoice_request,
                             Some(reply_blinded_path),
                         );
 
-                        // When there is a WebSocket connection, use it
-                        match self_cp
-                            .offer_subscriptions
-                            .request_invoice(hook.clone())
-                            .await
-                        {
-                            Ok(true) => {
-                                debug!("Sending BOLT12 invoice Websocket request");
-                                continue;
-                            }
-                            Err(err) => {
-                                warn!("Sending BOLT12 invoice Websocket request failed: {}", err);
-                                continue;
-                            }
-                            _ => {}
-                        }
+                        let mut self_cp = self_cp.clone();
+                        // To not block the subscription
+                        tokio::spawn(async move {
+                            let res = match self_cp
+                                .invoice_fetcher
+                                .fetch_invoice(offer, hook.clone())
+                                .await
+                            {
+                                Ok((_, decoded)) => InvoiceResponse::Invoice(decoded),
+                                Err(err) => InvoiceResponse::InvoiceError(err.to_string()),
+                            };
 
-                        if let Some(url) = offer.url {
-                            // To not block the subscription
-                            let invoice_caller = self_cp.invoice_caller.clone();
-                            tokio::spawn(async move {
-                                if let Err(error) = invoice_caller.call(hook.with_url(url)).await {
-                                    warn!("Sending BOLT12 invoice Webhook failed: {}", error);
-                                }
-                            });
-                        } else {
-                            debug!("No way to reach client for invoice request");
-                        }
+                            if let Err(err) = self_cp.handle_response(our_pubkey, hook, res).await {
+                                error!("Could not handle invoice response: {}", err);
+                            }
+                        });
                     }
                     Err(err) => {
                         error!(
@@ -433,43 +333,6 @@ impl Hold {
         });
 
         Ok(())
-    }
-
-    async fn handle_response_stream<T, R>(
-        &mut self,
-        our_pubkey: PublicKey,
-        mut receiver: broadcast::Receiver<(InvoiceHook<T>, R)>,
-        parse_response: impl Fn(R) -> Result<InvoiceResponse>,
-    ) where
-        T: types::Bool + Clone,
-        R: Clone,
-    {
-        loop {
-            let (hook, res) = match receiver.recv().await {
-                Ok(msg) => msg,
-                Err(err) => {
-                    error!(
-                        "Subscribing to BOLT12 invoice subscription responses failed: {}",
-                        err
-                    );
-                    break;
-                }
-            };
-            if !hook.respond_with_onion() {
-                continue;
-            }
-
-            let res = match parse_response(res) {
-                Ok(res) => res,
-                Err(err) => {
-                    warn!("Could not parse BOLT12 invoice response: {}", err);
-                    continue;
-                }
-            };
-            if let Err(err) = self.handle_response(our_pubkey, hook, res).await {
-                warn!("Handling BOLT12 invoice response failed: {}", err);
-            }
-        }
     }
 
     #[instrument(name = "hold::handle_response", skip_all)]
@@ -505,51 +368,6 @@ impl Hold {
         };
 
         self.offer_helper.get_by_signer(&signing_pubkey.serialize())
-    }
-
-    fn decode_bolt12_invoice(
-        network: wallet::Network,
-        invoice: &str,
-    ) -> Result<Box<Bolt12Invoice>> {
-        Ok(match crate::lightning::invoice::decode(network, invoice)? {
-            Invoice::Bolt12(invoice) => invoice,
-            _ => return Err(anyhow!("invalid invoice")),
-        })
-    }
-
-    async fn wait_for_response<T, R>(
-        id: u64,
-        mut receiver: broadcast::Receiver<(InvoiceHook<T>, R)>,
-        parse_response: impl Fn(R) -> Result<(String, Box<Bolt12Invoice>)>,
-    ) -> Result<(String, Box<Bolt12Invoice>)>
-    where
-        T: types::Bool + Clone,
-        R: Clone,
-    {
-        let timeout = tokio::time::sleep(std::time::Duration::from_secs(
-            INVOICE_FETCH_TIMEOUT_SECONDS,
-        ));
-        tokio::pin!(timeout);
-
-        loop {
-            tokio::select! {
-                response = receiver.recv() => {
-                    match response {
-                        Ok((hook, res)) => {
-                            if hook.id() == id {
-                                return parse_response(res);
-                            }
-                        },
-                        Err(err) => {
-                            return Err(anyhow!("failed to receive invoice response: {}", err));
-                        }
-                    }
-                },
-                _ = &mut timeout => {
-                    return Err(anyhow!("timeout waiting for invoice response"));
-                }
-            }
-        }
     }
 
     fn prepare_offer(network: wallet::Network, offer: &str, url: Option<&str>) -> Result<Vec<u8>> {

@@ -68,10 +68,6 @@ impl<T: types::Bool> InvoiceHook<T> {
         self.invoice_request.hash(&mut hasher);
         hasher.finish()
     }
-
-    pub fn respond_with_onion(&self) -> bool {
-        self.reply_blinded_path.is_some()
-    }
 }
 
 impl Hook for InvoiceHook<types::True> {

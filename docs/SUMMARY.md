@@ -12,7 +12,7 @@
 * [🪝 Webhooks](webhooks.md)
 * [⚡ BOLT12](bolt12.md)
 * [🏅 Pro](pro.md)
-* [📜 Claim covenants](claim-covenants.md)
+* [📜 Claim Covenants](claim-covenants.md)
 * [🤝 Referral Program](referral-program.md)
 * [🚢 Backend Deployment](deployment.md)
 * [🐳 Regtest Environment](regtest.md)

@@ -4,7 +4,7 @@
 * [📙 Libraries](libraries.md)
 * [🤖 REST API (latest)](api-v2.md)
 * [🔁 Swap Types & States](lifecycle.md)
-* [🙋‍♂️ Claim & Refund Transactions](claiming-swaps.md)
+* [🙋‍♂️ Claims & Refunds](claiming-swaps.md)
 * [⚠️ Common Mistakes](common-mistakes.md)
 * [🚫 Don't trust. Verify!](dont-trust-verify.md)
 * [🪄 Magic Routing Hints](magic-routing-hints.md)

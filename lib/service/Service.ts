@@ -1117,7 +1117,10 @@ class Service {
       args.paymentTimeout = Math.floor(args.paymentTimeout);
     }
 
-    await this.checkSwapWithPreimageExists(args.preimageHash);
+    await this.checkSwapWithPreimageExists(
+      SwapType.Submarine,
+      args.preimageHash,
+    );
 
     const { base, quote } = splitPairId(args.pairId);
     const orderSide = this.getOrderSide(args.orderSide);
@@ -1429,10 +1432,6 @@ class Service {
 
     const { destination, features } =
       await lightningClient.decodeInvoice(invoice);
-
-    if (this.nodeInfo.isOurNode(destination)) {
-      throw Errors.DESTINATION_BOLTZ_NODE();
-    }
 
     if (this.nodeInfo.isNoRoute(lightningCurrency, destination)) {
       throw LightningErrors.NO_ROUTE();
@@ -1749,7 +1748,10 @@ class Service {
     }
 
     checkPreimageHashLength(preimageHash);
-    await this.checkSwapWithPreimageExists(preimageHash);
+    await this.checkSwapWithPreimageExists(
+      SwapType.ReverseSubmarine,
+      preimageHash,
+    );
 
     const side = this.getOrderSide(args.orderSide);
     const referralId = await this.getReferralId(
@@ -2067,7 +2069,7 @@ class Service {
     webHook?: WebHookData;
     extraFees?: ExtraFees;
   }) => {
-    await this.checkSwapWithPreimageExists(args.preimageHash);
+    await this.checkSwapWithPreimageExists(SwapType.Chain, args.preimageHash);
 
     const side = this.getOrderSide(args.orderSide);
     const referralId = await this.getReferralId(args.referralId);
@@ -2374,22 +2376,35 @@ class Service {
     }
   };
 
-  private checkSwapWithPreimageExists = async (preimageHash: Buffer) => {
+  private checkSwapWithPreimageExists = async (
+    type: SwapType,
+    preimageHash: Buffer,
+  ) => {
     const hashHex = getHexString(preimageHash);
 
-    const swaps = await Promise.all([
-      SwapRepository.getSwap({
-        preimageHash: hashHex,
-      }),
-      ReverseSwapRepository.getReverseSwap({
-        preimageHash: hashHex,
-      }),
-      ChainSwapRepository.getChainSwap({
-        preimageHash: hashHex,
-      }),
-    ]);
+    let swap: AnySwap | null = null;
 
-    if (swaps.some((s) => s !== null)) {
+    switch (type) {
+      case SwapType.Submarine:
+        swap = await SwapRepository.getSwap({
+          preimageHash: hashHex,
+        });
+        break;
+
+      case SwapType.ReverseSubmarine:
+        swap = await ReverseSwapRepository.getReverseSwap({
+          preimageHash: hashHex,
+        });
+        break;
+
+      case SwapType.Chain:
+        swap = await ChainSwapRepository.getChainSwap({
+          preimageHash: hashHex,
+        });
+        break;
+    }
+
+    if (swap !== null) {
       throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
   };

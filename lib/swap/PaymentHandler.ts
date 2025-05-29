@@ -22,9 +22,11 @@ import type {
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
+import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 import type ChannelNursery from './ChannelNursery';
@@ -77,6 +79,8 @@ class PaymentHandler {
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
 
+  public readonly selfPaymentClient: SelfPaymentClient;
+
   private lastResetMissionControl: number | undefined = undefined;
 
   constructor(
@@ -91,7 +95,9 @@ class PaymentHandler {
       eventName: K,
       arg: SwapNurseryEvents[K],
     ) => void,
-  ) {}
+  ) {
+    this.selfPaymentClient = new SelfPaymentClient(this.logger);
+  }
 
   public payInvoice = async (
     swap: Swap,
@@ -113,6 +119,29 @@ class PaymentHandler {
       );
     }
 
+    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
+    const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
+
+    try {
+      const res = await this.selfPaymentClient.handleSelfPayment(
+        swap,
+        decoded,
+        cltvLimit,
+      );
+      if (res.isSelf) {
+        if (res.result !== undefined) {
+          return await this.settleInvoice(swap, res.result);
+        }
+
+        return undefined;
+      }
+    } catch (error) {
+      const msg = formatError(error);
+      this.logPaymentFailure(swap, msg);
+      await this.abandonSwap(swap, msg);
+      return undefined;
+    }
+
     const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(
       base,
@@ -123,7 +152,11 @@ class PaymentHandler {
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
-    const preferredNode = await this.getPreferredNode(lightningCurrency, swap);
+    const preferredNode = await this.getPreferredNode(
+      lightningCurrency,
+      swap,
+      decoded,
+    );
     const { node, paymentHash, payments } =
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
@@ -132,7 +165,6 @@ class PaymentHandler {
       );
 
     try {
-      const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
       if (cltvLimit < 2) {
         throw PaymentHandler.errCltvTooSmall;
       }
@@ -354,17 +386,15 @@ class PaymentHandler {
   private getPreferredNode = async (
     lightningCurrency: Currency,
     swap: Swap,
+    decoded: DecodedInvoice,
   ) => {
-    const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
-    {
-      const hookNode = await this.nodeSwitch.invoicePaymentHook(
-        lightningCurrency,
-        { id: swap.id, invoice: swap.invoice! },
-        decoded,
-      );
-      if (hookNode !== undefined) {
-        return hookNode;
-      }
+    const hookNode = await this.nodeSwitch.invoicePaymentHook(
+      lightningCurrency,
+      { id: swap.id, invoice: swap.invoice! },
+      decoded,
+    );
+    if (hookNode !== undefined) {
+      return hookNode;
     }
 
     return {

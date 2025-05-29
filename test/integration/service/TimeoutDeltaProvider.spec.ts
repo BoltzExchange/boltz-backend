@@ -3,6 +3,7 @@ import type { ConfigType } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { splitPairId } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import Errors from '../../../lib/service/Errors';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import Sidecar from '../../../lib/sidecar/Sidecar';
@@ -69,6 +70,8 @@ describe('TimeoutDeltaProvider', () => {
 
   beforeAll(async () => {
     await startSidecar();
+
+    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
 
     await Promise.all([
       sidecar.connect(

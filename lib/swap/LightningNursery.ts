@@ -12,6 +12,7 @@ import LightningErrors from '../lightning/Errors';
 import type { LightningClient } from '../lightning/LightningClient';
 import { InvoiceState } from '../lightning/LightningClient';
 import type LndClient from '../lightning/LndClient';
+import type SelfPaymentClient from '../lightning/SelfPaymentClient';
 import type ClnClient from '../lightning/cln/ClnClient';
 import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
@@ -29,8 +30,11 @@ class LightningNursery extends TypedEventEmitter<{
   constructor(
     private readonly logger: Logger,
     private readonly sidecar: Sidecar,
+    selfPaymentClient: SelfPaymentClient,
   ) {
     super();
+
+    this.listenInvoices(selfPaymentClient);
   }
 
   public static errIsInvoicePaid = (error: unknown): boolean => {

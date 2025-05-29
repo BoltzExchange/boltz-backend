@@ -12,7 +12,7 @@ API documentation can be found [here](https://docs.boltz.exchange/v/api).
 
 ## Resources
 
-* Get Help: [Discord](https://discord.gg/QBvZGcW) | [Telegram](https://t.me/boltzhq)
+* Get Help: [Support Center](https://support.boltz.exchange/hc/center/) | [Discord](https://discord.gg/QBvZGcW) | [Telegram](https://t.me/boltzhq)
 * Read the Docs: [Docs Home](https://docs.boltz.exchange/)
 * Read our Blog: [Substack](https://blog.boltz.exchange/)
 * Follow us: [X/Twitter](https://twitter.com/Boltzhq) | [Nostr](https://snort.social/p/npub1psm37hke2pmxzdzraqe3cjmqs28dv77da74pdx8mtn5a0vegtlas9q8970)

@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
-require('yargs')
+const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
+
+yargs(hideBin(process.argv))
   .options({
     provider: {
       describe: 'HTTP endpoint of the web3 provider',

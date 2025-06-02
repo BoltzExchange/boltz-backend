@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 const Boltz = require('../dist/lib/Boltz').default;
+const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
 
-const { argv } = require('yargs').options({
+const { argv } = yargs(hideBin(process.argv)).options({
   datadir: {
     describe: 'Data directory of Boltz',
     alias: 'w',

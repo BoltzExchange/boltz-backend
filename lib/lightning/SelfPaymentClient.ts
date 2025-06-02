@@ -2,6 +2,7 @@ import AsyncLock from 'async-lock';
 import crypto from 'crypto';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
+import { racePromise } from '../PromiseUtils';
 import { getHexBuffer, getHexString } from '../Utils';
 import {
   ClientStatus,
@@ -14,6 +15,7 @@ import type Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
+import type SwapNursery from '../swap/SwapNursery';
 import { type WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
   type ChannelInfo,
@@ -26,6 +28,7 @@ import {
   type PaymentResponse,
   type Route,
 } from './LightningClient';
+import PendingPaymentTracker from './PendingPaymentTracker';
 
 class SelfPaymentClient
   extends BaseClient<EventTypes>
@@ -39,7 +42,10 @@ class SelfPaymentClient
   public type: NodeType = NodeType.SelfPayment;
   public maxPaymentFeeRatio: number = 0;
 
-  constructor(logger: Logger) {
+  constructor(
+    logger: Logger,
+    private readonly swapNursery: SwapNursery,
+  ) {
     super(logger, 'SelfPayment');
     this.setClientStatus(ClientStatus.Connected);
   }
@@ -78,28 +84,20 @@ class SelfPaymentClient
           }
 
           this.emit('htlc.accepted', reverseSwap.invoice);
-        }
+          const res = await this.waitForPreimage(reverseSwap);
+          if (res === undefined) {
+            this.logger.debug(
+              `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} still pending`,
+            );
+          }
 
-        let result: PaymentResponse | undefined = undefined;
-
-        if (
-          reverseSwap.preimage !== null &&
-          reverseSwap.preimage !== undefined
-        ) {
-          this.logger.info(
-            `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} succeeded`,
-          );
-
-          result = {
-            feeMsat: 0,
-            preimage: getHexBuffer(reverseSwap.preimage),
+          return {
+            isSelf: true,
+            result: res,
           };
         }
 
-        return {
-          result,
-          isSelf: true,
-        };
+        return this.getPreimage(swap, reverseSwap);
       },
     );
   };
@@ -179,6 +177,57 @@ class SelfPaymentClient
 
   public getBalance = (): Promise<WalletBalance> => {
     throw SelfPaymentClient.notImplementedError;
+  };
+
+  private waitForPreimage = async (reverseSwap: ReverseSwap) => {
+    let handler: ((s: ReverseSwap) => void) | undefined = undefined;
+
+    return await racePromise(
+      () => {
+        return new Promise<PaymentResponse | undefined>((resolve) => {
+          handler = (settledSwap: ReverseSwap) => {
+            if (
+              settledSwap.id === reverseSwap.id &&
+              settledSwap.preimage !== null &&
+              settledSwap.preimage !== undefined
+            ) {
+              this.swapNursery.removeListener('invoice.settled', handler!);
+              resolve({
+                feeMsat: 0,
+                preimage: getHexBuffer(settledSwap.preimage),
+              });
+            }
+          };
+
+          this.swapNursery.on('invoice.settled', handler);
+        });
+      },
+      (_, resolve) => {
+        this.swapNursery.removeListener('invoice.settled', handler!);
+        resolve(undefined);
+      },
+      PendingPaymentTracker.raceTimeout * 1_000,
+    );
+  };
+
+  private getPreimage = async (swap: Swap, reverseSwap: ReverseSwap) => {
+    let result: PaymentResponse | undefined = undefined;
+
+    if (reverseSwap.preimage !== null && reverseSwap.preimage !== undefined) {
+      this.logger.info(
+        `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} succeeded`,
+      );
+
+      result = {
+        feeMsat: 0,
+        preimage: getHexBuffer(reverseSwap.preimage),
+      };
+    }
+
+    return {
+      result,
+      isSelf: true,
+    };
   };
 
   private lookupSwapsForPreimageHash = async (

@@ -33,6 +33,7 @@ import type ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
+import type SwapNursery from './SwapNursery';
 
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -91,12 +92,9 @@ class PaymentHandler {
     public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private readonly pendingPaymentTracker: PendingPaymentTracker,
-    private emit: <K extends keyof SwapNurseryEvents>(
-      eventName: K,
-      arg: SwapNurseryEvents[K],
-    ) => void,
+    private readonly swapNursery: SwapNursery,
   ) {
-    this.selfPaymentClient = new SelfPaymentClient(this.logger);
+    this.selfPaymentClient = new SelfPaymentClient(this.logger, swapNursery);
   }
 
   public payInvoice = async (
@@ -110,7 +108,7 @@ class PaymentHandler {
       swap.status !== SwapUpdateEvent.InvoicePending &&
       swap.status !== SwapUpdateEvent.ChannelCreated
     ) {
-      this.emit(
+      this.swapNursery.emit(
         'invoice.pending',
         await SwapRepository.setSwapStatus(
           swap,
@@ -353,7 +351,7 @@ class PaymentHandler {
 
   private abandonSwap = async (swap: Swap, errorMessage: string) => {
     this.logger.warn(`Abandoning Swap ${swap.id} because: ${errorMessage}`);
-    this.emit(
+    this.swapNursery.emit(
       'invoice.failedToPay',
       await SwapRepository.setSwapStatus(
         swap,
@@ -371,7 +369,7 @@ class PaymentHandler {
       `Paid invoice of Swap ${swap.id} (${swap.preimageHash}): ${getHexString(response.preimage)}`,
     );
 
-    this.emit(
+    this.swapNursery.emit(
       'invoice.paid',
       await SwapRepository.setInvoicePaid(
         swap,

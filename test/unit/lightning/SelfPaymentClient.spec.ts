@@ -3,20 +3,33 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { InvoiceState } from '../../../lib/lightning/LightningClient';
+import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
+import type SwapNursery from '../../../lib/swap/SwapNursery';
 
 jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('SelfPaymentClient', () => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-expect-error
+  PendingPaymentTracker.raceTimeout = 1;
+
+  let nursery: SwapNursery;
   let client: SelfPaymentClient;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    client = new SelfPaymentClient(Logger.disabledLogger);
+    nursery = {
+      on: jest.fn(),
+      removeListener: jest.fn(),
+    } as unknown as SwapNursery;
+    client = new SelfPaymentClient(Logger.disabledLogger, nursery);
   });
 
   describe('handleSelfPayment', () => {
@@ -100,22 +113,18 @@ describe('SelfPaymentClient', () => {
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
       const emitSpy = jest.spyOn(client, 'emit');
 
-      const result = await client.handleSelfPayment(
-        mockSwap as any,
-        mockDecoded as any,
-        100,
-      );
+      await expect(
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100),
+      ).resolves.toEqual({
+        isSelf: true,
+        result: undefined,
+      });
 
       expect(emitSpy).toHaveBeenCalledTimes(1);
       expect(emitSpy).toHaveBeenCalledWith(
         'htlc.accepted',
         mockReverseSwap.invoice,
       );
-
-      expect(result).toEqual({
-        isSelf: true,
-        result: undefined,
-      });
     });
 
     test('should not emit htlc.accepted when reverse swap status is not SwapCreated', async () => {
@@ -129,25 +138,20 @@ describe('SelfPaymentClient', () => {
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
       const emitSpy = jest.spyOn(client, 'emit');
 
-      const result = await client.handleSelfPayment(
-        mockSwap as any,
-        mockDecoded as any,
-        100,
-      );
-
-      expect(emitSpy).not.toHaveBeenCalled();
-
-      expect(result).toEqual({
+      await expect(
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100),
+      ).resolves.toEqual({
         isSelf: true,
         result: undefined,
       });
+      expect(emitSpy).not.toHaveBeenCalled();
     });
 
     test('should return payment result when reverse swap has preimage', async () => {
       const mockReverseSwap = {
         id: 'rev',
         preimageHash,
-        status: SwapUpdateEvent.SwapCreated,
+        status: SwapUpdateEvent.InvoiceSettled,
         preimage,
         invoice: 'lnbc1000n1...',
       };
@@ -334,6 +338,70 @@ describe('SelfPaymentClient', () => {
 
       await expect(client.settleHoldInvoice(preimage)).rejects.toThrow(msg);
     });
+  });
+
+  describe('waitForPreimage', () => {
+    test('should return preimage when nursery settles reverse swap', async () => {
+      const reverseSwap = {
+        id: 'rev',
+        preimage:
+          'c4783710a8b755517a1cdb00ceffea5bf3e359c932a6f07590a7b121adffbbc3',
+      } as unknown as ReverseSwap;
+
+      nursery.on = jest.fn().mockImplementation((event, callback) => {
+        if (event === 'invoice.settled') {
+          callback(reverseSwap);
+        }
+      });
+
+      await expect(client['waitForPreimage'](reverseSwap)).resolves.toEqual({
+        feeMsat: 0,
+        preimage: getHexBuffer(reverseSwap.preimage!),
+      });
+    });
+
+    test('should return undefined when nursery does not settle reverse swap in time', async () => {
+      const reverseSwap = {
+        id: 'rev',
+      } as unknown as ReverseSwap;
+
+      await expect(client['waitForPreimage'](reverseSwap)).resolves.toEqual(
+        undefined,
+      );
+    });
+  });
+
+  describe('getPreimage', () => {
+    test('should return preimage when reverse swap has preimage', async () => {
+      const reverseSwap = {
+        preimage:
+          'd101170063d5de1243c44eed1ab6b99f1664d96cdaf1d3fab8c508e30b348d5f',
+      } as unknown as ReverseSwap;
+      await expect(
+        client['getPreimage']({} as unknown as Swap, reverseSwap),
+      ).resolves.toEqual({
+        isSelf: true,
+        result: {
+          feeMsat: 0,
+          preimage: getHexBuffer(reverseSwap.preimage!),
+        },
+      });
+    });
+
+    test.each([null, undefined])(
+      'should return undefined result when reverse swap has no preimage',
+      async (preimage) => {
+        const reverseSwap = {
+          preimage,
+        } as unknown as ReverseSwap;
+        await expect(
+          client['getPreimage']({} as unknown as Swap, reverseSwap),
+        ).resolves.toEqual({
+          isSelf: true,
+          result: undefined,
+        });
+      },
+    );
   });
 
   describe('lookupSwapsForPreimageHash', () => {

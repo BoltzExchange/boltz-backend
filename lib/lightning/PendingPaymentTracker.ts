@@ -30,7 +30,8 @@ type LightningNodes = Record<
 >;
 
 class PendingPaymentTracker {
-  private static readonly raceTimeout = 10;
+  public static readonly raceTimeout = 10;
+
   private static readonly timeoutError = 'payment timed out';
 
   public readonly lightningTrackers: Record<

@@ -125,7 +125,7 @@ describe('PaymentHandler', () => {
           return { node };
         }),
     } as any,
-    mockedEmit,
+    { emit: mockedEmit } as any,
   );
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error

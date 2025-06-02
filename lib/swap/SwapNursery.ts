@@ -193,12 +193,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.channelNursery,
       timeoutDeltaProvider,
       this.pendingPaymentTracker,
-      (
-        eventName: keyof SwapNurseryEvents,
-        arg: SwapNurseryEvents[keyof SwapNurseryEvents],
-      ) => {
-        this.emit(eventName, arg);
-      },
+      this,
     );
     this.lightningNursery = new LightningNursery(
       this.logger,

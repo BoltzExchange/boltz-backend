@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 const path = require('path');
+const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
 
-require('yargs')
+yargs(hideBin(process.argv))
   .options({
     rpc: {
       hidden: true,

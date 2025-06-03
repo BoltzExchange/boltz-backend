@@ -2,9 +2,11 @@ import { existsSync, unlinkSync } from 'fs';
 import type { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import { getHexString } from '../../../lib/Utils';
+import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { PairConfig } from '../../../lib/consts/Types';
+import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import { msatToSat } from '../../../lib/lightning/ChannelUtils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
@@ -306,5 +308,36 @@ describe('TimeoutDeltaProvider', () => {
       dec.minFinalCltv,
       dec.routingHints,
     );
+  });
+
+  test('should try to find reverse swap with preimage hash', async () => {
+    ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
+      invoice: 'invoice',
+    } as unknown as ReverseSwap);
+
+    sidecar.decodeInvoiceOrOffer = jest.fn().mockResolvedValue({
+      minFinalCltv: 160,
+    } as unknown as DecodedInvoice);
+
+    const cltvLimit = 123;
+
+    const paymentHash = getHexBuffer(
+      'f4fc9c57827914015ab7375d2542e87af9e0cb11e182059ab2d4974a053c38d6',
+    );
+    await expect(
+      deltaProvider.checkRoutability(
+        {} as unknown as LndClient,
+        {
+          paymentHash,
+          minFinalCltv: 144,
+        } as unknown as DecodedInvoice,
+        cltvLimit,
+      ),
+    ).resolves.toEqual(160);
+
+    expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+      preimageHash: getHexString(paymentHash),
+    });
+    expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith('invoice');
   });
 });

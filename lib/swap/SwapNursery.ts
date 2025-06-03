@@ -163,7 +163,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.transactionHook,
       overpaymentProtector,
     );
-    this.lightningNursery = new LightningNursery(this.logger, this.sidecar);
     this.invoiceNursery = new InvoiceNursery(this.logger, this.sidecar);
     this.channelNursery = new ChannelNursery(
       this.logger,
@@ -194,12 +193,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.channelNursery,
       timeoutDeltaProvider,
       this.pendingPaymentTracker,
-      (
-        eventName: keyof SwapNurseryEvents,
-        arg: SwapNurseryEvents[keyof SwapNurseryEvents],
-      ) => {
-        this.emit(eventName, arg);
-      },
+      this,
+    );
+    this.lightningNursery = new LightningNursery(
+      this.logger,
+      this.sidecar,
+      this.paymentHandler.selfPaymentClient,
     );
 
     this.claimer.on('claim', ({ swap, channelCreation }) => {
@@ -368,8 +367,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.lightningNursery.on('invoice.paid', async (reverseSwap) => {
+    this.lightningNursery.on('invoice.paid', async ({ id }) => {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+          id,
+        });
+        if (reverseSwap === null || reverseSwap === undefined) {
+          this.logger.warn(`Could not find Reverse Swap with id: ${id}`);
+          return;
+        }
+
+        if (
+          ![SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid].includes(
+            reverseSwap.status as SwapUpdateEvent,
+          )
+        ) {
+          return;
+        }
+
         const { base, quote } = splitPairId(reverseSwap.pair);
         const chainSymbol = getChainCurrency(
           base,
@@ -750,13 +765,33 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       reverseSwap,
     );
     try {
-      await lightningClient.raceCall(
-        lightningClient.settleHoldInvoice(preimage),
-        (reject) => {
-          reject('invoice settlement timed out');
+      const submarine = await SwapRepository.getSwap({
+        preimageHash: reverseSwap.preimageHash,
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.InvoicePending,
+            SwapUpdateEvent.InvoicePaid,
+            SwapUpdateEvent.TransactionClaimPending,
+            SwapUpdateEvent.TransactionClaimed,
+          ],
         },
-        LightningNursery.lightningClientCallTimeout,
-      );
+      });
+
+      if (submarine !== null && submarine !== undefined) {
+        await LightningNursery.cancelReverseInvoices(
+          lightningClient,
+          reverseSwap,
+          true,
+        );
+      } else {
+        await lightningClient.raceCall(
+          lightningClient.settleHoldInvoice(preimage),
+          (reject) => {
+            reject('invoice settlement timed out');
+          },
+          LightningNursery.lightningClientCallTimeout,
+        );
+      }
 
       this.logger.info(`Settled Reverse Swap ${reverseSwap.id}`);
 

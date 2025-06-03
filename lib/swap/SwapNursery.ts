@@ -373,6 +373,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           id,
         });
         if (reverseSwap === null || reverseSwap === undefined) {
+          this.logger.warn(`Could not find Reverse Swap with id: ${id}`);
           return;
         }
 

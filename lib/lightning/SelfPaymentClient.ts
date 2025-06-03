@@ -1,9 +1,13 @@
 import AsyncLock from 'async-lock';
-import crypto from 'crypto';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
-import { getHexBuffer, getHexString } from '../Utils';
+import {
+  getHexBuffer,
+  getHexString,
+  getLightningCurrency,
+  splitPairId,
+} from '../Utils';
 import {
   ClientStatus,
   SwapUpdateEvent,
@@ -15,6 +19,8 @@ import type Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
+import LightningNursery from '../swap/LightningNursery';
+import NodeSwitch from '../swap/NodeSwitch';
 import type SwapNursery from '../swap/SwapNursery';
 import { type WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import {
@@ -84,6 +90,29 @@ class SelfPaymentClient
           }
 
           this.emit('htlc.accepted', reverseSwap.invoice);
+
+          this.logger.debug(
+            `Cancelling hold invoice of Reverse Swap ${reverseSwap.id} because it is a self payment`,
+          );
+
+          const { base, quote } = splitPairId(reverseSwap.pair);
+          const receiveCurrency = getLightningCurrency(
+            base,
+            quote,
+            reverseSwap.orderSide,
+            true,
+          );
+          const lightningClient = NodeSwitch.getReverseSwapNode(
+            this.swapNursery.currencies.get(receiveCurrency)!,
+            reverseSwap,
+          );
+
+          await LightningNursery.cancelReverseInvoices(
+            lightningClient,
+            reverseSwap,
+            false,
+          );
+
           const res = await this.waitForPreimage(reverseSwap);
           if (res === undefined) {
             this.logger.debug(
@@ -126,17 +155,6 @@ class SelfPaymentClient
     };
   };
 
-  public settleHoldInvoice = async (preimage: Buffer): Promise<void> => {
-    const { reverseSwap } = await this.lookupSwapsForPreimageHash(
-      getHexString(crypto.createHash('sha256').update(preimage).digest()),
-    );
-
-    await ReverseSwapRepository.setInvoiceSettled(
-      reverseSwap!,
-      getHexString(preimage),
-    );
-  };
-
   public connect = (): Promise<boolean> => {
     return Promise.resolve(true);
   };
@@ -152,6 +170,10 @@ class SelfPaymentClient
   };
 
   public addHoldInvoice = (): Promise<string> => {
+    throw SelfPaymentClient.notImplementedError;
+  };
+
+  public settleHoldInvoice = async (): Promise<void> => {
     throw SelfPaymentClient.notImplementedError;
   };
 

@@ -1,15 +1,20 @@
-import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import {
+  OrderSide,
+  SwapType,
+  SwapUpdateEvent,
+} from '../../../lib/consts/Enums';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { InvoiceState } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
+import LightningNursery from '../../../lib/swap/LightningNursery';
 import type SwapNursery from '../../../lib/swap/SwapNursery';
 
 jest.mock('../../../lib/db/repositories/SwapRepository');
@@ -20,6 +25,8 @@ describe('SelfPaymentClient', () => {
   // @ts-expect-error
   PendingPaymentTracker.raceTimeout = 1;
 
+  LightningNursery.cancelReverseInvoices = jest.fn();
+
   let nursery: SwapNursery;
   let client: SelfPaymentClient;
 
@@ -28,6 +35,17 @@ describe('SelfPaymentClient', () => {
     nursery = {
       on: jest.fn(),
       removeListener: jest.fn(),
+      currencies: new Map([
+        [
+          'BTC',
+          {
+            clnClient: {
+              type: NodeType.CLN,
+              isConnected: jest.fn().mockReturnValue(true),
+            },
+          },
+        ],
+      ]),
     } as unknown as SwapNursery;
     client = new SelfPaymentClient(Logger.disabledLogger, nursery);
   });
@@ -105,6 +123,8 @@ describe('SelfPaymentClient', () => {
     test('should emit htlc.accepted when reverse swap status is SwapCreated', async () => {
       const mockReverseSwap = {
         id: 'rev',
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
         preimageHash,
         status: SwapUpdateEvent.SwapCreated,
         invoice: 'lnbc1000n1...',
@@ -125,12 +145,21 @@ describe('SelfPaymentClient', () => {
         'htlc.accepted',
         mockReverseSwap.invoice,
       );
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledTimes(1);
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        nursery.currencies.get('BTC')!.clnClient,
+        mockReverseSwap,
+        false,
+      );
     });
 
     test('should not emit htlc.accepted when reverse swap status is not SwapCreated', async () => {
       const mockReverseSwap = {
         id: 'rev',
         preimageHash,
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
         status: SwapUpdateEvent.InvoiceSettled,
         invoice: 'lnbc1000n1...',
       };
@@ -179,6 +208,8 @@ describe('SelfPaymentClient', () => {
         const mockReverseSwap = {
           id: 'rev',
           preimageHash,
+          pair: 'L-BTC/BTC',
+          orderSide: OrderSide.BUY,
           status: SwapUpdateEvent.SwapCreated,
           preimage: preimageValue,
           invoice: 'lnbc1000n1...',
@@ -203,6 +234,8 @@ describe('SelfPaymentClient', () => {
       const mockReverseSwap = {
         id: 'rev',
         preimageHash,
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
         status: SwapUpdateEvent.SwapCreated,
         invoice: 'lnbc1000n1...',
       };
@@ -298,45 +331,6 @@ describe('SelfPaymentClient', () => {
         .mockRejectedValue(new Error(msg));
 
       await expect(client.lookupHoldInvoice(preimageHash)).rejects.toThrow(msg);
-    });
-  });
-
-  describe('settleHoldInvoice', () => {
-    const preimage = randomBytes(32);
-    const preimageHash = getHexString(crypto.sha256(preimage));
-
-    const mockReverseSwap = {
-      id: 'rev',
-      preimageHash,
-      status: SwapUpdateEvent.SwapCreated,
-    };
-
-    test('should call settle hold invoices', async () => {
-      client['lookupSwapsForPreimageHash'] = jest
-        .fn()
-        .mockResolvedValue({ reverseSwap: mockReverseSwap });
-
-      await client.settleHoldInvoice(preimage);
-
-      expect(client['lookupSwapsForPreimageHash']).toHaveBeenCalledTimes(1);
-      expect(client['lookupSwapsForPreimageHash']).toHaveBeenCalledWith(
-        preimageHash,
-      );
-
-      expect(ReverseSwapRepository.setInvoiceSettled).toHaveBeenCalledTimes(1);
-      expect(ReverseSwapRepository.setInvoiceSettled).toHaveBeenCalledWith(
-        mockReverseSwap,
-        getHexString(preimage),
-      );
-    });
-
-    test('should bubble up error when lookupSwapsForPreimageHash throws', async () => {
-      const msg = 'fail';
-      client['lookupSwapsForPreimageHash'] = jest
-        .fn()
-        .mockRejectedValue(new Error(msg));
-
-      await expect(client.settleHoldInvoice(preimage)).rejects.toThrow(msg);
     });
   });
 

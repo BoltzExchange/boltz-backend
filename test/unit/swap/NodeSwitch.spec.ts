@@ -220,15 +220,16 @@ describe('NodeSwitch', () => {
 
   describe('invoicePaymentHook', () => {
     test.each`
-      hookResult      | testCurrency     | expectedClient | description
-      ${NodeType.LND} | ${currency}      | ${lndClient}   | ${'LND'}
-      ${NodeType.CLN} | ${currency}      | ${clnClient}   | ${'CLN'}
-      ${undefined}    | ${currency}      | ${undefined}   | ${'undefined when hook returns undefined'}
-      ${NodeType.LND} | ${{ clnClient }} | ${undefined}   | ${'undefined when hook returns LND but LND client is missing'}
-      ${NodeType.CLN} | ${{ lndClient }} | ${undefined}   | ${'undefined when hook returns CLN but CLN client is missing'}
+      hookResult                                     | testCurrency     | expected                                      | description
+      ${{ node: NodeType.LND }}                      | ${currency}      | ${{ client: lndClient }}                      | ${'LND'}
+      ${{ node: NodeType.LND, timePreference: 0.5 }} | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND with time preferrence'}
+      ${{ node: NodeType.CLN }}                      | ${currency}      | ${{ client: clnClient }}                      | ${'CLN'}
+      ${undefined}                                   | ${currency}      | ${undefined}                                  | ${'undefined when hook returns undefined'}
+      ${{ node: NodeType.LND }}                      | ${{ clnClient }} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
+      ${{ node: NodeType.CLN }}                      | ${{ lndClient }} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
     `(
       'should return $description',
-      async ({ hookResult, testCurrency, expectedClient }) => {
+      async ({ hookResult, testCurrency, expected }) => {
         const ns = new NodeSwitch(Logger.disabledLogger, {});
 
         const hook = jest.fn().mockResolvedValue(hookResult);
@@ -249,7 +250,7 @@ describe('NodeSwitch', () => {
 
         await expect(
           ns.invoicePaymentHook(testCurrency, swap, decoded),
-        ).resolves.toEqual(expectedClient);
+        ).resolves.toEqual(expected);
 
         expect(hook).toHaveBeenCalledTimes(1);
         expect(hook).toHaveBeenCalledWith(swap.id, swap.invoice, decoded);

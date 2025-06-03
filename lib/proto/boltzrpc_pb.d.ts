@@ -1728,6 +1728,11 @@ export class InvoicePaymentHookResponse extends jspb.Message {
     getAction(): Node | undefined;
     setAction(value: Node): InvoicePaymentHookResponse;
 
+    hasTimePreference(): boolean;
+    clearTimePreference(): void;
+    getTimePreference(): number | undefined;
+    setTimePreference(value: number): InvoicePaymentHookResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): InvoicePaymentHookResponse.AsObject;
     static toObject(includeInstance: boolean, msg: InvoicePaymentHookResponse): InvoicePaymentHookResponse.AsObject;
@@ -1742,6 +1747,7 @@ export namespace InvoicePaymentHookResponse {
     export type AsObject = {
         id: string,
         action?: Node,
+        timePreference?: number,
     }
 }
 

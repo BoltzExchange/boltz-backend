@@ -206,16 +206,14 @@ class NodeSwitch {
     currency: Currency,
     swap: { id: string; invoice: string },
     decoded: DecodedInvoice,
-  ): Promise<LightningClient | undefined> => {
-    const nodeType = await this.paymentHook.hook(
-      swap.id,
-      swap.invoice,
-      decoded,
-    );
-    if (nodeType !== undefined) {
-      const node = NodeSwitch.switchOnNodeType(currency, nodeType);
+  ): Promise<
+    { client: LightningClient; timePreference?: number } | undefined
+  > => {
+    const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
+    if (res !== undefined) {
+      const node = NodeSwitch.switchOnNodeType(currency, res.node);
       if (node !== undefined) {
-        return node;
+        return { client: node, timePreference: res.timePreference };
       }
     }
 

@@ -183,15 +183,14 @@ The backend will respond with a `pong` message.
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
+Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. **The examples are not feature-complete, do not cover all edge cases and are not to be used in production as-is.**&#x20;
 
 ### Submarine Swap (Chain -> Lightning)
 
 {% tabs %}
 {% tab title="TypeScript Bitcoin" %}
-```typescript
-import zkpInit from '@vulpemventures/secp256k1-zkp';
-import axios from 'axios';
+<pre class="language-typescript"><code class="lang-typescript"><strong>import zkpInit from '@vulpemventures/secp256k1-zkp';
+</strong>import axios from 'axios';
 import { crypto } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import { Musig, SwapTreeSerializer, TaprootUtils } from 'boltz-core';
@@ -205,7 +204,7 @@ const endpoint = 'http://127.0.0.1:9001';
 const webSocketEndpoint = 'ws://127.0.0.1:9004';
 
 // The invoice you want to have paid
-const invoice = '<invoice that should be paid>';
+const invoice = '&#x3C;invoice that should be paid>';
 
 const submarineSwap = async () => {
   const keys = ECPairFactory(ecc).makeRandom();
@@ -329,7 +328,7 @@ const submarineSwap = async () => {
 (async () => {
   await submarineSwap();
 })();
-```
+</code></pre>
 {% endtab %}
 
 {% tab title="TypeScript Liquid" %}

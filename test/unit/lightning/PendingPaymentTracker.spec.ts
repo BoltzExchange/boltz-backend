@@ -151,6 +151,7 @@ describe('PendingPaymentTracker', () => {
         undefined,
         undefined,
         0.01,
+        undefined,
       );
     });
 
@@ -180,6 +181,7 @@ describe('PendingPaymentTracker', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
     });
 
@@ -202,6 +204,7 @@ describe('PendingPaymentTracker', () => {
       expect(lightningClient.sendPayment).toHaveBeenCalledTimes(1);
       expect(lightningClient.sendPayment).toHaveBeenCalledWith(
         swap.invoice,
+        undefined,
         undefined,
         undefined,
         undefined,

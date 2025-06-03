@@ -435,6 +435,10 @@ enum Node {
 message InvoicePaymentHookResponse {
   string id = 1;
   optional Node action = 2;
+
+  // Only applies to LND
+  // -1 to optimize for fees, 1 to optimize for reliability; value between for a mix
+  optional double time_preference = 3;
 }
 
 message InvoicePaymentHookRequest {

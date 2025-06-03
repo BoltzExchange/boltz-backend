@@ -122,11 +122,13 @@ class PaymentHandler {
     );
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
+
+    const preferredNode = await this.getPreferredNode(lightningCurrency, swap);
     const { node, paymentHash, payments } =
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
         swap,
-        await this.getPreferredNode(lightningCurrency, swap),
+        preferredNode?.client,
       );
 
     try {
@@ -145,6 +147,7 @@ class PaymentHandler {
         payments,
         cltvLimit,
         outgoingChannelId,
+        preferredNode?.timePreference,
       );
 
       if (payResponse !== undefined) {
@@ -363,7 +366,14 @@ class PaymentHandler {
         return hookNode;
       }
     }
-    return this.nodeSwitch.getSwapNode(lightningCurrency, decoded, swap);
+
+    return {
+      client: await this.nodeSwitch.getSwapNode(
+        lightningCurrency,
+        decoded,
+        swap,
+      ),
+    };
   };
 
   private logPaymentFailure = (swap: Swap, errorMessage: string) => {

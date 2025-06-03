@@ -147,6 +147,7 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
     cltvDelta?: number,
     outgoingChannelId?: string,
     maxPaymentFeeRatio?: number,
+    timePreference?: number,
   ): Promise<PaymentResponse>;
 
   queryRoutes(

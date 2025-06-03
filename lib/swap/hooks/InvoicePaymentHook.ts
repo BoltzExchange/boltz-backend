@@ -5,9 +5,14 @@ import * as boltzrpc from '../../proto/boltzrpc_pb';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
+type HookResult = {
+  node: NodeType;
+  timePreference?: number;
+};
+
 class InvoicePaymentHook extends Hook<
   boltzrpc.Node | undefined,
-  NodeType | undefined,
+  HookResult | undefined,
   boltzrpc.InvoicePaymentHookRequest,
   boltzrpc.InvoicePaymentHookResponse
 > {
@@ -15,8 +20,8 @@ class InvoicePaymentHook extends Hook<
     super(
       logger,
       'invoice payment',
-      NodeType.CLN,
-      NodeType.CLN,
+      { node: NodeType.CLN },
+      { node: NodeType.CLN },
       60_000,
       notificationClient,
     );
@@ -26,7 +31,7 @@ class InvoicePaymentHook extends Hook<
     swapId: string,
     invoice: string,
     decoded: DecodedInvoice,
-  ): Promise<NodeType | undefined> => {
+  ): Promise<HookResult | undefined> => {
     if (!this.isConnected()) {
       return undefined;
     }
@@ -40,7 +45,11 @@ class InvoicePaymentHook extends Hook<
 
     if (res !== undefined) {
       this.logger.debug(
-        `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res)}`,
+        `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res.node)}${
+          res.timePreference !== undefined
+            ? ` with time preference ${res.timePreference}`
+            : ''
+        }`,
       );
     } else {
       this.logger.debug(
@@ -53,19 +62,44 @@ class InvoicePaymentHook extends Hook<
 
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
-  ): NodeType | undefined => {
+  ): HookResult | undefined => {
     if (!res.hasAction()) {
       return undefined;
     }
 
+    let node: NodeType | undefined;
+
     switch (res.getAction()) {
       case boltzrpc.Node.CLN:
-        return NodeType.CLN;
+        node = NodeType.CLN;
+        break;
       case boltzrpc.Node.LND:
-        return NodeType.LND;
+        node = NodeType.LND;
+        break;
       default:
         return undefined;
     }
+
+    if (res.hasTimePreference()) {
+      const timePreference = res.getTimePreference();
+      if (
+        timePreference === undefined ||
+        timePreference < -1 ||
+        timePreference > 1
+      ) {
+        this.logger.warn(
+          `Invoice payment hook for ${res.getId()} returned invalid time preference ${timePreference}`,
+        );
+        return undefined;
+      }
+
+      return {
+        node,
+        timePreference,
+      };
+    }
+
+    return { node };
   };
 }
 

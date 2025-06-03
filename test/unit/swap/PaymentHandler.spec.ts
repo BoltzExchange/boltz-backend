@@ -251,15 +251,16 @@ describe('PaymentHandler', () => {
   });
 
   test.each`
-    hookNodeReturn          | getSwapNodeReturn       | expectedNode            | getSwapNodeCalled
-    ${{ node: 'hookNode' }} | ${{ node: 'swapNode' }} | ${{ node: 'hookNode' }} | ${false}
-    ${undefined}            | ${{ node: 'swapNode' }} | ${{ node: 'swapNode' }} | ${true}
+    hookNodeReturn                               | getSwapNodeReturn       | expected                                     | getSwapNodeCalled
+    ${{ node: 'hookNode' }}                      | ${{ node: 'swapNode' }} | ${{ node: 'hookNode' }}                      | ${false}
+    ${{ node: 'hookNode', timePreference: 0.5 }} | ${{ node: 'swapNode' }} | ${{ node: 'hookNode', timePreference: 0.5 }} | ${false}
+    ${undefined}                                 | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' } }}          | ${true}
   `(
     'should get preferred node (hook: $hookNodeReturn, swap: $getSwapNodeReturn)',
     async ({
       hookNodeReturn,
       getSwapNodeReturn,
-      expectedNode,
+      expected,
       getSwapNodeCalled,
     }) => {
       const decodedInvoice = { type: InvoiceType.Bolt11 };
@@ -275,7 +276,7 @@ describe('PaymentHandler', () => {
 
       const result = await handler['getPreferredNode'](btcCurrency, swap);
 
-      expect(result).toEqual(expectedNode);
+      expect(result).toEqual(expected);
       expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledTimes(1);
       expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith(swap.invoice);
       expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledTimes(1);

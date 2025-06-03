@@ -423,6 +423,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     cltvDelta?: number,
     outgoingChannelId?: string,
     maxPaymentFeeRatio?: number,
+    timePreference?: number,
   ): Promise<PaymentResponse> => {
     const decoded = await this.decodeInvoice(invoice);
 
@@ -431,7 +432,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
       request.setMaxParts(LndClient.paymentMaxParts);
       request.setTimeoutSeconds(LndClient.paymentTimeout);
-      request.setTimePref(LndClient.paymentTimePreference);
+      request.setTimePref(timePreference || LndClient.paymentTimePreference);
       request.setFeeLimitSat(
         calculatePaymentFee(
           satToMsat(decoded.value),

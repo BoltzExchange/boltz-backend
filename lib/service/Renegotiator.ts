@@ -16,7 +16,6 @@ import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import type { ChainSwapMinerFees } from '../rates/FeeProvider';
-import FeeProvider from '../rates/FeeProvider';
 import type RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
 import type SwapNursery from '../swap/SwapNursery';
@@ -260,14 +259,18 @@ class Renegotiator {
 
     const extraFees = await ExtraFeeRepository.get(swap.id);
     if (extraFees !== undefined && extraFees !== null) {
-      extraFee = FeeProvider.calculateExtraFee(
-        extraFees.percentage,
-        swap.receivingData.amount!,
+      const serverLockAmountWithExtraFees = this.calculateServerLockAmount(
         pair.rate,
+        swap.receivingData.amount!,
+        feePercent + extraFees.percentage / 100,
+        baseFee,
       );
-      serverLockAmount.serverLockAmount = Math.floor(
-        serverLockAmount.serverLockAmount - extraFee,
-      );
+
+      extraFee =
+        serverLockAmount.serverLockAmount -
+        serverLockAmountWithExtraFees.serverLockAmount;
+      serverLockAmount.serverLockAmount =
+        serverLockAmountWithExtraFees.serverLockAmount;
     }
 
     return {

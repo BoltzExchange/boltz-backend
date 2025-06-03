@@ -68,33 +68,6 @@ describe('FeeProvider', () => {
     expect(FeeProvider.addPremium(fee, premium)).toEqual(expected);
   });
 
-  describe('calculateExtraFee', () => {
-    test.each`
-      percentage | amount | rate   | expected
-      ${0}       | ${1}   | ${1}   | ${0}
-      ${1}       | ${1}   | ${1}   | ${1}
-      ${1}       | ${100} | ${1}   | ${1}
-      ${2}       | ${100} | ${1}   | ${2}
-      ${2.5}     | ${100} | ${1}   | ${3}
-      ${2}       | ${100} | ${0.5} | ${1}
-      ${0.01}    | ${100} | ${5}   | ${1}
-      ${99.9}    | ${100} | ${5}   | ${500}
-    `(
-      'should calculate extra fee',
-      ({ percentage, amount, rate, expected }) => {
-        expect(FeeProvider.calculateExtraFee(percentage, amount, rate)).toEqual(
-          expected,
-        );
-      },
-    );
-
-    test('should throw on negative fee percentage', () => {
-      expect(() => {
-        FeeProvider.calculateExtraFee(-1, 100, 1);
-      }).toThrow('invalid extra fees percentage: -1');
-    });
-  });
-
   test('should init', () => {
     feeProvider.init([
       {

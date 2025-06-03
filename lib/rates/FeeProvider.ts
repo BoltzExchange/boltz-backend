@@ -8,7 +8,6 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import ApiErrors from '../api/Errors';
 import ElementsClient from '../chain/ElementsClient';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import {
@@ -147,18 +146,6 @@ class FeeProvider {
     );
   };
 
-  public static calculateExtraFee = (
-    percentage: number,
-    amount: number,
-    rate: number,
-  ): number => {
-    if (percentage < 0) {
-      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(percentage);
-    }
-
-    return Math.ceil((percentage / 100) * amount * rate);
-  };
-
   public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
       const pairId = getPairId(pair);
@@ -251,7 +238,7 @@ class FeeProvider {
     percentageFee: number;
     extraFee?: number;
   } => {
-    let percentageFee = this.getPercentageFee(
+    const percentageFeeCalculation = this.getPercentageFee(
       pair,
       orderSide,
       type,
@@ -259,8 +246,10 @@ class FeeProvider {
       referral,
     );
 
-    if (percentageFee !== 0) {
-      percentageFee = percentageFee * amount * rate;
+    let percentageFee = 0;
+
+    if (percentageFeeCalculation !== 0) {
+      percentageFee = Math.ceil(percentageFeeCalculation * amount * rate);
     }
 
     const { base, quote } = splitPairId(pair);
@@ -274,16 +263,21 @@ class FeeProvider {
     let extraFee: number | undefined = undefined;
 
     if (extraFees !== undefined) {
-      extraFee = FeeProvider.calculateExtraFee(
-        extraFees.percentage,
-        amount,
-        rate,
-      );
+      let percentageFeeWithExtraFees =
+        percentageFeeCalculation + extraFees.percentage / 100;
+
+      if (percentageFeeWithExtraFees !== 0) {
+        percentageFeeWithExtraFees = Math.ceil(
+          percentageFeeWithExtraFees * amount * rate,
+        );
+      }
+
+      extraFee = percentageFeeWithExtraFees - percentageFee;
     }
 
     return {
       extraFee,
-      percentageFee: Math.ceil(percentageFee),
+      percentageFee,
       baseFee: this.getBaseFee(chainCurrency, swapVersion, feeType),
     };
   };

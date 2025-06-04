@@ -8,6 +8,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import ApiErrors from '../api/Errors';
 import ElementsClient from '../chain/ElementsClient';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import {
@@ -146,6 +147,21 @@ class FeeProvider {
     );
   };
 
+  public static calculateTotalPercentageFeeCalculation = (
+    basePercentageCalculation: number,
+    extraFeePercentage: number,
+  ): number => {
+    if (extraFeePercentage < 0) {
+      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(extraFeePercentage);
+    }
+
+    const baseBigInt = BigInt(Math.round(basePercentageCalculation * 10_000));
+    const extraBigInt = BigInt(Math.round(extraFeePercentage * 100));
+
+    const resultBigInt = baseBigInt + extraBigInt;
+    return Number(resultBigInt) / 10_000;
+  };
+
   public init = (pairs: PairConfig[]): void => {
     pairs.forEach((pair) => {
       const pairId = getPairId(pair);
@@ -259,10 +275,11 @@ class FeeProvider {
     let extraFee: number | undefined = undefined;
 
     if (extraFees !== undefined) {
-      // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
-      // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
       let percentageFeeWithExtraFees =
-        (percentageFeeCalculation * 100 + extraFees.percentage) / 100;
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          percentageFeeCalculation,
+          extraFees.percentage,
+        );
 
       if (percentageFeeWithExtraFees !== 0) {
         percentageFeeWithExtraFees = Math.ceil(
@@ -270,7 +287,7 @@ class FeeProvider {
         );
       }
 
-      extraFee = percentageFeeWithExtraFees - percentageFee;
+      extraFee = Math.round(percentageFeeWithExtraFees - percentageFee);
     }
 
     return {

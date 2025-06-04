@@ -376,6 +376,9 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     getPercentageSwapInFee: mockGetPercentageSwapInFee,
   }));
 });
+FeeProvider.calculateTotalPercentageFeeCalculation = jest
+  .fn()
+  .mockReturnValue(0.02);
 
 const MockedFeeProvider = <jest.Mock<FeeProvider>>(<any>FeeProvider);
 
@@ -2700,12 +2703,17 @@ describe('Service', () => {
       percentage: extraFeePercentage,
     };
 
-    const onchainAmount =
-      invoiceAmount *
-        (1 - mockGetPercentageFeeResult - extraFeePercentage / 100) -
-      mockGetBaseFeeResult;
+    const totalPercentageFee =
+      FeeProvider.calculateTotalPercentageFeeCalculation(
+        mockGetPercentageFeeResult,
+        extraFeePercentage,
+      );
 
-    const extraFee = (invoiceAmount * extraFeePercentage) / 100;
+    const onchainAmount =
+      invoiceAmount * (1 - totalPercentageFee) - mockGetBaseFeeResult;
+
+    const extraFee =
+      (invoiceAmount * (totalPercentageFee - mockGetPercentageFeeResult)) / 100;
 
     const response = await service.createReverseSwap({
       orderSide,
@@ -2762,13 +2770,18 @@ describe('Service', () => {
       percentage: 1,
     };
 
+    const totalPercentageFee =
+      FeeProvider.calculateTotalPercentageFeeCalculation(
+        mockGetPercentageFeeResult,
+        extraFees.percentage,
+      );
+
     const holdInvoiceAmountWithoutExtraFees = Math.ceil(
       (onchainAmount + mockGetBaseFeeResult) / (1 - mockGetPercentageFeeResult),
     );
 
     const holdInvoiceAmount = Math.ceil(
-      (onchainAmount + mockGetBaseFeeResult) /
-        (1 - mockGetPercentageFeeResult - extraFees.percentage / 100),
+      (onchainAmount + mockGetBaseFeeResult) / (1 - totalPercentageFee),
     );
 
     const extraFee = holdInvoiceAmount - holdInvoiceAmountWithoutExtraFees;

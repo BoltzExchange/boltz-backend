@@ -16,6 +16,7 @@ import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import type { ChainSwapMinerFees } from '../rates/FeeProvider';
+import FeeProvider from '../rates/FeeProvider';
 import type RateProvider from '../rates/RateProvider';
 import ErrorsSwap from '../swap/Errors';
 import type SwapNursery from '../swap/SwapNursery';
@@ -262,15 +263,17 @@ class Renegotiator {
       const serverLockAmountWithExtraFees = this.calculateServerLockAmount(
         pair.rate,
         swap.receivingData.amount!,
-        // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
-        // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
-        (feePercent * 100 + extraFees.percentage) / 100,
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          feePercent,
+          extraFees.percentage,
+        ),
         baseFee,
       );
 
-      extraFee =
+      extraFee = Math.round(
         serverLockAmount.serverLockAmount -
-        serverLockAmountWithExtraFees.serverLockAmount;
+          serverLockAmountWithExtraFees.serverLockAmount,
+      );
       serverLockAmount.serverLockAmount =
         serverLockAmountWithExtraFees.serverLockAmount;
     }

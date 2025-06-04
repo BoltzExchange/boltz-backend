@@ -76,6 +76,7 @@ import {
   GetInfoResponse,
   LightningInfo,
 } from '../proto/boltzrpc_pb';
+import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
 import type { PairTypeLegacy } from '../rates/providers/RateProviderLegacy';
@@ -1915,16 +1916,19 @@ class Service {
       } = this.calculateReverseSwapAmounts(
         args,
         rate,
-        // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
-        // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
-        (feePercent * 100 + args.extraFees.percentage) / 100,
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          feePercent,
+          args.extraFees.percentage,
+        ),
         baseFee,
       );
 
       if (invoiceAmountDefined) {
-        extraFee = onchainAmount - onchainAmountWithExtraFees;
+        extraFee = Math.round(onchainAmount - onchainAmountWithExtraFees);
       } else {
-        extraFee = holdInvoiceAmountWithExtraFees - holdInvoiceAmount;
+        extraFee = Math.round(
+          holdInvoiceAmountWithExtraFees - holdInvoiceAmount,
+        );
       }
 
       onchainAmount = onchainAmountWithExtraFees;
@@ -2292,6 +2296,12 @@ class Service {
 
     if (!isZeroAmount) {
       if (args.extraFees !== undefined) {
+        if (args.extraFees.percentage < 0) {
+          throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(
+            args.extraFees.percentage,
+          );
+        }
+
         const {
           userLockAmount: userLockAmountWithExtraFees,
           serverLockAmount: serverLockAmountWithExtraFees,
@@ -2301,16 +2311,21 @@ class Service {
             serverLockAmount: originalServerLockAmount,
           },
           rate,
-          // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
-          // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
-          (feePercent * 100 + args.extraFees.percentage) / 100,
+          FeeProvider.calculateTotalPercentageFeeCalculation(
+            feePercent,
+            args.extraFees.percentage,
+          ),
           baseFee,
         );
 
         if (userLockAmountDefined) {
-          extraFee = args.serverLockAmount - serverLockAmountWithExtraFees;
+          extraFee = Math.round(
+            args.serverLockAmount - serverLockAmountWithExtraFees,
+          );
         } else {
-          extraFee = userLockAmountWithExtraFees - args.userLockAmount;
+          extraFee = Math.round(
+            userLockAmountWithExtraFees - args.userLockAmount,
+          );
         }
 
         args.userLockAmount = userLockAmountWithExtraFees;

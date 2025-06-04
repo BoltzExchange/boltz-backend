@@ -246,11 +246,7 @@ class FeeProvider {
       referral,
     );
 
-    let percentageFee = 0;
-
-    if (percentageFeeCalculation !== 0) {
-      percentageFee = Math.ceil(percentageFeeCalculation * amount * rate);
-    }
+    const percentageFee = Math.ceil(percentageFeeCalculation * amount * rate);
 
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(

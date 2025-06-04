@@ -1647,6 +1647,62 @@ class Service {
     }
   };
 
+  private calculateReverseSwapAmounts = (
+    args: {
+      invoiceAmount?: number;
+      onchainAmount?: number;
+    },
+    rate: number,
+    feePercent: number,
+    baseFee: number,
+  ): {
+    onchainAmount: number;
+    holdInvoiceAmount: number;
+    percentageFee: number;
+    invoiceAmountDefined: boolean;
+  } => {
+    let onchainAmount: number;
+    let holdInvoiceAmount: number;
+    let percentageFee: number;
+    let invoiceAmountDefined: boolean;
+
+    if (args.invoiceAmount !== undefined && args.onchainAmount !== undefined) {
+      throw Errors.INVOICE_AND_ONCHAIN_AMOUNT_SPECIFIED();
+    } else if (args.invoiceAmount !== undefined) {
+      invoiceAmountDefined = true;
+
+      this.checkWholeNumber(args.invoiceAmount);
+      holdInvoiceAmount = args.invoiceAmount;
+
+      onchainAmount = args.invoiceAmount * rate;
+
+      percentageFee = Math.ceil(feePercent * onchainAmount);
+
+      onchainAmount -= percentageFee + baseFee;
+      onchainAmount = Math.floor(onchainAmount);
+    } else if (args.onchainAmount !== undefined) {
+      invoiceAmountDefined = false;
+
+      this.checkWholeNumber(args.onchainAmount);
+      onchainAmount = args.onchainAmount;
+
+      holdInvoiceAmount = (args.onchainAmount + baseFee) / rate;
+      holdInvoiceAmount = holdInvoiceAmount / (1 - feePercent);
+      holdInvoiceAmount = Math.ceil(holdInvoiceAmount);
+
+      percentageFee = Math.ceil(holdInvoiceAmount * rate * feePercent);
+    } else {
+      throw Errors.NO_AMOUNT_SPECIFIED();
+    }
+
+    return {
+      onchainAmount,
+      holdInvoiceAmount,
+      percentageFee,
+      invoiceAmountDefined,
+    };
+  };
+
   /**
    * Creates a new Swap from Lightning to the chain
    */
@@ -1842,57 +1898,41 @@ class Service {
       BaseFeeType.ReverseLockup,
     );
 
-    let onchainAmount: number;
-    let holdInvoiceAmount: number;
-
-    let percentageFee: number;
-
-    // True when the invoice amount was set in the request, false when the onchain amount was set
-    let invoiceAmountDefined: boolean;
-
-    if (args.invoiceAmount !== undefined && args.onchainAmount !== undefined) {
-      throw Errors.INVOICE_AND_ONCHAIN_AMOUNT_SPECIFIED();
-    } else if (args.invoiceAmount !== undefined) {
-      invoiceAmountDefined = true;
-
-      this.checkWholeNumber(args.invoiceAmount);
-      holdInvoiceAmount = args.invoiceAmount;
-
-      onchainAmount = args.invoiceAmount * rate;
-
-      percentageFee = Math.ceil(feePercent * onchainAmount);
-
-      onchainAmount -= percentageFee + baseFee;
-      onchainAmount = Math.floor(onchainAmount);
-    } else if (args.onchainAmount !== undefined) {
-      invoiceAmountDefined = false;
-
-      this.checkWholeNumber(args.onchainAmount);
-      onchainAmount = args.onchainAmount;
-
-      holdInvoiceAmount = (args.onchainAmount + baseFee) / rate;
-      holdInvoiceAmount = holdInvoiceAmount / (1 - feePercent);
-      holdInvoiceAmount = Math.ceil(holdInvoiceAmount);
-
-      percentageFee = Math.ceil(holdInvoiceAmount * rate * feePercent);
-    } else {
-      throw Errors.NO_AMOUNT_SPECIFIED();
-    }
+    const {
+      onchainAmount: onchainAmountConst,
+      holdInvoiceAmount: holdInvoiceAmountConst,
+      percentageFee,
+      invoiceAmountDefined,
+    } = this.calculateReverseSwapAmounts(args, rate, feePercent, baseFee);
+    let onchainAmount = onchainAmountConst;
+    let holdInvoiceAmount = holdInvoiceAmountConst;
 
     let extraFee: number | undefined = undefined;
 
     if (args.extraFees !== undefined) {
-      extraFee = FeeProvider.calculateExtraFee(
-        args.extraFees.percentage,
-        holdInvoiceAmount,
+      const {
+        onchainAmount: onchainAmountWithExtraFees,
+        holdInvoiceAmount: holdInvoiceAmountWithExtraFees,
+      } = this.calculateReverseSwapAmounts(
+        args,
         rate,
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          feePercent,
+          args.extraFees.percentage,
+        ),
+        baseFee,
       );
 
       if (invoiceAmountDefined) {
-        onchainAmount = Math.floor(onchainAmount - extraFee);
+        extraFee = Math.round(onchainAmount - onchainAmountWithExtraFees);
       } else {
-        holdInvoiceAmount = Math.ceil(holdInvoiceAmount + extraFee);
+        extraFee = Math.round(
+          holdInvoiceAmountWithExtraFees - holdInvoiceAmount,
+        );
       }
+
+      onchainAmount = onchainAmountWithExtraFees;
+      holdInvoiceAmount = holdInvoiceAmountWithExtraFees;
     }
 
     await this.verifyAmount(
@@ -2046,6 +2086,78 @@ class Service {
     return response;
   };
 
+  private calculateChainSwapAmounts = (
+    args: {
+      userLockAmount?: number;
+      serverLockAmount?: number;
+    },
+    rate: number,
+    feePercent: number,
+    baseFee: number,
+  ): {
+    userLockAmount: number;
+    serverLockAmount: number;
+    percentageFee: number;
+    userLockAmountDefined: boolean;
+    isZeroAmount: boolean;
+  } => {
+    let percentageFee: number;
+    let userLockAmount: number;
+    let serverLockAmount: number;
+    let userLockAmountDefined: boolean;
+
+    const isZeroAmount =
+      args.userLockAmount === undefined && args.serverLockAmount === undefined;
+
+    if (
+      args.userLockAmount !== undefined &&
+      args.serverLockAmount !== undefined
+    ) {
+      throw Errors.USER_AND_SERVER_AMOUNT_SPECIFIED();
+    } else if (args.userLockAmount !== undefined) {
+      userLockAmountDefined = true;
+
+      this.checkWholeNumber(args.userLockAmount);
+      userLockAmount = args.userLockAmount;
+
+      const calcRes = this.swapManager.renegotiator.calculateServerLockAmount(
+        rate,
+        userLockAmount,
+        feePercent,
+        baseFee,
+      );
+
+      percentageFee = calcRes.percentageFee;
+      serverLockAmount = calcRes.serverLockAmount;
+    } else if (args.serverLockAmount !== undefined) {
+      userLockAmountDefined = false;
+
+      this.checkWholeNumber(args.serverLockAmount);
+      serverLockAmount = args.serverLockAmount;
+
+      userLockAmount = (serverLockAmount + baseFee) / rate;
+      userLockAmount = userLockAmount / (1 - feePercent);
+      userLockAmount = Math.ceil(userLockAmount);
+
+      percentageFee = Math.ceil(userLockAmount * rate * feePercent);
+    } else if (isZeroAmount) {
+      percentageFee = 0;
+      userLockAmount = 0;
+      serverLockAmount = 0;
+      userLockAmountDefined = false;
+    } else {
+      throw Errors.NO_AMOUNT_SPECIFIED();
+    }
+
+    return {
+      userLockAmount,
+      serverLockAmount,
+      percentageFee,
+      userLockAmountDefined,
+      isZeroAmount,
+    };
+  };
+
   // TODO: test
   public createChainSwap = async (args: {
     pairId: string;
@@ -2157,64 +2269,67 @@ class Service {
       side,
       referral,
     );
-    let percentageFee: number;
 
-    const isZeroAmount =
-      args.userLockAmount === undefined && args.serverLockAmount === undefined;
-    let userLockAmountDefined: boolean = false;
+    const {
+      userLockAmount,
+      serverLockAmount,
+      percentageFee,
+      userLockAmountDefined,
+      isZeroAmount,
+    } = this.calculateChainSwapAmounts(
+      {
+        userLockAmount: args.userLockAmount,
+        serverLockAmount: args.serverLockAmount,
+      },
+      rate,
+      feePercent,
+      baseFee,
+    );
 
-    if (
-      args.userLockAmount !== undefined &&
-      args.serverLockAmount !== undefined
-    ) {
-      throw Errors.USER_AND_SERVER_AMOUNT_SPECIFIED();
-    } else if (args.userLockAmount !== undefined) {
-      userLockAmountDefined = true;
+    const originalUserLockAmount = args.userLockAmount;
+    const originalServerLockAmount = args.serverLockAmount;
 
-      this.checkWholeNumber(args.userLockAmount);
-
-      const calcRes = this.swapManager.renegotiator.calculateServerLockAmount(
-        rate,
-        args.userLockAmount,
-        feePercent,
-        baseFee,
-      );
-
-      percentageFee = calcRes.percentageFee;
-      args.serverLockAmount = calcRes.serverLockAmount;
-    } else if (args.serverLockAmount !== undefined) {
-      userLockAmountDefined = false;
-
-      this.checkWholeNumber(args.serverLockAmount);
-
-      args.userLockAmount = (args.serverLockAmount + baseFee) / rate;
-      args.userLockAmount = args.userLockAmount / (1 - feePercent);
-      args.userLockAmount = Math.ceil(args.userLockAmount);
-
-      percentageFee = Math.ceil(args.userLockAmount * rate * feePercent);
-    } else if (isZeroAmount) {
-      percentageFee = 0;
-      args.userLockAmount = 0;
-      args.serverLockAmount = 0;
-    } else {
-      throw Errors.NO_AMOUNT_SPECIFIED();
-    }
+    args.userLockAmount = userLockAmount;
+    args.serverLockAmount = serverLockAmount;
 
     let extraFee: number | undefined = undefined;
 
     if (!isZeroAmount) {
       if (args.extraFees !== undefined) {
-        extraFee = FeeProvider.calculateExtraFee(
-          args.extraFees.percentage,
-          args.userLockAmount,
+        if (args.extraFees.percentage < 0) {
+          throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(
+            args.extraFees.percentage,
+          );
+        }
+
+        const {
+          userLockAmount: userLockAmountWithExtraFees,
+          serverLockAmount: serverLockAmountWithExtraFees,
+        } = this.calculateChainSwapAmounts(
+          {
+            userLockAmount: originalUserLockAmount,
+            serverLockAmount: originalServerLockAmount,
+          },
           rate,
+          FeeProvider.calculateTotalPercentageFeeCalculation(
+            feePercent,
+            args.extraFees.percentage,
+          ),
+          baseFee,
         );
 
         if (userLockAmountDefined) {
-          args.serverLockAmount = Math.floor(args.serverLockAmount - extraFee);
+          extraFee = Math.round(
+            args.serverLockAmount - serverLockAmountWithExtraFees,
+          );
         } else {
-          args.userLockAmount = Math.ceil(args.userLockAmount + extraFee);
+          extraFee = Math.round(
+            userLockAmountWithExtraFees - args.userLockAmount,
+          );
         }
+
+        args.userLockAmount = userLockAmountWithExtraFees;
+        args.serverLockAmount = serverLockAmountWithExtraFees;
       }
 
       await this.verifyAmount(

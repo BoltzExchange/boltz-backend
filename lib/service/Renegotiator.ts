@@ -260,14 +260,22 @@ class Renegotiator {
 
     const extraFees = await ExtraFeeRepository.get(swap.id);
     if (extraFees !== undefined && extraFees !== null) {
-      extraFee = FeeProvider.calculateExtraFee(
-        extraFees.percentage,
-        swap.receivingData.amount!,
+      const serverLockAmountWithExtraFees = this.calculateServerLockAmount(
         pair.rate,
+        swap.receivingData.amount!,
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          feePercent,
+          extraFees.percentage,
+        ),
+        baseFee,
       );
-      serverLockAmount.serverLockAmount = Math.floor(
-        serverLockAmount.serverLockAmount - extraFee,
+
+      extraFee = Math.round(
+        serverLockAmount.serverLockAmount -
+          serverLockAmountWithExtraFees.serverLockAmount,
       );
+      serverLockAmount.serverLockAmount =
+        serverLockAmountWithExtraFees.serverLockAmount;
     }
 
     return {

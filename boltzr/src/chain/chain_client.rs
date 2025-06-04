@@ -1,9 +1,11 @@
 use crate::chain::rpc_client::RpcClient;
-use crate::chain::types::{NetworkInfo, RawMempool, RpcParam};
-use crate::chain::utils::{Outpoint, Transaction, parse_transaction};
+use crate::chain::types::{NetworkInfo, RawMempool, RpcParam, ZmqNotification};
+use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
+use crate::chain::zmq_client::ZmqClient;
 use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
 use std::collections::HashSet;
+use tokio::sync::broadcast::Receiver;
 use tracing::{debug, error, info, trace};
 
 const MAX_WORKERS: usize = 16;
@@ -13,6 +15,7 @@ const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
 pub struct ChainClient {
     client: RpcClient,
     client_type: crate::chain::types::Type,
+    zmq_client: ZmqClient,
 }
 
 impl ChainClient {
@@ -22,8 +25,9 @@ impl ChainClient {
         config: Config,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            client_type,
+            client_type: client_type.clone(),
             client: RpcClient::new(symbol, config)?,
+            zmq_client: ZmqClient::new(client_type),
         })
     }
 
@@ -59,12 +63,22 @@ impl BaseClient for ChainClient {
             self.client.symbol, info.subversion
         );
 
+        let notifications = self
+            .client
+            .request::<Vec<ZmqNotification>>("getzmqnotifications", None)
+            .await?;
+        self.zmq_client.connect(notifications).await?;
+
         Ok(())
     }
 }
 
 #[async_trait]
 impl Client for ChainClient {
+    fn tx_receiver(&self) -> Receiver<Transaction> {
+        self.zmq_client.tx_sender.subscribe()
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -155,7 +169,7 @@ impl Client for ChainClient {
                 Some(tx_hex) => tx_hex,
                 None => break,
             };
-            let tx = parse_transaction(&self.client_type, &tx_hex)?;
+            let tx = parse_transaction_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
                 relevant_txs.push(tx);
             }
@@ -194,7 +208,7 @@ impl Client for ChainClient {
 pub mod test {
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
-    use crate::chain::utils::{Transaction, parse_transaction};
+    use crate::chain::utils::{Transaction, parse_transaction_hex};
     use crate::chain::{BaseClient, Client, Config};
     use serial_test::serial;
     use std::collections::HashSet;
@@ -261,7 +275,7 @@ pub mod test {
             .await
             .unwrap();
 
-        parse_transaction(
+        parse_transaction_hex(
             &Type::Bitcoin,
             &client
                 .client
@@ -336,6 +350,21 @@ pub mod test {
             .unwrap();
         assert_eq!(transactions.len(), 1);
         assert_eq!(transactions[0], tx);
+
+        generate_block(&client).await;
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn test_tx_receiver() {
+        let mut client = get_client();
+        client.connect().await.unwrap();
+        let mut tx_receiver = client.tx_receiver();
+
+        let tx = send_transaction(&client).await;
+
+        let received_tx = tx_receiver.recv().await.unwrap();
+        assert_eq!(received_tx, tx);
 
         generate_block(&client).await;
     }

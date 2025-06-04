@@ -262,7 +262,9 @@ class Renegotiator {
       const serverLockAmountWithExtraFees = this.calculateServerLockAmount(
         pair.rate,
         swap.receivingData.amount!,
-        feePercent + extraFees.percentage / 100,
+        // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
+        // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
+        (feePercent * 100 + extraFees.percentage) / 100,
         baseFee,
       );
 

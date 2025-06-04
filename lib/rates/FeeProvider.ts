@@ -263,8 +263,10 @@ class FeeProvider {
     let extraFee: number | undefined = undefined;
 
     if (extraFees !== undefined) {
+      // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
+      // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
       let percentageFeeWithExtraFees =
-        percentageFeeCalculation + extraFees.percentage / 100;
+        (percentageFeeCalculation * 100 + extraFees.percentage) / 100;
 
       if (percentageFeeWithExtraFees !== 0) {
         percentageFeeWithExtraFees = Math.ceil(

@@ -1915,7 +1915,9 @@ class Service {
       } = this.calculateReverseSwapAmounts(
         args,
         rate,
-        feePercent + args.extraFees.percentage / 100,
+        // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
+        // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
+        (feePercent * 100 + args.extraFees.percentage) / 100,
         baseFee,
       );
 
@@ -2299,7 +2301,9 @@ class Service {
             serverLockAmount: originalServerLockAmount,
           },
           rate,
-          feePercent + args.extraFees.percentage / 100,
+          // Clients may only be informed of a single percentage fee resulting from the addition of both percentage fees.
+          // The addition is done with the percentage values to avoid discrepancies due to floating point precision issues.
+          (feePercent * 100 + args.extraFees.percentage) / 100,
           baseFee,
         );
 

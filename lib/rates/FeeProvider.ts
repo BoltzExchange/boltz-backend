@@ -275,17 +275,15 @@ class FeeProvider {
     let extraFee: number | undefined = undefined;
 
     if (extraFees !== undefined) {
-      let percentageFeeWithExtraFees =
+      const totalPercentageFeeCalculation =
         FeeProvider.calculateTotalPercentageFeeCalculation(
           percentageFeeCalculation,
           extraFees.percentage,
         );
 
-      if (percentageFeeWithExtraFees !== 0) {
-        percentageFeeWithExtraFees = Math.ceil(
-          percentageFeeWithExtraFees * amount * rate,
-        );
-      }
+      const percentageFeeWithExtraFees = Math.ceil(
+        totalPercentageFeeCalculation * amount * rate,
+      );
 
       extraFee = Math.round(percentageFeeWithExtraFees - percentageFee);
     }

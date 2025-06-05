@@ -1,3 +1,4 @@
+pub mod bip21;
 pub mod pair;
 mod timeout_map;
 pub mod built_info {

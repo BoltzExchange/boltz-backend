@@ -7,7 +7,7 @@ use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
-use crate::wallet;
+use crate::{utils, wallet};
 use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -148,7 +148,7 @@ impl Cln {
             .reverse_swap_helper
             .get_routing_hint(&hex::encode(decoded.payment_hash().0))?
             .map(|mrh| MagicRoutingHint {
-                bip21: mrh.bip21,
+                bip21: utils::bip21::encode(self.network, &mrh.symbol, &mrh.address, &mrh.params),
                 signature: mrh.signature,
             });
 

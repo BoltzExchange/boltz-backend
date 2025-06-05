@@ -14,12 +14,6 @@ pub struct ZmqClient {
     pub tx_sender: Sender<Transaction>,
 }
 
-impl PartialEq for ZmqClient {
-    fn eq(&self, other: &Self) -> bool {
-        self.client_type == other.client_type
-    }
-}
-
 impl ZmqClient {
     pub fn new(client_type: Type) -> ZmqClient {
         let (tx_sender, _) = broadcast::channel::<Transaction>(1024);

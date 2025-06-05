@@ -11,11 +11,17 @@ use tracing::{debug, error, info, trace};
 const MAX_WORKERS: usize = 16;
 const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ChainClient {
     client: RpcClient,
     client_type: crate::chain::types::Type,
     zmq_client: ZmqClient,
+}
+
+impl PartialEq for ChainClient {
+    fn eq(&self, other: &Self) -> bool {
+        self.client == other.client && self.client_type == other.client_type
+    }
 }
 
 impl ChainClient {

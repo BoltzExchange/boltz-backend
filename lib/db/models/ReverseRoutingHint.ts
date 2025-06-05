@@ -1,18 +1,39 @@
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
+import { fromOutputScript } from '../../Core';
+import type { Currency } from '../../wallet/WalletManager';
 import ReverseSwap from './ReverseSwap';
 
 type ReverseRoutingHintsType = {
   swapId: string;
-  bip21: string;
-  signature: string;
+  symbol: string;
+  scriptPubkey: Buffer;
+  blindingPubkey: Buffer | undefined;
+  params?: string;
+  signature: Buffer;
 };
 
 class ReverseRoutingHint extends Model {
   public swapId!: string;
 
-  public bip21!: string;
-  public signature!: string;
+  public symbol!: string;
+  public scriptPubkey!: Buffer;
+  public blindingPubkey!: Buffer | undefined;
+  public params?: string;
+  public signature!: Buffer;
+
+  public address = (currencies: Map<string, Currency>) => {
+    const currency = currencies.get(this.symbol);
+    if (currency === undefined) {
+      throw new Error(`Currency ${this.symbol} not found`);
+    }
+    return fromOutputScript(
+      currency.type,
+      this.scriptPubkey,
+      currency.network!,
+      this.blindingPubkey,
+    );
+  };
 
   public static load = (sequelize: Sequelize) => {
     ReverseRoutingHint.init(
@@ -22,12 +43,22 @@ class ReverseRoutingHint extends Model {
           primaryKey: true,
           allowNull: false,
         },
-        bip21: { type: new DataTypes.TEXT(), allowNull: false },
-        signature: { type: new DataTypes.STRING(255), allowNull: false },
+        symbol: { type: new DataTypes.TEXT(), allowNull: false },
+        scriptPubkey: { type: new DataTypes.BLOB(), allowNull: false },
+        blindingPubkey: { type: new DataTypes.BLOB(), allowNull: true },
+        params: { type: new DataTypes.TEXT(), allowNull: true },
+        signature: { type: new DataTypes.BLOB(), allowNull: false },
       },
       {
         sequelize,
         tableName: 'reverseRoutingHints',
+        indexes: [
+          {
+            fields: ['scriptPubkey'],
+            name: 'reverseRoutingHints_scriptPubkey',
+            using: 'HASH',
+          },
+        ],
       },
     );
 

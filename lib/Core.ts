@@ -97,10 +97,15 @@ export const fromOutputScript = (
   type: CurrencyType,
   outputScript: Buffer,
   network: Network | LiquidNetwork,
+  blindingKey?: Buffer,
 ) => {
-  return isBitcoin(type)
+  const result = isBitcoin(type)
     ? address.fromOutputScript(outputScript, network)
     : liquidAddress.fromOutputScript(outputScript, network as LiquidNetwork);
+  if (blindingKey !== undefined) {
+    return liquidAddress.toConfidential(result, blindingKey);
+  }
+  return result;
 };
 
 export const toOutputScript = (
@@ -111,6 +116,13 @@ export const toOutputScript = (
   return isBitcoin(type)
     ? address.toOutputScript(toDecode, network)
     : liquidAddress.toOutputScript(toDecode, network as LiquidNetwork);
+};
+
+export const getBlindingKey = (type: CurrencyType, address: string) => {
+  if (type === CurrencyType.Liquid && liquidAddress.isConfidential(address)) {
+    return liquidAddress.fromConfidential(address).blindingKey;
+  }
+  return undefined;
 };
 
 export const unblindOutput = (

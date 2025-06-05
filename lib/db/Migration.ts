@@ -5,6 +5,8 @@ import { detectSwap } from 'boltz-core';
 import { Transaction as EthersTransaction } from 'ethers';
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Op, QueryTypes } from 'sequelize';
+import { getBlindingKey, toOutputScript } from '../../lib/Core';
+import ElementsClient from '../../lib/chain/ElementsClient';
 import type Logger from '../Logger';
 import {
   createApiCredential,
@@ -98,9 +100,35 @@ const decodeInvoice = (
   };
 };
 
+export const decodeBip21 = (
+  bip21: string,
+  currencies: Map<string, Currency>,
+) => {
+  const url = new URL(bip21);
+  const chain = url.protocol.replace(':', '');
+  let symbol = '';
+  if (chain === 'bitcoin') {
+    symbol = 'BTC';
+  } else if (chain.includes('liquid')) {
+    symbol = ElementsClient.symbol;
+  }
+  const currency = currencies.get(symbol);
+  if (currency === undefined) {
+    throw `unknown currency ${symbol}`;
+  }
+
+  const address = url.pathname;
+  return {
+    symbol,
+    scriptPubkey: toOutputScript(currency.type, address, currency.network!),
+    blindingKey: getBlindingKey(currency.type, address),
+    params: url.search.replace('?', ''),
+  };
+};
+
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 18;
+  private static latestSchemaVersion = 19;
 
   private toBackFill: number[] = [];
 
@@ -747,6 +775,164 @@ class Migration {
               min: 1,
             },
           });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 18: {
+        this.logUpdatingTable('reverseRoutingHints');
+
+        await this.sequelize.transaction(async (transaction) => {
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'symbol',
+            {
+              type: new DataTypes.TEXT(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'scriptPubkey',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'blindingPubkey',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'params',
+            {
+              type: new DataTypes.TEXT(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'signatureBlob',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          const records = await this.sequelize.query<{
+            swapId: string;
+            bip21: string;
+            signature: string;
+          }>('SELECT "swapId", bip21, signature FROM "reverseRoutingHints"', {
+            type: QueryTypes.SELECT,
+            transaction,
+          });
+
+          for (const record of records) {
+            try {
+              const { symbol, scriptPubkey, blindingKey, params } = decodeBip21(
+                record.bip21,
+                currencies,
+              );
+              await this.sequelize.query(
+                'UPDATE "reverseRoutingHints" SET symbol = $1, "scriptPubkey" = $2, params = $3, "signatureBlob" = $4 WHERE "swapId" = $5',
+                {
+                  bind: [
+                    symbol,
+                    scriptPubkey,
+                    params,
+                    getHexBuffer(record.signature),
+                    record.swapId,
+                  ],
+                  type: QueryTypes.UPDATE,
+                  transaction,
+                },
+              );
+              if (blindingKey !== undefined) {
+                await this.sequelize.query(
+                  'UPDATE "reverseRoutingHints" SET "blindingPubkey" = $1 WHERE "swapId" = $2',
+                  {
+                    bind: [blindingKey, record.swapId],
+                    type: QueryTypes.UPDATE,
+                    transaction,
+                  },
+                );
+              }
+            } catch (error) {
+              this.logger.error(
+                `Could not parse BIP21 for swap ${record.swapId}: ${formatError(error)}`,
+              );
+              throw error;
+            }
+          }
+
+          await this.sequelize
+            .getQueryInterface()
+            .removeColumn('reverseRoutingHints', 'signature', { transaction });
+
+          await this.sequelize
+            .getQueryInterface()
+            .removeColumn('reverseRoutingHints', 'bip21', { transaction });
+
+          await this.sequelize.getQueryInterface().changeColumn(
+            'reverseRoutingHints',
+            'signatureBlob',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: false,
+            },
+            { transaction },
+          );
+
+          await this.sequelize
+            .getQueryInterface()
+            .renameColumn('reverseRoutingHints', 'signatureBlob', 'signature', {
+              transaction,
+            });
+
+          await this.sequelize.getQueryInterface().changeColumn(
+            'reverseRoutingHints',
+            'symbol',
+            {
+              type: new DataTypes.TEXT(),
+              allowNull: false,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().changeColumn(
+            'reverseRoutingHints',
+            'scriptPubkey',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: false,
+            },
+            { transaction },
+          );
+
+          await this.sequelize
+            .getQueryInterface()
+            .addIndex('reverseRoutingHints', ['scriptPubkey'], {
+              name: 'reverseRoutingHints_scriptPubkey',
+              using: 'HASH',
+              transaction,
+            });
+        });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

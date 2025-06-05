@@ -31,6 +31,17 @@ impl Network {
             Network::Regtest => ::bitcoin::Network::Regtest,
         }
     }
+
+    pub fn liquid(&self) -> anyhow::Result<&'static ::elements::AddressParams> {
+        match self {
+            Network::Mainnet => Ok(&::elements::address::AddressParams::LIQUID),
+            Network::Testnet => Ok(&::elements::address::AddressParams::LIQUID_TESTNET),
+            Network::Regtest => Ok(&::elements::address::AddressParams::ELEMENTS),
+            Network::Signet => Err(anyhow::anyhow!(
+                "Signet is not supported for liquid addresses"
+            )),
+        }
+    }
 }
 
 #[cfg(test)]

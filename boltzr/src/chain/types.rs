@@ -7,6 +7,15 @@ pub enum Type {
     Elements,
 }
 
+impl Type {
+    pub fn from_symbol(s: &str) -> anyhow::Result<Self> {
+        match s {
+            "BTC" => Ok(Type::Bitcoin),
+            "L-BTC" => Ok(Type::Elements),
+            _ => Err(anyhow::anyhow!("unknown symbol {}", s)),
+        }
+    }
+}
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)

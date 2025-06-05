@@ -33,6 +33,18 @@ class PaymentRequestUtils {
     satoshis?: number,
     label?: string,
   ): string | undefined => {
+    return this.encodeBip21WithParams(
+      symbol,
+      address,
+      this.encodeParams(symbol, satoshis, label),
+    );
+  };
+
+  public encodeBip21WithParams = (
+    symbol: string,
+    address: string,
+    params?: string,
+  ) => {
     const prefix = this.getBip21Prefix(symbol);
     const isLbtc = symbol === ElementsClient.symbol;
 
@@ -40,6 +52,13 @@ class PaymentRequestUtils {
       return;
     }
 
+    if (params === undefined) {
+      return `${prefix}:${address}`;
+    }
+    return `${prefix}:${address}?${params}`;
+  };
+
+  public encodeParams = (symbol: string, satoshis?: number, label?: string) => {
     const params: Record<string, string> = {};
 
     if (satoshis !== undefined && satoshis !== 0) {
@@ -53,12 +72,10 @@ class PaymentRequestUtils {
     if (label !== undefined) {
       params.label = label;
     }
-
-    if (isLbtc) {
+    if (symbol === ElementsClient.symbol) {
       params.assetid = this.lbtcAssetHash!;
     }
-
-    return `${prefix}:${address}?${encode(params)}`;
+    return encode(params);
   };
 
   /**

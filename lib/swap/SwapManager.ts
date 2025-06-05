@@ -16,7 +16,12 @@ import { randomBytes } from 'crypto';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op } from 'sequelize';
 import type { SwapConfig } from '../Config';
-import { createMusig, tweakMusig } from '../Core';
+import {
+  createMusig,
+  getBlindingKey,
+  toOutputScript,
+  tweakMusig,
+} from '../Core';
 import type Logger from '../Logger';
 import {
   formatError,
@@ -970,13 +975,26 @@ class SwapManager {
       });
 
       if (
-        hints.bip21 !== undefined &&
+        hints.bip21Params !== undefined &&
+        args.userAddress !== undefined &&
         args.userAddressSignature !== undefined
       ) {
+        const scriptPubkey = toOutputScript(
+          sendingCurrency.type,
+          args.userAddress,
+          sendingCurrency.network!,
+        );
+
         await ReverseRoutingHintRepository.addHint({
           swapId: id,
-          bip21: hints.bip21,
-          signature: getHexString(args.userAddressSignature),
+          scriptPubkey,
+          blindingPubkey: getBlindingKey(
+            sendingCurrency.type,
+            args.userAddress,
+          ),
+          symbol: sendingCurrency.symbol,
+          params: hints.bip21Params,
+          signature: args.userAddressSignature,
         });
       }
     } else {

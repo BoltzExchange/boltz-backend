@@ -709,8 +709,12 @@ class Service {
     }
 
     return {
-      bip21: hint.bip21,
-      signature: hint.signature,
+      bip21: this.paymentRequestUtils.encodeBip21WithParams(
+        hint.symbol,
+        hint.address(this.currencies),
+        hint.params,
+      ),
+      signature: getHexString(hint.signature),
     };
   };
 

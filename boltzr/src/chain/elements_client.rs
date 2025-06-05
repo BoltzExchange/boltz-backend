@@ -4,6 +4,7 @@ use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use async_trait::async_trait;
 use std::collections::HashSet;
+use tokio::sync::broadcast::Receiver;
 use tracing::{debug, info, instrument, warn};
 
 pub const SYMBOL: &str = "L-BTC";
@@ -81,6 +82,10 @@ impl Client for ElementsClient {
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.wallet_client().network_info().await
+    }
+
+    fn tx_receiver(&self) -> Receiver<Transaction> {
+        self.wallet_client().tx_receiver()
     }
 }
 

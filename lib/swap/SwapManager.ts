@@ -970,12 +970,15 @@ class SwapManager {
       });
 
       if (
-        hints.bip21 !== undefined &&
+        hints.bip21Params !== undefined &&
+        args.userAddress !== undefined &&
         args.userAddressSignature !== undefined
       ) {
         await ReverseRoutingHintRepository.addHint({
           swapId: id,
-          bip21: hints.bip21,
+          address: args.userAddress,
+          symbol: sendingCurrency.symbol,
+          params: hints.bip21Params,
           signature: getHexString(args.userAddressSignature),
         });
       }

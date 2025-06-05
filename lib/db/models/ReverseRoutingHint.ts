@@ -4,14 +4,18 @@ import ReverseSwap from './ReverseSwap';
 
 type ReverseRoutingHintsType = {
   swapId: string;
-  bip21: string;
+  address: string;
+  symbol: string;
+  params: string;
   signature: string;
 };
 
 class ReverseRoutingHint extends Model {
   public swapId!: string;
 
-  public bip21!: string;
+  public address!: string;
+  public symbol!: string;
+  public params!: string;
   public signature!: string;
 
   public static load = (sequelize: Sequelize) => {
@@ -22,7 +26,9 @@ class ReverseRoutingHint extends Model {
           primaryKey: true,
           allowNull: false,
         },
-        bip21: { type: new DataTypes.TEXT(), allowNull: false },
+        address: { type: new DataTypes.TEXT(), allowNull: false },
+        symbol: { type: new DataTypes.TEXT(), allowNull: false },
+        params: { type: new DataTypes.TEXT(), allowNull: false },
         signature: { type: new DataTypes.STRING(255), allowNull: false },
       },
       {

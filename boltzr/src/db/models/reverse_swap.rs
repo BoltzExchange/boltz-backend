@@ -25,8 +25,10 @@ pub struct ReverseSwap {
 #[allow(non_snake_case)]
 pub struct ReverseRoutingHint {
     pub swapId: String,
-    pub bip21: String,
     pub signature: String,
+    pub address: String,
+    pub symbol: String,
+    pub params: String,
 }
 
 impl SomeSwap for ReverseSwap {

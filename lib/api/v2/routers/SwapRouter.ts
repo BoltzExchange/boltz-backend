@@ -67,6 +67,22 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/SwapTreeLeaf'
      */
 
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ExtraFees:
+     *       type: object
+     *       required: ["id", "percentage"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: Identifier for the extra fee
+     *         percentage:
+     *           type: number
+     *           description: Additional fee percentage to be charged
+     */
+
     const router = Router();
 
     /**
@@ -198,6 +214,8 @@ class SwapRouter extends RouterBase {
      *           description: Payment timeout in seconds
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
+     *         extraFees:
+     *           $ref: '#/components/schemas/ExtraFees'
      */
 
     /**
@@ -802,6 +820,8 @@ class SwapRouter extends RouterBase {
      *           description: Expiry of the invoice in seconds
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
+     *         extraFees:
+     *           $ref: '#/components/schemas/ExtraFees'
      */
     /**
      * @openapi
@@ -1148,6 +1168,8 @@ class SwapRouter extends RouterBase {
      *           description: Referral ID to be used for the Chain Swap
      *         webhook:
      *           $ref: '#/components/schemas/WebhookData'
+     *         extraFees:
+     *           $ref: '#/components/schemas/ExtraFees'
      */
 
     /**

@@ -2886,6 +2886,23 @@
           }
         }
       },
+      "ExtraFees": {
+        "type": "object",
+        "required": [
+          "id",
+          "percentage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier for the extra fee"
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Additional fee percentage to be charged"
+          }
+        }
+      },
       "SubmarinePair": {
         "type": "object",
         "required": [
@@ -3014,6 +3031,9 @@
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
+          },
+          "extraFees": {
+            "$ref": "#/components/schemas/ExtraFees"
           }
         }
       },
@@ -3306,6 +3326,9 @@
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
+          },
+          "extraFees": {
+            "$ref": "#/components/schemas/ExtraFees"
           }
         }
       },
@@ -3536,6 +3559,9 @@
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookData"
+          },
+          "extraFees": {
+            "$ref": "#/components/schemas/ExtraFees"
           }
         }
       },

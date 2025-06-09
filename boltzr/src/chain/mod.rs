@@ -3,12 +3,14 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use tokio::sync::broadcast::Receiver;
 
 pub mod chain_client;
 pub mod elements_client;
 mod rpc_client;
 pub mod types;
 pub mod utils;
+pub mod zmq_client;
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct Config {
@@ -46,4 +48,6 @@ pub trait Client: BaseClient {
     ) -> Result<Vec<Transaction>>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+
+    fn tx_receiver(&self) -> Receiver<Transaction>;
 }

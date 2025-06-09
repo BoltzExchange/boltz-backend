@@ -1,9 +1,16 @@
 use serde::{Deserialize, Serialize, Serializer};
+use std::fmt::Display;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Type {
     Bitcoin,
     Elements,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +54,13 @@ pub struct RpcResponse<T> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct NetworkInfo {
     pub subversion: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ZmqNotification {
+    #[serde(rename = "type")]
+    pub notification_type: String,
+    pub address: String,
 }
 
 pub type RawMempool = Vec<String>;

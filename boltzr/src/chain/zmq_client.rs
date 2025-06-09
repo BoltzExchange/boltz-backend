@@ -1,3 +1,4 @@
+use crate::chain::{Config, types::ZmqNotification};
 use crate::chain::{
     types::Type,
     utils::{Transaction, parse_transaction},
@@ -6,20 +7,20 @@ use tokio::sync::broadcast::{self, Sender};
 use tracing::{debug, error, warn};
 use zeromq::{Socket, SocketRecv, ZmqError, ZmqMessage};
 
-use crate::chain::types::ZmqNotification;
-
 #[derive(Debug, Clone)]
 pub struct ZmqClient {
     client_type: Type,
+    config: Config,
     pub tx_sender: Sender<Transaction>,
 }
 
 impl ZmqClient {
-    pub fn new(client_type: Type) -> ZmqClient {
+    pub fn new(client_type: Type, config: Config) -> ZmqClient {
         let (tx_sender, _) = broadcast::channel::<Transaction>(1024);
 
         ZmqClient {
             client_type,
+            config,
             tx_sender,
         }
     }
@@ -61,13 +62,14 @@ impl ZmqClient {
     where
         F: Fn(ZmqMessage) + Send + 'static,
     {
+        let address = self.replace_zmq_address_wildcard(&notification.address);
         debug!(
             "Connecting to {} {} ZMQ at {}",
-            subscription, self.client_type, notification.address
+            subscription, self.client_type, address
         );
 
         let mut socket = zeromq::SubSocket::new();
-        socket.connect(notification.address.as_str()).await?;
+        socket.connect(&address).await?;
 
         socket.subscribe(subscription).await?;
 
@@ -86,6 +88,10 @@ impl ZmqClient {
         });
 
         Ok(())
+    }
+
+    fn replace_zmq_address_wildcard(&self, address: &str) -> String {
+        address.replace("0.0.0.0", &self.config.host)
     }
 
     fn find_notification(

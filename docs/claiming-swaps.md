@@ -24,7 +24,7 @@ Refunds differs depending on the swap type. Refunds for failed Submarine and Cha
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Active Refunds             | X                                                                                                                                                          |               | X                                                                                                                                      |
 | Automatic Refunds          |                                                                                                                                                            | X             |                                                                                                                                        |
-| Emergency Refunding Method | <p>UTXO: <a href="claiming-swaps.md#utxo-chains">Refund file or invoice preimage</a></p><p>EVM: <a href="claiming-swaps.md#refund-1">Contract logs</a></p> | Not needed    | <p>UTXO: <a href="claiming-swaps.md#utxo-chains">Refund file</a></p><p>EVM: <a href="claiming-swaps.md#refund-1">Contract logs</a></p> |
+| Emergency Refunding Method | <p>UTXO: [Refund file or invoice preimage](#utxo-chains)</p><p>EVM: [Contract logs](#evm-chains)</p> | Not needed    | <p>UTXO: [Refund file](#utxo-chains)</p><p>EVM: [Contract logs](#evm-chains)</p> |
 
 ## Taproot
 

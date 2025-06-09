@@ -376,7 +376,9 @@ jest.mock('../../../lib/rates/FeeProvider', () => {
     getPercentageSwapInFee: mockGetPercentageSwapInFee,
   }));
 });
-FeeProvider.calculateExtraFee = jest.fn().mockReturnValue(1000);
+FeeProvider.calculateTotalPercentageFeeCalculation = jest
+  .fn()
+  .mockReturnValue(0.02);
 
 const MockedFeeProvider = <jest.Mock<FeeProvider>>(<any>FeeProvider);
 
@@ -2695,21 +2697,23 @@ describe('Service', () => {
     const preimageHash = randomBytes(32);
     const claimPublicKey = getHexBuffer('0xfff');
 
+    const extraFeePercentage = 0.5;
     const extraFees = {
       id: 'extraFeeId',
-      percentage: 0.5,
+      percentage: extraFeePercentage,
     };
 
-    const extraFee = FeeProvider.calculateExtraFee(
-      extraFees.percentage,
-      invoiceAmount,
-      1,
-    );
+    const totalPercentageFee =
+      FeeProvider.calculateTotalPercentageFeeCalculation(
+        mockGetPercentageFeeResult,
+        extraFeePercentage,
+      );
 
     const onchainAmount =
-      invoiceAmount * (1 - mockGetPercentageFeeResult) -
-      mockGetBaseFeeResult -
-      extraFee;
+      invoiceAmount * (1 - totalPercentageFee) - mockGetBaseFeeResult;
+
+    const extraFee =
+      (invoiceAmount * (totalPercentageFee - mockGetPercentageFeeResult)) / 100;
 
     const response = await service.createReverseSwap({
       orderSide,
@@ -2766,13 +2770,21 @@ describe('Service', () => {
       percentage: 1,
     };
 
-    const extraFee = 1000;
+    const totalPercentageFee =
+      FeeProvider.calculateTotalPercentageFeeCalculation(
+        mockGetPercentageFeeResult,
+        extraFees.percentage,
+      );
 
-    const holdInvoiceAmount =
-      Math.ceil(
-        (onchainAmount + mockGetBaseFeeResult) /
-          (1 - mockGetPercentageFeeResult),
-      ) + extraFee;
+    const holdInvoiceAmountWithoutExtraFees = Math.ceil(
+      (onchainAmount + mockGetBaseFeeResult) / (1 - mockGetPercentageFeeResult),
+    );
+
+    const holdInvoiceAmount = Math.ceil(
+      (onchainAmount + mockGetBaseFeeResult) / (1 - totalPercentageFee),
+    );
+
+    const extraFee = holdInvoiceAmount - holdInvoiceAmountWithoutExtraFees;
 
     const response = await service.createReverseSwap({
       orderSide,

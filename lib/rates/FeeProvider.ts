@@ -147,16 +147,19 @@ class FeeProvider {
     );
   };
 
-  public static calculateExtraFee = (
-    percentage: number,
-    amount: number,
-    rate: number,
+  public static calculateTotalPercentageFeeCalculation = (
+    basePercentageCalculation: number,
+    extraFeePercentage: number,
   ): number => {
-    if (percentage < 0) {
-      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(percentage);
+    if (extraFeePercentage < 0) {
+      throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(extraFeePercentage);
     }
 
-    return Math.ceil((percentage / 100) * amount * rate);
+    const baseBigInt = BigInt(Math.round(basePercentageCalculation * 10_000));
+    const extraBigInt = BigInt(Math.round(extraFeePercentage * 100));
+
+    const resultBigInt = baseBigInt + extraBigInt;
+    return Number(resultBigInt) / 10_000;
   };
 
   public init = (pairs: PairConfig[]): void => {
@@ -251,7 +254,7 @@ class FeeProvider {
     percentageFee: number;
     extraFee?: number;
   } => {
-    let percentageFee = this.getPercentageFee(
+    const percentageFeeCalculation = this.getPercentageFee(
       pair,
       orderSide,
       type,
@@ -259,9 +262,7 @@ class FeeProvider {
       referral,
     );
 
-    if (percentageFee !== 0) {
-      percentageFee = percentageFee * amount * rate;
-    }
+    const percentageFee = Math.ceil(percentageFeeCalculation * amount * rate);
 
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(
@@ -274,16 +275,22 @@ class FeeProvider {
     let extraFee: number | undefined = undefined;
 
     if (extraFees !== undefined) {
-      extraFee = FeeProvider.calculateExtraFee(
-        extraFees.percentage,
-        amount,
-        rate,
+      const totalPercentageFeeCalculation =
+        FeeProvider.calculateTotalPercentageFeeCalculation(
+          percentageFeeCalculation,
+          extraFees.percentage,
+        );
+
+      const percentageFeeWithExtraFees = Math.ceil(
+        totalPercentageFeeCalculation * amount * rate,
       );
+
+      extraFee = Math.round(percentageFeeWithExtraFees - percentageFee);
     }
 
     return {
       extraFee,
-      percentageFee: Math.ceil(percentageFee),
+      percentageFee,
       baseFee: this.getBaseFee(chainCurrency, swapVersion, feeType),
     };
   };

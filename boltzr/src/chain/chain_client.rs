@@ -32,8 +32,8 @@ impl ChainClient {
     ) -> anyhow::Result<Self> {
         Ok(Self {
             client_type: client_type.clone(),
-            client: RpcClient::new(symbol, config)?,
-            zmq_client: ZmqClient::new(client_type),
+            client: RpcClient::new(symbol, config.clone())?,
+            zmq_client: ZmqClient::new(client_type, config),
         })
     }
 
@@ -64,16 +64,16 @@ impl BaseClient for ChainClient {
 
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.network_info().await?;
-        info!(
-            "Connected to {} chain client: {}",
-            self.client.symbol, info.subversion
-        );
-
         let notifications = self
             .client
             .request::<Vec<ZmqNotification>>("getzmqnotifications", None)
             .await?;
         self.zmq_client.connect(notifications).await?;
+
+        info!(
+            "Connected to {} chain client: {}",
+            self.client.symbol, info.subversion
+        );
 
         Ok(())
     }

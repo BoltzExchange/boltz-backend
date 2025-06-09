@@ -31,20 +31,20 @@ impl ZmqClient {
         };
 
         let tx_sender = self.tx_sender.clone();
-        let tx_type = self.client_type.clone();
+        let client_type = self.client_type.clone();
 
-        Self::subscribe(raw_tx, "rawtx", move |msg| {
+        self.subscribe(raw_tx, "rawtx", move |msg| {
             let tx_bytes = msg.get(1).unwrap().to_vec();
-            let tx: Transaction = match parse_transaction(&tx_type, &tx_bytes) {
+            let tx: Transaction = match parse_transaction(&client_type, &tx_bytes) {
                 Ok(tx) => tx,
                 Err(e) => {
-                    warn!("Could not parse transaction: {}", e);
+                    warn!("{client_type} ZMQ client could not parse transaction: {e}");
                     return;
                 }
             };
 
             if let Err(e) = tx_sender.send(tx) {
-                warn!("Could not send transaction to channel: {}", e);
+                warn!("{client_type} ZMQ client could not send transaction to channel: {e}");
             }
         })
         .await?;
@@ -53,6 +53,7 @@ impl ZmqClient {
     }
 
     async fn subscribe<F>(
+        &self,
         notification: ZmqNotification,
         subscription: &str,
         handler: F,
@@ -61,8 +62,8 @@ impl ZmqClient {
         F: Fn(ZmqMessage) + Send + 'static,
     {
         debug!(
-            "Connecting to {} ZMQ at {}",
-            subscription, notification.address
+            "Connecting to {} {} ZMQ at {}",
+            subscription, self.client_type, notification.address
         );
 
         let mut socket = zeromq::SubSocket::new();

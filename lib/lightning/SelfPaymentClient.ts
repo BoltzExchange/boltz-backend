@@ -79,6 +79,10 @@ class SelfPaymentClient
           };
         }
 
+        if (swap.invoice !== reverseSwap.invoice) {
+          throw new Error('invoice mismatch');
+        }
+
         this.logger.debug(
           `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} with preimage hash ${swap.preimageHash} is a self payment`,
         );

@@ -58,6 +58,7 @@ describe('SelfPaymentClient', () => {
       id: 'sub',
       type: SwapType.Submarine,
       preimageHash,
+      invoice: 'invoice',
     };
 
     const mockDecoded = {
@@ -87,6 +88,33 @@ describe('SelfPaymentClient', () => {
       },
     );
 
+    test('should throw error when swap invoice does not match reverse swap invoice', async () => {
+      const mockSwapWithInvoice = {
+        ...mockSwap,
+        invoice: 'swap',
+      };
+
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        status: SwapUpdateEvent.SwapCreated,
+        invoice: 'reverse',
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+
+      await expect(
+        client.handleSelfPayment(
+          mockSwapWithInvoice as any,
+          mockDecoded as any,
+          100,
+        ),
+      ).rejects.toThrow('invoice mismatch');
+
+      expect(client['getReverseSwap']).toHaveBeenCalledTimes(1);
+      expect(client['getReverseSwap']).toHaveBeenCalledWith(preimageHash);
+    });
+
     test.each([
       [40, 40],
       [39, 40],
@@ -98,6 +126,7 @@ describe('SelfPaymentClient', () => {
         const mockReverseSwap = {
           id: 'rev',
           preimageHash,
+          invoice: mockSwap.invoice,
           status: SwapUpdateEvent.SwapCreated,
         };
 
@@ -122,12 +151,12 @@ describe('SelfPaymentClient', () => {
 
     test('should emit htlc.accepted when reverse swap status is SwapCreated', async () => {
       const mockReverseSwap = {
+        preimageHash,
         id: 'rev',
         pair: 'L-BTC/BTC',
         orderSide: OrderSide.BUY,
-        preimageHash,
+        invoice: mockSwap.invoice,
         status: SwapUpdateEvent.SwapCreated,
-        invoice: 'lnbc1000n1...',
       };
 
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
@@ -156,12 +185,12 @@ describe('SelfPaymentClient', () => {
 
     test('should not emit htlc.accepted when reverse swap status is not SwapCreated', async () => {
       const mockReverseSwap = {
-        id: 'rev',
         preimageHash,
+        id: 'rev',
         pair: 'L-BTC/BTC',
         orderSide: OrderSide.BUY,
+        invoice: mockSwap.invoice,
         status: SwapUpdateEvent.InvoiceSettled,
-        invoice: 'lnbc1000n1...',
       };
 
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
@@ -178,11 +207,11 @@ describe('SelfPaymentClient', () => {
 
     test('should return payment result when reverse swap has preimage', async () => {
       const mockReverseSwap = {
-        id: 'rev',
-        preimageHash,
-        status: SwapUpdateEvent.InvoiceSettled,
         preimage,
-        invoice: 'lnbc1000n1...',
+        preimageHash,
+        id: 'rev',
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.InvoiceSettled,
       };
 
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
@@ -212,7 +241,7 @@ describe('SelfPaymentClient', () => {
           orderSide: OrderSide.BUY,
           status: SwapUpdateEvent.SwapCreated,
           preimage: preimageValue,
-          invoice: 'lnbc1000n1...',
+          invoice: mockSwap.invoice,
         };
 
         client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
@@ -237,7 +266,7 @@ describe('SelfPaymentClient', () => {
         pair: 'L-BTC/BTC',
         orderSide: OrderSide.BUY,
         status: SwapUpdateEvent.SwapCreated,
-        invoice: 'lnbc1000n1...',
+        invoice: mockSwap.invoice,
       };
 
       let resolveFirst: () => void;

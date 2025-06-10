@@ -7,6 +7,7 @@ import Pair from './Pair';
 enum NodeType {
   LND = 0,
   CLN = 1,
+  SelfPayment = 2,
 }
 
 type ReverseSwapType = {
@@ -233,9 +234,10 @@ const nodeTypeToPrettyString = (type: NodeType) => {
   switch (type) {
     case NodeType.LND:
       return 'LND';
-
     case NodeType.CLN:
       return 'CLN';
+    case NodeType.SelfPayment:
+      return 'SelfPayment';
   }
 };
 

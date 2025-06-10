@@ -1,12 +1,15 @@
 export const racePromise = async <T>(
   promise: (() => Promise<T>) | Promise<T>,
-  raceHandler: (reason?: any) => void,
+  raceHandler: (
+    reject: (reason?: any) => void,
+    resolve: (value: T) => void,
+  ) => void,
   raceTimeout: number,
 ): Promise<T> => {
   let timeout: NodeJS.Timeout | undefined = undefined;
 
-  const timeoutPromise = new Promise<T>((_, reject) => {
-    timeout = setTimeout(() => raceHandler(reject), raceTimeout);
+  const timeoutPromise = new Promise<T>((resolve, reject) => {
+    timeout = setTimeout(() => raceHandler(reject, resolve), raceTimeout);
   });
 
   try {

@@ -7,6 +7,7 @@ import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
+import type DecodedInvoiceSidecar from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import ChannelNursery from '../../../lib/swap/ChannelNursery';
@@ -124,8 +125,16 @@ describe('PaymentHandler', () => {
           return { node };
         }),
     } as any,
-    mockedEmit,
+    { emit: mockedEmit } as any,
   );
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-expect-error
+  handler['selfPaymentClient'] = {
+    handleSelfPayment: jest.fn().mockResolvedValue({
+      isSelf: false,
+      result: undefined,
+    }),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -263,10 +272,9 @@ describe('PaymentHandler', () => {
       expected,
       getSwapNodeCalled,
     }) => {
-      const decodedInvoice = { type: InvoiceType.Bolt11 };
-      sidecar.decodeInvoiceOrOffer = jest
-        .fn()
-        .mockResolvedValue(decodedInvoice);
+      const decodedInvoice = {
+        type: InvoiceType.Bolt11,
+      } as unknown as DecodedInvoiceSidecar;
       (nodeSwitch.invoicePaymentHook as jest.Mock).mockResolvedValue(
         hookNodeReturn,
       );
@@ -274,11 +282,13 @@ describe('PaymentHandler', () => {
         getSwapNodeReturn,
       );
 
-      const result = await handler['getPreferredNode'](btcCurrency, swap);
+      const result = await handler['getPreferredNode'](
+        btcCurrency,
+        swap,
+        decodedInvoice,
+      );
 
       expect(result).toEqual(expected);
-      expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledTimes(1);
-      expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith(swap.invoice);
       expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledTimes(1);
       expect(nodeSwitch.invoicePaymentHook).toHaveBeenCalledWith(
         btcCurrency,
@@ -298,4 +308,115 @@ describe('PaymentHandler', () => {
       }
     },
   );
+
+  describe('SelfPaymentClient', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      cltvLimit = 100;
+      sendPaymentError = undefined;
+      trackPaymentResponse = {
+        status: Payment.PaymentStatus.SUCCEEDED,
+      };
+    });
+
+    test('should handle self payment when isSelf is true and result is defined', async () => {
+      const mockPaymentResponse = {
+        feeMsat: 0,
+        preimage: getHexBuffer('abcd1234'),
+      };
+
+      (handler['selfPaymentClient'].handleSelfPayment as jest.Mock) = jest
+        .fn()
+        .mockResolvedValue({
+          isSelf: true,
+          result: mockPaymentResponse,
+        });
+
+      const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
+      settleInvoiceSpy.mockResolvedValue(mockPaymentResponse.preimage);
+
+      const result = await handler.payInvoice(swap, null, undefined);
+
+      expect(result).toEqual(mockPaymentResponse.preimage);
+      expect(
+        handler['selfPaymentClient'].handleSelfPayment,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        handler['selfPaymentClient'].handleSelfPayment,
+      ).toHaveBeenCalledWith(swap, 0, cltvLimit, undefined);
+      expect(settleInvoiceSpy).toHaveBeenCalledTimes(1);
+      expect(settleInvoiceSpy).toHaveBeenCalledWith(swap, mockPaymentResponse);
+      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+    });
+
+    test('should handle self payment when isSelf is true but result is undefined', async () => {
+      (handler['selfPaymentClient'].handleSelfPayment as jest.Mock) = jest
+        .fn()
+        .mockResolvedValue({
+          isSelf: true,
+          result: undefined,
+        });
+
+      const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
+
+      const result = await handler.payInvoice(swap, null, undefined);
+
+      expect(result).toBeUndefined();
+      expect(
+        handler['selfPaymentClient'].handleSelfPayment,
+      ).toHaveBeenCalledTimes(1);
+      expect(settleInvoiceSpy).not.toHaveBeenCalled();
+      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+    });
+
+    test('should proceed with normal payment when isSelf is false', async () => {
+      (handler['selfPaymentClient'].handleSelfPayment as jest.Mock) = jest
+        .fn()
+        .mockResolvedValue({
+          isSelf: false,
+          result: undefined,
+        });
+
+      const result = await handler.payInvoice(swap, null, undefined);
+
+      expect(
+        handler['selfPaymentClient'].handleSelfPayment,
+      ).toHaveBeenCalledTimes(1);
+      expect(btcCurrency.lndClient!.sendPayment).toHaveBeenCalledTimes(1);
+      expect(result).toBeUndefined();
+    });
+
+    test('should abandon swap when self payment throws any other error', async () => {
+      const genericError = new Error('Some self payment error');
+
+      (handler['selfPaymentClient'].handleSelfPayment as jest.Mock) = jest
+        .fn()
+        .mockRejectedValue(genericError);
+
+      const logPaymentFailureSpy = jest.spyOn(
+        handler as any,
+        'logPaymentFailure',
+      );
+      const abandonSwapSpy = jest.spyOn(handler as any, 'abandonSwap');
+      abandonSwapSpy.mockResolvedValue(undefined);
+
+      const result = await handler.payInvoice(swap, null, undefined);
+
+      expect(result).toBeUndefined();
+      expect(
+        handler['selfPaymentClient'].handleSelfPayment,
+      ).toHaveBeenCalledTimes(1);
+      expect(logPaymentFailureSpy).toHaveBeenCalledTimes(1);
+      expect(logPaymentFailureSpy).toHaveBeenCalledWith(
+        swap,
+        'Some self payment error',
+      );
+      expect(abandonSwapSpy).toHaveBeenCalledTimes(1);
+      expect(abandonSwapSpy).toHaveBeenCalledWith(
+        swap,
+        'Some self payment error',
+      );
+      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+    });
+  });
 });

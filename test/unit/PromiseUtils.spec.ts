@@ -44,6 +44,23 @@ describe('PromiseUtils', () => {
       expect(raceHandler).toHaveBeenCalledTimes(1);
     });
 
+    test('should allow raceHandler to resolve the promise', async () => {
+      const res = 'resolved';
+      const raceHandler = jest
+        .fn()
+        .mockImplementation((_, resolve) => resolve(res));
+
+      const promise = racePromise(
+        new Promise<void>(() => {}),
+        raceHandler,
+        1000,
+      );
+      jest.runOnlyPendingTimers();
+
+      await expect(promise).resolves.toEqual(res);
+      expect(raceHandler).toHaveBeenCalledTimes(1);
+    });
+
     test('should not call raceHandler when promise throws', async () => {
       const raceMessage = 'rejected after timeout';
       const raceHandler = jest

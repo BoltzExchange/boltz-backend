@@ -24,14 +24,18 @@ import ClnPendingPaymentTracker from './paymentTrackers/ClnPendingPaymentTracker
 import LndPendingPaymentTracker from './paymentTrackers/LndPendingPaymentTracker';
 import type NodePendingPaymentTracker from './paymentTrackers/NodePendingPaymentTracker';
 
-type LightningNodes = Record<NodeType, LightningClient | undefined>;
+type LightningNodes = Record<
+  Exclude<NodeType, NodeType.SelfPayment>,
+  LightningClient | undefined
+>;
 
 class PendingPaymentTracker {
-  private static readonly raceTimeout = 10;
+  public static readonly raceTimeout = 10;
+
   private static readonly timeoutError = 'payment timed out';
 
   public readonly lightningTrackers: Record<
-    NodeType,
+    Exclude<NodeType, NodeType.SelfPayment>,
     NodePendingPaymentTracker
   >;
 
@@ -353,7 +357,12 @@ class PendingPaymentTracker {
 
       case NodeType.CLN:
         return (nodeThatPaid as ClnClient).checkPayStatus(invoice);
+
+      case NodeType.SelfPayment:
+        throw new Error('self payments cannot be tracked');
     }
+
+    return undefined;
   };
 
   private getPermanentFailureDetails = async (

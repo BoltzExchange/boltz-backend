@@ -22,15 +22,18 @@ import type {
 } from '../lightning/LightningClient';
 import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
+import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
 import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
+import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 import type ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
+import type SwapNursery from './SwapNursery';
 
 type SwapNurseryEvents = {
   // UTXO based chains emit the "Transaction" object and Ethereum based ones just the transaction hash
@@ -77,6 +80,8 @@ class PaymentHandler {
   private static readonly resetMissionControlInterval = 10 * 60 * 1000;
   private static readonly errCltvTooSmall = 'CLTV limit too small';
 
+  public readonly selfPaymentClient: SelfPaymentClient;
+
   private lastResetMissionControl: number | undefined = undefined;
 
   constructor(
@@ -87,11 +92,10 @@ class PaymentHandler {
     public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private readonly pendingPaymentTracker: PendingPaymentTracker,
-    private emit: <K extends keyof SwapNurseryEvents>(
-      eventName: K,
-      arg: SwapNurseryEvents[K],
-    ) => void,
-  ) {}
+    private readonly swapNursery: SwapNursery,
+  ) {
+    this.selfPaymentClient = new SelfPaymentClient(this.logger, swapNursery);
+  }
 
   public payInvoice = async (
     swap: Swap,
@@ -104,7 +108,7 @@ class PaymentHandler {
       swap.status !== SwapUpdateEvent.InvoicePending &&
       swap.status !== SwapUpdateEvent.ChannelCreated
     ) {
-      this.emit(
+      this.swapNursery.emit(
         'invoice.pending',
         await SwapRepository.setSwapStatus(
           swap,
@@ -112,6 +116,9 @@ class PaymentHandler {
         ),
       );
     }
+
+    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
+    const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
 
     const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(
@@ -123,7 +130,12 @@ class PaymentHandler {
 
     const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
-    const preferredNode = await this.getPreferredNode(lightningCurrency, swap);
+    const preferredNode = await this.getPreferredNode(
+      lightningCurrency,
+      swap,
+      decoded,
+    );
+
     const { node, paymentHash, payments } =
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
@@ -132,7 +144,27 @@ class PaymentHandler {
       );
 
     try {
-      const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
+      const res = await this.selfPaymentClient.handleSelfPayment(
+        swap,
+        decoded,
+        cltvLimit,
+        payments,
+      );
+      if (res.isSelf) {
+        if (res.result !== undefined) {
+          return await this.settleInvoice(swap, res.result);
+        }
+
+        return undefined;
+      }
+    } catch (error) {
+      const msg = formatError(error);
+      this.logPaymentFailure(swap, msg);
+      await this.abandonSwap(swap, msg);
+      return undefined;
+    }
+
+    try {
       if (cltvLimit < 2) {
         throw PaymentHandler.errCltvTooSmall;
       }
@@ -321,7 +353,7 @@ class PaymentHandler {
 
   private abandonSwap = async (swap: Swap, errorMessage: string) => {
     this.logger.warn(`Abandoning Swap ${swap.id} because: ${errorMessage}`);
-    this.emit(
+    this.swapNursery.emit(
       'invoice.failedToPay',
       await SwapRepository.setSwapStatus(
         swap,
@@ -339,7 +371,7 @@ class PaymentHandler {
       `Paid invoice of Swap ${swap.id} (${swap.preimageHash}): ${getHexString(response.preimage)}`,
     );
 
-    this.emit(
+    this.swapNursery.emit(
       'invoice.paid',
       await SwapRepository.setInvoicePaid(
         swap,
@@ -354,17 +386,15 @@ class PaymentHandler {
   private getPreferredNode = async (
     lightningCurrency: Currency,
     swap: Swap,
+    decoded: DecodedInvoice,
   ) => {
-    const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
-    {
-      const hookNode = await this.nodeSwitch.invoicePaymentHook(
-        lightningCurrency,
-        { id: swap.id, invoice: swap.invoice! },
-        decoded,
-      );
-      if (hookNode !== undefined) {
-        return hookNode;
-      }
+    const hookNode = await this.nodeSwitch.invoicePaymentHook(
+      lightningCurrency,
+      { id: swap.id, invoice: swap.invoice! },
+      decoded,
+    );
+    if (hookNode !== undefined) {
+      return hookNode;
     }
 
     return {

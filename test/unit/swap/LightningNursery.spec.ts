@@ -8,6 +8,7 @@ import { CurrencyType, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
+import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
 import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import LightningNursery from '../../../lib/swap/LightningNursery';
@@ -87,7 +88,11 @@ describe('LightningNursery', () => {
       }),
   } as unknown as Sidecar;
 
-  const nursery = new LightningNursery(Logger.disabledLogger, sidecar);
+  const nursery = new LightningNursery(
+    Logger.disabledLogger,
+    sidecar,
+    new SelfPaymentClient(Logger.disabledLogger, {} as any),
+  );
 
   const btcLndClient = MockedLndClient();
   const currencies: Currency[] = [

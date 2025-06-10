@@ -2244,27 +2244,6 @@ describe('Service', () => {
     ).rejects.toEqual(SwapErrors.INVOICE_EXPIRED_ALREADY());
   });
 
-  test('should not set swap invoice if it is from one of our nodes', async () => {
-    mockGetSwapResult = {
-      id: 'swapOurPubkey',
-      pair: 'BTC/BTC',
-      orderSide: 0,
-      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
-    };
-
-    const ourPubkey = 'pubkey';
-    service['nodeInfo']['pubkeys'].add(ourPubkey);
-    decodedInvoice.destination = ourPubkey;
-
-    const invoice =
-      'lnbcrt1230n1pjw20v9pp5k4hlsgl93azhjkz5zxs3zsgnvksz2r6yee83av2r2jjncwrc0upsdqqcqzzsxq9z0rgqsp5ce7wh3ff7kz5f8sxfulcp48982gyqy935m6fzvrqr8547kh8rz2s9q8pqqqssq2u68l700shh7gzfeuetugp3h5kh80c40g5tsx7awwruy06309gy4ehwrw2h7vd7cwevc0p60td0wk22p5ldfp84nlueka8ft7kng0lsqwqjjq9';
-    await expect(
-      service.setInvoice(mockGetSwapResult.id, invoice),
-    ).rejects.toEqual(Errors.DESTINATION_BOLTZ_NODE());
-
-    decodedInvoice.destination = undefined;
-  });
-
   test('should not set swap invoice if it is from an un-route-able node', async () => {
     mockGetSwapResult = {
       id: 'swapOurPubkey',
@@ -3619,6 +3598,55 @@ describe('Service', () => {
         ),
       ).rejects.toEqual(Errors.PAIR_NOT_FOUND(notFound));
     });
+  });
+
+  describe('checkSwapWithPreimageExists', () => {
+    const preimageHash = getHexBuffer(
+      'b8586d4587084520035db558dad4f2525e1dfbe282683ac7ecf488d77199b87f',
+    );
+    const preimageHashHex = getHexString(preimageHash);
+
+    beforeEach(() => {
+      SwapRepository.getSwap = jest.fn();
+      ReverseSwapRepository.getReverseSwap = jest.fn();
+      ChainSwapRepository.getChainSwap = jest.fn();
+    });
+
+    test.each`
+      swapType                     | repositoryMethod    | repositoryMock           | shouldThrow | description
+      ${SwapType.Submarine}        | ${'getSwap'}        | ${SwapRepository}        | ${false}    | ${'should not throw when no swap exists for Submarine swap type'}
+      ${SwapType.Submarine}        | ${'getSwap'}        | ${SwapRepository}        | ${true}     | ${'should throw when swap exists for Submarine swap type'}
+      ${SwapType.ReverseSubmarine} | ${'getReverseSwap'} | ${ReverseSwapRepository} | ${false}    | ${'should not throw when no swap exists for ReverseSubmarine swap type'}
+      ${SwapType.ReverseSubmarine} | ${'getReverseSwap'} | ${ReverseSwapRepository} | ${true}     | ${'should throw when swap exists for ReverseSubmarine swap type'}
+      ${SwapType.Chain}            | ${'getChainSwap'}   | ${ChainSwapRepository}   | ${false}    | ${'should not throw when no swap exists for Chain swap type'}
+      ${SwapType.Chain}            | ${'getChainSwap'}   | ${ChainSwapRepository}   | ${true}     | ${'should throw when swap exists for Chain swap type'}
+    `(
+      '$description',
+      async ({ swapType, repositoryMethod, repositoryMock, shouldThrow }) => {
+        const mockValue = shouldThrow ? { id: 'existing_swap' } : null;
+        repositoryMock[repositoryMethod] = jest
+          .fn()
+          .mockResolvedValue(mockValue);
+
+        const promise = service['checkSwapWithPreimageExists'](
+          swapType,
+          preimageHash,
+        );
+
+        if (shouldThrow) {
+          await expect(promise).rejects.toEqual(
+            Errors.SWAP_WITH_PREIMAGE_EXISTS(),
+          );
+        } else {
+          await expect(promise).resolves.toBeUndefined();
+        }
+
+        expect(repositoryMock[repositoryMethod]).toHaveBeenCalledTimes(1);
+        expect(repositoryMock[repositoryMethod]).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+      },
+    );
   });
 
   describe('addWebHook', () => {

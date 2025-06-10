@@ -65,6 +65,26 @@ describe('SelfPaymentClient', () => {
       minFinalCltv: 40,
     };
 
+    test('should return isSelf: false when payments array is not empty', async () => {
+      const mockPayments = [{ id: 'payment1' }];
+
+      const getReverseSwapSpy = jest.spyOn(client as any, 'getReverseSwap');
+
+      await expect(
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          mockPayments as any,
+        ),
+      ).resolves.toEqual({
+        isSelf: false,
+        result: undefined,
+      });
+
+      expect(getReverseSwapSpy).not.toHaveBeenCalled();
+    });
+
     test.each([[null], [undefined]])(
       'should return isSelf: false when reverse swap is %s',
       async (reverseSwapValue) => {
@@ -76,6 +96,7 @@ describe('SelfPaymentClient', () => {
           mockSwap as any,
           mockDecoded as any,
           100,
+          [],
         );
 
         expect(result).toEqual({
@@ -108,6 +129,7 @@ describe('SelfPaymentClient', () => {
           mockSwapWithInvoice as any,
           mockDecoded as any,
           100,
+          [],
         ),
       ).rejects.toThrow('invoice mismatch');
 
@@ -142,12 +164,38 @@ describe('SelfPaymentClient', () => {
             mockSwap as any,
             mockDecodedWithCltv as any,
             cltvLimit,
+            [],
           ),
         ).rejects.toThrow('CLTV limit too small');
 
         expect(client['getReverseSwap']).toHaveBeenCalledTimes(1);
       },
     );
+
+    test('should throw error when invoice is expired', async () => {
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+
+      await expect(
+        client.handleSelfPayment(
+          mockSwap as any,
+          {
+            ...mockDecoded,
+            isExpired: true,
+          } as any,
+          100,
+          [],
+        ),
+      ).rejects.toThrow('invoice expired');
+
+      expect(client['getReverseSwap']).toHaveBeenCalledTimes(1);
+    });
 
     test('should emit htlc.accepted when reverse swap status is SwapCreated', async () => {
       const mockReverseSwap = {
@@ -163,7 +211,7 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -197,7 +245,7 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -220,6 +268,7 @@ describe('SelfPaymentClient', () => {
         mockSwap as any,
         mockDecoded as any,
         100,
+        [],
       );
 
       expect(result).toEqual({
@@ -250,6 +299,7 @@ describe('SelfPaymentClient', () => {
           mockSwap as any,
           mockDecoded as any,
           100,
+          [],
         );
 
         expect(result).toEqual({
@@ -295,11 +345,13 @@ describe('SelfPaymentClient', () => {
         mockSwap as any,
         mockDecoded as any,
         100,
+        [],
       );
       const promise2 = client.handleSelfPayment(
         mockSwap as any,
         mockDecoded as any,
         100,
+        [],
       );
 
       // Verify only first call started

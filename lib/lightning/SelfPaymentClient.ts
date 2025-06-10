@@ -13,6 +13,7 @@ import {
   SwapUpdateEvent,
   swapTypeToPrettyString,
 } from '../consts/Enums';
+import type LightningPayment from '../db/models/LightningPayment';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { NodeType } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
@@ -64,10 +65,19 @@ class SelfPaymentClient
     swap: Swap,
     decoded: DecodedInvoiceSidecar,
     cltvLimit: number,
+    payments: LightningPayment[],
   ): Promise<{
     isSelf: boolean;
     result: PaymentResponse | undefined;
   }> => {
+    // If there have been payment attempts from a lightning node, we don't treat it as self payment
+    if (payments.length > 0) {
+      return {
+        isSelf: false,
+        result: undefined,
+      };
+    }
+
     return await this.lock.acquire(
       SelfPaymentClient.selfPaymentLock,
       async () => {
@@ -91,6 +101,10 @@ class SelfPaymentClient
           // Only check the CLTV limit on the first attempt
           if (cltvLimit <= decoded.minFinalCltv) {
             throw new Error('CLTV limit too small');
+          }
+
+          if (decoded.isExpired) {
+            throw new Error('invoice expired');
           }
 
           this.emit('htlc.accepted', reverseSwap.invoice);

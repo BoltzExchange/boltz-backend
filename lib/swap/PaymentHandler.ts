@@ -120,26 +120,6 @@ class PaymentHandler {
     const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
     const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
 
-    try {
-      const res = await this.selfPaymentClient.handleSelfPayment(
-        swap,
-        decoded,
-        cltvLimit,
-      );
-      if (res.isSelf) {
-        if (res.result !== undefined) {
-          return await this.settleInvoice(swap, res.result);
-        }
-
-        return undefined;
-      }
-    } catch (error) {
-      const msg = formatError(error);
-      this.logPaymentFailure(swap, msg);
-      await this.abandonSwap(swap, msg);
-      return undefined;
-    }
-
     const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(
       base,
@@ -155,12 +135,34 @@ class PaymentHandler {
       swap,
       decoded,
     );
+
     const { node, paymentHash, payments } =
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
         swap,
         preferredNode?.client,
       );
+
+    try {
+      const res = await this.selfPaymentClient.handleSelfPayment(
+        swap,
+        decoded,
+        cltvLimit,
+        payments,
+      );
+      if (res.isSelf) {
+        if (res.result !== undefined) {
+          return await this.settleInvoice(swap, res.result);
+        }
+
+        return undefined;
+      }
+    } catch (error) {
+      const msg = formatError(error);
+      this.logPaymentFailure(swap, msg);
+      await this.abandonSwap(swap, msg);
+      return undefined;
+    }
 
     try {
       if (cltvLimit < 2) {

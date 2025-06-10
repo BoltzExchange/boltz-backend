@@ -343,7 +343,7 @@ describe('PaymentHandler', () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         handler['selfPaymentClient'].handleSelfPayment,
-      ).toHaveBeenCalledWith(swap, 0, cltvLimit);
+      ).toHaveBeenCalledWith(swap, 0, cltvLimit, undefined);
       expect(settleInvoiceSpy).toHaveBeenCalledTimes(1);
       expect(settleInvoiceSpy).toHaveBeenCalledWith(swap, mockPaymentResponse);
       expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();

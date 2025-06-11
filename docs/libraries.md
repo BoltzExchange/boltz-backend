@@ -9,7 +9,7 @@ description: >-
 
 ## TypeScript
 
-### [boltz-core](https://github.com/BoltzExchange/boltz-core)
+### [Boltz Core](https://github.com/BoltzExchange/boltz-core)
 
 Our reference library in TypeScript. Used by e.g.: [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) and [Boltz Backend](https://github.com/BoltzExchange/boltz-backend)
 
@@ -17,7 +17,7 @@ Supported currencies: Bitcoin, Lightning, Liquid, Rootstock
 
 ## Go
 
-### [boltz-client](https://github.com/BoltzExchange/boltz-client)
+### [Boltz Client](https://github.com/BoltzExchange/boltz-client)
 
 Our reference client to accept Lightning payments and rebalance Lightning nodes; provides a fully fledged Go library for Boltz API. Used by e.g.: [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin/)
 
@@ -25,13 +25,13 @@ Supported currencies: Bitcoin, Lightning, Liquid
 
 ## Rust
 
-### [boltz-rust](https://github.com/SatoshiPortal/boltz-rust)
+### [Boltz Rust](https://github.com/SatoshiPortal/boltz-rust)
 
 Boltz API library in Rust, developed and maintained by the amazing folks at [Bull Bitcoin](https://www.bullbitcoin.com/) and Boltz. Used by e.g.: [Bull Bitcoin Mobile](https://github.com/SatoshiPortal/bullbitcoin-mobile) and [Aqua Wallet](https://github.com/AquaWallet/aqua-wallet) via [Boltz Dart](https://github.com/SatoshiPortal/boltz-dart)
 
 Supported currencies: Bitcoin, Lightning, Liquid
 
-### [breez-sdk-liquid](https://github.com/breez/breez-sdk-liquid)
+### [Breez SDK - Nodeless](https://github.com/breez/breez-sdk-liquid)
 
 End-to-end solution for developers which includes a wallet, notification system, and bindings for Kotlin, Flutter, Python, React Native, and Swift. Used by e.g.: [Klever Wallet](https://klever.io/) and [Misty Breez](https://breez.technology/misty/)
 

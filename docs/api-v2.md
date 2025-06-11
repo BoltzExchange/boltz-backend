@@ -329,6 +329,7 @@ const submarineSwap = async () => {
 (async () => {
   await submarineSwap();
 })();
+```
 {% endtab %}
 
 {% tab title="TypeScript Liquid" %}

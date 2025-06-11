@@ -18,7 +18,7 @@ Boltz API clients must broadcast claim transactions for Reverse and Chain Swaps 
 
 ## Refunds
 
-Refunds differs depending on the swap type. Refunds for failed Submarine and Chain Swaps require users to have a refund or rescue key and actively broadcast a refund transaction. Failed Reverse Swaps do not need active refunding; funds bounce back to the user via the Lightning Network automatically once the swap expired.
+Refunds differs depending on the swap type. Refunds for failed Submarine and Chain Swaps require users to have a refund or rescue key and actively broadcast a refund transaction. Failed Reverse Swaps do not need active refunding; funds bounce back to the user via the Lightning Network automatically when the swap expires.
 
 |                            | Submarine Swaps                                                                                                                                            | Reverse Swaps | Chain Swaps                                                                                                                            |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |

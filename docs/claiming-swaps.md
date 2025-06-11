@@ -56,7 +56,7 @@ In case the client does not cooperate, Boltz will eventually broadcast a script 
 If a Submarine Swap failed (e.g. status `invoice.failedToPay` or `transaction.lockupFailed`), a key path refund can be done. Get a partial signature from Boltz with `POST /swap/submarine/{id}/refund`, aggregate the partials and broadcast the transaction.
 
 {% hint style="info" %}
-The primary advantage of key path refunds is their immediacy: they can be processed as soon as a swap fails, eliminating the need to wait for the timelock to expire. Increased on-chain privacy is another.
+The primary advantage of key path refunds is their immediacy: they can be processed as soon as a swap fails, eliminating the need to wait for the timelock to expire.
 {% endhint %}
 
 Script path refunds are also possible after the time lock expired and should be implemented as fallback, in case Boltz isn't cooperating. Set the locktime of the transaction to >= the time lock of the swap and make sure to not use the max sequence in the inputs. Structure the input witness like this:

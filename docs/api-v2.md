@@ -183,7 +183,7 @@ The backend will respond with a `pong` message.
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket.
+Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. **The examples are not feature-complete, do not cover all edge cases and are not to be used in production as-is.**
 
 ### Submarine Swap (Chain -> Lightning)
 

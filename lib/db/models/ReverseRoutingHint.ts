@@ -8,7 +8,7 @@ type ReverseRoutingHintsType = {
   swapId: string;
   symbol: string;
   scriptPubkey: Buffer;
-  blindingPubkey: Buffer | undefined;
+  blindingPubkey?: Buffer;
   params?: string;
   signature: Buffer;
 };
@@ -18,7 +18,7 @@ class ReverseRoutingHint extends Model {
 
   public symbol!: string;
   public scriptPubkey!: Buffer;
-  public blindingPubkey!: Buffer | undefined;
+  public blindingPubkey?: Buffer;
   public params?: string;
   public signature!: Buffer;
 

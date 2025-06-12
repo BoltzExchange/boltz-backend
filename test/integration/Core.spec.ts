@@ -32,6 +32,7 @@ import {
   constructClaimDetails,
   createMusig,
   fromOutputScript,
+  getBlindingKey,
   getOutputValue,
   hashForWitnessV1,
   parseTransaction,
@@ -593,5 +594,22 @@ describe('Core', () => {
         fromOutputScript(CurrencyType.Liquid, invalidScript, networks.regtest),
       ).toThrow();
     });
+  });
+
+  describe('getBlindingKey', () => {
+    test.each`
+      currency                    | address                                                                                                    | blindingKey
+      ${CurrencyType.BitcoinLike} | ${'bcrt1qyetkcrlsxsrnxxzsh3k8e3ug7z78yshzx6mlam'}                                                          | ${''}
+      ${CurrencyType.Liquid}      | ${'ert1qdfmwtuw2vvr5uy5p8a5sdgtl2x77f45cm44wz4'}                                                           | ${''}
+      ${CurrencyType.Liquid}      | ${'el1qqvjyv27jmxu6tsly8ha26plksv6lnw8ayyyx0svjxu2v6gxvl2eg7p2ngdsn937d2wft8gutt2lh0elalrdazhdv063nuytmy'} | ${'0324462bd2d9b9a5c3e43dfaad07f68335f9b8fd210867c1923714cd20ccfab28f'}
+    `(
+      'should get correct blinding key for address',
+      ({ currency, address, blindingKey }) => {
+        const result = getBlindingKey(currency, address);
+        expect(result).toEqual(
+          blindingKey ? getHexBuffer(blindingKey) : undefined,
+        );
+      },
+    );
   });
 });

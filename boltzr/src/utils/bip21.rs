@@ -8,12 +8,7 @@ fn get_prefix(network: Network, address_type: Type) -> &'static str {
     }
 }
 
-pub fn encode(
-    network: Network,
-    address_type: Type,
-    address: &str,
-    params: Option<&str>,
-) -> String {
+pub fn encode(network: Network, address_type: Type, address: &str, params: Option<&str>) -> String {
     let prefix = get_prefix(network, address_type);
     match params {
         Some(p) => format!("{}:{}?{}", prefix, address, p),
@@ -41,12 +36,7 @@ mod test {
     #[test]
     fn test_encode() {
         assert_eq!(
-            encode(
-                Network::Mainnet,
-                Type::Bitcoin,
-                "address",
-                Some("params=1")
-            ),
+            encode(Network::Mainnet, Type::Bitcoin, "address", Some("params=1")),
             "bitcoin:address?params=1"
         );
         assert_eq!(

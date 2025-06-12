@@ -34,8 +34,9 @@ pub fn encode_address(
                 .map(|b| PublicKey::from_slice(b.as_ref()))
                 .transpose()?;
             let script = elements::Script::from(script_pubkey);
-            let addr = elements::Address::from_script(&script, pubkey, network.liquid()?)
-                .ok_or(anyhow::anyhow!("failed to parse liquid script: {:?}", script.to_hex()))?;
+            let addr = elements::Address::from_script(&script, pubkey, network.liquid()?).ok_or(
+                anyhow::anyhow!("failed to parse liquid script: {:?}", script.to_hex()),
+            )?;
             Ok(addr.to_string())
         }
     }

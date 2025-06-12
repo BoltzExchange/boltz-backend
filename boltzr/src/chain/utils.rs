@@ -2,6 +2,7 @@ use crate::{chain::types::Type, wallet::Network};
 use alloy::hex;
 use bitcoin::ScriptBuf;
 use bitcoin::secp256k1::PublicKey;
+use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
 use lightning::util::ser::Writeable;
 
@@ -34,7 +35,7 @@ pub fn encode_address(
                 .transpose()?;
             let script = elements::Script::from(script_pubkey);
             let addr = elements::Address::from_script(&script, pubkey, network.liquid()?)
-                .ok_or(anyhow::anyhow!("failed to parse address"))?;
+                .ok_or(anyhow::anyhow!("failed to parse liquid script: {:?}", script.to_hex()))?;
             Ok(addr.to_string())
         }
     }

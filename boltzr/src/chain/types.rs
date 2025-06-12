@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt::Display;
+use std::str::FromStr;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
     Bitcoin,
     Elements,
 }
 
-impl Type {
-    pub fn from_symbol(s: &str) -> anyhow::Result<Self> {
+impl FromStr for Type {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "BTC" => Ok(Type::Bitcoin),
             "L-BTC" => Ok(Type::Elements),

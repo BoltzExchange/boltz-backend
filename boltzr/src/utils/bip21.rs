@@ -12,7 +12,7 @@ pub fn encode(
     network: Network,
     address_type: Type,
     address: &str,
-    params: Option<String>,
+    params: Option<&str>,
 ) -> String {
     let prefix = get_prefix(network, address_type);
     match params {
@@ -45,7 +45,7 @@ mod test {
                 Network::Mainnet,
                 Type::Bitcoin,
                 "address",
-                Some("params=1".to_string())
+                Some("params=1")
             ),
             "bitcoin:address?params=1"
         );

@@ -165,7 +165,7 @@ impl Cln {
                             self.network,
                             address_type,
                             address.as_str(),
-                            mrh.params,
+                            mrh.params.as_deref(),
                         ),
                         signature: hex::encode(mrh.signature),
                     })

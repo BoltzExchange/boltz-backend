@@ -708,10 +708,15 @@ class Service {
       return undefined;
     }
 
+    const currency = this.currencies.get(hint.symbol);
+    if (currency === undefined) {
+      throw Errors.CURRENCY_NOT_FOUND(hint.symbol);
+    }
+
     return {
       bip21: this.paymentRequestUtils.encodeBip21WithParams(
         hint.symbol,
-        hint.address(this.currencies),
+        hint.address(currency.type, currency.network!),
         hint.params,
       ),
       signature: getHexString(hint.signature),

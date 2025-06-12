@@ -1,7 +1,8 @@
+import type { Network } from 'bitcoinjs-lib';
+import type { CurrencyType } from 'lib/consts/Enums';
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
 import { fromOutputScript } from '../../Core';
-import type { Currency } from '../../wallet/WalletManager';
 import ReverseSwap from './ReverseSwap';
 
 type ReverseRoutingHintsType = {
@@ -22,15 +23,11 @@ class ReverseRoutingHint extends Model {
   public params?: string;
   public signature!: Buffer;
 
-  public address = (currencies: Map<string, Currency>) => {
-    const currency = currencies.get(this.symbol);
-    if (currency === undefined) {
-      throw new Error(`Currency ${this.symbol} not found`);
-    }
+  public address = (type: CurrencyType, network: Network) => {
     return fromOutputScript(
-      currency.type,
+      type,
       this.scriptPubkey,
-      currency.network!,
+      network,
       this.blindingPubkey,
     );
   };

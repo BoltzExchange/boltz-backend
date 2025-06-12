@@ -31,7 +31,7 @@ impl ChainClient {
         config: Config,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            client_type: client_type.clone(),
+            client_type,
             client: RpcClient::new(symbol, config.clone())?,
             zmq_client: ZmqClient::new(client_type, config),
         })

@@ -32,6 +32,7 @@ import {
   constructClaimDetails,
   createMusig,
   fromOutputScript,
+  getBlindingKey,
   getOutputValue,
   hashForWitnessV1,
   parseTransaction,
@@ -548,5 +549,67 @@ describe('Core', () => {
     spendTx.setWitness(0, [Buffer.from(keys.signSchnorr(hash))]);
 
     await elementsClient.sendRawTransaction(spendTx.toHex());
+  });
+
+  describe('fromOutputScript', () => {
+    test.each`
+      currency                    | address                                                                                                    | scriptPubKey                                      | blindingKey
+      ${CurrencyType.BitcoinLike} | ${'bcrt1qyetkcrlsxsrnxxzsh3k8e3ug7z78yshzx6mlam'}                                                          | ${'001426576c0ff03407331850bc6c7cc788f0bc7242e2'} | ${''}
+      ${CurrencyType.Liquid}      | ${'ert1qdfmwtuw2vvr5uy5p8a5sdgtl2x77f45cm44wz4'}                                                           | ${'00146a76e5f1ca63074e12813f6906a17f51bde4d698'} | ${''}
+      ${CurrencyType.Liquid}      | ${'el1qqvjyv27jmxu6tsly8ha26plksv6lnw8ayyyx0svjxu2v6gxvl2eg7p2ngdsn937d2wft8gutt2lh0elalrdazhdv063nuytmy'} | ${'00140553436132c7cd5392b3a38b5abf77e7fdf8dbd1'} | ${'0324462bd2d9b9a5c3e43dfaad07f68335f9b8fd210867c1923714cd20ccfab28f'}
+    `(
+      'parse output scripts correctly',
+      async ({ currency, address, scriptPubKey, blindingKey }) => {
+        const result = fromOutputScript(
+          currency,
+          getHexBuffer(scriptPubKey),
+          currency === CurrencyType.Liquid
+            ? networks.regtest
+            : Networks.bitcoinRegtest,
+          blindingKey ? getHexBuffer(blindingKey) : undefined,
+        );
+        expect(result).toEqual(address);
+      },
+    );
+
+    test('should handle invalid scripts', () => {
+      expect(() =>
+        fromOutputScript(
+          CurrencyType.BitcoinLike,
+          Buffer.alloc(0),
+          Networks.bitcoinRegtest,
+        ),
+      ).toThrow();
+
+      const invalidScript = Buffer.from([0x6a, 0x01, 0x02, 0x03]);
+      expect(() =>
+        fromOutputScript(
+          CurrencyType.BitcoinLike,
+          invalidScript,
+          Networks.bitcoinRegtest,
+        ),
+      ).toThrow();
+
+      expect(() =>
+        fromOutputScript(CurrencyType.Liquid, invalidScript, networks.regtest),
+      ).toThrow();
+    });
+  });
+
+  describe('getBlindingKey', () => {
+    test.each`
+      currency                    | address                                                                                                    | blindingKey
+      ${CurrencyType.BitcoinLike} | ${'bcrt1qyetkcrlsxsrnxxzsh3k8e3ug7z78yshzx6mlam'}                                                          | ${''}
+      ${CurrencyType.Liquid}      | ${'ert1qdfmwtuw2vvr5uy5p8a5sdgtl2x77f45cm44wz4'}                                                           | ${''}
+      ${CurrencyType.Liquid}      | ${'el1qqvjyv27jmxu6tsly8ha26plksv6lnw8ayyyx0svjxu2v6gxvl2eg7p2ngdsn937d2wft8gutt2lh0elalrdazhdv063nuytmy'} | ${'0324462bd2d9b9a5c3e43dfaad07f68335f9b8fd210867c1923714cd20ccfab28f'}
+    `(
+      'should get correct blinding key for address',
+      ({ currency, address, blindingKey }) => {
+        const result = getBlindingKey(currency, address);
+        expect(result).toEqual(
+          blindingKey ? getHexBuffer(blindingKey) : undefined,
+        );
+      },
+    );
   });
 });

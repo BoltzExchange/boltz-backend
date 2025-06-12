@@ -1,5 +1,8 @@
-use crate::chain::types::Type;
+use crate::{chain::types::Type, wallet::Network};
 use alloy::hex;
+use bitcoin::ScriptBuf;
+use bitcoin::secp256k1::PublicKey;
+use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
 use lightning::util::ser::Writeable;
 
@@ -13,6 +16,30 @@ pub struct Outpoint {
 pub enum Transaction {
     Bitcoin(bitcoin::Transaction),
     Elements(elements::Transaction),
+}
+
+pub fn encode_address(
+    address_type: Type,
+    script_pubkey: Vec<u8>,
+    blinding_pubkey: Option<Vec<u8>>,
+    network: Network,
+) -> anyhow::Result<String> {
+    match address_type {
+        Type::Bitcoin => {
+            let script_buf = ScriptBuf::from_bytes(script_pubkey);
+            Ok(bitcoin::Address::from_script(&script_buf, network.bitcoin())?.to_string())
+        }
+        Type::Elements => {
+            let pubkey = blinding_pubkey
+                .map(|b| PublicKey::from_slice(b.as_ref()))
+                .transpose()?;
+            let script = elements::Script::from(script_pubkey);
+            let addr = elements::Address::from_script(&script, pubkey, network.liquid()?).ok_or(
+                anyhow::anyhow!("failed to parse liquid script: {:?}", script.to_hex()),
+            )?;
+            Ok(addr.to_string())
+        }
+    }
 }
 
 impl Transaction {

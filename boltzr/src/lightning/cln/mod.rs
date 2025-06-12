@@ -1,18 +1,21 @@
 use crate::api::MagicRoutingHint;
 use crate::api::ws::OfferSubscriptions;
 use crate::chain::BaseClient;
+use crate::chain::types::Type;
+use crate::chain::utils::encode_address;
 use crate::db::helpers::offer::OfferHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
-use crate::wallet;
+use crate::{utils, wallet};
 use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
@@ -146,11 +149,29 @@ impl Cln {
 
         let magic_routing_hint = self
             .reverse_swap_helper
-            .get_routing_hint(&hex::encode(decoded.payment_hash().0))?
-            .map(|mrh| MagicRoutingHint {
-                bip21: mrh.bip21,
-                signature: mrh.signature,
-            });
+            .get_routing_hint(&hex::encode(decoded.payment_hash().0))
+            .and_then(|res| {
+                res.map(|mrh| {
+                    let address_type = Type::from_str(&mrh.symbol)?;
+                    let address = encode_address(
+                        address_type,
+                        mrh.scriptPubkey,
+                        mrh.blindingPubkey,
+                        self.network,
+                    )?;
+
+                    Ok(MagicRoutingHint {
+                        bip21: utils::bip21::encode(
+                            self.network,
+                            address_type,
+                            address.as_str(),
+                            mrh.params.as_deref(),
+                        ),
+                        signature: hex::encode(mrh.signature),
+                    })
+                })
+                .transpose()
+            })?;
 
         Ok((invoice, magic_routing_hint))
     }

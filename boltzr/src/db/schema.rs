@@ -65,8 +65,11 @@ diesel::table! {
     #[allow(non_snake_case)]
     reverseRoutingHints (swapId) {
         swapId -> Text,
-        bip21 -> Text,
-        signature -> Text,
+        symbol -> Text,
+        scriptPubkey -> Binary,
+        blindingPubkey -> Nullable<Binary>,
+        params -> Nullable<Text>,
+        signature -> Binary,
     }
 }
 

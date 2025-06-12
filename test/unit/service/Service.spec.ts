@@ -1410,8 +1410,11 @@ describe('Service', () => {
   });
 
   test('should get BIP-21 for reverse swaps', async () => {
+    const mockAddress = '123';
     ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
-      bip21: 'bitcoin:bip21',
+      symbol: 'BTC',
+      address: jest.fn().mockReturnValue(mockAddress),
+      params: 'params',
       signature: 'some valid sig',
     });
 
@@ -1431,7 +1434,14 @@ describe('Service', () => {
     expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledTimes(1);
     expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(id);
 
-    expect(res).toEqual(await ReverseRoutingHintRepository.getHint(id));
+    const hint = await ReverseRoutingHintRepository.getHint(id);
+    expect(res!.bip21).toEqual(
+      service['paymentRequestUtils'].encodeBip21WithParams(
+        hint!.symbol,
+        mockAddress,
+        hint!.params,
+      ),
+    );
   });
 
   test('should return undefined when no BIP-21 was set for reverse swap', async () => {

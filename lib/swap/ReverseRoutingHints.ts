@@ -17,7 +17,7 @@ type SwapHints = {
   invoiceDescriptionHash?: Buffer;
 
   receivedAmount: number;
-  bip21?: string;
+  bip21Params?: string;
   routingHint?: HopHint[][];
 };
 
@@ -80,9 +80,8 @@ class ReverseRoutingHints {
       throw Errors.INVALID_ADDRESS();
     }
 
-    const bip21 = this.paymentRequestUtils.encodeBip21(
+    const bip21Params = this.paymentRequestUtils.encodeParams(
       sendingCurrency.symbol,
-      args.userAddress,
       receivedAmount,
       args.memo,
     );
@@ -104,7 +103,7 @@ class ReverseRoutingHints {
     }
 
     return {
-      bip21,
+      bip21Params,
       routingHint,
       invoiceMemo,
       receivedAmount,

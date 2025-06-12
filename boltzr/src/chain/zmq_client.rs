@@ -32,7 +32,7 @@ impl ZmqClient {
         };
 
         let tx_sender = self.tx_sender.clone();
-        let client_type = self.client_type.clone();
+        let client_type = self.client_type;
 
         self.subscribe(raw_tx, "rawtx", move |msg| {
             let tx_bytes = msg.get(1).unwrap().to_vec();

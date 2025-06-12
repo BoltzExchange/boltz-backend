@@ -121,9 +121,8 @@ describe('ReverseRoutingHints', () => {
             sendingCurrency.symbol,
             SwapType.ReverseSubmarine,
           ),
-          bip21: paymentRequestUtils.encodeBip21(
+          bip21Params: paymentRequestUtils.encodeParams(
             sendingCurrency.symbol,
-            address,
             amount - reverseMinerFees,
           ),
           routingHint: [
@@ -193,9 +192,8 @@ describe('ReverseRoutingHints', () => {
         ).toEqual({
           invoiceMemo: memo,
           receivedAmount: 99877,
-          bip21: paymentRequestUtils.encodeBip21(
+          bip21Params: paymentRequestUtils.encodeParams(
             sendingCurrency.symbol,
-            address,
             amount - reverseMinerFees,
             memo,
           ),
@@ -282,9 +280,8 @@ describe('ReverseRoutingHints', () => {
       });
 
       expect(res).toEqual({
-        bip21: paymentRequestUtils.encodeBip21(
+        bip21Params: paymentRequestUtils.encodeParams(
           sendingCurrency.symbol,
-          address,
           amount - reverseMinerFees,
         ),
         receivedAmount: amount - reverseMinerFees,

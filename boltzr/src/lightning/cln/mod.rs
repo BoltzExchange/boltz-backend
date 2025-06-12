@@ -14,6 +14,7 @@ use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::fs;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
@@ -151,9 +152,9 @@ impl Cln {
             .get_routing_hint(&hex::encode(decoded.payment_hash().0))
             .and_then(|res| {
                 res.map(|mrh| {
-                    let address_type = Type::from_symbol(&mrh.symbol)?;
+                    let address_type = Type::from_str(&mrh.symbol)?;
                     let address = encode_address(
-                        address_type.clone(),
+                        address_type,
                         mrh.scriptPubkey,
                         mrh.blindingPubkey,
                         self.network,
@@ -162,7 +163,7 @@ impl Cln {
                     Ok(MagicRoutingHint {
                         bip21: utils::bip21::encode(
                             self.network,
-                            address_type.clone(),
+                            address_type,
                             address.as_str(),
                             mrh.params,
                         ),

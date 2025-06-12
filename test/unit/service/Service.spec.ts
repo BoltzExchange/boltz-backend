@@ -3612,41 +3612,221 @@ describe('Service', () => {
       ChainSwapRepository.getChainSwap = jest.fn();
     });
 
-    test.each`
-      swapType                     | repositoryMethod    | repositoryMock           | shouldThrow | description
-      ${SwapType.Submarine}        | ${'getSwap'}        | ${SwapRepository}        | ${false}    | ${'should not throw when no swap exists for Submarine swap type'}
-      ${SwapType.Submarine}        | ${'getSwap'}        | ${SwapRepository}        | ${true}     | ${'should throw when swap exists for Submarine swap type'}
-      ${SwapType.ReverseSubmarine} | ${'getReverseSwap'} | ${ReverseSwapRepository} | ${false}    | ${'should not throw when no swap exists for ReverseSubmarine swap type'}
-      ${SwapType.ReverseSubmarine} | ${'getReverseSwap'} | ${ReverseSwapRepository} | ${true}     | ${'should throw when swap exists for ReverseSubmarine swap type'}
-      ${SwapType.Chain}            | ${'getChainSwap'}   | ${ChainSwapRepository}   | ${false}    | ${'should not throw when no swap exists for Chain swap type'}
-      ${SwapType.Chain}            | ${'getChainSwap'}   | ${ChainSwapRepository}   | ${true}     | ${'should throw when swap exists for Chain swap type'}
-    `(
-      '$description',
-      async ({ swapType, repositoryMethod, repositoryMock, shouldThrow }) => {
-        const mockValue = shouldThrow ? { id: 'existing_swap' } : null;
-        repositoryMock[repositoryMethod] = jest
+    describe('Submarine', () => {
+      test('should not throw when no conflicting swaps exist', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
           .fn()
-          .mockResolvedValue(mockValue);
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
-        const promise = service['checkSwapWithPreimageExists'](
-          swapType,
-          preimageHash,
-        );
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.Submarine,
+            preimageHash,
+          ),
+        ).resolves.toBeUndefined();
 
-        if (shouldThrow) {
-          await expect(promise).rejects.toEqual(
-            Errors.SWAP_WITH_PREIMAGE_EXISTS(),
-          );
-        } else {
-          await expect(promise).resolves.toBeUndefined();
-        }
-
-        expect(repositoryMock[repositoryMethod]).toHaveBeenCalledTimes(1);
-        expect(repositoryMock[repositoryMethod]).toHaveBeenCalledWith({
+        expect(SwapRepository.getSwap).toHaveBeenCalledWith({
           preimageHash: preimageHashHex,
         });
-      },
-    );
+        expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+        expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+      });
+
+      test('should throw when submarine swap exists', async () => {
+        SwapRepository.getSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_submarine_swap' });
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.Submarine,
+            preimageHash,
+          ),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should throw when chain swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_chain_swap' });
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.Submarine,
+            preimageHash,
+          ),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should not throw when only reverse swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_reverse_swap' });
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.Submarine,
+            preimageHash,
+          ),
+        ).resolves.toBeUndefined();
+      });
+    });
+
+    describe('ReverseSubmarine', () => {
+      test('should not throw when no conflicting swaps exist', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.ReverseSubmarine,
+            preimageHash,
+          ),
+        ).resolves.toBeUndefined();
+
+        expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+        expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+        expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+      });
+
+      test('should throw when reverse swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_reverse_swap' });
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.ReverseSubmarine,
+            preimageHash,
+          ),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should throw when chain swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_chain_swap' });
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.ReverseSubmarine,
+            preimageHash,
+          ),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should throw when submarine swap exists', async () => {
+        SwapRepository.getSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_submarine_swap' });
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](
+            SwapType.ReverseSubmarine,
+            preimageHash,
+          ),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+    });
+
+    describe('Chain swap', () => {
+      test('should not throw when no swaps exist', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](SwapType.Chain, preimageHash),
+        ).resolves.toBeUndefined();
+
+        expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+        expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+        expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+          preimageHash: preimageHashHex,
+        });
+      });
+
+      test('should throw when submarine swap exists', async () => {
+        SwapRepository.getSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_submarine_swap' });
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](SwapType.Chain, preimageHash),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should throw when reverse swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_reverse_swap' });
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+        await expect(
+          service['checkSwapWithPreimageExists'](SwapType.Chain, preimageHash),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+
+      test('should throw when chain swap exists', async () => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+        ReverseSwapRepository.getReverseSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+        ChainSwapRepository.getChainSwap = jest
+          .fn()
+          .mockResolvedValue({ id: 'existing_chain_swap' });
+
+        await expect(
+          service['checkSwapWithPreimageExists'](SwapType.Chain, preimageHash),
+        ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
+      });
+    });
   });
 
   describe('addWebHook', () => {
@@ -3849,7 +4029,7 @@ describe('Service', () => {
     test('should throw for a non-existent swapId', async () => {
       expect.assertions(1);
       const eventName = SwapUpdateEvent.InvoicePending;
-      mockGetSwapResult = undefined;
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
       const nonExistentSwapId = 'nonExistentSwapId';
       await expect(setSwapStatus(nonExistentSwapId, eventName)).rejects.toEqual(
         Errors.SWAP_NOT_FOUND(nonExistentSwapId),
@@ -3859,16 +4039,17 @@ describe('Service', () => {
     test('should successfully update swap status', async () => {
       expect.assertions(3);
       const eventName = SwapUpdateEvent.InvoiceFailedToPay;
-      mockGetSwapResult = { id: swapId };
+      const res = { id: swapId };
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(res);
       await expect(setSwapStatus(swapId, eventName)).resolves.toBeUndefined();
       expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
-        mockGetSwapResult,
+        res,
         eventName,
         cancelledViaCliFailureReason,
       );
       expect(service.swapManager.nursery.emit).toHaveBeenCalledWith(
         eventName,
-        mockGetSwapResult,
+        res,
       );
     });
   });

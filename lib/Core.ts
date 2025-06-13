@@ -102,7 +102,7 @@ export const fromOutputScript = (
   const result = isBitcoin(type)
     ? address.fromOutputScript(outputScript, network)
     : liquidAddress.fromOutputScript(outputScript, network as LiquidNetwork);
-  if (blindingKey !== undefined) {
+  if (blindingKey && blindingKey.length > 0) {
     return liquidAddress.toConfidential(result, blindingKey);
   }
   return result;

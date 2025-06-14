@@ -35,6 +35,11 @@ impl ZmqClient {
         let client_type = self.client_type;
 
         self.subscribe(raw_tx, "rawtx", move |msg| {
+            // No need to send transactions if no one is listening
+            if tx_sender.receiver_count() == 0 {
+                return;
+            }
+
             let tx_bytes = msg.get(1).unwrap().to_vec();
             let tx: Transaction = match parse_transaction(&client_type, &tx_bytes) {
                 Ok(tx) => tx,

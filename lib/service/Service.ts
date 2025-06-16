@@ -2506,30 +2506,31 @@ class Service {
   ) => {
     const hashHex = getHexString(preimageHash);
 
-    let swap: AnySwap | null = null;
+    const [submarine, reverse, chain] = await Promise.all([
+      SwapRepository.getSwap({
+        preimageHash: hashHex,
+      }),
+      ReverseSwapRepository.getReverseSwap({
+        preimageHash: hashHex,
+      }),
+      ChainSwapRepository.getChainSwap({
+        preimageHash: hashHex,
+      }),
+    ]);
 
     switch (type) {
       case SwapType.Submarine:
-        swap = await SwapRepository.getSwap({
-          preimageHash: hashHex,
-        });
+        if (submarine !== null || chain !== null) {
+          throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
+        }
         break;
 
       case SwapType.ReverseSubmarine:
-        swap = await ReverseSwapRepository.getReverseSwap({
-          preimageHash: hashHex,
-        });
-        break;
-
       case SwapType.Chain:
-        swap = await ChainSwapRepository.getChainSwap({
-          preimageHash: hashHex,
-        });
+        if (submarine !== null || reverse !== null || chain !== null) {
+          throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
+        }
         break;
-    }
-
-    if (swap !== null) {
-      throw Errors.SWAP_WITH_PREIMAGE_EXISTS();
     }
   };
 

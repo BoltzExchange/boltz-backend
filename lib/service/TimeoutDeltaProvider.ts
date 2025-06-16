@@ -148,13 +148,13 @@ class TimeoutDeltaProvider {
       ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
       : await chainCurrency.provider!.getBlockNumber();
 
-    const blockLeft = TimeoutDeltaProvider.convertBlocks(
+    const blocksLeft = TimeoutDeltaProvider.convertBlocks(
       chainCurrency.symbol,
       getLightningCurrency(base, quote, swap.orderSide, false),
       swap.timeoutBlockHeight - currentBlock,
     );
 
-    return Math.floor(blockLeft - 2);
+    return Math.floor(blocksLeft - 20);
   };
 
   public getTimeout = async (

@@ -14,7 +14,6 @@
 * [🏅 Pro](pro.md)
 * [📜 Claim Covenants](claim-covenants.md)
 * [🤝 Referral Program](referral-program.md)
-* [🚢 Backend Deployment](deployment.md)
-* [🐳 Regtest Environment](regtest.md)
+* [🐳 Backend Development](backend-development.md)
 * [🤖 REST API v1 (deprecated)](api-v1.md)
 * [🔙 Back to Docs Home](https://app.gitbook.com/o/SPM8mTvJyc7OIzGL3HD7/s/XUXMXrD8YTzvuqvAeom7/)

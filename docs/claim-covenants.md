@@ -76,7 +76,7 @@ type CovenantParams = {
   tree: Types.SwapTree;
 };
 
-const endpoint = 'https://api.testnet.boltz.exchange';
+const endpoint = '<Boltz API endpoint>';
 const covenantEndpoint = 'http://127.0.0.1:1234';
 
 const createSwap = async (): Promise<CovenantParams> => {
@@ -84,7 +84,7 @@ const createSwap = async (): Promise<CovenantParams> => {
   const claimKeys = ECPair.makeRandom();
 
   const address =
-    'tlq1qq090wdhdz8s2pydq3g5whw248exqydax2w05sv3fat7dsdz4088rg9yzha2lh8rcr2wq4ek244ug77al8ps27shp59e588azj';
+    '<L-BTC address on the network used>';
 
   const swapRes = (
     await axios.post(`${endpoint}/v2/swap/reverse`, {

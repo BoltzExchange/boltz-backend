@@ -143,6 +143,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     injectPaymentOnion: INodeService_IInjectPaymentOnion;
     injectOnionMessage: INodeService_IInjectOnionMessage;
     xpay: INodeService_IXpay;
+    signMessageWithKey: INodeService_ISignMessageWithKey;
     subscribeBlockAdded: INodeService_ISubscribeBlockAdded;
     subscribeChannelOpenFailed: INodeService_ISubscribeChannelOpenFailed;
     subscribeChannelOpened: INodeService_ISubscribeChannelOpened;
@@ -1357,6 +1358,15 @@ interface INodeService_IXpay extends grpc.MethodDefinition<cln_node_pb.XpayReque
     responseSerialize: grpc.serialize<cln_node_pb.XpayResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.XpayResponse>;
 }
+interface INodeService_ISignMessageWithKey extends grpc.MethodDefinition<cln_node_pb.SignmessagewithkeyRequest, cln_node_pb.SignmessagewithkeyResponse> {
+    path: "/cln.Node/SignMessageWithKey";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.SignmessagewithkeyRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.SignmessagewithkeyRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.SignmessagewithkeyResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.SignmessagewithkeyResponse>;
+}
 interface INodeService_ISubscribeBlockAdded extends grpc.MethodDefinition<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification> {
     path: "/cln.Node/SubscribeBlockAdded";
     requestStream: false;
@@ -1549,6 +1559,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     injectPaymentOnion: grpc.handleUnaryCall<cln_node_pb.InjectpaymentonionRequest, cln_node_pb.InjectpaymentonionResponse>;
     injectOnionMessage: grpc.handleUnaryCall<cln_node_pb.InjectonionmessageRequest, cln_node_pb.InjectonionmessageResponse>;
     xpay: grpc.handleUnaryCall<cln_node_pb.XpayRequest, cln_node_pb.XpayResponse>;
+    signMessageWithKey: grpc.handleUnaryCall<cln_node_pb.SignmessagewithkeyRequest, cln_node_pb.SignmessagewithkeyResponse>;
     subscribeBlockAdded: grpc.handleServerStreamingCall<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenFailedRequest, cln_node_pb.ChannelOpenFailedNotification>;
     subscribeChannelOpened: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenedRequest, cln_node_pb.ChannelOpenedNotification>;
@@ -1960,6 +1971,9 @@ export interface INodeClient {
     xpay(request: cln_node_pb.XpayRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;
@@ -2378,6 +2392,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public xpay(request: cln_node_pb.XpayRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     public xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
     public xpay(request: cln_node_pb.XpayRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.XpayResponse) => void): grpc.ClientUnaryCall;
+    public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;

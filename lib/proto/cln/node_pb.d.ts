@@ -3608,6 +3608,11 @@ export class SendonionRequest extends jspb.Message {
     getDescription(): string | undefined;
     setDescription(value: string): SendonionRequest;
 
+    hasTotalAmountMsat(): boolean;
+    clearTotalAmountMsat(): void;
+    getTotalAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setTotalAmountMsat(value?: cln_primitives_pb.Amount): SendonionRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendonionRequest.AsObject;
     static toObject(includeInstance: boolean, msg: SendonionRequest): SendonionRequest.AsObject;
@@ -3632,6 +3637,7 @@ export namespace SendonionRequest {
         amountMsat?: cln_primitives_pb.Amount.AsObject,
         localinvreqid: Uint8Array | string,
         description?: string,
+        totalAmountMsat?: cln_primitives_pb.Amount.AsObject,
     }
 }
 
@@ -5852,6 +5858,11 @@ export class ListpeerchannelsRequest extends jspb.Message {
     getId_asB64(): string;
     setId(value: Uint8Array | string): ListpeerchannelsRequest;
 
+    hasShortChannelId(): boolean;
+    clearShortChannelId(): void;
+    getShortChannelId(): string | undefined;
+    setShortChannelId(value: string): ListpeerchannelsRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListpeerchannelsRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListpeerchannelsRequest): ListpeerchannelsRequest.AsObject;
@@ -5865,6 +5876,7 @@ export class ListpeerchannelsRequest extends jspb.Message {
 export namespace ListpeerchannelsRequest {
     export type AsObject = {
         id: Uint8Array | string,
+        shortChannelId?: string,
     }
 }
 
@@ -10319,6 +10331,21 @@ export class ListhtlcsRequest extends jspb.Message {
     getId(): string | undefined;
     setId(value: string): ListhtlcsRequest;
 
+    hasIndex(): boolean;
+    clearIndex(): void;
+    getIndex(): ListhtlcsRequest.ListhtlcsIndex | undefined;
+    setIndex(value: ListhtlcsRequest.ListhtlcsIndex): ListhtlcsRequest;
+
+    hasStart(): boolean;
+    clearStart(): void;
+    getStart(): number | undefined;
+    setStart(value: number): ListhtlcsRequest;
+
+    hasLimit(): boolean;
+    clearLimit(): void;
+    getLimit(): number | undefined;
+    setLimit(value: number): ListhtlcsRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListhtlcsRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListhtlcsRequest): ListhtlcsRequest.AsObject;
@@ -10332,7 +10359,16 @@ export class ListhtlcsRequest extends jspb.Message {
 export namespace ListhtlcsRequest {
     export type AsObject = {
         id?: string,
+        index?: ListhtlcsRequest.ListhtlcsIndex,
+        start?: number,
+        limit?: number,
     }
+
+    export enum ListhtlcsIndex {
+    CREATED = 0,
+    UPDATED = 1,
+    }
+
 }
 
 export class ListhtlcsResponse extends jspb.Message { 
@@ -10378,6 +10414,16 @@ export class ListhtlcsHtlcs extends jspb.Message {
     getState(): cln_primitives_pb.HtlcState;
     setState(value: cln_primitives_pb.HtlcState): ListhtlcsHtlcs;
 
+    hasCreatedIndex(): boolean;
+    clearCreatedIndex(): void;
+    getCreatedIndex(): number | undefined;
+    setCreatedIndex(value: number): ListhtlcsHtlcs;
+
+    hasUpdatedIndex(): boolean;
+    clearUpdatedIndex(): void;
+    getUpdatedIndex(): number | undefined;
+    setUpdatedIndex(value: number): ListhtlcsHtlcs;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListhtlcsHtlcs.AsObject;
     static toObject(includeInstance: boolean, msg: ListhtlcsHtlcs): ListhtlcsHtlcs.AsObject;
@@ -10397,6 +10443,8 @@ export namespace ListhtlcsHtlcs {
         direction: ListhtlcsHtlcs.ListhtlcsHtlcsDirection,
         paymentHash: Uint8Array | string,
         state: cln_primitives_pb.HtlcState,
+        createdIndex?: number,
+        updatedIndex?: number,
     }
 
     export enum ListhtlcsHtlcsDirection {
@@ -12946,6 +12994,7 @@ export namespace WaitRequest {
     INVOICES = 0,
     FORWARDS = 1,
     SENDPAYS = 2,
+    HTLCS = 3,
     }
 
     export enum WaitIndexname {
@@ -12980,6 +13029,26 @@ export class WaitResponse extends jspb.Message {
     getDetails(): WaitDetails | undefined;
     setDetails(value?: WaitDetails): WaitResponse;
 
+    hasForwards(): boolean;
+    clearForwards(): void;
+    getForwards(): WaitForwards | undefined;
+    setForwards(value?: WaitForwards): WaitResponse;
+
+    hasInvoices(): boolean;
+    clearInvoices(): void;
+    getInvoices(): WaitInvoices | undefined;
+    setInvoices(value?: WaitInvoices): WaitResponse;
+
+    hasSendpays(): boolean;
+    clearSendpays(): void;
+    getSendpays(): WaitSendpays | undefined;
+    setSendpays(value?: WaitSendpays): WaitResponse;
+
+    hasHtlcs(): boolean;
+    clearHtlcs(): void;
+    getHtlcs(): WaitHtlcs | undefined;
+    setHtlcs(value?: WaitHtlcs): WaitResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WaitResponse.AsObject;
     static toObject(includeInstance: boolean, msg: WaitResponse): WaitResponse.AsObject;
@@ -12997,12 +13066,266 @@ export namespace WaitResponse {
         updated?: number,
         deleted?: number,
         details?: WaitDetails.AsObject,
+        forwards?: WaitForwards.AsObject,
+        invoices?: WaitInvoices.AsObject,
+        sendpays?: WaitSendpays.AsObject,
+        htlcs?: WaitHtlcs.AsObject,
     }
 
     export enum WaitSubsystem {
     INVOICES = 0,
     FORWARDS = 1,
     SENDPAYS = 2,
+    HTLCS = 3,
+    }
+
+}
+
+export class WaitForwards extends jspb.Message { 
+
+    hasStatus(): boolean;
+    clearStatus(): void;
+    getStatus(): WaitForwards.WaitForwardsStatus | undefined;
+    setStatus(value: WaitForwards.WaitForwardsStatus): WaitForwards;
+
+    hasInChannel(): boolean;
+    clearInChannel(): void;
+    getInChannel(): string | undefined;
+    setInChannel(value: string): WaitForwards;
+
+    hasInHtlcId(): boolean;
+    clearInHtlcId(): void;
+    getInHtlcId(): number | undefined;
+    setInHtlcId(value: number): WaitForwards;
+
+    hasInMsat(): boolean;
+    clearInMsat(): void;
+    getInMsat(): cln_primitives_pb.Amount | undefined;
+    setInMsat(value?: cln_primitives_pb.Amount): WaitForwards;
+
+    hasOutChannel(): boolean;
+    clearOutChannel(): void;
+    getOutChannel(): string | undefined;
+    setOutChannel(value: string): WaitForwards;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitForwards.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitForwards): WaitForwards.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitForwards, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitForwards;
+    static deserializeBinaryFromReader(message: WaitForwards, reader: jspb.BinaryReader): WaitForwards;
+}
+
+export namespace WaitForwards {
+    export type AsObject = {
+        status?: WaitForwards.WaitForwardsStatus,
+        inChannel?: string,
+        inHtlcId?: number,
+        inMsat?: cln_primitives_pb.Amount.AsObject,
+        outChannel?: string,
+    }
+
+    export enum WaitForwardsStatus {
+    OFFERED = 0,
+    SETTLED = 1,
+    FAILED = 2,
+    LOCAL_FAILED = 3,
+    }
+
+}
+
+export class WaitInvoices extends jspb.Message { 
+
+    hasStatus(): boolean;
+    clearStatus(): void;
+    getStatus(): WaitInvoices.WaitInvoicesStatus | undefined;
+    setStatus(value: WaitInvoices.WaitInvoicesStatus): WaitInvoices;
+
+    hasLabel(): boolean;
+    clearLabel(): void;
+    getLabel(): string | undefined;
+    setLabel(value: string): WaitInvoices;
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): WaitInvoices;
+
+    hasBolt11(): boolean;
+    clearBolt11(): void;
+    getBolt11(): string | undefined;
+    setBolt11(value: string): WaitInvoices;
+
+    hasBolt12(): boolean;
+    clearBolt12(): void;
+    getBolt12(): string | undefined;
+    setBolt12(value: string): WaitInvoices;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitInvoices.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitInvoices): WaitInvoices.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitInvoices, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitInvoices;
+    static deserializeBinaryFromReader(message: WaitInvoices, reader: jspb.BinaryReader): WaitInvoices;
+}
+
+export namespace WaitInvoices {
+    export type AsObject = {
+        status?: WaitInvoices.WaitInvoicesStatus,
+        label?: string,
+        description?: string,
+        bolt11?: string,
+        bolt12?: string,
+    }
+
+    export enum WaitInvoicesStatus {
+    UNPAID = 0,
+    PAID = 1,
+    EXPIRED = 2,
+    }
+
+}
+
+export class WaitSendpays extends jspb.Message { 
+
+    hasStatus(): boolean;
+    clearStatus(): void;
+    getStatus(): WaitSendpays.WaitSendpaysStatus | undefined;
+    setStatus(value: WaitSendpays.WaitSendpaysStatus): WaitSendpays;
+
+    hasPartid(): boolean;
+    clearPartid(): void;
+    getPartid(): number | undefined;
+    setPartid(value: number): WaitSendpays;
+
+    hasGroupid(): boolean;
+    clearGroupid(): void;
+    getGroupid(): number | undefined;
+    setGroupid(value: number): WaitSendpays;
+
+    hasPaymentHash(): boolean;
+    clearPaymentHash(): void;
+    getPaymentHash(): Uint8Array | string;
+    getPaymentHash_asU8(): Uint8Array;
+    getPaymentHash_asB64(): string;
+    setPaymentHash(value: Uint8Array | string): WaitSendpays;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitSendpays.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitSendpays): WaitSendpays.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitSendpays, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitSendpays;
+    static deserializeBinaryFromReader(message: WaitSendpays, reader: jspb.BinaryReader): WaitSendpays;
+}
+
+export namespace WaitSendpays {
+    export type AsObject = {
+        status?: WaitSendpays.WaitSendpaysStatus,
+        partid?: number,
+        groupid?: number,
+        paymentHash: Uint8Array | string,
+    }
+
+    export enum WaitSendpaysStatus {
+    PENDING = 0,
+    FAILED = 1,
+    COMPLETE = 2,
+    }
+
+}
+
+export class WaitHtlcs extends jspb.Message { 
+
+    hasState(): boolean;
+    clearState(): void;
+    getState(): WaitHtlcs.WaitHtlcsState | undefined;
+    setState(value: WaitHtlcs.WaitHtlcsState): WaitHtlcs;
+
+    hasHtlcId(): boolean;
+    clearHtlcId(): void;
+    getHtlcId(): number | undefined;
+    setHtlcId(value: number): WaitHtlcs;
+
+    hasShortChannelId(): boolean;
+    clearShortChannelId(): void;
+    getShortChannelId(): string | undefined;
+    setShortChannelId(value: string): WaitHtlcs;
+
+    hasCltvExpiry(): boolean;
+    clearCltvExpiry(): void;
+    getCltvExpiry(): number | undefined;
+    setCltvExpiry(value: number): WaitHtlcs;
+
+    hasAmountMsat(): boolean;
+    clearAmountMsat(): void;
+    getAmountMsat(): cln_primitives_pb.Amount | undefined;
+    setAmountMsat(value?: cln_primitives_pb.Amount): WaitHtlcs;
+
+    hasDirection(): boolean;
+    clearDirection(): void;
+    getDirection(): WaitHtlcs.WaitHtlcsDirection | undefined;
+    setDirection(value: WaitHtlcs.WaitHtlcsDirection): WaitHtlcs;
+
+    hasPaymentHash(): boolean;
+    clearPaymentHash(): void;
+    getPaymentHash(): Uint8Array | string;
+    getPaymentHash_asU8(): Uint8Array;
+    getPaymentHash_asB64(): string;
+    setPaymentHash(value: Uint8Array | string): WaitHtlcs;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitHtlcs.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitHtlcs): WaitHtlcs.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitHtlcs, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitHtlcs;
+    static deserializeBinaryFromReader(message: WaitHtlcs, reader: jspb.BinaryReader): WaitHtlcs;
+}
+
+export namespace WaitHtlcs {
+    export type AsObject = {
+        state?: WaitHtlcs.WaitHtlcsState,
+        htlcId?: number,
+        shortChannelId?: string,
+        cltvExpiry?: number,
+        amountMsat?: cln_primitives_pb.Amount.AsObject,
+        direction?: WaitHtlcs.WaitHtlcsDirection,
+        paymentHash: Uint8Array | string,
+    }
+
+    export enum WaitHtlcsState {
+    SENT_ADD_HTLC = 0,
+    SENT_ADD_COMMIT = 1,
+    RCVD_ADD_REVOCATION = 2,
+    RCVD_ADD_ACK_COMMIT = 3,
+    SENT_ADD_ACK_REVOCATION = 4,
+    RCVD_REMOVE_HTLC = 5,
+    RCVD_REMOVE_COMMIT = 6,
+    SENT_REMOVE_REVOCATION = 7,
+    SENT_REMOVE_ACK_COMMIT = 8,
+    RCVD_REMOVE_ACK_REVOCATION = 9,
+    RCVD_ADD_HTLC = 10,
+    RCVD_ADD_COMMIT = 11,
+    SENT_ADD_REVOCATION = 12,
+    SENT_ADD_ACK_COMMIT = 13,
+    RCVD_ADD_ACK_REVOCATION = 14,
+    SENT_REMOVE_HTLC = 15,
+    SENT_REMOVE_COMMIT = 16,
+    RCVD_REMOVE_REVOCATION = 17,
+    RCVD_REMOVE_ACK_COMMIT = 18,
+    SENT_REMOVE_ACK_REVOCATION = 19,
+    }
+
+    export enum WaitHtlcsDirection {
+    OUT = 0,
+    IN = 1,
     }
 
 }
@@ -13140,355 +13463,6 @@ export class ListconfigsResponse extends jspb.Message {
     clearConfigs(): void;
     getConfigs(): ListconfigsConfigs | undefined;
     setConfigs(value?: ListconfigsConfigs): ListconfigsResponse;
-    clearPluginsList(): void;
-    getPluginsList(): Array<ListconfigsPlugins>;
-    setPluginsList(value: Array<ListconfigsPlugins>): ListconfigsResponse;
-    addPlugins(value?: ListconfigsPlugins, index?: number): ListconfigsPlugins;
-    clearImportantPluginsList(): void;
-    getImportantPluginsList(): Array<ListconfigsImportantplugins>;
-    setImportantPluginsList(value: Array<ListconfigsImportantplugins>): ListconfigsResponse;
-    addImportantPlugins(value?: ListconfigsImportantplugins, index?: number): ListconfigsImportantplugins;
-
-    hasConf(): boolean;
-    clearConf(): void;
-    getConf(): string | undefined;
-    setConf(value: string): ListconfigsResponse;
-
-    hasLightningDir(): boolean;
-    clearLightningDir(): void;
-    getLightningDir(): string | undefined;
-    setLightningDir(value: string): ListconfigsResponse;
-
-    hasNetwork(): boolean;
-    clearNetwork(): void;
-    getNetwork(): string | undefined;
-    setNetwork(value: string): ListconfigsResponse;
-
-    hasAllowDeprecatedApis(): boolean;
-    clearAllowDeprecatedApis(): void;
-    getAllowDeprecatedApis(): boolean | undefined;
-    setAllowDeprecatedApis(value: boolean): ListconfigsResponse;
-
-    hasRpcFile(): boolean;
-    clearRpcFile(): void;
-    getRpcFile(): string | undefined;
-    setRpcFile(value: string): ListconfigsResponse;
-    clearDisablePluginList(): void;
-    getDisablePluginList(): Array<string>;
-    setDisablePluginList(value: Array<string>): ListconfigsResponse;
-    addDisablePlugin(value: string, index?: number): string;
-
-    hasBookkeeperDir(): boolean;
-    clearBookkeeperDir(): void;
-    getBookkeeperDir(): string | undefined;
-    setBookkeeperDir(value: string): ListconfigsResponse;
-
-    hasBookkeeperDb(): boolean;
-    clearBookkeeperDb(): void;
-    getBookkeeperDb(): string | undefined;
-    setBookkeeperDb(value: string): ListconfigsResponse;
-
-    hasAlwaysUseProxy(): boolean;
-    clearAlwaysUseProxy(): void;
-    getAlwaysUseProxy(): boolean | undefined;
-    setAlwaysUseProxy(value: boolean): ListconfigsResponse;
-
-    hasDaemon(): boolean;
-    clearDaemon(): void;
-    getDaemon(): boolean | undefined;
-    setDaemon(value: boolean): ListconfigsResponse;
-
-    hasWallet(): boolean;
-    clearWallet(): void;
-    getWallet(): string | undefined;
-    setWallet(value: string): ListconfigsResponse;
-
-    hasLargeChannels(): boolean;
-    clearLargeChannels(): void;
-    getLargeChannels(): boolean | undefined;
-    setLargeChannels(value: boolean): ListconfigsResponse;
-
-    hasExperimentalDualFund(): boolean;
-    clearExperimentalDualFund(): void;
-    getExperimentalDualFund(): boolean | undefined;
-    setExperimentalDualFund(value: boolean): ListconfigsResponse;
-
-    hasExperimentalSplicing(): boolean;
-    clearExperimentalSplicing(): void;
-    getExperimentalSplicing(): boolean | undefined;
-    setExperimentalSplicing(value: boolean): ListconfigsResponse;
-
-    hasExperimentalOnionMessages(): boolean;
-    clearExperimentalOnionMessages(): void;
-    getExperimentalOnionMessages(): boolean | undefined;
-    setExperimentalOnionMessages(value: boolean): ListconfigsResponse;
-
-    hasExperimentalOffers(): boolean;
-    clearExperimentalOffers(): void;
-    getExperimentalOffers(): boolean | undefined;
-    setExperimentalOffers(value: boolean): ListconfigsResponse;
-
-    hasExperimentalShutdownWrongFunding(): boolean;
-    clearExperimentalShutdownWrongFunding(): void;
-    getExperimentalShutdownWrongFunding(): boolean | undefined;
-    setExperimentalShutdownWrongFunding(value: boolean): ListconfigsResponse;
-
-    hasExperimentalPeerStorage(): boolean;
-    clearExperimentalPeerStorage(): void;
-    getExperimentalPeerStorage(): boolean | undefined;
-    setExperimentalPeerStorage(value: boolean): ListconfigsResponse;
-
-    hasExperimentalQuiesce(): boolean;
-    clearExperimentalQuiesce(): void;
-    getExperimentalQuiesce(): boolean | undefined;
-    setExperimentalQuiesce(value: boolean): ListconfigsResponse;
-
-    hasExperimentalUpgradeProtocol(): boolean;
-    clearExperimentalUpgradeProtocol(): void;
-    getExperimentalUpgradeProtocol(): boolean | undefined;
-    setExperimentalUpgradeProtocol(value: boolean): ListconfigsResponse;
-
-    hasInvoicesOnchainFallback(): boolean;
-    clearInvoicesOnchainFallback(): void;
-    getInvoicesOnchainFallback(): boolean | undefined;
-    setInvoicesOnchainFallback(value: boolean): ListconfigsResponse;
-
-    hasDatabaseUpgrade(): boolean;
-    clearDatabaseUpgrade(): void;
-    getDatabaseUpgrade(): boolean | undefined;
-    setDatabaseUpgrade(value: boolean): ListconfigsResponse;
-
-    hasRgb(): boolean;
-    clearRgb(): void;
-    getRgb(): Uint8Array | string;
-    getRgb_asU8(): Uint8Array;
-    getRgb_asB64(): string;
-    setRgb(value: Uint8Array | string): ListconfigsResponse;
-
-    hasAlias(): boolean;
-    clearAlias(): void;
-    getAlias(): string | undefined;
-    setAlias(value: string): ListconfigsResponse;
-
-    hasPidFile(): boolean;
-    clearPidFile(): void;
-    getPidFile(): string | undefined;
-    setPidFile(value: string): ListconfigsResponse;
-
-    hasIgnoreFeeLimits(): boolean;
-    clearIgnoreFeeLimits(): void;
-    getIgnoreFeeLimits(): boolean | undefined;
-    setIgnoreFeeLimits(value: boolean): ListconfigsResponse;
-
-    hasWatchtimeBlocks(): boolean;
-    clearWatchtimeBlocks(): void;
-    getWatchtimeBlocks(): number | undefined;
-    setWatchtimeBlocks(value: number): ListconfigsResponse;
-
-    hasMaxLocktimeBlocks(): boolean;
-    clearMaxLocktimeBlocks(): void;
-    getMaxLocktimeBlocks(): number | undefined;
-    setMaxLocktimeBlocks(value: number): ListconfigsResponse;
-
-    hasFundingConfirms(): boolean;
-    clearFundingConfirms(): void;
-    getFundingConfirms(): number | undefined;
-    setFundingConfirms(value: number): ListconfigsResponse;
-
-    hasCltvDelta(): boolean;
-    clearCltvDelta(): void;
-    getCltvDelta(): number | undefined;
-    setCltvDelta(value: number): ListconfigsResponse;
-
-    hasCltvFinal(): boolean;
-    clearCltvFinal(): void;
-    getCltvFinal(): number | undefined;
-    setCltvFinal(value: number): ListconfigsResponse;
-
-    hasCommitTime(): boolean;
-    clearCommitTime(): void;
-    getCommitTime(): number | undefined;
-    setCommitTime(value: number): ListconfigsResponse;
-
-    hasFeeBase(): boolean;
-    clearFeeBase(): void;
-    getFeeBase(): number | undefined;
-    setFeeBase(value: number): ListconfigsResponse;
-
-    hasRescan(): boolean;
-    clearRescan(): void;
-    getRescan(): number | undefined;
-    setRescan(value: number): ListconfigsResponse;
-
-    hasFeePerSatoshi(): boolean;
-    clearFeePerSatoshi(): void;
-    getFeePerSatoshi(): number | undefined;
-    setFeePerSatoshi(value: number): ListconfigsResponse;
-
-    hasMaxConcurrentHtlcs(): boolean;
-    clearMaxConcurrentHtlcs(): void;
-    getMaxConcurrentHtlcs(): number | undefined;
-    setMaxConcurrentHtlcs(value: number): ListconfigsResponse;
-
-    hasHtlcMinimumMsat(): boolean;
-    clearHtlcMinimumMsat(): void;
-    getHtlcMinimumMsat(): cln_primitives_pb.Amount | undefined;
-    setHtlcMinimumMsat(value?: cln_primitives_pb.Amount): ListconfigsResponse;
-
-    hasHtlcMaximumMsat(): boolean;
-    clearHtlcMaximumMsat(): void;
-    getHtlcMaximumMsat(): cln_primitives_pb.Amount | undefined;
-    setHtlcMaximumMsat(value?: cln_primitives_pb.Amount): ListconfigsResponse;
-
-    hasMaxDustHtlcExposureMsat(): boolean;
-    clearMaxDustHtlcExposureMsat(): void;
-    getMaxDustHtlcExposureMsat(): cln_primitives_pb.Amount | undefined;
-    setMaxDustHtlcExposureMsat(value?: cln_primitives_pb.Amount): ListconfigsResponse;
-
-    hasMinCapacitySat(): boolean;
-    clearMinCapacitySat(): void;
-    getMinCapacitySat(): number | undefined;
-    setMinCapacitySat(value: number): ListconfigsResponse;
-
-    hasAddr(): boolean;
-    clearAddr(): void;
-    getAddr(): string | undefined;
-    setAddr(value: string): ListconfigsResponse;
-
-    hasAnnounceAddr(): boolean;
-    clearAnnounceAddr(): void;
-    getAnnounceAddr(): string | undefined;
-    setAnnounceAddr(value: string): ListconfigsResponse;
-
-    hasBindAddr(): boolean;
-    clearBindAddr(): void;
-    getBindAddr(): string | undefined;
-    setBindAddr(value: string): ListconfigsResponse;
-
-    hasOffline(): boolean;
-    clearOffline(): void;
-    getOffline(): boolean | undefined;
-    setOffline(value: boolean): ListconfigsResponse;
-
-    hasAutolisten(): boolean;
-    clearAutolisten(): void;
-    getAutolisten(): boolean | undefined;
-    setAutolisten(value: boolean): ListconfigsResponse;
-
-    hasProxy(): boolean;
-    clearProxy(): void;
-    getProxy(): string | undefined;
-    setProxy(value: string): ListconfigsResponse;
-
-    hasDisableDns(): boolean;
-    clearDisableDns(): void;
-    getDisableDns(): boolean | undefined;
-    setDisableDns(value: boolean): ListconfigsResponse;
-
-    hasAnnounceAddrDiscovered(): boolean;
-    clearAnnounceAddrDiscovered(): void;
-    getAnnounceAddrDiscovered(): string | undefined;
-    setAnnounceAddrDiscovered(value: string): ListconfigsResponse;
-
-    hasAnnounceAddrDiscoveredPort(): boolean;
-    clearAnnounceAddrDiscoveredPort(): void;
-    getAnnounceAddrDiscoveredPort(): number | undefined;
-    setAnnounceAddrDiscoveredPort(value: number): ListconfigsResponse;
-
-    hasEncryptedHsm(): boolean;
-    clearEncryptedHsm(): void;
-    getEncryptedHsm(): boolean | undefined;
-    setEncryptedHsm(value: boolean): ListconfigsResponse;
-
-    hasRpcFileMode(): boolean;
-    clearRpcFileMode(): void;
-    getRpcFileMode(): string | undefined;
-    setRpcFileMode(value: string): ListconfigsResponse;
-
-    hasLogLevel(): boolean;
-    clearLogLevel(): void;
-    getLogLevel(): string | undefined;
-    setLogLevel(value: string): ListconfigsResponse;
-
-    hasLogPrefix(): boolean;
-    clearLogPrefix(): void;
-    getLogPrefix(): string | undefined;
-    setLogPrefix(value: string): ListconfigsResponse;
-
-    hasLogFile(): boolean;
-    clearLogFile(): void;
-    getLogFile(): string | undefined;
-    setLogFile(value: string): ListconfigsResponse;
-
-    hasLogTimestamps(): boolean;
-    clearLogTimestamps(): void;
-    getLogTimestamps(): boolean | undefined;
-    setLogTimestamps(value: boolean): ListconfigsResponse;
-
-    hasForceFeerates(): boolean;
-    clearForceFeerates(): void;
-    getForceFeerates(): string | undefined;
-    setForceFeerates(value: string): ListconfigsResponse;
-
-    hasSubdaemon(): boolean;
-    clearSubdaemon(): void;
-    getSubdaemon(): string | undefined;
-    setSubdaemon(value: string): ListconfigsResponse;
-
-    hasFetchinvoiceNoconnect(): boolean;
-    clearFetchinvoiceNoconnect(): void;
-    getFetchinvoiceNoconnect(): boolean | undefined;
-    setFetchinvoiceNoconnect(value: boolean): ListconfigsResponse;
-
-    hasAcceptHtlcTlvTypes(): boolean;
-    clearAcceptHtlcTlvTypes(): void;
-    getAcceptHtlcTlvTypes(): string | undefined;
-    setAcceptHtlcTlvTypes(value: string): ListconfigsResponse;
-
-    hasTorServicePassword(): boolean;
-    clearTorServicePassword(): void;
-    getTorServicePassword(): string | undefined;
-    setTorServicePassword(value: string): ListconfigsResponse;
-
-    hasDevAllowdustreserve(): boolean;
-    clearDevAllowdustreserve(): void;
-    getDevAllowdustreserve(): boolean | undefined;
-    setDevAllowdustreserve(value: boolean): ListconfigsResponse;
-
-    hasAnnounceAddrDns(): boolean;
-    clearAnnounceAddrDns(): void;
-    getAnnounceAddrDns(): boolean | undefined;
-    setAnnounceAddrDns(value: boolean): ListconfigsResponse;
-
-    hasRequireConfirmedInputs(): boolean;
-    clearRequireConfirmedInputs(): void;
-    getRequireConfirmedInputs(): boolean | undefined;
-    setRequireConfirmedInputs(value: boolean): ListconfigsResponse;
-
-    hasDeveloper(): boolean;
-    clearDeveloper(): void;
-    getDeveloper(): boolean | undefined;
-    setDeveloper(value: boolean): ListconfigsResponse;
-
-    hasCommitFee(): boolean;
-    clearCommitFee(): void;
-    getCommitFee(): number | undefined;
-    setCommitFee(value: number): ListconfigsResponse;
-
-    hasMinEmergencyMsat(): boolean;
-    clearMinEmergencyMsat(): void;
-    getMinEmergencyMsat(): cln_primitives_pb.Amount | undefined;
-    setMinEmergencyMsat(value?: cln_primitives_pb.Amount): ListconfigsResponse;
-
-    hasCommitFeerateOffset(): boolean;
-    clearCommitFeerateOffset(): void;
-    getCommitFeerateOffset(): number | undefined;
-    setCommitFeerateOffset(value: number): ListconfigsResponse;
-
-    hasAutoconnectSeekerPeers(): boolean;
-    clearAutoconnectSeekerPeers(): void;
-    getAutoconnectSeekerPeers(): number | undefined;
-    setAutoconnectSeekerPeers(value: number): ListconfigsResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListconfigsResponse.AsObject;
@@ -13503,76 +13477,6 @@ export class ListconfigsResponse extends jspb.Message {
 export namespace ListconfigsResponse {
     export type AsObject = {
         configs?: ListconfigsConfigs.AsObject,
-        pluginsList: Array<ListconfigsPlugins.AsObject>,
-        importantPluginsList: Array<ListconfigsImportantplugins.AsObject>,
-        conf?: string,
-        lightningDir?: string,
-        network?: string,
-        allowDeprecatedApis?: boolean,
-        rpcFile?: string,
-        disablePluginList: Array<string>,
-        bookkeeperDir?: string,
-        bookkeeperDb?: string,
-        alwaysUseProxy?: boolean,
-        daemon?: boolean,
-        wallet?: string,
-        largeChannels?: boolean,
-        experimentalDualFund?: boolean,
-        experimentalSplicing?: boolean,
-        experimentalOnionMessages?: boolean,
-        experimentalOffers?: boolean,
-        experimentalShutdownWrongFunding?: boolean,
-        experimentalPeerStorage?: boolean,
-        experimentalQuiesce?: boolean,
-        experimentalUpgradeProtocol?: boolean,
-        invoicesOnchainFallback?: boolean,
-        databaseUpgrade?: boolean,
-        rgb: Uint8Array | string,
-        alias?: string,
-        pidFile?: string,
-        ignoreFeeLimits?: boolean,
-        watchtimeBlocks?: number,
-        maxLocktimeBlocks?: number,
-        fundingConfirms?: number,
-        cltvDelta?: number,
-        cltvFinal?: number,
-        commitTime?: number,
-        feeBase?: number,
-        rescan?: number,
-        feePerSatoshi?: number,
-        maxConcurrentHtlcs?: number,
-        htlcMinimumMsat?: cln_primitives_pb.Amount.AsObject,
-        htlcMaximumMsat?: cln_primitives_pb.Amount.AsObject,
-        maxDustHtlcExposureMsat?: cln_primitives_pb.Amount.AsObject,
-        minCapacitySat?: number,
-        addr?: string,
-        announceAddr?: string,
-        bindAddr?: string,
-        offline?: boolean,
-        autolisten?: boolean,
-        proxy?: string,
-        disableDns?: boolean,
-        announceAddrDiscovered?: string,
-        announceAddrDiscoveredPort?: number,
-        encryptedHsm?: boolean,
-        rpcFileMode?: string,
-        logLevel?: string,
-        logPrefix?: string,
-        logFile?: string,
-        logTimestamps?: boolean,
-        forceFeerates?: string,
-        subdaemon?: string,
-        fetchinvoiceNoconnect?: boolean,
-        acceptHtlcTlvTypes?: string,
-        torServicePassword?: string,
-        devAllowdustreserve?: boolean,
-        announceAddrDns?: boolean,
-        requireConfirmedInputs?: boolean,
-        developer?: boolean,
-        commitFee?: number,
-        minEmergencyMsat?: cln_primitives_pb.Amount.AsObject,
-        commitFeerateOffset?: number,
-        autoconnectSeekerPeers?: number,
     }
 }
 
@@ -13898,11 +13802,6 @@ export class ListconfigsConfigs extends jspb.Message {
     getFetchinvoiceNoconnect(): ListconfigsConfigsFetchinvoicenoconnect | undefined;
     setFetchinvoiceNoconnect(value?: ListconfigsConfigsFetchinvoicenoconnect): ListconfigsConfigs;
 
-    hasAcceptHtlcTlvTypes(): boolean;
-    clearAcceptHtlcTlvTypes(): void;
-    getAcceptHtlcTlvTypes(): ListconfigsConfigsAccepthtlctlvtypes | undefined;
-    setAcceptHtlcTlvTypes(value?: ListconfigsConfigsAccepthtlctlvtypes): ListconfigsConfigs;
-
     hasTorServicePassword(): boolean;
     clearTorServicePassword(): void;
     getTorServicePassword(): ListconfigsConfigsTorservicepassword | undefined;
@@ -14009,7 +13908,6 @@ export namespace ListconfigsConfigs {
         forceFeerates?: ListconfigsConfigsForcefeerates.AsObject,
         subdaemon?: ListconfigsConfigsSubdaemon.AsObject,
         fetchinvoiceNoconnect?: ListconfigsConfigsFetchinvoicenoconnect.AsObject,
-        acceptHtlcTlvTypes?: ListconfigsConfigsAccepthtlctlvtypes.AsObject,
         torServicePassword?: ListconfigsConfigsTorservicepassword.AsObject,
         announceAddrDns?: ListconfigsConfigsAnnounceaddrdns.AsObject,
         requireConfirmedInputs?: ListconfigsConfigsRequireconfirmedinputs.AsObject,
@@ -15568,29 +15466,6 @@ export namespace ListconfigsConfigsFetchinvoicenoconnect {
     }
 }
 
-export class ListconfigsConfigsAccepthtlctlvtypes extends jspb.Message { 
-    getValueStr(): string;
-    setValueStr(value: string): ListconfigsConfigsAccepthtlctlvtypes;
-    getSource(): string;
-    setSource(value: string): ListconfigsConfigsAccepthtlctlvtypes;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListconfigsConfigsAccepthtlctlvtypes.AsObject;
-    static toObject(includeInstance: boolean, msg: ListconfigsConfigsAccepthtlctlvtypes): ListconfigsConfigsAccepthtlctlvtypes.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListconfigsConfigsAccepthtlctlvtypes, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListconfigsConfigsAccepthtlctlvtypes;
-    static deserializeBinaryFromReader(message: ListconfigsConfigsAccepthtlctlvtypes, reader: jspb.BinaryReader): ListconfigsConfigsAccepthtlctlvtypes;
-}
-
-export namespace ListconfigsConfigsAccepthtlctlvtypes {
-    export type AsObject = {
-        valueStr: string,
-        source: string,
-    }
-}
-
 export class ListconfigsConfigsTorservicepassword extends jspb.Message { 
     getValueStr(): string;
     setValueStr(value: string): ListconfigsConfigsTorservicepassword;
@@ -15726,98 +15601,6 @@ export namespace ListconfigsConfigsAutoconnectseekerpeers {
     export type AsObject = {
         valueInt: number,
         source: string,
-    }
-}
-
-export class ListconfigsPlugins extends jspb.Message { 
-    getPath(): string;
-    setPath(value: string): ListconfigsPlugins;
-    getName(): string;
-    setName(value: string): ListconfigsPlugins;
-
-    hasOptions(): boolean;
-    clearOptions(): void;
-    getOptions(): ListconfigsPluginsOptions | undefined;
-    setOptions(value?: ListconfigsPluginsOptions): ListconfigsPlugins;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListconfigsPlugins.AsObject;
-    static toObject(includeInstance: boolean, msg: ListconfigsPlugins): ListconfigsPlugins.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListconfigsPlugins, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListconfigsPlugins;
-    static deserializeBinaryFromReader(message: ListconfigsPlugins, reader: jspb.BinaryReader): ListconfigsPlugins;
-}
-
-export namespace ListconfigsPlugins {
-    export type AsObject = {
-        path: string,
-        name: string,
-        options?: ListconfigsPluginsOptions.AsObject,
-    }
-}
-
-export class ListconfigsPluginsOptions extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListconfigsPluginsOptions.AsObject;
-    static toObject(includeInstance: boolean, msg: ListconfigsPluginsOptions): ListconfigsPluginsOptions.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListconfigsPluginsOptions, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListconfigsPluginsOptions;
-    static deserializeBinaryFromReader(message: ListconfigsPluginsOptions, reader: jspb.BinaryReader): ListconfigsPluginsOptions;
-}
-
-export namespace ListconfigsPluginsOptions {
-    export type AsObject = {
-    }
-}
-
-export class ListconfigsImportantplugins extends jspb.Message { 
-    getPath(): string;
-    setPath(value: string): ListconfigsImportantplugins;
-    getName(): string;
-    setName(value: string): ListconfigsImportantplugins;
-
-    hasOptions(): boolean;
-    clearOptions(): void;
-    getOptions(): ListconfigsImportantpluginsOptions | undefined;
-    setOptions(value?: ListconfigsImportantpluginsOptions): ListconfigsImportantplugins;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListconfigsImportantplugins.AsObject;
-    static toObject(includeInstance: boolean, msg: ListconfigsImportantplugins): ListconfigsImportantplugins.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListconfigsImportantplugins, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListconfigsImportantplugins;
-    static deserializeBinaryFromReader(message: ListconfigsImportantplugins, reader: jspb.BinaryReader): ListconfigsImportantplugins;
-}
-
-export namespace ListconfigsImportantplugins {
-    export type AsObject = {
-        path: string,
-        name: string,
-        options?: ListconfigsImportantpluginsOptions.AsObject,
-    }
-}
-
-export class ListconfigsImportantpluginsOptions extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ListconfigsImportantpluginsOptions.AsObject;
-    static toObject(includeInstance: boolean, msg: ListconfigsImportantpluginsOptions): ListconfigsImportantpluginsOptions.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ListconfigsImportantpluginsOptions, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ListconfigsImportantpluginsOptions;
-    static deserializeBinaryFromReader(message: ListconfigsImportantpluginsOptions, reader: jspb.BinaryReader): ListconfigsImportantpluginsOptions;
-}
-
-export namespace ListconfigsImportantpluginsOptions {
-    export type AsObject = {
     }
 }
 
@@ -18723,6 +18506,11 @@ export class AskrenebiaschannelRequest extends jspb.Message {
     getDescription(): string | undefined;
     setDescription(value: string): AskrenebiaschannelRequest;
 
+    hasRelative(): boolean;
+    clearRelative(): void;
+    getRelative(): boolean | undefined;
+    setRelative(value: boolean): AskrenebiaschannelRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): AskrenebiaschannelRequest.AsObject;
     static toObject(includeInstance: boolean, msg: AskrenebiaschannelRequest): AskrenebiaschannelRequest.AsObject;
@@ -18739,6 +18527,7 @@ export namespace AskrenebiaschannelRequest {
         shortChannelIdDir: string,
         bias: number,
         description?: string,
+        relative?: boolean,
     }
 }
 
@@ -19105,6 +18894,62 @@ export namespace XpayResponse {
     }
 }
 
+export class SignmessagewithkeyRequest extends jspb.Message { 
+    getMessage(): string;
+    setMessage(value: string): SignmessagewithkeyRequest;
+    getAddress(): string;
+    setAddress(value: string): SignmessagewithkeyRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SignmessagewithkeyRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SignmessagewithkeyRequest): SignmessagewithkeyRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SignmessagewithkeyRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SignmessagewithkeyRequest;
+    static deserializeBinaryFromReader(message: SignmessagewithkeyRequest, reader: jspb.BinaryReader): SignmessagewithkeyRequest;
+}
+
+export namespace SignmessagewithkeyRequest {
+    export type AsObject = {
+        message: string,
+        address: string,
+    }
+}
+
+export class SignmessagewithkeyResponse extends jspb.Message { 
+    getAddress(): string;
+    setAddress(value: string): SignmessagewithkeyResponse;
+    getPubkey(): Uint8Array | string;
+    getPubkey_asU8(): Uint8Array;
+    getPubkey_asB64(): string;
+    setPubkey(value: Uint8Array | string): SignmessagewithkeyResponse;
+    getSignature(): Uint8Array | string;
+    getSignature_asU8(): Uint8Array;
+    getSignature_asB64(): string;
+    setSignature(value: Uint8Array | string): SignmessagewithkeyResponse;
+    getBase64(): string;
+    setBase64(value: string): SignmessagewithkeyResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SignmessagewithkeyResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SignmessagewithkeyResponse): SignmessagewithkeyResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SignmessagewithkeyResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SignmessagewithkeyResponse;
+    static deserializeBinaryFromReader(message: SignmessagewithkeyResponse, reader: jspb.BinaryReader): SignmessagewithkeyResponse;
+}
+
+export namespace SignmessagewithkeyResponse {
+    export type AsObject = {
+        address: string,
+        pubkey: Uint8Array | string,
+        signature: Uint8Array | string,
+        base64: string,
+    }
+}
+
 export class StreamBlockAddedRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -19414,7 +19259,10 @@ export class ChannelStateChangedNotification extends jspb.Message {
     setShortChannelId(value: string): ChannelStateChangedNotification;
     getTimestamp(): string;
     setTimestamp(value: string): ChannelStateChangedNotification;
-    getOldState(): cln_primitives_pb.ChannelState;
+
+    hasOldState(): boolean;
+    clearOldState(): void;
+    getOldState(): cln_primitives_pb.ChannelState | undefined;
     setOldState(value: cln_primitives_pb.ChannelState): ChannelStateChangedNotification;
     getNewState(): cln_primitives_pb.ChannelState;
     setNewState(value: cln_primitives_pb.ChannelState): ChannelStateChangedNotification;
@@ -19439,7 +19287,7 @@ export namespace ChannelStateChangedNotification {
         channelId: Uint8Array | string,
         shortChannelId: string,
         timestamp: string,
-        oldState: cln_primitives_pb.ChannelState,
+        oldState?: cln_primitives_pb.ChannelState,
         newState: cln_primitives_pb.ChannelState,
         cause: ChannelStateChangedNotification.ChannelStateChangedCause,
         message: string,

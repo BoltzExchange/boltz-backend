@@ -12,10 +12,7 @@ The Swagger specifications of the latest Boltz REST API can be found :point\_rig
 
 ## WebSocket
 
-The endpoints are available at:
-
-* Testnet: `wss://api.testnet.boltz.exchange/v2/ws`
-* Mainnet: `wss://api.boltz.exchange/v2/ws`
+The mainnet endpoint is available at: `wss://api.boltz.exchange/v2/ws`
 
 ### Swap Updates
 

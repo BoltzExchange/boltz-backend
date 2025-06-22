@@ -48,6 +48,7 @@ export enum SwapUpdateEvent {
   TransactionConfirmed = 'transaction.confirmed',
   TransactionLockupFailed = 'transaction.lockupFailed',
   TransactionZeroConfRejected = 'transaction.zeroconf.rejected',
+  TransactionDirect = 'transaction.direct',
 
   TransactionServerMempool = 'transaction.server.mempool',
   TransactionServerConfirmed = 'transaction.server.confirmed',

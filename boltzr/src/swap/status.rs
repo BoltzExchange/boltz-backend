@@ -21,6 +21,8 @@ pub enum SwapUpdate {
     TransactionLockupFailed,
     #[strum(serialize = "transaction.zeroconf.rejected")]
     TransactionZeroconfRejected,
+    #[strum(serialize = "transaction.direct")]
+    TransactionDirect,
 
     #[strum(serialize = "transaction.server.mempool")]
     TransactionServerMempool,

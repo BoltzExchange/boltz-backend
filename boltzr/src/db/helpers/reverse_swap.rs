@@ -5,10 +5,15 @@ use crate::db::schema::{reverseRoutingHints, reverseSwaps};
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 
 pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;
+pub type RoutingHintCondition = BoxedCondition<reverseRoutingHints::table>;
 
 pub trait ReverseSwapHelper {
     fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
     fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
+    fn get_routing_hints(
+        &self,
+        condition: RoutingHintCondition,
+    ) -> QueryResponse<Vec<ReverseRoutingHint>>;
 }
 
 #[derive(Clone, Debug)]
@@ -38,6 +43,16 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .first(&mut self.pool.get()?)
             .optional()?)
     }
+
+    fn get_routing_hints(
+        &self,
+        condition: RoutingHintCondition,
+    ) -> QueryResponse<Vec<ReverseRoutingHint>> {
+        Ok(reverseRoutingHints::dsl::reverseRoutingHints
+            .select(ReverseRoutingHint::as_select())
+            .filter(condition)
+            .load(&mut self.pool.get()?)?)
+    }
 }
 
 #[cfg(test)]
@@ -58,6 +73,7 @@ pub mod test {
                 condition: ReverseSwapCondition,
             ) -> QueryResponse<Vec<ReverseSwap>>;
             fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
+            fn get_routing_hints(&self, condition: RoutingHintCondition) -> QueryResponse<Vec<ReverseRoutingHint>>;
         }
     }
 }

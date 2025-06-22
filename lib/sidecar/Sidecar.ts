@@ -481,6 +481,12 @@ class Sidecar extends BaseClient<
 
   private handleSentSwapUpdate = async (update: sidecarrpc.SwapUpdate) => {
     switch (update.getStatus()) {
+      case SwapUpdateEvent.TransactionDirect: {
+        const req = new sidecarrpc.SwapUpdateRequest();
+        req.setStatusList([update]);
+        this.subscribeSwapUpdatesCall?.write(req);
+        return;
+      }
       case SwapUpdateEvent.InvoiceFailedToPay: {
         const swap = await SwapRepository.getSwap({
           id: update.getId(),

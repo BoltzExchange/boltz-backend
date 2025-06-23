@@ -311,6 +311,42 @@ class Prometheus {
 
     this.swapRegistry!.registerMetric(
       new Gauge({
+        name: `${Prometheus.metricPrefix}pending_sweep_count`,
+        labelNames: ['symbol'],
+        help: 'number of pending sweeps',
+        collect: function () {
+          const pendingSweeps = service.getPendingSweeps();
+          for (const [symbol, swaps] of pendingSweeps.entries()) {
+            this.set({ symbol }, swaps.length);
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
+        name: `${Prometheus.metricPrefix}pending_sweep_amount`,
+        labelNames: ['symbol'],
+        help: 'amount in pending sweeps',
+        collect: function () {
+          const pendingSweeps = service.getPendingSweeps();
+          for (const [symbol, swaps] of pendingSweeps.entries()) {
+            this.set(
+              { symbol },
+              Number(
+                swaps.reduce(
+                  (acc, swap) => acc + BigInt(swap.onchainAmount),
+                  0n,
+                ),
+              ),
+            );
+          }
+        },
+      }),
+    );
+
+    this.swapRegistry!.registerMetric(
+      new Gauge({
         name: `${Prometheus.metricPrefix}zeroconf_risk`,
         labelNames: ['symbol'],
         help: '0-conf risk of a symbol',

@@ -24,10 +24,13 @@ import LightningNursery from '../swap/LightningNursery';
 import NodeSwitch from '../swap/NodeSwitch';
 import type SwapNursery from '../swap/SwapNursery';
 import { type WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import { satToMsat } from './ChannelUtils';
 import {
   type ChannelInfo,
   type DecodedInvoice,
   type EventTypes,
+  type Htlc,
+  HtlcState,
   type Invoice,
   InvoiceState,
   type LightningClient,
@@ -154,22 +157,35 @@ class SelfPaymentClient
       getHexString(preimageHash),
     );
 
+    const getHtlcs = (state: HtlcState) => {
+      return [
+        {
+          state,
+          valueMsat: satToMsat(swap.invoiceAmount!),
+        },
+      ];
+    };
+
     let state = InvoiceState.Open;
+    let htlcs: Htlc[] = [];
+
     switch (swap.status) {
       case SwapUpdateEvent.InvoicePending:
         state = InvoiceState.Accepted;
+        htlcs = getHtlcs(HtlcState.Accepted);
         break;
 
       case SwapUpdateEvent.InvoicePaid:
       case SwapUpdateEvent.TransactionClaimPending:
       case SwapUpdateEvent.TransactionClaimed:
         state = InvoiceState.Settled;
+        htlcs = getHtlcs(HtlcState.Settled);
         break;
     }
 
     return {
       state,
-      htlcs: [],
+      htlcs,
     };
   };
 

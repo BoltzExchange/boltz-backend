@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
+import { transactionToLndScid } from '../../../lib/lightning/ChannelUtils';
 import type { DecodedInvoice } from '../../../lib/lightning/LightningClient';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
@@ -15,6 +16,17 @@ describe('ReverseRoutingHints', () => {
   } as Currency;
 
   const reverseMinerFees = 123;
+
+  const fakeRoutingHint = [
+    {
+      nodeId:
+        '02e6109db08c459453bac736158f3962a28f05df0c4b8660479679c1f48c1ed8d8',
+      chanId: transactionToLndScid(902436, 21, 0),
+      feeBaseMsat: 1,
+      cltvExpiryDelta: 82,
+      feeProportionalMillionths: 22,
+    },
+  ];
 
   const paymentRequestUtils = new PaymentRequestUtils();
   const hints = new ReverseRoutingHints(
@@ -135,6 +147,7 @@ describe('ReverseRoutingHints', () => {
                 feeProportionalMillionths: 21,
               },
             ],
+            fakeRoutingHint,
           ],
         });
       },
@@ -207,6 +220,7 @@ describe('ReverseRoutingHints', () => {
                 feeProportionalMillionths: 21,
               },
             ],
+            fakeRoutingHint,
           ],
         });
       });

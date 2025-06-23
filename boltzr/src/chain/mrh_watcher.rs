@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bitcoin::hex::DisplayHex;
-use diesel::ExpressionMethods;
 use futures::future::try_join_all;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{self, Receiver};
@@ -57,9 +56,7 @@ impl MrhWatcher {
     async fn process_transaction(&self, tx: Transaction) -> anyhow::Result<()> {
         let output_scripts = tx.output_script_pubkeys();
 
-        let routing_hints = self.reverse_swap_helper.get_routing_hints(Box::new(
-            crate::db::schema::reverseRoutingHints::dsl::scriptPubkey.eq_any(output_scripts),
-        ))?;
+        let routing_hints = self.reverse_swap_helper.get_routing_hints(output_scripts)?;
 
         for routing_hint in routing_hints {
             let update = SwapStatus {
@@ -120,11 +117,15 @@ mod test {
 
         let mut helper = MockReverseSwapHelper::new();
 
-        helper.expect_get_routing_hints().returning(|_| {
+        helper.expect_get_routing_hints().returning(|_scripts| {
+            assert_eq!(
+                _scripts[0].to_lower_hex_string(),
+                "00140e9aab3b924ad7f6c4813b1acad0441c655c9b54"
+            );
             Ok(vec![ReverseRoutingHint {
                 swapId: "123".to_string(),
                 symbol: "BTC".to_string(),
-                scriptPubkey: vec![0x01],
+                scriptPubkey: vec![],
                 blindingPubkey: None,
                 params: None,
                 signature: vec![],

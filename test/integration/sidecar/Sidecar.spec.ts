@@ -6,7 +6,11 @@ import { clnClient } from '../Nodes';
 import { sidecar, startSidecar } from './Utils';
 
 describe('Sidecar', () => {
-  const eventHandler = { on: jest.fn(), removeAllListeners: jest.fn() } as any;
+  const eventHandler = {
+    on: jest.fn(),
+    emit: jest.fn(),
+    removeAllListeners: jest.fn(),
+  } as any;
 
   beforeAll(async () => {
     await startSidecar();
@@ -72,6 +76,30 @@ describe('Sidecar', () => {
         SwapUpdateEvent.InvoiceFailedToPay,
         swap,
       );
+    });
+
+    test(`should handle status ${SwapUpdateEvent.TransactionDirect}`, async () => {
+      const update = new sidecarrpc.SwapUpdate();
+      update.setId('test-swap');
+      update.setStatus(SwapUpdateEvent.TransactionDirect);
+      const transactionInfo = new sidecarrpc.SwapUpdate.TransactionInfo();
+      transactionInfo.setId('txid');
+      transactionInfo.setHex('hex');
+      update.setTransactionInfo(transactionInfo as any);
+
+      await sidecar['handleSentSwapUpdate'](update);
+
+      expect(eventHandler.nursery.emit).toHaveBeenCalledTimes(1);
+      expect(eventHandler.nursery.emit).toHaveBeenCalledWith('swap.update', {
+        id: update.getId(),
+        status: {
+          status: SwapUpdateEvent.TransactionDirect,
+          transaction: {
+            id: transactionInfo.getId(),
+            hex: transactionInfo.getHex(),
+          },
+        },
+      });
     });
 
     test.each`

@@ -62,7 +62,6 @@ impl MrhWatcher {
             let update = SwapStatus {
                 id: routing_hint.swapId.clone(),
                 status: SwapUpdateStatus::TransactionDirect.to_string(),
-                zero_conf_rejected: None,
                 transaction: Some(TransactionInfo {
                     id: tx.txid_hex(),
                     hex: Some(tx.serialize().to_lower_hex_string()),
@@ -111,7 +110,6 @@ mod test {
 
     #[tokio::test]
     async fn test_listen() {
-        // Create broadcast channels
         let (swap_status_update_tx, mut swap_status_update_rx) = broadcast::channel(256);
         let (tx_sender, tx_receiver) = broadcast::channel(256);
 
@@ -145,7 +143,10 @@ mod test {
         let received_update = swap_status_update_rx.recv().await.unwrap();
 
         assert_eq!(received_update.id, "123");
-        assert_eq!(received_update.status, "transaction.direct");
+        assert_eq!(
+            received_update.status,
+            SwapUpdateStatus::TransactionDirect.to_string()
+        );
         assert!(received_update.transaction.is_some());
 
         let transaction_info = received_update.transaction.unwrap();

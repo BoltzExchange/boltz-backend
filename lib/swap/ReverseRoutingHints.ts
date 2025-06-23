@@ -140,6 +140,17 @@ class ReverseRoutingHints {
           feeProportionalMillionths: 21,
         },
       ],
+      // Useless hint to trick LND into thinking the MRH is not an LSP
+      [
+        {
+          nodeId:
+            '02e6109db08c459453bac736158f3962a28f05df0c4b8660479679c1f48c1ed8d8',
+          chanId: transactionToLndScid(902436, 21, 0),
+          feeBaseMsat: 1,
+          cltvExpiryDelta: 82,
+          feeProportionalMillionths: 22,
+        },
+      ],
     ];
   };
 

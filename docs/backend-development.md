@@ -42,6 +42,7 @@ maxSwapAmount = 4_294_967
 minSwapAmount = 50_000
 
     [pairs.timeoutDelta]
+    chain = 1440
     reverse = 1440
     swapMinimal = 1440
     swapMaximal = 2880
@@ -57,6 +58,7 @@ maxSwapAmount = 4_294_967
 minSwapAmount = 50_000
 
     [pairs.timeoutDelta]
+    chain = 1440
     reverse = 1440
     swapMinimal = 1440
     swapMaximal = 2880
@@ -73,6 +75,7 @@ maxSwapAmount = 4_294_967
 minSwapAmount = 10_000
 
     [pairs.timeoutDelta]
+    chain = 1440
     reverse = 1440
     swapMinimal = 1400
     swapMaximal = 2880
@@ -140,8 +143,9 @@ minWalletBalance = 100_000_000
 [rsk]
 providerEndpoint = "http://127.0.0.1:8545"
 
-etherSwapAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    [[rsk.contracts]]
+    etherSwap = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    erc20Swap = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
     [[rsk.tokens]]
     symbol = "RBTC"
@@ -161,6 +165,19 @@ erc20SwapAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
     minWalletBalance = 400_000_000_000
     maxWalletBalance = 500_000_000_000
+
+[sidecar]
+    [sidecar.grpc]
+    host = "127.0.0.1"
+    port = 9003
+
+    [sidecar.ws]
+    host = "127.0.0.1"
+    port = 9004
+
+    [sidecar.api]
+    host = "127.0.0.1"
+    port = 9005
 ```
 
 We recommend adding aliases to control executables of Boltz and nodes to your `.bashrc`:

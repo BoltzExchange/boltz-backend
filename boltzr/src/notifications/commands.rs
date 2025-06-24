@@ -1,4 +1,6 @@
 use crate::backup::Backup;
+use crate::db::Pool;
+use crate::db::helpers::offer::OfferHelper;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::future::Future;
@@ -14,6 +16,7 @@ pub trait CommandHandler {
 }
 
 struct State {
+    pool: Pool,
     backup: Option<Backup>,
 }
 
@@ -32,8 +35,15 @@ pub struct Commands {
 }
 
 impl Commands {
-    pub fn new(backup: Option<Backup>) -> Self {
+    pub fn new(pool: Pool, backup: Option<Backup>) -> Self {
         let mut executors: HashMap<String, Command> = HashMap::new();
+        executors.insert(
+            "offerinfo".to_string(),
+            Command {
+                description: "shows information about a BOLT12 offer".to_string(),
+                executor: Box::new(|state, args| Box::pin(offer_info(state, args))),
+            },
+        );
 
         if backup.is_some() {
             executors.insert(
@@ -47,7 +57,7 @@ impl Commands {
 
         Commands {
             executors: Arc::new(executors),
-            state: Arc::new(State { backup }),
+            state: Arc::new(State { pool, backup }),
         }
     }
 
@@ -95,6 +105,23 @@ impl CommandHandler for Commands {
 
         Ok((false, None))
     }
+}
+
+async fn offer_info(state: Arc<State>, args: Vec<String>) -> Result {
+    if args.is_empty() {
+        return Ok((true, Some("Please provide an offer".to_string())));
+    }
+
+    let offer = crate::db::helpers::offer::OfferHelperDatabase::new(state.pool.clone())
+        .get_offer(&args[0])?;
+
+    Ok((
+        true,
+        match offer {
+            Some(offer) => Some(format!("```{}```", serde_json::to_string_pretty(&offer)?)),
+            None => Some("Offer not found".to_string()),
+        },
+    ))
 }
 
 async fn upload_backup(state: Arc<State>, _args: Vec<String>) -> Result {

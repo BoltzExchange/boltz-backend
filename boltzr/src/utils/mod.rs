@@ -1,5 +1,6 @@
 pub mod bip21;
 pub mod pair;
+pub mod serde;
 mod timeout_map;
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));

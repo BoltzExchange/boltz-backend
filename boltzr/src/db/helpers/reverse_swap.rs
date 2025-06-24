@@ -2,6 +2,7 @@ use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::{ReverseRoutingHint, ReverseSwap};
 use crate::db::schema::{reverseRoutingHints, reverseSwaps};
+use crate::swap::SwapUpdate;
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 
 pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;
@@ -50,6 +51,8 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
         Ok(reverseRoutingHints::dsl::reverseRoutingHints
             .select(ReverseRoutingHint::as_select())
             .filter(reverseRoutingHints::dsl::scriptPubkey.eq_any(script_pubkeys))
+            .inner_join(reverseSwaps::dsl::reverseSwaps)
+            .filter(reverseSwaps::dsl::status.eq(SwapUpdate::SwapCreated.to_string()))
             .load(&mut self.pool.get()?)?)
     }
 }

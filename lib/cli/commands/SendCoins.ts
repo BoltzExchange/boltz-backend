@@ -2,7 +2,7 @@ import type { Arguments } from 'yargs';
 import { SendCoinsRequest } from '../../proto/boltzrpc_pb';
 import type { ApiType, BuilderTypes } from '../BuilderComponents';
 import BuilderComponents from '../BuilderComponents';
-import { callback, loadBoltzClient } from '../Command';
+import { callback, loadBoltzClient, parseAmount } from '../Command';
 
 export const command =
   'sendcoins <symbol> <address> <amount> <label> [fee] [send_all]';
@@ -17,7 +17,7 @@ export const builder = {
   },
   amount: {
     describe: 'amount that should be sent',
-    type: 'number',
+    type: 'string',
   },
   label: {
     describe: 'label for the transaction',
@@ -40,7 +40,7 @@ export const handler = (
 
   request.setSymbol(argv.symbol);
   request.setAddress(argv.address);
-  request.setAmount(argv.amount);
+  request.setAmount(parseAmount(argv.amount));
   request.setLabel(argv.label);
   request.setFee(argv.fee);
   request.setSendAll(argv.send_all);

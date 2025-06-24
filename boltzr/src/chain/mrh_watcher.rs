@@ -53,7 +53,7 @@ impl MrhWatcher {
         }
     }
 
-    async fn process_transaction(&self, tx: Transaction) -> anyhow::Result<()> {
+    fn process_transaction(&self, tx: Transaction) -> anyhow::Result<()> {
         let output_scripts = tx.output_script_pubkeys();
 
         let routing_hints = self.reverse_swap_helper.get_routing_hints(output_scripts)?;
@@ -81,7 +81,7 @@ impl MrhWatcher {
         loop {
             match stream.recv().await {
                 Ok(tx) => {
-                    if let Err(e) = self.process_transaction(tx).await {
+                    if let Err(e) = self.process_transaction(tx) {
                         tracing::error!("Failed to process transaction: {}", e);
                     }
                 }
@@ -98,7 +98,6 @@ impl MrhWatcher {
 
 #[cfg(test)]
 mod test {
-
     use crate::{
         chain::{types::Type, utils::parse_transaction_hex},
         db::{helpers::reverse_swap::test::MockReverseSwapHelper, models::ReverseRoutingHint},

@@ -486,7 +486,7 @@ class Sidecar extends BaseClient<
         this.eventHandler.emit('swap.update', {
           id: update.getId(),
           status: {
-            status: update.getStatus() as SwapUpdateEvent,
+            status: SwapUpdateEvent.TransactionDirect,
             transaction: {
               id: transactionInfo.getId(),
               hex: transactionInfo.getHex(),

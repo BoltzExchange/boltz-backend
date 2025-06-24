@@ -38,7 +38,7 @@ yargs(hideBin(process.argv))
     'api.endpoint': {
       describe: 'Boltz API endpoint',
       alias: 'e',
-      default: 'http://127.0.0.1:9001',
+      default: 'https://api.boltz.exchange',
       type: 'string',
     },
   })

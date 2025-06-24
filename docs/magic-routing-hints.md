@@ -40,8 +40,8 @@ const ECPair = ECPairFactory(ecc);
 const endpoint = '<Boltz API endpoint>';
 
 const magicRoutingHintConstant = '0846c900051c0000';
-const lbtcAssetHash =
 const lbtcAssetHash = '<L-BTC asset hash on the network used>';
+
 const findMagicRoutingHint = (invoice: string) => {
   const decodedInvoice = bolt11.decode(invoice);
   const routingInfo = decodedInvoice.tags.find(

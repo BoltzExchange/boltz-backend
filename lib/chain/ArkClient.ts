@@ -16,6 +16,7 @@ import * as notificationrpc from '../proto/ark/notification_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import AspClient from './AspClient';
 import type { IChainClient } from './ChainClient';
 
 export type ArkConfig = {
@@ -38,11 +39,19 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
-type VHtlc = {
+type CreatedVHtlc = {
   address: string;
   txId: string;
   vout: number;
   amount: number;
+};
+
+type SpentVHtlc = {
+  outpoint: {
+    txid: string;
+    vout: number;
+  };
+  spentBy: string;
 };
 
 type SubscribedAddress = {
@@ -53,10 +62,13 @@ type SubscribedAddress = {
 class ArkClient extends BaseClient<
   BaseClientEvents & {
     block: number;
-    'vhtlc.found': VHtlc;
+    'vhtlc.created': CreatedVHtlc;
+    'vhtlc.spent': SpentVHtlc;
   }
 > {
   public static readonly symbol = 'ARK';
+
+  public aspClient!: AspClient;
 
   private chainClient?: IChainClient;
 
@@ -97,7 +109,12 @@ class ArkClient extends BaseClient<
     );
 
     try {
-      await this.getInfo();
+      const info = await this.getInfo();
+      this.aspClient = new AspClient(info.serverUrl);
+      this.logger.debug(
+        `Connected to ASP with pubkey: ${(await this.aspClient.getInfo()).pubkey}`,
+      );
+
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
       this.setClientStatus(ClientStatus.Disconnected);
@@ -312,6 +329,8 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
+  // TODO: rescan for spent
+  // TODO: list vhtlcs not working?
   public rescan = async () => {
     const toRescan = Array.from(this.subscribedAddresses);
     this.subscribedAddresses.clear();
@@ -337,7 +356,7 @@ class ArkClient extends BaseClient<
         }
 
         const vhtlc = res.vhtlcsList[0];
-        this.emit('vhtlc.found', {
+        this.emit('vhtlc.created', {
           address,
           txId: vhtlc.outpoint!.txid,
           vout: vhtlc.outpoint!.vout,
@@ -359,6 +378,7 @@ class ArkClient extends BaseClient<
     const req = new notificationrpc.GetVtxoNotificationsRequest();
     this.vHtlcStream = this.notificationClient.getVtxoNotifications(req);
 
+    // TODO: handle the multiple addresses
     this.vHtlcStream.on(
       'data',
       (res: notificationrpc.GetVtxoNotificationsResponse) => {
@@ -367,25 +387,25 @@ class ArkClient extends BaseClient<
           return;
         }
 
-        if (notification.newVtxosList.length === 0) {
-          return;
+        // TODO: how to handle multiple in one transaction?
+        if (notification.newVtxosList.length === 1) {
+          const vhtlc = notification.newVtxosList[0];
+          this.emit('vhtlc.created', {
+            address: notification.addressesList[0],
+            txId: vhtlc.outpoint!.txid,
+            vout: vhtlc.outpoint!.vout,
+            amount: vhtlc.receiver!.amount,
+          });
+        } else if (notification.spentVtxosList.length === 1) {
+          const vhtlc = notification.spentVtxosList[0];
+          this.emit('vhtlc.spent', {
+            outpoint: {
+              txid: vhtlc.outpoint!.txid,
+              vout: vhtlc.outpoint!.vout,
+            },
+            spentBy: vhtlc.spentBy!,
+          });
         }
-
-        // TODO: how to handle that?
-        if (notification.newVtxosList.length > 1) {
-          this.logger.warn(
-            `Found ${notification.newVtxosList.length} new vHTLCs for ${notification.address}`,
-          );
-          return;
-        }
-
-        const vhtlc = notification.newVtxosList[0];
-        this.emit('vhtlc.found', {
-          address: notification.address,
-          txId: vhtlc.outpoint!.txid,
-          vout: vhtlc.outpoint!.vout,
-          amount: vhtlc.receiver!.amount,
-        });
       },
     );
 
@@ -426,4 +446,4 @@ class ArkClient extends BaseClient<
 }
 
 export default ArkClient;
-export type { VHtlc };
+export type { CreatedVHtlc, SpentVHtlc };

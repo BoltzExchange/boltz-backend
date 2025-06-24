@@ -348,8 +348,10 @@ export namespace Vtxo {
 }
 
 export class Notification extends jspb.Message { 
-    getAddress(): string;
-    setAddress(value: string): Notification;
+    clearAddressesList(): void;
+    getAddressesList(): Array<string>;
+    setAddressesList(value: Array<string>): Notification;
+    addAddresses(value: string, index?: number): string;
     clearNewVtxosList(): void;
     getNewVtxosList(): Array<Vtxo>;
     setNewVtxosList(value: Array<Vtxo>): Notification;
@@ -371,7 +373,7 @@ export class Notification extends jspb.Message {
 
 export namespace Notification {
     export type AsObject = {
-        address: string,
+        addressesList: Array<string>,
         newVtxosList: Array<Vtxo.AsObject>,
         spentVtxosList: Array<Vtxo.AsObject>,
     }

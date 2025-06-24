@@ -1,8 +1,6 @@
 import type { Transaction } from 'bitcoinjs-lib';
-import { crypto } from 'bitcoinjs-lib';
 import type { SwapTreeSerializer } from 'boltz-core';
 import { OutputType } from 'boltz-core';
-import { randomBytes } from 'crypto';
 import type { Provider } from 'ethers';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { Order } from 'sequelize';
@@ -1836,12 +1834,6 @@ class Service {
     );
     const sendingCurrency = getCurrency(this.currencies, sending);
 
-    let preimage: Buffer | undefined = undefined;
-    if (sendingCurrency.type === CurrencyType.Ark) {
-      preimage = randomBytes(32);
-      args.preimageHash = crypto.sha256(preimage);
-    }
-
     if (args.invoice !== undefined && args.preimageHash !== undefined) {
       throw Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED();
     }
@@ -2059,13 +2051,11 @@ class Service {
       redeemScript,
       refundAddress,
       lockupAddress,
-      arkLockupParams,
       refundPublicKey,
       minerFeeInvoice,
       timeoutBlockHeight,
       timeoutBlockHeights,
     } = await this.swapManager.createReverseSwap({
-      preimage,
       referralId,
       percentageFee,
       onchainAmount,
@@ -2104,14 +2094,6 @@ class Service {
     }
 
     await this.createExtraFees(id, extraFee, args.extraFees);
-
-    if (arkLockupParams !== undefined) {
-      await this.swapManager.nursery.lockupVtxo(
-        arkLockupParams.swap,
-        sendingCurrency.arkNode!,
-        arkLockupParams.lightningClient,
-      );
-    }
 
     const response: any = {
       id,

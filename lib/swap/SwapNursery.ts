@@ -203,7 +203,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.logger,
       this.sidecar,
       this.paymentHandler.selfPaymentClient,
-      this.settleReverseSwapInvoice,
     );
 
     this.claimer.on('claim', ({ swap, channelCreation }) => {
@@ -314,7 +313,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
-    this.arkNursery.on('vhtlc.found', async ({ swap, lockupTransactionId }) => {
+    this.arkNursery.on('swap.lockup', async ({ swap, lockupTransactionId }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         this.emit('transaction', {
           swap,
@@ -349,17 +348,26 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.arkNursery.on('vhtlc.failed', async ({ swap, reason }) => {
+    this.arkNursery.on('swap.lockup.failed', async ({ swap, reason }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         await this.lockupFailed(swap, reason);
       });
     });
 
-    this.arkNursery.on('vhtlc.expired', async (reverseSwap) => {
+    this.arkNursery.on('reverseSwap.expired', async (reverseSwap) => {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
         await this.expireReverseSwap(reverseSwap);
       });
     });
+
+    this.arkNursery.on(
+      'reverseSwap.claimed',
+      async ({ reverseSwap, preimage }) => {
+        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+          await this.settleReverseSwapInvoice(reverseSwap, preimage);
+        });
+      },
+    );
 
     // Reverse Swap events
     this.utxoNursery.on('reverseSwap.expired', async (reverseSwap) => {
@@ -476,6 +484,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
           case CurrencyType.ERC20:
             await this.lockupERC20(reverseSwap, wallet, lightningClient);
+            break;
+
+          case CurrencyType.Ark:
+            await this.lockupVtxo(
+              reverseSwap,
+              chainCurrency.arkNode!,
+              lightningClient,
+            );
             break;
         }
       });

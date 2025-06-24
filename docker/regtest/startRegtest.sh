@@ -32,7 +32,7 @@ docker run \
   -p 7070:7070 \
   -p 7000:7000 \
   -p 7001:7001 \
-  boltz/regtest:4.9.0
+  boltz/regtest:4.10.0
 
 docker exec regtest bash -c "cp /root/.lightning/regtest/*.pem /root/.lightning/regtest/certs"
 docker exec regtest chmod -R 777 /root/.lightning/regtest/certs

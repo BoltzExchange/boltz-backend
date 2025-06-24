@@ -18,7 +18,7 @@ FROM boltz/c-lightning:${C_LIGHTNING_VERSION} AS cln
 
 FROM boltz/electrs:${ELECTRS_VERSION} AS electrs
 
-FROM ghcr.io/ark-network/ark:${ASP_VERSION} AS asp
+FROM ghcr.io/arkade-os/arkd:${ASP_VERSION} AS asp
 FROM ghcr.io/arklabshq/fulmine:${FULMINE_VERSION} AS fulmine
 
 FROM ubuntu:${UBUNTU_VERSION}

@@ -106,6 +106,7 @@ function startAsp () {
 function startFulmine () {
   echo "Starting Fulmine"
 
+  export FULMINE_NO_MACAROONS=true
   nohup fulmine > /root/.arkd/fulmine-logs.txt 2>&1 & num="0"
 
   echo "Started Fulmine"

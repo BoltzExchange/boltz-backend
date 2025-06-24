@@ -108,7 +108,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.9.0",
+        tag="4.10.0",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
@@ -126,11 +126,11 @@ IMAGES: dict[str, Image] = {
             ),
             BuildArgument(
                 name="ASP_VERSION",
-                value="v0.6.0",
+                value="v0.6.3",
             ),
             BuildArgument(
                 name="FULMINE_VERSION",
-                value="v0.1.10",
+                value="v0.1.13",
             ),
         ],
     ),

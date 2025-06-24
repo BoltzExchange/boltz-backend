@@ -79,7 +79,7 @@ message Vtxo {
 }
 
 message Notification {
-  string address = 1;
+  repeated string addresses = 1;
   repeated Vtxo new_vtxos = 2;
   repeated Vtxo spent_vtxos = 3;
 }

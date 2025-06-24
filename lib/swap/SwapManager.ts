@@ -146,11 +146,6 @@ type CreatedOnchainSwap = {
 type CreatedReverseSwap = {
   id: string;
 
-  arkLockupParams?: {
-    swap: ReverseSwap;
-    lightningClient: LightningClient;
-  };
-
   invoice: string;
   minerFeeInvoice: string | undefined;
 
@@ -754,9 +749,6 @@ class SwapManager {
     // Address of the user to which the coins will be sent after a successful claim transaction
     claimAddress?: string;
 
-    // Set for ARK swaps
-    preimage?: Buffer;
-
     userAddress?: string;
     userAddressSignature?: Buffer;
 
@@ -1050,6 +1042,12 @@ class SwapManager {
         args.claimPublicKey!,
         undefined,
       );
+      await sendingCurrency.arkNode!.subscribeAddresses([
+        {
+          address: vHtlc.vHtlc.address,
+          preimageHash: args.preimageHash,
+        },
+      ]);
 
       result.refundPublicKey = (
         await sendingCurrency.arkNode!.getInfo()
@@ -1058,7 +1056,7 @@ class SwapManager {
 
       result.timeoutBlockHeights = vHtlc.timeouts;
 
-      const swap = await ReverseSwapRepository.addReverseSwap({
+      await ReverseSwapRepository.addReverseSwap({
         id,
         pair,
         minerFeeInvoice,
@@ -1074,16 +1072,11 @@ class SwapManager {
         invoiceAmount: args.holdInvoiceAmount,
         timeoutBlockHeight: vHtlc.timeouts.unilateralRefundWithoutReceiver,
         preimageHash: getHexString(args.preimageHash),
-        preimage: getHexString(args.preimage!),
         claimPublicKey: getHexString(args.claimPublicKey!),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
         redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
-      result.arkLockupParams = {
-        swap,
-        lightningClient,
-      };
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;

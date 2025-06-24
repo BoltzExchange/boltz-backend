@@ -492,6 +492,7 @@ class Sidecar extends BaseClient<
               hex: transactionInfo.getHex(),
             },
           },
+          skipCache: true,
         });
         return;
       }

@@ -46,6 +46,15 @@ describe('SwapInfos', () => {
       await expect(swapInfos.cache.size()).resolves.toEqual(1);
     });
 
+    test('should not update cache on swap.update if skipCache is true', async () => {
+      const id = 'asdf';
+      const status = { status: SwapUpdateEvent.TransactionClaimed };
+      service.eventHandler.emit('swap.update', { id, status, skipCache: true });
+
+      await expect(swapInfos.cache.get(id)).resolves.toEqual(undefined);
+      await expect(swapInfos.cache.size()).resolves.toEqual(0);
+    });
+
     test('should use RedisCache when Redis is provided', () => {
       const mockRedis = {} as any;
       const redisSwapInfos = new SwapInfos(

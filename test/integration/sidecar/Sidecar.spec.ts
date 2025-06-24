@@ -97,6 +97,7 @@ describe('Sidecar', () => {
             hex: transactionInfo.getHex(),
           },
         },
+        skipCache: true,
       });
     });
 

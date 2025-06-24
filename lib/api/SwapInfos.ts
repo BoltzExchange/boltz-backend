@@ -34,9 +34,16 @@ class SwapInfos {
   ) {
     this.cache = redis !== undefined ? new RedisCache(redis) : new MapCache();
 
-    this.service.eventHandler.on('swap.update', async ({ id, status }) => {
-      await this.cache.set(id, status);
-    });
+    this.service.eventHandler.on(
+      'swap.update',
+      async ({ id, status, skipCache }) => {
+        if (skipCache) {
+          return;
+        }
+
+        await this.cache.set(id, status);
+      },
+    );
   }
 
   public has = async (id: string): Promise<boolean> =>

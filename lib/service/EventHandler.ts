@@ -39,6 +39,7 @@ class EventHandler extends TypedEventEmitter<{
   'swap.update': {
     id: string;
     status: SwapUpdate;
+    skipCache?: boolean;
   };
   'swap.success': {
     swap: AnySwap;

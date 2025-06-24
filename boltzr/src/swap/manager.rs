@@ -1,6 +1,7 @@
 use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
+use crate::chain::mrh_watcher::MrhWatcher;
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
@@ -95,6 +96,8 @@ impl Manager {
                 Arc::new(ReferralHelperDatabase::new(self.pool.clone())),
             ),
         );
+        let watcher = MrhWatcher::new(self.reverse_swap_repo.clone(), self.update_tx.clone());
+        let currencies = self.currencies.clone();
 
         try_join_all([
             tokio::spawn(async move {
@@ -102,6 +105,9 @@ impl Manager {
             }),
             tokio::spawn(async move {
                 custom_expiration.start().await;
+            }),
+            tokio::spawn(async move {
+                watcher.start(&currencies).await;
             }),
         ])
         .await

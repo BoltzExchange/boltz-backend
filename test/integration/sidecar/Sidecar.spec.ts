@@ -74,6 +74,33 @@ describe('Sidecar', () => {
       );
     });
 
+    test(`should handle status ${SwapUpdateEvent.TransactionDirect}`, async () => {
+      eventHandler.emit = jest.fn();
+
+      const update = new sidecarrpc.SwapUpdate();
+      update.setId('test-swap');
+      update.setStatus(SwapUpdateEvent.TransactionDirect);
+      const transactionInfo = new sidecarrpc.SwapUpdate.TransactionInfo();
+      transactionInfo.setId('txid');
+      transactionInfo.setHex('hex');
+      update.setTransactionInfo(transactionInfo as any);
+
+      await sidecar['handleSentSwapUpdate'](update);
+
+      expect(eventHandler.emit).toHaveBeenCalledTimes(1);
+      expect(eventHandler.emit).toHaveBeenCalledWith('swap.update', {
+        id: update.getId(),
+        status: {
+          status: SwapUpdateEvent.TransactionDirect,
+          transaction: {
+            id: transactionInfo.getId(),
+            hex: transactionInfo.getHex(),
+          },
+        },
+        skipCache: true,
+      });
+    });
+
     test.each`
       status
       ${SwapUpdateEvent.InvoicePaid}

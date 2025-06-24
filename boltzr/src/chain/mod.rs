@@ -7,6 +7,7 @@ use tokio::sync::broadcast::Receiver;
 
 pub mod chain_client;
 pub mod elements_client;
+pub mod mrh_watcher;
 mod rpc_client;
 pub mod types;
 pub mod utils;

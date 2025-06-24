@@ -43,6 +43,13 @@ pub fn encode_address(
 }
 
 impl Transaction {
+    pub fn txid_hex(&self) -> String {
+        match self {
+            Transaction::Bitcoin(tx) => tx.compute_txid().to_hex(),
+            Transaction::Elements(tx) => tx.txid().to_hex(),
+        }
+    }
+
     pub fn serialize(&self) -> Vec<u8> {
         match self {
             Transaction::Bitcoin(tx) => tx.serialize(),

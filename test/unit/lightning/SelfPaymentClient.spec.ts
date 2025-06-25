@@ -11,7 +11,11 @@ import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import { InvoiceState } from '../../../lib/lightning/LightningClient';
+import { satToMsat } from '../../../lib/lightning/ChannelUtils';
+import {
+  HtlcState,
+  InvoiceState,
+} from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
 import LightningNursery from '../../../lib/swap/LightningNursery';
@@ -373,22 +377,26 @@ describe('SelfPaymentClient', () => {
   describe('lookupHoldInvoice', () => {
     const preimageHash = randomBytes(32);
 
+    const invoiceAmount = 100_000;
+    const invoiceAmountMsat = satToMsat(invoiceAmount);
+
     test.each`
-      swapStatus                                 | expectedState
-      ${SwapUpdateEvent.SwapCreated}             | ${InvoiceState.Open}
-      ${SwapUpdateEvent.InvoicePending}          | ${InvoiceState.Accepted}
-      ${SwapUpdateEvent.InvoicePaid}             | ${InvoiceState.Settled}
-      ${SwapUpdateEvent.TransactionClaimPending} | ${InvoiceState.Settled}
-      ${SwapUpdateEvent.TransactionClaimed}      | ${InvoiceState.Settled}
-      ${SwapUpdateEvent.TransactionFailed}       | ${InvoiceState.Open}
-      ${undefined}                               | ${InvoiceState.Open}
+      swapStatus                                 | expectedState            | expectedHtlcs
+      ${SwapUpdateEvent.SwapCreated}             | ${InvoiceState.Open}     | ${[]}
+      ${SwapUpdateEvent.TransactionFailed}       | ${InvoiceState.Open}     | ${[]}
+      ${SwapUpdateEvent.InvoicePending}          | ${InvoiceState.Accepted} | ${[{ state: HtlcState.Accepted, valueMsat: invoiceAmountMsat }]}
+      ${SwapUpdateEvent.InvoicePaid}             | ${InvoiceState.Settled}  | ${[{ state: HtlcState.Settled, valueMsat: invoiceAmountMsat }]}
+      ${SwapUpdateEvent.TransactionClaimPending} | ${InvoiceState.Settled}  | ${[{ state: HtlcState.Settled, valueMsat: invoiceAmountMsat }]}
+      ${SwapUpdateEvent.TransactionClaimed}      | ${InvoiceState.Settled}  | ${[{ state: HtlcState.Settled, valueMsat: invoiceAmountMsat }]}
+      ${undefined}                               | ${InvoiceState.Open}     | ${[]}
     `(
-      'should return $expectedState when swap status is $swapStatus',
-      async ({ swapStatus, expectedState }) => {
+      'should return $expectedState and correct HTLCs when swap status is $swapStatus',
+      async ({ swapStatus, expectedState, expectedHtlcs }) => {
         const mockSwap = {
           id: 'sub',
           preimageHash,
           status: swapStatus,
+          invoiceAmount,
         };
 
         client['lookupSwapsForPreimageHash'] = jest
@@ -401,7 +409,7 @@ describe('SelfPaymentClient', () => {
         expect(client['lookupSwapsForPreimageHash']).toHaveBeenCalledWith(
           getHexString(preimageHash),
         );
-        expect(result).toEqual({ state: expectedState, htlcs: [] });
+        expect(result).toEqual({ state: expectedState, htlcs: expectedHtlcs });
       },
     );
 

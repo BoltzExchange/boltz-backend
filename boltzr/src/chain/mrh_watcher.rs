@@ -4,6 +4,7 @@ use bitcoin::hex::DisplayHex;
 use futures::future::try_join_all;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{self, Receiver};
+use tokio_util::sync::CancellationToken;
 
 use crate::api::ws::types::{SwapStatus, TransactionInfo};
 use crate::chain::utils::Transaction;
@@ -13,16 +14,19 @@ use crate::swap::SwapUpdate as SwapUpdateStatus;
 
 #[derive(Clone)]
 pub struct MrhWatcher {
+    cancellation_token: CancellationToken,
     reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync>,
     swap_status_update_tx: broadcast::Sender<SwapStatus>,
 }
 
 impl MrhWatcher {
     pub fn new(
+        cancellation_token: CancellationToken,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync>,
         swap_status_update_tx: broadcast::Sender<SwapStatus>,
     ) -> Self {
         Self {
+            cancellation_token,
             reverse_swap_helper,
             swap_status_update_tx,
         }
@@ -79,15 +83,22 @@ impl MrhWatcher {
 
     async fn listen(&self, mut stream: Receiver<Transaction>) -> anyhow::Result<()> {
         loop {
-            match stream.recv().await {
-                Ok(tx) => {
-                    if let Err(e) = self.process_transaction(tx) {
-                        tracing::error!("Failed to process transaction: {}", e);
+            tokio::select! {
+                tx = stream.recv() => {
+                    match tx {
+                        Ok(tx) => {
+                            if let Err(e) = self.process_transaction(tx) {
+                                tracing::error!("Failed to process transaction: {}", e);
+                            }
+                        }
+                        Err(RecvError::Closed) => break,
+                        Err(RecvError::Lagged(skipped)) => {
+                            tracing::warn!("Lagged behind by {} messages", skipped);
+                        }
                     }
-                }
-                Err(RecvError::Closed) => break,
-                Err(RecvError::Lagged(skipped)) => {
-                    tracing::warn!("Lagged behind by {} messages", skipped);
+                },
+                _ = self.cancellation_token.cancelled() => {
+                    break;
                 }
             }
         }
@@ -98,12 +109,11 @@ impl MrhWatcher {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{
         chain::{types::Type, utils::parse_transaction_hex},
         db::{helpers::reverse_swap::test::MockReverseSwapHelper, models::ReverseRoutingHint},
     };
-
-    use super::*;
 
     const TEST_TX: &str = "010000000001019ea6632532afe2b57234829e8bb87c0586a2db0b37aa9378298c215e55c55b040000000000ffffffff02160b3600000000001600140e9aab3b924ad7f6c4813b1acad0441c655c9b5440420f000000000016001427001f1066a6f58e25f97ea1b353b3e56985fa8802473044022004637adf050dde916f66a9a169217a6c20c8107cd1a11189141cfed34d0e8897022059d1d8d9279152972f0e67d6b5a6ceec122b360214a6aac317888a1aef84e7de012103504290a1e9a3718103a93d40494af17af63dfa2a721d97cdc2cb526863f7055700000000";
 
@@ -129,7 +139,12 @@ mod test {
             }])
         });
 
-        let watcher = Arc::new(MrhWatcher::new(Arc::new(helper), swap_status_update_tx));
+        let cancellation_token = CancellationToken::new();
+        let watcher = Arc::new(MrhWatcher::new(
+            cancellation_token.clone(),
+            Arc::new(helper),
+            swap_status_update_tx,
+        ));
 
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
@@ -156,7 +171,7 @@ mod test {
             test_transaction.serialize().to_lower_hex_string()
         );
 
-        drop(tx_sender); // Close the sender to end the listen loop
+        cancellation_token.cancel();
         listen_handle.await.unwrap();
     }
 }

@@ -206,7 +206,7 @@ async fn main() {
         match notifications::mattermost::Client::<notifications::commands::Commands>::new(
             cancellation_token.clone(),
             config,
-            notifications::commands::Commands::new(backup_client.clone()),
+            notifications::commands::Commands::new(db_pool.clone(), backup_client.clone()),
         )
         .await
         {

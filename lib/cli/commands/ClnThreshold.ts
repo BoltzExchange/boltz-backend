@@ -2,7 +2,7 @@ import type { Arguments } from 'yargs';
 import { stringToSwapType, swapTypeToGrpcSwapType } from '../../consts/Enums';
 import { InvoiceClnThresholdRequest } from '../../proto/boltzrpc_pb';
 import type { ApiType, BuilderTypes } from '../BuilderComponents';
-import { callback, loadBoltzClient } from '../Command';
+import { callback, loadBoltzClient, parseAmount } from '../Command';
 
 export const command = 'clnthreshold <type> <threshold>';
 
@@ -15,8 +15,8 @@ export const builder = {
     choices: ['submarine', 'reverse'],
   },
   threshold: {
-    type: 'number',
-    describe: 'the threshold in satoshis',
+    type: 'string',
+    describe: 'the threshold',
   },
 };
 
@@ -25,7 +25,7 @@ export const handler = async (
 ) => {
   const threshold = new InvoiceClnThresholdRequest.Threshold();
   threshold.setType(swapTypeToGrpcSwapType(stringToSwapType(argv.type)));
-  threshold.setThreshold(argv.threshold);
+  threshold.setThreshold(parseAmount(argv.threshold));
 
   const req = new InvoiceClnThresholdRequest();
   req.addThresholds(threshold);

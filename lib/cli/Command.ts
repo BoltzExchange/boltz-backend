@@ -17,6 +17,7 @@ import {
   tweakMusig,
   zkp,
 } from '../Core';
+import { coinsToSatoshis } from '../DenominationConverter';
 import { ECPair } from '../ECPairHelper';
 import { getHexBuffer, stringify } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
@@ -26,6 +27,8 @@ import { grpcOptions } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzClient } from '../proto/boltzrpc_grpc_pb';
 import type { RpcType } from './BuilderComponents';
+
+const invalidAmountError = new Error('invalid amount');
 
 export interface GrpcResponse {
   toObject: () => any;
@@ -213,4 +216,28 @@ export const musigFromExtractedKey = (
   }
 
   throw 'could not find swap output';
+};
+
+export const parseAmount = (amount: string) => {
+  const trimmed = amount.trim();
+  if (trimmed.length === 0) {
+    throw invalidAmountError;
+  }
+
+  let parsed = Number(trimmed);
+
+  if (isNaN(parsed) || !Number.isFinite(parsed)) {
+    throw invalidAmountError;
+  }
+
+  // Treat inputs that contain a decimal point or have a fractional part as coin amounts
+  if (parsed % 1 !== 0 || trimmed.includes('.')) {
+    parsed = Math.round(coinsToSatoshis(parsed));
+  }
+
+  if (!Number.isSafeInteger(parsed)) {
+    throw invalidAmountError;
+  }
+
+  return Math.round(parsed);
 };

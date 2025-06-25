@@ -4,7 +4,7 @@ description: >-
   tips & tricks for how to handle BOLT12 offers.
 ---
 
-# ⚡ BOLT12
+# ✨ BOLT12
 
 ## Swapping to BOLT12 invoices
 

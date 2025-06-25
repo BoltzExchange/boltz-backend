@@ -10,7 +10,7 @@
 * [🪄 Magic Routing Hints](magic-routing-hints.md)
 * [⏩ 0-conf](0-conf.md)
 * [🪝 Webhooks](webhooks.md)
-* [⚡ BOLT12](bolt12.md)
+* [✨ BOLT12](bolt12.md)
 * [🏅 Pro](pro.md)
 * [📜 Claim Covenants](claim-covenants.md)
 * [🤝 Referral Program](referral-program.md)

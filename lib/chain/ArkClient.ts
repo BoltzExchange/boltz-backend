@@ -3,6 +3,7 @@ import {
   Metadata,
   credentials,
 } from '@grpc/grpc-js';
+import { bech32m } from '@scure/base';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -72,8 +73,8 @@ class ArkClient extends BaseClient<
 
   private chainClient?: IChainClient;
 
-  private client!: ServiceClient;
-  private notificationClient!: NotificationServiceClient;
+  private client?: ServiceClient;
+  private notificationClient?: NotificationServiceClient;
   private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
 
   private readonly meta: Metadata = new Metadata();
@@ -121,23 +122,71 @@ class ArkClient extends BaseClient<
       this.logger.error(
         `Could not connect to ${this.serviceName()}: ${formatError(error)}`,
       );
+      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.reconnectionTimer = setTimeout(
+        (client) => this.connect(client),
+        this.RECONNECT_INTERVAL,
+      );
+
       return false;
     }
 
-    // TODO: retry on disconnect
     this.streamVhtlcs();
 
     return true;
   };
 
+  private reconnect = async () => {
+    this.setClientStatus(ClientStatus.Disconnected);
+
+    try {
+      await this.getInfo();
+
+      this.logger.info(
+        `Reestablished connection to ${this.serviceName()} ${this.symbol}`,
+      );
+
+      this.clearReconnectTimer();
+
+      this.streamVhtlcs();
+
+      this.setClientStatus(ClientStatus.Connected);
+    } catch (err) {
+      this.setClientStatus(ClientStatus.Disconnected);
+
+      this.logger.error(
+        `Could not reconnect to ${this.serviceName()} ${this.symbol}: ${err}`,
+      );
+      this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.reconnectionTimer = setTimeout(
+        this.reconnect,
+        this.RECONNECT_INTERVAL,
+      );
+    }
+  };
+
   public disconnect = () => {
+    this.clearReconnectTimer();
+
     if (this.vHtlcStream !== undefined) {
-      this.vHtlcStream.cancel();
+      // TODO: cancel when the vHTLC stream allows exiting gracefully
+      // this.vHtlcStream.cancel();
       this.vHtlcStream = undefined;
     }
 
-    this.client.close();
-    this.notificationClient.close();
+    if (this.client !== undefined) {
+      this.client.close();
+      this.client = undefined;
+    }
+
+    if (this.notificationClient !== undefined) {
+      this.notificationClient.close();
+      this.notificationClient = undefined;
+    }
+
+    this.chainClient?.removeListener('block', this.listenBlocks);
 
     this.removeAllListeners();
 
@@ -157,7 +206,7 @@ class ArkClient extends BaseClient<
 
   public getBlockHeight = async (): Promise<number> => {
     if (this.chainClient === undefined) {
-      throw 'chain client not set';
+      throw new Error('chain client not set');
     }
 
     return (await this.chainClient.getBlockchainInfo()).blocks;
@@ -257,9 +306,9 @@ class ArkClient extends BaseClient<
 
     const currentHeight = await this.getBlockHeight();
     const timeouts: Timeouts = {
-      unilateralClaim: currentHeight + claimDelay,
-      unilateralRefund: currentHeight + refundDelay,
-      unilateralRefundWithoutReceiver: currentHeight + refundDelay,
+      unilateralClaim: Math.ceil(currentHeight + claimDelay),
+      unilateralRefund: Math.ceil(currentHeight + refundDelay),
+      unilateralRefundWithoutReceiver: Math.ceil(currentHeight + refundDelay),
     };
 
     req.setUnilateralClaimDelay(createDelay(timeouts.unilateralClaim));
@@ -277,7 +326,10 @@ class ArkClient extends BaseClient<
     };
   };
 
+  // TODO: subscribe on startup
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
+    // TODO: when do we need that?
+    // TODO: unsubscribe
     for (const address of addresses) {
       this.subscribedAddresses.add(address);
     }
@@ -362,12 +414,29 @@ class ArkClient extends BaseClient<
           vout: vhtlc.outpoint!.vout,
           amount: vhtlc.receiver!.amount,
         });
-
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
-        // Ignored because fulmine throws when there was nothing sent to that vHTLC
+        this.logger.silly(
+          `No ${this.serviceName()} ${this.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
+        );
       }
     }
+  };
+
+  private static decodeAddress = (address: string) => {
+    const dec = bech32m.decodeUnsafe(address, 1023);
+    if (dec === undefined) {
+      throw new Error('invalid address');
+    }
+
+    const data = Buffer.from(bech32m.fromWords(dec.words));
+    if (data.length !== 64) {
+      throw new Error('invalid address (data.length !== 64)');
+    }
+
+    return {
+      serverPubKey: data.subarray(0, 32),
+      tweakedPubKey: data.subarray(32, 64),
+    };
   };
 
   private streamVhtlcs = async () => {
@@ -376,9 +445,8 @@ class ArkClient extends BaseClient<
     }
 
     const req = new notificationrpc.GetVtxoNotificationsRequest();
-    this.vHtlcStream = this.notificationClient.getVtxoNotifications(req);
+    this.vHtlcStream = this.notificationClient!.getVtxoNotifications(req);
 
-    // TODO: handle the multiple addresses
     this.vHtlcStream.on(
       'data',
       (res: notificationrpc.GetVtxoNotificationsResponse) => {
@@ -387,17 +455,32 @@ class ArkClient extends BaseClient<
           return;
         }
 
-        // TODO: how to handle multiple in one transaction?
-        if (notification.newVtxosList.length === 1) {
-          const vhtlc = notification.newVtxosList[0];
+        const decoded = new Map<string, string>(
+          notification.addressesList.map((address) => [
+            getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
+            address,
+          ]),
+        );
+
+        for (const vhtlc of notification.newVtxosList) {
+          if (vhtlc.receiver === undefined) {
+            continue;
+          }
+
+          const recipient = decoded.get(vhtlc.receiver.pubkey);
+          if (recipient === undefined) {
+            continue;
+          }
+
           this.emit('vhtlc.created', {
-            address: notification.addressesList[0],
+            address: recipient,
             txId: vhtlc.outpoint!.txid,
             vout: vhtlc.outpoint!.vout,
             amount: vhtlc.receiver!.amount,
           });
-        } else if (notification.spentVtxosList.length === 1) {
-          const vhtlc = notification.spentVtxosList[0];
+        }
+
+        for (const vhtlc of notification.spentVtxosList) {
           this.emit('vhtlc.spent', {
             outpoint: {
               txid: vhtlc.outpoint!.txid,
@@ -411,6 +494,10 @@ class ArkClient extends BaseClient<
 
     this.vHtlcStream.on('error', (err) => {
       this.logger.error(`Error streaming VHTLCs: ${err}`);
+
+      if (this.isConnected()) {
+        this.reconnect();
+      }
     });
 
     this.vHtlcStream.on('end', () => {
@@ -427,7 +514,7 @@ class ArkClient extends BaseClient<
     params: T,
     asObject: boolean = true,
   ): Promise<U> => {
-    return unaryCall(this.client, methodName, params, this.meta, asObject);
+    return unaryCall(this.client!, methodName, params, this.meta, asObject);
   };
 
   private unaryNotificationCall = <T, U>(
@@ -436,7 +523,7 @@ class ArkClient extends BaseClient<
     asObject: boolean = true,
   ): Promise<U> => {
     return unaryCall(
-      this.notificationClient,
+      this.notificationClient!,
       methodName,
       params,
       this.meta,

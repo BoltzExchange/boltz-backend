@@ -20,7 +20,7 @@ class AspClient {
       `${this.url}/v1/virtualTx/${txId}`,
     );
     if (res.data.txs.length === 0) {
-      throw new Error('Transaction not found');
+      throw new Error('transaction not found');
     }
 
     return Transaction.fromPSBT(Buffer.from(res.data.txs[0], 'base64'));

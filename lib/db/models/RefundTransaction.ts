@@ -3,7 +3,7 @@ import { DataTypes, Model, type Sequelize } from 'sequelize';
 enum RefundStatus {
   Pending = 'pending',
   Confirmed = 'confirmed',
-  Replaced = 'replaced',
+  Failed = 'failed',
 }
 
 type RefundTransactionType = {

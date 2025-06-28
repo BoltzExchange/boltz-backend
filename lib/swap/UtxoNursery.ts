@@ -16,7 +16,6 @@ import {
   getChainCurrency,
   getHexBuffer,
   isTxConfirmed,
-  reverseBuffer,
   splitPairId,
   transactionHashToId,
   transactionSignalsRbfExplicitly,
@@ -370,6 +369,7 @@ class UtxoNursery extends TypedEventEmitter<{
         [Op.or]: [
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionConfirmed,
+          SwapUpdateEvent.TransactionRefunded,
         ],
       },
       transactionVout: input.index,
@@ -411,6 +411,7 @@ class UtxoNursery extends TypedEventEmitter<{
           [Op.or]: [
             SwapUpdateEvent.TransactionServerMempool,
             SwapUpdateEvent.TransactionServerConfirmed,
+            SwapUpdateEvent.TransactionRefunded,
           ],
         },
       },
@@ -654,12 +655,6 @@ class UtxoNursery extends TypedEventEmitter<{
           wallet.decodeAddress(expirableReverseSwap.lockupAddress),
         );
 
-        if (expirableReverseSwap.transactionId) {
-          chainClient.removeInputFilter(
-            reverseBuffer(getHexBuffer(expirableReverseSwap.transactionId)),
-          );
-        }
-
         this.emit('reverseSwap.expired', expirableReverseSwap);
       }
     }
@@ -675,11 +670,6 @@ class UtxoNursery extends TypedEventEmitter<{
     );
 
     for (const swap of expirable) {
-      if (swap.sendingData.transactionId) {
-        chainClient.removeInputFilter(
-          reverseBuffer(getHexBuffer(swap.sendingData.transactionId)),
-        );
-      }
       this.emit('chainSwap.expired', swap);
     }
   };

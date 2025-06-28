@@ -54,6 +54,7 @@ import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
@@ -90,6 +91,7 @@ import NodeSwitch from './NodeSwitch';
 import OverpaymentProtector from './OverpaymentProtector';
 import type { SwapNurseryEvents } from './PaymentHandler';
 import PaymentHandler from './PaymentHandler';
+import RefundWatcher from './RefundWatcher';
 import type SwapOutputType from './SwapOutputType';
 import UtxoNursery from './UtxoNursery';
 import TransactionHook from './hooks/TransactionHook';
@@ -112,6 +114,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private readonly paymentHandler: PaymentHandler;
   private readonly lightningNursery: LightningNursery;
   private readonly pendingPaymentTracker: PendingPaymentTracker;
+  private readonly refundWatcher: RefundWatcher;
 
   // Maps
   public currencies = new Map<string, Currency>();
@@ -214,6 +217,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         swap,
       });
     });
+
+    this.refundWatcher = new RefundWatcher(this.logger);
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -228,6 +233,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         this.listenEthereumNursery(nursery),
       ),
     );
+
+    this.refundWatcher.init(this.currencies);
 
     // Swap events
     this.utxoNursery.on('swap.expired', async (swap) => {
@@ -613,6 +620,36 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.utxoNursery.on('chainSwap.expired', async (chainSwap) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
         await this.expireChainSwap(chainSwap);
+      });
+    });
+
+    this.refundWatcher.on('refund.confirmed', async (swap) => {
+      if (swap.type === SwapType.Chain) {
+        return;
+      }
+
+      await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        const lightningCurrency = this.currencies.get(
+          (swap as ReverseSwap).lightningCurrency,
+        )!;
+        const lightningClient = NodeSwitch.getReverseSwapNode(
+          lightningCurrency,
+          swap as ReverseSwap,
+        );
+
+        try {
+          await LightningNursery.cancelReverseInvoices(
+            lightningClient,
+            swap as ReverseSwap,
+            true,
+          );
+        } catch (e) {
+          this.logger.debug(
+            `Could not cancel invoices of Reverse Swap ${
+              swap.id
+            } because: ${formatError(e)}`,
+          );
+        }
       });
     });
 
@@ -1471,15 +1508,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       reverseSwap.orderSide,
       true,
     );
-    const lightningSymbol = getLightningCurrency(
-      base,
-      quote,
-      reverseSwap.orderSide,
-      true,
-    );
 
     const chainCurrency = this.currencies.get(chainSymbol)!;
-    const lightningCurrency = this.currencies.get(lightningSymbol)!;
 
     try {
       if (reverseSwap.transactionId) {
@@ -1505,25 +1535,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             SwapUpdateEvent.SwapExpired,
             Errors.ONCHAIN_HTLC_TIMED_OUT().message,
           ),
-        );
-      }
-
-      const lightningClient = NodeSwitch.getReverseSwapNode(
-        lightningCurrency,
-        reverseSwap,
-      );
-
-      try {
-        await LightningNursery.cancelReverseInvoices(
-          lightningClient,
-          reverseSwap,
-          true,
-        );
-      } catch (e) {
-        this.logger.debug(
-          `Could not cancel invoices of Reverse Swap ${
-            reverseSwap.id
-          } because: ${formatError(e)}`,
         );
       }
     } catch (e) {
@@ -1648,6 +1659,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } in: ${refundTransaction.getId()}`,
     );
 
+    await RefundTransactionRepository.addTransaction({
+      swapId: swap.id,
+      id: refundTransaction.getId(),
+      vin: 0,
+    });
+
     this.emit('refund', {
       refundTransaction: refundTransaction.getId(),
       swap: await WrappedSwapRepository.setTransactionRefunded(
@@ -1690,6 +1707,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.logger.info(
       `Refunded ${nursery.ethereumManager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+
+    await RefundTransactionRepository.addTransaction({
+      swapId: swap.id,
+      id: contractTransaction.hash,
+    });
 
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,
@@ -1737,6 +1759,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.logger.info(
       `Refunded ${chainSymbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
+
+    await RefundTransactionRepository.addTransaction({
+      swapId: swap.id,
+      id: contractTransaction.hash,
+    });
 
     this.emit('refund', {
       refundTransaction: contractTransaction.hash,

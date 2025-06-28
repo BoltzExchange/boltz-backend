@@ -169,10 +169,10 @@ class ArkClient extends BaseClient<
 
   public disconnect = () => {
     this.clearReconnectTimer();
+    this.setClientStatus(ClientStatus.Disconnected);
 
     if (this.vHtlcStream !== undefined) {
-      // TODO: cancel when the vHTLC stream allows exiting gracefully
-      // this.vHtlcStream.cancel();
+      this.vHtlcStream.cancel();
       this.vHtlcStream = undefined;
     }
 
@@ -189,8 +189,6 @@ class ArkClient extends BaseClient<
     this.chainClient?.removeListener('block', this.listenBlocks);
 
     this.removeAllListeners();
-
-    this.setClientStatus(ClientStatus.Disconnected);
   };
 
   public serviceName(): string {

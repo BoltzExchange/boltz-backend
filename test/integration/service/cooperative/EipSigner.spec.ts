@@ -177,6 +177,9 @@ describe('EipSigner', () => {
       version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
+      sendingData: {
+        transactionId: null,
+      },
       receivingData: {
         lockupAddress,
         symbol: 'RBTC',
@@ -248,6 +251,9 @@ describe('EipSigner', () => {
       version: SwapVersion.Taproot,
       preimageHash: getHexString(preimageHash),
       status: SwapUpdateEvent.InvoiceFailedToPay,
+      sendingData: {
+        transactionId: null,
+      },
       receivingData: {
         lockupAddress,
         symbol: 'TOKEN',

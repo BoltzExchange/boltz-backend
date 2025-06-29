@@ -60,6 +60,7 @@ class RefundWatcher extends TypedEventEmitter<{
     const refundCurrency = this.getRefundCurrency(swap);
     const confirmations = await this.getConfirmations(refundCurrency, tx.id);
 
+    // TODO: what if it's getting awfully close to swap timeout and still not confirmed? maybe a check here and alert or bump the fee?
     if (confirmations < this.requiredConfirmations) {
       return;
     }
@@ -73,7 +74,7 @@ class RefundWatcher extends TypedEventEmitter<{
       refundCurrency.type === CurrencyType.Liquid
     ) {
       refundCurrency.chainClient?.removeInputFilter(
-        reverseBuffer(getHexBuffer(swap.lockupTransactionId!)),
+        reverseBuffer(getHexBuffer(swap.serverLockupTransactionId!)),
       );
     }
 

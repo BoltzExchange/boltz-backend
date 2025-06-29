@@ -232,7 +232,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
     return getLightningCurrency(base, quote, this.orderSide, true);
   }
 
-  get lockupTransactionId() {
+  get serverLockupTransactionId() {
     return this.transactionId;
   }
 

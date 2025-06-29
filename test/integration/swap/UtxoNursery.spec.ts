@@ -19,6 +19,7 @@ import {
 import Database from '../../../lib/db/Database';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
+import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
@@ -43,6 +44,8 @@ import {
   elementsClient,
 } from '../Nodes';
 import { sidecar, startSidecar } from '../sidecar/Utils';
+
+RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue(null);
 
 describe('UtxoNursery', () => {
   let db: Database;
@@ -194,7 +197,7 @@ describe('UtxoNursery', () => {
     elementsClient.disconnect();
 
     // Wait a little to make sure no queries are pending anymore
-    await wait(250);
+    await wait(500);
     await db.close();
 
     fs.unlinkSync(mnemonicPath);

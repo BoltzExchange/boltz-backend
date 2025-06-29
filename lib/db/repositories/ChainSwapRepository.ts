@@ -83,7 +83,7 @@ class ChainSwapInfo {
     );
   }
 
-  get lockupTransactionId() {
+  get serverLockupTransactionId() {
     return this.sendingData.transactionId;
   }
 

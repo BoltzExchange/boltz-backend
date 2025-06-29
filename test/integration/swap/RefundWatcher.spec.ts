@@ -87,7 +87,7 @@ describe('RefundWatcher', () => {
               id: swapId,
               type: SwapType.ReverseSubmarine,
               chainCurrency: 'BTC',
-              lockupTransactionId: txId,
+              serverLockupTransactionId: txId,
             } as unknown as ReverseSwap,
           },
         ]);
@@ -163,7 +163,7 @@ describe('RefundWatcher', () => {
           id: swapId,
           type: SwapType.ReverseSubmarine,
           chainCurrency: 'BTC',
-          lockupTransactionId: txId,
+          serverLockupTransactionId: txId,
         } as unknown as ReverseSwap,
       );
 

@@ -35,6 +35,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
@@ -348,6 +349,18 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
+    {
+      const refundTx = await RefundTransactionRepository.getTransaction(
+        transaction.getId(),
+      );
+      if (refundTx !== null || refundTx || undefined) {
+        this.logger.debug(
+          `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is our refund transaction`,
+        );
+        return;
+      }
+    }
+
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
       const input = transaction.ins[vin];
 

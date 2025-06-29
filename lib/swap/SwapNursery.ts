@@ -624,7 +624,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
 
     this.refundWatcher.on('refund.confirmed', async (swap) => {
-      if (swap.type === SwapType.Chain) {
+      if (swap.type !== SwapType.ReverseSubmarine) {
         return;
       }
 
@@ -1651,19 +1651,19 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       refundTransaction,
     );
 
-    await chainClient.sendRawTransaction(refundTransaction.toHex(), true);
-
-    this.logger.info(
-      `Refunded ${chainClient.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${
-        swap.id
-      } in: ${refundTransaction.getId()}`,
-    );
-
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
       id: refundTransaction.getId(),
       vin: 0,
     });
+
+    await chainClient.sendRawTransaction(refundTransaction.toHex(), true);
+
+    this.logger.info(
+      `Broadcast ${chainClient.symbol} refund of ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
+      } in: ${refundTransaction.getId()}`,
+    );
 
     this.emit('refund', {
       refundTransaction: refundTransaction.getId(),
@@ -1705,7 +1705,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.logger.info(
-      `Refunded ${nursery.ethereumManager.networkDetails.name} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
+      `Broadcast ${nursery.ethereumManager.networkDetails.name} refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
 
     await RefundTransactionRepository.addTransaction({
@@ -1757,7 +1757,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.logger.info(
-      `Refunded ${chainSymbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
+      `Broadcast ${chainSymbol} refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${contractTransaction.hash}`,
     );
 
     await RefundTransactionRepository.addTransaction({

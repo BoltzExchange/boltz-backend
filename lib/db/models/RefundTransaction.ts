@@ -35,6 +35,10 @@ class RefundTransaction extends Model implements RefundTransactionType {
           type: new DataTypes.INTEGER(),
           allowNull: true,
         },
+        status: {
+          type: new DataTypes.STRING(255),
+          allowNull: false,
+        },
       },
       {
         sequelize,
@@ -45,6 +49,11 @@ class RefundTransaction extends Model implements RefundTransactionType {
             using: 'HASH',
             unique: false,
             fields: ['id'],
+          },
+          {
+            using: 'HASH',
+            unique: false,
+            fields: ['status'],
           },
         ],
       },

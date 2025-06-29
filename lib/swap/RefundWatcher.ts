@@ -65,7 +65,7 @@ class RefundWatcher extends TypedEventEmitter<{
     }
 
     this.logger.debug(
-      `Refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id} confirmed: ${tx.id}`,
+      `Refund transaction of ${swapTypeToPrettyString(swap.type)} swap ${swap.id} confirmed: ${tx.id}`,
     );
 
     if (
@@ -73,7 +73,7 @@ class RefundWatcher extends TypedEventEmitter<{
       refundCurrency.type === CurrencyType.Liquid
     ) {
       refundCurrency.chainClient?.removeInputFilter(
-        reverseBuffer(getHexBuffer(this.getLockupTransactionId(swap)!)),
+        reverseBuffer(getHexBuffer(swap.lockupTransactionId!)),
       );
     }
 
@@ -117,20 +117,7 @@ class RefundWatcher extends TypedEventEmitter<{
         return this.currencies.get((swap as ChainSwapInfo).sendingData.symbol)!;
 
       default:
-        throw new Error('Invalid swap type');
-    }
-  };
-
-  private getLockupTransactionId = (swap: ReverseSwap | ChainSwapInfo) => {
-    switch (swap.type) {
-      case SwapType.ReverseSubmarine:
-        return (swap as ReverseSwap).transactionId;
-
-      case SwapType.Chain:
-        return (swap as ChainSwapInfo).sendingData.transactionId;
-
-      default:
-        throw new Error('Invalid swap type');
+        throw new Error('invalid swap type');
     }
   };
 }

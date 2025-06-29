@@ -229,7 +229,7 @@ class MusigSigner {
       const refundTx = await RefundTransactionRepository.getTransactionForSwap(
         swap.id,
       );
-      if (refundTx === null || refundTx.status !== RefundStatus.Confirmed) {
+      if (refundTx !== null && refundTx.status !== RefundStatus.Confirmed) {
         return RefundRejectionReason.RefundNotConfirmed;
       }
     }

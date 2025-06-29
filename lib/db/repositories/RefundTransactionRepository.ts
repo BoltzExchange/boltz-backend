@@ -16,8 +16,12 @@ class RefundTransactionRepository {
     });
   };
 
+  public static getTransaction = async (txId: string) => {
+    return await RefundTransaction.findOne({ where: { id: txId } });
+  };
+
   public static setStatus = async (swapId: string, status: RefundStatus) => {
-    return await RefundTransaction.update({ status }, { where: { swapId } });
+    await RefundTransaction.update({ status }, { where: { swapId } });
   };
 
   public static getTransactionForSwap = async (swapId: string) => {
@@ -47,7 +51,7 @@ class RefundTransactionRepository {
 
     if (reverse !== null && chain !== null) {
       throw new Error(
-        'Both reverse and chain swaps found for refund transaction',
+        'both reverse and chain swaps found for refund transaction',
       );
     }
 
@@ -59,7 +63,7 @@ class RefundTransactionRepository {
       return chain;
     }
 
-    throw new Error('No swap found for refund transaction');
+    throw new Error('no swap found for refund transaction');
   };
 }
 

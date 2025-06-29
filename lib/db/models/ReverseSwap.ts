@@ -1,5 +1,6 @@
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
+import { getChainCurrency, splitPairId } from '../../Utils';
 import { SwapType, SwapVersion } from '../../consts/Enums';
 import type { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
@@ -217,6 +218,11 @@ class ReverseSwap extends Model implements ReverseSwapType {
     return SwapType.ReverseSubmarine;
   }
 
+  get onchainSymbol() {
+    const { base, quote } = splitPairId(this.pair);
+    return getChainCurrency(base, quote, this.orderSide, true);
+  }
+
   get theirPublicKey() {
     return this.claimPublicKey;
   }
@@ -242,4 +248,4 @@ const nodeTypeToPrettyString = (type: NodeType) => {
 };
 
 export default ReverseSwap;
-export { ReverseSwapType, NodeType, nodeTypeToPrettyString };
+export { NodeType, nodeTypeToPrettyString, ReverseSwapType };

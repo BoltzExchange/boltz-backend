@@ -83,8 +83,10 @@ describe('RefundTransactionRepository', () => {
     test('should return pending transactions', async () => {
       const swapId = 'swapId';
       const transactionId = 'txId';
+      const vin = 123;
 
       await RefundTransactionRepository.addTransaction({
+        vin,
         swapId,
         id: transactionId,
       });
@@ -97,6 +99,7 @@ describe('RefundTransactionRepository', () => {
       expect(txs).toHaveLength(1);
       expect(txs[0].tx.id).toEqual(transactionId);
       expect(txs[0].tx.swapId).toEqual(swapId);
+      expect(txs[0].tx.vin).toEqual(vin);
       expect(txs[0].tx.status).toEqual(RefundStatus.Pending);
       expect(txs[0].swap.id).toEqual(swapId);
     });

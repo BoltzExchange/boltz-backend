@@ -5,6 +5,7 @@ import {
   CurrencyType,
   SwapType,
   swapTypeToPrettyString,
+  swapTypeToString,
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type RefundTransaction from '../db/models/RefundTransaction';
@@ -107,6 +108,9 @@ class RefundWatcher extends TypedEventEmitter<{
 
         // TODO: gracefully handle failed txs
         if (receipt.status !== 1) {
+          this.logger.warn(
+            `${currency.symbol} EVM refund transaction ${txId} failed: ${receipt.status}`,
+          );
           return 0;
         }
 
@@ -124,7 +128,7 @@ class RefundWatcher extends TypedEventEmitter<{
         return this.currencies.get((swap as ChainSwapInfo).sendingData.symbol)!;
 
       default:
-        throw new Error('invalid swap type');
+        throw new Error(`invalid swap type: ${swapTypeToString(swap.type)}`);
     }
   };
 }

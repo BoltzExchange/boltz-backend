@@ -9,14 +9,14 @@ enum RefundStatus {
 type RefundTransactionType = {
   swapId: string;
   id: string;
-  vin?: number;
+  vin: number | null;
   status: RefundStatus;
 };
 
 class RefundTransaction extends Model implements RefundTransactionType {
   public swapId!: string;
   public id!: string;
-  public vin!: number;
+  public vin!: number | null;
   public status!: RefundStatus;
 
   public static load = (sequelize: Sequelize): void => {

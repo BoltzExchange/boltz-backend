@@ -353,7 +353,7 @@ class UtxoNursery extends TypedEventEmitter<{
       const refundTx = await RefundTransactionRepository.getTransaction(
         transaction.getId(),
       );
-      if (refundTx !== null || refundTx || undefined) {
+      if (refundTx !== null && refundTx !== undefined) {
         this.logger.debug(
           `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is our refund transaction`,
         );

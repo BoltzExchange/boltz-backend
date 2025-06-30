@@ -1711,6 +1711,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
       id: contractTransaction.hash,
+      vin: null,
     });
 
     this.emit('refund', {
@@ -1763,6 +1764,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
       id: contractTransaction.hash,
+      vin: null,
     });
 
     this.emit('refund', {

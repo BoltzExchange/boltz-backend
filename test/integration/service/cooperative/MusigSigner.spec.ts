@@ -21,11 +21,15 @@ import { getHexString } from '../../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
+import { RefundStatus } from '../../../../lib/db/models/RefundTransaction';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../../lib/db/models/Swap';
+import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
@@ -839,6 +843,63 @@ describe('MusigSigner', () => {
             btcCurrency,
           ),
         ).resolves.toEqual(undefined);
+      });
+    });
+
+    describe('chain swap refunds', () => {
+      test('should be eligible when no transaction was sent for the chain swap', async () => {
+        const swap = {
+          type: SwapType.Chain,
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.TransactionRefunded,
+          sendingData: {
+            transactionId: null,
+          },
+        } as unknown as ChainSwapInfo;
+
+        await expect(
+          MusigSigner.refundNonEligibilityReason(swap),
+        ).resolves.toEqual(undefined);
+      });
+
+      test('should be eligigble when there was no refund transaction sent', async () => {
+        const swap = {
+          type: SwapType.Chain,
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.TransactionRefunded,
+          sendingData: {
+            transactionId: 'tx',
+          },
+        } as unknown as ChainSwapInfo;
+
+        RefundTransactionRepository.getTransactionForSwap = jest
+          .fn()
+          .mockResolvedValue(null);
+
+        await expect(
+          MusigSigner.refundNonEligibilityReason(swap),
+        ).resolves.toEqual(undefined);
+      });
+
+      test('should not be eligible when there was a refund transaction sent but it is not confirmed', async () => {
+        const swap = {
+          type: SwapType.Chain,
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.TransactionRefunded,
+          sendingData: {
+            transactionId: 'tx',
+          },
+        } as unknown as ChainSwapInfo;
+
+        RefundTransactionRepository.getTransactionForSwap = jest
+          .fn()
+          .mockResolvedValue({
+            status: RefundStatus.Pending,
+          });
+
+        await expect(
+          MusigSigner.refundNonEligibilityReason(swap),
+        ).resolves.toEqual(RefundRejectionReason.RefundNotConfirmed);
       });
     });
   });

@@ -39,6 +39,7 @@ import {
 } from '../../../../lib/consts/Enums';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
@@ -275,6 +276,10 @@ describe('ChainSwapSigner', () => {
 
   describe('signRefund', () => {
     test('should sign refunds for swaps', async () => {
+      RefundTransactionRepository.getTransactionForSwap = jest
+        .fn()
+        .mockResolvedValue(null);
+
       const { lockupDetails, chainSwapInfo } = await createOutputs();
 
       const refundTx = constructRefundTransaction(

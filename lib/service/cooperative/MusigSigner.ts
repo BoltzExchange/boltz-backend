@@ -15,8 +15,10 @@ import {
   SwapVersion,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
+import { RefundStatus } from '../../db/models/RefundTransaction';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
@@ -37,6 +39,7 @@ enum RefundRejectionReason {
   VersionNotTaproot = 'swap version is not Taproot',
   StatusNotEligible = 'status not eligible',
   LightningPaymentPending = 'lightning payment still in progress, try again in a couple minutes',
+  RefundNotConfirmed = 'refund not confirmed',
 }
 
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
@@ -215,6 +218,20 @@ class MusigSigner {
       ))
     ) {
       return RefundRejectionReason.LightningPaymentPending;
+    }
+
+    // Do no cooperatively sign refund for chain swaps if our refund transaction is not confirmed
+    if (swap.type === SwapType.Chain) {
+      if ((swap as ChainSwapInfo).sendingData.transactionId === null) {
+        return undefined;
+      }
+
+      const refundTx = await RefundTransactionRepository.getTransactionForSwap(
+        swap.id,
+      );
+      if (refundTx !== null && refundTx.status !== RefundStatus.Confirmed) {
+        return RefundRejectionReason.RefundNotConfirmed;
+      }
     }
 
     return undefined;

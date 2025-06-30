@@ -18,6 +18,7 @@ import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
 import Rebroadcast from './models/Rebroadcast';
 import Referral from './models/Referral';
+import RefundTransaction from './models/RefundTransaction';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
@@ -113,6 +114,7 @@ class Database {
       ChannelCreation.sync(),
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
+      RefundTransaction.sync(),
     ]);
   };
 
@@ -149,6 +151,7 @@ class Database {
     PendingLockupTransaction.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);
     Rebroadcast.load(Database.sequelize);
+    RefundTransaction.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

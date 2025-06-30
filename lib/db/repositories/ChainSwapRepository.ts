@@ -83,6 +83,10 @@ class ChainSwapInfo {
     );
   }
 
+  get serverLockupTransactionId() {
+    return this.sendingData.transactionId;
+  }
+
   get failureDetails(): IncorrectAmountDetails | undefined {
     if (
       this.status === SwapUpdateEvent.TransactionLockupFailed &&

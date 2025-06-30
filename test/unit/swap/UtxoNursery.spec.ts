@@ -6,11 +6,7 @@ import { Op } from 'sequelize';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import {
-  getHexBuffer,
-  reverseBuffer,
-  transactionHashToId,
-} from '../../../lib/Utils';
+import { getHexBuffer, transactionHashToId } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
   CurrencyType,
@@ -20,6 +16,7 @@ import {
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
@@ -773,6 +770,10 @@ describe('UtxoNursery', () => {
   });
 
   test('should handle claimed Reverse Swaps', async () => {
+    RefundTransactionRepository.getTransaction = jest
+      .fn()
+      .mockResolvedValue(null);
+
     const checkReverseSwapsClaims = nursery['checkSwapClaims'];
 
     const transaction = Transaction.fromHex(sampleTransactions.claim);
@@ -804,6 +805,7 @@ describe('UtxoNursery', () => {
         [Op.or]: [
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionConfirmed,
+          SwapUpdateEvent.TransactionRefunded,
         ],
       },
       transactionVout: transaction.ins[0].index,
@@ -815,12 +817,24 @@ describe('UtxoNursery', () => {
 
     jest.clearAllMocks();
 
+    // Should ignore transactions that are refunds of a Reverse Swap
+    RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue({
+      id: 'refund',
+    });
+
+    await checkReverseSwapsClaims(btcChainClient, transaction);
+
+    expect(mockGetReverseSwap).not.toHaveBeenCalled();
+    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
+
+    jest.clearAllMocks();
+
     // Should ignore transactions that are not claims of a Reverse Swap
     mockGetReverseSwapResult = null;
 
     await checkReverseSwapsClaims(btcChainClient, transaction);
 
-    expect(mockGetReverseSwap).toHaveBeenCalledTimes(1);
+    expect(mockGetReverseSwap).not.toHaveBeenCalled();
     expect(mockRemoveInputFilter).not.toHaveBeenCalled();
   });
 
@@ -1003,14 +1017,7 @@ describe('UtxoNursery', () => {
       decodeAddress(mockGetReverseSwapsExpirableResult[1].lockupAddress),
     );
 
-    expect(mockRemoveInputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveInputFilter).toHaveBeenCalledWith(
-      reverseBuffer(
-        getHexBuffer(mockGetReverseSwapsExpirableResult[1].transactionId),
-      ),
-    );
-
-    expect(mockRemoveInputFilter).toHaveBeenCalledTimes(1);
+    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
 
     mockGetReverseSwapsExpirableResult = [];
   });

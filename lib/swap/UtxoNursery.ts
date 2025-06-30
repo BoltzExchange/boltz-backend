@@ -16,7 +16,6 @@ import {
   getChainCurrency,
   getHexBuffer,
   isTxConfirmed,
-  reverseBuffer,
   splitPairId,
   transactionHashToId,
   transactionSignalsRbfExplicitly,
@@ -36,6 +35,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
@@ -349,6 +349,18 @@ class UtxoNursery extends TypedEventEmitter<{
     chainClient: IChainClient,
     transaction: Transaction | LiquidTransaction,
   ) => {
+    {
+      const refundTx = await RefundTransactionRepository.getTransaction(
+        transaction.getId(),
+      );
+      if (refundTx !== null && refundTx !== undefined) {
+        this.logger.debug(
+          `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is our refund transaction`,
+        );
+        return;
+      }
+    }
+
     for (let vin = 0; vin < transaction.ins.length; vin += 1) {
       const input = transaction.ins[vin];
 
@@ -370,6 +382,7 @@ class UtxoNursery extends TypedEventEmitter<{
         [Op.or]: [
           SwapUpdateEvent.TransactionMempool,
           SwapUpdateEvent.TransactionConfirmed,
+          SwapUpdateEvent.TransactionRefunded,
         ],
       },
       transactionVout: input.index,
@@ -411,6 +424,7 @@ class UtxoNursery extends TypedEventEmitter<{
           [Op.or]: [
             SwapUpdateEvent.TransactionServerMempool,
             SwapUpdateEvent.TransactionServerConfirmed,
+            SwapUpdateEvent.TransactionRefunded,
           ],
         },
       },
@@ -654,12 +668,6 @@ class UtxoNursery extends TypedEventEmitter<{
           wallet.decodeAddress(expirableReverseSwap.lockupAddress),
         );
 
-        if (expirableReverseSwap.transactionId) {
-          chainClient.removeInputFilter(
-            reverseBuffer(getHexBuffer(expirableReverseSwap.transactionId)),
-          );
-        }
-
         this.emit('reverseSwap.expired', expirableReverseSwap);
       }
     }
@@ -675,11 +683,6 @@ class UtxoNursery extends TypedEventEmitter<{
     );
 
     for (const swap of expirable) {
-      if (swap.sendingData.transactionId) {
-        chainClient.removeInputFilter(
-          reverseBuffer(getHexBuffer(swap.sendingData.transactionId)),
-        );
-      }
       this.emit('chainSwap.expired', swap);
     }
   };

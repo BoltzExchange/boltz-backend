@@ -1,5 +1,10 @@
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
+import {
+  getChainCurrency,
+  getLightningCurrency,
+  splitPairId,
+} from '../../Utils';
 import { SwapType, SwapVersion } from '../../consts/Enums';
 import type { IncorrectAmountDetails } from '../../consts/Types';
 import Pair from './Pair';
@@ -215,6 +220,20 @@ class ReverseSwap extends Model implements ReverseSwapType {
 
   get type() {
     return SwapType.ReverseSubmarine;
+  }
+
+  get chainCurrency() {
+    const { base, quote } = splitPairId(this.pair);
+    return getChainCurrency(base, quote, this.orderSide, true);
+  }
+
+  get lightningCurrency() {
+    const { base, quote } = splitPairId(this.pair);
+    return getLightningCurrency(base, quote, this.orderSide, true);
+  }
+
+  get serverLockupTransactionId() {
+    return this.transactionId;
   }
 
   get theirPublicKey() {

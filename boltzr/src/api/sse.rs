@@ -84,7 +84,7 @@ where
 
 fn sse_id(swap_id: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
-    format!("sse-{}", swap_id).hash(&mut hasher);
+    format!("sse-{swap_id}").hash(&mut hasher);
     hasher.finish()
 }
 

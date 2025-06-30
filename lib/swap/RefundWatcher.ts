@@ -1,3 +1,4 @@
+import AsyncLock from 'async-lock';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer, reverseBuffer } from '../Utils';
 import {
@@ -18,6 +19,9 @@ import { type Currency } from '../wallet/WalletManager';
 class RefundWatcher extends TypedEventEmitter<{
   'refund.confirmed': ReverseSwap | ChainSwapInfo;
 }> {
+  private static readonly pendingTransactionsLock = 'pendingTransactions';
+
+  private readonly lock = new AsyncLock();
   private readonly requiredConfirmations = 1;
   private currencies!: Map<string, Currency>;
 
@@ -40,17 +44,19 @@ class RefundWatcher extends TypedEventEmitter<{
   };
 
   private checkPendingTransactions = async () => {
-    const txs = await RefundTransactionRepository.getPendingTransactions();
+    await this.lock.acquire(RefundWatcher.pendingTransactionsLock, async () => {
+      const txs = await RefundTransactionRepository.getPendingTransactions();
 
-    for (const { tx, swap } of txs) {
-      try {
-        await this.checkRefund(tx, swap);
-      } catch (error) {
-        this.logger.error(
-          `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
-        );
+      for (const { tx, swap } of txs) {
+        try {
+          await this.checkRefund(tx, swap);
+        } catch (error) {
+          this.logger.error(
+            `Error checking refund transaction of ${swapTypeToPrettyString(swap.type)} ${swap.id}: ${formatError(error)}`,
+          );
+        }
       }
-    }
+    });
   };
 
   private checkRefund = async (

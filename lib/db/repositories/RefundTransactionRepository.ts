@@ -42,11 +42,11 @@ class RefundTransactionRepository {
   };
 
   private static getSwapForTransaction = async (
-    swapId: string,
+    id: string,
   ): Promise<ReverseSwap | ChainSwapInfo> => {
     const [reverse, chain] = await Promise.all([
-      ReverseSwapRepository.getReverseSwap({ id: swapId }),
-      ChainSwapRepository.getChainSwap({ id: swapId }),
+      ReverseSwapRepository.getReverseSwap({ id }),
+      ChainSwapRepository.getChainSwap({ id }),
     ]);
 
     if (reverse !== null && chain !== null) {

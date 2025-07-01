@@ -216,6 +216,12 @@ class Prometheus {
       });
     };
 
+    const setDefaultSymbols = (gauge: Gauge, defaultValue: number) => {
+      service.currencies.forEach((currency) => {
+        gauge.set({ symbol: currency.symbol }, defaultValue);
+      });
+    };
+
     this.swapRegistry!.registerMetric(
       new Gauge({
         name: `${Prometheus.metricPrefix}swap_counts`,
@@ -315,6 +321,8 @@ class Prometheus {
         labelNames: ['symbol'],
         help: 'number of pending sweeps',
         collect: function () {
+          setDefaultSymbols(this, 0);
+
           const pendingSweeps = service.getPendingSweeps();
           for (const [symbol, swaps] of pendingSweeps.entries()) {
             this.set({ symbol }, swaps.length);
@@ -329,6 +337,8 @@ class Prometheus {
         labelNames: ['symbol'],
         help: 'amount in pending sweeps',
         collect: function () {
+          setDefaultSymbols(this, 0);
+
           const pendingSweeps = service.getPendingSweeps();
           for (const [symbol, swaps] of pendingSweeps.entries()) {
             this.set(

@@ -327,8 +327,8 @@ mod test {
             .clone()
     }
 
-    #[test]
-    fn get_input_output_filters_swap() {
+    #[tokio::test]
+    async fn get_input_output_filters_swap() {
         let address_bitcoin = "bcrt1pez4zvu0a98p26yfvrqe8utwfve9q9c6gye9kza9dftxl9hm6evpqd760j0";
         let address_elements = "el1pqw0vlh6w9pcsjyk46kz928z6yl5sc3aqkg894853sdqxdflw9w5p2nqljxs8d639qq6ysl296k027h9vvm6pxqg8ure9v5dqa0zmwdmrp5djsywsp7um";
 
@@ -394,8 +394,8 @@ mod test {
         );
     }
 
-    #[test]
-    fn get_input_output_filters_reverse() {
+    #[tokio::test]
+    async fn get_input_output_filters_reverse() {
         let tx_id = "663aebe19955dd7298b2bb1cc1062d5aabff0233f26a40b4d8900f7da8668858";
 
         let mut swap = MockSwapHelper::new();
@@ -437,8 +437,8 @@ mod test {
         }));
     }
 
-    #[test]
-    fn get_input_output_filters_chain() {
+    #[tokio::test]
+    async fn get_input_output_filters_chain() {
         let tx_id = "663aebe19955dd7298b2bb1cc1062d5aabff0233f26a40b4d8900f7da8668858";
         let address = "bcrt1pyuu5lckeqzwrc7jw6asxxkgrervhwzmxslly54hhgd5nukdw06dqqxvy59";
 
@@ -529,8 +529,8 @@ mod test {
         }));
     }
 
-    #[test]
-    fn test_get_currency() {
+    #[tokio::test]
+    async fn test_get_currency() {
         let currencies = get_currencies();
 
         let symbol = "BTC";
@@ -539,14 +539,14 @@ mod test {
         assert_eq!(currency.unwrap().chain.clone().unwrap().symbol(), symbol);
     }
 
-    #[test]
-    fn test_get_currency_no_chain_client() {
+    #[tokio::test]
+    async fn test_get_currency_no_chain_client() {
         let currencies = get_currencies();
         assert!(get_currency(&currencies, "LTC", &Swap::default(),).is_none());
     }
 
-    #[test]
-    fn test_get_currency_none() {
+    #[tokio::test]
+    async fn test_get_currency_none() {
         let currencies = get_currencies();
         assert!(get_currency(&currencies, "NOTFOUND", &Swap::default()).is_none());
     }

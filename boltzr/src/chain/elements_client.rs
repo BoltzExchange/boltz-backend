@@ -1,10 +1,11 @@
 use crate::chain::chain_client::ChainClient;
-use crate::chain::types::NetworkInfo;
+use crate::chain::types::{NetworkInfo, RawTransactionVerbose};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tokio::sync::broadcast::Receiver;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument, warn};
 
 pub const SYMBOL: &str = "L-BTC";
@@ -18,13 +19,24 @@ pub struct ElementsClient {
 }
 
 impl ElementsClient {
-    #[instrument(name = "ElementsClient::new", skip(config))]
-    pub fn new(config: LiquidConfig) -> anyhow::Result<Self> {
-        let client = ChainClient::new(TYPE, SYMBOL.to_string(), config.base)?;
+    #[instrument(name = "ElementsClient::new", skip_all)]
+    pub fn new(
+        cancellation_token: CancellationToken,
+        config: LiquidConfig,
+    ) -> anyhow::Result<Self> {
+        let client = ChainClient::new(
+            cancellation_token.clone(),
+            TYPE,
+            SYMBOL.to_string(),
+            config.base,
+        )?;
         let lowball_client = match config.lowball {
-            Some(lowball_config) => {
-                Some(ChainClient::new(TYPE, SYMBOL.to_string(), lowball_config)?)
-            }
+            Some(lowball_config) => Some(ChainClient::new(
+                cancellation_token,
+                TYPE,
+                SYMBOL.to_string(),
+                lowball_config,
+            )?),
             None => {
                 debug!("No {} lowball client configured", SYMBOL);
                 None
@@ -84,13 +96,18 @@ impl Client for ElementsClient {
         self.wallet_client().network_info().await
     }
 
-    fn tx_receiver(&self) -> Receiver<Transaction> {
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
         self.wallet_client().tx_receiver()
+    }
+
+    async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
+        self.wallet_client().raw_transaction_verbose(tx_id).await
     }
 }
 
 #[cfg(test)]
 pub mod test {
+    use super::*;
     use crate::chain::elements_client::ElementsClient;
     use crate::chain::{Config, LiquidConfig};
     use std::sync::OnceLock;
@@ -110,10 +127,13 @@ pub mod test {
         CLIENT
             .get_or_init(|| {
                 (
-                    ElementsClient::new(LiquidConfig {
-                        base: config.clone(),
-                        lowball: Some(config.clone()),
-                    })
+                    ElementsClient::new(
+                        CancellationToken::new(),
+                        LiquidConfig {
+                            base: config.clone(),
+                            lowball: Some(config.clone()),
+                        },
+                    )
                     .unwrap(),
                     config,
                 )
@@ -121,23 +141,29 @@ pub mod test {
             .clone()
     }
 
-    #[test]
-    fn test_wallet_client() {
+    #[tokio::test]
+    async fn test_wallet_client() {
         let (_, config) = get_client();
-        let client = ElementsClient::new(LiquidConfig {
-            base: config.clone(),
-            lowball: None,
-        })
+        let client = ElementsClient::new(
+            CancellationToken::new(),
+            LiquidConfig {
+                base: config.clone(),
+                lowball: None,
+            },
+        )
         .unwrap();
         assert!(client.lowball_client.clone().is_none());
         assert_eq!(client.wallet_client().clone(), client.client);
 
         let mut config_lowball = config.clone();
         config_lowball.port = 123;
-        let client = ElementsClient::new(LiquidConfig {
-            base: config,
-            lowball: Some(config_lowball),
-        })
+        let client = ElementsClient::new(
+            CancellationToken::new(),
+            LiquidConfig {
+                base: config,
+                lowball: Some(config_lowball),
+            },
+        )
         .unwrap();
         assert!(client.lowball_client.clone().is_some());
         assert_eq!(

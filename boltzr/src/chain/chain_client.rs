@@ -1,12 +1,15 @@
 use crate::chain::rpc_client::RpcClient;
-use crate::chain::types::{NetworkInfo, RawMempool, RpcParam, ZmqNotification};
+use crate::chain::types::{
+    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, ZmqNotification,
+};
 use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
-use crate::chain::zmq_client::ZmqClient;
+use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
 use std::collections::HashSet;
-use tokio::sync::broadcast::Receiver;
-use tracing::{debug, error, info, trace};
+use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, trace, warn};
 
 const MAX_WORKERS: usize = 16;
 const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
@@ -16,6 +19,7 @@ pub struct ChainClient {
     client: RpcClient,
     client_type: crate::chain::types::Type,
     zmq_client: ZmqClient,
+    tx_sender: Sender<(Transaction, bool)>,
 }
 
 impl PartialEq for ChainClient {
@@ -26,15 +30,58 @@ impl PartialEq for ChainClient {
 
 impl ChainClient {
     pub fn new(
+        cancellation_token: CancellationToken,
         client_type: crate::chain::types::Type,
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
-        Ok(Self {
+        let client = Self {
             client_type,
-            client: RpcClient::new(symbol, config.clone())?,
+            client: RpcClient::new(symbol.clone(), config.clone())?,
             zmq_client: ZmqClient::new(client_type, config),
-        })
+            tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
+        };
+
+        {
+            let mut tx_receiver = client.zmq_client.tx_sender.subscribe();
+            let tx_sender = client.tx_sender.clone();
+            let client = client.clone();
+
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        tx = tx_receiver.recv() => {
+                            match tx {
+                                Ok(tx) => {
+                                    if tx_sender.receiver_count() == 0 {
+                                        continue;
+                                    }
+
+                                    let tx_verbose = match client.raw_transaction_verbose(&tx.txid_hex()).await {
+                                        Ok(tx_verbose) => tx_verbose,
+                                        Err(e) => {
+                                            trace!("Failed to get {} transaction: {}", symbol, e);
+                                            continue;
+                                        }
+                                    };
+
+                                    if let Err(e) = tx_sender.send((tx, tx_verbose.is_confirmed())) {
+                                        error!("Failed to forward {} transaction: {}", symbol, e);
+                                    }
+                                }
+                                Err(RecvError::Closed) => break,
+                                Err(RecvError::Lagged(skipped)) => {
+                                    warn!("{} transaction stream lagged behind by {} messages", symbol, skipped);
+                                }
+                            }
+                        },
+                        _ = cancellation_token.cancelled() => break,
+                    }
+                }
+            });
+        }
+
+        Ok(client)
     }
 
     fn is_relevant_tx(
@@ -81,8 +128,8 @@ impl BaseClient for ChainClient {
 
 #[async_trait]
 impl Client for ChainClient {
-    fn tx_receiver(&self) -> Receiver<Transaction> {
-        self.zmq_client.tx_sender.subscribe()
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+        self.tx_sender.subscribe()
     }
 
     async fn scan_mempool(
@@ -208,38 +255,43 @@ impl Client for ChainClient {
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.client.request("getnetworkinfo", None).await
     }
+
+    async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
+        self.client
+            .request::<RawTransactionVerbose>(
+                "getrawtransaction",
+                Some(vec![RpcParam::Str(tx_id.to_string()), RpcParam::Int(1)]),
+            )
+            .await
+    }
 }
 
 #[cfg(test)]
 pub mod test {
+    use super::*;
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::{Transaction, parse_transaction_hex};
     use crate::chain::{BaseClient, Client, Config};
     use serial_test::serial;
     use std::collections::HashSet;
-    use std::sync::OnceLock;
 
     const PORT: u16 = 18_443;
 
     pub fn get_client() -> ChainClient {
-        static CLIENT: OnceLock<ChainClient> = OnceLock::new();
-        CLIENT
-            .get_or_init(|| {
-                ChainClient::new(
-                    Type::Bitcoin,
-                    "BTC".to_string(),
-                    Config {
-                        host: "127.0.0.1".to_string(),
-                        port: PORT,
-                        cookie: None,
-                        user: Some("boltz".to_string()),
-                        password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
-                    },
-                )
-                .unwrap()
-            })
-            .clone()
+        ChainClient::new(
+            CancellationToken::new(),
+            Type::Bitcoin,
+            "BTC".to_string(),
+            Config {
+                host: "127.0.0.1".to_string(),
+                port: PORT,
+                cookie: None,
+                user: Some("boltz".to_string()),
+                password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+            },
+        )
+        .unwrap()
     }
 
     async fn generate_block(client: &ChainClient) {
@@ -362,6 +414,36 @@ pub mod test {
 
     #[tokio::test]
     #[serial(BTC)]
+    async fn raw_transaction_verbose_unconfirmed() {
+        let client = get_client();
+
+        let tx = send_transaction(&client).await;
+        let verbose = client
+            .raw_transaction_verbose(&tx.txid_hex())
+            .await
+            .unwrap();
+
+        assert!(!verbose.is_confirmed());
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn raw_transaction_verbose_confirmed() {
+        let client = get_client();
+
+        let tx = send_transaction(&client).await;
+        generate_block(&client).await;
+
+        let verbose = client
+            .raw_transaction_verbose(&tx.txid_hex())
+            .await
+            .unwrap();
+
+        assert!(verbose.is_confirmed());
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
     async fn test_tx_receiver() {
         let mut client = get_client();
         client.connect().await.unwrap();
@@ -370,8 +452,15 @@ pub mod test {
         let tx = send_transaction(&client).await;
 
         let received_tx = tx_receiver.recv().await.unwrap();
-        assert_eq!(received_tx, tx);
+        assert_eq!(received_tx, (tx.clone(), false));
 
         generate_block(&client).await;
+
+        // Coinbase
+        let received_tx = tx_receiver.recv().await.unwrap();
+        assert!(received_tx.1);
+
+        let received_tx = tx_receiver.recv().await.unwrap();
+        assert_eq!(received_tx, (tx.clone(), true));
     }
 }

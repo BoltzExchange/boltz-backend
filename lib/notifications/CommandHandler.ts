@@ -3,7 +3,13 @@ import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import type Logger from '../Logger';
 import Tracing from '../Tracing';
-import { checkEvmAddress, formatError, mapToObject, stringify } from '../Utils';
+import {
+  checkEvmAddress,
+  formatError,
+  getHexString,
+  mapToObject,
+  stringify,
+} from '../Utils';
 import {
   FinalChainSwapEvents,
   FinalReverseSwapEvents,
@@ -408,6 +414,23 @@ class CommandHandler {
         reverseSwap.dataValues.routingHint = reverseRoutingHints.get(
           reverseSwap.id,
         )!.dataValues;
+
+        reverseSwap.dataValues.routingHint.scriptPubkey = getHexString(
+          reverseSwap.dataValues.routingHint.scriptPubkey,
+        );
+        reverseSwap.dataValues.routingHint.signature = getHexString(
+          reverseSwap.dataValues.routingHint.signature,
+        );
+
+        {
+          const blindingPubkey =
+            reverseSwap.dataValues.routingHint.blindingPubkey;
+
+          if (blindingPubkey !== null && blindingPubkey !== undefined) {
+            reverseSwap.dataValues.routingHint.blindingPubkey =
+              getHexString(blindingPubkey);
+          }
+        }
       }
       await this.sendSwapInfo(reverseSwap);
     }

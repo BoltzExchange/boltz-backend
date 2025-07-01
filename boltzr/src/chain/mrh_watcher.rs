@@ -44,7 +44,7 @@ impl MrhWatcher {
 
                 let handle = tokio::spawn(async move {
                     tracing::debug!("Listening to chain client {} for MRH updates", symbol);
-                    if let Err(e) = watcher.listen(stream).await {
+                    if let Err(e) = watcher.listen(&symbol, stream).await {
                         tracing::error!("Failed to listen to chain client {}: {}", symbol, e);
                     }
                 });
@@ -81,19 +81,28 @@ impl MrhWatcher {
         Ok(())
     }
 
-    async fn listen(&self, mut stream: Receiver<Transaction>) -> anyhow::Result<()> {
+    async fn listen(
+        &self,
+        symbol: &str,
+        mut stream: Receiver<(Transaction, bool)>,
+    ) -> anyhow::Result<()> {
         loop {
             tokio::select! {
                 tx = stream.recv() => {
                     match tx {
-                        Ok(tx) => {
+                        Ok((tx, confirmed)) => {
+                            // The watcher is only about speeding up the detection of unconfirmed transactions
+                            if confirmed {
+                                continue;
+                            }
+
                             if let Err(e) = self.process_transaction(tx) {
-                                tracing::error!("Failed to process transaction: {}", e);
+                                tracing::error!("Failed to process {} MRH transaction: {}", symbol, e);
                             }
                         }
                         Err(RecvError::Closed) => break,
                         Err(RecvError::Lagged(skipped)) => {
-                            tracing::warn!("Lagged behind by {} messages", skipped);
+                            tracing::warn!("{} MRH transaction stream lagged behind by {} messages", symbol, skipped);
                         }
                     }
                 },
@@ -149,10 +158,10 @@ mod test {
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let listen_handle = tokio::spawn(async move {
-            watcher.clone().listen(tx_receiver).await.unwrap();
+            watcher.clone().listen("BTC", tx_receiver).await.unwrap();
         });
 
-        tx_sender.send(test_transaction.clone()).unwrap();
+        tx_sender.send((test_transaction.clone(), false)).unwrap();
 
         let received_update = swap_status_update_rx.recv().await.unwrap();
 
@@ -170,6 +179,50 @@ mod test {
             transaction_info.hex.unwrap(),
             test_transaction.serialize().to_lower_hex_string()
         );
+
+        cancellation_token.cancel();
+        listen_handle.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_listen_ignore_confirmed() {
+        let (swap_status_update_tx, swap_status_update_rx) = broadcast::channel(256);
+        let (tx_sender, tx_receiver) = broadcast::channel(256);
+
+        let mut helper = MockReverseSwapHelper::new();
+
+        helper.expect_get_routing_hints().returning(|_scripts| {
+            assert_eq!(
+                _scripts[0].to_lower_hex_string(),
+                "00140e9aab3b924ad7f6c4813b1acad0441c655c9b54"
+            );
+            Ok(vec![ReverseRoutingHint {
+                swapId: "123".to_string(),
+                symbol: "BTC".to_string(),
+                scriptPubkey: vec![],
+                blindingPubkey: None,
+                params: None,
+                signature: vec![],
+            }])
+        });
+
+        let cancellation_token = CancellationToken::new();
+        let watcher = Arc::new(MrhWatcher::new(
+            cancellation_token.clone(),
+            Arc::new(helper),
+            swap_status_update_tx,
+        ));
+
+        let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
+
+        let listen_handle = tokio::spawn(async move {
+            watcher.clone().listen("BTC", tx_receiver).await.unwrap();
+        });
+
+        tx_sender.send((test_transaction.clone(), true)).unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        assert!(swap_status_update_rx.is_empty());
 
         cancellation_token.cancel();
         listen_handle.await.unwrap();

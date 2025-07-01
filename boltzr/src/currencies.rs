@@ -76,6 +76,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                             Some(config) => {
                                 #[allow(clippy::manual_map)]
                                 match connect_client(ChainClient::new(
+                                    cancellation_token.clone(),
                                     crate::chain::types::Type::Bitcoin,
                                     currency.symbol.clone(),
                                     config,
@@ -145,7 +146,12 @@ pub async fn connect_nodes<K: KeysHelper>(
                     keys_info.derivationPath,
                 )?),
                 #[allow(clippy::manual_map)]
-                chain: match connect_client(ElementsClient::new(liquid.chain)).await {
+                chain: match connect_client(ElementsClient::new(
+                    cancellation_token.clone(),
+                    liquid.chain,
+                ))
+                .await
+                {
                     Some(client) => Some(Arc::new(Box::new(client))),
                     None => None,
                 },

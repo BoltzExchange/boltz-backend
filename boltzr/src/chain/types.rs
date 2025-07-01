@@ -75,4 +75,18 @@ pub struct ZmqNotification {
     pub address: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct RawTransactionVerbose {
+    pub confirmations: Option<u64>,
+}
+
+impl RawTransactionVerbose {
+    pub fn is_confirmed(&self) -> bool {
+        match self.confirmations {
+            Some(confirmations) => confirmations > 0,
+            None => false,
+        }
+    }
+}
+
 pub type RawMempool = Vec<String>;

@@ -49,6 +49,7 @@ pub trait Client: BaseClient {
     ) -> Result<Vec<Transaction>>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+    async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
-    fn tx_receiver(&self) -> Receiver<Transaction>;
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)>;
 }

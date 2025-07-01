@@ -7,6 +7,8 @@ use tokio::sync::broadcast::{self, Sender};
 use tracing::{debug, error, warn};
 use zeromq::{Socket, SocketRecv, ZmqError, ZmqMessage};
 
+pub const ZMQ_TX_CHANNEL_SIZE: usize = 1024 * 16;
+
 #[derive(Debug, Clone)]
 pub struct ZmqClient {
     client_type: Type,
@@ -16,7 +18,7 @@ pub struct ZmqClient {
 
 impl ZmqClient {
     pub fn new(client_type: Type, config: Config) -> ZmqClient {
-        let (tx_sender, _) = broadcast::channel::<Transaction>(1024);
+        let (tx_sender, _) = broadcast::channel::<Transaction>(ZMQ_TX_CHANNEL_SIZE);
 
         ZmqClient {
             client_type,

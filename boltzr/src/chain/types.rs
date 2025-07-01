@@ -69,6 +69,11 @@ pub struct NetworkInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct SmartFeeEstimate {
+    pub feerate: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct ZmqNotification {
     #[serde(rename = "type")]
     pub notification_type: String,

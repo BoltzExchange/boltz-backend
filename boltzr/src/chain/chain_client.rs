@@ -1,6 +1,7 @@
+use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, ZmqNotification,
+    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, ZmqNotification,
 };
 use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -14,12 +15,14 @@ use tracing::{debug, error, info, trace, warn};
 
 const MAX_WORKERS: usize = 16;
 const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
+const BTC_KVB_SAT_VBYTE_FACTOR: u64 = 100_000;
 
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
     client_type: crate::chain::types::Type,
     zmq_client: ZmqClient,
+    mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transaction, bool)>,
 }
 
@@ -39,6 +42,10 @@ impl ChainClient {
         let client = Self {
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
+            mempool_space: config
+                .mempool_space
+                .clone()
+                .map(|url| MempoolSpace::new(cancellation_token.clone(), symbol.clone(), url)),
             zmq_client: ZmqClient::new(client_type, config),
             tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
         };
@@ -98,6 +105,26 @@ impl ChainClient {
                 .iter()
                 .any(|output| relevant_outputs.contains(output))
     }
+
+    async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
+        if let Some(mempool_space) = &self.mempool_space {
+            match mempool_space.get_fees() {
+                Some(fee) => return Ok(fee),
+                None => debug!("No fees from {} mempool.space", self.symbol()),
+            }
+        }
+
+        match self
+            .client
+            .request::<SmartFeeEstimate>("estimatesmartfee", Some(vec![RpcParam::Int(1)]))
+            .await
+            .map(|fee| fee.feerate)
+        {
+            Ok(fee) => Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64),
+            // On regtest estimatesmartfee can fail
+            Err(_) => Ok(floor),
+        }
+    }
 }
 
 #[async_trait]
@@ -117,6 +144,10 @@ impl BaseClient for ChainClient {
             .request::<Vec<ZmqNotification>>("getzmqnotifications", None)
             .await?;
         self.zmq_client.connect(notifications).await?;
+
+        if let Some(mempool_space) = &self.mempool_space {
+            mempool_space.connect().await?;
+        }
 
         info!(
             "Connected to {} chain client: {}",
@@ -257,6 +288,14 @@ impl Client for ChainClient {
         self.client.request("getnetworkinfo", None).await
     }
 
+    async fn estimate_fee(&self) -> anyhow::Result<f64> {
+        let floor = match self.client_type {
+            crate::chain::types::Type::Bitcoin => 2.0,
+            crate::chain::types::Type::Elements => 0.1,
+        };
+        Ok(f64::max(self.estimate_fee_raw(floor).await?, floor))
+    }
+
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
         self.client
             .request::<RawTransactionVerbose>(
@@ -296,6 +335,7 @@ pub mod test {
                 cookie: None,
                 user: Some("boltz".to_string()),
                 password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+                mempool_space: None,
             },
         )
         .unwrap()
@@ -417,6 +457,13 @@ pub mod test {
         assert_eq!(transactions[0], tx);
 
         generate_block(&client).await;
+    }
+
+    #[tokio::test]
+    async fn test_get_fees_smart_fee() {
+        let client = get_client();
+        let fees = client.estimate_fee().await.unwrap();
+        assert_eq!(fees, 2.0);
     }
 
     #[tokio::test]

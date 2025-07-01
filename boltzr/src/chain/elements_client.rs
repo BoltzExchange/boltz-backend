@@ -116,8 +116,8 @@ impl Client for ElementsClient {
         self.wallet_client().network_info().await
     }
 
-    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
-        self.wallet_client().tx_receiver()
+    async fn estimate_fee(&self) -> anyhow::Result<f64> {
+        self.wallet_client().estimate_fee().await
     }
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
@@ -135,6 +135,10 @@ impl Client for ElementsClient {
             Some(tool) => tool.check_transaction(transaction),
             None => self.wallet_client().zero_conf_safe(transaction),
         }
+    }
+
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+        self.wallet_client().tx_receiver()
     }
 }
 
@@ -165,6 +169,7 @@ pub mod test {
             cookie: None,
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+            mempool_space: None,
         };
 
         static CLIENT: OnceLock<(ElementsClient, Config)> = OnceLock::new();
@@ -244,9 +249,11 @@ pub mod test {
 
     #[tokio::test]
     async fn test_wallet_client() {
+        let cancellation_token = CancellationToken::new();
+
         let (_, config) = get_client();
         let client = ElementsClient::new(
-            CancellationToken::new(),
+            cancellation_token.clone(),
             Network::Regtest,
             LiquidConfig {
                 base: config.clone(),
@@ -261,7 +268,7 @@ pub mod test {
         let mut config_lowball = config.clone();
         config_lowball.port = 123;
         let client = ElementsClient::new(
-            CancellationToken::new(),
+            cancellation_token.clone(),
             Network::Regtest,
             LiquidConfig {
                 base: config,
@@ -275,6 +282,15 @@ pub mod test {
             client.wallet_client().clone(),
             client.lowball_client.unwrap()
         );
+
+        cancellation_token.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_get_fees_smart_fee() {
+        let (client, _) = get_client();
+        let fees = client.estimate_fee().await.unwrap();
+        assert_eq!(fees, 0.1);
     }
 
     #[tokio::test]

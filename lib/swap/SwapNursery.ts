@@ -1447,6 +1447,27 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   };
 
   private lockupFailed = async (swap: Swap | ChainSwapInfo, reason: string) => {
+    if (swap.type === SwapType.Submarine) {
+      const loaded = await SwapRepository.getSwap({ id: swap.id });
+      if (loaded!.status === SwapUpdateEvent.InvoicePending) {
+        this.logger.warn(
+          `Prevented lockup race of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+        );
+        return;
+      }
+    } else if (swap.type === SwapType.Chain) {
+      const loaded = await ChainSwapRepository.getChainSwap({ id: swap.id });
+      if (
+        loaded!.sendingData.transactionId !== null &&
+        loaded!.sendingData.transactionId !== undefined
+      ) {
+        this.logger.warn(
+          `Prevented lockup race of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+        );
+        return;
+      }
+    }
+
     this.logger.warn(
       `Lockup of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed: ${reason}`,
     );

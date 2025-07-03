@@ -17,7 +17,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 .",
-    "prettier": "npx prettier '{lib,test}/**/*.ts' bin",
+    "prettier": "npx prettier '{lib,test}/**/*.ts' bin docs",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
     "db:start": "npm run docker:dragonfly:start && docker run --name boltz-db --rm -v ~/.boltz/db:/var/lib/postgresql/data -e PGDATA=/var/lib/postgresql/data/pgdata -e POSTGRES_DB=boltz -e POSTGRES_USER=boltz -e POSTGRES_PASSWORD=boltz -d -p 5432:5432 postgres:17-alpine && npm run db:setup",
@@ -41,7 +41,10 @@
     "test:unit:coverage": "jest test/unit --coverage",
     "test:int": "jest test/integration --runInBand --testTimeout 10000",
     "changelog": "git-cliff -o CHANGELOG.md",
-    "prepublishOnly": "npm run compile && rm -f dist/package.json"
+    "prepublishOnly": "npm run compile && rm -f dist/package.json",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "bin": {
     "boltzd": "./bin/boltzd",
@@ -137,7 +140,8 @@
     "swagger-jsdoc": "^6.2.8",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.34.1"
+    "typescript-eslint": "^8.34.1",
+    "vitepress": "^1.6.3"
   },
   "optionalDependencies": {
     "@types/nodemailer": "^6.4.17",

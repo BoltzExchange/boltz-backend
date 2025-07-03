@@ -1,28 +1,48 @@
----
-description: >-
-  To reduce the interactivity requirements of Reverse Swaps, one can make use of
-  covenants.
----
-
 # 📜 Claim Covenants
 
-Covenants are available on [Liquid](https://liquid.net/) in the form of [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality). These opcodes allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is executed in.
+To reduce the interactivity requirements of Reverse Swaps, one can make use of
+covenants.
+
+Covenants are available on [Liquid](https://liquid.net/) in the form of
+[direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality).
+These opcodes allow the script in the witness to inspect the inputs, outputs and
+other properties of the transaction it is executed in.
 
 ## Disclaimer
 
-In most cases, claim covenants do **not** allow Boltz Swap clients to trustlessly receive Lightning payments when offline.
+In most cases, claim covenants do **not** allow Boltz Swap clients to
+trustlessly receive Lightning payments when offline.
 
-While a swap can be restricted to a specific claiming address, potentially giving this impression, it is crucial to acknowledge that the swap creator retains sole control over the actual claiming conditions. If the receiving client cannot validate the swap's covenant setup after the swap was created (because they are offline), they are inherently trusting the entity that created the swap to configure it correctly. From a trust perspective, this is similar to providing an xpub or wallet descriptor as swap destination directly to the swap creator.
+While a swap can be restricted to a specific claiming address, potentially
+giving this impression, it is crucial to acknowledge that the swap creator
+retains sole control over the actual claiming conditions. If the receiving
+client cannot validate the swap's covenant setup after the swap was created
+(because they are offline), they are inherently trusting the entity that created
+the swap to configure it correctly. From a trust perspective, this is similar to
+providing an xpub or wallet descriptor as swap destination directly to the swap
+creator.
 
-Further, when handing over the preimage of a Reverse Swap to a third party like a mobile wallet provider, you have to rely on this party not to collude with the Lightning node that accepts HTLCs for the hold invoice. If that happens, the covenant script path spend would not be executed, but the Lightning HTLCs resolved and eventually, the coins locked on Liquid will be refunded. A work around could be access to multiple servers that enforce covenant claims for the swap client.
+Further, when handing over the preimage of a Reverse Swap to a third party like
+a mobile wallet provider, you have to rely on this party not to collude with the
+Lightning node that accepts HTLCs for the hold invoice. If that happens, the
+covenant script path spend would not be executed, but the Lightning HTLCs
+resolved and eventually, the coins locked on Liquid will be refunded. A work
+around could be access to multiple servers that enforce covenant claims for the
+swap client.
 
-Also, Liquid swap transactions need to be unblinded for covenants and therefore cannot leverage the privacy benefits of [Confidential Transactions](https://glossary.blockstream.com/confidential-transactions/).
+Also, Liquid swap transactions need to be unblinded for covenants and therefore
+cannot leverage the privacy benefits of
+[Confidential Transactions](https://glossary.blockstream.com/confidential-transactions/).
 
 Therefore, we currently do not recommend claim covenants for use in production.
 
 ## Boltz API
 
-Boltz API clients can ask for a covenant to be included in the Taptree of a Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse Swap can be claimed by revealing the preimage and sending the expected asset with expected amount to an address of the client in the 0th output of the transaction. This is what the script looks like:
+Boltz API clients can ask for a covenant to be included in the Taptree of a
+Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse
+Swap can be claimed by revealing the preimage and sending the expected asset
+with expected amount to an address of the client in the 0th output of the
+transaction. This is what the script looks like:
 
 ```
 OP_SIZE
@@ -55,7 +75,9 @@ OP_EQUAL
 
 ## Example Code
 
-This example registers a covenant to be claimed with the reference implementation [covclaim](https://github.com/BoltzExchange/covclaim/) running locally at port 1234:
+This example registers a covenant to be claimed with the reference
+implementation [covclaim](https://github.com/BoltzExchange/covclaim/) running
+locally at port 1234:
 
 ```typescript
 import axios from 'axios';
@@ -83,8 +105,7 @@ const createSwap = async (): Promise<CovenantParams> => {
   const preimage = randomBytes(32);
   const claimKeys = ECPair.makeRandom();
 
-  const address =
-    '<L-BTC address on the network used>';
+  const address = '<L-BTC address on the network used>';
 
   const swapRes = (
     await axios.post(`${endpoint}/v2/swap/reverse`, {

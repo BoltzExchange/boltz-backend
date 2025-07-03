@@ -5,7 +5,8 @@ integrations.
 
 ## REST Endpoints
 
-The Swagger specifications of the latest Boltz REST API can be found :point_right: [here](https://api.boltz.exchange/swagger) :point_left:!
+The Swagger specifications of the latest Boltz REST API can be found
+:point_right: [here](https://api.boltz.exchange/swagger) :point_left:!
 
 ## WebSocket
 
@@ -13,9 +14,11 @@ The mainnet endpoint is available at: `wss://api.boltz.exchange/v2/ws`
 
 ### Swap Updates
 
-Instead of polling for swap status updates, clients can subscribe to updates with a WebSocket.
+Instead of polling for swap status updates, clients can subscribe to updates
+with a WebSocket.
 
-To subscribe to swap status updates, send a message like below. `args` is a list of swap ids to subscribe to.
+To subscribe to swap status updates, send a message like below. `args` is a list
+of swap ids to subscribe to.
 
 ```json
 {
@@ -25,7 +28,8 @@ To subscribe to swap status updates, send a message like below. `args` is a list
 }
 ```
 
-Boltz API will respond with a message like below, to confirm that the subscription was created successfully.
+Boltz API will respond with a message like below, to confirm that the
+subscription was created successfully.
 
 ```json
 {
@@ -35,9 +39,12 @@ Boltz API will respond with a message like below, to confirm that the subscripti
 }
 ```
 
-After the initial subscription confirmation message and whenever a swap status is updated, Boltz API will send a message containing details about the status update.
+After the initial subscription confirmation message and whenever a swap status
+is updated, Boltz API will send a message containing details about the status
+update.
 
-`args` is a list of objects. These objects correspond to responses of `GET /swap/{id}`, but additionally contain the id of the swap.
+`args` is a list of objects. These objects correspond to responses of
+`GET /swap/{id}`, but additionally contain the id of the swap.
 
 ```json
 {
@@ -52,7 +59,8 @@ After the initial subscription confirmation message and whenever a swap status i
 }
 ```
 
-To unsubscribe from the updates of one or more swaps, send an `unsubscribe` message.
+To unsubscribe from the updates of one or more swaps, send an `unsubscribe`
+message.
 
 ```json
 {
@@ -62,7 +70,8 @@ To unsubscribe from the updates of one or more swaps, send an `unsubscribe` mess
 }
 ```
 
-The backend will respond with a message that contains all swap ids the WebSocket is still subscribed to.
+The backend will respond with a message that contains all swap ids the WebSocket
+is still subscribed to.
 
 ```json
 {
@@ -74,9 +83,14 @@ The backend will respond with a message that contains all swap ids the WebSocket
 
 ### BOLT12 Invoice Requests
 
-Clients can subscribe to invoice requests for BOLT12 offers they created via WebSockets. That is alternative to webhook calls for environments that can't receive webhook calls.
+Clients can subscribe to invoice requests for BOLT12 offers they created via
+WebSockets. That is alternative to webhook calls for environments that can't
+receive webhook calls.
 
-To subscribe to invoice requests for specific offers, send a message like below. `args` is a list of objects, each containing the BOLT12 `offer` string and a schnorr signature by the signing key of the offer of the SHA256 hash of `SUBSCRIBE` serialized as HEX.
+To subscribe to invoice requests for specific offers, send a message like below.
+`args` is a list of objects, each containing the BOLT12 `offer` string and a
+schnorr signature by the signing key of the offer of the SHA256 hash of
+`SUBSCRIBE` serialized as HEX.
 
 ```json
 {
@@ -91,7 +105,8 @@ To subscribe to invoice requests for specific offers, send a message like below.
 }
 ```
 
-Boltz API will respond with a message like below to confirm the subscription, echoing the subscribed offers.
+Boltz API will respond with a message like below to confirm the subscription,
+echoing the subscribed offers.
 
 ```json
 {
@@ -101,7 +116,10 @@ Boltz API will respond with a message like below to confirm the subscription, ec
 }
 ```
 
-When an invoice for one of the subscribed offers is requested, it will send an `invoice.request` event. This message includes an unique `id` for this specific request, the `offer` for which an invoice is requested and the `invoiceRequest` itself serialized as HEX.
+When an invoice for one of the subscribed offers is requested, it will send an
+`invoice.request` event. This message includes an unique `id` for this specific
+request, the `offer` for which an invoice is requested and the `invoiceRequest`
+itself serialized as HEX.
 
 ```json
 {
@@ -117,7 +135,8 @@ When an invoice for one of the subscribed offers is requested, it will send an `
 }
 ```
 
-The client must then generate the requested BOLT12 invoice and send it back using the `invoice` operation, referencing the `id` of the invoice request.
+The client must then generate the requested BOLT12 invoice and send it back
+using the `invoice` operation, referencing the `id` of the invoice request.
 
 ```json
 {
@@ -127,7 +146,8 @@ The client must then generate the requested BOLT12 invoice and send it back usin
 }
 ```
 
-In case the client can't create the BOLT12 invoice, it should send an error with a message that will be passed through to the requester of the invoice.
+In case the client can't create the BOLT12 invoice, it should send an error with
+a message that will be passed through to the requester of the invoice.
 
 ```json
 {
@@ -137,7 +157,8 @@ In case the client can't create the BOLT12 invoice, it should send an error with
 }
 ```
 
-To unsubscribe from invoice requests for specific offers, send an `unsubscribe` message. `args` should contain the offer strings to unsubscribe from.
+To unsubscribe from invoice requests for specific offers, send an `unsubscribe`
+message. `args` should contain the offer strings to unsubscribe from.
 
 ```json
 {
@@ -147,7 +168,8 @@ To unsubscribe from invoice requests for specific offers, send an `unsubscribe` 
 }
 ```
 
-The backend will respond with a message containing all offer ids the WebSocket is still subscribed to for invoice requests.
+The backend will respond with a message containing all offer ids the WebSocket
+is still subscribed to for invoice requests.
 
 ```json
 {
@@ -159,7 +181,10 @@ The backend will respond with a message containing all offer ids the WebSocket i
 
 ### Application Level Pings
 
-To ensure the connection is alive, besides the native WebSocket pings, Boltz API will also respond to application-level pings, which is useful when the WebSocket client cannot control the low-level WebSocket connection (like on browsers). To send a ping, send a message like below.
+To ensure the connection is alive, besides the native WebSocket pings, Boltz API
+will also respond to application-level pings, which is useful when the WebSocket
+client cannot control the low-level WebSocket connection (like on browsers). To
+send a ping, send a message like below.
 
 ```json
 {
@@ -177,13 +202,16 @@ The backend will respond with a `pong` message.
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. **The examples are not feature-complete, do not cover all edge cases and are not to be used in production as-is.**
+Below are some examples covering the flow of a given swap type from beginning to
+end, using API v2 and its WebSocket. **The examples are not feature-complete, do
+not cover all edge cases and are not to be used in production as-is.**
 
 <!-- TODO: import code snippets from type checked and tested files -->
 
 ### Submarine Swap (Chain -> Lightning)
 
 ::: code-group
+
 ```typescript [TypeScript Bitcoin]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -723,11 +751,13 @@ func main() {
 	}
 }
 ```
+
 :::
 
 ### Reverse Swap (Lightning -> Chain)
 
 ::: code-group
+
 ```typescript [TypeScript Bitcoin]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -1389,11 +1419,13 @@ func main() {
 	}
 }
 ```
+
 :::
 
 ### Chain Swap (Chain -> Chain)
 
 ::: code-group
+
 ```typescript [TypeScript Bitcoin -> Liquid]
 import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
@@ -1833,4 +1865,5 @@ const chainSwap = async () => {
   await chainSwap();
 })();
 ```
+
 :::

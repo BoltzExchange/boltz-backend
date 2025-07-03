@@ -4,8 +4,8 @@ const docsRoot = 'https://docs.boltz.exchange';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: 'Boltz Web App',
-  description: 'Boltz Web App Docs',
+  title: 'Boltz API',
+  description: 'Boltz API Docs',
   themeConfig: {
     logo: './assets/logo.svg',
     search: {

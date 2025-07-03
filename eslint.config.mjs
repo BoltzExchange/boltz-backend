@@ -9,7 +9,14 @@ import tsEslint from 'typescript-eslint';
 export default [
   { files: ['**/*.{js,mjs,cjs,ts}'] },
   {
-    ignores: ['dist', 'lib/proto', 'contracts', 'node_modules'],
+    ignores: [
+      'dist',
+      'lib/proto',
+      'contracts',
+      'node_modules',
+      'docs/.vitepress/dist',
+      'docs/.vitepress/cache',
+    ],
   },
   { languageOptions: { globals: globals.node } },
 

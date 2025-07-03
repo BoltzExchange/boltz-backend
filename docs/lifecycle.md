@@ -159,7 +159,7 @@ A Chain Swap has the following states:
    state is skipped
 4. `transaction.server.mempool`: the lockup transaction of the server has been
    broadcast
-5. `trnasaction.server.confirmed`: the lockup transaction of the server has been
+5. `transaction.server.confirmed`: the lockup transaction of the server has been
    included in a block
 6. `transaction.claimed`: the server claimed the coins that the client locked
 

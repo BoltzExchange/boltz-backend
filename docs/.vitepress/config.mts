@@ -39,7 +39,7 @@ export default defineConfig({
     socialLinks: [
       {
         icon: 'github',
-        link: 'https://github.com/BoltzExchange/boltz-web-app',
+        link: 'https://github.com/BoltzExchange/boltz-backend',
       },
     ],
   },

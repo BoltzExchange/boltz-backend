@@ -19,7 +19,7 @@ we provide
 [this API endpoint](https://api.boltz.exchange/swagger#/Lightning/post_lightning__currency__bolt12_fetch).
 
 To verify the returned invoice belongs to the provided offer, the signing key of
-the invoice has to be checked. That singing key has to be either:
+the invoice has to be checked. That signing key has to be either:
 
 - the signing key of the offer, if that is defined, or
 - the public key of the last hop of one of the message paths

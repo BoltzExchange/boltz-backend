@@ -25,6 +25,10 @@ Payout Terms:
 - Denomination of all payout financial data in bitcoin (BTC/sats).
 - 1,000 sat minimum payout, balances below threshold don't roll over.
 
-::: info Boltz reserves all rights to change conditions of the referral program
-at any time and to sovereignly decide which integrations to onboard and, in some
-cases, which to offboard. :::
+::: info
+
+Boltz reserves all rights to change conditions of the referral program at any
+time and to sovereignly decide which integrations to onboard and, in some cases,
+which to offboard.
+
+:::

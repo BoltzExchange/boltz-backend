@@ -2,9 +2,13 @@
 
 This page lists all available endpoints of the deprecated Boltz API v1.
 
-::: danger API v1 is maintained for existing integrations only and does not
-include the latest features or swap pairs. For any new integrations, we strongly
-recommend using API v2. :::
+::: danger
+
+API v1 is maintained for existing integrations only and does not include the
+latest features or swap pairs. For any new integrations, we strongly recommend
+using API v2.
+
+:::
 
 ## Basics
 
@@ -592,8 +596,12 @@ will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz
 will send the event `minerfee.paid` and when the actual hold `invoice` is paid,
 the chain bitcoin will be sent.
 
-::: info This protocol is a countermeasure against a specific attack vector and
-is currently \_not\_ enabled on Boltz Mainnet. :::
+::: info
+
+This protocol is a countermeasure against a specific attack vector and is
+currently \_not\_ enabled on Boltz Mainnet.
+
+:::
 
 ### Reverse Swaps: UTXO Chains
 
@@ -740,8 +748,12 @@ Response body:
 
 ## Swap Status
 
-::: info Before handling status events of this method, we recommended to read:
-\[Swap Types & States]\(lifecycle.md) :::
+::: info
+
+Before handling status events of this method, we recommended to read:
+[Swap Types & States](lifecycle.md)
+
+:::
 
 To query the status of a swap one can use this endpoint which returns a `JSON`
 object containing the status of the swap. Possible states and status events are

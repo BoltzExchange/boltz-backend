@@ -34,5 +34,9 @@ client, powering e.g. the popular
 Check [this section](https://docs.boltz.exchange/boltz-client/boltz-pro) for
 details on how to set up Boltz Client for usage with Boltz Pro.
 
-::: warning We strongly advise _against_ using Boltz Web App for automation of
-Boltz Pro, as updates might break integrations. :::
+::: warning
+
+We strongly advise _against_ using Boltz Web App for automation of Boltz Pro, as
+updates might break integrations.
+
+:::

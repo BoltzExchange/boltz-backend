@@ -64,9 +64,13 @@ the
 [`boltz-core`](https://github.com/BoltzExchange/boltz-core/blob/v2.0.1/lib/swap/Scripts.ts)
 reference library.
 
-::: info Address verification applies to all swap types involving a UTXO chain.
-A list of Bitcoin mainchain Opcodes with description can be found on the
-[Bitcoin Wiki](https://en.bitcoin.it/wiki/Script). :::
+::: info
+
+Address verification applies to all swap types involving a UTXO chain. A list of
+Bitcoin mainchain Opcodes with description can be found on the
+[Bitcoin Wiki](https://en.bitcoin.it/wiki/Script).
+
+:::
 
 ## Lightning Invoice Verification
 

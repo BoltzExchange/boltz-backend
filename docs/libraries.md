@@ -48,5 +48,9 @@ Supported currencies: Bitcoin, Lightning, Liquid
 **Please [get in touch with us](https://docs.boltz.exchange/#resources) for help
 during the integration - don't be shy!**
 
-::: danger Only consider integrating Boltz API from scratch if above libraries
-don't serve your need and you absolutely know what you are doing. :::
+::: danger
+
+Only consider integrating Boltz API from scratch if above libraries don't serve
+your need and you absolutely know what you are doing.
+
+:::

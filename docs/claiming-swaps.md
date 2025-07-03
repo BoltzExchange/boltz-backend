@@ -30,9 +30,12 @@ expires.
 
 ## Taproot
 
-::: info If you are not familiar with Taproot yet, or want to refresh your
-memory, we recommend watching the
+::: info
+
+If you are not familiar with Taproot yet, or want to refresh your memory, we
+recommend watching the
 [Taproot workshop of Bitcoin Optech](https://bitcoinops.org/en/schorr-taproot-workshop/).
+
 :::
 
 Boltz Taproot Swaps are using tweaked public keys aggregated with
@@ -79,9 +82,13 @@ If a Submarine Swap failed (e.g. status `invoice.failedToPay` or
 signature from Boltz with `POST /swap/submarine/{id}/refund`, aggregate the
 partials and broadcast the transaction.
 
-::: info The primary advantage of key path refunds is their immediacy: they can
-be processed as soon as a swap fails, eliminating the need to wait for the
-timelock to expire. :::
+::: info
+
+The primary advantage of key path refunds is their immediacy: they can be
+processed as soon as a swap fails, eliminating the need to wait for the timelock
+to expire.
+
+:::
 
 Script path refunds are also possible after the time lock expired and should be
 implemented as fallback, in case Boltz isn't cooperating. Set the locktime of

@@ -1,8 +1,6 @@
----
-description: Get notified about swap status updates
----
-
 # 🪝 Webhooks
+
+Get notified about swap status updates.
 
 To get the latest status of your swaps, you can poll the status endpoints of the REST API, subscribe to the WebSocket, or set a webhook when creating the swap.
 

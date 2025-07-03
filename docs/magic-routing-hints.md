@@ -1,11 +1,8 @@
----
-description: >-
-  This page describes the mechanism that encodes a BIP21 URI into the routing
-  hints section of an invoice, mainly for Boltz-powered wallets like Aqua to pay
-  each other directly without a Boltz swap.
----
-
 # 🪄 Magic Routing Hints
+
+This page describes the mechanism that encodes a BIP21 URI into the routing
+hints section of an invoice, mainly for Boltz-powered wallets like Aqua to pay
+each other directly without a Boltz swap.
 
 While paying invoices of Reverse Swaps with Submarine Swaps is supported by Boltz, it is not economical. To minimize the number of transactions and costs, swap routes can be optimized or swaps can be skipped entirely and the sender can pay the receiver directly using Magic Routing Hints, or "MRH" for short.
 
@@ -33,7 +30,7 @@ When a wallet attempts to pay a Lightning invoice via a Submarine Swap, there ar
 * Extract the address from the BIP21, hash the address, and verify the signature returned in the API call against the public key in the magic routing hint.
 * Verify the amount of the BIP21 before paying to it. On Liquid, the asset id should be verified, too.
 
-<figure><img src=".gitbook/assets/mrh.svg" alt=""><figcaption><p>Sequence Diagram for Receiver and Sender MRH flows</p></figcaption></figure>
+<figure><img src="./assets/mrh.svg" alt=""><figcaption><p>Sequence Diagram for Receiver and Sender MRH flows</p></figcaption></figure>
 
 ## Amounts
 

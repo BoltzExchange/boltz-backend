@@ -1,12 +1,10 @@
----
-description: This page lists all available endpoints of the deprecated Boltz API v1.
----
-
 # 🤖 REST API v1 (deprecated)
 
-{% hint style="info" %}
+This page lists all available endpoints of the deprecated Boltz API v1.
+
+::: danger
 API v1 is maintained for existing integrations only and does not include the latest features or swap pairs. For any new integrations, we strongly recommend using API v2.
-{% endhint %}
+:::
 
 ## Basics
 
@@ -468,9 +466,9 @@ In case the invoice amount was specified, the amount that will be locked in the 
 
 Boltz Backend finally features the so-called Prepay Miner Fee protocol that requires an invoice for network fees to be paid before the actual hold `invoice` of a Reverse Submarine Swap. If this protocol is enabled, the response object will also contain a `minerFeeInvoice`. Once the `minerFeeInvoice` is paid, Boltz will send the event `minerfee.paid` and when the actual hold `invoice` is paid, the chain bitcoin will be sent.
 
-{% hint style="info" %}
+::: info
 This protocol is a countermeasure against a specific attack vector and is currently \_not\_ enabled on Boltz Mainnet.
-{% endhint %}
+:::
 
 ### Reverse Swaps: UTXO Chains
 
@@ -599,9 +597,9 @@ Response body:
 
 ## Swap Status
 
-{% hint style="info" %}
+::: info
 Before handling status events of this method, we recommended to read: \[Swap Types & States]\(lifecycle.md)
-{% endhint %}
+:::
 
 To query the status of a swap one can use this endpoint which returns a `JSON` object containing the status of the swap. Possible states and status events are documented in the section [Swap Types & States](lifecycle.md)_._
 

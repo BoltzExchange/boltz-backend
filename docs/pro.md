@@ -1,11 +1,8 @@
----
-description: >-
-  Boltz Pro is a service designed to dynamically adjust swap fees based on
-  Boltz's liquidity needs, helping to maintain wallet and Lightning channel
-  balances.
----
-
 # 🏅 Pro
+
+Boltz Pro is a service designed to dynamically adjust swap fees based on
+Boltz's liquidity needs, helping to maintain wallet and Lightning channel
+balances.
 
 Boltz Pro temporarily offers incentives, like 0% or even negative fees, to encourage users to conduct swaps that work in favor of our liquidity needs. It has much stricter limits, e.g. the available fee budget for routing on Lightning, or the time limit to fund swaps and is **not designed for regular payments**.
 
@@ -27,6 +24,6 @@ We recommend using [Boltz Client](https://github.com/BoltzExchange/boltz-client)
 
 Check [this section](https://docs.boltz.exchange/boltz-client/boltz-pro) for details on how to set up Boltz Client for usage with Boltz Pro.
 
-{% hint style="info" %}
+::: warning
 We strongly advise _against_ using Boltz Web App for automation of Boltz Pro, as updates might break integrations.
-{% endhint %}
+:::

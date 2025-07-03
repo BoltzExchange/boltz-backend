@@ -1,11 +1,8 @@
----
-description: >-
-  Integrating Boltz API is involved and not to be underestimated. To save on
-  time and resources, we highly recommend exploring the different library
-  options for Boltz API below.
----
-
 # 📙 Libraries
+
+Integrating Boltz API is involved and not to be underestimated. To save on
+time and resources, we highly recommend exploring the different library
+options for Boltz API below.
 
 ## TypeScript
 
@@ -40,5 +37,6 @@ Supported currencies: Bitcoin, Lightning, Liquid
 
 **Please [get in touch with us](https://docs.boltz.exchange/#resources) for help during the integration - don't be shy!**
 
-{% hint style="info" %} Only consider integrating Boltz API from scratch if above libraries don't serve your need and you absolutely know what you are doing.
-{% endhint %}
+::: danger
+Only consider integrating Boltz API from scratch if above libraries don't serve your need and you absolutely know what you are doing.
+:::

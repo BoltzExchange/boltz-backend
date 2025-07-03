@@ -1,13 +1,8 @@
----
-description: >-
-  Boltz exposes a RESTful HTTP API that can be used to query information like
-  supported pairs as well as to create and monitor swaps. All swap clients, like
-  Boltz Web App, use Boltz API under the hood.
-cover: .gitbook/assets/boltz-backend_header.png
-coverY: 0
----
-
 # 👋 Introduction
+
+Boltz exposes a RESTful HTTP API that can be used to query information like
+supported pairs as well as to create and monitor swaps. All swap clients, like
+Boltz Web App, use Boltz API under the hood.
 
 ## Instances
 

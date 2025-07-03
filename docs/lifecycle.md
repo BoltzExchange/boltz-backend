@@ -1,10 +1,7 @@
----
-description: >-
-  Boltz offers several different swap types. This document describes the types
-  and different states a particular swap type traverses.
----
-
 # 🔁 Swap Types & States
+
+Boltz offers several different swap types. This document describes the types
+and different states a particular swap type traverses.
 
 ## Swap Types
 

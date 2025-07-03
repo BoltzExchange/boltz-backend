@@ -1,14 +1,11 @@
----
-description: >-
-  This page introduces Boltz API v2, the latest and recommended API for all
-  integrations.
----
-
 # 🤖 REST API (latest)
+
+This page introduces Boltz API v2, the latest and recommended API for all
+integrations.
 
 ## REST Endpoints
 
-The Swagger specifications of the latest Boltz REST API can be found :point\_right: [here](https://api.boltz.exchange/swagger) :point\_left: !
+The Swagger specifications of the latest Boltz REST API can be found :point_right: [here](https://api.boltz.exchange/swagger) :point_left:!
 
 ## WebSocket
 
@@ -182,11 +179,12 @@ The backend will respond with a `pong` message.
 
 Below are some examples covering the flow of a given swap type from beginning to end, using API v2 and its WebSocket. **The examples are not feature-complete, do not cover all edge cases and are not to be used in production as-is.**
 
+<!-- TODO: import code snippets from type checked and tested files -->
+
 ### Submarine Swap (Chain -> Lightning)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin" %}
-```typescript
+::: code-group
+```typescript [TypeScript Bitcoin]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import { crypto } from 'bitcoinjs-lib';
@@ -327,10 +325,8 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="TypeScript Liquid" %}
-```typescript
+```typescript [TypeScript Liquid]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import { crypto } from 'bitcoinjs-lib';
@@ -472,10 +468,8 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="TypeScript RBTC" %}
-```typescript
+```typescript [TypeScript RBTC]
 import axios from 'axios';
 import bolt11 from 'bolt11';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
@@ -581,10 +575,8 @@ const submarineSwap = async () => {
   await submarineSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="Go Bitcoin" %}
-```go
+```go [Go Bitcoin]
 package main
 
 import (
@@ -731,14 +723,12 @@ func main() {
 	}
 }
 ```
-{% endtab %}
-{% endtabs %}
+:::
 
 ### Reverse Swap (Lightning -> Chain)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin" %}
-```typescript
+::: code-group
+```typescript [TypeScript Bitcoin]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import {
@@ -930,10 +920,8 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="TypeScript Liquid" %}
-```typescript
+```typescript [TypeScript Liquid]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import {
@@ -1131,10 +1119,8 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="TypeScript RBTC" %}
-```typescript
+```typescript [TypeScript RBTC]
 import axios from 'axios';
 import { crypto } from 'bitcoinjs-lib';
 import EtherSwapArtifact from 'boltz-core/out/EtherSwap.sol/EtherSwap.json';
@@ -1241,10 +1227,8 @@ const reverseSwap = async () => {
   await reverseSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="Go Bitcoin" %}
-```go
+```go [Go Bitcoin]
 package main
 
 import (
@@ -1405,14 +1389,12 @@ func main() {
 	}
 }
 ```
-{% endtab %}
-{% endtabs %}
+:::
 
 ### Chain Swap (Chain -> Chain)
 
-{% tabs %}
-{% tab title="TypeScript Bitcoin -> Liquid" %}
-```typescript
+::: code-group
+```typescript [TypeScript Bitcoin -> Liquid]
 import zkpInit, { Secp256k1ZKP } from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import {
@@ -1696,10 +1678,8 @@ const chainSwap = async () => {
   await chainSwap();
 })();
 ```
-{% endtab %}
 
-{% tab title="TypeScript Bitcoin -> RBTC" %}
-```typescript
+```typescript [TypeScript Bitcoin -> RBTC]
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 import axios from 'axios';
 import { crypto } from 'bitcoinjs-lib';
@@ -1853,5 +1833,4 @@ const chainSwap = async () => {
   await chainSwap();
 })();
 ```
-{% endtab %}
-{% endtabs %}
+:::

@@ -92,3 +92,7 @@ docker/regtest/data/cln/plugins
 
 # Test artifacts
 test/integration/sidecar/sidecar
+
+# Docs
+docs/.vitepress/dist
+docs/.vitepress/cache

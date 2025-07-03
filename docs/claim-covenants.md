@@ -1,10 +1,7 @@
----
-description: >-
-  To reduce the interactivity requirements of Reverse Swaps, one can make use of
-  covenants.
----
-
 # 📜 Claim Covenants
+
+To reduce the interactivity requirements of Reverse Swaps, one can make use of
+covenants.
 
 Covenants are available on [Liquid](https://liquid.net/) in the form of [direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality). These opcodes allow the script in the witness to inspect the inputs, outputs and other properties of the transaction it is executed in.
 

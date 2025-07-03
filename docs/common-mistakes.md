@@ -1,10 +1,7 @@
----
-description: >-
-  This document collects frequently encountered misunderstandings and common
-  mistakes when integrating Boltz API.
----
-
 # ⚠️ Common Mistakes
+
+This document collects frequently encountered misunderstandings and common
+mistakes when integrating Boltz API.
 
 ## Permanently Store Swap Information
 

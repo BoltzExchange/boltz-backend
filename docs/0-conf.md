@@ -1,11 +1,8 @@
----
-description: >-
-  The use of 0-conf can make swaps a lot faster by utilizing transactions that
-  are not included in a block yet. But accepting 0-conf transactions doesn't
-  come without unwarranted risk.
----
-
 # ⏩ 0-conf
+
+The use of 0-conf can make swaps a lot faster by utilizing transactions that
+are not included in a block yet. But accepting 0-conf transactions doesn't
+come without unwarranted risk.
 
 As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf. It is important to note that:
 
@@ -14,9 +11,9 @@ As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf. 
 
 _0-conf Swaps are subject to network conditions and only available on UTXO chains like Bitcoin or Liquid._
 
-{% hint style="info" %}
-Because of [growing adoption of mempoolfullrbf](https://github.com/bitcoin/bitcoin/pull/28132) by a significant set of miners, Boltz is **not** accepting 0-conf transactions on the Bitcoin mainchain.
-{% endhint %}
+::: info
+Because of [growing adoption of `mempoolfullrbf`](https://github.com/bitcoin/bitcoin/pull/28132) by a significant set of miners, Boltz is **not** accepting 0-conf transactions on the Bitcoin mainchain.
+:::
 
 ## Limits
 

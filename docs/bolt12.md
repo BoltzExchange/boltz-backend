@@ -1,10 +1,7 @@
----
-description: >-
-  Information about swaps with the new BOLT12 standard and some accompanying
-  tips & tricks for how to handle BOLT12 offers.
----
-
 # ✨ BOLT12
+
+Information about swaps with the new BOLT12 standard and some accompanying
+tips & tricks for how to handle BOLT12 offers.
 
 ## Swapping to BOLT12 invoices
 

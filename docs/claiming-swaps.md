@@ -1,11 +1,8 @@
----
-description: >-
-  This document provides an overview of claims and refunds, describes how Boltz
-  API clients create claim and refund transactions and outlines emergency
-  procedures for recovering funds from failed swaps.
----
-
 # 🙋‍♂️ Claims & Refunds
+
+This document provides an overview of claims and refunds, describes how Boltz
+API clients create claim and refund transactions and outlines emergency
+procedures for recovering funds from failed swaps.
 
 ## Summary
 
@@ -28,9 +25,9 @@ Refunds differs depending on the swap type. Refunds for failed Submarine and Cha
 
 ## Taproot
 
-{% hint style="info" %}
+::: info
 If you are not familiar with Taproot yet, or want to refresh your memory, we recommend watching the [Taproot workshop of Bitcoin Optech](https://bitcoinops.org/en/schorr-taproot-workshop/).
-{% endhint %}
+:::
 
 Boltz Taproot Swaps are using tweaked public keys aggregated with [Musig2](https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki). When a swap is created, the client provides its public key in the request and Boltz returns its public key in the response. These two public keys are aggregated with **Boltz's public key always coming first**. The aggregated public key is then tweaked with the tagged hash of the Taptree of the scripts of the swap. The result is the public key used in the [P2TR address](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) of the swap.
 
@@ -55,9 +52,9 @@ In case the client does not cooperate, Boltz will eventually broadcast a script 
 
 If a Submarine Swap failed (e.g. status `invoice.failedToPay` or `transaction.lockupFailed`), a key path refund can be done. Get a partial signature from Boltz with `POST /swap/submarine/{id}/refund`, aggregate the partials and broadcast the transaction.
 
-{% hint style="info" %}
+::: info
 The primary advantage of key path refunds is their immediacy: they can be processed as soon as a swap fails, eliminating the need to wait for the timelock to expire.
-{% endhint %}
+:::
 
 Script path refunds are also possible after the time lock expired and should be implemented as fallback, in case Boltz isn't cooperating. Set the locktime of the transaction to >= the time lock of the swap and make sure to not use the max sequence in the inputs. Structure the input witness like this:
 

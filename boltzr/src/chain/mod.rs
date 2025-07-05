@@ -7,6 +7,7 @@ use tokio::sync::broadcast::Receiver;
 
 pub mod chain_client;
 pub mod elements_client;
+mod mempool_client;
 pub mod mrh_watcher;
 mod rpc_client;
 pub mod types;
@@ -22,6 +23,9 @@ pub struct Config {
 
     user: Option<String>,
     password: Option<String>,
+
+    #[serde(rename = "mempoolSpace")]
+    mempool_space: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -49,6 +53,7 @@ pub trait Client: BaseClient {
     ) -> Result<Vec<Transaction>>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+    async fn estimate_fee(&self) -> Result<f64>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
     fn tx_receiver(&self) -> Receiver<(Transaction, bool)>;

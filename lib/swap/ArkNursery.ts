@@ -1,4 +1,6 @@
 import type { Transaction } from '@scure/btc-signer';
+import type { TransactionInput } from '@scure/btc-signer/psbt';
+import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
 import { getChainCurrency, splitPairId } from '../Utils';
@@ -36,6 +38,8 @@ class ArkNursery extends TypedEventEmitter<{
     preimage: Buffer;
   };
 }> {
+  private static condition = Buffer.from('condition');
+
   constructor(
     private readonly logger: Logger,
     private readonly overpaymentProtector: OverpaymentProtector,
@@ -128,28 +132,29 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private checkClaims = async (arkNode: ArkClient, vHtlc: SpentVHtlc) => {
-    // TODO: Chain swaps
-    const reverseSwap = await ReverseSwapRepository.getReverseSwap({
-      status: {
-        [Op.in]: [
-          SwapUpdateEvent.TransactionMempool,
-          SwapUpdateEvent.TransactionConfirmed,
-        ],
-      },
-      transactionId: vHtlc.outpoint.txid,
-      transactionVout: vHtlc.outpoint.vout,
-    });
-
-    if (reverseSwap === null || reverseSwap === undefined) {
-      return;
-    }
-
     const claimTx = await arkNode.aspClient.getTx(vHtlc.spentBy);
+    for (const preimage of ArkNursery.extractPreimages(claimTx)) {
+      const preimageHash = createHash('sha256').update(preimage).digest('hex');
 
-    this.emit('reverseSwap.claimed', {
-      reverseSwap,
-      preimage: this.extractPreimage(claimTx),
-    });
+      // TODO: Chain swaps
+      const reverseSwap = await ReverseSwapRepository.getReverseSwap({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+        preimageHash,
+      });
+      if (reverseSwap === null || reverseSwap === undefined) {
+        continue;
+      }
+
+      this.emit('reverseSwap.claimed', {
+        reverseSwap,
+        preimage,
+      });
+    }
   };
 
   private checkExpiredReverseSwaps = async (
@@ -169,12 +174,30 @@ class ArkNursery extends TypedEventEmitter<{
     }
   };
 
-  private extractPreimage = (tx: Transaction): Buffer => {
-    // TODO: handle multiple inputs
-    const input = tx.getInput(0);
+  private static extractPreimages = (tx: Transaction) => {
+    return ArkNursery.mapInputs(tx)
+      .map((input) => {
+        const preimage = input.unknown?.find((x) =>
+          ArkNursery.condition.equals(x[0].key),
+        );
 
-    const preimage = input.unknown?.find((x) => x[0].type === 99);
-    return Buffer.from(preimage![1]).subarray(2);
+        if (preimage === undefined) {
+          return undefined;
+        }
+
+        return Buffer.from(preimage[1]).subarray(2);
+      })
+      .filter((x) => x !== undefined);
+  };
+
+  private static mapInputs = (tx: Transaction) => {
+    const inputs: TransactionInput[] = [];
+
+    for (let i = 0; i < tx.inputsLength; i++) {
+      inputs.push(tx.getInput(i));
+    }
+
+    return inputs;
   };
 }
 

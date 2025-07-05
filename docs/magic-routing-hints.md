@@ -40,6 +40,12 @@ additional steps that the receiver must take:
   the magic routing hint with the specific channel id and the claim public key
   in the node public key field.
 
+It is the client's responsibility to handle payments to magic routing hint
+addresses. To help clients detect these transactions as quickly as possible, we
+emit [a WebSocket event](api-v2#magic-routing-hints) when we observe a
+transaction in the mempool to the MRH address for a swap the client is
+subscribed to.
+
 ## Steps For The Sender
 
 When a wallet attempts to pay a Lightning invoice via a Submarine Swap, there

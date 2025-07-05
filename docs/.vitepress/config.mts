@@ -7,7 +7,7 @@ export default defineConfig({
   title: 'Boltz API',
   description: 'Boltz API Docs',
   themeConfig: {
-    logo: './assets/logo.svg',
+    logo: '/assets/logo.svg',
     search: {
       provider: 'local',
     },

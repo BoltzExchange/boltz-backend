@@ -179,6 +179,30 @@ is still subscribed to for invoice requests.
 }
 ```
 
+### Magic Routing Hints
+
+To help clients detect transactions to a magic routing hint address as quickly
+as possible, we emit an event whenever we observe a transaction to the magic
+routing hint in the mempool of a swap the client is subscribed to.
+
+```json
+{
+  "event": "update",
+  "channel": "swap.update",
+  "args": [
+    {
+      "id": "<swap id>",
+      "status": "transaction.direct",
+      "transaction": {
+        "id": "<transaction id>",
+        "hex": "<raw transaction encoded as HEX>"
+      }
+    }
+  ],
+  "timestamp": "1751717655632"
+}
+```
+
 ### Application Level Pings
 
 To ensure the connection is alive, besides the native WebSocket pings, Boltz API

@@ -1,10 +1,14 @@
 use crate::chain::chain_client::ChainClient;
+use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{NetworkInfo, RawTransactionVerbose};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
+use crate::wallet::Network;
 use async_trait::async_trait;
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument, warn};
 
@@ -12,16 +16,19 @@ pub const SYMBOL: &str = "L-BTC";
 
 const TYPE: crate::chain::types::Type = crate::chain::types::Type::Elements;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ElementsClient {
+    network: Network,
     client: ChainClient,
     lowball_client: Option<ChainClient>,
+    zero_conf_tool: Option<Arc<dyn ZeroConfCheck + Send + Sync>>,
 }
 
 impl ElementsClient {
     #[instrument(name = "ElementsClient::new", skip_all)]
     pub fn new(
         cancellation_token: CancellationToken,
+        network: Network,
         config: LiquidConfig,
     ) -> anyhow::Result<Self> {
         let client = ChainClient::new(
@@ -32,7 +39,7 @@ impl ElementsClient {
         )?;
         let lowball_client = match config.lowball {
             Some(lowball_config) => Some(ChainClient::new(
-                cancellation_token,
+                cancellation_token.clone(),
                 TYPE,
                 SYMBOL.to_string(),
                 lowball_config,
@@ -44,8 +51,16 @@ impl ElementsClient {
         };
 
         Ok(Self {
+            network,
             client,
             lowball_client,
+            zero_conf_tool: config.zero_conf_tool.map(|config| {
+                Arc::new(ZeroConfTool::new(
+                    cancellation_token,
+                    SYMBOL.to_string(),
+                    config,
+                )) as Arc<dyn ZeroConfCheck + Send + Sync>
+            }),
         })
     }
 
@@ -54,6 +69,11 @@ impl ElementsClient {
             Some(lowball) => lowball,
             None => &self.client,
         }
+    }
+
+    #[cfg(test)]
+    pub fn set_network(&mut self, network: Network) {
+        self.network = network;
     }
 }
 
@@ -103,21 +123,45 @@ impl Client for ElementsClient {
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
         self.wallet_client().raw_transaction_verbose(tx_id).await
     }
+
+    fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
+        if self.network == Network::Regtest {
+            let (tx, rx) = oneshot::channel();
+            tx.send(true).unwrap();
+            return rx;
+        }
+
+        match &self.zero_conf_tool {
+            Some(tool) => tool.check_transaction(transaction),
+            None => self.wallet_client().zero_conf_safe(transaction),
+        }
+    }
 }
 
 #[cfg(test)]
 pub mod test {
     use super::*;
     use crate::chain::elements_client::ElementsClient;
+    use crate::chain::types::{RpcParam, Type};
+    use crate::chain::utils::parse_transaction_hex;
     use crate::chain::{Config, LiquidConfig};
+    use mockall::mock;
+    use rstest::rstest;
+    use serial_test::serial;
     use std::sync::OnceLock;
 
-    const PORT: u16 = 18_884;
+    mock! {
+        pub ZeroConfTool {}
+
+        impl ZeroConfCheck for ZeroConfTool {
+            fn check_transaction(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
+        }
+    }
 
     pub fn get_client() -> (ElementsClient, Config) {
         let config = Config {
             host: "127.0.0.1".to_string(),
-            port: PORT,
+            port: 18_884,
             cookie: None,
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
@@ -129,9 +173,11 @@ pub mod test {
                 (
                     ElementsClient::new(
                         CancellationToken::new(),
+                        Network::Regtest,
                         LiquidConfig {
                             base: config.clone(),
                             lowball: Some(config.clone()),
+                            zero_conf_tool: None,
                         },
                     )
                     .unwrap(),
@@ -141,14 +187,71 @@ pub mod test {
             .clone()
     }
 
+    async fn send_transaction(client: &ElementsClient) -> Transaction {
+        let tx_id = client
+            .wallet_client()
+            .client
+            .request::<String>(
+                "sendtoaddress",
+                Some(vec![
+                    RpcParam::Str(
+                        client
+                            .wallet_client()
+                            .client
+                            .request::<String>("getnewaddress", None)
+                            .await
+                            .unwrap(),
+                    ),
+                    RpcParam::Float(0.21),
+                ]),
+            )
+            .await
+            .unwrap();
+
+        parse_transaction_hex(
+            &Type::Elements,
+            &client
+                .wallet_client()
+                .client
+                .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(tx_id)]))
+                .await
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    async fn generate_block(client: &ElementsClient) {
+        client
+            .wallet_client()
+            .client
+            .request::<serde_json::Value>(
+                "generatetoaddress",
+                Some(vec![
+                    RpcParam::Int(1),
+                    RpcParam::Str(
+                        client
+                            .wallet_client()
+                            .client
+                            .request::<String>("getnewaddress", None)
+                            .await
+                            .unwrap(),
+                    ),
+                ]),
+            )
+            .await
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn test_wallet_client() {
         let (_, config) = get_client();
         let client = ElementsClient::new(
             CancellationToken::new(),
+            Network::Regtest,
             LiquidConfig {
                 base: config.clone(),
                 lowball: None,
+                zero_conf_tool: None,
             },
         )
         .unwrap();
@@ -159,9 +262,11 @@ pub mod test {
         config_lowball.port = 123;
         let client = ElementsClient::new(
             CancellationToken::new(),
+            Network::Regtest,
             LiquidConfig {
                 base: config,
                 lowball: Some(config_lowball),
+                zero_conf_tool: None,
             },
         )
         .unwrap();
@@ -170,5 +275,64 @@ pub mod test {
             client.wallet_client().clone(),
             client.lowball_client.unwrap()
         );
+    }
+
+    #[tokio::test]
+    #[serial(LBTC)]
+    async fn test_zero_conf_safe_regtest() {
+        let (client, _) = get_client();
+        assert_eq!(client.network, Network::Regtest);
+
+        let tx = send_transaction(&client).await;
+        let zero_conf_safe = client.zero_conf_safe(&tx);
+
+        let received = zero_conf_safe.await.unwrap();
+        assert!(received);
+
+        generate_block(&client).await;
+    }
+
+    #[tokio::test]
+    #[serial(LBTC)]
+    async fn test_zero_conf_safe_not_regtest() {
+        let (mut client, _) = get_client();
+        client.network = Network::Testnet;
+
+        let tx = send_transaction(&client).await;
+        let zero_conf_safe = client.zero_conf_safe(&tx);
+
+        let received = zero_conf_safe.await.unwrap();
+        assert!(!received);
+
+        generate_block(&client).await;
+    }
+
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    #[tokio::test]
+    #[serial(LBTC)]
+    async fn test_zero_conf_safe_tool(#[case] expected: bool) {
+        let (mut client, _) = get_client();
+        client.network = Network::Testnet;
+
+        let mut tool = MockZeroConfTool::new();
+        tool.expect_check_transaction()
+            .times(1)
+            .returning(move |_| {
+                let (tx, rx) = oneshot::channel();
+                tx.send(expected).unwrap();
+                rx
+            });
+
+        client.zero_conf_tool = Some(Arc::new(tool));
+
+        let tx = send_transaction(&client).await;
+        let zero_conf_safe = client.zero_conf_safe(&tx);
+
+        let received = zero_conf_safe.await.unwrap();
+        assert_eq!(received, expected);
+
+        generate_block(&client).await;
     }
 }

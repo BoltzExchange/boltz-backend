@@ -148,6 +148,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                 #[allow(clippy::manual_map)]
                 chain: match connect_client(ElementsClient::new(
                     cancellation_token.clone(),
+                    network,
                     liquid.chain,
                 ))
                 .await

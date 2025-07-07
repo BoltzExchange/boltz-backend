@@ -7,6 +7,7 @@ use tokio::sync::broadcast::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
 use crate::api::ws::types::{SwapStatus, TransactionInfo};
+use crate::chain::Client;
 use crate::chain::utils::Transaction;
 use crate::currencies::Currencies;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
@@ -36,16 +37,23 @@ impl MrhWatcher {
         // Spawn one task for each currency and collect their handles
         let mut handles = Vec::new();
 
-        for (symbol, currency) in currencies.iter() {
+        for (_, currency) in currencies.iter() {
             if let Some(chain_client) = currency.chain.as_ref() {
+                let chain_client = chain_client.clone();
                 let stream = chain_client.tx_receiver();
                 let watcher = self.clone();
-                let symbol = symbol.clone();
 
                 let handle = tokio::spawn(async move {
-                    tracing::debug!("Listening to chain client {} for MRH updates", symbol);
-                    if let Err(e) = watcher.listen(&symbol, stream).await {
-                        tracing::error!("Failed to listen to chain client {}: {}", symbol, e);
+                    tracing::debug!(
+                        "Listening to chain client {} for MRH updates",
+                        chain_client.symbol()
+                    );
+                    if let Err(e) = watcher.listen(&chain_client, stream).await {
+                        tracing::error!(
+                            "Failed to listen to chain client {}: {}",
+                            chain_client.symbol(),
+                            e
+                        );
                     }
                 });
                 handles.push(handle);
@@ -57,33 +65,47 @@ impl MrhWatcher {
         }
     }
 
-    fn process_transaction(&self, tx: Transaction) -> anyhow::Result<()> {
+    async fn process_transaction(
+        &self,
+        chain_client: &Arc<Box<dyn Client + Send + Sync>>,
+        tx: Transaction,
+    ) -> anyhow::Result<()> {
         let output_scripts = tx.output_script_pubkeys();
 
         let routing_hints = self.reverse_swap_helper.get_routing_hints(output_scripts)?;
-
         for routing_hint in routing_hints {
-            let update = SwapStatus {
-                id: routing_hint.swapId.clone(),
-                status: SwapUpdateStatus::TransactionDirect.to_string(),
-                transaction: Some(TransactionInfo {
-                    id: tx.txid_hex(),
-                    hex: Some(tx.serialize().to_lower_hex_string()),
-                    eta: None,
-                }),
-                ..Default::default()
-            };
+            let tx = tx.clone();
+            let chain_client = chain_client.clone();
+            let swap_status_update_tx = self.swap_status_update_tx.clone();
 
-            if let Err(e) = self.swap_status_update_tx.send(update) {
-                tracing::warn!("Failed to send routing hint update: {}", e);
-            }
+            tokio::spawn(async move {
+                match chain_client.zero_conf_safe(&tx).await {
+                    Ok(true) => {}
+                    _ => return,
+                }
+
+                let update = SwapStatus {
+                    id: routing_hint.swapId.clone(),
+                    status: SwapUpdateStatus::TransactionDirect.to_string(),
+                    transaction: Some(TransactionInfo {
+                        id: tx.txid_hex(),
+                        hex: Some(tx.serialize().to_lower_hex_string()),
+                        eta: None,
+                    }),
+                    ..Default::default()
+                };
+
+                if let Err(e) = swap_status_update_tx.send(update) {
+                    tracing::warn!("Failed to send routing hint update: {}", e);
+                }
+            });
         }
         Ok(())
     }
 
     async fn listen(
         &self,
-        symbol: &str,
+        chain_client: &Arc<Box<dyn Client + Send + Sync>>,
         mut stream: Receiver<(Transaction, bool)>,
     ) -> anyhow::Result<()> {
         loop {
@@ -96,13 +118,13 @@ impl MrhWatcher {
                                 continue;
                             }
 
-                            if let Err(e) = self.process_transaction(tx) {
-                                tracing::error!("Failed to process {} MRH transaction: {}", symbol, e);
+                            if let Err(e) = self.process_transaction(chain_client, tx).await {
+                                tracing::error!("Failed to process {} MRH transaction: {}", chain_client.symbol(), e);
                             }
                         }
                         Err(RecvError::Closed) => break,
                         Err(RecvError::Lagged(skipped)) => {
-                            tracing::warn!("{} MRH transaction stream lagged behind by {} messages", symbol, skipped);
+                            tracing::warn!("{} MRH transaction stream lagged behind by {} messages", chain_client.symbol(), skipped);
                         }
                     }
                 },
@@ -120,8 +142,10 @@ impl MrhWatcher {
 mod test {
     use super::*;
     use crate::{
+        chain::elements_client::test::get_client,
         chain::{types::Type, utils::parse_transaction_hex},
         db::{helpers::reverse_swap::test::MockReverseSwapHelper, models::ReverseRoutingHint},
+        wallet::Network,
     };
 
     const TEST_TX: &str = "010000000001019ea6632532afe2b57234829e8bb87c0586a2db0b37aa9378298c215e55c55b040000000000ffffffff02160b3600000000001600140e9aab3b924ad7f6c4813b1acad0441c655c9b5440420f000000000016001427001f1066a6f58e25f97ea1b353b3e56985fa8802473044022004637adf050dde916f66a9a169217a6c20c8107cd1a11189141cfed34d0e8897022059d1d8d9279152972f0e67d6b5a6ceec122b360214a6aac317888a1aef84e7de012103504290a1e9a3718103a93d40494af17af63dfa2a721d97cdc2cb526863f7055700000000";
@@ -158,7 +182,11 @@ mod test {
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let listen_handle = tokio::spawn(async move {
-            watcher.clone().listen("BTC", tx_receiver).await.unwrap();
+            watcher
+                .clone()
+                .listen(&Arc::new(Box::new(get_client().0)), tx_receiver)
+                .await
+                .unwrap();
         });
 
         tx_sender.send((test_transaction.clone(), false)).unwrap();
@@ -216,10 +244,65 @@ mod test {
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let listen_handle = tokio::spawn(async move {
-            watcher.clone().listen("BTC", tx_receiver).await.unwrap();
+            watcher
+                .clone()
+                .listen(&Arc::new(Box::new(get_client().0)), tx_receiver)
+                .await
+                .unwrap();
         });
 
         tx_sender.send((test_transaction.clone(), true)).unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        assert!(swap_status_update_rx.is_empty());
+
+        cancellation_token.cancel();
+        listen_handle.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_listen_zero_conf_not_safe() {
+        let (swap_status_update_tx, swap_status_update_rx) = broadcast::channel(256);
+        let (tx_sender, tx_receiver) = broadcast::channel(256);
+
+        let mut helper = MockReverseSwapHelper::new();
+
+        helper.expect_get_routing_hints().returning(|_scripts| {
+            assert_eq!(
+                _scripts[0].to_lower_hex_string(),
+                "00140e9aab3b924ad7f6c4813b1acad0441c655c9b54"
+            );
+            Ok(vec![ReverseRoutingHint {
+                swapId: "123".to_string(),
+                symbol: "BTC".to_string(),
+                scriptPubkey: vec![],
+                blindingPubkey: None,
+                params: None,
+                signature: vec![],
+            }])
+        });
+
+        let cancellation_token = CancellationToken::new();
+        let watcher = Arc::new(MrhWatcher::new(
+            cancellation_token.clone(),
+            Arc::new(helper),
+            swap_status_update_tx,
+        ));
+
+        let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
+
+        let listen_handle = tokio::spawn(async move {
+            let mut client = get_client().0;
+            client.set_network(Network::Testnet);
+
+            watcher
+                .clone()
+                .listen(&Arc::new(Box::new(client)), tx_receiver)
+                .await
+                .unwrap();
+        });
+
+        tx_sender.send((test_transaction.clone(), false)).unwrap();
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         assert!(swap_status_update_rx.is_empty());

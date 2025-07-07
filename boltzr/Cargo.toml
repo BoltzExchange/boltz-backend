@@ -149,3 +149,4 @@ mockall = "0.13.1"
 rstest = "0.25.0"
 serial_test = "3.2.0"
 tower = { version = "0.5.2", features = ["util"] }
+wiremock = "0.6.4"

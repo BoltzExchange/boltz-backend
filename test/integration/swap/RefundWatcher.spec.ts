@@ -5,6 +5,9 @@ import { RefundStatus } from '../../../lib/db/models/RefundTransaction';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
+import { TransactionType } from '../../../lib/proto/boltzr_pb';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
+import type { FeeBumpSuggestion } from '../../../lib/sidecar/Sidecar';
 import RefundWatcher from '../../../lib/swap/RefundWatcher';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../Nodes';
@@ -18,7 +21,12 @@ RefundTransactionRepository.getPendingTransactions = jest
   .mockResolvedValue([]);
 
 describe('RefundWatcher', () => {
-  const watcher = new RefundWatcher(Logger.disabledLogger);
+  const sidecar = {
+    on: jest.fn(),
+  } as unknown as Sidecar;
+  const refundSwap = jest.fn();
+
+  const watcher = new RefundWatcher(Logger.disabledLogger, sidecar, refundSwap);
   let setup: Awaited<ReturnType<typeof getSigner>>;
 
   beforeAll(async () => {
@@ -85,8 +93,8 @@ describe('RefundWatcher', () => {
             } as unknown as RefundTransaction,
             swap: {
               id: swapId,
+              refundCurrency: 'BTC',
               type: SwapType.ReverseSubmarine,
-              chainCurrency: 'BTC',
               serverLockupTransactionId: txId,
             } as unknown as ReverseSwap,
           },
@@ -108,6 +116,80 @@ describe('RefundWatcher', () => {
       expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
         swapId,
         RefundStatus.Confirmed,
+      );
+    });
+  });
+
+  describe('handleFeeBumpSuggestion', () => {
+    const handleFeeBumpSuggestion = watcher['handleFeeBumpSuggestion'];
+
+    test('should ignore suggestions that are not refund type', async () => {
+      RefundTransactionRepository.getTransaction = jest.fn();
+
+      await handleFeeBumpSuggestion({
+        type: 21,
+      } as unknown as FeeBumpSuggestion);
+
+      expect(RefundTransactionRepository.getTransaction).not.toHaveBeenCalled();
+    });
+
+    test('should ignore suggestions that cannot be found in database', async () => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const suggestion = {
+        type: TransactionType.REFUND,
+        transactionId: 'test',
+      } as unknown as FeeBumpSuggestion;
+      await handleFeeBumpSuggestion(suggestion);
+
+      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledWith(
+        suggestion.transactionId,
+      );
+      expect(refundSwap).not.toHaveBeenCalled();
+    });
+
+    test('should fee bump after getting suggestion', async () => {
+      RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue({
+        swapId: 'swapId',
+        id: 'test',
+      });
+
+      const swap = { refundCurrency: 'BTC' } as unknown as any;
+      RefundTransactionRepository.getSwapForTransaction = jest
+        .fn()
+        .mockResolvedValue(swap);
+
+      const suggestion = {
+        type: TransactionType.REFUND,
+        transactionId: 'test',
+        feeTarget: 21,
+      } as unknown as FeeBumpSuggestion;
+      await handleFeeBumpSuggestion(suggestion);
+
+      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledWith(
+        suggestion.transactionId,
+      );
+
+      expect(
+        RefundTransactionRepository.getSwapForTransaction,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        RefundTransactionRepository.getSwapForTransaction,
+      ).toHaveBeenCalledWith('swapId');
+
+      expect(refundSwap).toHaveBeenCalledTimes(1);
+      expect(refundSwap).toHaveBeenCalledWith(
+        watcher['currencies'].get('BTC')!,
+        swap,
+        suggestion.feeTarget,
       );
     });
   });
@@ -135,7 +217,7 @@ describe('RefundWatcher', () => {
         } as unknown as RefundTransaction,
         {
           type: SwapType.ReverseSubmarine,
-          chainCurrency: 'BTC',
+          refundCurrency: 'BTC',
         } as unknown as ReverseSwap,
       );
 
@@ -162,7 +244,7 @@ describe('RefundWatcher', () => {
         {
           id: swapId,
           type: SwapType.ReverseSubmarine,
-          chainCurrency: 'BTC',
+          refundCurrency: 'BTC',
           serverLockupTransactionId: txId,
         } as unknown as ReverseSwap,
       );
@@ -210,42 +292,6 @@ describe('RefundWatcher', () => {
       await expect(
         getConfirmations(watcher['currencies'].get('RBTC')!, tx.hash),
       ).resolves.toEqual(1);
-    });
-  });
-
-  describe('getRefundCurrency', () => {
-    const getRefundCurrency = watcher['getRefundCurrency'];
-
-    test('should return refund currency of reverse swaps', () => {
-      const currency = getRefundCurrency({
-        type: SwapType.ReverseSubmarine,
-        chainCurrency: 'BTC',
-      } as unknown as ReverseSwap);
-
-      expect(currency).toBeDefined();
-      expect(currency.symbol).toBe('BTC');
-      expect(currency.type).toBe(CurrencyType.BitcoinLike);
-      expect(currency.chainClient).toBe(bitcoinClient);
-    });
-
-    test('should return refund currency of chain swaps', () => {
-      const currency = getRefundCurrency({
-        type: SwapType.Chain,
-        sendingData: { symbol: 'BTC' },
-      } as unknown as ChainSwapInfo);
-
-      expect(currency).toBeDefined();
-      expect(currency.symbol).toBe('BTC');
-      expect(currency.type).toBe(CurrencyType.BitcoinLike);
-      expect(currency.chainClient).toBe(bitcoinClient);
-    });
-
-    test('should throw error for unknown swap type', () => {
-      expect(() =>
-        getRefundCurrency({
-          type: SwapType.Submarine,
-        } as unknown as ReverseSwap),
-      ).toThrow('invalid swap type');
     });
   });
 });

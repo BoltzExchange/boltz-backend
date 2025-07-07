@@ -7,3 +7,5 @@ pub const WEBSOCKET_OPEN_COUNT: &str = "websocket_open_count";
 
 pub const ZEROCONF_TOOL_TXS: &str = "zeroconf_tool_txs";
 pub const ZEROCONF_TOOL_TXS_CALLS: &str = "zeroconf_tool_txs_calls";
+
+pub const FEE_TARGET: &str = "fee_target";

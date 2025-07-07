@@ -142,7 +142,7 @@ impl Client {
         });
 
         let (mut ws_stream, _) = async_tungstenite::tokio::connect_async(url).await?;
-        debug!("Connected to WebSocket");
+        debug!("Connected to WebSocket: {}", url);
 
         ws_stream
             .send(

@@ -67,7 +67,7 @@ impl MrhWatcher {
 
     async fn process_transaction(
         &self,
-        chain_client: &Arc<Box<dyn Client + Send + Sync>>,
+        chain_client: &Arc<dyn Client + Send + Sync>,
         tx: Transaction,
     ) -> anyhow::Result<()> {
         let output_scripts = tx.output_script_pubkeys();
@@ -105,7 +105,7 @@ impl MrhWatcher {
 
     async fn listen(
         &self,
-        chain_client: &Arc<Box<dyn Client + Send + Sync>>,
+        chain_client: &Arc<dyn Client + Send + Sync>,
         mut stream: Receiver<(Transaction, bool)>,
     ) -> anyhow::Result<()> {
         loop {

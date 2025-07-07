@@ -8,6 +8,7 @@ enum RefundStatus {
 
 type RefundTransactionType = {
   swapId: string;
+  symbol: string;
   id: string;
   vin: number | null;
   status: RefundStatus;
@@ -15,6 +16,7 @@ type RefundTransactionType = {
 
 class RefundTransaction extends Model implements RefundTransactionType {
   public swapId!: string;
+  public symbol!: string;
   public id!: string;
   public vin!: number | null;
   public status!: RefundStatus;
@@ -25,6 +27,10 @@ class RefundTransaction extends Model implements RefundTransactionType {
         swapId: {
           type: new DataTypes.STRING(255),
           primaryKey: true,
+          allowNull: false,
+        },
+        symbol: {
+          type: new DataTypes.STRING(255),
           allowNull: false,
         },
         id: {

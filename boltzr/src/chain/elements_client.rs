@@ -1,6 +1,6 @@
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
-use crate::chain::types::{NetworkInfo, RawTransactionVerbose};
+use crate::chain::types::{NetworkInfo, RawTransactionVerbose, Type};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use crate::wallet::Network;
@@ -14,7 +14,7 @@ use tracing::{debug, info, instrument, warn};
 
 pub const SYMBOL: &str = "L-BTC";
 
-const TYPE: crate::chain::types::Type = crate::chain::types::Type::Elements;
+const TYPE: Type = Type::Elements;
 
 #[derive(Clone)]
 pub struct ElementsClient {
@@ -102,6 +102,10 @@ impl BaseClient for ElementsClient {
 
 #[async_trait]
 impl Client for ElementsClient {
+    fn chain_type(&self) -> Type {
+        TYPE
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -118,6 +122,10 @@ impl Client for ElementsClient {
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
         self.wallet_client().estimate_fee().await
+    }
+
+    async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
+        self.wallet_client().raw_transaction(tx_id).await
     }
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
@@ -245,6 +253,12 @@ pub mod test {
             )
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_chain_type() {
+        let (client, _) = get_client();
+        assert_eq!(client.chain_type(), Type::Elements);
     }
 
     #[tokio::test]

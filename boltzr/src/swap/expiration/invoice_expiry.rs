@@ -161,19 +161,18 @@ mod test {
                             )
                             .unwrap(),
                         ),
-                        chain: Some(Arc::new(Box::new(
-                            crate::chain::chain_client::test::get_client(),
-                        ))),
+                        chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
                         cln: None,
                         lnd: None,
+                        bumper: None,
                     },
                 )]))
             })
             .clone()
     }
 
-    #[test]
-    fn test_check_ignore_non_expired() {
+    #[tokio::test]
+    async fn test_check_ignore_non_expired() {
         let mut swap = MockSwapHelper::new();
         swap.expect_get_all().returning(|_| {
             Ok(vec![

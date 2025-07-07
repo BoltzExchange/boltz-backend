@@ -1,7 +1,8 @@
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, ZmqNotification,
+    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, Type,
+    ZmqNotification,
 };
 use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -20,7 +21,7 @@ const BTC_KVB_SAT_VBYTE_FACTOR: u64 = 100_000;
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
-    client_type: crate::chain::types::Type,
+    client_type: Type,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transaction, bool)>,
@@ -35,7 +36,7 @@ impl PartialEq for ChainClient {
 impl ChainClient {
     pub fn new(
         cancellation_token: CancellationToken,
-        client_type: crate::chain::types::Type,
+        client_type: Type,
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
@@ -160,8 +161,8 @@ impl BaseClient for ChainClient {
 
 #[async_trait]
 impl Client for ChainClient {
-    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
-        self.tx_sender.subscribe()
+    fn chain_type(&self) -> Type {
+        self.client_type
     }
 
     async fn scan_mempool(
@@ -296,6 +297,15 @@ impl Client for ChainClient {
         Ok(f64::max(self.estimate_fee_raw(floor).await?, floor))
     }
 
+    async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
+        self.client
+            .request::<String>(
+                "getrawtransaction",
+                Some(vec![RpcParam::Str(tx_id.to_string())]),
+            )
+            .await
+    }
+
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
         self.client
             .request::<RawTransactionVerbose>(
@@ -309,6 +319,10 @@ impl Client for ChainClient {
         let (tx, rx) = oneshot::channel();
         tx.send(false).unwrap();
         rx
+    }
+
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+        self.tx_sender.subscribe()
     }
 }
 
@@ -341,7 +355,7 @@ pub mod test {
         .unwrap()
     }
 
-    async fn generate_block(client: &ChainClient) {
+    pub async fn generate_block(client: &ChainClient) {
         client
             .client
             .request::<serde_json::Value>(
@@ -361,7 +375,7 @@ pub mod test {
             .unwrap();
     }
 
-    async fn send_transaction(client: &ChainClient) -> Transaction {
+    pub async fn send_transaction(client: &ChainClient) -> Transaction {
         let tx_id = client
             .client
             .request::<String>(
@@ -389,6 +403,12 @@ pub mod test {
                 .unwrap(),
         )
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_chain_type() {
+        let client = get_client();
+        assert_eq!(client.chain_type(), Type::Bitcoin);
     }
 
     #[tokio::test]
@@ -464,6 +484,16 @@ pub mod test {
         let client = get_client();
         let fees = client.estimate_fee().await.unwrap();
         assert_eq!(fees, 2.0);
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn raw_transaction() {
+        let client = get_client();
+        let tx = send_transaction(&client).await;
+
+        let raw_tx = client.raw_transaction(&tx.txid_hex()).await.unwrap();
+        assert_eq!(raw_tx, alloy::hex::encode(tx.serialize()));
     }
 
     #[tokio::test]

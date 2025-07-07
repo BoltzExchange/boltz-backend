@@ -287,11 +287,10 @@ mod test {
                                 Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
                                     .unwrap(),
                             ),
-                            chain: Some(Arc::new(Box::new(
-                                crate::chain::chain_client::test::get_client(),
-                            ))),
+                            chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
                             cln: None,
                             lnd: None,
+                            bumper: None,
                         },
                     ),
                     (
@@ -305,6 +304,7 @@ mod test {
                             chain: None,
                             cln: None,
                             lnd: None,
+                            bumper: None,
                         },
                     ),
                     (
@@ -315,11 +315,12 @@ mod test {
                                 Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
                                     .unwrap(),
                             ),
-                            chain: Some(Arc::new(Box::new(
+                            chain: Some(Arc::new(
                                 crate::chain::elements_client::test::get_client().0,
-                            ))),
+                            )),
                             cln: None,
                             lnd: None,
+                            bumper: None,
                         },
                     ),
                 ]))

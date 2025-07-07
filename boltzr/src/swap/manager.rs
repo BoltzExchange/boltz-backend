@@ -25,6 +25,7 @@ use tracing::{debug, info};
 pub trait SwapManager {
     fn get_network(&self) -> crate::wallet::Network;
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
+    fn get_currencies(&self) -> Vec<Currency>;
     fn get_timeouts(
         &self,
         receiving: &str,
@@ -127,6 +128,10 @@ impl SwapManager for Manager {
 
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
+    }
+
+    fn get_currencies(&self) -> Vec<Currency> {
+        self.currencies.values().cloned().collect()
     }
 
     fn get_timeouts(
@@ -243,6 +248,7 @@ pub mod test {
         impl SwapManager for Manager {
             fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_currencies(&self) -> Vec<Currency>;
             fn get_timeouts(
                 &self,
                 receiving: &str,

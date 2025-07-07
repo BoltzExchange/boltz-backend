@@ -1,3 +1,4 @@
+use crate::chain::types::Type;
 use crate::chain::utils::{Outpoint, Transaction};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -6,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tokio::sync::{broadcast, oneshot};
 
+pub mod bumper;
 pub mod chain_client;
 pub mod elements;
 pub mod elements_client;
@@ -51,6 +53,8 @@ pub trait BaseClient {
 
 #[async_trait]
 pub trait Client: BaseClient {
+    fn chain_type(&self) -> Type;
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -58,7 +62,11 @@ pub trait Client: BaseClient {
     ) -> Result<Vec<Transaction>>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+
+    /// Fee estimation in sat/vbyte
     async fn estimate_fee(&self) -> Result<f64>;
+
+    async fn raw_transaction(&self, tx_id: &str) -> Result<String>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 

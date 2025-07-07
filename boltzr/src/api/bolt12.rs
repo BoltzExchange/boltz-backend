@@ -304,6 +304,7 @@ mod test {
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
+                    bumper: None,
                 })
             });
         }
@@ -371,6 +372,7 @@ mod test {
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
+                    bumper: None,
                 })
             });
         }

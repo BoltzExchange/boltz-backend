@@ -10,10 +10,17 @@ class RefundTransactionRepository {
   public static addTransaction = async (
     refundTransaction: Omit<RefundTransactionType, 'status'>,
   ) => {
-    return await RefundTransaction.create({
-      ...refundTransaction,
-      status: RefundStatus.Pending,
-    });
+    const tx = await RefundTransaction.upsert(
+      {
+        ...refundTransaction,
+        status: RefundStatus.Pending,
+      },
+      {
+        returning: true,
+      },
+    );
+
+    return tx[0];
   };
 
   public static getTransaction = async (txId: string) => {
@@ -41,7 +48,7 @@ class RefundTransactionRepository {
     );
   };
 
-  private static getSwapForTransaction = async (
+  public static getSwapForTransaction = async (
     id: string,
   ): Promise<ReverseSwap | ChainSwapInfo> => {
     const [reverse, chain] = await Promise.all([

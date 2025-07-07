@@ -438,6 +438,7 @@ mod test {
                     chain: None,
                     cln: None,
                     lnd: None,
+                    bumper: None,
                 },
             )])),
         );

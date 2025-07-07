@@ -1,11 +1,14 @@
 use crate::api::ws::OfferSubscriptions;
 use crate::chain::BaseClient;
+use crate::chain::bumper::Bumper;
+use crate::chain::bumper::RefundTransactionFetcher;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements_client::ElementsClient;
 use crate::config::{CurrencyConfig, LiquidConfig};
 use crate::db::Pool;
 use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::offer::OfferHelperDatabase;
+use crate::db::helpers::refund_transaction::RefundTransactionHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;
@@ -26,7 +29,8 @@ pub struct Currency {
 
     pub wallet: Arc<dyn Wallet + Send + Sync>,
 
-    pub chain: Option<Arc<Box<dyn crate::chain::Client + Send + Sync>>>,
+    pub chain: Option<Arc<dyn crate::chain::Client + Send + Sync>>,
+    pub bumper: Option<Bumper>,
     pub cln: Option<Cln>,
     pub lnd: Option<Lnd>,
 }
@@ -62,33 +66,31 @@ pub async fn connect_nodes<K: KeysHelper>(
                 debug!("Connecting to nodes of {}", currency.symbol);
 
                 let keys_info = keys_helper.get_for_symbol(&currency.symbol)?;
+                let chain = match currency.chain {
+                    Some(config) => connect_client(ChainClient::new(
+                        cancellation_token.clone(),
+                        crate::chain::types::Type::Bitcoin,
+                        currency.symbol.clone(),
+                        config,
+                    ))
+                    .await
+                    .map(|chain| Arc::new(chain) as Arc<dyn crate::chain::Client + Send + Sync>),
+                    None => None,
+                };
 
                 curs.insert(
                     currency.symbol.clone(),
                     Currency {
                         network,
+                        bumper: chain.as_ref().map(|chain| {
+                            create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
+                        }),
+                        chain,
                         wallet: Arc::new(wallet::Bitcoin::new(
                             network,
                             &seed,
                             keys_info.derivationPath,
                         )?),
-                        chain: match currency.chain {
-                            Some(config) => {
-                                #[allow(clippy::manual_map)]
-                                match connect_client(ChainClient::new(
-                                    cancellation_token.clone(),
-                                    crate::chain::types::Type::Bitcoin,
-                                    currency.symbol.clone(),
-                                    config,
-                                ))
-                                .await
-                                {
-                                    Some(client) => Some(Arc::new(Box::new(client))),
-                                    None => None,
-                                }
-                            }
-                            None => None,
-                        },
                         cln: match currency.cln {
                             Some(config) => {
                                 connect_client(
@@ -134,6 +136,14 @@ pub async fn connect_nodes<K: KeysHelper>(
 
         let keys_info = keys_helper.get_for_symbol(crate::chain::elements_client::SYMBOL)?;
 
+        let chain = connect_client(ElementsClient::new(
+            cancellation_token.clone(),
+            network,
+            liquid.chain,
+        ))
+        .await
+        .map(|client| Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>);
+
         curs.insert(
             crate::chain::elements_client::SYMBOL.to_string(),
             Currency {
@@ -145,22 +155,39 @@ pub async fn connect_nodes<K: KeysHelper>(
                     &seed,
                     keys_info.derivationPath,
                 )?),
-                #[allow(clippy::manual_map)]
-                chain: match connect_client(ElementsClient::new(
-                    cancellation_token.clone(),
-                    network,
-                    liquid.chain,
-                ))
-                .await
-                {
-                    Some(client) => Some(Arc::new(Box::new(client))),
-                    None => None,
-                },
+                bumper: chain.as_ref().map(|chain| {
+                    create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
+                }),
+                chain,
             },
         );
     }
 
     Ok((network, Arc::new(curs), offer_subscriptions))
+}
+
+fn create_bumper(
+    cancellation_token: CancellationToken,
+    chain: Arc<dyn crate::chain::Client + Send + Sync>,
+    db: Pool,
+) -> Bumper {
+    let bumper = Bumper::new(
+        cancellation_token.clone(),
+        chain.clone(),
+        vec![Arc::new(RefundTransactionFetcher::new(
+            chain.symbol(),
+            RefundTransactionHelperDatabase::new(db),
+        ))],
+    );
+
+    {
+        let bumper = bumper.clone();
+        tokio::spawn(async move {
+            bumper.start().await;
+        });
+    }
+
+    bumper
 }
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {

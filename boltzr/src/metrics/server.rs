@@ -157,6 +157,12 @@ impl Server {
             "number of calls made to the 0-conf tool for accepted transactions",
         );
 
+        describe_gauge!(
+            crate::metrics::FEE_TARGET,
+            Unit::Count,
+            "RBF bumper fee target in sat/vbyte",
+        );
+
         handle
     }
 }

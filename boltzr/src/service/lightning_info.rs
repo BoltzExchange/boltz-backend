@@ -367,11 +367,10 @@ mod test {
                     )
                     .unwrap(),
                 ),
-                chain: Some(Arc::new(Box::new(
-                    crate::chain::chain_client::test::get_client(),
-                ))),
+                chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
                 cln: Some(cln_client().await),
                 lnd: None,
+                bumper: None,
             },
         )]))
     }

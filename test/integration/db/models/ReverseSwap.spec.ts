@@ -52,6 +52,7 @@ describe('ReverseSwap', () => {
       });
 
       expect(swap.chainCurrency).toEqual(expectedCurrency);
+      expect(swap.refundCurrency).toEqual(expectedCurrency);
     },
   );
 

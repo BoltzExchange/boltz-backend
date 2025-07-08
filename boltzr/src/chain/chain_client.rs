@@ -8,6 +8,7 @@ use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
@@ -16,7 +17,7 @@ const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct ChainClient {
-    client: RpcClient,
+    pub client: RpcClient,
     client_type: crate::chain::types::Type,
     zmq_client: ZmqClient,
     tx_sender: Sender<(Transaction, bool)>,
@@ -264,6 +265,12 @@ impl Client for ChainClient {
             )
             .await
     }
+
+    fn zero_conf_safe(&self, _transaction: &Transaction) -> oneshot::Receiver<bool> {
+        let (tx, rx) = oneshot::channel();
+        tx.send(false).unwrap();
+        rx
+    }
 }
 
 #[cfg(test)]
@@ -462,5 +469,19 @@ pub mod test {
 
         let received_tx = tx_receiver.recv().await.unwrap();
         assert_eq!(received_tx, (tx.clone(), true));
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn test_zero_conf_safe() {
+        let client = get_client();
+
+        let tx = send_transaction(&client).await;
+        let zero_conf_safe = client.zero_conf_safe(&tx);
+
+        let received = zero_conf_safe.await.unwrap();
+        assert!(!received);
+
+        generate_block(&client).await;
     }
 }

@@ -145,6 +145,18 @@ impl Server {
             "number of open SSE streams",
         );
 
+        describe_gauge!(
+            crate::metrics::ZEROCONF_TOOL_TXS,
+            Unit::Count,
+            "number of transactions checked with the 0-conf tool",
+        );
+
+        describe_gauge!(
+            crate::metrics::ZEROCONF_TOOL_TXS_CALLS,
+            Unit::Count,
+            "number of calls made to the 0-conf tool for accepted transactions",
+        );
+
         handle
     }
 }

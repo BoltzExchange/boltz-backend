@@ -1,11 +1,10 @@
+use rcgen::{CertificateParams, Issuer, KeyPair};
 use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-
-use rcgen::{CertificateParams, KeyPair};
 use tonic::transport::{Certificate, Identity};
 use tracing::{debug, trace};
 
@@ -19,16 +18,13 @@ pub fn load_certificates(base_path: String) -> Result<(Identity, Certificate), B
 
     let (ca_key, ca_cert) =
         generate_or_load_certificate("Boltz sidecar Root CA", base, "ca", None)?;
-    let ca_keypair = KeyPair::from_pem(&String::from_utf8_lossy(&ca_key))?;
-    let ca = (
-        &ca_keypair,
-        &CertificateParams::from_ca_cert_pem(&String::from_utf8_lossy(&ca_cert.clone()))?
-            .self_signed(&ca_keypair)?,
-    );
+
+    let ca_keypair = KeyPair::from_pem(std::str::from_utf8(&ca_key)?)?;
+    let issuer = Issuer::from_ca_cert_pem(std::str::from_utf8(&ca_cert)?, ca_keypair)?;
 
     let (server_key, server_cert) =
-        generate_or_load_certificate("Boltz sidecar gRPC server", base, "server", Some(ca))?;
-    generate_or_load_certificate("Boltz sidecar gRPC client", base, "client", Some(ca))?;
+        generate_or_load_certificate("Boltz sidecar gRPC server", base, "server", Some(&issuer))?;
+    generate_or_load_certificate("Boltz sidecar gRPC client", base, "client", Some(&issuer))?;
 
     trace!("Loaded certificates");
     Ok((
@@ -41,7 +37,7 @@ fn generate_or_load_certificate(
     name: &str,
     directory: &Path,
     file_name: &str,
-    parent: Option<(&KeyPair, &rcgen::Certificate)>,
+    parent: Option<&Issuer<KeyPair>>,
 ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn Error>> {
     let key_path = directory.join(format!("{file_name}-key.pem"));
     let cert_path = directory.join(format!("{file_name}.pem"));
@@ -59,12 +55,12 @@ fn generate_certificate(
     name: &str,
     key_path: PathBuf,
     cert_path: PathBuf,
-    parent: Option<(&KeyPair, &rcgen::Certificate)>,
+    parent: Option<&Issuer<KeyPair>>,
 ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn Error>> {
     let key_pair = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256)?;
 
-    let mut key_file = File::create(key_path.clone())?;
-    let mut perms = fs::metadata(key_path.clone()).unwrap().permissions();
+    let mut key_file = File::create(&key_path)?;
+    let mut perms = fs::metadata(&key_path)?.permissions();
     perms.set_mode(0o600);
     fs::set_permissions(&key_path, perms)?;
 
@@ -86,8 +82,8 @@ fn generate_certificate(
         .push(rcgen::DnType::CommonName, name);
 
     let cert = match parent {
+        Some(issuer) => cert_params.signed_by(&key_pair, issuer),
         None => cert_params.self_signed(&key_pair),
-        Some((ca_key, ca_cert)) => cert_params.signed_by(&key_pair, ca_cert, ca_key),
     }?;
 
     File::create(cert_path)?.write_all(cert.pem().as_bytes())?;
@@ -100,10 +96,7 @@ fn generate_certificate(
 
 #[cfg(test)]
 mod tls_test {
-    use crate::grpc::tls::{generate_certificate, generate_or_load_certificate, load_certificates};
-    use rcgen::{CertificateParams, KeyPair};
-    use std::fs;
-    use std::path::Path;
+    use super::*;
 
     #[test]
     fn test_load_certificates() {
@@ -172,18 +165,15 @@ mod tls_test {
         .unwrap();
 
         let ca_keypair = KeyPair::from_pem(&String::from_utf8_lossy(&ca_key)).unwrap();
-        let ca = (
-            &ca_keypair,
-            &CertificateParams::from_ca_cert_pem(&String::from_utf8_lossy(&ca_cert.clone()))
-                .unwrap()
-                .self_signed(&ca_keypair)
-                .unwrap(),
-        );
+        let issuer =
+            Issuer::from_ca_cert_pem(&String::from_utf8_lossy(&ca_cert.clone()), ca_keypair)
+                .unwrap();
 
         let key_path = certs_dir.clone().join("client-key.pem");
         let cert_path = certs_dir.clone().join("client.pem");
         let (client_key, client_cert) =
-            generate_certificate("test", key_path.clone(), cert_path.clone(), Some(ca)).unwrap();
+            generate_certificate("test", key_path.clone(), cert_path.clone(), Some(&issuer))
+                .unwrap();
 
         assert_eq!(client_key, fs::read(key_path).unwrap());
         assert_eq!(client_cert, fs::read(cert_path).unwrap());

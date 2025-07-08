@@ -1,3 +1,4 @@
+use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
@@ -18,9 +19,14 @@ const MAX_WORKERS: usize = 16;
 const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
 const BTC_KVB_SAT_VBYTE_FACTOR: u64 = 100_000;
 
+const CACHE_TTL_SECS: u64 = 60 * 60 * 24;
+
+const CACHE_KEY_RAW_TX: &str = "raw_tx";
+
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
+    cache: Cache,
     client_type: Type,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
@@ -36,11 +42,13 @@ impl PartialEq for ChainClient {
 impl ChainClient {
     pub fn new(
         cancellation_token: CancellationToken,
+        cache: Cache,
         client_type: Type,
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
         let client = Self {
+            cache,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
             mempool_space: config
@@ -125,6 +133,10 @@ impl ChainClient {
             // On regtest estimatesmartfee can fail
             Err(_) => Ok(floor),
         }
+    }
+
+    fn cache_key_raw_tx<'a>(&self, tx_id: &'a str) -> (String, &'a str) {
+        (format!("{CACHE_KEY_RAW_TX}:{}", self.symbol()), tx_id)
     }
 }
 
@@ -298,12 +310,27 @@ impl Client for ChainClient {
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
-        self.client
+        let (key, field) = self.cache_key_raw_tx(tx_id);
+        if let Some(tx) = self.cache.get(&key, field).await? {
+            return Ok(tx);
+        }
+
+        let res = self
+            .client
             .request::<String>(
                 "getrawtransaction",
                 Some(vec![RpcParam::Str(tx_id.to_string())]),
             )
-            .await
+            .await;
+
+        if let Ok(tx) = res {
+            self.cache
+                .set(&key, field, &tx, Some(CACHE_TTL_SECS))
+                .await?;
+            Ok(tx)
+        } else {
+            res
+        }
     }
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
@@ -329,6 +356,7 @@ impl Client for ChainClient {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::cache;
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::{Transaction, parse_transaction_hex};
@@ -341,6 +369,7 @@ pub mod test {
     pub fn get_client() -> ChainClient {
         ChainClient::new(
             CancellationToken::new(),
+            cache::Cache::Memory(cache::MemCache::new()),
             Type::Bitcoin,
             "BTC".to_string(),
             Config {
@@ -492,8 +521,14 @@ pub mod test {
         let client = get_client();
         let tx = send_transaction(&client).await;
 
-        let raw_tx = client.raw_transaction(&tx.txid_hex()).await.unwrap();
+        let tx_id = tx.txid_hex();
+
+        let raw_tx = client.raw_transaction(&tx_id).await.unwrap();
         assert_eq!(raw_tx, alloy::hex::encode(tx.serialize()));
+
+        let (key, field) = client.cache_key_raw_tx(&tx_id);
+        let cached_tx = client.cache.get(&key, field).await.unwrap();
+        assert_eq!(cached_tx, Some(raw_tx));
     }
 
     #[tokio::test]

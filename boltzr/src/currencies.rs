@@ -1,4 +1,5 @@
 use crate::api::ws::OfferSubscriptions;
+use crate::cache::Cache;
 use crate::chain::BaseClient;
 use crate::chain::bumper::Bumper;
 use crate::chain::bumper::RefundTransactionFetcher;
@@ -37,6 +38,7 @@ pub struct Currency {
 
 pub type Currencies = Arc<HashMap<String, Currency>>;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn connect_nodes<K: KeysHelper>(
     cancellation_token: CancellationToken,
     keys_helper: K,
@@ -45,6 +47,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
     db: Pool,
+    cache: Cache,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
@@ -69,6 +72,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                 let chain = match currency.chain {
                     Some(config) => connect_client(ChainClient::new(
                         cancellation_token.clone(),
+                        cache.clone(),
                         crate::chain::types::Type::Bitcoin,
                         currency.symbol.clone(),
                         config,
@@ -139,6 +143,7 @@ pub async fn connect_nodes<K: KeysHelper>(
         let chain = connect_client(ElementsClient::new(
             cancellation_token.clone(),
             network,
+            cache.clone(),
             liquid.chain,
         ))
         .await

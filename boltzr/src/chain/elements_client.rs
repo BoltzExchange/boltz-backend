@@ -1,3 +1,4 @@
+use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{NetworkInfo, RawTransactionVerbose, Type};
@@ -29,10 +30,12 @@ impl ElementsClient {
     pub fn new(
         cancellation_token: CancellationToken,
         network: Network,
+        cache: Cache,
         config: LiquidConfig,
     ) -> anyhow::Result<Self> {
         let client = ChainClient::new(
             cancellation_token.clone(),
+            cache.clone(),
             TYPE,
             SYMBOL.to_string(),
             config.base,
@@ -40,6 +43,7 @@ impl ElementsClient {
         let lowball_client = match config.lowball {
             Some(lowball_config) => Some(ChainClient::new(
                 cancellation_token.clone(),
+                cache,
                 TYPE,
                 SYMBOL.to_string(),
                 lowball_config,
@@ -153,6 +157,7 @@ impl Client for ElementsClient {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::cache;
     use crate::chain::elements_client::ElementsClient;
     use crate::chain::types::{RpcParam, Type};
     use crate::chain::utils::parse_transaction_hex;
@@ -187,6 +192,7 @@ pub mod test {
                     ElementsClient::new(
                         CancellationToken::new(),
                         Network::Regtest,
+                        cache::Cache::Memory(cache::MemCache::new()),
                         LiquidConfig {
                             base: config.clone(),
                             lowball: Some(config.clone()),
@@ -269,6 +275,7 @@ pub mod test {
         let client = ElementsClient::new(
             cancellation_token.clone(),
             Network::Regtest,
+            cache::Cache::Memory(cache::MemCache::new()),
             LiquidConfig {
                 base: config.clone(),
                 lowball: None,
@@ -284,6 +291,7 @@ pub mod test {
         let client = ElementsClient::new(
             cancellation_token.clone(),
             Network::Regtest,
+            cache::Cache::Memory(cache::MemCache::new()),
             LiquidConfig {
                 base: config,
                 lowball: Some(config_lowball),

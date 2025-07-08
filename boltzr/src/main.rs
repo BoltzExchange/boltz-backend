@@ -153,6 +153,7 @@ async fn main() {
         config.currencies,
         config.liquid,
         db_pool.clone(),
+        cache.clone(),
     )
     .await
     {

@@ -181,12 +181,9 @@ mod test {
 
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
+        let client = Arc::new(get_client().0) as Arc<dyn Client + Send + Sync>;
         let listen_handle = tokio::spawn(async move {
-            watcher
-                .clone()
-                .listen(&Arc::new(Box::new(get_client().0)), tx_receiver)
-                .await
-                .unwrap();
+            watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
         tx_sender.send((test_transaction.clone(), false)).unwrap();
@@ -243,12 +240,9 @@ mod test {
 
         let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
+        let client = Arc::new(get_client().0) as Arc<dyn Client + Send + Sync>;
         let listen_handle = tokio::spawn(async move {
-            watcher
-                .clone()
-                .listen(&Arc::new(Box::new(get_client().0)), tx_receiver)
-                .await
-                .unwrap();
+            watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
         tx_sender.send((test_transaction.clone(), true)).unwrap();
@@ -295,11 +289,8 @@ mod test {
             let mut client = get_client().0;
             client.set_network(Network::Testnet);
 
-            watcher
-                .clone()
-                .listen(&Arc::new(Box::new(client)), tx_receiver)
-                .await
-                .unwrap();
+            let client = Arc::new(client) as Arc<dyn Client + Send + Sync>;
+            watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
         tx_sender.send((test_transaction.clone(), false)).unwrap();

@@ -549,7 +549,9 @@ class DeferredClaimer extends CoopSignerBase<{
       }
 
       case CurrencyType.Ark: {
-        throw `batched claims not supported on ${currencyTypeToString(currency.type)}`;
+        throw new Error(
+          `batched claims not supported on ${currencyTypeToString(currency.type)}`,
+        );
       }
     }
 

@@ -498,11 +498,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             break;
 
           case CurrencyType.Ark:
-            await this.lockupVtxo(
-              reverseSwap,
-              chainCurrency.arkNode!,
-              lightningClient,
-            );
+            await this.lockupVtxo(reverseSwap, wallet, lightningClient);
             break;
         }
       });
@@ -1271,37 +1267,37 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
   public lockupVtxo = async (
     swap: ReverseSwap,
-    arkClient: ArkClient,
+    wallet: Wallet,
     lightningClient: LightningClient,
   ) => {
     try {
-      const txId = await arkClient.sendOffchain(
+      const { transactionId, vout, fee } = await wallet.sendToAddress(
         swap.lockupAddress,
         swap.onchainAmount!,
+        undefined,
         TransactionLabelRepository.lockupLabel(swap),
       );
 
       this.logger.verbose(
         `Locked up VHTLC ${swap.onchainAmount!} ${
-          arkClient.symbol
-        } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${txId}`,
+          wallet.symbol
+        } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
       );
 
       this.emit('coins.sent', {
-        transaction: txId!,
+        transaction: transactionId!,
         swap: await WrappedSwapRepository.setServerLockupTransaction(
           swap,
-          txId!,
+          transactionId!,
           swap.onchainAmount!,
-          0,
-          // TODO: is there a vout?
-          0,
+          fee || 0,
+          vout,
         ),
       });
     } catch (error) {
       await this.handleSwapSendFailed(
         swap,
-        arkClient.symbol,
+        wallet.symbol,
         error,
         lightningClient,
       );

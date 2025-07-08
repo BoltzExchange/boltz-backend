@@ -823,12 +823,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         },
       });
 
-      if (submarine !== null && submarine !== undefined) {
-        await LightningNursery.cancelReverseInvoices(
-          lightningClient,
-          reverseSwap,
-          true,
-        );
+      if (
+        submarine !== null &&
+        submarine !== undefined &&
+        submarine.invoice === reverseSwap.invoice
+      ) {
+        try {
+          await LightningNursery.cancelReverseInvoices(
+            lightningClient,
+            reverseSwap,
+            true,
+          );
+        } catch (e) {
+          this.logger.debug(
+            `Could not cancel invoice of Reverse Swap ${
+              reverseSwap.id
+            } because: ${formatError(e)}`,
+          );
+        }
       } else {
         await lightningClient.raceCall(
           lightningClient.settleHoldInvoice(preimage),

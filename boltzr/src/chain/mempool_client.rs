@@ -86,6 +86,10 @@ impl Client {
             .replace("https://", "wss://");
 
         loop {
+            if self.cancellation_token.is_cancelled() {
+                break;
+            }
+
             match self.connect_websocket(&url).await {
                 Ok(_) => break,
                 Err(err) => {

@@ -9,7 +9,7 @@ import ArkClient, {
 import AspClient from '../../../lib/chain/AspClient';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import { waitForFunctionToBeTrue } from '../../Utils';
-import { arkClient, arpUrl, bitcoinClient } from '../Nodes';
+import { arkClient, aspUrl, bitcoinClient } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
@@ -84,7 +84,7 @@ describe('ArkClient', () => {
     const txid = await arkClient.sendOffchain(address.address, amount, label);
     expect(txid).toBeDefined();
 
-    const tx = await new AspClient(arpUrl).getTx(txid);
+    const tx = await new AspClient(aspUrl).getTx(txid);
     expect(tx.outputsLength).toEqual(2);
     expect(tx.getOutput(0).amount).toEqual(BigInt(amount));
 
@@ -179,7 +179,7 @@ describe('ArkClient', () => {
   describe('decodeAddress', () => {
     test('should decode address', () => {
       expect(
-        ArkClient['decodeAddress'](
+        ArkClient.decodeAddress(
           'tark1sg9n0wd5r8x4dj68ux8t2hudvzl0ajukqck9ef0rg4c63afkvm800my34z8qtcr4vh934s933vh60y9sahzmp6d9ry833ts20ljs06cmpz069',
         ),
       ).toEqual({
@@ -199,7 +199,7 @@ describe('ArkClient', () => {
       ['undefined address', undefined as unknown as string],
     ])('should throw error for %s', (_, address) => {
       expect(() => {
-        ArkClient['decodeAddress'](address);
+        ArkClient.decodeAddress(address);
       }).toThrow('invalid address');
     });
   });

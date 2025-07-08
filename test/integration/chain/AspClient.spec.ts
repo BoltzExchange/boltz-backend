@@ -3,12 +3,12 @@ import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer } from '../../../lib/Utils';
 import AspClient from '../../../lib/chain/AspClient';
-import { arkClient, arpUrl, bitcoinClient } from '../Nodes';
+import { arkClient, aspUrl, bitcoinClient } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/TransactionLabelRepository');
 
 describe('AspClient', () => {
-  const client = new AspClient(arpUrl);
+  const client = new AspClient(aspUrl);
 
   beforeAll(async () => {
     await arkClient.connect(bitcoinClient);
@@ -27,9 +27,49 @@ describe('AspClient', () => {
     });
 
     test('strips trailing slash from URL', () => {
-      const client = new AspClient(`${arpUrl}/`);
-      expect(client['url']).toBe(arpUrl);
+      const client = new AspClient(`${aspUrl}/`);
+      expect(client['url']).toBe(aspUrl);
     });
+
+    test('adds http:// prefix if not present', () => {
+      const client = new AspClient('localhost:7070');
+      expect(client['url']).toBe('http://localhost:7070');
+    });
+
+    test('should not add http:// prefix if https:// is present', () => {
+      const client = new AspClient('https://localhost:7070');
+      expect(client['url']).toBe('https://localhost:7070');
+    });
+  });
+
+  test('should map inputs', async () => {
+    const txId = await arkClient.sendOffchain(
+      (await arkClient.getAddress()).address,
+      10_000,
+      'test',
+    );
+
+    const tx = await client.getTx(txId);
+
+    expect(AspClient.mapInputs(tx)).toHaveLength(tx.inputsLength);
+    for (let i = 0; i < tx.inputsLength; i++) {
+      expect(AspClient.mapInputs(tx)[i]).toEqual(tx.getInput(i));
+    }
+  });
+
+  test('should map outputs', async () => {
+    const txId = await arkClient.sendOffchain(
+      (await arkClient.getAddress()).address,
+      10_000,
+      'test',
+    );
+
+    const tx = await client.getTx(txId);
+
+    expect(AspClient.mapOutputs(tx)).toHaveLength(tx.outputsLength);
+    for (let i = 0; i < tx.outputsLength; i++) {
+      expect(AspClient.mapOutputs(tx)[i]).toEqual(tx.getOutput(i));
+    }
   });
 
   test('should get info', async () => {

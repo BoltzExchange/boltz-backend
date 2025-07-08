@@ -1,5 +1,4 @@
 import type { Transaction } from '@scure/btc-signer';
-import type { TransactionInput } from '@scure/btc-signer/psbt';
 import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
@@ -8,6 +7,7 @@ import ArkClient, {
   type CreatedVHtlc,
   type SpentVHtlc,
 } from '../chain/ArkClient';
+import AspClient from '../chain/AspClient';
 import {
   CurrencyType,
   SwapUpdateEvent,
@@ -86,15 +86,7 @@ class ArkNursery extends TypedEventEmitter<{
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
     );
 
-    await SwapRepository.setLockupTransaction(
-      swap,
-      vHtlc.txId,
-      vHtlc.amount,
-      true,
-      vHtlc.vout,
-    );
-
-    if (swap.expectedAmount! < vHtlc.amount) {
+    if (swap.expectedAmount! > vHtlc.amount) {
       this.emit('swap.lockup.failed', {
         swap,
         reason: Errors.INSUFFICIENT_AMOUNT(vHtlc.amount, swap.expectedAmount!)
@@ -175,7 +167,7 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private static extractPreimages = (tx: Transaction) => {
-    return ArkNursery.mapInputs(tx)
+    return AspClient.mapInputs(tx)
       .map((input) => {
         const preimage = input.unknown?.find((x) =>
           ArkNursery.condition.equals(x[0].key),
@@ -188,16 +180,6 @@ class ArkNursery extends TypedEventEmitter<{
         return Buffer.from(preimage[1]).subarray(2);
       })
       .filter((x) => x !== undefined);
-  };
-
-  private static mapInputs = (tx: Transaction) => {
-    const inputs: TransactionInput[] = [];
-
-    for (let i = 0; i < tx.inputsLength; i++) {
-      inputs.push(tx.getInput(i));
-    }
-
-    return inputs;
   };
 }
 

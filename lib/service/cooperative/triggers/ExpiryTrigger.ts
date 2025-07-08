@@ -50,7 +50,9 @@ class ExpiryTrigger extends SweepTrigger {
         return await currency.provider!.getBlockNumber();
 
       case CurrencyType.Ark:
-        throw `${currencyTypeToString(currency.type)} has no block height`;
+        throw new Error(
+          `${currencyTypeToString(currency.type)} has no block height`,
+        );
     }
   };
 }

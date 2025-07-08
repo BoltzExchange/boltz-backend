@@ -830,6 +830,24 @@ describe('SwapRouter', () => {
     );
   });
 
+  test.each`
+    error                                 | params              | body
+    ${'undefined parameter: id'}          | ${{}}               | ${{}}
+    ${'invalid parameter: id'}            | ${{ id: 123 }}      | ${{}}
+    ${'undefined parameter: transaction'} | ${{ id: 'someId' }} | ${{}}
+    ${'invalid parameter: transaction'}   | ${{ id: 'someId' }} | ${{ transaction: 123 }}
+  `(
+    'should not refund submarine swaps with invalid parameters ($error)',
+    async ({ body, params, error }) => {
+      await expect(
+        swapRouter['refundArk'](
+          mockRequest(body, undefined, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
   test('should refund ark submarine swaps', async () => {
     const reqParams = {
       id: 'someId',

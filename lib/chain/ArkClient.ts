@@ -87,6 +87,23 @@ class ArkClient extends BaseClient<
     super(logger, ArkClient.symbol);
   }
 
+  public static decodeAddress = (address: string) => {
+    const dec = bech32m.decodeUnsafe(address, 1023);
+    if (dec === undefined) {
+      throw new Error('invalid address');
+    }
+
+    const data = Buffer.from(bech32m.fromWords(dec.words));
+    if (data.length !== 64) {
+      throw new Error('invalid address (data.length !== 64)');
+    }
+
+    return {
+      serverPubKey: data.subarray(0, 32),
+      tweakedPubKey: data.subarray(32, 64),
+    };
+  };
+
   public connect = async (chainClient: IChainClient): Promise<boolean> => {
     if (this.isConnected()) {
       return true;
@@ -192,7 +209,7 @@ class ArkClient extends BaseClient<
   };
 
   public serviceName(): string {
-    return 'ARK-node';
+    return 'Fulmine';
   }
 
   public getInfo = async () => {
@@ -418,23 +435,6 @@ class ArkClient extends BaseClient<
         );
       }
     }
-  };
-
-  private static decodeAddress = (address: string) => {
-    const dec = bech32m.decodeUnsafe(address, 1023);
-    if (dec === undefined) {
-      throw new Error('invalid address');
-    }
-
-    const data = Buffer.from(bech32m.fromWords(dec.words));
-    if (data.length !== 64) {
-      throw new Error('invalid address (data.length !== 64)');
-    }
-
-    return {
-      serverPubKey: data.subarray(0, 32),
-      tweakedPubKey: data.subarray(32, 64),
-    };
   };
 
   private streamVhtlcs = async () => {

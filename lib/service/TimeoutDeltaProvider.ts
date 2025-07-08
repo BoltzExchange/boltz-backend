@@ -57,8 +57,8 @@ class TimeoutDeltaProvider {
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
-    [ArkClient.symbol, 10],
     [Rsk.symbol, 0.5],
+    [ArkClient.symbol, 10],
     [Ethereum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);

@@ -15,6 +15,7 @@ import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import { RefundStatus } from '../../db/models/RefundTransaction';
@@ -137,29 +138,32 @@ class MusigSigner {
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 
-    const { base, quote } = splitPairId(swap.pair);
-    const currency = this.currencies.get(
-      getChainCurrency(base, quote, swap.orderSide, false),
-    )!;
-
-    if (currency.type !== CurrencyType.Ark || currency.arkNode === undefined) {
-      throw 'currency is not ARK';
+    const currency = this.currencies.get(swap.chainCurrency);
+    if (
+      currency === undefined ||
+      currency.type !== CurrencyType.Ark ||
+      currency.arkNode === undefined
+    ) {
+      throw new Error(
+        `currency is not ${currencyTypeToString(CurrencyType.Ark)}`,
+      );
     }
 
     await this.validateEligibility(swap);
 
     const psbt = Transaction.fromPSBT(Buffer.from(transaction, 'base64'));
     if (psbt.inputsLength !== 1) {
-      throw 'transaction must have exactly one input';
+      throw new Error('transaction must have exactly one input');
     }
 
     {
-      const inputTxId = psbt.getInput(0).txid;
+      const input = psbt.getInput(0);
       if (
-        inputTxId === undefined ||
-        getHexString(Buffer.from(inputTxId)) !== swap.lockupTransactionId
+        input.txid === undefined ||
+        getHexString(Buffer.from(input.txid)) !== swap.lockupTransactionId ||
+        input.index !== swap.lockupTransactionVout
       ) {
-        throw 'transaction is not for this swap';
+        throw new Error('transaction is not for this swap');
       }
     }
 

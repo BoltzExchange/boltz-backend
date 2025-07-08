@@ -1,5 +1,6 @@
 import type Logger from '../../Logger';
 import ArkClient from '../../chain/ArkClient';
+import AspClient from '../../chain/AspClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 
@@ -29,11 +30,8 @@ class ArkWallet implements WalletProviderInterface {
     _satPerVbyte: number | undefined,
     label: string,
   ): Promise<SentTransaction> => {
-    const roundId = await this.node.sendOffchain(address, amount, label);
-    return {
-      fee: 0,
-      transactionId: roundId,
-    };
+    const transactionId = await this.node.sendOffchain(address, amount, label);
+    return await this.handleTransaction(transactionId, address, amount);
   };
 
   public sweepWallet = async (
@@ -42,16 +40,38 @@ class ArkWallet implements WalletProviderInterface {
     label: string,
   ): Promise<SentTransaction> => {
     const balance = await this.getBalance();
-    const txId = await this.node.sendOffchain(
+    const amount =
+      BigInt(balance.confirmedBalance) + BigInt(balance.unconfirmedBalance);
+
+    const txId = await this.node.sendOffchain(address, Number(amount), label);
+    return await this.handleTransaction(
+      txId,
       address,
-      Number(
-        BigInt(balance.confirmedBalance) + BigInt(balance.unconfirmedBalance),
-      ),
-      label,
+      balance.confirmedBalance,
     );
+  };
+
+  private handleTransaction = async (
+    transactionId: string,
+    address: string,
+    amount: number,
+  ): Promise<SentTransaction> => {
+    const tx = await this.node.aspClient.getTx(transactionId);
+
+    const addressPubkey = ArkClient.decodeAddress(address).tweakedPubKey;
+    const vout = AspClient.mapOutputs(tx).findIndex(
+      (output) =>
+        output.amount === BigInt(amount) &&
+        Buffer.from(output.script!).subarray(2).equals(addressPubkey),
+    );
+    if (vout === -1) {
+      throw new Error('output not found in transaction');
+    }
+
     return {
       fee: 0,
-      transactionId: txId,
+      vout,
+      transactionId,
     };
   };
 }

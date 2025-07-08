@@ -566,8 +566,8 @@ class Boltz {
         symbol: ArkClient.symbol,
         arkNode: new ArkClient(this.logger, this.config.ark),
         limits: {
+          ...this.config.ark,
           minWalletBalance: this.config.ark.minWalletBalance ?? 0,
-          maxZeroConfAmount: this.config.ark.maxZeroConfAmount ?? 0,
         },
       });
     }

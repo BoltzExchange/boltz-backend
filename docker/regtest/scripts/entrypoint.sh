@@ -25,8 +25,10 @@ bitcoin-cli -generate 1 > /dev/null
 sleep 10
 arkd wallet unlock --password ark > /dev/null
 
+bitcoin-cli -generate 1 > /dev/null
+
 startFulmine
-sleep 20
+sleep 40
 curl -s -X POST http://localhost:7001/api/v1/wallet/unlock \
   -H "Content-Type: application/json" \
   -d '{"password": "ark"}' > /dev/null

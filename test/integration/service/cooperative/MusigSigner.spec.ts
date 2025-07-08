@@ -1,3 +1,4 @@
+import { Transaction as ScureTransaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
 import { Transaction, address, crypto } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
@@ -66,6 +67,11 @@ describe('MusigSigner', () => {
     type: CurrencyType.BitcoinLike,
   } as unknown as Currency;
 
+  const arkCurrency = {
+    type: CurrencyType.Ark,
+    arkNode: {},
+  } as unknown as Currency;
+
   const btcWallet = {} as Wallet;
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
@@ -97,6 +103,7 @@ describe('MusigSigner', () => {
       Logger.disabledLogger,
       new Map<string, any>([
         ['BTC', btcCurrency],
+	['Ark', arkCurrency],
         ['noChainClient', {}],
       ]),
       walletManager,
@@ -361,6 +368,234 @@ describe('MusigSigner', () => {
       await expect(payPromise).rejects.toEqual(expect.anything());
     },
   );
+
+  describe('signRefundArk', () => {
+    test.each([[null], [undefined]])(
+      'should throw when swap cannot be found (%s)',
+      async (swap) => {
+        SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+        const id = 'notFound';
+        await expect(signer.signRefundArk(id, 'transaction')).rejects.toEqual(
+          Errors.SWAP_NOT_FOUND(id),
+        );
+
+        expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+        expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
+      },
+    );
+
+    test('should throw when currency is not Ark', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        chainCurrency: 'BTC',
+      });
+
+      const id = 'notArk';
+      await expect(signer.signRefundArk(id, 'transaction')).rejects.toEqual(
+        new Error('currency is not Ark'),
+      );
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
+    });
+
+    test('should validate eligibility', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        chainCurrency: 'ARK',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoicePending,
+      });
+
+      const id = 'eligible';
+      await expect(signer.signRefundArk(id, 'transaction')).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.StatusNotEligible,
+        ),
+      );
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledTimes(1);
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id });
+    });
+
+    test('should throw when transaction has more than one input', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        chainCurrency: 'ARK',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+      });
+
+      const tx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      tx.addInput({
+        txid: Buffer.alloc(32),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      tx.addInput({
+        txid: Buffer.alloc(32),
+        index: 1,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      tx.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      tx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+      tx['inputs'][1].finalScriptSig = Buffer.alloc(64);
+
+      await expect(
+        signer.signRefundArk(
+          'eligible',
+          Buffer.from(tx.toPSBT(0)).toString('base64'),
+        ),
+      ).rejects.toEqual(new Error('transaction must have exactly one input'));
+    });
+
+    test('should throw when input transaction id does not match lockup transaction id', async () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        chainCurrency: 'ARK',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+        lockupTransactionId: getHexString(txId),
+        lockupTransactionVout: vout,
+      });
+
+      const tx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      tx.addInput({
+        txid: randomBytes(32),
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      tx.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      tx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      await expect(
+        signer.signRefundArk(
+          'eligible',
+          Buffer.from(tx.toPSBT(0)).toString('base64'),
+        ),
+      ).rejects.toEqual(new Error('transaction is not for this swap'));
+    });
+
+    test('should throw when input transaction id does not match lockup transaction vout', async () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        chainCurrency: 'ARK',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+        lockupTransactionId: getHexString(txId),
+        lockupTransactionVout: vout,
+      });
+
+      const tx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      tx.addInput({
+        txid: txId,
+        index: vout - 2,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      tx.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      tx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      await expect(
+        signer.signRefundArk(
+          'eligible',
+          Buffer.from(tx.toPSBT(0)).toString('base64'),
+        ),
+      ).rejects.toEqual(new Error('transaction is not for this swap'));
+    });
+
+    test('should sign refunds', async () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        chainCurrency: 'ARK',
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+        lockupTransactionId: getHexString(txId),
+        lockupTransactionVout: vout,
+      });
+
+      const tx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      tx.addInput({
+        txid: txId,
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      tx.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      tx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const signedTx = 'signedTx';
+      arkCurrency.arkNode!.signTransaction = jest
+        .fn()
+        .mockResolvedValue(signedTx);
+
+      const inputTx = Buffer.from(tx.toPSBT(0)).toString('base64');
+
+      await expect(signer.signRefundArk('eligible', inputTx)).resolves.toEqual(
+        signedTx,
+      );
+
+      expect(arkCurrency.arkNode!.signTransaction).toHaveBeenCalledTimes(1);
+      expect(arkCurrency.arkNode!.signTransaction).toHaveBeenCalledWith(
+        inputTx,
+      );
+    });
+  });
 
   test('should allow refunds for swaps with pending payments when explicitly allowed', async () => {
     const preimageHash = randomBytes(32);

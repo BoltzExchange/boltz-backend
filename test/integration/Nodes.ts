@@ -84,7 +84,7 @@ export const arkClient = new ArkClient(Logger.disabledLogger, {
   port: 7000,
 });
 
-export const arpUrl = 'http://localhost:7070';
+export const aspUrl = 'http://localhost:7070';
 
 export const waitForClnChainSync = () =>
   new Promise<void>((resolve) => {

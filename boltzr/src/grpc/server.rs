@@ -226,6 +226,7 @@ mod server_test {
         impl SwapManager for Manager {
             fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_currencies(&self) -> Vec<Currency>;
             fn get_timeouts(
                 &self,
                 receiving: &str,

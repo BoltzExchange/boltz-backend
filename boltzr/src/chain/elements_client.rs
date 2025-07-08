@@ -1,6 +1,7 @@
+use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
-use crate::chain::types::{NetworkInfo, RawTransactionVerbose};
+use crate::chain::types::{NetworkInfo, RawTransactionVerbose, Type};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use crate::wallet::Network;
@@ -14,7 +15,7 @@ use tracing::{debug, info, instrument, warn};
 
 pub const SYMBOL: &str = "L-BTC";
 
-const TYPE: crate::chain::types::Type = crate::chain::types::Type::Elements;
+const TYPE: Type = Type::Elements;
 
 #[derive(Clone)]
 pub struct ElementsClient {
@@ -29,10 +30,12 @@ impl ElementsClient {
     pub fn new(
         cancellation_token: CancellationToken,
         network: Network,
+        cache: Cache,
         config: LiquidConfig,
     ) -> anyhow::Result<Self> {
         let client = ChainClient::new(
             cancellation_token.clone(),
+            cache.clone(),
             TYPE,
             SYMBOL.to_string(),
             config.base,
@@ -40,6 +43,7 @@ impl ElementsClient {
         let lowball_client = match config.lowball {
             Some(lowball_config) => Some(ChainClient::new(
                 cancellation_token.clone(),
+                cache,
                 TYPE,
                 SYMBOL.to_string(),
                 lowball_config,
@@ -102,6 +106,10 @@ impl BaseClient for ElementsClient {
 
 #[async_trait]
 impl Client for ElementsClient {
+    fn chain_type(&self) -> Type {
+        TYPE
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -116,8 +124,12 @@ impl Client for ElementsClient {
         self.wallet_client().network_info().await
     }
 
-    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
-        self.wallet_client().tx_receiver()
+    async fn estimate_fee(&self) -> anyhow::Result<f64> {
+        self.wallet_client().estimate_fee().await
+    }
+
+    async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
+        self.wallet_client().raw_transaction(tx_id).await
     }
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
@@ -136,11 +148,16 @@ impl Client for ElementsClient {
             None => self.wallet_client().zero_conf_safe(transaction),
         }
     }
+
+    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+        self.wallet_client().tx_receiver()
+    }
 }
 
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::cache;
     use crate::chain::elements_client::ElementsClient;
     use crate::chain::types::{RpcParam, Type};
     use crate::chain::utils::parse_transaction_hex;
@@ -165,6 +182,7 @@ pub mod test {
             cookie: None,
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+            mempool_space: None,
         };
 
         static CLIENT: OnceLock<(ElementsClient, Config)> = OnceLock::new();
@@ -174,6 +192,7 @@ pub mod test {
                     ElementsClient::new(
                         CancellationToken::new(),
                         Network::Regtest,
+                        cache::Cache::Memory(cache::MemCache::new()),
                         LiquidConfig {
                             base: config.clone(),
                             lowball: Some(config.clone()),
@@ -243,11 +262,20 @@ pub mod test {
     }
 
     #[tokio::test]
+    async fn test_chain_type() {
+        let (client, _) = get_client();
+        assert_eq!(client.chain_type(), Type::Elements);
+    }
+
+    #[tokio::test]
     async fn test_wallet_client() {
+        let cancellation_token = CancellationToken::new();
+
         let (_, config) = get_client();
         let client = ElementsClient::new(
-            CancellationToken::new(),
+            cancellation_token.clone(),
             Network::Regtest,
+            cache::Cache::Memory(cache::MemCache::new()),
             LiquidConfig {
                 base: config.clone(),
                 lowball: None,
@@ -261,8 +289,9 @@ pub mod test {
         let mut config_lowball = config.clone();
         config_lowball.port = 123;
         let client = ElementsClient::new(
-            CancellationToken::new(),
+            cancellation_token.clone(),
             Network::Regtest,
+            cache::Cache::Memory(cache::MemCache::new()),
             LiquidConfig {
                 base: config,
                 lowball: Some(config_lowball),
@@ -275,6 +304,15 @@ pub mod test {
             client.wallet_client().clone(),
             client.lowball_client.unwrap()
         );
+
+        cancellation_token.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_get_fees_smart_fee() {
+        let (client, _) = get_client();
+        let fees = client.estimate_fee().await.unwrap();
+        assert_eq!(fees, 0.1);
     }
 
     #[tokio::test]

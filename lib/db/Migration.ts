@@ -30,11 +30,13 @@ import PendingEthereumTransaction from './models/PendingEthereumTransaction';
 import PendingLockupTransaction from './models/PendingLockupTransaction';
 import type { ReferralConfig } from './models/Referral';
 import Referral from './models/Referral';
+import RefundTransaction from './models/RefundTransaction';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import LightningPaymentRepository from './repositories/LightningPaymentRepository';
 import PendingEthereumTransactionRepository from './repositories/PendingEthereumTransactionRepository';
+import RefundTransactionRepository from './repositories/RefundTransactionRepository';
 
 const coalesceInvoiceAmount = (
   decoded: bolt11.PaymentRequestObject,
@@ -128,7 +130,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 19;
+  private static latestSchemaVersion = 20;
 
   private toBackFill: number[] = [];
 
@@ -932,6 +934,57 @@ class Migration {
               using: 'HASH',
               transaction,
             });
+        });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 19: {
+        this.logUpdatingTable('refund_transactions');
+
+        await this.sequelize.transaction(async (transaction) => {
+          await this.sequelize.getQueryInterface().addColumn(
+            RefundTransaction.tableName,
+            'symbol',
+            {
+              type: new DataTypes.STRING(255),
+              allowNull: true,
+            },
+            {
+              transaction,
+            },
+          );
+
+          for (const refund of await RefundTransaction.findAll({
+            transaction,
+          })) {
+            const swap =
+              await RefundTransactionRepository.getSwapForTransaction(
+                refund.swapId,
+              );
+
+            await refund.update(
+              {
+                symbol: swap.refundCurrency,
+              },
+              {
+                transaction,
+              },
+            );
+          }
+
+          await this.sequelize.getQueryInterface().changeColumn(
+            RefundTransaction.tableName,
+            'symbol',
+            {
+              type: new DataTypes.STRING(255),
+              allowNull: false,
+            },
+            {
+              transaction,
+            },
+          );
         });
 
         await this.finishMigration(versionRow.version, currencies);

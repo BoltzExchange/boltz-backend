@@ -30,6 +30,8 @@ import DecodedInvoice from './DecodedInvoice';
 
 type Update = { id: string; status: SwapUpdate };
 
+type FeeBumpSuggestion = sidecarrpc.FeeBumpSuggestion.AsObject;
+
 type SidecarConfig = {
   path?: string;
 
@@ -50,6 +52,7 @@ class Sidecar extends BaseClient<
       confirmed: boolean;
       transactions: Buffer[];
     };
+    'fee.bump.suggestion': FeeBumpSuggestion;
   }
 > {
   public static readonly symbol = 'Boltz';
@@ -74,6 +77,7 @@ class Sidecar extends BaseClient<
     sidecarrpc.SwapUpdateResponse
   >;
   private subscribeSendSwapUpdatesCall?: ClientReadableStream<sidecarrpc.SendSwapUpdateRequest>;
+  private subscribeFeeBumpSuggestionsCall?: ClientReadableStream<sidecarrpc.FeeBumpSuggestion>;
 
   constructor(
     logger: Logger,
@@ -155,6 +159,7 @@ class Sidecar extends BaseClient<
   public disconnect = (): void => {
     this.subscribeSwapUpdatesCall?.cancel();
     this.subscribeSendSwapUpdatesCall?.cancel();
+    this.subscribeFeeBumpSuggestionsCall?.cancel();
 
     this.clearReconnectTimer();
 
@@ -472,9 +477,44 @@ class Sidecar extends BaseClient<
     });
 
     this.subscribeSendSwapUpdatesCall.on('end', () => {
-      if (this.subscribeSwapUpdatesCall !== undefined) {
-        this.subscribeSwapUpdatesCall.cancel();
-        this.subscribeSwapUpdatesCall = undefined;
+      if (this.subscribeSendSwapUpdatesCall !== undefined) {
+        this.subscribeSendSwapUpdatesCall.cancel();
+        this.subscribeSendSwapUpdatesCall = undefined;
+      }
+    });
+  };
+
+  private subscribeFeeBumpSuggestions = () => {
+    if (this.subscribeFeeBumpSuggestionsCall !== undefined) {
+      this.subscribeFeeBumpSuggestionsCall.cancel();
+    }
+
+    this.subscribeFeeBumpSuggestionsCall = this.client!.feeBumps(
+      new sidecarrpc.FeeBumpsRequest(),
+      this.clientMeta,
+    );
+
+    this.subscribeFeeBumpSuggestionsCall.on(
+      'data',
+      (data: sidecarrpc.FeeBumpSuggestion) => {
+        this.logger.debug(
+          `Received fee bump suggestion: ${stringify(data.toObject())}`,
+        );
+        this.emit('fee.bump.suggestion', data.toObject());
+      },
+    );
+
+    this.subscribeFeeBumpSuggestionsCall.on('error', (err) => {
+      this.logger.warn(
+        `Fee bump suggestions streaming call threw error: ${formatError(err)}`,
+      );
+      this.subscribeFeeBumpSuggestionsCall = undefined;
+    });
+
+    this.subscribeFeeBumpSuggestionsCall.on('end', () => {
+      if (this.subscribeFeeBumpSuggestionsCall !== undefined) {
+        this.subscribeFeeBumpSuggestionsCall.cancel();
+        this.subscribeFeeBumpSuggestionsCall = undefined;
       }
     });
   };
@@ -604,6 +644,7 @@ class Sidecar extends BaseClient<
       if (withSubscriptions) {
         this.subscribeSwapUpdates();
         this.subscribeSendSwapUpdates();
+        this.subscribeFeeBumpSuggestions();
       }
 
       this.setClientStatus(ClientStatus.Connected);
@@ -636,4 +677,4 @@ class Sidecar extends BaseClient<
 }
 
 export default Sidecar;
-export { SidecarConfig };
+export { SidecarConfig, FeeBumpSuggestion };

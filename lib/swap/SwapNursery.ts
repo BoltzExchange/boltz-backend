@@ -218,7 +218,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.refundWatcher = new RefundWatcher(this.logger);
+    this.refundWatcher = new RefundWatcher(
+      this.logger,
+      this.sidecar,
+      this.refundSwap,
+    );
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -864,6 +868,28 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       const message = `Could not settle ${nodeTypeToPrettyString(reverseSwap.node)} invoice of ${reverseSwap.id}: ${formatError(e)}`;
       this.logger.error(message);
       await this.notifications?.sendMessage(message, true);
+    }
+  };
+
+  public refundSwap = async (
+    chainCurrency: Currency,
+    swap: ReverseSwap | ChainSwapInfo,
+    fee?: number,
+  ) => {
+    // TODO: fee parameter for ether and erc20s
+    switch (chainCurrency.type) {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
+        await this.refundUtxo(chainCurrency, swap, fee);
+        break;
+
+      case CurrencyType.Ether:
+        await this.refundEther(swap, chainCurrency.symbol);
+        break;
+
+      case CurrencyType.ERC20:
+        await this.refundERC20(swap, chainCurrency.symbol);
+        break;
     }
   };
 
@@ -1546,20 +1572,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     try {
       if (reverseSwap.transactionId) {
-        switch (chainCurrency.type) {
-          case CurrencyType.BitcoinLike:
-          case CurrencyType.Liquid:
-            await this.refundUtxo(chainCurrency, reverseSwap);
-            break;
-
-          case CurrencyType.Ether:
-            await this.refundEther(reverseSwap, chainSymbol);
-            break;
-
-          case CurrencyType.ERC20:
-            await this.refundERC20(reverseSwap, chainSymbol);
-            break;
-        }
+        await this.refundSwap(chainCurrency, reverseSwap);
       } else {
         this.emit(
           'expiration',
@@ -1589,22 +1602,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     try {
       if (chainSwap.sendingData.transactionId) {
-        switch (chainCurrency.type) {
-          case CurrencyType.BitcoinLike:
-          case CurrencyType.Liquid:
-            await this.chainSwapSigner.removeFromClaimable(chainSwap.id);
-            await this.refundUtxo(chainCurrency, chainSwap);
-
-            break;
-
-          case CurrencyType.Ether:
-            await this.refundEther(chainSwap, chainCurrency.symbol);
-            break;
-
-          case CurrencyType.ERC20:
-            await this.refundERC20(chainSwap, chainCurrency.symbol);
-            break;
-        }
+        await this.refundSwap(chainCurrency, chainSwap);
       } else {
         this.emit(
           'expiration',
@@ -1623,6 +1621,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private refundUtxo = async (
     chainCurrency: Currency,
     swap: ReverseSwap | ChainSwapInfo,
+    fee?: number,
   ) => {
     const chainClient = chainCurrency.chainClient!;
     const wallet = this.walletManager.wallets.get(chainCurrency.symbol)!;
@@ -1677,7 +1676,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       [refundDetails] as RefundDetails[] | LiquidRefundDetails[],
       await wallet.getAddress(TransactionLabelRepository.refundLabel(swap)),
       sendingData.timeoutBlockHeight,
-      await chainCurrency.chainClient!.estimateFee(),
+      fee ?? (await chainCurrency.chainClient!.estimateFee()),
     );
     const minerFee = await calculateTransactionFee(
       chainCurrency.chainClient!,
@@ -1686,6 +1685,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
+      symbol: chainCurrency.symbol,
       id: refundTransaction.getId(),
       vin: 0,
     });
@@ -1743,6 +1743,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
+      symbol: chainSymbol,
       id: contractTransaction.hash,
       vin: null,
     });
@@ -1796,6 +1797,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
+      symbol: chainSymbol,
       id: contractTransaction.hash,
       vin: null,
     });

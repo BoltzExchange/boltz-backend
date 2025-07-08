@@ -25,6 +25,7 @@ describe('RefundTransactionRepository', () => {
   test('should add refund transaction', async () => {
     const tx = await RefundTransactionRepository.addTransaction({
       swapId: 'swapId',
+      symbol: 'BTC',
       id: 'test',
       vin: 123,
     });
@@ -32,13 +33,43 @@ describe('RefundTransactionRepository', () => {
     expect(tx).not.toBeNull();
     expect(tx.id).toEqual('test');
     expect(tx.swapId).toEqual('swapId');
+    expect(tx.symbol).toEqual('BTC');
     expect(tx.vin).toEqual(123);
     expect(tx.status).toEqual(RefundStatus.Pending);
+  });
+
+  test('should upsert refund transaction', async () => {
+    const tx = await RefundTransactionRepository.addTransaction({
+      swapId: 'swapId',
+      symbol: 'BTC',
+      id: 'test',
+      vin: 123,
+    });
+
+    expect(tx).not.toBeNull();
+    expect(tx.id).toEqual('test');
+    expect(tx.vin).toEqual(123);
+    expect(tx.status).toEqual(RefundStatus.Pending);
+
+    await RefundTransactionRepository.setStatus(tx.id, RefundStatus.Confirmed);
+
+    const upsert = await RefundTransactionRepository.addTransaction({
+      swapId: 'swapId',
+      symbol: 'BTC',
+      id: 'test2',
+      vin: 2,
+    });
+
+    expect(upsert).not.toBeNull();
+    expect(upsert.id).toEqual('test2');
+    expect(upsert.vin).toEqual(2);
+    expect(upsert.status).toEqual(RefundStatus.Pending);
   });
 
   test('should set refund transaction status', async () => {
     const swapId = 'swapId';
     await RefundTransactionRepository.addTransaction({
+      symbol: 'BTC',
       id: 'test',
       vin: 123,
       swapId,
@@ -59,6 +90,7 @@ describe('RefundTransactionRepository', () => {
       await RefundTransactionRepository.addTransaction({
         swapId,
         id: transactionId,
+        symbol: 'BTC',
         vin: 456,
       });
 
@@ -68,6 +100,7 @@ describe('RefundTransactionRepository', () => {
       expect(tx).not.toBeNull();
       expect(tx!.swapId).toEqual(swapId);
       expect(tx!.id).toEqual(transactionId);
+      expect(tx!.symbol).toEqual('BTC');
       expect(tx!.vin).toEqual(456);
       expect(tx!.status).toEqual(RefundStatus.Pending);
     });
@@ -86,6 +119,7 @@ describe('RefundTransactionRepository', () => {
       const vin = 123;
 
       await RefundTransactionRepository.addTransaction({
+        symbol: 'BTC',
         vin,
         swapId,
         id: transactionId,
@@ -99,6 +133,7 @@ describe('RefundTransactionRepository', () => {
       expect(txs).toHaveLength(1);
       expect(txs[0].tx.id).toEqual(transactionId);
       expect(txs[0].tx.swapId).toEqual(swapId);
+      expect(txs[0].tx.symbol).toEqual('BTC');
       expect(txs[0].tx.vin).toEqual(vin);
       expect(txs[0].tx.status).toEqual(RefundStatus.Pending);
       expect(txs[0].swap.id).toEqual(swapId);

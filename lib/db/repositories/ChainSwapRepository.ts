@@ -83,6 +83,10 @@ class ChainSwapInfo {
     );
   }
 
+  get refundCurrency() {
+    return this.sendingData.symbol;
+  }
+
   get serverLockupTransactionId() {
     return this.sendingData.transactionId;
   }

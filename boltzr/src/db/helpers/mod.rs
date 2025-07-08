@@ -6,6 +6,7 @@ pub mod chain_swap;
 pub mod keys;
 pub mod offer;
 pub mod referral;
+pub mod refund_transaction;
 pub mod reverse_swap;
 pub mod swap;
 pub mod web_hook;

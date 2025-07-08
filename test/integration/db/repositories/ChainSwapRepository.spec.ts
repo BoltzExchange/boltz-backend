@@ -84,37 +84,47 @@ describe('ChainSwapInfo', () => {
     },
   );
 
-  describe('failureDetails', () => {
-    const createSwapBase = () => {
-      const id = generateSwapId(SwapVersion.Taproot);
-      return {
-        chainSwap: {
-          id,
-          fee: 1,
-          pair: 'L-BTC/BTC',
-          acceptZeroConf: false,
-          orderSide: OrderSide.BUY,
-          status: SwapUpdateEvent.SwapCreated,
-          preimageHash: getHexString(randomBytes(32)),
-          createdRefundSignature: false,
-        },
-        sendingData: {
-          swapId: id,
-          symbol: 'L-BTC',
-          lockupAddress: 'bc1',
-          timeoutBlockHeight: 1,
-          expectedAmount: 90,
-        },
-        receivingData: {
-          swapId: id,
-          symbol: 'BTC',
-          lockupAddress: 'bc1',
-          timeoutBlockHeight: 2,
-          expectedAmount: 100,
-        } as ChainSwapDataType,
-      };
+  const createSwapBase = () => {
+    const id = generateSwapId(SwapVersion.Taproot);
+    return {
+      chainSwap: {
+        id,
+        fee: 1,
+        pair: 'L-BTC/BTC',
+        acceptZeroConf: false,
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        preimageHash: getHexString(randomBytes(32)),
+        createdRefundSignature: false,
+      },
+      sendingData: {
+        swapId: id,
+        symbol: 'L-BTC',
+        lockupAddress: 'bc1',
+        timeoutBlockHeight: 1,
+        expectedAmount: 90,
+      },
+      receivingData: {
+        swapId: id,
+        symbol: 'BTC',
+        lockupAddress: 'bc1',
+        timeoutBlockHeight: 2,
+        expectedAmount: 100,
+      } as ChainSwapDataType,
     };
+  };
 
+  test('should get refund currency', async () => {
+    const swap = createSwapBase();
+    await ChainSwapRepository.addChainSwap(swap);
+    const queried = await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    });
+
+    expect(queried!.refundCurrency).toEqual('L-BTC');
+  });
+
+  describe('failureDetails', () => {
     test.each`
       name                                   | swapData
       ${'amount is undefined'}               | ${{}}

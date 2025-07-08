@@ -1,19 +1,18 @@
 import AsyncLock from 'async-lock';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer, reverseBuffer } from '../Utils';
-import {
-  CurrencyType,
-  SwapType,
-  swapTypeToPrettyString,
-  swapTypeToString,
-} from '../consts/Enums';
+import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type RefundTransaction from '../db/models/RefundTransaction';
 import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { type ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
-import { type Currency } from '../wallet/WalletManager';
+import { TransactionType } from '../proto/boltzr_pb';
+import type Sidecar from '../sidecar/Sidecar';
+import type { FeeBumpSuggestion } from '../sidecar/Sidecar';
+import type { Currency } from '../wallet/WalletManager';
+import type SwapNursery from './SwapNursery';
 
 // TODO: check replacements
 
@@ -26,12 +25,18 @@ class RefundWatcher extends TypedEventEmitter<{
   private readonly requiredConfirmations = 1;
   private currencies!: Map<string, Currency>;
 
-  constructor(private readonly logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
+    private readonly refundSwap: typeof SwapNursery.prototype.refundSwap,
+  ) {
     super();
   }
 
   public init = (currencies: Map<string, Currency>) => {
     this.currencies = currencies;
+
+    this.sidecar.on('fee.bump.suggestion', this.handleFeeBumpSuggestion);
 
     for (const { chainClient, provider } of this.currencies.values()) {
       if (chainClient) {
@@ -42,6 +47,45 @@ class RefundWatcher extends TypedEventEmitter<{
         provider.on('block', this.checkPendingTransactions);
       }
     }
+  };
+
+  private handleFeeBumpSuggestion = async (suggestion: FeeBumpSuggestion) => {
+    if (suggestion.type !== TransactionType.REFUND) {
+      return;
+    }
+
+    await this.lock.acquire(RefundWatcher.pendingTransactionsLock, async () => {
+      const refundTx = await RefundTransactionRepository.getTransaction(
+        suggestion.transactionId,
+      );
+
+      if (refundTx === null || refundTx === undefined) {
+        this.logger.warn(
+          `No refund transaction found for fee bump suggestion: ${suggestion.transactionId}`,
+        );
+        return;
+      }
+
+      this.logger.info(
+        `Fee bump suggestion received for refund transaction ${refundTx.id}: ${suggestion.feeTarget} sat/vbyte`,
+      );
+
+      try {
+        const swap = await RefundTransactionRepository.getSwapForTransaction(
+          refundTx.swapId,
+        );
+
+        await this.refundSwap(
+          this.currencies.get(swap.refundCurrency)!,
+          swap,
+          suggestion.feeTarget,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Fee bumping refund ${suggestion.swapId} transaction ${suggestion.transactionId} failed: ${formatError(error)}`,
+        );
+      }
+    });
   };
 
   private checkPendingTransactions = async () => {
@@ -64,7 +108,11 @@ class RefundWatcher extends TypedEventEmitter<{
     tx: RefundTransaction,
     swap: ReverseSwap | ChainSwapInfo,
   ) => {
-    const refundCurrency = this.getRefundCurrency(swap);
+    const refundCurrency = this.currencies.get(swap.refundCurrency);
+    if (refundCurrency === undefined) {
+      throw new Error(`unknown refund currency: ${swap.refundCurrency}`);
+    }
+
     const confirmations = await this.getConfirmations(refundCurrency, tx.id);
 
     // TODO: what if it's getting awfully close to swap timeout and still not confirmed? maybe a check here and alert or bump the fee?
@@ -116,19 +164,6 @@ class RefundWatcher extends TypedEventEmitter<{
 
         return await receipt.confirmations();
       }
-    }
-  };
-
-  private getRefundCurrency = (swap: ReverseSwap | ChainSwapInfo) => {
-    switch (swap.type) {
-      case SwapType.ReverseSubmarine:
-        return this.currencies.get((swap as ReverseSwap).chainCurrency)!;
-
-      case SwapType.Chain:
-        return this.currencies.get((swap as ChainSwapInfo).sendingData.symbol)!;
-
-      default:
-        throw new Error(`invalid swap type: ${swapTypeToString(swap.type)}`);
     }
   };
 }

@@ -1,3 +1,9 @@
+---
+next:
+  text: '📙 Libraries'
+  link: '/libraries'
+---
+
 # 👋 Introduction
 
 Boltz exposes a RESTful HTTP API that can be used to query information like

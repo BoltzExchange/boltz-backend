@@ -1,3 +1,7 @@
+---
+next: false
+---
+
 # 🤖 REST API v1 (deprecated)
 
 This page lists all available endpoints of the deprecated Boltz API v1.

@@ -6,19 +6,19 @@ const docsRoot = 'https://docs.boltz.exchange';
 export default defineConfig({
   title: 'Boltz API',
   description: 'Boltz API Docs',
+  head: [['link', { rel: 'icon', href: '/assets/logo.svg' }]],
   themeConfig: {
     logo: '/assets/logo.svg',
     search: {
       provider: 'local',
     },
-    nav: [{ text: 'Home', link: docsRoot }],
+    nav: [{ text: '🏠 Docs Home', link: docsRoot, target: '_self' }],
     sidebar: [
       {
         items: [
           { text: '👋 Introduction', link: '/index' },
           { text: '📙 Libraries', link: '/libraries' },
           { text: '🤖 REST API v2', link: '/api-v2' },
-          { text: '🤖 REST API v1 (deprecated)', link: '/api-v1' },
           { text: '🔁 Swap Types & States', link: '/lifecycle' },
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },
           { text: '⚠️ Common Mistakes', link: '/common-mistakes' },
@@ -31,8 +31,8 @@ export default defineConfig({
           { text: '📜 Claim Covenants', link: '/claim-covenants' },
           { text: '🤝 Referral Program', link: '/referral-program' },
           { text: '🐳 Backend Development', link: '/backend-development' },
-
-          { text: '🔙 Home', link: docsRoot },
+          { text: '🤖 REST API v1 (deprecated)', link: '/api-v1' },
+          { text: '🏠 Docs Home', link: docsRoot, target: '_self' },
         ],
       },
     ],

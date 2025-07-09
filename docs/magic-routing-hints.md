@@ -4,6 +4,8 @@ This page describes the mechanism that encodes a BIP21 URI into the routing
 hints section of an invoice, mainly for Boltz-powered wallets like Aqua to pay
 each other directly without a Boltz swap.
 
+## Basics
+
 While paying invoices of Reverse Swaps with Submarine Swaps is supported by
 Boltz, it is not economical. To minimize the number of transactions and costs,
 swap routes can be optimized or swaps can be skipped entirely and the sender can

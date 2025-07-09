@@ -3,7 +3,7 @@
 Boltz operates a referral program which provides eligible partners with rewards
 for impactful, high quality integrations of Boltz API
 
-Who is eligible:
+## Who Is Eligible
 
 - Integrations that make Boltz Swaps natively available through their platform
   or service and actively maintain the integration, fix Boltz-related bugs, keep
@@ -18,7 +18,7 @@ Not eligible for the partner program are for instance:
   [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin/))
 - Simple linking or embedding of Boltz Web App
 
-Payout Terms:
+## Payout Terms
 
 - Payout within 14 calendar days post month-end.
 - Default settlement via reusable Lightning addresses or offers.

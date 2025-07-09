@@ -1,8 +1,11 @@
 # ⏩ 0-conf
 
 The use of 0-conf can make swaps a lot faster by utilizing transactions that are
-not included in a block yet. But accepting 0-conf transactions doesn't come
-without unwarranted risk.
+not included in a block yet.
+
+## Risks
+
+Accepting 0-conf transactions doesn't come without unwarranted risk.
 
 As a precautionary measure, Boltz enforces a few rules when it comes to 0-conf.
 It is important to note that:

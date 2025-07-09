@@ -3,7 +3,7 @@
 This document describes how to set up a Docker regtest environment for Boltz
 Backend development.
 
-Prerequisites:
+## Getting Started
 
 - The latest
   [Node.js LTS and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)

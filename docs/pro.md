@@ -3,6 +3,8 @@
 Boltz Pro is a service designed to dynamically adjust swap fees based on Boltz's
 liquidity needs, helping to maintain wallet and Lightning channel balances.
 
+## Basics
+
 Boltz Pro temporarily offers incentives, like 0% or even negative fees, to
 encourage users to conduct swaps that work in favor of our liquidity needs. It
 has much stricter limits, e.g. the available fee budget for routing on

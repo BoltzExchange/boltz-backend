@@ -1,6 +1,6 @@
 use crate::chain::bumper::fetcher::{FetcherType, PendingTransaction};
 use crate::chain::types::Type;
-use crate::chain::utils::parse_transaction_hex;
+use crate::chain::utils::Transaction;
 use crate::chain::{Client, bumper::fetcher::TransactionFetcher};
 use anyhow::Result;
 use std::sync::Arc;
@@ -134,7 +134,7 @@ impl Bumper {
             .chain_client
             .raw_transaction(&pending_tx.transaction_id)
             .await?;
-        let tx = parse_transaction_hex(&self.chain_client.chain_type(), &tx)?;
+        let tx = Transaction::parse_hex(&self.chain_client.chain_type(), &tx)?;
         let fee_sat_vbyte = tx.calculate_fee(&self.chain_client).await?;
 
         if !Self::should_bump(fee_sat_vbyte, fee_target) {

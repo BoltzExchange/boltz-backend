@@ -45,6 +45,23 @@ pub fn encode_address(
 }
 
 impl Transaction {
+    pub fn parse_hex(transaction_type: &Type, transaction: &str) -> anyhow::Result<Transaction> {
+        Self::parse(transaction_type, &hex::decode(transaction)?)
+    }
+
+    pub fn parse(transaction_type: &Type, transaction: &[u8]) -> anyhow::Result<Transaction> {
+        match transaction_type {
+            Type::Bitcoin => {
+                let tx = bitcoin::consensus::deserialize(transaction)?;
+                Ok(Transaction::Bitcoin(tx))
+            }
+            Type::Elements => {
+                let tx = elements::encode::deserialize(transaction)?;
+                Ok(Transaction::Elements(tx))
+            }
+        }
+    }
+
     pub fn txid_hex(&self) -> String {
         match self {
             Transaction::Bitcoin(tx) => tx.compute_txid().to_hex(),
@@ -146,35 +163,12 @@ impl Transaction {
     }
 }
 
-pub fn parse_transaction_hex(
-    transaction_type: &Type,
-    transaction: &str,
-) -> anyhow::Result<Transaction> {
-    parse_transaction(transaction_type, &hex::decode(transaction)?)
-}
-
-pub fn parse_transaction(
-    transaction_type: &Type,
-    transaction: &[u8],
-) -> anyhow::Result<Transaction> {
-    match transaction_type {
-        Type::Bitcoin => {
-            let tx = bitcoin::consensus::deserialize(transaction)?;
-            Ok(Transaction::Bitcoin(tx))
-        }
-        Type::Elements => {
-            let tx = elements::encode::deserialize(transaction)?;
-            Ok(Transaction::Elements(tx))
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::chain::chain_client::test as bitcoin_test;
     use crate::chain::elements_client::test as elements_test;
     use crate::chain::types::Type;
-    use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
+    use crate::chain::utils::{Outpoint, Transaction};
     use alloy::hex;
     use serial_test::serial;
     use std::sync::Arc;
@@ -184,7 +178,7 @@ mod test {
     #[test]
     fn test_parse_transaction_bitcoin() {
         let hex = "0200000000010103645fa5850fa5800a87b2a8c79b9326c81c0efe3ad487a6aade4f9fc57578550100000000fdffffff02406f40010000000022512060b5cba1e3a0577877cd2978dfc4d859c0f8e6a5f627c93ef339d3f886fe52e7e7575a3a00000000225120bb7beca2338aeaa5cf8237c3106b63a70bfebb8ced05f82c7ccc399ba815da610247304402205bf0c42957549cac99a3fab2a562090ea2b7aff0612efbdd38877b2327523a69022074781677c7e25d3632bfaec4cc350c4624db73e3d91ed9bf02f24ccd856bc582012103fbc5c2e836f3d7a088214b265b6afafa3186852d95032ed0d122e5b96d74997791000000";
-        let tx = parse_transaction_hex(&Type::Bitcoin, hex).unwrap();
+        let tx = Transaction::parse_hex(&Type::Bitcoin, hex).unwrap();
 
         assert_eq!(tx.serialize(), hex::decode(hex).unwrap());
 
@@ -217,7 +211,7 @@ mod test {
 
     #[test]
     fn test_parse_transaction_elements() {
-        let tx = parse_transaction_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
+        let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
 
         assert_eq!(tx.serialize(), hex::decode(ELEMENTS_TX_HEX).unwrap());
 
@@ -261,7 +255,7 @@ mod test {
     #[tokio::test]
     async fn calculate_fee_elements() {
         let client = elements_test::get_client().0;
-        let tx = parse_transaction_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
+        let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
         let fee = tx

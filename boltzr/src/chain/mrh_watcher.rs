@@ -143,7 +143,7 @@ mod test {
     use super::*;
     use crate::{
         chain::elements_client::test::get_client,
-        chain::{types::Type, utils::parse_transaction_hex},
+        chain::{types::Type, utils::Transaction},
         db::{helpers::reverse_swap::test::MockReverseSwapHelper, models::ReverseRoutingHint},
         wallet::Network,
     };
@@ -179,7 +179,7 @@ mod test {
             swap_status_update_tx,
         ));
 
-        let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
+        let test_transaction = Transaction::parse_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let client = Arc::new(get_client().0) as Arc<dyn Client + Send + Sync>;
         let listen_handle = tokio::spawn(async move {
@@ -238,7 +238,7 @@ mod test {
             swap_status_update_tx,
         ));
 
-        let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
+        let test_transaction = Transaction::parse_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let client = Arc::new(get_client().0) as Arc<dyn Client + Send + Sync>;
         let listen_handle = tokio::spawn(async move {
@@ -283,7 +283,7 @@ mod test {
             swap_status_update_tx,
         ));
 
-        let test_transaction = parse_transaction_hex(&Type::Bitcoin, TEST_TX).unwrap();
+        let test_transaction = Transaction::parse_hex(&Type::Bitcoin, TEST_TX).unwrap();
 
         let listen_handle = tokio::spawn(async move {
             let mut client = get_client().0;

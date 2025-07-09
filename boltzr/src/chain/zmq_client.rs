@@ -1,7 +1,7 @@
-use crate::chain::{Config, types::ZmqNotification};
 use crate::chain::{
-    types::Type,
-    utils::{Transaction, parse_transaction},
+    Config,
+    types::{Type, ZmqNotification},
+    utils::Transaction,
 };
 use tokio::sync::broadcast::{self, Sender};
 use tracing::{debug, error, warn};
@@ -43,7 +43,7 @@ impl ZmqClient {
             }
 
             let tx_bytes = msg.get(1).unwrap().to_vec();
-            let tx: Transaction = match parse_transaction(&client_type, &tx_bytes) {
+            let tx: Transaction = match Transaction::parse(&client_type, &tx_bytes) {
                 Ok(tx) => tx,
                 Err(e) => {
                     warn!("{client_type} ZMQ client could not parse transaction: {e}");

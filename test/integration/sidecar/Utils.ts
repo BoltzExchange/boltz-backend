@@ -31,7 +31,7 @@ export const startSidecar = async () => {
   Sidecar.start(Logger.disabledLogger, {
     loglevel: 'error',
     sidecar: {
-      path: './boltzr/target/debug/boltzr',
+      path: './target/debug/boltzr',
       config: path.join(__dirname, 'config.toml'),
     },
   } as any);

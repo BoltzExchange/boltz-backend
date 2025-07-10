@@ -463,7 +463,7 @@ impl Hold {
 
     fn entropy_source() -> ([u8; 32], RandomBytes) {
         let mut entropy_bytes = [0u8; 32];
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         rng.fill_bytes(&mut entropy_bytes);
         (entropy_bytes, RandomBytes::new(entropy_bytes))
     }

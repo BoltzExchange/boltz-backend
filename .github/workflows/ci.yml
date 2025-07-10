@@ -53,11 +53,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            target
             hold/target
-            boltzr/target
           key:
             ${{ runner.os }}-ci-${{ matrix.rust-version }}-${{
-            hashFiles('**/Cargo.lock') }}
+            hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ matrix.rust-version }}-
 
@@ -87,10 +87,6 @@ jobs:
         rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
-
-    defaults:
-      run:
-        working-directory: boltzr
 
     steps:
       - name: Check out code
@@ -136,10 +132,10 @@ jobs:
       - name: Build cache
         uses: actions/cache@v4
         with:
-          path: boltzr/target
+          path: target
           key:
             ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{
-            hashFiles('**/Cargo.lock') }}
+            hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.rust-version }}-
 

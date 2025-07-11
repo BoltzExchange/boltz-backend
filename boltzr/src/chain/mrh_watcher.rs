@@ -8,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::api::ws::types::{SwapStatus, TransactionInfo};
 use crate::chain::Client;
+use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
 use crate::currencies::Currencies;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
@@ -39,6 +40,9 @@ impl MrhWatcher {
 
         for (_, currency) in currencies.iter() {
             if let Some(chain_client) = currency.chain.as_ref() {
+                if chain_client.symbol() != elements_client::SYMBOL {
+                    continue;
+                }
                 let chain_client = chain_client.clone();
                 let stream = chain_client.tx_receiver();
                 let watcher = self.clone();

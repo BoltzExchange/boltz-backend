@@ -1443,6 +1443,84 @@
         }
       }
     },
+    "/referral/stats/extra": {
+      "get": {
+        "description": "Extra fees collected for swaps created with a referral ID",
+        "tags": [
+          "Referral"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "TS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current UNIX timestamp when the request is sent"
+          },
+          {
+            "in": "header",
+            "name": "API-KEY",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API key"
+          },
+          {
+            "in": "header",
+            "name": "API-HMAC",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Extra fees collected by swap ID grouped by year and month",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Year",
+                  "additionalProperties": {
+                    "type": "object",
+                    "description": "Month",
+                    "additionalProperties": {
+                      "type": "object",
+                      "description": "Extra fees collected in that month",
+                      "additionalProperties": {
+                        "type": "integer",
+                        "format": "uint64",
+                        "description": "Total extra fees collected grouped by identifier"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"2024\":{\"1\":{\"swap123\":1000,\"swap456\":2500},\"2\":{\"swap789\":1500}}}"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized in case of an unknown API-KEY or bad HMAC",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/submarine": {
       "get": {
         "description": "Possible pairs for Submarine Swaps",

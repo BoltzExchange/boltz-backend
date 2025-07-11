@@ -1,0 +1,45 @@
+[workspace]
+resolver = "3"
+members = ["boltzr", "boltzr-cli"]
+exclude = ["hold"]
+
+[workspace.package]
+version = "3.11.0"
+license = "AGPL-3"
+authors = ["michael1011"]
+edition = "2024"
+
+[profile.release]
+opt-level = 2
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[workspace.dependencies]
+alloy = { version = "1.0.19", features = [
+	"reqwest",
+	"sol-types",
+	"serde",
+	"eip712",
+	"signer-local",
+	"signer-mnemonic",
+	"providers",
+	"transports",
+	"contract",
+	"json",
+] }
+anyhow = "1.0.98"
+bitcoin = "0.32.6"
+bitcoin_hashes = "0.16.0"
+clap = { version = "4.5.41", features = ["derive"] }
+rand = "0.8.5"
+reqwest = { version = "0.12.22", features = ["json"] }
+rstest = "0.25.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.46.1", features = [
+	"rt-multi-thread",
+	"macros",
+	"process",
+	"net",
+] }

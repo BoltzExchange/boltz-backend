@@ -160,7 +160,7 @@ pub mod test {
     use crate::cache;
     use crate::chain::elements_client::ElementsClient;
     use crate::chain::types::{RpcParam, Type};
-    use crate::chain::utils::parse_transaction_hex;
+    use crate::chain::utils::Transaction;
     use crate::chain::{Config, LiquidConfig};
     use mockall::mock;
     use rstest::rstest;
@@ -227,7 +227,7 @@ pub mod test {
             .await
             .unwrap();
 
-        parse_transaction_hex(
+        Transaction::parse_hex(
             &Type::Elements,
             &client
                 .wallet_client()

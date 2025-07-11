@@ -1,10 +1,10 @@
 [package]
 name = "boltzr"
-version = "3.11.0"
-edition = "2024"
-license = "AGPL-3"
-authors = ["michael1011"]
 build = "build.rs"
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [features]
 default = ["metrics", "loki", "otel"]
@@ -26,31 +26,20 @@ otel = [
 	"dep:opentelemetry-semantic-conventions",
 ]
 
-[profile.release]
-opt-level = 2
-lto = true
-codegen-units = 1
-panic = "abort"
-
 [dependencies]
 axum = "0.8.4"
-bitcoin_hashes = "0.16.0"
-clap = { version = "4.5.40", features = ["derive"] }
+bitcoin_hashes = { workspace = true }
+clap = { workspace = true }
 crossbeam-channel = "0.5.15"
 ctrlc = { version = "3.4.7", features = ["termination"] }
 dirs = "6.0.0"
 num_cpus = "1.17.0"
 prost = "0.13.5"
 rcgen = { version = "0.14.1", features = ["x509-parser"] }
-reqwest = { version = "0.12.22", features = ["json"] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-tokio = { version = "1.46.1", features = [
-	"rt-multi-thread",
-	"macros",
-	"process",
-	"net",
-] }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
 toml = "0.9.0"
 tonic = { version = "0.13.1", features = ["prost", "tls-ring"] }
 tracing = "0.1.41"
@@ -90,18 +79,7 @@ diesel-tracing = { version = "0.3.1", optional = true, features = [
 	"r2d2",
 	"statement-fields",
 ] }
-alloy = { version = "1.0.19", features = [
-	"reqwest",
-	"sol-types",
-	"serde",
-	"eip712",
-	"signer-local",
-	"signer-mnemonic",
-	"providers",
-	"transports",
-	"contract",
-	"json",
-] }
+alloy = { workspace = true }
 async-tungstenite = { version = "0.29.1", features = [
 	"tokio-native-tls",
 	"tokio-runtime",
@@ -109,13 +87,13 @@ async-tungstenite = { version = "0.29.1", features = [
 async-trait = "0.1.88"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
-anyhow = "1.0.98"
+anyhow = { workspace = true }
 lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev = "030a7845d23fa2629353071f53f95dc8ad421377", features = [
 	"std",
 ] }
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.11.0"
-bitcoin = "0.32.6"
+bitcoin = { workspace = true }
 elements = "0.25.2"
 base64 = "0.22.1"
 rust-s3 = "0.35.1"
@@ -133,7 +111,7 @@ redis = { version = "0.32.3", features = ["tokio-comp", "r2d2"] }
 bytes = "1.10.1"
 rust-bip39 = "1.0.0"
 elements-miniscript = "0.4.0"
-rand = "0.9.1"
+rand = { workspace = true }
 tokio-stream = "0.1.17"
 rapidfuzz = "0.5.0"
 zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
@@ -146,7 +124,7 @@ tonic-build = "0.13.1"
 eventsource-client = "0.15.0"
 http-body-util = "0.1.3"
 mockall = "0.13.1"
-rstest = "0.25.0"
+rstest = { workspace = true }
 serial_test = "3.2.0"
 tower = { version = "0.5.2", features = ["util"] }
 wiremock = "0.6.4"

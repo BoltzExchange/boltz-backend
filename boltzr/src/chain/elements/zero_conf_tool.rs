@@ -198,7 +198,7 @@ impl ZeroConfCheck for ZeroConfTool {
 mod test {
     use super::*;
     use crate::chain::types::Type;
-    use crate::chain::utils::parse_transaction_hex;
+    use crate::chain::utils::Transaction;
     use rstest::rstest;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -223,7 +223,7 @@ mod test {
 
     #[tokio::test]
     async fn test_check_transaction_accepted() {
-        let tx = parse_transaction_hex(&Type::Bitcoin, TX_HEX).unwrap();
+        let tx = Transaction::parse_hex(&Type::Bitcoin, TX_HEX).unwrap();
 
         let mock_server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -262,7 +262,7 @@ mod test {
     #[case(2, 3)]
     #[tokio::test]
     async fn test_check_transaction_rejected(#[case] seen: u64, #[case] total: u64) {
-        let tx = parse_transaction_hex(&Type::Bitcoin, TX_HEX).unwrap();
+        let tx = Transaction::parse_hex(&Type::Bitcoin, TX_HEX).unwrap();
 
         let mock_server = MockServer::start().await;
         Mock::given(method("GET"))

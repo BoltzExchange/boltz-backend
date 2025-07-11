@@ -57,11 +57,12 @@ RUN apt-get update && apt-get -y upgrade && \
 COPY --from=builder /boltz-backend/bin /boltz-backend/bin
 COPY --from=builder /boltz-backend/dist /boltz-backend/dist
 COPY --from=builder /boltz-backend/node_modules /boltz-backend/node_modules
-COPY --from=builder /boltz-backend/boltzr/target/release/boltzr /boltz-backend/boltzr/target/release/boltzr
+COPY --from=builder /boltz-backend/target/release/boltzr /boltz-backend/target/release/boltzr
+COPY --from=builder /boltz-backend/target/release/boltzr-cli /boltz-backend/target/release/boltzr-cli
 
 EXPOSE 9000 9001
 
 ENV NODE_ENV=production
-ENV PATH="${PATH}:/boltz-backend/bin"
+ENV PATH="${PATH}:/boltz-backend/bin:/boltz-backend/target/release"
 
 ENTRYPOINT ["node", "--trace-deprecation", "/boltz-backend/bin/boltzd"]

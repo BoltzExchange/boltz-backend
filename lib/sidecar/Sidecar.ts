@@ -95,7 +95,7 @@ class Sidecar extends BaseClient<
       config.sidecar.path ||
         path.join(
           path.resolve(__dirname, '..', '..', '..'),
-          `boltzr/target/${sidecarBuildType}/boltzr`,
+          `target/${sidecarBuildType}/boltzr`,
         ),
       [
         '--config',

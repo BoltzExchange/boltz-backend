@@ -152,7 +152,7 @@ pub mod test {
     use crate::db::{Config, Pool, connect};
     use crate::webhook::caller::HookState;
     use crate::webhook::{SwapUpdateCallData, WebHookCallData};
-    use rand::distr::{Alphanumeric, SampleString};
+    use rand::distributions::{Alphanumeric, DistString};
     use rstest::rstest;
     use std::sync::{Mutex, OnceLock};
 
@@ -206,7 +206,7 @@ pub mod test {
         let helper = WebHookHelperDatabase::new(get_pool());
 
         let hook = WebHook {
-            id: Alphanumeric.sample_string(&mut rand::rng(), 8),
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,
@@ -221,7 +221,7 @@ pub mod test {
         let helper = WebHookHelperDatabase::new(get_pool());
 
         let hook = WebHook {
-            id: Alphanumeric.sample_string(&mut rand::rng(), 8),
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 8),
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,
@@ -236,7 +236,7 @@ pub mod test {
         let helper = WebHookHelperDatabase::new(get_pool());
 
         let mut hook = WebHook {
-            id: Alphanumeric.sample_string(&mut rand::rng(), 8),
+            id: Alphanumeric.sample_string(&mut rand::thread_rng(), 8),
             state: WebHookState::Ok.into(),
             url: "https://some.thing".to_string(),
             hash_swap_id: true,

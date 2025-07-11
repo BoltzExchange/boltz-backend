@@ -5,7 +5,7 @@ use crate::chain::types::{
     NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, Type,
     ZmqNotification,
 };
-use crate::chain::utils::{Outpoint, Transaction, parse_transaction_hex};
+use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
 use async_trait::async_trait;
@@ -267,7 +267,7 @@ impl Client for ChainClient {
                 Some(tx_hex) => tx_hex,
                 None => break,
             };
-            let tx = parse_transaction_hex(&self.client_type, &tx_hex)?;
+            let tx = Transaction::parse_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
                 relevant_txs.push(tx);
             }
@@ -359,7 +359,7 @@ pub mod test {
     use crate::cache;
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
-    use crate::chain::utils::{Transaction, parse_transaction_hex};
+    use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
     use serial_test::serial;
     use std::collections::HashSet;
@@ -423,7 +423,7 @@ pub mod test {
             .await
             .unwrap();
 
-        parse_transaction_hex(
+        Transaction::parse_hex(
             &Type::Bitcoin,
             &client
                 .client

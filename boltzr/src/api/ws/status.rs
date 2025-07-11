@@ -536,10 +536,10 @@ where
     }
 
     fn get_connection_id(&self) -> u64 {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
 
         loop {
-            let id = rng.random();
+            let id = rng.gen_range(0..=u64::MAX);
             if !self.offer_subscriptions.connection_id_known(id) {
                 return id;
             }

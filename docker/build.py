@@ -108,7 +108,7 @@ IMAGES: dict[str, Image] = {
         ],
     ),
     "regtest": Image(
-        tag="4.9.0",
+        tag="4.10.0",
         arguments=[
             UBUNTU_VERSION,
             BITCOIN_BUILD_ARG,
@@ -123,6 +123,14 @@ IMAGES: dict[str, Image] = {
             BuildArgument(
                 name="C_LIGHTNING_VERSION",
                 value=C_LIGHTNING_VERSION,
+            ),
+            BuildArgument(
+                name="ASP_VERSION",
+                value="v0.6.3",
+            ),
+            BuildArgument(
+                name="FULMINE_VERSION",
+                value="v0.1.13",
             ),
         ],
     ),
@@ -218,9 +226,7 @@ def build_images(
             )
         else:
             extra_tag = "" if no_latest else f"-t {name}:latest"
-            command = (
-                f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
-            )
+            command = f"docker build --load -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
 
         if no_cache:
             command = command + " --no-cache"

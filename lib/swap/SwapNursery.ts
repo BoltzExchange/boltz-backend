@@ -923,9 +923,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
 
     ethereumNursery.on('lockup.failed', async ({ swap, reason }) => {
-      await this.lock.acquire(SwapNursery.swapLock, async () => {
-        await this.lockupFailed(swap, reason);
-      });
+      await this.lock.acquire(
+        swap.type === SwapType.Submarine
+          ? SwapNursery.swapLock
+          : SwapNursery.chainSwapLock,
+        async () => {
+          await this.lockupFailed(swap, reason);
+        },
+      );
     });
 
     const handleLockup = async (
@@ -937,6 +942,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           ? SwapNursery.swapLock
           : SwapNursery.chainSwapLock,
         async () => {
+          let updatedSwap: typeof swap;
+          if (swap.type === SwapType.Submarine) {
+            updatedSwap = (await SwapRepository.getSwap({
+              id: swap.id,
+            }))!;
+          } else {
+            updatedSwap = (await ChainSwapRepository.getChainSwap({
+              id: swap.id,
+            }))!;
+          }
+
+          if (updatedSwap.status === SwapUpdateEvent.TransactionLockupFailed) {
+            this.logger.warn(
+              `Lockup already failed for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             swap,
             confirmed: true,

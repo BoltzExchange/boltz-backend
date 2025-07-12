@@ -145,8 +145,10 @@ impl SwapRescue {
                         let wallet = &self
                             .currencies
                             .get(&s.chain_symbol()?)
-                            .ok_or_else(|| anyhow!("no wallet for {}", s.id))?
-                            .wallet;
+                            .ok_or_else(|| anyhow!("no currency for {}", s.id))?
+                            .wallet
+                            .clone()
+                            .ok_or_else(|| anyhow!("no wallet for {}", s.id))?;
 
                         Ok(RescuableSwap {
                             id: s.id.clone(),
@@ -201,8 +203,10 @@ impl SwapRescue {
                         let wallet = &self
                             .currencies
                             .get(&s.receiving().symbol)
-                            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?
-                            .wallet;
+                            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
+                            .wallet
+                            .clone()
+                            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
 
                         Ok(RescuableSwap {
                             id: s.id(),
@@ -434,11 +438,12 @@ mod test {
                 crate::chain::elements_client::SYMBOL.to_string(),
                 Currency {
                     network: Network::Regtest,
-                    wallet: get_liquid_wallet(),
+                    wallet: Some(get_liquid_wallet()),
                     chain: None,
                     cln: None,
                     lnd: None,
                     bumper: None,
+                    evm_manager: None,
                 },
             )])),
         );

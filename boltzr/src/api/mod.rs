@@ -20,6 +20,7 @@ mod bolt12;
 mod errors;
 mod headers;
 mod lightning;
+mod quoter;
 mod rescue;
 mod sse;
 mod stats;
@@ -165,6 +166,7 @@ where
                 "/v2/lightning/{currency}/bolt12/fetch",
                 post(bolt12::fetch::<S, M>),
             )
+            .route("/v2/{currency}/quote", get(quoter::quote::<S, M>))
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))
     }

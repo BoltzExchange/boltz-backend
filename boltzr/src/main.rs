@@ -114,20 +114,21 @@ async fn main() {
     };
 
     // TODO: move to currencies
-    let refund_signer = if let Some(rsk_config) = config.rsk {
-        Some(
+    let rsk_manager = if let Some(rsk_config) = config.rsk {
+        Some(Arc::new(
             evm::manager::Manager::from_mnemonic_file(
+                "RBTC".to_string(),
                 config.mnemonic_path_evm.unwrap(),
                 &rsk_config,
             )
             .await
             .unwrap_or_else(|e| {
-                error!("Could not initialize EVM refund signer: {}", e);
+                error!("Could not initialize RSK manager: {}", e);
                 std::process::exit(1);
             }),
-        )
+        ))
     } else {
-        warn!("Not creating refund signer because RSK was not configured");
+        warn!("Not creating RSK manager because it was not configured");
         None
     };
 
@@ -154,6 +155,7 @@ async fn main() {
         config.liquid,
         db_pool.clone(),
         cache.clone(),
+        rsk_manager.clone(),
         config
             .sidecar
             .webhook
@@ -269,8 +271,8 @@ async fn main() {
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,
-        match refund_signer {
-            Some(signer) => Some(Arc::new(signer)),
+        match rsk_manager {
+            Some(manager) => Some(manager),
             None => None,
         },
         notification_client.clone().map(Arc::new),

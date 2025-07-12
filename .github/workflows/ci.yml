@@ -132,7 +132,9 @@ jobs:
       - name: Build cache
         uses: actions/cache@v4
         with:
-          path: target
+          path: |
+            target
+            hold/target
           key:
             ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{
             hashFiles('Cargo.lock') }}

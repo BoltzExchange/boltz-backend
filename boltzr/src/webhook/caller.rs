@@ -307,6 +307,23 @@ where
     async fn retry_call(&self, hook: H) -> Result<(), Box<dyn Error>> {
         let params = self.hook_state.get_retry_data(&hook)?;
 
+        let abandon_hook = |hook: H| -> Result<(), Box<dyn Error>> {
+            info!("Abandoning {} WebHook call for {}", self.name, hook.id());
+
+            #[cfg(feature = "metrics")]
+            metrics::counter!(
+                crate::metrics::WEBHOOK_CALL_COUNT,
+                "status" => "abandoned",
+                "type" => self.name.clone()
+            )
+            .increment(1);
+
+            self.retry_count.remove(&hook.id());
+            self.hook_state.set_state(&hook, WebHookState::Abandoned)?;
+
+            Ok(())
+        };
+
         if let Some(params) = params {
             trace!(
                 "Retrying {} WebHook call for {}: {}",
@@ -336,18 +353,7 @@ where
             );
 
             if res == CallResult::NotIncluded || failed_count >= self.max_retries {
-                info!("Abandoning {} WebHook call for {}", self.name, hook.id());
-
-                #[cfg(feature = "metrics")]
-                metrics::counter!(
-                    crate::metrics::WEBHOOK_CALL_COUNT,
-                    "status" => "abandoned",
-                    "type" => self.name.clone()
-                )
-                .increment(1);
-
-                self.retry_count.remove(&hook.id());
-                self.hook_state.set_state(&hook, WebHookState::Abandoned)?;
+                abandon_hook(hook)?;
             } else {
                 self.retry_count.insert(hook.id(), failed_count);
             }
@@ -357,6 +363,8 @@ where
                 self.name,
                 hook.id()
             );
+
+            abandon_hook(hook)?;
         }
 
         Ok(())

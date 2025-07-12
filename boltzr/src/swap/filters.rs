@@ -51,7 +51,12 @@ fn get_swap_filters(
             Some(currency) => currency,
             None => continue,
         };
-        let script = match decode_script(&currency.wallet, &swap, &swap.lockupAddress) {
+        let wallet = match &currency.wallet {
+            Some(wallet) => wallet,
+            None => continue,
+        };
+
+        let script = match decode_script(wallet, &swap, &swap.lockupAddress) {
             Some(script) => script,
             None => continue,
         };
@@ -120,8 +125,12 @@ fn get_chain_filters(
                     Some(currency) => currency,
                     None => continue,
                 };
-                let script = match decode_script(&currency.wallet, &swap, &receiving.lockupAddress)
-                {
+                let wallet = match &currency.wallet {
+                    Some(wallet) => wallet,
+                    None => continue,
+                };
+
+                let script = match decode_script(wallet, &swap, &receiving.lockupAddress) {
                     Some(script) => script,
                     None => continue,
                 };
@@ -283,44 +292,47 @@ mod test {
                         String::from("BTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(
+                            wallet: Some(Arc::new(
                                 Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
                                     .unwrap(),
-                            ),
+                            )),
                             chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
                             cln: None,
                             lnd: None,
                             bumper: None,
+                            evm_manager: None,
                         },
                     ),
                     (
                         String::from("LTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(
+                            wallet: Some(Arc::new(
                                 Bitcoin::new(Network::Regtest, &get_seed(), "m/0/1".to_string())
                                     .unwrap(),
-                            ),
+                            )),
                             chain: None,
                             cln: None,
                             lnd: None,
                             bumper: None,
+                            evm_manager: None,
                         },
                     ),
                     (
                         String::from("L-BTC"),
                         Currency {
                             network: Network::Regtest,
-                            wallet: Arc::new(
+                            wallet: Some(Arc::new(
                                 Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
                                     .unwrap(),
-                            ),
+                            )),
                             chain: Some(Arc::new(
                                 crate::chain::elements_client::test::get_client().0,
                             )),
                             cln: None,
                             lnd: None,
                             bumper: None,
+                            evm_manager: None,
                         },
                     ),
                 ]))

@@ -149,7 +149,7 @@ mod test {
                     String::from("BTC"),
                     Currency {
                         network: Network::Regtest,
-                        wallet: Arc::new(
+                        wallet: Some(Arc::new(
                             Bitcoin::new(
                                 Network::Regtest,
                                 &Mnemonic::from_str(
@@ -160,11 +160,12 @@ mod test {
                                 "m/0/0".to_string(),
                             )
                             .unwrap(),
-                        ),
+                        )),
                         chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
                         cln: None,
                         lnd: None,
                         bumper: None,
+                        evm_manager: None,
                     },
                 )]))
             })

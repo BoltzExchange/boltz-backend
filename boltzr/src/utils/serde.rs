@@ -1,6 +1,8 @@
+use serde::Serializer;
+
 pub mod hex {
+    use super::*;
     use alloy::hex;
-    use serde::Serializer;
 
     pub fn serialize<S>(data: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -10,30 +12,98 @@ pub mod hex {
     }
 }
 
+pub mod u256 {
+    use super::*;
+    use alloy::primitives::U256;
+
+    pub fn serialize<S>(data: &U256, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&data.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::hex;
     use serde::Serialize;
+    use std::str::FromStr;
 
-    #[derive(Serialize)]
-    struct Wrapper<'a> {
-        #[serde(serialize_with = "hex::serialize")]
-        data: &'a [u8],
+    mod hex {
+        use super::*;
+
+        #[derive(Serialize)]
+        struct Wrapper<'a> {
+            #[serde(serialize_with = "super::super::hex::serialize")]
+            data: &'a [u8],
+        }
+
+        #[test]
+        fn test_serialize_non_empty() {
+            let wrapper = Wrapper {
+                data: &[0xAB, 0xCD],
+            };
+            assert_eq!(
+                serde_json::to_string(&wrapper).unwrap(),
+                "{\"data\":\"abcd\"}"
+            );
+        }
+
+        #[test]
+        fn test_serialize_empty() {
+            let wrapper = Wrapper { data: &[] };
+            assert_eq!(serde_json::to_string(&wrapper).unwrap(), "{\"data\":\"\"}");
+        }
     }
 
-    #[test]
-    fn test_serialize_non_empty() {
-        let wrapper = Wrapper {
-            data: &[0xAB, 0xCD],
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"data\":\"abcd\"}");
-    }
+    mod u256 {
+        use super::*;
+        use alloy::primitives::U256;
 
-    #[test]
-    fn test_serialize_empty() {
-        let wrapper = Wrapper { data: &[] };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"data\":\"\"}");
+        #[derive(Serialize)]
+        struct U256Wrapper {
+            #[serde(serialize_with = "super::super::u256::serialize")]
+            value: U256,
+        }
+
+        #[test]
+        fn test_serialize_zero() {
+            let wrapper = U256Wrapper { value: U256::ZERO };
+            assert_eq!(
+                serde_json::to_string(&wrapper).unwrap(),
+                "{\"value\":\"0\"}"
+            );
+        }
+
+        #[test]
+        fn test_serialize_small_number() {
+            let wrapper = U256Wrapper {
+                value: U256::from(42),
+            };
+            assert_eq!(
+                serde_json::to_string(&wrapper).unwrap(),
+                "{\"value\":\"42\"}"
+            );
+        }
+
+        #[test]
+        fn test_serialize_large_number() {
+            let wrapper = U256Wrapper {
+                value: U256::from_str("1000000000000000000").unwrap(),
+            };
+            assert_eq!(
+                serde_json::to_string(&wrapper).unwrap(),
+                "{\"value\":\"1000000000000000000\"}"
+            );
+        }
+
+        #[test]
+        fn test_serialize_max_value() {
+            let wrapper = U256Wrapper { value: U256::MAX };
+            assert_eq!(
+                serde_json::to_string(&wrapper).unwrap(),
+                "{\"value\":\"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
+            );
+        }
     }
 }

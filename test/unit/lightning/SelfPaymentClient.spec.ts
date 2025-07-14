@@ -9,6 +9,7 @@ import {
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
+import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import { satToMsat } from '../../../lib/lightning/ChannelUtils';
@@ -485,6 +486,42 @@ describe('SelfPaymentClient', () => {
         });
       },
     );
+
+    test.each([null, undefined, { isFinal: false }])(
+      'should not throw error when reverse swap is refunded but refund tx is not final',
+      async (refundTx) => {
+        const reverseSwap = {
+          status: SwapUpdateEvent.TransactionRefunded,
+        } as unknown as ReverseSwap;
+
+        RefundTransactionRepository.getTransactionForSwap = jest
+          .fn()
+          .mockResolvedValue(refundTx);
+
+        await expect(
+          client['getPreimage']({} as unknown as Swap, reverseSwap),
+        ).resolves.toEqual({
+          isSelf: true,
+          result: undefined,
+        });
+      },
+    );
+
+    test('should throw error when reverse swap is refunded', async () => {
+      const reverseSwap = {
+        status: SwapUpdateEvent.TransactionRefunded,
+      } as unknown as ReverseSwap;
+
+      RefundTransactionRepository.getTransactionForSwap = jest
+        .fn()
+        .mockResolvedValue({
+          isFinal: true,
+        });
+
+      await expect(
+        client['getPreimage']({} as unknown as Swap, reverseSwap),
+      ).rejects.toThrow('incorrect payment details');
+    });
   });
 
   describe('lookupSwapsForPreimageHash', () => {

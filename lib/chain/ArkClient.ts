@@ -412,23 +412,24 @@ class ArkClient extends BaseClient<
           arkrpc.ListVHTLCResponse.AsObject
         >('listVHTLC', req, true);
 
-        if (res.vhtlcsList.length === 0) {
-          continue;
-        }
+        for (const vhtlc of res.vhtlcsList) {
+          this.emit('vhtlc.created', {
+            address,
+            txId: vhtlc.outpoint!.txid,
+            vout: vhtlc.outpoint!.vout,
+            amount: vhtlc.amount,
+          });
 
-        if (res.vhtlcsList.length > 1) {
-          this.logger.warn(
-            `Found ${res.vhtlcsList.length} new vHTLCs for ${address}`,
-          );
+          if (vhtlc.spentBy !== '') {
+            this.emit('vhtlc.spent', {
+              outpoint: {
+                txid: vhtlc.outpoint!.txid,
+                vout: vhtlc.outpoint!.vout,
+              },
+              spentBy: vhtlc.spentBy,
+            });
+          }
         }
-
-        const vhtlc = res.vhtlcsList[0];
-        this.emit('vhtlc.created', {
-          address,
-          txId: vhtlc.outpoint!.txid,
-          vout: vhtlc.outpoint!.vout,
-          amount: vhtlc.amount,
-        });
       } catch (error) {
         this.logger.silly(
           `No ${this.serviceName()} ${this.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
@@ -449,6 +450,7 @@ class ArkClient extends BaseClient<
       'data',
       (res: notificationrpc.GetVtxoNotificationsResponse) => {
         const notification = res.getNotification()?.toObject();
+
         if (notification === undefined) {
           return;
         }

@@ -1378,7 +1378,7 @@ class SwapManager {
         (swap.status === SwapUpdateEvent.TransactionMempool ||
           swap.status === SwapUpdateEvent.TransactionConfirmed)
       ) {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
+        const { chainClient, arkNode } = this.currencies.get(chainCurrency)!;
 
         if (chainClient) {
           const transactionId = reverseBuffer(
@@ -1393,6 +1393,13 @@ class SwapManager {
               wallet.decodeAddress(swap.lockupAddress),
             );
           }
+        } else if (arkNode) {
+          arkNode.subscribeAddresses([
+            {
+              address: swap.lockupAddress,
+              preimageHash: getHexBuffer(swap.preimageHash),
+            },
+          ]);
         }
       } else {
         const { arkNode, chainClient } = this.currencies.get(chainCurrency)!;

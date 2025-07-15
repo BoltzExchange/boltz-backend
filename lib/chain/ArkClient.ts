@@ -8,7 +8,7 @@ import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexString } from '../Utils';
+import { formatError, getHexBuffer, getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
@@ -94,13 +94,13 @@ class ArkClient extends BaseClient<
     }
 
     const data = Buffer.from(bech32m.fromWords(dec.words));
-    if (data.length !== 64) {
-      throw new Error('invalid address (data.length !== 64)');
+    if (data.length !== 65) {
+      throw new Error('invalid address (data.length !== 65)');
     }
 
     return {
-      serverPubKey: data.subarray(0, 32),
-      tweakedPubKey: data.subarray(32, 64),
+      serverPubKey: data.subarray(1, 33),
+      tweakedPubKey: data.subarray(33, 65),
     };
   };
 
@@ -130,7 +130,7 @@ class ArkClient extends BaseClient<
       const info = await this.getInfo();
       this.aspClient = new AspClient(info.serverUrl);
       this.logger.debug(
-        `Connected to ASP with pubkey: ${(await this.aspClient.getInfo()).pubkey}`,
+        `Connected to ASP with pubkey: ${(await this.aspClient.getInfo()).signerPubkey}`,
       );
 
       this.setClientStatus(ClientStatus.Connected);
@@ -427,7 +427,7 @@ class ArkClient extends BaseClient<
           address,
           txId: vhtlc.outpoint!.txid,
           vout: vhtlc.outpoint!.vout,
-          amount: vhtlc.receiver!.amount,
+          amount: vhtlc.amount,
         });
       } catch (error) {
         this.logger.silly(
@@ -461,11 +461,9 @@ class ArkClient extends BaseClient<
         );
 
         for (const vhtlc of notification.newVtxosList) {
-          if (vhtlc.receiver === undefined) {
-            continue;
-          }
-
-          const recipient = decoded.get(vhtlc.receiver.pubkey);
+          const recipient = decoded.get(
+            getHexString(getHexBuffer(vhtlc.script).subarray(2)),
+          );
           if (recipient === undefined) {
             continue;
           }
@@ -474,7 +472,7 @@ class ArkClient extends BaseClient<
             address: recipient,
             txId: vhtlc.outpoint!.txid,
             vout: vhtlc.outpoint!.vout,
-            amount: vhtlc.receiver!.amount,
+            amount: vhtlc.amount,
           });
         }
 

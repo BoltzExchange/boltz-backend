@@ -58,6 +58,12 @@ diesel::table! {
         preimageHash -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
+        claimPublicKey -> Nullable<Text>,
+        keyIndex -> Nullable<Integer>,
+        lockupAddress -> Text,
+        timeoutBlockHeight -> Integer,
+        redeemScript -> Nullable<Text>,
+        createdAt -> Timestamptz,
     }
 }
 

@@ -65,6 +65,10 @@ class RefundTransaction extends Model implements RefundTransactionType {
       },
     );
   };
+
+  get isFinal(): boolean {
+    return this.status === RefundStatus.Confirmed;
+  }
 }
 
 export default RefundTransaction;

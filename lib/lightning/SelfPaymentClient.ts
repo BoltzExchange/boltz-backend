@@ -17,6 +17,7 @@ import type LightningPayment from '../db/models/LightningPayment';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { NodeType } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
+import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
@@ -147,7 +148,7 @@ class SelfPaymentClient
           };
         }
 
-        return this.getPreimage(swap, reverseSwap);
+        return await this.getPreimage(swap, reverseSwap);
       },
     );
   };
@@ -278,6 +279,16 @@ class SelfPaymentClient
         feeMsat: 0,
         preimage: getHexBuffer(reverseSwap.preimage),
       };
+    } else if (reverseSwap.status === SwapUpdateEvent.TransactionRefunded) {
+      const refundTx = await RefundTransactionRepository.getTransactionForSwap(
+        reverseSwap.id,
+      );
+      if (refundTx !== null && refundTx !== undefined && refundTx.isFinal) {
+        this.logger.debug(
+          `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed`,
+        );
+        throw new Error('incorrect payment details');
+      }
     }
 
     return {

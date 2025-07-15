@@ -29,6 +29,7 @@ export type ArkConfig = {
 };
 
 export type Timeouts = {
+  refund: number;
   unilateralClaim: number;
   unilateralRefund: number;
   unilateralRefundWithoutReceiver: number;
@@ -321,11 +322,13 @@ class ArkClient extends BaseClient<
 
     const currentHeight = await this.getBlockHeight();
     const timeouts: Timeouts = {
-      unilateralClaim: Math.ceil(currentHeight + claimDelay),
-      unilateralRefund: Math.ceil(currentHeight + refundDelay),
-      unilateralRefundWithoutReceiver: Math.ceil(currentHeight + refundDelay),
+      refund: Math.ceil(currentHeight + refundDelay),
+      unilateralClaim: Math.ceil(claimDelay),
+      unilateralRefund: Math.ceil(refundDelay),
+      unilateralRefundWithoutReceiver: Math.ceil(refundDelay),
     };
 
+    req.setRefundLocktime(timeouts.refund);
     req.setUnilateralClaimDelay(createDelay(timeouts.unilateralClaim));
     req.setUnilateralRefundDelay(createDelay(timeouts.unilateralRefund));
     req.setUnilateralRefundWithoutReceiverDelay(

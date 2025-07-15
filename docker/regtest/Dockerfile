@@ -19,6 +19,7 @@ FROM boltz/c-lightning:${C_LIGHTNING_VERSION} AS cln
 FROM boltz/electrs:${ELECTRS_VERSION} AS electrs
 
 FROM ghcr.io/arkade-os/arkd:${ASP_VERSION} AS asp
+FROM ghcr.io/arkade-os/arkd-wallet:${ASP_VERSION} AS asp-wallet
 FROM ghcr.io/arklabshq/fulmine:${FULMINE_VERSION} AS fulmine
 
 FROM ubuntu:${UBUNTU_VERSION}
@@ -57,6 +58,7 @@ COPY --from=elements-core /bin/elements-cli /bin/
 
 COPY --from=electrs /usr/local/bin/electrs-bitcoin /bin/
 COPY --from=asp /app /bin/
+COPY --from=asp-wallet /app /bin/
 COPY --from=fulmine /app /bin/
 
 # Copy the LND executables

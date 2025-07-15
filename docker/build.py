@@ -126,11 +126,11 @@ IMAGES: dict[str, Image] = {
             ),
             BuildArgument(
                 name="ASP_VERSION",
-                value="v0.6.3",
+                value="v0.7.0",
             ),
             BuildArgument(
                 name="FULMINE_VERSION",
-                value="v0.1.13",
+                value="v0.2.0-rc.0",
             ),
         ],
     ),

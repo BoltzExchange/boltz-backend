@@ -24,7 +24,7 @@ interface IServiceService extends grpc.ServiceDefinition<grpc.UntypedServiceImpl
     claimVHTLC: IServiceService_IClaimVHTLC;
     refundVHTLCWithoutReceiver: IServiceService_IRefundVHTLCWithoutReceiver;
     listVHTLC: IServiceService_IListVHTLC;
-    createInvoice: IServiceService_ICreateInvoice;
+    getInvoice: IServiceService_IGetInvoice;
     payInvoice: IServiceService_IPayInvoice;
     isInvoiceSettled: IServiceService_IIsInvoiceSettled;
     getDelegatePublicKey: IServiceService_IGetDelegatePublicKey;
@@ -168,14 +168,14 @@ interface IServiceService_IListVHTLC extends grpc.MethodDefinition<ark_service_p
     responseSerialize: grpc.serialize<ark_service_pb.ListVHTLCResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.ListVHTLCResponse>;
 }
-interface IServiceService_ICreateInvoice extends grpc.MethodDefinition<ark_service_pb.CreateInvoiceRequest, ark_service_pb.CreateInvoiceResponse> {
-    path: "/fulmine.v1.Service/CreateInvoice";
+interface IServiceService_IGetInvoice extends grpc.MethodDefinition<ark_service_pb.GetInvoiceRequest, ark_service_pb.GetInvoiceResponse> {
+    path: "/fulmine.v1.Service/GetInvoice";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<ark_service_pb.CreateInvoiceRequest>;
-    requestDeserialize: grpc.deserialize<ark_service_pb.CreateInvoiceRequest>;
-    responseSerialize: grpc.serialize<ark_service_pb.CreateInvoiceResponse>;
-    responseDeserialize: grpc.deserialize<ark_service_pb.CreateInvoiceResponse>;
+    requestSerialize: grpc.serialize<ark_service_pb.GetInvoiceRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.GetInvoiceRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.GetInvoiceResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.GetInvoiceResponse>;
 }
 interface IServiceService_IPayInvoice extends grpc.MethodDefinition<ark_service_pb.PayInvoiceRequest, ark_service_pb.PayInvoiceResponse> {
     path: "/fulmine.v1.Service/PayInvoice";
@@ -250,7 +250,7 @@ export interface IServiceServer extends grpc.UntypedServiceImplementation {
     claimVHTLC: grpc.handleUnaryCall<ark_service_pb.ClaimVHTLCRequest, ark_service_pb.ClaimVHTLCResponse>;
     refundVHTLCWithoutReceiver: grpc.handleUnaryCall<ark_service_pb.RefundVHTLCWithoutReceiverRequest, ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
     listVHTLC: grpc.handleUnaryCall<ark_service_pb.ListVHTLCRequest, ark_service_pb.ListVHTLCResponse>;
-    createInvoice: grpc.handleUnaryCall<ark_service_pb.CreateInvoiceRequest, ark_service_pb.CreateInvoiceResponse>;
+    getInvoice: grpc.handleUnaryCall<ark_service_pb.GetInvoiceRequest, ark_service_pb.GetInvoiceResponse>;
     payInvoice: grpc.handleUnaryCall<ark_service_pb.PayInvoiceRequest, ark_service_pb.PayInvoiceResponse>;
     isInvoiceSettled: grpc.handleUnaryCall<ark_service_pb.IsInvoiceSettledRequest, ark_service_pb.IsInvoiceSettledResponse>;
     getDelegatePublicKey: grpc.handleUnaryCall<ark_service_pb.GetDelegatePublicKeyRequest, ark_service_pb.GetDelegatePublicKeyResponse>;
@@ -305,9 +305,9 @@ export interface IServiceClient {
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
-    createInvoice(request: ark_service_pb.CreateInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
-    createInvoice(request: ark_service_pb.CreateInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
-    createInvoice(request: ark_service_pb.CreateInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
+    getInvoice(request: ark_service_pb.GetInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
+    getInvoice(request: ark_service_pb.GetInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
+    getInvoice(request: ark_service_pb.GetInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
     payInvoice(request: ark_service_pb.PayInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;
     payInvoice(request: ark_service_pb.PayInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;
     payInvoice(request: ark_service_pb.PayInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;
@@ -375,9 +375,9 @@ export class ServiceClient extends grpc.Client implements IServiceClient {
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
-    public createInvoice(request: ark_service_pb.CreateInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
-    public createInvoice(request: ark_service_pb.CreateInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
-    public createInvoice(request: ark_service_pb.CreateInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public getInvoice(request: ark_service_pb.GetInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public getInvoice(request: ark_service_pb.GetInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
+    public getInvoice(request: ark_service_pb.GetInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetInvoiceResponse) => void): grpc.ClientUnaryCall;
     public payInvoice(request: ark_service_pb.PayInvoiceRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;
     public payInvoice(request: ark_service_pb.PayInvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;
     public payInvoice(request: ark_service_pb.PayInvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.PayInvoiceResponse) => void): grpc.ClientUnaryCall;

@@ -814,6 +814,9 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         remotePubkey: chan.remotePubkey,
         localBalance: chan.localBalance,
         remoteBalance: chan.remoteBalance,
+        htlcs: chan.pendingHtlcsList.map((htlc) => ({
+          preimageHash: Buffer.from(htlc.hashLock),
+        })),
       };
     });
   };

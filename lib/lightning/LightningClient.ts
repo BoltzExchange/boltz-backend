@@ -31,6 +31,10 @@ type NodeInfo = {
   };
 };
 
+type Htlcs = {
+  preimageHash: Buffer;
+};
+
 type ChannelInfo = {
   remotePubkey: string;
   private: boolean;
@@ -40,6 +44,7 @@ type ChannelInfo = {
   capacity: number;
   localBalance: number;
   remoteBalance: number;
+  htlcs: Htlcs[];
 };
 
 type HopHint = {

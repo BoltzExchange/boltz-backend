@@ -314,6 +314,9 @@ class ClnClient
           localBalance: msatToSat(chan.getSpendableMsat()!.getMsat()),
           remoteBalance: msatToSat(chan.getReceivableMsat()!.getMsat()),
           remotePubkey: getHexString(Buffer.from(chan.getPeerId_asU8())),
+          htlcs: chan.getHtlcsList().map((htlc) => ({
+            preimageHash: Buffer.from(htlc.getPaymentHash_asU8()),
+          })),
         };
       });
   };

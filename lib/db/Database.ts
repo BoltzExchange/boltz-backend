@@ -63,6 +63,10 @@ class Database {
         password: postgresConfig.password,
         dialect: 'postgres',
         logging: this.logger.silly,
+        retry: {
+          max: 3,
+          match: ['40001'],
+        },
       });
     } else {
       if (!isTest) {

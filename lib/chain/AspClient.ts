@@ -38,8 +38,10 @@ class AspClient {
     return outputs;
   };
 
-  public getInfo = async (): Promise<{ pubkey: string }> => {
-    const res = await axios.get<{ pubkey: string }>(`${this.url}/v1/info`);
+  public getInfo = async (): Promise<{ signerPubkey: string }> => {
+    const res = await axios.get<{ signerPubkey: string }>(
+      `${this.url}/v1/info`,
+    );
     return res.data;
   };
 

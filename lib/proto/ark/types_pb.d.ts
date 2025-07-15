@@ -189,21 +189,6 @@ export class Round extends jspb.Message {
     setStart(value: number): Round;
     getEnd(): number;
     setEnd(value: number): Round;
-    getRoundTx(): string;
-    setRoundTx(value: string): Round;
-
-    hasCongestionTree(): boolean;
-    clearCongestionTree(): void;
-    getCongestionTree(): Tree | undefined;
-    setCongestionTree(value?: Tree): Round;
-    clearForfeitTxsList(): void;
-    getForfeitTxsList(): Array<string>;
-    setForfeitTxsList(value: Array<string>): Round;
-    addForfeitTxs(value: string, index?: number): string;
-    clearConnectorsList(): void;
-    getConnectorsList(): Array<string>;
-    setConnectorsList(value: Array<string>): Round;
-    addConnectors(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Round.AsObject;
@@ -220,10 +205,6 @@ export namespace Round {
         id: string,
         start: number,
         end: number,
-        roundTx: string,
-        congestionTree?: Tree.AsObject,
-        forfeitTxsList: Array<string>,
-        connectorsList: Array<string>,
     }
 }
 
@@ -232,10 +213,10 @@ export class TransactionInfo extends jspb.Message {
     setDate(value: string): TransactionInfo;
     getAmount(): number;
     setAmount(value: number): TransactionInfo;
-    getRoundTxid(): string;
-    setRoundTxid(value: string): TransactionInfo;
-    getRedeemTxid(): string;
-    setRedeemTxid(value: string): TransactionInfo;
+    getCommitmentTxid(): string;
+    setCommitmentTxid(value: string): TransactionInfo;
+    getArkTxid(): string;
+    setArkTxid(value: string): TransactionInfo;
     getBoardingTxid(): string;
     setBoardingTxid(value: string): TransactionInfo;
     getType(): TxType;
@@ -257,8 +238,8 @@ export namespace TransactionInfo {
     export type AsObject = {
         date: string,
         amount: number,
-        roundTxid: string,
-        redeemTxid: string,
+        commitmentTxid: string,
+        arkTxid: string,
         boardingTxid: string,
         type: TxType,
         settled: boolean,
@@ -315,17 +296,32 @@ export class Vtxo extends jspb.Message {
     clearOutpoint(): void;
     getOutpoint(): Input | undefined;
     setOutpoint(value?: Input): Vtxo;
-
-    hasReceiver(): boolean;
-    clearReceiver(): void;
-    getReceiver(): Output | undefined;
-    setReceiver(value?: Output): Vtxo;
-    getRoundTxid(): string;
-    setRoundTxid(value: string): Vtxo;
+    getCreatedAt(): number;
+    setCreatedAt(value: number): Vtxo;
+    getExpiresAt(): number;
+    setExpiresAt(value: number): Vtxo;
+    clearCommitmentTxidsList(): void;
+    getCommitmentTxidsList(): Array<string>;
+    setCommitmentTxidsList(value: Array<string>): Vtxo;
+    addCommitmentTxids(value: string, index?: number): string;
+    getIsPreconfirmed(): boolean;
+    setIsPreconfirmed(value: boolean): Vtxo;
+    getIsSwept(): boolean;
+    setIsSwept(value: boolean): Vtxo;
+    getIsUnrolled(): boolean;
+    setIsUnrolled(value: boolean): Vtxo;
+    getIsSpent(): boolean;
+    setIsSpent(value: boolean): Vtxo;
     getSpentBy(): string;
     setSpentBy(value: string): Vtxo;
-    getExpireAt(): number;
-    setExpireAt(value: number): Vtxo;
+    getSettledBy(): string;
+    setSettledBy(value: string): Vtxo;
+    getArkTxid(): string;
+    setArkTxid(value: string): Vtxo;
+    getScript(): string;
+    setScript(value: string): Vtxo;
+    getAmount(): number;
+    setAmount(value: number): Vtxo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Vtxo.AsObject;
@@ -340,10 +336,41 @@ export class Vtxo extends jspb.Message {
 export namespace Vtxo {
     export type AsObject = {
         outpoint?: Input.AsObject,
-        receiver?: Output.AsObject,
-        roundTxid: string,
+        createdAt: number,
+        expiresAt: number,
+        commitmentTxidsList: Array<string>,
+        isPreconfirmed: boolean,
+        isSwept: boolean,
+        isUnrolled: boolean,
+        isSpent: boolean,
         spentBy: string,
-        expireAt: number,
+        settledBy: string,
+        arkTxid: string,
+        script: string,
+        amount: number,
+    }
+}
+
+export class TxData extends jspb.Message { 
+    getTxid(): string;
+    setTxid(value: string): TxData;
+    getTx(): string;
+    setTx(value: string): TxData;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): TxData.AsObject;
+    static toObject(includeInstance: boolean, msg: TxData): TxData.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: TxData, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): TxData;
+    static deserializeBinaryFromReader(message: TxData, reader: jspb.BinaryReader): TxData;
+}
+
+export namespace TxData {
+    export type AsObject = {
+        txid: string,
+        tx: string,
     }
 }
 
@@ -360,6 +387,13 @@ export class Notification extends jspb.Message {
     getSpentVtxosList(): Array<Vtxo>;
     setSpentVtxosList(value: Array<Vtxo>): Notification;
     addSpentVtxos(value?: Vtxo, index?: number): Vtxo;
+    getTxid(): string;
+    setTxid(value: string): Notification;
+    getTx(): string;
+    setTx(value: string): Notification;
+
+    getCheckpointsMap(): jspb.Map<string, TxData>;
+    clearCheckpointsMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Notification.AsObject;
@@ -376,6 +410,10 @@ export namespace Notification {
         addressesList: Array<string>,
         newVtxosList: Array<Vtxo.AsObject>,
         spentVtxosList: Array<Vtxo.AsObject>,
+        txid: string,
+        tx: string,
+
+        checkpointsMap: Array<[string, TxData.AsObject]>,
     }
 }
 

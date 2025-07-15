@@ -38,8 +38,6 @@ class ArkNursery extends TypedEventEmitter<{
     preimage: Buffer;
   };
 }> {
-  private static condition = Buffer.from('condition');
-
   constructor(
     private readonly logger: Logger,
     private readonly overpaymentProtector: OverpaymentProtector,
@@ -170,7 +168,7 @@ class ArkNursery extends TypedEventEmitter<{
     return AspClient.mapInputs(tx)
       .map((input) => {
         const preimage = input.unknown?.find((x) =>
-          ArkNursery.condition.equals(x[0].key),
+          ArkNursery.isPreimage(x[0]),
         );
 
         if (preimage === undefined) {
@@ -180,6 +178,10 @@ class ArkNursery extends TypedEventEmitter<{
         return Buffer.from(preimage[1]).subarray(2);
       })
       .filter((x) => x !== undefined);
+  };
+
+  private static isPreimage = (field: { type: number; key: Uint8Array }) => {
+    return field.type === 99 && Buffer.from('ondition').equals(field.key);
   };
 }
 

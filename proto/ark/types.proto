@@ -46,17 +46,13 @@ message Round {
   string id = 1;
   int64 start = 2;
   int64 end = 3;
-  string round_tx = 4;
-  Tree congestion_tree = 5;
-  repeated string forfeit_txs = 6;
-  repeated string connectors = 7;
 }
 
 message TransactionInfo {
   string date = 1;
   uint64 amount = 2;
-  string round_txid = 3;
-  string redeem_txid = 4;
+  string commitment_txid = 3;
+  string ark_txid = 4;
   string boarding_txid = 5;
   TxType type = 6; 
   bool settled = 7;
@@ -72,16 +68,32 @@ message TreeLevel {
 
 message Vtxo {
   Input outpoint = 1;
-  Output receiver = 2;
-  string round_txid = 3;
-  string spent_by = 4;
-  int64 expire_at = 5;
+  int64 created_at = 2;
+  int64 expires_at = 3;
+  repeated string commitment_txids = 4;
+  bool is_preconfirmed = 5;
+  bool is_swept = 6;
+  bool is_unrolled = 7;
+  bool is_spent = 8;
+  string spent_by = 9;
+  string settled_by = 10;
+  string ark_txid = 11;
+  string script = 12;
+  uint64 amount = 13;
+}
+
+message TxData {
+  string txid = 1;
+  string tx = 2;
 }
 
 message Notification {
   repeated string addresses = 1;
   repeated Vtxo new_vtxos = 2;
   repeated Vtxo spent_vtxos = 3;
+  string txid = 4;
+  string tx = 5;
+  map<string, TxData> checkpoints = 6;
 }
 
 enum RoundEventType {

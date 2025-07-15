@@ -115,6 +115,8 @@ export class GetInfoResponse extends jspb.Message {
     setBuildInfo(value?: ark_types_pb.BuildInfo): GetInfoResponse;
     getPubkey(): string;
     setPubkey(value: string): GetInfoResponse;
+    getSignerPubkey(): string;
+    setSignerPubkey(value: string): GetInfoResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetInfoResponse.AsObject;
@@ -133,6 +135,7 @@ export namespace GetInfoResponse {
         serverUrl: string,
         buildInfo?: ark_types_pb.BuildInfo.AsObject,
         pubkey: string,
+        signerPubkey: string,
     }
 
     export enum Network {
@@ -685,52 +688,43 @@ export namespace ListVHTLCResponse {
     }
 }
 
-export class CreateInvoiceRequest extends jspb.Message { 
+export class GetInvoiceRequest extends jspb.Message { 
     getAmount(): number;
-    setAmount(value: number): CreateInvoiceRequest;
-    getMemo(): string;
-    setMemo(value: string): CreateInvoiceRequest;
-    getPreimage(): string;
-    setPreimage(value: string): CreateInvoiceRequest;
+    setAmount(value: number): GetInvoiceRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CreateInvoiceRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: CreateInvoiceRequest): CreateInvoiceRequest.AsObject;
+    toObject(includeInstance?: boolean): GetInvoiceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetInvoiceRequest): GetInvoiceRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CreateInvoiceRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CreateInvoiceRequest;
-    static deserializeBinaryFromReader(message: CreateInvoiceRequest, reader: jspb.BinaryReader): CreateInvoiceRequest;
+    static serializeBinaryToWriter(message: GetInvoiceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetInvoiceRequest;
+    static deserializeBinaryFromReader(message: GetInvoiceRequest, reader: jspb.BinaryReader): GetInvoiceRequest;
 }
 
-export namespace CreateInvoiceRequest {
+export namespace GetInvoiceRequest {
     export type AsObject = {
         amount: number,
-        memo: string,
-        preimage: string,
     }
 }
 
-export class CreateInvoiceResponse extends jspb.Message { 
+export class GetInvoiceResponse extends jspb.Message { 
     getInvoice(): string;
-    setInvoice(value: string): CreateInvoiceResponse;
-    getPreimageHash(): string;
-    setPreimageHash(value: string): CreateInvoiceResponse;
+    setInvoice(value: string): GetInvoiceResponse;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CreateInvoiceResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: CreateInvoiceResponse): CreateInvoiceResponse.AsObject;
+    toObject(includeInstance?: boolean): GetInvoiceResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetInvoiceResponse): GetInvoiceResponse.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CreateInvoiceResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CreateInvoiceResponse;
-    static deserializeBinaryFromReader(message: CreateInvoiceResponse, reader: jspb.BinaryReader): CreateInvoiceResponse;
+    static serializeBinaryToWriter(message: GetInvoiceResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetInvoiceResponse;
+    static deserializeBinaryFromReader(message: GetInvoiceResponse, reader: jspb.BinaryReader): GetInvoiceResponse;
 }
 
-export namespace CreateInvoiceResponse {
+export namespace GetInvoiceResponse {
     export type AsObject = {
         invoice: string,
-        preimageHash: string,
     }
 }
 
@@ -755,8 +749,8 @@ export namespace PayInvoiceRequest {
 }
 
 export class PayInvoiceResponse extends jspb.Message { 
-    getPreimage(): string;
-    setPreimage(value: string): PayInvoiceResponse;
+    getTxid(): string;
+    setTxid(value: string): PayInvoiceResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): PayInvoiceResponse.AsObject;
@@ -770,7 +764,7 @@ export class PayInvoiceResponse extends jspb.Message {
 
 export namespace PayInvoiceResponse {
     export type AsObject = {
-        preimage: string,
+        txid: string,
     }
 }
 

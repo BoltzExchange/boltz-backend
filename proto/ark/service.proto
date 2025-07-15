@@ -102,7 +102,7 @@ service Service {
       get: "/v1/vhtlc"
     };
   };
-  rpc CreateInvoice(CreateInvoiceRequest) returns (CreateInvoiceResponse) {
+  rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse) {
     option (google.api.http) = {
       post: "/v1/invoice"
       body: "*"
@@ -174,7 +174,10 @@ message GetInfoResponse {
   string server_url = 3;
   // info about the current version of the ark wallet.
   BuildInfo build_info = 4;
+  // The Fulmine's public key used in VTXO scripts.
   string pubkey = 5;
+  // The signer's public key used in VTXO scripts.
+  string signer_pubkey = 6;
 }
 
 message GetOnboardAddressRequest {
@@ -277,21 +280,18 @@ message ListVHTLCResponse {
   repeated Vtxo vhtlcs = 1;
 }
 
-message CreateInvoiceRequest {
+message GetInvoiceRequest {
   uint64 amount = 1;
-  string memo = 2;
-  string preimage = 3;
 }
-message CreateInvoiceResponse {
+message GetInvoiceResponse {
   string invoice = 1;
-  string preimage_hash = 2;
 }
 
 message PayInvoiceRequest {
   string invoice = 1;
 }
 message PayInvoiceResponse {
-  string preimage = 1;
+  string txid = 1;
 }
 
 message TaprootTree {

@@ -115,16 +115,20 @@ class NodeSwitch {
     );
   };
 
-  public static hasClient = (currency: Currency, type?: NodeType): boolean => {
-    return [currency.lndClient, currency.clnClient].some(
-      (client?: LightningClient) => {
-        if (type !== undefined) {
-          return client?.type === type;
-        }
-
-        return client !== undefined;
-      },
+  public static getClients = (currency: Currency): LightningClient[] => {
+    return [currency.lndClient, currency.clnClient].filter(
+      (client) => client !== undefined,
     );
+  };
+
+  public static hasClient = (currency: Currency, type?: NodeType): boolean => {
+    return NodeSwitch.getClients(currency).some((client) => {
+      if (type !== undefined) {
+        return client?.type === type;
+      }
+
+      return client !== undefined;
+    });
   };
 
   public updateClnThresholds = (

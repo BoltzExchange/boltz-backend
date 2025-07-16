@@ -353,6 +353,16 @@ describe('NodeSwitch', () => {
   );
 
   test.each`
+    currency                    | expected
+    ${{}}                       | ${[]}
+    ${{ lndClient }}            | ${[lndClient]}
+    ${{ clnClient }}            | ${[clnClient]}
+    ${{ lndClient, clnClient }} | ${[lndClient, clnClient]}
+  `('should get clients', ({ currency, expected }) => {
+    expect(NodeSwitch.getClients(currency)).toEqual(expected);
+  });
+
+  test.each`
     has      | currency         | type
     ${true}  | ${currency}      | ${undefined}
     ${true}  | ${{ lndClient }} | ${undefined}

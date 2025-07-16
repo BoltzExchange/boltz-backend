@@ -24,6 +24,7 @@ import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import ClnClient from '../../lightning/cln/ClnClient';
 import { Payment } from '../../proto/lnd/rpc_pb';
+import NodeSwitch from '../../swap/NodeSwitch';
 import SwapNursery from '../../swap/SwapNursery';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
@@ -59,9 +60,20 @@ class MusigSigner {
   ) {}
 
   public allowRefund = async (id: string) => {
+    const swap = await SwapRepository.getSwap({ id });
+
     // Check if the swap actually exists
-    if ((await SwapRepository.getSwap({ id })) === null) {
+    if (swap === null) {
       throw Errors.SWAP_NOT_FOUND(id);
+    }
+
+    if (
+      await this.hasPendingHtlcs(
+        swap.lightningCurrency,
+        getHexBuffer(swap.preimageHash),
+      )
+    ) {
+      throw new Error('swap has pending HTLCs');
     }
 
     this.logger.info(
@@ -295,6 +307,27 @@ class MusigSigner {
     }
 
     return false;
+  };
+
+  private hasPendingHtlcs = async (
+    lightningSymbol: string,
+    preimageHash: Buffer,
+  ): Promise<boolean> => {
+    const currency = this.currencies.get(lightningSymbol);
+    if (currency === undefined) {
+      return false;
+    }
+
+    const nodeHasPendingHtlcs = await Promise.all(
+      NodeSwitch.getClients(currency).map(async (client) => {
+        const channels = await client.listChannels();
+        return channels.some((channel) =>
+          channel.htlcs.some((htlc) => htlc.preimageHash.equals(preimageHash)),
+        );
+      }),
+    );
+
+    return nodeHasPendingHtlcs.some((hasPending) => hasPending);
   };
 }
 

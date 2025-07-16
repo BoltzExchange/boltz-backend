@@ -76,15 +76,7 @@ describe('MusigSigner', () => {
     settleReverseSwapInvoice: jest.fn(),
   } as any as SwapNursery;
 
-  const signer = new MusigSigner(
-    Logger.disabledLogger,
-    new Map<string, any>([
-      ['BTC', btcCurrency],
-      ['noChainClient', {}],
-    ]),
-    walletManager,
-    nursery,
-  );
+  let signer: MusigSigner;
 
   beforeAll(async () => {
     await Promise.all([
@@ -100,6 +92,16 @@ describe('MusigSigner', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    signer = new MusigSigner(
+      Logger.disabledLogger,
+      new Map<string, any>([
+        ['BTC', btcCurrency],
+        ['noChainClient', {}],
+      ]),
+      walletManager,
+      nursery,
+    );
   });
 
   afterAll(() => {
@@ -109,13 +111,36 @@ describe('MusigSigner', () => {
     bitcoinLndClient2.disconnect();
   });
 
-  test('should throw when allowing refund for a swap that does not exist', async () => {
-    SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+  describe('allowRefund', () => {
+    test('should throw when allowing refund for a swap that does not exist', async () => {
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
 
-    const id = 'notFound';
-    await expect(signer.allowRefund(id)).rejects.toEqual(
-      Errors.SWAP_NOT_FOUND(id),
-    );
+      const id = 'notFound';
+      await expect(signer.allowRefund(id)).rejects.toEqual(
+        Errors.SWAP_NOT_FOUND(id),
+      );
+    });
+
+    test('should throw when swap has pending HTLCs', async () => {
+      const preimageHash = randomBytes(32);
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        id: 'pendingHtlc',
+        lightningCurrency: 'BTC',
+        preimageHash: getHexString(preimageHash),
+      });
+
+      signer['hasPendingHtlcs'] = jest.fn().mockResolvedValue(true);
+
+      await expect(signer.allowRefund('pendingHtlc')).rejects.toEqual(
+        new Error('swap has pending HTLCs'),
+      );
+
+      expect(signer['hasPendingHtlcs']).toHaveBeenCalledTimes(1);
+      expect(signer['hasPendingHtlcs']).toHaveBeenCalledWith(
+        'BTC',
+        preimageHash,
+      );
+    });
   });
 
   test('should create refund signature for failed swaps', async () => {

@@ -3457,6 +3457,11 @@ export class ChannelEventUpdate extends jspb.Message {
     clearFullyResolvedChannel(): void;
     getFullyResolvedChannel(): ChannelPoint | undefined;
     setFullyResolvedChannel(value?: ChannelPoint): ChannelEventUpdate;
+
+    hasChannelFundingTimeout(): boolean;
+    clearChannelFundingTimeout(): void;
+    getChannelFundingTimeout(): ChannelPoint | undefined;
+    setChannelFundingTimeout(value?: ChannelPoint): ChannelEventUpdate;
     getType(): ChannelEventUpdate.UpdateType;
     setType(value: ChannelEventUpdate.UpdateType): ChannelEventUpdate;
 
@@ -3480,6 +3485,7 @@ export namespace ChannelEventUpdate {
         inactiveChannel?: ChannelPoint.AsObject,
         pendingOpenChannel?: PendingUpdate.AsObject,
         fullyResolvedChannel?: ChannelPoint.AsObject,
+        channelFundingTimeout?: ChannelPoint.AsObject,
         type: ChannelEventUpdate.UpdateType,
     }
 
@@ -3490,6 +3496,7 @@ export namespace ChannelEventUpdate {
     INACTIVE_CHANNEL = 3,
     PENDING_OPEN_CHANNEL = 4,
     FULLY_RESOLVED_CHANNEL = 5,
+    CHANNEL_FUNDING_TIMEOUT = 6,
     }
 
 
@@ -3501,6 +3508,7 @@ export namespace ChannelEventUpdate {
         INACTIVE_CHANNEL = 4,
         PENDING_OPEN_CHANNEL = 6,
         FULLY_RESOLVED_CHANNEL = 7,
+        CHANNEL_FUNDING_TIMEOUT = 8,
     }
 
 }
@@ -6078,6 +6086,16 @@ export class ForwardingEvent extends jspb.Message {
     getPeerAliasOut(): string;
     setPeerAliasOut(value: string): ForwardingEvent;
 
+    hasIncomingHtlcId(): boolean;
+    clearIncomingHtlcId(): void;
+    getIncomingHtlcId(): number | undefined;
+    setIncomingHtlcId(value: number): ForwardingEvent;
+
+    hasOutgoingHtlcId(): boolean;
+    clearOutgoingHtlcId(): void;
+    getOutgoingHtlcId(): number | undefined;
+    setOutgoingHtlcId(value: number): ForwardingEvent;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ForwardingEvent.AsObject;
     static toObject(includeInstance: boolean, msg: ForwardingEvent): ForwardingEvent.AsObject;
@@ -6102,6 +6120,8 @@ export namespace ForwardingEvent {
         timestampNs: number,
         peerAliasIn: string,
         peerAliasOut: string,
+        incomingHtlcId?: number,
+        outgoingHtlcId?: number,
     }
 }
 

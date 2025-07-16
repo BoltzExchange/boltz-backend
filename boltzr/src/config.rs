@@ -299,6 +299,7 @@ providerEndpoint = "http://127.0.0.1:8545"
                     retry_interval: Some(60),
                     request_timeout: None,
                     max_retries: None,
+                    block_list: None,
                 }),
                 api: crate::api::Config {
                     host: "127.0.0.1".to_string(),

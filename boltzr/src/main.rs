@@ -154,6 +154,12 @@ async fn main() {
         config.liquid,
         db_pool.clone(),
         cache.clone(),
+        config
+            .sidecar
+            .webhook
+            .as_ref()
+            .map(|w| w.block_list.clone())
+            .unwrap_or_default(),
     )
     .await
     {
@@ -224,11 +230,7 @@ async fn main() {
 
     let web_hook_status_caller = webhook::status_caller::StatusCaller::new(
         cancellation_token.clone(),
-        config.sidecar.webhook.unwrap_or(webhook::caller::Config {
-            request_timeout: None,
-            max_retries: None,
-            retry_interval: None,
-        }),
+        config.sidecar.webhook.unwrap_or_default(),
         network == wallet::Network::Regtest,
         db::helpers::web_hook::WebHookHelperDatabase::new(db_pool.clone()),
     );

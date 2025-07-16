@@ -360,7 +360,7 @@ where
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
 
-        if let Err(err) = crate::webhook::caller::validate_url(
+        if let Err(err) = self.web_hook_status_caller.validate_url(
             &params.url,
             self.manager.get_network() == crate::wallet::Network::Regtest,
         ) {

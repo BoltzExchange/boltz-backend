@@ -48,6 +48,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     liquid: Option<LiquidConfig>,
     db: Pool,
     cache: Cache,
+    webhook_block_list: Option<Vec<String>>,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
         Some(path) => fs::read_to_string(path)?,
@@ -103,6 +104,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                                         &currency.symbol,
                                         network,
                                         &config,
+                                        webhook_block_list.clone(),
                                         offer_helper.clone(),
                                         reverse_swap_helper.clone(),
                                         offer_subscriptions.clone(),

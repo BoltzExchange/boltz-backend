@@ -31,11 +31,12 @@ pub enum CallResult {
     NotIncluded,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum UrlError {
     MoreThanMaxLen,
     HttpsRequired,
     InvalidHost,
+    Blocked,
 }
 
 impl fmt::Display for UrlError {
@@ -46,22 +47,23 @@ impl fmt::Display for UrlError {
             }
             UrlError::HttpsRequired => f.write_str("only HTTPS URLs are permitted"),
             UrlError::InvalidHost => f.write_str("invalid host"),
+            UrlError::Blocked => f.write_str("blocked host"),
         }
     }
 }
 
 impl Error for UrlError {}
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Clone, Debug)]
 pub struct Config {
     #[serde(rename = "requestTimeout")]
     pub request_timeout: Option<u64>,
-
     #[serde(rename = "maxRetries")]
     pub max_retries: Option<u64>,
-
     #[serde(rename = "retryInterval")]
     pub retry_interval: Option<u64>,
+    #[serde(rename = "blockList")]
+    pub block_list: Option<Vec<String>>,
 }
 
 pub trait Hook {
@@ -95,6 +97,7 @@ where
     request_timeout: Duration,
     max_retries: u64,
     retry_interval: Duration,
+    block_list: Vec<String>,
 }
 
 impl<H, S> Caller<H, S>
@@ -130,6 +133,7 @@ where
             retry_interval: Duration::from_secs(
                 config.retry_interval.unwrap_or(DEFAULT_RETRY_INTERVAL),
             ),
+            block_list: config.block_list.unwrap_or_default(),
         }
     }
 
@@ -164,6 +168,28 @@ where
                 }
             }
         }
+    }
+
+    pub fn validate_url(&self, url: &str, allow_http: bool) -> Result<()> {
+        if url.len() > MAX_URL_LENGTH {
+            return Err(UrlError::MoreThanMaxLen.into());
+        }
+
+        let url = match Url::parse(url) {
+            Ok(url) => url,
+            Err(err) => return Err(err.into()),
+        };
+
+        if !allow_http && url.scheme() != "https" {
+            return Err(UrlError::HttpsRequired.into());
+        }
+
+        let host = url.host_str().ok_or(UrlError::InvalidHost)?;
+        if self.block_list.iter().any(|blocked| host.contains(blocked)) {
+            return Err(UrlError::Blocked.into());
+        }
+
+        Ok(())
     }
 
     pub fn subscribe_successful_calls(&self) -> Receiver<(H, Vec<u8>)> {
@@ -371,23 +397,6 @@ where
     }
 }
 
-pub fn validate_url(url: &str, allow_http: bool) -> Result<()> {
-    if url.len() > MAX_URL_LENGTH {
-        return Err(UrlError::MoreThanMaxLen.into());
-    }
-
-    let url = match Url::parse(url) {
-        Ok(url) => url,
-        Err(err) => return Err(err.into()),
-    };
-
-    if !allow_http && url.scheme() != "https" {
-        return Err(UrlError::HttpsRequired.into());
-    }
-
-    Ok(())
-}
-
 pub async fn check_ip(url: &str, allow_insecure: bool) -> Result<()> {
     if allow_insecure {
         return Ok(());
@@ -504,6 +513,7 @@ mod caller_test {
                 max_retries: Some(5),
                 retry_interval: Some(60),
                 request_timeout: Some(10),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -562,6 +572,7 @@ mod caller_test {
                 max_retries: None,
                 retry_interval: Some(60),
                 request_timeout: Some(10),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -610,6 +621,7 @@ mod caller_test {
                 max_retries: None,
                 retry_interval: Some(60),
                 request_timeout: Some(10),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -674,6 +686,7 @@ mod caller_test {
                 max_retries: None,
                 retry_interval: Some(60),
                 request_timeout: Some(10),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -755,6 +768,7 @@ mod caller_test {
                 max_retries: None,
                 retry_interval: Some(1),
                 request_timeout: Some(1),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -851,6 +865,7 @@ mod caller_test {
                 max_retries: Some(5),
                 retry_interval: Some(5),
                 request_timeout: Some(5),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -930,6 +945,7 @@ mod caller_test {
                 max_retries: Some(max_retries),
                 retry_interval: Some(5),
                 request_timeout: Some(5),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -990,6 +1006,7 @@ mod caller_test {
                 max_retries: Some(max_retries),
                 retry_interval: Some(5),
                 request_timeout: Some(5),
+                block_list: None,
             },
             true,
             web_hook_helper,
@@ -1000,21 +1017,36 @@ mod caller_test {
         assert!(caller.retry_count.get(&id.to_string()).is_none());
     }
 
+    fn get_validate_caller() -> Caller<WebHook, MockHookState> {
+        Caller::new(
+            CancellationToken::new(),
+            "test".to_string(),
+            Config::default(),
+            true,
+            make_mock_hook_state(),
+        )
+    }
+
     #[test]
     fn test_validate_url_valid() {
-        assert!(validate_url("https://bol.tz", false).is_ok());
+        assert!(
+            get_validate_caller()
+                .validate_url("https://bol.tz", false)
+                .is_ok()
+        );
     }
 
     #[test]
     fn test_validate_url_max_length() {
         assert_eq!(
-            validate_url(
-                &(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>(),
-                false
-            )
-            .err()
-            .unwrap()
-            .to_string(),
+            get_validate_caller()
+                .validate_url(
+                    &(0..MAX_URL_LENGTH + 1).map(|_| "B").collect::<String>(),
+                    false
+                )
+                .err()
+                .unwrap()
+                .to_string(),
             UrlError::MoreThanMaxLen.to_string(),
         );
     }
@@ -1022,7 +1054,8 @@ mod caller_test {
     #[test]
     fn test_validate_url_parse_fail() {
         assert_eq!(
-            validate_url("invalid url", false)
+            get_validate_caller()
+                .validate_url("invalid url", false)
                 .err()
                 .unwrap()
                 .to_string(),
@@ -1033,7 +1066,8 @@ mod caller_test {
     #[test]
     fn test_validate_url_not_https() {
         assert_eq!(
-            validate_url("http://bol.tz", false)
+            get_validate_caller()
+                .validate_url("http://bol.tz", false)
                 .err()
                 .unwrap()
                 .to_string(),
@@ -1043,7 +1077,35 @@ mod caller_test {
 
     #[test]
     fn test_validate_url_allow_http() {
-        assert!(validate_url("http://bol.tz", true).is_ok());
+        assert!(
+            get_validate_caller()
+                .validate_url("http://bol.tz", true)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_validate_url_blocked_host() {
+        let mut caller = get_validate_caller();
+        caller.block_list = vec!["bol.tz".to_string()];
+        assert_eq!(
+            caller
+                .validate_url("https://bol.tz", false)
+                .err()
+                .unwrap()
+                .to_string(),
+            UrlError::Blocked.to_string(),
+        );
+        assert_eq!(
+            caller
+                .validate_url("https://api.bol.tz/v2", false)
+                .err()
+                .unwrap()
+                .to_string(),
+            UrlError::Blocked.to_string(),
+        );
+
+        assert!(caller.validate_url("https://boltz.exchange", false).is_ok());
     }
 
     #[rstest]

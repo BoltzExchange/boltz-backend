@@ -1,6 +1,7 @@
 import type { Order, WhereOptions } from 'sequelize';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
+import Database from '../Database';
 import type { SwapType } from '../models/Swap';
 import Swap from '../models/Swap';
 
@@ -49,7 +50,14 @@ class SwapRepository {
   };
 
   public static addSwap = (swap: SwapType): Promise<Swap> => {
-    return Swap.create(swap);
+    return Database.sequelize.transaction(
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        return await Swap.create(swap, { transaction });
+      },
+    );
   };
 
   public static disableZeroConf = async (swaps: Swap[]) => {
@@ -81,14 +89,24 @@ class SwapRepository {
     fee: number,
     acceptZeroConf: boolean,
   ): Promise<Swap> => {
-    return swap.update({
-      fee,
-      invoice,
-      invoiceAmount,
-      acceptZeroConf,
-      expectedAmount,
-      status: SwapUpdateEvent.InvoiceSet,
-    });
+    return Database.sequelize.transaction(
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        return await swap.update(
+          {
+            fee,
+            invoice,
+            invoiceAmount,
+            acceptZeroConf,
+            expectedAmount,
+            status: SwapUpdateEvent.InvoiceSet,
+          },
+          { transaction },
+        );
+      },
+    );
   };
 
   public static setLockupTransaction = (

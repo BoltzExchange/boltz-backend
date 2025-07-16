@@ -1,6 +1,7 @@
 import type { Order, WhereOptions } from 'sequelize';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
+import Database from '../Database';
 import type { ReverseSwapType } from '../models/ReverseSwap';
 import ReverseSwap from '../models/ReverseSwap';
 
@@ -48,7 +49,14 @@ class ReverseSwapRepository {
   public static addReverseSwap = (
     reverseSwap: ReverseSwapType,
   ): Promise<ReverseSwap> => {
-    return ReverseSwap.create(reverseSwap);
+    return Database.sequelize.transaction(
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        return await ReverseSwap.create(reverseSwap, { transaction });
+      },
+    );
   };
 
   public static setInvoiceSettled = (

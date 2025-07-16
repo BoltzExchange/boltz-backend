@@ -1,5 +1,5 @@
 import type { Order, WhereOptions } from 'sequelize';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import {
   getHexString,
   getSendingReceivingCurrency,
@@ -223,14 +223,19 @@ class ChainSwapRepository {
     sendingData: ChainSwapDataType;
     receivingData: ChainSwapDataType;
   }) =>
-    Database.sequelize.transaction(async (transaction) => {
-      await ChainSwap.create(args.chainSwap, { transaction });
+    Database.sequelize.transaction(
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        await ChainSwap.create(args.chainSwap, { transaction });
 
-      await Promise.all([
-        ChainSwapData.create(args.sendingData, { transaction }),
-        ChainSwapData.create(args.receivingData, { transaction }),
-      ]);
-    });
+        await Promise.all([
+          ChainSwapData.create(args.sendingData, { transaction }),
+          ChainSwapData.create(args.receivingData, { transaction }),
+        ]);
+      },
+    );
 
   public static destroy = (id: string) =>
     Database.sequelize.transaction(async (transaction) => {

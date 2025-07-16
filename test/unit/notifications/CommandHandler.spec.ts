@@ -213,15 +213,13 @@ describe('CommandHandler', () => {
       quote: 'BTC',
     });
 
-    await Promise.all([
-      SwapRepository.addSwap(swapExample),
-      SwapRepository.addSwap(pendingSwapExample),
+    await SwapRepository.addSwap(swapExample);
+    await SwapRepository.addSwap(pendingSwapExample);
 
-      ReverseSwapRepository.addReverseSwap(reverseSwapExample),
-      ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample),
+    await ReverseSwapRepository.addReverseSwap(reverseSwapExample);
+    await ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample);
 
-      SwapRepository.addSwap(channelSwapExample),
-    ]);
+    await SwapRepository.addSwap(channelSwapExample);
 
     await ChannelCreationRepository.addChannelCreation(channelCreationExample);
   });

@@ -161,7 +161,7 @@ pub mod test {
         POOL.get_or_init(|| {
             Mutex::new(
                 connect(Config {
-                    host: "127.0.0.2".to_string(),
+                    host: "127.0.0.1".to_string(),
                     port: 5432,
                     database: "boltz_test".to_string(),
                     username: "boltz".to_string(),

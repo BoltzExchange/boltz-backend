@@ -44,6 +44,10 @@ impl InvoiceFetcher {
         }
     }
 
+    pub fn validate_url(&self, url: &str, allow_http: bool) -> anyhow::Result<()> {
+        self.invoice_caller.validate_url(url, allow_http)
+    }
+
     pub async fn fetch_invoice(
         &self,
         offer: Offer,

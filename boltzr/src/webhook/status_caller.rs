@@ -45,6 +45,10 @@ impl StatusCaller {
         });
         self.caller.call_webhook(hook, data).await
     }
+
+    pub fn validate_url(&self, url: &str, allow_http: bool) -> anyhow::Result<()> {
+        self.caller.validate_url(url, allow_http)
+    }
 }
 
 #[cfg(test)]
@@ -55,11 +59,7 @@ pub mod test {
     pub fn new_caller(cancellation_token: CancellationToken) -> StatusCaller {
         StatusCaller::new(
             cancellation_token,
-            Config {
-                request_timeout: None,
-                max_retries: None,
-                retry_interval: None,
-            },
+            Config::default(),
             true,
             WebHookHelperDatabase::new(get_pool()),
         )

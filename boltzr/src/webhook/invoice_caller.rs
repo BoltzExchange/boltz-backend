@@ -165,6 +165,10 @@ impl InvoiceCaller {
 
         Ok(res)
     }
+
+    pub fn validate_url(&self, url: &str, allow_http: bool) -> anyhow::Result<()> {
+        self.caller.validate_url(url, allow_http)
+    }
 }
 
 #[cfg(test)]

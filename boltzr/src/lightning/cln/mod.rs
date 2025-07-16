@@ -51,12 +51,14 @@ pub struct Cln {
 }
 
 impl Cln {
+    #[allow(clippy::too_many_arguments)]
     #[instrument(
         name = "Cln::new",
         skip(
             cancellation_token,
             network,
             config,
+            webhook_block_list,
             offer_helper,
             reverse_swap_helper,
             offer_subscriptions
@@ -67,6 +69,7 @@ impl Cln {
         symbol: &str,
         network: wallet::Network,
         config: &Config,
+        webhook_block_list: Option<Vec<String>>,
         offer_helper: Arc<dyn OfferHelper + Send + Sync + 'static>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync + 'static>,
         offer_subscriptions: OfferSubscriptions,
@@ -97,6 +100,7 @@ impl Cln {
                 symbol,
                 network,
                 &config.hold,
+                webhook_block_list,
                 cln.clone(),
                 offer_helper.clone(),
                 offer_subscriptions,
@@ -369,6 +373,7 @@ pub mod test {
                         .to_string(),
                 },
             },
+            None,
             Arc::new(offer_helper),
             Arc::new(reverse_swap_helper),
             OfferSubscriptions::new(crate::wallet::Network::Regtest),

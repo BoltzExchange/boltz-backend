@@ -1,5 +1,6 @@
 use crate::evm::contracts::SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
+use crate::evm::utils::check_contract_exists;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::sol;
@@ -37,13 +38,7 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
 {
     pub async fn new(address: Address, provider: P) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
-        let code = provider.get_code_at(address).await?;
-        if code.is_empty() {
-            return Err(anyhow::anyhow!(
-                "no contract at address: {}",
-                address.to_string()
-            ));
-        }
+        check_contract_exists(&provider, address).await?;
 
         let ether_swap = EtherSwap::new(address, provider.clone());
         let chain_id = provider.get_chain_id().await?;

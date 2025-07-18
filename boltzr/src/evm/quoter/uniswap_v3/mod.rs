@@ -1,15 +1,18 @@
 use crate::evm::quoter::uniswap_v3::IQuoterV2::{IQuoterV2Instance, QuoteExactInputSingleParams};
-use crate::evm::quoter::uniswap_v3::IUniswapV3Factory::IUniswapV3FactoryInstance;
-use crate::evm::quoter::{Data as QuoterData, Quoter};
+use crate::evm::quoter::{Call, Data as QuoterData, Quoter, QuoterType};
+use crate::evm::utils::check_contract_exists;
 use alloy::primitives::{Address, U256, Uint};
 use alloy::providers::Provider;
 use alloy::providers::network::Network;
 use alloy::sol;
 use anyhow::Result;
 use async_trait::async_trait;
+use router::Router;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use tracing::instrument;
+
+mod router;
 
 const FEE_OPTIONS: [u64; 4] = [100, 500, 3_000, 10_000];
 
@@ -18,26 +21,25 @@ sol!(
     "./src/evm/quoter/uniswap_v3/abis/IQuoterV2.sol"
 );
 
-sol!(
-    #[sol(rpc)]
-    "./src/evm/quoter/uniswap_v3/abis/IUniswapV3Factory.sol"
-);
-
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
-    pub factory: Address,
     pub quoter: Address,
+    pub router: Address,
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Data {
-    pub pool: Address,
+    #[serde(rename = "tokenIn")]
+    pub token_in: Address,
+    #[serde(rename = "tokenOut")]
+    pub token_out: Address,
+    pub fee: u64,
 }
 
 #[derive(Debug, Clone)]
 pub struct UniswapV3<P, N> {
     quoter: IQuoterV2Instance<P, N>,
-    factory: IUniswapV3FactoryInstance<P, N>,
+    router: Router<P, N>,
 }
 
 impl<P, N> UniswapV3<P, N>
@@ -45,20 +47,20 @@ where
     P: Provider<N> + Clone + 'static,
     N: Network,
 {
-    pub async fn new(symbol: &str, provider: P, config: Config) -> Result<Self> {
+    pub async fn new(symbol: &str, provider: P, weth: Address, config: Config) -> Result<Self> {
         info!(
-            "Using {} factory {} and quoter {}",
+            "Using {} quoter {} and router {}",
             symbol,
-            config.factory.to_string(),
-            config.quoter.to_string()
+            config.quoter.to_string(),
+            config.router.to_string()
         );
 
-        Self::check_contract_exists(&provider, config.factory).await?;
-        Self::check_contract_exists(&provider, config.quoter).await?;
+        check_contract_exists(&provider, config.quoter).await?;
+        check_contract_exists(&provider, config.router).await?;
 
         Ok(Self {
             quoter: IQuoterV2::new(config.quoter, provider.clone()),
-            factory: IUniswapV3Factory::new(config.factory, provider),
+            router: Router::new(provider, weth, config.router),
         })
     }
 
@@ -85,31 +87,6 @@ where
             .ok()
             .map(|result| (fee, result.amountOut))
     }
-
-    async fn get_pool_address(
-        &self,
-        token_in: Address,
-        token_out: Address,
-        fee: Uint<24, 1>,
-    ) -> Result<Address> {
-        Ok(self
-            .factory
-            .getPool(token_in, token_out, fee)
-            .call()
-            .await?)
-    }
-
-    async fn check_contract_exists(provider: &P, address: Address) -> Result<()> {
-        let code = provider.get_code_at(address).await?;
-        if code.is_empty() {
-            return Err(anyhow::anyhow!(
-                "no contract at address: {}",
-                address.to_string()
-            ));
-        }
-
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -118,6 +95,10 @@ where
     P: Provider<N> + Clone + 'static,
     N: Network,
 {
+    fn quoter_type(&self) -> QuoterType {
+        QuoterType::UniswapV3
+    }
+
     #[instrument(name = "UniswapV3::quote", skip(self))]
     async fn quote(
         &self,
@@ -125,11 +106,14 @@ where
         token_out: Address,
         amount_in: U256,
     ) -> Result<(U256, QuoterData)> {
-        let (fee, amount_out) = futures::future::join_all(
-            FEE_OPTIONS
-                .iter()
-                .map(|fee| self.quote_exact_input_single(token_in, token_out, amount_in, *fee)),
-        )
+        let (fee, amount_out) = futures::future::join_all(FEE_OPTIONS.iter().map(|fee| {
+            self.quote_exact_input_single(
+                self.router.handle_eth(token_in),
+                self.router.handle_eth(token_out),
+                amount_in,
+                *fee,
+            )
+        }))
         .await
         .into_iter()
         .flatten()
@@ -139,9 +123,27 @@ where
         Ok((
             amount_out,
             QuoterData::UniswapV3(Data {
-                pool: self.get_pool_address(token_in, token_out, fee).await?,
+                token_in,
+                token_out,
+                fee: fee.try_into()?,
             }),
         ))
+    }
+
+    fn encode(
+        &self,
+        data: QuoterData,
+        recipient: Address,
+        amount_in: U256,
+        amount_out_min: U256,
+    ) -> Result<Vec<Call>> {
+        #[allow(irrefutable_let_patterns)]
+        let QuoterData::UniswapV3(data) = data else {
+            return Err(anyhow::anyhow!("unsupported data"));
+        };
+
+        self.router
+            .encode(data, recipient, amount_in, amount_out_min)
     }
 }
 
@@ -149,9 +151,10 @@ where
 mod test {
     use super::*;
     use alloy::{network::AnyNetwork, providers::ProviderBuilder};
+    use std::str::FromStr;
 
-    const FACTORY: &str = "0xAf37Ec98A00fD63689cF3060Bf3b6784e00CaD82";
     const QUOTER: &str = "0xb51727C996c68E60f598a923A5006853Cd2fEB31";
+    const ROUTER: &str = "0x244f68E77357f86A8522323EbF80B5FC2f814d3E";
 
     const WRBTC: &str = "0x542fda317318ebf1d3deaf76e0b632741a7e677d";
     const USDT: &str = "0xaf368c91793cb22739386dfcbbb2f1a9e4bcbebf";
@@ -167,9 +170,10 @@ mod test {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
+            WRBTC.parse().unwrap(),
             Config {
-                factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
             },
         )
         .await
@@ -186,8 +190,14 @@ mod test {
 
         assert!(!quote.is_zero());
         match data {
-            QuoterData::UniswapV3(Data { pool }) => {
-                assert!(!pool.is_zero());
+            QuoterData::UniswapV3(Data {
+                token_in,
+                token_out,
+                fee,
+            }) => {
+                assert_eq!(token_in, Address::from_str(WRBTC).unwrap());
+                assert_eq!(token_out, Address::from_str(USDT).unwrap());
+                assert!(fee > 0);
             }
         };
     }
@@ -197,9 +207,10 @@ mod test {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
+            WRBTC.parse().unwrap(),
             Config {
-                factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
             },
         )
         .await
@@ -223,23 +234,20 @@ mod test {
 
         assert!(!fee_results.is_empty());
 
-        let max_amount = fee_results.iter().map(|(_, amount)| *amount).max().unwrap();
-        assert_eq!(quote, max_amount);
-
-        let best_pool = quoter
-            .get_pool_address(
-                token_in,
-                token_out,
-                fee_results
-                    .iter()
-                    .max_by_key(|(_, amount)| *amount)
-                    .unwrap()
-                    .0,
-            )
-            .await
+        let best_result = fee_results
+            .iter()
+            .max_by_key(|(_, amount)| *amount)
             .unwrap();
 
-        assert_eq!(QuoterData::UniswapV3(Data { pool: best_pool }), data);
+        assert_eq!(best_result.1, quote);
+        assert_eq!(
+            QuoterData::UniswapV3(Data {
+                token_in,
+                token_out,
+                fee: best_result.0.try_into().unwrap(),
+            }),
+            data
+        );
     }
 
     #[tokio::test]
@@ -247,9 +255,10 @@ mod test {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
+            WRBTC.parse().unwrap(),
             Config {
-                factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
             },
         )
         .await

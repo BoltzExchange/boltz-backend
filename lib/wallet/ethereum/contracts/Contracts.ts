@@ -19,7 +19,7 @@ enum Feature {
 
 class Contracts {
   public static readonly minVersion = 3n;
-  public static readonly maxVersion = 4n;
+  public static readonly maxVersion = 5n;
 
   public static readonly supportedFeatures = new DefaultMap<
     bigint,

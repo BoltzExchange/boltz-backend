@@ -15,7 +15,7 @@ use crate::evm::contracts::ether_swap::EtherSwapContract;
 use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 
 const MIN_VERSION: u8 = 3;
-const MAX_VERSION: u8 = 4;
+const MAX_VERSION: u8 = 5;
 
 type AlloyProvider = FillProvider<
     JoinFill<

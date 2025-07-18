@@ -5,7 +5,7 @@ use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
 use async_tungstenite::tungstenite::Message;
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -241,7 +241,7 @@ where
             tokio::time::interval(Duration::from_secs(ACTIVITY_CHECK_INTERVAL_SECS));
         let mut last_activity = Instant::now();
 
-        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+        let (ws_sender, mut ws_receiver) = ws_stream.split();
 
         let mut subscribed_ids = HashSet::<String>::new();
 
@@ -563,7 +563,7 @@ mod status_test {
     use crate::api::ws::{Config, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
-    use futures::{SinkExt, StreamExt};
+    use futures::StreamExt;
     use serde_json::json;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use tokio::sync::broadcast::Sender;
@@ -623,7 +623,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::Ping(bytes::Bytes::new())).await.unwrap();
@@ -648,7 +648,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -686,7 +686,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text("not json")).await.unwrap();
@@ -719,7 +719,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -800,7 +800,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -871,7 +871,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -949,7 +949,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (mut tx, mut rx) = client.split();
+        let (tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(

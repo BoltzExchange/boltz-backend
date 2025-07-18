@@ -73,12 +73,8 @@ impl Manager {
         });
 
         Ok(Self {
-            quote_aggregator: QuoteAggregator::new(
-                &symbol,
-                provider.clone(),
-                config.quoters.clone(),
-            )
-            .await?,
+            quote_aggregator: QuoteAggregator::new(&symbol, provider, config.quoters.clone())
+                .await?,
             symbol,
             signer,
             refund_signers,

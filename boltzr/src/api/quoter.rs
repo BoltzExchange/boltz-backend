@@ -1,10 +1,10 @@
 use crate::api::ServerState;
-use crate::api::errors::{ApiError, AxumError};
+use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::evm::quoter::Data as QuoterData;
+use crate::evm::quoter::{Call, Data as QuoterData, QuoteAggregator};
 use crate::swap::manager::SwapManager;
 use alloy::primitives::{Address, U256};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -34,6 +34,21 @@ pub struct QuoteResponse {
     pub data: QuoterData,
 }
 
+#[derive(Deserialize)]
+pub struct EncodeParams {
+    pub data: QuoterData,
+    pub recipient: Address,
+    #[serde(rename = "amountIn")]
+    pub amount_in: U256,
+    #[serde(rename = "amountOutMin")]
+    pub amount_out_min: U256,
+}
+
+#[derive(Serialize)]
+pub struct EncodeResponse {
+    pub calls: Vec<Call>,
+}
+
 pub async fn quote<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(path): Path<QuotePath>,
@@ -43,38 +58,9 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let currency = match state.manager.get_currency(&path.currency) {
-        Some(currency) => currency,
-        None => {
-            return Ok((
-                StatusCode::NOT_FOUND,
-                Json(ApiError {
-                    error: format!("currency not found: {}", path.currency),
-                }),
-            )
-                .into_response());
-        }
-    };
-
-    let quotes = match currency.evm_manager {
-        Some(manager) => {
-            manager
-                .quote_aggregator
-                .quote(params.token_in, params.token_out, params.amount_in)
-                .await?
-        }
-        None => {
-            return Ok((
-                StatusCode::NOT_FOUND,
-                Json(ApiError {
-                    error: format!("quoter not supported for currency {}", path.currency),
-                }),
-            )
-                .into_response());
-        }
-    };
-
-    let mut quotes = quotes
+    let mut quotes = get_quote_aggregator(&state, &path.currency)?
+        .quote(params.token_in, params.token_out, params.amount_in)
+        .await?
         .into_iter()
         .map(|(quote, data)| QuoteResponse { quote, data })
         .collect::<Vec<_>>();
@@ -83,4 +69,50 @@ where
     quotes.sort_by(|a, b| b.quote.cmp(&a.quote));
 
     Ok((StatusCode::OK, Json(quotes)).into_response())
+}
+
+pub async fn encode<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(path): Path<QuotePath>,
+    Json(params): Json<EncodeParams>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let encoded = get_quote_aggregator(&state, &path.currency)?.encode(
+        params.data,
+        params.recipient,
+        params.amount_in,
+        params.amount_out_min,
+    )?;
+
+    Ok((StatusCode::OK, Json(EncodeResponse { calls: encoded })).into_response())
+}
+
+fn get_quote_aggregator<S, M>(
+    state: &Arc<ServerState<S, M>>,
+    symbol: &str,
+) -> Result<QuoteAggregator, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let currency = match state.manager.get_currency(symbol) {
+        Some(currency) => currency,
+        None => {
+            return Err(AxumError::new(
+                StatusCode::NOT_FOUND,
+                anyhow!("currency not found: {}", symbol),
+            ));
+        }
+    };
+
+    match currency.evm_manager {
+        Some(manager) => Ok(manager.quote_aggregator.clone()),
+        None => Err(AxumError::new(
+            StatusCode::NOT_FOUND,
+            anyhow!("quoter not supported for currency {}", symbol),
+        )),
+    }
 }

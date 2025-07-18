@@ -167,6 +167,7 @@ where
                 post(bolt12::fetch::<S, M>),
             )
             .route("/v2/{currency}/quote", get(quoter::quote::<S, M>))
+            .route("/v2/{currency}/quote/encode", post(quoter::encode::<S, M>))
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))
     }

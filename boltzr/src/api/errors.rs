@@ -15,14 +15,20 @@ pub struct ApiError {
     pub error: String,
 }
 
-pub struct AxumError(anyhow::Error);
+pub struct AxumError(StatusCode, anyhow::Error);
+
+impl AxumError {
+    pub fn new(status: StatusCode, error: anyhow::Error) -> Self {
+        Self(status, error)
+    }
+}
 
 impl IntoResponse for AxumError {
     fn into_response(self) -> Response {
         (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            self.0,
             Json(ApiError {
-                error: format!("{}", self.0),
+                error: format!("{}", self.1),
             }),
         )
             .into_response()
@@ -34,7 +40,7 @@ where
     E: Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
-        Self(err.into())
+        Self(StatusCode::INTERNAL_SERVER_ERROR, err.into())
     }
 }
 

@@ -1,4 +1,4 @@
-import type { Transaction } from '@scure/btc-signer';
+import { RawWitness, type Transaction } from '@scure/btc-signer';
 import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
@@ -167,21 +167,28 @@ class ArkNursery extends TypedEventEmitter<{
   private static extractPreimages = (tx: Transaction) => {
     return AspClient.mapInputs(tx)
       .map((input) => {
-        const preimage = input.unknown?.find((x) =>
-          ArkNursery.isPreimage(x[0]),
+        const arkConditionField = input.unknown?.find(([x]) =>
+          ArkNursery.isPreimage(x),
         );
 
-        if (preimage === undefined) {
+        if (arkConditionField === undefined) {
           return undefined;
         }
 
-        return Buffer.from(preimage[1]).subarray(2);
+        const conditionWitness = RawWitness.decode(arkConditionField[1]);
+        if (conditionWitness.length !== 1) {
+          return undefined;
+        }
+
+        return Buffer.from(conditionWitness[0]);
       })
       .filter((x) => x !== undefined);
   };
 
+  private static arkConditionPsbtKeyName = Buffer.from('condition', 'utf-8');
+
   private static isPreimage = (field: { type: number; key: Uint8Array }) => {
-    return field.type === 99 && Buffer.from('ondition').equals(field.key);
+    return Buffer.from([field.type, ...field.key]).includes(ArkNursery.arkConditionPsbtKeyName);
   };
 }
 

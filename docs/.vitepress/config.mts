@@ -11,6 +11,9 @@ export default defineConfig({
     logo: '/assets/logo.svg',
     search: {
       provider: 'local',
+      options: {
+        detailedView: true,
+      },
     },
     nav: [{ text: '🏠 Docs Home', link: docsRoot, target: '_self' }],
     sidebar: [

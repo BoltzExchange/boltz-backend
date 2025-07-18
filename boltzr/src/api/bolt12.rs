@@ -289,7 +289,7 @@ mod test {
             manager.expect_get_currency().returning(move |_| {
                 Some(Currency {
                     network: Network::Regtest,
-                    wallet: Arc::new(
+                    wallet: Some(Arc::new(
                         crate::wallet::Bitcoin::new(
                             Network::Regtest,
                             &Mnemonic::from_str(
@@ -300,11 +300,12 @@ mod test {
                             "m/0/0".to_string(),
                         )
                         .unwrap(),
-                    ),
+                    )),
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
                     bumper: None,
+                    evm_manager: None,
                 })
             });
         }
@@ -357,7 +358,7 @@ mod test {
             manager.expect_get_currency().returning(move |_| {
                 Some(Currency {
                     network: Network::Regtest,
-                    wallet: Arc::new(
+                    wallet: Some(Arc::new(
                         crate::wallet::Bitcoin::new(
                             Network::Regtest,
                             &Mnemonic::from_str(
@@ -368,11 +369,12 @@ mod test {
                             "m/0/0".to_string(),
                         )
                         .unwrap(),
-                    ),
+                    )),
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
                     bumper: None,
+                    evm_manager: None,
                 })
             });
         }

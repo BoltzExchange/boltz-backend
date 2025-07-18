@@ -1,5 +1,9 @@
+use alloy::network::Network;
+use alloy::primitives::Address;
 use alloy::primitives::U256;
 use alloy::primitives::utils::parse_units;
+use alloy::providers::Provider;
+use anyhow::Result;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -25,6 +29,21 @@ pub fn parse_wei(amount: &str) -> Result<U256, Box<dyn Error>> {
     }
 
     Ok(parsed.get_absolute())
+}
+
+pub async fn check_contract_exists<P, N>(provider: &P, address: Address) -> Result<()>
+where
+    P: Provider<N> + Clone + 'static,
+    N: Network,
+{
+    let code = provider.get_code_at(address).await?;
+    if code.is_empty() {
+        return Err(anyhow::anyhow!(
+            "no contract at address: {}",
+            address.to_string()
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

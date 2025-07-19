@@ -16,6 +16,12 @@ pub struct ReverseSwap {
     pub preimageHash: String,
     pub transactionId: Option<String>,
     pub transactionVout: Option<i32>,
+    pub claimPublicKey: Option<String>,
+    pub keyIndex: Option<i32>,
+    pub lockupAddress: String,
+    pub timeoutBlockHeight: i32,
+    pub redeemScript: Option<String>,
+    pub createdAt: chrono::NaiveDateTime,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq, Clone)]
@@ -108,13 +114,19 @@ mod test {
 
     fn create_swap(order_side: Option<OrderSide>) -> ReverseSwap {
         ReverseSwap {
-            transactionId: None,
-            transactionVout: None,
             id: "reverse id".to_string(),
             pair: "L-BTC/BTC".to_string(),
-            preimageHash: "preimage hash".to_string(),
-            status: "transaction.confirmed".to_string(),
             orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
+            status: "transaction.confirmed".to_string(),
+            preimageHash: "preimage hash".to_string(),
+            transactionId: None,
+            transactionVout: None,
+            claimPublicKey: None,
+            keyIndex: None,
+            lockupAddress: "lockup address".to_string(),
+            timeoutBlockHeight: 0,
+            redeemScript: None,
+            createdAt: chrono::Utc::now().naive_utc(),
         }
     }
 }

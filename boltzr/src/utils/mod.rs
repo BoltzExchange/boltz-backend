@@ -3,6 +3,7 @@ mod drop_guard;
 pub mod pair;
 pub mod serde;
 mod timeout_map;
+pub mod xpub;
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }

@@ -246,14 +246,14 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     methodName: keyof InvoicesClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.invoices, methodName, params, this.meta, true);
+    return unaryCall(this.invoices!, methodName, params, this.meta, true);
   };
 
   private unaryRouterCall = <T, U>(
     methodName: keyof RouterClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.router, methodName, params, this.meta, true);
+    return unaryCall(this.router!, methodName, params, this.meta, true);
   };
 
   private unaryLightningCall = <T, U>(
@@ -261,7 +261,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     params: T,
     toObject = true,
   ): Promise<U> => {
-    return unaryCall(this.lightning, methodName, params, this.meta, toObject);
+    return unaryCall(this.lightning!, methodName, params, this.meta, toObject);
   };
 
   public getInfo = async (): Promise<NodeInfo> => {

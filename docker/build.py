@@ -130,7 +130,7 @@ IMAGES: dict[str, Image] = {
             ),
             BuildArgument(
                 name="FULMINE_VERSION",
-                value="v0.2.0-rc.0",
+                value="v0.2.0-rc.1",
             ),
         ],
     ),

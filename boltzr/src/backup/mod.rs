@@ -2,7 +2,6 @@ use crate::backup::providers::BackupProvider;
 use crate::currencies::Currencies;
 use crate::lightning::lnd::Lnd;
 use alloy::hex;
-use anyhow::anyhow;
 use chrono::{Datelike, Timelike, Utc};
 use dashmap::DashSet;
 use flate2::write::GzEncoder;
@@ -28,7 +27,7 @@ pub struct Config {
     pub interval: Option<String>,
 
     #[serde(rename = "simpleStorage")]
-    pub simple_storage: Option<providers::s3::Config>,
+    pub simple_storage: Vec<providers::s3::Config>,
 }
 
 #[derive(Clone)]
@@ -38,7 +37,7 @@ pub struct Backup {
     interval: String,
     db_config: crate::db::Config,
 
-    provider: providers::s3::S3,
+    provider: Arc<providers::multi::MultiProvider>,
 
     currencies: Currencies,
     to_retry: Arc<DashSet<String>>,
@@ -51,17 +50,24 @@ impl Backup {
         db_config: crate::db::Config,
         currencies: Currencies,
     ) -> anyhow::Result<Self> {
+        let mut s3_providers: Vec<Box<dyn BackupProvider + Send + Sync>> = Vec::new();
+
+        for (index, provider_config) in config.simple_storage.into_iter().enumerate() {
+            match providers::s3::S3::new(&provider_config).await {
+                Ok(provider) => s3_providers.push(Box::new(provider)),
+                Err(e) => {
+                    error!("Failed to initialize S3 provider {}: {}", index, e);
+                }
+            }
+        }
+
         Ok(Backup {
             db_config,
             currencies,
             cancellation_token,
             to_retry: Arc::new(DashSet::new()),
             interval: config.interval.unwrap_or(DEFAULT_INTERVAL.to_string()),
-            provider: if let Some(config) = config.simple_storage {
-                providers::s3::S3::new(&config).await?
-            } else {
-                return Err(anyhow!("no backup provider configured"));
-            },
+            provider: Arc::new(providers::multi::MultiProvider::new(s3_providers).await?),
         })
     }
 

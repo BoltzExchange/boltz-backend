@@ -79,10 +79,10 @@ impl BackupProvider for S3 {
     }
 
     #[instrument(name = "S3::put_stream", skip(self, reader))]
-    async fn put_stream<R: AsyncRead + Unpin + Send + ?Sized>(
+    async fn put_stream(
         &self,
         path: &str,
-        reader: &mut R,
+        reader: &mut (dyn AsyncRead + Unpin + Send),
     ) -> anyhow::Result<()> {
         self.bucket.put_object_stream(reader, path).await?;
         Ok(())

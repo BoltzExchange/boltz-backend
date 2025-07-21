@@ -1182,6 +1182,184 @@
         }
       }
     },
+    "/quote/{currency}": {
+      "get": {
+        "tags": [
+          "Quotes"
+        ],
+        "description": "Gets quotes for a token swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Network for the token swap"
+          },
+          {
+            "in": "query",
+            "name": "tokenIn",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token to swap from"
+          },
+          {
+            "in": "query",
+            "name": "tokenOut",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token to swap to"
+          },
+          {
+            "in": "query",
+            "name": "amountIn",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Amount to swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quotes for the token swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenQuote"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the network is not supported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quote/{currency}/encode": {
+      "post": {
+        "tags": [
+          "Quotes"
+        ],
+        "description": "Encodes calldata for a token swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Network for the token swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data",
+                  "recipient",
+                  "amountIn",
+                  "amountOutMin"
+                ],
+                "properties": {
+                  "recipient": {
+                    "type": "string",
+                    "description": "Address to send the tokens to"
+                  },
+                  "amountIn": {
+                    "type": "string",
+                    "description": "Amount of tokens to swap"
+                  },
+                  "amountOutMin": {
+                    "type": "string",
+                    "description": "Minimum amount of tokens to receive"
+                  },
+                  "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Encoded calldata for the token swap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "calls"
+                  ],
+                  "properties": {
+                    "calls": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Call"
+                      },
+                      "description": "Array of contract calls to execute"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the network is not supported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/referral": {
       "get": {
         "description": "Referral ID for the used API keys",
@@ -2920,6 +3098,45 @@
           }
         }
       },
+      "TokenQuote": {
+        "type": "object",
+        "required": [
+          "quote",
+          "data"
+        ],
+        "properties": {
+          "quote": {
+            "type": "string",
+            "description": "Quote for the token swap"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Call": {
+        "type": "object",
+        "required": [
+          "to",
+          "value",
+          "data"
+        ],
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Contract address to call"
+          },
+          "value": {
+            "type": "string",
+            "description": "Value to send with the call"
+          },
+          "data": {
+            "type": "string",
+            "description": "Encoded function calldata"
+          }
+        }
+      },
       "ErrorResponse": {
         "type": "object",
         "required": [
@@ -3981,6 +4198,10 @@
     {
       "name": "Nodes",
       "description": "Lightning nodes"
+    },
+    {
+      "name": "Quotes",
+      "description": "Quotes and transaction encoding for token swaps"
     },
     {
       "name": "Referral",

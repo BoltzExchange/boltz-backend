@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 mod contracts;
 pub mod manager;
+pub mod quoter;
 mod refund_signer;
 pub mod utils;
 
@@ -22,6 +23,9 @@ pub struct Config {
 
     #[serde(rename = "contracts")]
     pub(crate) contracts: Vec<ContractAddresses>,
+
+    #[serde(rename = "quoters")]
+    pub(crate) quoters: Option<quoter::Config>,
 }
 
 #[tonic::async_trait]

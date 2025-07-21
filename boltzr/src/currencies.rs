@@ -11,6 +11,7 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::offer::OfferHelperDatabase;
 use crate::db::helpers::refund_transaction::RefundTransactionHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
+use crate::evm::manager::Manager;
 use crate::lightning::cln::Cln;
 use crate::lightning::lnd::Lnd;
 use crate::wallet;
@@ -28,12 +29,13 @@ use tracing::{debug, error, warn};
 pub struct Currency {
     pub network: wallet::Network,
 
-    pub wallet: Arc<dyn Wallet + Send + Sync>,
+    pub wallet: Option<Arc<dyn Wallet + Send + Sync>>,
 
     pub chain: Option<Arc<dyn crate::chain::Client + Send + Sync>>,
     pub bumper: Option<Bumper>,
     pub cln: Option<Cln>,
     pub lnd: Option<Lnd>,
+    pub evm_manager: Option<Arc<Manager>>,
 }
 
 pub type Currencies = Arc<HashMap<String, Currency>>;
@@ -48,6 +50,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     liquid: Option<LiquidConfig>,
     db: Pool,
     cache: Cache,
+    rsk_manager: Option<Arc<Manager>>,
     webhook_block_list: Option<Vec<String>>,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
@@ -91,11 +94,11 @@ pub async fn connect_nodes<K: KeysHelper>(
                             create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
                         }),
                         chain,
-                        wallet: Arc::new(wallet::Bitcoin::new(
+                        wallet: Some(Arc::new(wallet::Bitcoin::new(
                             network,
                             &seed,
                             keys_info.derivationPath,
-                        )?),
+                        )?)),
                         cln: match currency.cln {
                             Some(config) => {
                                 connect_client(
@@ -125,6 +128,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                             }
                             None => None,
                         },
+                        evm_manager: None,
                     },
                 );
             }
@@ -157,15 +161,31 @@ pub async fn connect_nodes<K: KeysHelper>(
                 network,
                 cln: None,
                 lnd: None,
-                wallet: Arc::new(wallet::Elements::new(
+                wallet: Some(Arc::new(wallet::Elements::new(
                     network,
                     &seed,
                     keys_info.derivationPath,
-                )?),
+                )?)),
                 bumper: chain.as_ref().map(|chain| {
                     create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
                 }),
                 chain,
+                evm_manager: None,
+            },
+        );
+    }
+
+    if let Some(rsk_manager) = rsk_manager {
+        curs.insert(
+            rsk_manager.symbol.clone(),
+            Currency {
+                network,
+                evm_manager: Some(rsk_manager),
+                bumper: None,
+                chain: None,
+                wallet: None,
+                cln: None,
+                lnd: None,
             },
         );
     }

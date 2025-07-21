@@ -1,4 +1,5 @@
 use crate::evm::RefundSigner;
+use crate::evm::quoter::QuoteAggregator;
 use crate::evm::refund_signer::LocalRefundSigner;
 use alloy::network::{AnyNetwork, EthereumWallet};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
@@ -12,6 +13,9 @@ use std::fs;
 use tracing::{debug, info, instrument, warn};
 
 pub struct Manager {
+    pub symbol: String,
+    pub quote_aggregator: QuoteAggregator,
+
     signer: PrivateKeySigner,
 
     address_versions: HashMap<Address, u8>,
@@ -20,6 +24,7 @@ pub struct Manager {
 
 impl Manager {
     pub async fn from_mnemonic_file(
+        symbol: String,
         mnemonic_path: String,
         config: &crate::evm::Config,
     ) -> anyhow::Result<Self> {
@@ -31,11 +36,12 @@ impl Manager {
             .index(0)?
             .build()?;
 
-        Self::new(signer, config).await
+        Self::new(symbol, signer, config).await
     }
 
-    #[instrument(name = "Manager::new", skip_all)]
+    #[instrument(name = "Manager::new", skip(signer, config))]
     pub async fn new(
+        symbol: String,
         signer: PrivateKeySigner,
         config: &crate::evm::Config,
     ) -> anyhow::Result<Self> {
@@ -67,6 +73,9 @@ impl Manager {
         });
 
         Ok(Self {
+            quote_aggregator: QuoteAggregator::new(&symbol, provider, config.quoters.clone())
+                .await?,
+            symbol,
             signer,
             refund_signers,
             address_versions,
@@ -131,6 +140,7 @@ mod test {
         fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
 
         let signer = Manager::from_mnemonic_file(
+            "RBTC".to_string(),
             mnemonic_file.to_str().unwrap().to_string(),
             &Config {
                 provider_endpoint: PROVIDER.to_string(),
@@ -138,6 +148,7 @@ mod test {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
                 }],
+                quoters: None,
             },
         )
         .await
@@ -157,6 +168,7 @@ mod test {
         fs::write(mnemonic_file.clone(), format!("{MNEMONIC}\n")).unwrap();
 
         let signer = Manager::from_mnemonic_file(
+            "RBTC".to_string(),
             mnemonic_file.to_str().unwrap().to_string(),
             &Config {
                 provider_endpoint: PROVIDER.to_string(),
@@ -164,6 +176,7 @@ mod test {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
                 }],
+                quoters: None,
             },
         )
         .await
@@ -230,6 +243,7 @@ mod test {
 
     async fn new_manager() -> Manager {
         Manager::new(
+            "RBTC".to_string(),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)
@@ -242,6 +256,7 @@ mod test {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
                 }],
+                quoters: None,
             },
         )
         .await

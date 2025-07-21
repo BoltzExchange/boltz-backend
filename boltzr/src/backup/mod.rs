@@ -37,7 +37,7 @@ pub struct Backup {
     interval: String,
     db_config: crate::db::Config,
 
-    provider: providers::multi::MultiProvider<providers::s3::S3>,
+    provider: Arc<providers::multi::MultiProvider>,
 
     currencies: Currencies,
     to_retry: Arc<DashSet<String>>,
@@ -50,11 +50,11 @@ impl Backup {
         db_config: crate::db::Config,
         currencies: Currencies,
     ) -> anyhow::Result<Self> {
-        let mut s3_providers = Vec::new();
+        let mut s3_providers: Vec<Box<dyn BackupProvider + Send + Sync>> = Vec::new();
 
         for (index, provider_config) in config.simple_storage.into_iter().enumerate() {
             match providers::s3::S3::new(&provider_config).await {
-                Ok(provider) => s3_providers.push(provider),
+                Ok(provider) => s3_providers.push(Box::new(provider)),
                 Err(e) => {
                     error!("Failed to initialize S3 provider {}: {}", index, e);
                 }
@@ -67,7 +67,7 @@ impl Backup {
             cancellation_token,
             to_retry: Arc::new(DashSet::new()),
             interval: config.interval.unwrap_or(DEFAULT_INTERVAL.to_string()),
-            provider: providers::multi::MultiProvider::new(s3_providers).await?,
+            provider: Arc::new(providers::multi::MultiProvider::new(s3_providers).await?),
         })
     }
 

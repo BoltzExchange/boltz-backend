@@ -3,15 +3,18 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tracing::error;
 
-const NO_PROVIDERS_ERROR: &str = "No backup providers configured";
+const NO_PROVIDERS_ERROR: &str = "no backup providers configured";
+const ALL_PROVIDERS_FAILED_ERROR: &str = "all backup providers failed";
 
-#[derive(Clone, Debug)]
-pub struct MultiProvider<P: BackupProvider> {
-    providers: Vec<P>,
+#[derive(Debug)]
+pub struct MultiProvider {
+    providers: Vec<Box<dyn BackupProvider + Send + Sync>>,
 }
 
-impl<P: BackupProvider> MultiProvider<P> {
-    pub async fn new(providers: Vec<P>) -> anyhow::Result<Self> {
+impl MultiProvider {
+    pub async fn new(
+        providers: Vec<Box<dyn BackupProvider + Send + Sync>>,
+    ) -> anyhow::Result<Self> {
         if providers.is_empty() {
             return Err(anyhow!(NO_PROVIDERS_ERROR));
         }
@@ -21,7 +24,7 @@ impl<P: BackupProvider> MultiProvider<P> {
 }
 
 #[async_trait]
-impl<P: BackupProvider + Send + Sync> BackupProvider for MultiProvider<P> {
+impl BackupProvider for MultiProvider {
     async fn put(&self, path: &str, data: &[u8]) -> anyhow::Result<()> {
         let results = futures::future::join_all(
             self.providers
@@ -35,10 +38,6 @@ impl<P: BackupProvider + Send + Sync> BackupProvider for MultiProvider<P> {
             .enumerate()
             .partition(|(_, result)| result.is_ok());
 
-        if successes.is_empty() {
-            return Err(anyhow!("All backup providers failed"));
-        }
-
         for (index, result) in failures {
             error!(
                 "Backup to provider {} failed: {}",
@@ -47,13 +46,17 @@ impl<P: BackupProvider + Send + Sync> BackupProvider for MultiProvider<P> {
             );
         }
 
+        if successes.is_empty() {
+            return Err(anyhow!(ALL_PROVIDERS_FAILED_ERROR));
+        }
+
         Ok(())
     }
 
-    async fn put_stream<R: tokio::io::AsyncRead + Unpin + Send + ?Sized>(
+    async fn put_stream(
         &self,
         path: &str,
-        reader: &mut R,
+        reader: &mut (dyn tokio::io::AsyncRead + Unpin + Send),
     ) -> anyhow::Result<()> {
         let mut data = Vec::new();
         tokio::io::copy(reader, &mut data).await?;
@@ -91,10 +94,10 @@ mod tests {
             }
         }
 
-        async fn put_stream<R: tokio::io::AsyncRead + Unpin + Send + ?Sized>(
+        async fn put_stream(
             &self,
             path: &str,
-            reader: &mut R,
+            reader: &mut (dyn tokio::io::AsyncRead + Unpin + Send),
         ) -> anyhow::Result<()> {
             let mut data = Vec::new();
             tokio::io::copy(reader, &mut data).await?;
@@ -104,7 +107,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_provider_creation_with_empty_providers() {
-        let providers: Vec<TestBackupProvider> = vec![];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> = vec![];
         let result = MultiProvider::new(providers).await;
 
         assert!(result.is_err());
@@ -114,7 +117,7 @@ mod tests {
     #[tokio::test]
     async fn test_multi_provider_creation_with_single_provider() {
         let test_provider = TestBackupProvider::new(false);
-        let providers = vec![test_provider];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> = vec![Box::new(test_provider)];
 
         let result = MultiProvider::new(providers).await;
 
@@ -127,7 +130,8 @@ mod tests {
     async fn test_multi_provider_creation_with_multiple_providers() {
         let test_provider1 = TestBackupProvider::new(false);
         let test_provider2 = TestBackupProvider::new(false);
-        let providers = vec![test_provider1, test_provider2];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+            vec![Box::new(test_provider1), Box::new(test_provider2)];
 
         let result = MultiProvider::new(providers).await;
 
@@ -141,7 +145,8 @@ mod tests {
         let test_provider1 = TestBackupProvider::new(false);
         let test_provider2 = TestBackupProvider::new(false);
 
-        let providers = vec![test_provider1, test_provider2];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+            vec![Box::new(test_provider1), Box::new(test_provider2)];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
         let result = multi_provider.put("test-path", b"test-data").await;
@@ -153,7 +158,8 @@ mod tests {
         let test_provider1 = TestBackupProvider::new(false);
         let test_provider2 = TestBackupProvider::new(true);
 
-        let providers = vec![test_provider1, test_provider2];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+            vec![Box::new(test_provider1), Box::new(test_provider2)];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
         let result = multi_provider.put("test-path", b"test-data").await;
@@ -165,14 +171,12 @@ mod tests {
         let test_provider1 = TestBackupProvider::new(true);
         let test_provider2 = TestBackupProvider::new(true);
 
-        let providers = vec![test_provider1, test_provider2];
+        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+            vec![Box::new(test_provider1), Box::new(test_provider2)];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
         let result = multi_provider.put("test-path", b"test-data").await;
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "All backup providers failed"
-        );
+        assert_eq!(result.unwrap_err().to_string(), ALL_PROVIDERS_FAILED_ERROR);
     }
 }

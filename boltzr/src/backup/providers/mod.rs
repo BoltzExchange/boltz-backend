@@ -5,12 +5,12 @@ pub mod multi;
 pub mod s3;
 
 #[async_trait]
-pub trait BackupProvider {
+pub trait BackupProvider: std::fmt::Debug {
     async fn put(&self, path: &str, data: &[u8]) -> anyhow::Result<()>;
 
-    async fn put_stream<R: AsyncRead + Unpin + Send + ?Sized>(
+    async fn put_stream(
         &self,
         path: &str,
-        reader: &mut R,
+        reader: &mut (dyn AsyncRead + Unpin + Send),
     ) -> anyhow::Result<()>;
 }

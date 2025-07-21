@@ -6,16 +6,18 @@ authors.workspace = true
 edition.workspace = true
 
 [features]
-default = ["musig", "bitcoin"]
+default = ["musig", "bitcoin", "elements"]
 musig = ["dep:secp256k1"]
 bitcoin = ["dep:bitcoin"]
+elements = ["dep:elements"]
 
 [dependencies]
 anyhow = { workspace = true }
+bitcoin = { workspace = true, optional = true }
+elements = { workspace = true, optional = true }
 hex = "0.4.3"
 secp256k1 = { git = "https://github.com/rust-bitcoin/rust-secp256k1.git", version = "0.31.1", features = ["rand"], optional = true }
-bitcoin = { workspace = true, optional = true }
-serde.workspace = true
+serde = { workspace = true }
 
 [dev-dependencies]
 corepc-node = { version = "0.8.0", default-features = false, features = ["29_0"] }

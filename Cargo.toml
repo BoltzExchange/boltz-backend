@@ -32,6 +32,7 @@ anyhow = "1.0.98"
 bitcoin = { version = "0.32.6", features = ["rand-std"] }
 bitcoin_hashes = "0.16.0"
 clap = { version = "4.5.41", features = ["derive"] }
+elements = "0.25.2"
 rand = "0.8.5"
 reqwest = { version = "0.12.22", features = ["json"] }
 rstest = "0.25.0"

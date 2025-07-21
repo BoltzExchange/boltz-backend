@@ -94,7 +94,7 @@ lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.11.0"
 bitcoin = { workspace = true }
-elements = "0.25.2"
+elements = { workspace = true }
 base64 = "0.22.1"
 rust-s3 = "0.35.1"
 cron = "0.15.0"

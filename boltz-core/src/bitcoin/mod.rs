@@ -1,13 +1,16 @@
-use crate::utils::{OutputType, Transaction as TTransaction};
+use crate::utils::{OutputType, Transaction as TTransaction, TxIn as TTxIn};
 use bitcoin::{
-    Amount, OutPoint, ScriptBuf, TxOut, XOnlyPublicKey, key::Keypair, transaction::Transaction,
+    Amount, OutPoint, ScriptBuf, TxOut, XOnlyPublicKey,
+    key::Keypair,
+    script::Instruction,
+    transaction::{Transaction, TxIn},
 };
 
-mod claim;
 mod scripts;
+mod tx;
 
-pub use claim::claim;
 pub use scripts::*;
+pub use tx::construct_tx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UncooperativeDetails {
@@ -16,13 +19,14 @@ pub struct UncooperativeDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClaimDetail {
+pub struct InputDetail {
     output_type: OutputType,
     outpoint: OutPoint,
     tx_out: TxOut,
     amount: Amount,
-    preimage: [u8; 32],
     keys: Keypair,
+    preimage: Option<[u8; 32]>,
+    timeout_block_height: Option<u32>,
 
     witness_script: Option<ScriptBuf>,
     uncooperative: Option<UncooperativeDetails>,
@@ -35,5 +39,25 @@ impl TTransaction for Transaction {
 
     fn input_len(&self) -> usize {
         self.input.len()
+    }
+}
+
+impl TTxIn for TxIn {
+    fn witness(&self) -> Vec<Vec<u8>> {
+        self.witness.to_vec()
+    }
+
+    fn script_sig_pushed_bytes(&self) -> Vec<Vec<u8>> {
+        self.script_sig
+            .instructions()
+            .flatten()
+            .filter_map(|inst| {
+                if let Instruction::PushBytes(bytes) = inst {
+                    Some(bytes.as_bytes().to_vec())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }

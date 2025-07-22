@@ -790,9 +790,13 @@ mod test {
     use crate::db::helpers::chain_swap::{
         ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
     };
+    use crate::db::helpers::reverse_swap::{
+        ReverseSwapCondition, ReverseSwapHelper, ReverseSwapNullableCondition,
+    };
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::helpers::web_hook::WebHookHelper;
-    use crate::db::models::{ChainSwapInfo, Swap, WebHook, WebHookState};
+    use crate::db::models::ReverseRoutingHint;
+    use crate::db::models::{ChainSwapInfo, ReverseSwap, Swap, WebHook, WebHookState};
     use crate::evm::RefundSigner;
     use crate::grpc::service::BoltzService;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
@@ -854,6 +858,21 @@ mod test {
                 &self,
                 condition: ChainSwapDataNullableCondition,
             ) -> QueryResponse<Vec<ChainSwapInfo>>;
+        }
+    }
+
+    mock! {
+        ReverseSwapHelper {}
+
+        impl Clone for ReverseSwapHelper {
+            fn clone(&self) -> Self;
+        }
+
+        impl ReverseSwapHelper for ReverseSwapHelper {
+            fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
+            fn get_all_nullable(&self, condition: ReverseSwapNullableCondition) -> QueryResponse<Vec<ReverseSwap>>;
+            fn get_routing_hint(&self, swap_id: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
+            fn get_routing_hints(&self, script_pubkeys: Vec<Vec<u8>>) -> QueryResponse<Vec<ReverseRoutingHint>>;
         }
     }
 
@@ -1182,6 +1201,7 @@ mod test {
                 Arc::new(Service::new(
                     Arc::new(MockSwapHelper::new()),
                     Arc::new(MockChainSwapHelper::new()),
+                    Arc::new(MockReverseSwapHelper::new()),
                     Arc::new(HashMap::new()),
                     None,
                     None,

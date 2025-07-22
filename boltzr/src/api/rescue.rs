@@ -8,7 +8,7 @@ use axum::{Extension, Json};
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::utils::xpub::XpubDeserialize;
+use crate::utils::serde::XpubDeserialize;
 #[derive(Deserialize)]
 pub struct RescueParams {
     xpub: XpubDeserialize,
@@ -31,6 +31,24 @@ where
         .service
         .swap_rescue
         .rescue_xpub(&xpub.0, derivation_path)?;
+    Ok((StatusCode::OK, Json(res)).into_response())
+}
+
+pub async fn swap_restore<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Json(RescueParams {
+        xpub,
+        derivation_path,
+    }): Json<RescueParams>,
+) -> anyhow::Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let res = state
+        .service
+        .swap_rescue
+        .restore_xpub(&xpub.0, derivation_path)?;
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 

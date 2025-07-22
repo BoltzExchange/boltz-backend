@@ -5,8 +5,6 @@ use elements::{
     secp256k1_zkp::{Keypair, XOnlyPublicKey},
 };
 
-#[cfg(test)]
-mod client;
 mod scripts;
 mod tx;
 

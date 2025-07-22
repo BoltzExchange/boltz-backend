@@ -448,11 +448,10 @@ fn stubbed_cooperative_witness() -> Witness {
 mod tests {
     use super::*;
     use crate::{
+        client::{RpcBlock, RpcClient, RpcParam},
         detect_preimage,
         elements::{
-            Tree, UncooperativeDetails,
-            client::{RpcBlock, RpcClient, RpcParam},
-            reverse_script, reverse_tree, swap_script, swap_tree,
+            Tree, UncooperativeDetails, reverse_script, reverse_tree, swap_script, swap_tree,
         },
     };
     use bitcoin::{hashes::Hash, key::rand::RngCore};
@@ -821,7 +820,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (keys, _, tweak, input) = fund_taproot(&secp, &client, None, create_tree, blind_input);
 
@@ -898,7 +897,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) =
             fund_taproot(&secp, &client, None, create_tree, blind_input);
@@ -949,7 +948,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) = fund_taproot(
             &secp,
@@ -996,7 +995,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_segwit_v0(&secp, &client, None, create_script, blind_input);
 
@@ -1036,7 +1035,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_segwit_v0(
             &secp,
@@ -1077,7 +1076,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_compatibility(&secp, &client, None, create_script, blind_input);
 
@@ -1117,7 +1116,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_compatibility(
             &secp,
@@ -1158,7 +1157,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_legacy(&secp, &client, None, create_script, blind_input);
 
@@ -1198,7 +1197,7 @@ mod tests {
         #[case] blind_input: bool,
         #[case] blind_output: bool,
     ) {
-        let client = RpcClient::new_regtest();
+        let client = RpcClient::new_elements_regtest();
         let secp = Secp256k1::new();
         let (_, input) = fund_legacy(
             &secp,

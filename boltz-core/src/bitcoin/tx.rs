@@ -245,66 +245,66 @@ mod tests {
         bitcoin::{
             Tree, UncooperativeDetails, reverse_script, reverse_tree, swap_script, swap_tree,
         },
+        client::{RpcClient, RpcParam},
         detect_preimage,
     };
     use bitcoin::{
-        OutPoint, XOnlyPublicKey,
+        OutPoint, Txid, XOnlyPublicKey,
         hashes::hash160,
         key::{Keypair, rand::RngCore},
         secp256k1::{PublicKey, Signing, Verification, rand},
         taproot::TaprootSpendInfo,
     };
-    use corepc_node::Node;
+    use elements::pset::serialize::Serialize;
     use rstest::rstest;
+    use std::str::FromStr;
 
-    fn setup_node() -> Node {
-        let node = corepc_node::Node::new(corepc_node::exe_path().unwrap()).unwrap();
-        node.client
-            .generate_to_address(
-                102,
-                &node
-                    .client
-                    .get_new_address(None, None)
-                    .unwrap()
-                    .address()
-                    .unwrap()
-                    .assume_checked(),
+    fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
+        let funding_amount = Amount::from_sat(100_000);
+        let funding_tx = node
+            .request::<String>(
+                "sendtoaddress",
+                Some(vec![
+                    RpcParam::Str(address.to_string()),
+                    RpcParam::Float(funding_amount.to_btc()),
+                ]),
             )
             .unwrap();
 
-        node
-    }
-
-    fn fund_address(node: &Node, address: &Address) -> (Transaction, usize) {
-        let funding_amount = Amount::from_sat(100_000);
-        let funding_tx = node
-            .client
-            .send_to_address(address, funding_amount)
+        let tx = node
+            .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(funding_tx)]))
             .unwrap();
 
-        let funding_tx = node
-            .client
-            .get_raw_transaction(funding_tx.txid().unwrap())
-            .unwrap()
-            .transaction()
-            .unwrap();
+        let tx: Transaction = bitcoin::consensus::deserialize(&hex::decode(tx).unwrap()).unwrap();
 
-        let vout_index = funding_tx
+        let vout_index = tx
             .output
             .iter()
             .position(|output| output.script_pubkey == address.script_pubkey())
             .unwrap();
 
-        (funding_tx, vout_index)
+        (tx, vout_index)
     }
 
-    fn get_destination(node: &Node) -> Address {
-        node.client
-            .get_new_address(None, None)
-            .unwrap()
-            .address()
-            .unwrap()
-            .assume_checked()
+    fn get_block_height(client: &RpcClient) -> u32 {
+        client.request::<u32>("getblockcount", None).unwrap()
+    }
+
+    fn get_destination(node: &RpcClient) -> Address {
+        let address = node.request::<String>("getnewaddress", None).unwrap();
+
+        Address::from_str(&address).unwrap().assume_checked()
+    }
+
+    fn send_raw_transaction(node: &RpcClient, tx: &Transaction) -> Txid {
+        let txid = node
+            .request::<String>(
+                "sendrawtransaction",
+                Some(vec![RpcParam::Str(hex::encode(tx.serialize()))]),
+            )
+            .unwrap();
+
+        Txid::from_str(&txid).unwrap()
     }
 
     fn fund_taproot<
@@ -312,7 +312,7 @@ mod tests {
         T: FnOnce(hash160::Hash, &XOnlyPublicKey, &XOnlyPublicKey, LockTime) -> Tree,
     >(
         secp: &Secp256k1<C>,
-        node: &Node,
+        node: &RpcClient,
         lock_time: Option<u32>,
         create_tree: T,
     ) -> (Keypair, Tree, TaprootSpendInfo, InputDetail) {
@@ -369,7 +369,7 @@ mod tests {
         T: FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     >(
         secp: &Secp256k1<C>,
-        node: &Node,
+        node: &RpcClient,
         lock_time: Option<u32>,
         create_script: T,
     ) -> InputDetail {
@@ -414,7 +414,7 @@ mod tests {
         T: FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     >(
         secp: &Secp256k1<C>,
-        node: &Node,
+        node: &RpcClient,
         lock_time: Option<u32>,
         create_script: T,
     ) -> InputDetail {
@@ -467,7 +467,7 @@ mod tests {
         T: FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     >(
         secp: &Secp256k1<C>,
-        node: &Node,
+        node: &RpcClient,
         lock_time: Option<u32>,
         create_script: T,
     ) -> InputDetail {
@@ -519,7 +519,7 @@ mod tests {
             LockTime,
         ) -> Tree,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let (keys, _, tweak, input) = fund_taproot(&secp, &node, None, create_tree);
 
@@ -561,8 +561,7 @@ mod tests {
 
         tx.input[0].witness = witness;
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -576,7 +575,7 @@ mod tests {
             LockTime,
         ) -> Tree,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, create_tree);
 
@@ -602,8 +601,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -617,11 +615,10 @@ mod tests {
             LockTime,
         ) -> Tree,
     ) {
-        let node = setup_node();
-        let blocks = node.client.get_blockchain_info().unwrap().blocks;
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) =
-            fund_taproot(&secp, &node, Some(blocks as u32), create_tree);
+            fund_taproot(&secp, &node, Some(get_block_height(&node)), create_tree);
 
         input.preimage = None;
         input.uncooperative = Some(UncooperativeDetails {
@@ -641,8 +638,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -656,7 +652,7 @@ mod tests {
             LockTime,
         ) -> Tree,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let (keys, _, tweak, input) = fund_taproot(&secp, &node, None, create_tree);
 
@@ -699,8 +695,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -714,7 +709,7 @@ mod tests {
             LockTime,
         ) -> Tree,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, create_tree);
 
@@ -740,8 +735,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -750,7 +744,7 @@ mod tests {
     fn test_segwit_v0_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let input = fund_segwit_v0(&secp, &node, None, create_script);
 
@@ -771,8 +765,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -781,10 +774,9 @@ mod tests {
     fn test_segwit_v0_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
-        let blocks = node.client.get_blockchain_info().unwrap().blocks;
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
-        let input = fund_segwit_v0(&secp, &node, Some(blocks as u32), create_script);
+        let input = fund_segwit_v0(&secp, &node, Some(get_block_height(&node)), create_script);
 
         let destination = get_destination(&node);
 
@@ -798,8 +790,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -808,7 +799,7 @@ mod tests {
     fn test_compatibility_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let input = fund_compatibility(&secp, &node, None, create_script);
 
@@ -829,8 +820,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -839,10 +829,9 @@ mod tests {
     fn test_compatibility_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
-        let blocks = node.client.get_blockchain_info().unwrap().blocks;
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
-        let input = fund_compatibility(&secp, &node, Some(blocks as u32), create_script);
+        let input = fund_compatibility(&secp, &node, Some(get_block_height(&node)), create_script);
 
         let destination = get_destination(&node);
 
@@ -856,8 +845,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -866,7 +854,7 @@ mod tests {
     fn test_legacy_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
         let input = fund_legacy(&secp, &node, None, create_script);
 
@@ -887,8 +875,7 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 
     #[rstest]
@@ -897,10 +884,9 @@ mod tests {
     fn test_legacy_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
-        let node = setup_node();
-        let blocks = node.client.get_blockchain_info().unwrap().blocks;
+        let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
-        let input = fund_legacy(&secp, &node, Some(blocks as u32), create_script);
+        let input = fund_legacy(&secp, &node, Some(get_block_height(&node)), create_script);
 
         let destination = get_destination(&node);
 
@@ -914,7 +900,6 @@ mod tests {
             input.tx_out.value - Amount::from_sat(fee)
         );
 
-        let broadcast = node.client.send_raw_transaction(&tx).unwrap();
-        assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
     }
 }

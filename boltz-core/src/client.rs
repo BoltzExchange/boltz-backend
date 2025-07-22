@@ -4,6 +4,10 @@ use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
 use serde_json::json;
 
+const REGTEST_HOST: &str = "127.0.0.1";
+const REGTEST_USER: &str = "boltz";
+const REGTEST_PASSWORD: &str = "anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI";
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum RpcParam {
@@ -58,13 +62,12 @@ impl RpcClient {
         }
     }
 
-    pub fn new_regtest() -> Self {
-        Self::new(
-            "127.0.0.1",
-            18884,
-            "boltz",
-            "anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI",
-        )
+    pub fn new_bitcoin_regtest() -> Self {
+        Self::new(REGTEST_HOST, 18443, REGTEST_USER, REGTEST_PASSWORD)
+    }
+
+    pub fn new_elements_regtest() -> Self {
+        Self::new(REGTEST_HOST, 18884, REGTEST_USER, REGTEST_PASSWORD)
     }
 
     pub fn request<T: DeserializeOwned>(

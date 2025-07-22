@@ -1,8 +1,11 @@
 #[cfg(feature = "bitcoin")]
 pub mod bitcoin;
-mod consts;
 #[cfg(feature = "elements")]
 pub mod elements;
+
+#[cfg(test)]
+mod client;
+mod consts;
 #[cfg(feature = "musig")]
 mod musig;
 mod preimage_detector;

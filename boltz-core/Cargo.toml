@@ -20,7 +20,6 @@ secp256k1 = { git = "https://github.com/rust-bitcoin/rust-secp256k1.git", versio
 serde = { workspace = true }
 
 [dev-dependencies]
-corepc-node = { version = "0.8.0", features = ["download", "29_0"], default-features = false }
 rstest = { workspace = true }
 serde_json = { workspace = true }
 serial_test = { workspace = true }

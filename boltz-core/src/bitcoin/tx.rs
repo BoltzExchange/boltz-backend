@@ -1,5 +1,6 @@
 use crate::{
     bitcoin::InputDetail,
+    consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
     utils::OutputType,
 };
@@ -21,10 +22,6 @@ use bitcoin::{
 const SIGHASH_TYPE_LEGACY: EcdsaSighashType = EcdsaSighashType::All;
 const SIGHASH_TYPE_TAPROOT: TapSighashType = TapSighashType::Default;
 
-const ECDSA_BYTES_TO_GRIND: usize = 2;
-
-const PREIMAGE_DUMMY: [u8; 0] = [];
-
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
@@ -36,16 +33,30 @@ pub fn construct_tx<C: Signing + Verification>(
     })
 }
 
+// TODO: test multiple inputs
+
 pub fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
     destination: &Address,
     fee: Amount,
 ) -> Result<Transaction> {
-    let total_amount = inputs.iter().map(|input| input.amount).sum::<Amount>();
+    let input_sum = inputs
+        .iter()
+        .map(|input| input.tx_out.value)
+        .sum::<Amount>();
 
     let mut tx = Transaction {
         version: Version::TWO,
+        lock_time: if let Some(lock_time) = inputs
+            .iter()
+            .filter_map(|input| input.timeout_block_height)
+            .max()
+        {
+            LockTime::from_height(lock_time)?
+        } else {
+            LockTime::ZERO
+        },
         input: inputs
             .iter()
             .map(|input| TxIn {
@@ -56,18 +67,9 @@ pub fn construct_raw<C: Signing + Verification>(
             })
             .collect(),
         output: vec![TxOut {
-            value: total_amount - fee,
+            value: input_sum - fee,
             script_pubkey: destination.script_pubkey(),
         }],
-        lock_time: if let Some(lock_time) = inputs
-            .iter()
-            .filter_map(|input| input.timeout_block_height)
-            .max()
-        {
-            LockTime::from_height(lock_time)?
-        } else {
-            LockTime::ZERO
-        },
     };
 
     let prevouts = inputs
@@ -181,7 +183,7 @@ pub fn construct_raw<C: Signing + Verification>(
             let sighash = sighash_cache.p2wsh_signature_hash(
                 i,
                 witness_script,
-                input.amount,
+                input.tx_out.value,
                 SIGHASH_TYPE_LEGACY,
             )?;
 
@@ -207,7 +209,7 @@ fn stubbed_cooperative_witness() -> Witness {
     let mut witness = Witness::new();
     // Stub because we don't want to create cooperative signatures here
     // but still be able to have an accurate size estimation
-    witness.push([0; 64]);
+    witness.push([0; STUB_SCHNORR_SIGNATURE_LENGTH]);
     witness
 }
 
@@ -273,7 +275,7 @@ mod tests {
         node
     }
 
-    fn fund_address(node: &Node, address: &Address) -> (Amount, Transaction, usize) {
+    fn fund_address(node: &Node, address: &Address) -> (Transaction, usize) {
         let funding_amount = Amount::from_sat(100_000);
         let funding_tx = node
             .client
@@ -293,7 +295,7 @@ mod tests {
             .position(|output| output.script_pubkey == address.script_pubkey())
             .unwrap();
 
-        (funding_amount, funding_tx, vout_index)
+        (funding_tx, vout_index)
     }
 
     fn get_destination(node: &Node) -> Address {
@@ -335,7 +337,7 @@ mod tests {
             .unwrap();
 
         let address = Address::p2tr_tweaked(tweak.output_key(), bitcoin::network::Network::Regtest);
-        let (funding_amount, funding_tx, vout_index) = fund_address(node, &address);
+        let (funding_tx, vout_index) = fund_address(node, &address);
 
         (
             keys,
@@ -345,7 +347,6 @@ mod tests {
                 output_type: OutputType::Taproot,
                 outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
                 tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-                amount: funding_amount,
                 preimage: if lock_time.is_none() {
                     Some(preimage)
                 } else {
@@ -386,13 +387,12 @@ mod tests {
         );
 
         let address = Address::p2wsh(script.as_script(), bitcoin::network::Network::Regtest);
-        let (funding_amount, funding_tx, vout_index) = fund_address(node, &address);
+        let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
             output_type: OutputType::SegwitV0,
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            amount: funding_amount,
             preimage: if lock_time.is_none() {
                 Some(preimage)
             } else {
@@ -440,13 +440,12 @@ mod tests {
             bitcoin::network::Network::Regtest,
         )
         .unwrap();
-        let (funding_amount, funding_tx, vout_index) = fund_address(node, &address);
+        let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
             output_type: OutputType::Compatibility,
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            amount: funding_amount,
             preimage: if lock_time.is_none() {
                 Some(preimage)
             } else {
@@ -487,13 +486,12 @@ mod tests {
 
         let address =
             Address::p2sh(script.as_script(), bitcoin::network::Network::Regtest).unwrap();
-        let (funding_amount, funding_tx, vout_index) = fund_address(node, &address);
+        let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
             output_type: OutputType::Legacy,
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            amount: funding_amount,
             preimage: if lock_time.is_none() {
                 Some(preimage)
             } else {
@@ -533,7 +531,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let sighash = SighashCache::new(tx.clone())
             .taproot_key_spend_signature_hash(
@@ -596,7 +597,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -632,7 +636,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -689,7 +696,7 @@ mod tests {
 
         assert_eq!(
             tx.output[0].value,
-            input.amount - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
+            input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
         );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
@@ -730,7 +737,7 @@ mod tests {
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
         assert_eq!(
             tx.output[0].value,
-            input.amount - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
+            input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
         );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
@@ -759,7 +766,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -783,7 +793,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -811,7 +824,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -835,7 +851,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -863,7 +882,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());
@@ -887,7 +909,10 @@ mod tests {
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
-        assert_eq!(tx.output[0].value, input.amount - Amount::from_sat(fee));
+        assert_eq!(
+            tx.output[0].value,
+            input.tx_out.value - Amount::from_sat(fee)
+        );
 
         let broadcast = node.client.send_raw_transaction(&tx).unwrap();
         assert_eq!(broadcast.txid().unwrap(), tx.compute_txid());

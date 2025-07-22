@@ -1,5 +1,6 @@
 #[cfg(feature = "bitcoin")]
 pub mod bitcoin;
+mod consts;
 #[cfg(feature = "elements")]
 pub mod elements;
 #[cfg(feature = "musig")]

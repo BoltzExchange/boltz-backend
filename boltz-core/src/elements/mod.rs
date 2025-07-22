@@ -1,9 +1,37 @@
-use crate::utils::{Transaction as TTransaction, TxIn as TTxIn};
-use elements::{Transaction, TxIn, script::Instruction};
+use crate::utils::{OutputType, Transaction as TTransaction, TxIn as TTxIn};
+use elements::{
+    OutPoint, Script, Transaction, TxIn, TxOut,
+    script::Instruction,
+    secp256k1_zkp::{Keypair, XOnlyPublicKey},
+};
 
+#[cfg(test)]
+mod client;
 mod scripts;
+mod tx;
 
 pub use scripts::*;
+pub use tx::construct_tx;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UncooperativeDetails {
+    tree: Tree,
+    internal_key: XOnlyPublicKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InputDetail {
+    output_type: OutputType,
+    outpoint: OutPoint,
+    tx_out: TxOut,
+    blinding_key: Option<Keypair>,
+    keys: Keypair,
+    preimage: Option<[u8; 32]>,
+    timeout_block_height: Option<u32>,
+
+    witness_script: Option<Script>,
+    uncooperative: Option<UncooperativeDetails>,
+}
 
 impl TTransaction for Transaction {
     fn vsize(&self) -> usize {

@@ -1,6 +1,6 @@
 use crate::utils::{OutputType, Transaction as TTransaction, TxIn as TTxIn};
 use bitcoin::{
-    Amount, OutPoint, ScriptBuf, TxOut, XOnlyPublicKey,
+    OutPoint, ScriptBuf, TxOut, XOnlyPublicKey,
     key::Keypair,
     script::Instruction,
     transaction::{Transaction, TxIn},
@@ -23,7 +23,6 @@ pub struct InputDetail {
     output_type: OutputType,
     outpoint: OutPoint,
     tx_out: TxOut,
-    amount: Amount,
     keys: Keypair,
     preimage: Option<[u8; 32]>,
     timeout_block_height: Option<u32>,

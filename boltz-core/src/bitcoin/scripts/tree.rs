@@ -15,15 +15,6 @@ pub struct Tapleaf {
     pub output: ScriptBuf,
 }
 
-impl Tapleaf {
-    pub fn leaf_hash(&self) -> anyhow::Result<TapLeafHash> {
-        Ok(TapLeafHash::from_script(
-            &self.output,
-            LeafVersion::from_consensus(self.version)?,
-        ))
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tree {
     #[serde(rename = "claimLeaf")]
@@ -32,8 +23,17 @@ pub struct Tree {
     pub refund_leaf: Tapleaf,
 }
 
+impl Tapleaf {
+    pub fn leaf_hash(&self) -> Result<TapLeafHash> {
+        Ok(TapLeafHash::from_script(
+            &self.output,
+            LeafVersion::from_consensus(self.version)?,
+        ))
+    }
+}
+
 impl Tree {
-    pub fn build(&self) -> anyhow::Result<TaprootBuilder> {
+    pub fn build(&self) -> Result<TaprootBuilder> {
         Ok(TaprootBuilder::new()
             .add_leaf_with_ver(
                 1,

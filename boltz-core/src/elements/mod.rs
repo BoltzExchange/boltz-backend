@@ -1,4 +1,4 @@
-use crate::utils::{OutputType, Transaction as TTransaction, TxIn as TTxIn};
+use crate::utils::{InputType, OutputType, Transaction as TTransaction, TxIn as TTxIn};
 use elements::{
     OutPoint, Script, Transaction, TxIn, TxOut,
     script::Instruction,
@@ -19,21 +19,17 @@ pub struct UncooperativeDetails {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputDetail {
-    output_type: OutputType,
+    input_type: InputType,
+    output_type: OutputType<Option<UncooperativeDetails>, Script>,
     outpoint: OutPoint,
     tx_out: TxOut,
     blinding_key: Option<Keypair>,
     keys: Keypair,
-    preimage: Option<[u8; 32]>,
-    timeout_block_height: Option<u32>,
-
-    witness_script: Option<Script>,
-    uncooperative: Option<UncooperativeDetails>,
 }
 
 impl TTransaction for Transaction {
     fn vsize(&self) -> usize {
-        self.vsize()
+        self.discount_vsize()
     }
 
     fn input_len(&self) -> usize {

@@ -2,7 +2,7 @@ use crate::{
     bitcoin::InputDetail,
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
-    utils::OutputType,
+    utils::{InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::{
@@ -33,8 +33,6 @@ pub fn construct_tx<C: Signing + Verification>(
     })
 }
 
-// TODO: test multiple inputs
-
 pub fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
@@ -50,7 +48,10 @@ pub fn construct_raw<C: Signing + Verification>(
         version: Version::TWO,
         lock_time: if let Some(lock_time) = inputs
             .iter()
-            .filter_map(|input| input.timeout_block_height)
+            .filter_map(|input| match input.input_type {
+                InputType::Refund(lock_time) => Some(lock_time),
+                _ => None,
+            })
             .max()
         {
             LockTime::from_height(lock_time)?
@@ -81,43 +82,49 @@ pub fn construct_raw<C: Signing + Verification>(
     let mut sighash_cache = SighashCache::new(tx.clone());
 
     for (i, input) in inputs.iter().enumerate() {
-        if input.output_type == OutputType::Legacy {
-            let witness_script = get_witness_script(i, input)?;
+        match &input.output_type {
+            OutputType::Legacy(witness_script) => {
+                let sighash = sighash_cache.legacy_signature_hash(
+                    i,
+                    witness_script,
+                    SIGHASH_TYPE_LEGACY.to_u32(),
+                )?;
 
-            let sighash = sighash_cache.legacy_signature_hash(
-                i,
-                witness_script,
-                SIGHASH_TYPE_LEGACY.to_u32(),
-            )?;
+                let mut script_sig = ScriptBuf::new();
+                script_sig.push_slice(
+                    legacy_signature(secp, &sighash.as_raw_hash(), &input.keys)?.serialize(),
+                );
 
-            let mut script_sig = ScriptBuf::new();
-            script_sig.push_slice(
-                legacy_signature(secp, &sighash.as_raw_hash(), &input.keys)?.serialize(),
-            );
+                match input.input_type {
+                    InputType::Claim(preimage) => {
+                        script_sig.push_slice(preimage);
+                    }
+                    InputType::Refund(_) => {
+                        script_sig.push_slice(PREIMAGE_DUMMY);
+                    }
+                };
 
-            if let Some(preimage) = input.preimage {
-                script_sig.push_slice(preimage);
-            } else {
-                script_sig.push_slice(PREIMAGE_DUMMY);
+                script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
+
+                tx.input[i].script_sig = script_sig;
             }
+            OutputType::Compatibility(witness_script) => {
+                let nested = Builder::new()
+                    .push_opcode(OP_0)
+                    .push_slice(sha256::Hash::hash(witness_script.as_bytes()).as_byte_array());
+                let nested = PushBytesBuf::try_from(nested.into_bytes())?;
 
-            script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
+                tx.input[i].script_sig = Builder::new().push_slice(nested).into_script();
+            }
+            _ => {}
+        };
 
-            tx.input[i].script_sig = script_sig;
-        } else if input.output_type == OutputType::Compatibility {
-            let witness_script = get_witness_script(i, input)?;
-
-            let nested = Builder::new()
-                .push_opcode(OP_0)
-                .push_slice(sha256::Hash::hash(witness_script.as_bytes()).as_byte_array());
-            let nested = PushBytesBuf::try_from(nested.into_bytes())?;
-
-            tx.input[i].script_sig = Builder::new().push_slice(nested).into_script();
-        }
-
-        if input.output_type == OutputType::Taproot {
-            if let Some(uncooperative) = &input.uncooperative {
-                let leaf = if input.preimage.is_some() {
+        match &input.output_type {
+            OutputType::Taproot(None) => {
+                tx.input[i].witness = stubbed_cooperative_witness();
+            }
+            OutputType::Taproot(Some(uncooperative)) => {
+                let leaf = if let InputType::Claim(_) = input.input_type {
                     &uncooperative.tree.claim_leaf
                 } else {
                     &uncooperative.tree.refund_leaf
@@ -164,7 +171,7 @@ pub fn construct_raw<C: Signing + Verification>(
 
                 witness.push(sig.serialize());
 
-                if let Some(preimage) = input.preimage {
+                if let InputType::Claim(preimage) = input.input_type {
                     witness.push(preimage);
                 }
 
@@ -172,33 +179,33 @@ pub fn construct_raw<C: Signing + Verification>(
                 witness.push(control_block.serialize());
 
                 tx.input[i].witness = witness;
-            } else {
-                tx.input[i].witness = stubbed_cooperative_witness();
             }
-        } else if input.output_type == OutputType::SegwitV0
-            || input.output_type == OutputType::Compatibility
-        {
-            let witness_script = get_witness_script(i, input)?;
+            OutputType::SegwitV0(witness_script) | OutputType::Compatibility(witness_script) => {
+                let sighash = sighash_cache.p2wsh_signature_hash(
+                    i,
+                    witness_script,
+                    input.tx_out.value,
+                    SIGHASH_TYPE_LEGACY,
+                )?;
 
-            let sighash = sighash_cache.p2wsh_signature_hash(
-                i,
-                witness_script,
-                input.tx_out.value,
-                SIGHASH_TYPE_LEGACY,
-            )?;
+                let mut witness = Witness::new();
+                witness
+                    .push(legacy_signature(secp, &sighash.as_raw_hash(), &input.keys)?.serialize());
 
-            let mut witness = Witness::new();
-            witness.push(legacy_signature(secp, &sighash.as_raw_hash(), &input.keys)?.serialize());
+                match input.input_type {
+                    InputType::Claim(preimage) => {
+                        witness.push(preimage);
+                    }
+                    InputType::Refund(_) => {
+                        witness.push(PREIMAGE_DUMMY);
+                    }
+                };
 
-            if let Some(preimage) = input.preimage {
-                witness.push(preimage);
-            } else {
-                witness.push(PREIMAGE_DUMMY);
+                witness.push(witness_script.as_bytes());
+
+                tx.input[i].witness = witness;
             }
-
-            witness.push(witness_script.as_bytes());
-
-            tx.input[i].witness = witness;
+            _ => {}
         }
     }
 
@@ -228,16 +235,6 @@ fn legacy_signature<C: Signing>(
     })
 }
 
-fn get_witness_script(index: usize, input: &InputDetail) -> Result<&ScriptBuf> {
-    match &input.witness_script {
-        Some(witness_script) => Ok(witness_script),
-        None => Err(anyhow::anyhow!(
-            "witness script is missing for input {}",
-            index
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,13 +257,18 @@ mod tests {
     use std::str::FromStr;
 
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
-        let funding_amount = Amount::from_sat(100_000);
+        node.request::<serde_json::Value>(
+            "generatetoaddress",
+            Some(vec![RpcParam::Int(1), RpcParam::Str(address.to_string())]),
+        )
+        .unwrap();
+
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
                 Some(vec![
                     RpcParam::Str(address.to_string()),
-                    RpcParam::Float(funding_amount.to_btc()),
+                    RpcParam::Float(Amount::from_sat(100_000).to_btc()),
                 ]),
             )
             .unwrap();
@@ -344,22 +346,19 @@ mod tests {
             tree,
             tweak,
             InputDetail {
-                output_type: OutputType::Taproot,
+                input_type: if let Some(lock_time) = lock_time {
+                    InputType::Refund(lock_time)
+                } else {
+                    InputType::Claim(preimage)
+                },
+                output_type: OutputType::Taproot(None),
                 outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
                 tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-                preimage: if lock_time.is_none() {
-                    Some(preimage)
-                } else {
-                    None
-                },
-                timeout_block_height: lock_time,
                 keys: if lock_time.is_none() {
                     claim_keys
                 } else {
                     refund_keys
                 },
-                witness_script: None,
-                uncooperative: None,
             },
         )
     }
@@ -390,22 +389,19 @@ mod tests {
         let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
-            output_type: OutputType::SegwitV0,
+            input_type: if let Some(lock_time) = lock_time {
+                InputType::Refund(lock_time)
+            } else {
+                InputType::Claim(preimage)
+            },
+            output_type: OutputType::SegwitV0(script),
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            preimage: if lock_time.is_none() {
-                Some(preimage)
-            } else {
-                None
-            },
-            timeout_block_height: lock_time,
             keys: if lock_time.is_none() {
                 claim_keys
             } else {
                 refund_keys
             },
-            witness_script: Some(script),
-            uncooperative: None,
         }
     }
 
@@ -443,22 +439,19 @@ mod tests {
         let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
-            output_type: OutputType::Compatibility,
+            input_type: if let Some(lock_time) = lock_time {
+                InputType::Refund(lock_time)
+            } else {
+                InputType::Claim(preimage)
+            },
+            output_type: OutputType::Compatibility(script),
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            preimage: if lock_time.is_none() {
-                Some(preimage)
-            } else {
-                None
-            },
-            timeout_block_height: lock_time,
             keys: if lock_time.is_none() {
                 claim_keys
             } else {
                 refund_keys
             },
-            witness_script: Some(script),
-            uncooperative: None,
         }
     }
 
@@ -489,22 +482,19 @@ mod tests {
         let (funding_tx, vout_index) = fund_address(node, &address);
 
         InputDetail {
-            output_type: OutputType::Legacy,
+            input_type: if let Some(lock_time) = lock_time {
+                InputType::Refund(lock_time)
+            } else {
+                InputType::Claim(preimage)
+            },
+            output_type: OutputType::Legacy(script),
             outpoint: OutPoint::new(funding_tx.compute_txid(), vout_index as u32),
             tx_out: funding_tx.tx_out(vout_index).unwrap().clone(),
-            preimage: if lock_time.is_none() {
-                Some(preimage)
-            } else {
-                None
-            },
-            timeout_block_height: lock_time,
             keys: if lock_time.is_none() {
                 claim_keys
             } else {
                 refund_keys
             },
-            witness_script: Some(script),
-            uncooperative: None,
         }
     }
 
@@ -579,10 +569,10 @@ mod tests {
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, create_tree);
 
-        input.uncooperative = Some(UncooperativeDetails {
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
             tree,
             internal_key: keys.x_only_public_key().0,
-        });
+        }));
 
         let destination = get_destination(&node);
 
@@ -591,7 +581,11 @@ mod tests {
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
-            input.preimage.unwrap()
+            if let InputType::Claim(preimage) = input.input_type {
+                preimage
+            } else {
+                unreachable!()
+            }
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -620,11 +614,10 @@ mod tests {
         let (keys, tree, _, mut input) =
             fund_taproot(&secp, &node, Some(get_block_height(&node)), create_tree);
 
-        input.preimage = None;
-        input.uncooperative = Some(UncooperativeDetails {
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
             tree,
             internal_key: keys.x_only_public_key().0,
-        });
+        }));
 
         let destination = get_destination(&node);
 
@@ -713,10 +706,10 @@ mod tests {
         let secp = Secp256k1::new();
         let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, create_tree);
 
-        input.uncooperative = Some(UncooperativeDetails {
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
             tree,
             internal_key: keys.x_only_public_key().0,
-        });
+        }));
 
         let destination = get_destination(&node);
 
@@ -725,7 +718,11 @@ mod tests {
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
-            input.preimage.unwrap()
+            if let InputType::Claim(preimage) = input.input_type {
+                preimage
+            } else {
+                unreachable!()
+            }
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -755,7 +752,11 @@ mod tests {
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
-            input.preimage.unwrap()
+            if let InputType::Claim(preimage) = input.input_type {
+                preimage
+            } else {
+                unreachable!()
+            }
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -810,7 +811,11 @@ mod tests {
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
-            input.preimage.unwrap()
+            if let InputType::Claim(preimage) = input.input_type {
+                preimage
+            } else {
+                unreachable!()
+            }
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -865,7 +870,11 @@ mod tests {
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
-            input.preimage.unwrap()
+            if let InputType::Claim(preimage) = input.input_type {
+                preimage
+            } else {
+                unreachable!()
+            }
         );
 
         assert_eq!(tx.output.len(), 1);
@@ -898,6 +907,56 @@ mod tests {
         assert_eq!(
             tx.output[0].value,
             input.tx_out.value - Amount::from_sat(fee)
+        );
+
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
+    }
+
+    #[test]
+    fn test_multiple_inputs() {
+        let node = RpcClient::new_bitcoin_regtest();
+        let secp = Secp256k1::new();
+
+        let mut inputs = Vec::new();
+
+        let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, swap_tree);
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
+            tree,
+            internal_key: keys.x_only_public_key().0,
+        }));
+        inputs.push(input);
+
+        let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, reverse_tree);
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
+            tree,
+            internal_key: keys.x_only_public_key().0,
+        }));
+        inputs.push(input);
+
+        inputs.push(fund_segwit_v0(&secp, &node, None, swap_script));
+        inputs.push(fund_segwit_v0(&secp, &node, None, reverse_script));
+        inputs.push(fund_compatibility(&secp, &node, None, swap_script));
+        inputs.push(fund_compatibility(&secp, &node, None, reverse_script));
+        inputs.push(fund_legacy(&secp, &node, None, swap_script));
+        inputs.push(fund_legacy(&secp, &node, None, reverse_script));
+
+        let destination = get_destination(&node);
+
+        let fee = 4.0;
+        let tx = construct_tx(
+            &secp,
+            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &destination,
+            FeeTarget::Relative(fee),
+        )
+        .unwrap();
+
+        assert_eq!(tx.output.len(), 1);
+        assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
+        assert_eq!(
+            tx.output[0].value,
+            inputs.iter().map(|i| i.tx_out.value).sum::<Amount>()
+                - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + inputs.len() as u64))
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());

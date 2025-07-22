@@ -107,6 +107,24 @@ mod tests {
     }
 
     #[test]
+    fn test_relative_fee_target_sub_zero() {
+        let fee_rate = 0.1;
+        let mock_vsize = 123;
+        let mock_input_count = 1;
+
+        let expected_fee = ((mock_vsize + mock_input_count) as f64 * fee_rate).ceil() as u64;
+        assert_eq!(expected_fee, 13);
+
+        let result = target_fee(FeeTarget::Relative(fee_rate), |fee| {
+            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+        });
+
+        assert!(result.is_ok());
+        let tx = result.unwrap();
+        assert_eq!(tx.fee, expected_fee);
+    }
+
+    #[test]
     fn test_relative_fee_target_zero_fee_rate() {
         let fee_rate = 0.0;
         let mock_vsize = 250;

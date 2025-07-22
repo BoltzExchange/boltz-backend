@@ -1,4 +1,4 @@
-use crate::utils::{OutputType, Transaction as TTransaction, TxIn as TTxIn};
+use crate::utils::{InputType, OutputType, Transaction as TTransaction, TxIn as TTxIn};
 use bitcoin::{
     OutPoint, ScriptBuf, TxOut, XOnlyPublicKey,
     key::Keypair,
@@ -20,15 +20,11 @@ pub struct UncooperativeDetails {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputDetail {
-    output_type: OutputType,
+    input_type: InputType,
+    output_type: OutputType<Option<UncooperativeDetails>, ScriptBuf>,
     outpoint: OutPoint,
     tx_out: TxOut,
     keys: Keypair,
-    preimage: Option<[u8; 32]>,
-    timeout_block_height: Option<u32>,
-
-    witness_script: Option<ScriptBuf>,
-    uncooperative: Option<UncooperativeDetails>,
 }
 
 impl TTransaction for Transaction {

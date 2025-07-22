@@ -1,9 +1,17 @@
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutputType {
-    Taproot,
-    SegwitV0,
-    Compatibility,
-    Legacy,
+pub enum OutputType<U, S> {
+    Taproot(U),
+    SegwitV0(S),
+    Compatibility(S),
+    Legacy(S),
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputType {
+    Claim([u8; 32]),
+    Refund(u32),
 }
 
 pub trait Transaction {

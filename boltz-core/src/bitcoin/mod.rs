@@ -14,17 +14,17 @@ pub use tx::construct_tx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UncooperativeDetails {
-    tree: Tree,
-    internal_key: XOnlyPublicKey,
+    pub tree: Tree,
+    pub internal_key: XOnlyPublicKey,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputDetail {
-    input_type: InputType,
-    output_type: OutputType<Option<UncooperativeDetails>, ScriptBuf>,
-    outpoint: OutPoint,
-    tx_out: TxOut,
-    keys: Keypair,
+    pub input_type: InputType,
+    pub output_type: OutputType<Option<UncooperativeDetails>, ScriptBuf>,
+    pub outpoint: OutPoint,
+    pub tx_out: TxOut,
+    pub keys: Keypair,
 }
 
 impl TTransaction for Transaction {

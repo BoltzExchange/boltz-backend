@@ -15,6 +15,7 @@ pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
         FeeTarget::Absolute(fee) => construct_tx(fee),
         FeeTarget::Relative(fee_rate) => {
             let tx = construct_tx(1)?;
+            // Add an extra vbyte per input to account for potiential variance
             construct_tx(((tx.vsize() + tx.input_len()) as f64 * fee_rate).ceil() as u64)
         }
     }

@@ -38,7 +38,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn test_swap_tree() {
+    fn test_reverse_tree() {
         let claim_pubkey = XOnlyPublicKey::from_str(
             "97f2ea5402afd2e90130e84d97e455f67493a956c20faedce32086516ef9f12e",
         )

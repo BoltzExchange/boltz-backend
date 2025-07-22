@@ -47,7 +47,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn test_swap_script() {
+    fn test_reverse_script() {
         let hash = hash160::Hash::from_str("4eee61c39e3b6d46f6fc7da6ae80519aa681f6d2").unwrap();
         let claim_pubkey = PublicKey::from_str(
             "03f8109578aae1e5cfc497e466cf6ae6625497cd31886e87b2f4f54f3f0f46b539",

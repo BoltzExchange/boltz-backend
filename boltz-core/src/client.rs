@@ -3,6 +3,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
 use serde_json::json;
+use std::sync::Arc;
 
 const REGTEST_HOST: &str = "127.0.0.1";
 const REGTEST_USER: &str = "boltz";
@@ -49,6 +50,7 @@ pub struct RpcBlock {
 pub struct RpcClient {
     endpoint: String,
     cookie: String,
+    client: Arc<reqwest::blocking::Client>,
 }
 
 impl RpcClient {
@@ -59,6 +61,7 @@ impl RpcClient {
                 "Basic {}",
                 BASE64_STANDARD.encode(format!("{user}:{password}").as_bytes())
             ),
+            client: Arc::new(reqwest::blocking::Client::new()),
         }
     }
 
@@ -75,9 +78,8 @@ impl RpcClient {
         method: &str,
         params: Option<Vec<RpcParam>>,
     ) -> Result<T> {
-        let client = reqwest::blocking::Client::new();
-
-        let response = client
+        let response = self
+            .client
             .post(&self.endpoint)
             .headers(self.get_headers()?)
             .json(&json!({

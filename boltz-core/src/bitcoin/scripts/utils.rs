@@ -14,6 +14,6 @@ pub mod serializer {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(ScriptBuf::from_hex(&s).unwrap())
+        ScriptBuf::from_hex(&s).map_err(serde::de::Error::custom)
     }
 }

@@ -48,16 +48,13 @@ impl Tree {
     }
 
     pub fn claim_pubkey(&self) -> Result<XOnlyPublicKey> {
-        for instr in self.claim_leaf.output.instructions() {
-            match instr {
-                Ok(Instruction::PushBytes(bytes)) => {
-                    if bytes.len() != 32 {
-                        continue;
-                    }
-
-                    return Ok(XOnlyPublicKey::from_slice(bytes.as_bytes())?);
+        for instr in self.claim_leaf.output.instructions().flatten() {
+            if let Instruction::PushBytes(bytes) = instr {
+                if bytes.len() != 32 {
+                    continue;
                 }
-                _ => continue,
+
+                return Ok(XOnlyPublicKey::from_slice(bytes.as_bytes())?);
             }
         }
 
@@ -65,12 +62,13 @@ impl Tree {
     }
 
     pub fn refund_pubkey(&self) -> Result<XOnlyPublicKey> {
-        for instr in self.refund_leaf.output.instructions() {
-            match instr {
-                Ok(Instruction::PushBytes(bytes)) => {
-                    return Ok(XOnlyPublicKey::from_slice(bytes.as_bytes())?);
+        for instr in self.refund_leaf.output.instructions().flatten() {
+            if let Instruction::PushBytes(bytes) = instr {
+                if bytes.len() != 32 {
+                    continue;
                 }
-                _ => continue,
+
+                return Ok(XOnlyPublicKey::from_slice(bytes.as_bytes())?);
             }
         }
 

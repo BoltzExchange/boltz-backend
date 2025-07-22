@@ -10,7 +10,9 @@ pub enum OutputType<U, S> {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputType {
+    /// Contains the preimage
     Claim([u8; 32]),
+    /// Contains the locktime required for the refund
     Refund(u32),
 }
 

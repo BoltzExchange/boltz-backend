@@ -764,11 +764,12 @@ mod test {
         )
     }
 
-    #[test]
-    fn test_rescue_xpub() {
-        let tree = "{\"claimLeaf\":{\"version\":196,\"output\":\"a914617cc637679ded498738a09314294837227fbf938820ceb839aafaafdb6370781cb102567101f4ab628f54734792ede606fa8fd4f35fac\"},\"refundLeaf\":{\"version\":196,\"output\":\"2020103b104886a5180dd1be5146cceb12f19e59bdd63bca41470c91d94f317cdead02c527b1\"}}";
+    fn get_test_tree() -> String {
+        "{\"claimLeaf\":{\"version\":196,\"output\":\"a914617cc637679ded498738a09314294837227fbf938820ceb839aafaafdb6370781cb102567101f4ab628f54734792ede606fa8fd4f35fac\"},\"refundLeaf\":{\"version\":196,\"output\":\"2020103b104886a5180dd1be5146cceb12f19e59bdd63bca41470c91d94f317cdead02c527b1\"}}".to_string()
+    }
 
-        let swap = Swap {
+    fn get_test_swap(tree: String) -> Swap {
+        Swap {
             id: "swap".to_string(),
             pair: "L-BTC/BTC".to_string(),
             orderSide: 1,
@@ -778,22 +779,56 @@ mod test {
             preimageHash: "101a17e334bcaba40cbf8e3580b73d263c3b94ed65e86ff81317f95fe1346dd8".to_string(),
             refundPublicKey: Some("025964821780625d20ba1af21a45b203a96dcc5986c75c2d43bdc873d224810b0c".to_string()),
             lockupAddress: "el1qqwgersfg6zwpr0htqwg6rt7zwvz5ypec9q2zn2d2s526uevt4hdtyf8jqgtak7aummc7te0rj0ke4v7ygj60s7a07pe3nz6a6".to_string(),
-            redeemScript: Some(tree.to_string()),
+            redeemScript: Some(tree),
             lockupTransactionId: Some("some tx".to_string()),
             lockupTransactionVout: Some(12),
+            onchainAmount: Some(100000),
             createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:56:04").unwrap(),
             ..Default::default()
-        };
+        }
+    }
 
+    fn get_test_chain_swap() -> ChainSwap {
+        ChainSwap {
+            id: "chain".to_string(),
+            pair: "L-BTC/BTC".to_string(),
+            orderSide: 1,
+            status: "transaction.failed".to_string(),
+            preimageHash: "966ea2be5351178cf96b1ae2b5b41e57bcc3d42ebcb3ef5e3bb2647641d34414"
+                .to_string(),
+            createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:57:21").unwrap(),
+        }
+    }
+
+    fn get_test_reverse_swap(tree: String) -> ReverseSwap {
+        ReverseSwap {
+            id: "reverse".to_string(),
+            version: 1,
+            pair: "BTC/L-BTC".to_string(),
+            orderSide: 0,
+            status: "transaction.failed".to_string(),
+            keyIndex: Some(789),
+            timeoutBlockHeight: 654,
+            preimageHash: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+                .to_string(),
+            claimPublicKey: Some(
+                "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0".to_string(),
+            ),
+            lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+            redeemScript: Some(tree),
+            transactionId: Some("reverse tx".to_string()),
+            transactionVout: Some(42),
+            onchainAmount: 150000,
+            createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:58:00").unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_rescue_xpub() {
+        let tree = get_test_tree();
+        let swap = get_test_swap(tree.clone());
         let chain_swap = ChainSwapInfo::new(
-            ChainSwap {
-                id: "chain".to_string(),
-                pair: "L-BTC/BTC".to_string(),
-                orderSide: 1,
-                status: "transaction.failed".to_string(),
-                preimageHash: "966ea2be5351178cf96b1ae2b5b41e57bcc3d42ebcb3ef5e3bb2647641d34414".to_string(),
-                createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:57:21").unwrap(),
-            },
+            get_test_chain_swap(),
             vec![ChainSwapData {
                 swapId: "chain".to_string(),
                 symbol: "L-BTC".to_string(),
@@ -802,17 +837,26 @@ mod test {
                     "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
                         .to_string(),
                 ),
-                swapTree: Some(tree.to_string()),
+                swapTree: Some(tree.clone()),
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
+                amount: Some(50000),
                 ..Default::default()
             }, ChainSwapData {
                 swapId: "chain".to_string(),
                 symbol: "BTC".to_string(),
+                keyIndex: Some(456),
+                theirPublicKey: Some(
+                    "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
+                        .to_string(),
+                ),
+                swapTree: Some(tree),
+                timeoutBlockHeight: 13_211,
+                lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                amount: Some(200000),
                 ..Default::default()
             }],
-        )
-        .unwrap();
+        ).unwrap();
 
         let mut swap_helper = MockSwapHelper::new();
         {
@@ -867,10 +911,9 @@ mod test {
                     id: swap.id,
                     kind: SwapType::Submarine,
                     status: swap.status,
-                    symbol: crate::chain::elements_client::SYMBOL.to_string(),
-                    to_symbol: "BTC".to_string(),
                     created_at: 1735775764,
                 },
+                symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 details: SwapDetailsBase {
                     amount: None,
                     tree: SwapRescue::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
@@ -899,10 +942,9 @@ mod test {
                     id: chain_swap.id(),
                     kind: SwapType::Chain,
                     status: chain_swap.swap.status.clone(),
-                    symbol: crate::chain::elements_client::SYMBOL.to_string(),
-                    to_symbol: "BTC".to_string(),
                     created_at: 1735775841,
                 },
+                symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 details: SwapDetailsBase {
                     amount: None,
                     tree: SwapRescue::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
@@ -920,6 +962,239 @@ mod test {
                     timeout_block_height: 13_211,
                 },
                 preimage_hash: chain_swap.swap.preimageHash,
+            }
+        );
+    }
+
+    #[test]
+    fn test_restore_xpub() {
+        let tree = get_test_tree();
+        let swap = get_test_swap(tree.clone());
+        let chain_swap = ChainSwapInfo::new(
+            get_test_chain_swap(),
+            vec![ChainSwapData {
+                swapId: "chain".to_string(),
+                symbol: "L-BTC".to_string(),
+                keyIndex: Some(123),
+                theirPublicKey: Some(
+                    "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
+                        .to_string(),
+                ),
+                swapTree: Some(tree.clone()),
+                timeoutBlockHeight: 13_211,
+                lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
+                amount: Some(50000),
+                transactionId: Some("chain tx".to_string()),
+                transactionVout: Some(5),
+            }, ChainSwapData {
+                swapId: "chain".to_string(),
+                symbol: "BTC".to_string(),
+                keyIndex: Some(456),
+                theirPublicKey: Some(
+                    "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
+                        .to_string(),
+                ),
+                swapTree: Some(tree.clone()),
+                timeoutBlockHeight: 13_211,
+                lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                amount: Some(200000),
+                transactionId: Some("chain tx".to_string()),
+                transactionVout: Some(5),
+            }],
+        ).unwrap();
+        let reverse_swap = get_test_reverse_swap(tree.clone());
+
+        let mut swap_helper = MockSwapHelper::new();
+        {
+            let swap = swap.clone();
+            swap_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap.clone()]))
+                .times(1);
+        }
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        {
+            let chain_swap = chain_swap.clone();
+            chain_helper
+                .expect_get_by_data_nullable()
+                .returning(move |_| Ok(vec![chain_swap.clone()]))
+                .times(1);
+        }
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        {
+            let reverse_swap = reverse_swap.clone();
+            reverse_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![reverse_swap.clone()]))
+                .times(1);
+        }
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        bumper: None,
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        bumper: None,
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let res = rescue.restore_xpub(&xpub, None).unwrap();
+        assert_eq!(res.len(), 3);
+
+        assert_eq!(
+            res[0],
+            RestorableSwap {
+                base: SwapBase {
+                    id: swap.id,
+                    kind: SwapType::Submarine,
+                    status: swap.status,
+                    created_at: 1735775764,
+                },
+                from: crate::chain::elements_client::SYMBOL.to_string(),
+                to: "BTC".to_string(),
+                claim_details: None,
+                refund_details: Some(SwapDetailsBase {
+                    amount: swap.onchainAmount,
+                    tree: SwapRescue::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
+                    key_index: 0,
+                    transaction: Some(Transaction {
+                        id: swap.lockupTransactionId.unwrap(),
+                        vout: swap.lockupTransactionVout.unwrap() as u64,
+                    }),
+                    lockup_address: swap.lockupAddress,
+                    server_public_key:
+                        "03f80e5650435fb598bb07257d50af378d4f7ddf8f2f78181f8b29abb0b05ecb47"
+                            .to_string(),
+                    blinding_key: Some(
+                        "cf93ed8c71de3fff39a265898766ef327cf123e8eb7084fabaead2d6092de90d"
+                            .to_string()
+                    ),
+                    timeout_block_height: 321,
+                }),
+            }
+        );
+
+        assert_eq!(
+            res[1],
+            RestorableSwap {
+                base: SwapBase {
+                    id: reverse_swap.id(),
+                    kind: SwapType::Reverse,
+                    status: reverse_swap.status.clone(),
+                    created_at: 1735775880,
+                },
+                from: "L-BTC".to_string(),
+                to: "BTC".to_string(),
+                claim_details: Some(ClaimDetails {
+                    base: SwapDetailsBase {
+                        amount: Some(reverse_swap.onchainAmount),
+                        tree: SwapRescue::parse_tree(&reverse_swap.redeemScript.unwrap()).unwrap(),
+                        key_index: 1,
+                        transaction: Some(Transaction {
+                            id: reverse_swap.transactionId.unwrap(),
+                            vout: reverse_swap.transactionVout.unwrap() as u64,
+                        }),
+                        lockup_address: reverse_swap.lockupAddress.clone(),
+                        server_public_key:
+                            "03f96a3b06079754e09a7dbca45c8eb1346fa6efb966b21c25fbf1fc85542675c7"
+                                .to_string(),
+                        blinding_key: None,
+                        timeout_block_height: 654,
+                    },
+                    preimage_hash: reverse_swap.preimageHash.clone(),
+                }),
+                refund_details: None,
+            }
+        );
+
+        assert_eq!(
+            res[2],
+            RestorableSwap {
+                base: SwapBase {
+                    id: chain_swap.id(),
+                    kind: SwapType::Chain,
+                    status: chain_swap.swap.status.clone(),
+                    created_at: 1735775841,
+                },
+                from: crate::chain::elements_client::SYMBOL.to_string(),
+                to: "BTC".to_string(),
+                claim_details: Some(ClaimDetails {
+                    base: SwapDetailsBase {
+                        amount: chain_swap.sending().amount,
+                        tree: SwapRescue::parse_tree(
+                            &chain_swap.sending().swapTree.clone().unwrap()
+                        )
+                        .unwrap(),
+                        key_index: 1,
+                        transaction: Some(Transaction {
+                            id: chain_swap.sending().transactionId.clone().unwrap(),
+                            vout: chain_swap.sending().transactionVout.unwrap() as u64,
+                        }),
+                        lockup_address: chain_swap.sending().lockupAddress.clone(),
+                        server_public_key:
+                            "03eaf6026d7cc1e455b9fc7d0fcac16b1ff01f70bac0872ee633e6484b5e8792e5"
+                                .to_string(),
+                        blinding_key: None,
+                        timeout_block_height: 13_211,
+                    },
+                    preimage_hash: chain_swap.swap.preimageHash.clone(),
+                }),
+                refund_details: Some(SwapDetailsBase {
+                    amount: chain_swap.receiving().amount,
+                    tree: SwapRescue::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
+                        .unwrap(),
+                    key_index: 11,
+                    transaction: Some(Transaction {
+                        id: chain_swap.receiving().transactionId.clone().unwrap(),
+                        vout: chain_swap.receiving().transactionVout.unwrap() as u64,
+                    }),
+                    lockup_address: chain_swap.receiving().lockupAddress.clone(),
+                    server_public_key:
+                        "02609b800f905a8bfba6763a5f0d9bdca4192648b006aeeb22598ea0b9004cf6c9"
+                            .to_string(),
+                    blinding_key: Some(
+                        "fdf74d729d49d917bcc1befdc66922d6bf99af2e1cf49659299340962957916a"
+                            .to_string()
+                    ),
+                    timeout_block_height: 13_211,
+                }),
             }
         );
     }

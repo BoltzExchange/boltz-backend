@@ -492,8 +492,7 @@ class SwapManager {
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
         createdRefundSignature: false,
-        timeoutBlockHeight:
-          result.timeoutBlockHeights.unilateralRefundWithoutReceiver,
+        timeoutBlockHeight: result.timeoutBlockHeights.refund,
         refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
@@ -1076,7 +1075,9 @@ class SwapManager {
         lockupAddress: result.lockupAddress,
         status: SwapUpdateEvent.SwapCreated,
         invoiceAmount: args.holdInvoiceAmount,
-        timeoutBlockHeight: vHtlc.timeouts.unilateralRefundWithoutReceiver,
+        timeoutBlockHeight: Math.floor(
+          vHtlc.height + vHtlc.timeouts.unilateralRefundWithoutReceiver,
+        ),
         preimageHash: getHexString(args.preimageHash),
         claimPublicKey: getHexString(args.claimPublicKey!),
         minerFeeInvoicePreimage: minerFeeInvoicePreimage,

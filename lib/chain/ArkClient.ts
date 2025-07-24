@@ -300,6 +300,7 @@ class ArkClient extends BaseClient<
     refundPublicKey?: Buffer,
   ): Promise<{
     vHtlc: arkrpc.CreateVHTLCResponse.AsObject;
+    height: number;
     timeouts: Timeouts;
   }> => {
     const createDelay = (delay: number) => {
@@ -337,6 +338,7 @@ class ArkClient extends BaseClient<
 
     return {
       timeouts,
+      height: currentHeight,
       vHtlc: await this.unaryCall<
         arkrpc.CreateVHTLCRequest,
         arkrpc.CreateVHTLCResponse.AsObject

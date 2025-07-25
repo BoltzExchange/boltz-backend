@@ -89,6 +89,8 @@ class TimeoutDeltaProvider {
     return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   };
 
+  public static minutesToSeconds = (minutes: number) => Math.ceil(minutes * 60);
+
   public init = (
     pairs: PairConfig[],
     ethereumManagers: EthereumManager[],

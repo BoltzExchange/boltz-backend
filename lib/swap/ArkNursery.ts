@@ -62,8 +62,8 @@ class ArkNursery extends TypedEventEmitter<{
       await this.checkClaims(arkNode, vHtlc);
     });
 
-    arkNode.on('block', async (blockNumber) => {
-      await this.checkExpiredReverseSwaps(arkNode, blockNumber);
+    arkNode.on('block', async ({ height, medianTime }) => {
+      await this.checkExpiredReverseSwaps(arkNode, height || medianTime || 0);
     });
   };
 
@@ -149,10 +149,10 @@ class ArkNursery extends TypedEventEmitter<{
 
   private checkExpiredReverseSwaps = async (
     node: ArkClient,
-    blockNumber: number,
+    currentTime: number,
   ) => {
     const expirable =
-      await ReverseSwapRepository.getReverseSwapsExpirable(blockNumber);
+      await ReverseSwapRepository.getReverseSwapsExpirable(currentTime);
 
     for (const swap of expirable) {
       const { base, quote } = splitPairId(swap.pair);
@@ -188,7 +188,9 @@ class ArkNursery extends TypedEventEmitter<{
   private static arkConditionPsbtKeyName = Buffer.from('condition', 'utf-8');
 
   private static isPreimage = (field: { type: number; key: Uint8Array }) => {
-    return Buffer.from([field.type, ...field.key]).includes(ArkNursery.arkConditionPsbtKeyName);
+    return Buffer.from([field.type, ...field.key]).includes(
+      ArkNursery.arkConditionPsbtKeyName,
+    );
   };
 }
 

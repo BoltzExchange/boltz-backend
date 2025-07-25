@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["boltzr", "boltzr-cli"]
+members = ["boltz-core", "boltzr", "boltzr-cli"]
 exclude = ["hold"]
 
 [workspace.package]
@@ -29,14 +29,17 @@ alloy = { version = "1.0.22", features = [
 	"json",
 ] }
 anyhow = "1.0.98"
-bitcoin = "0.32.6"
+base64 = "0.22.1"
+bitcoin = { version = "0.32.6", features = ["rand-std"] }
 bitcoin_hashes = "0.16.0"
 clap = { version = "4.5.41", features = ["derive"] }
+elements = "0.25.2"
 rand = "0.8.5"
 reqwest = { version = "0.12.22", features = ["json"] }
 rstest = "0.25.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+serial_test = "3.2.0"
 tokio = { version = "1.46.1", features = [
 	"rt-multi-thread",
 	"macros",

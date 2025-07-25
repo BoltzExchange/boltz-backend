@@ -1695,6 +1695,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "boltz-core"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "bitcoin",
+ "elements",
+ "hex",
+ "reqwest",
+ "rstest",
+ "secp256k1 0.31.1",
+ "serde",
+ "serde_json",
+ "serial_test",
+]
+
+[[package]]
 name = "boltzr"
 version = "3.11.0"
 dependencies = [
@@ -5878,7 +5895,7 @@ checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
  "bitcoin_hashes 0.14.0",
  "rand 0.8.5",
- "secp256k1-sys",
+ "secp256k1-sys 0.10.0",
 ]
 
 [[package]]
@@ -5889,8 +5906,18 @@ checksum = "b50c5943d326858130af85e049f2661ba3c78b26589b8ab98e65e80ae44a1252"
 dependencies = [
  "bitcoin_hashes 0.14.0",
  "rand 0.8.5",
- "secp256k1-sys",
+ "secp256k1-sys 0.10.0",
  "serde",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.31.1"
+source = "git+https://github.com/rust-bitcoin/rust-secp256k1.git#5307a780f810952709f68167832d7f5712efa00e"
+dependencies = [
+ "bitcoin_hashes 0.14.0",
+ "rand 0.9.1",
+ "secp256k1-sys 0.11.0",
 ]
 
 [[package]]
@@ -5898,6 +5925,14 @@ name = "secp256k1-sys"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1433bd67156263443f14d603720b082dd3121779323fce20cba2aa07b874bc1b"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.11.0"
+source = "git+https://github.com/rust-bitcoin/rust-secp256k1.git#5307a780f810952709f68167832d7f5712efa00e"
 dependencies = [
  "cc",
 ]
@@ -5921,7 +5956,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c6eea7919e0cab992510edfbf40bd9342c0a3c2bb910f2c51355c2cb2d69839"
 dependencies = [
  "cc",
- "secp256k1-sys",
+ "secp256k1-sys 0.10.0",
 ]
 
 [[package]]

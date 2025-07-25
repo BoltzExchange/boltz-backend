@@ -94,8 +94,8 @@ lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev
 lightning-invoice = { version = "0.33.1", features = ["std"] }
 bech32 = "0.11.0"
 bitcoin = { workspace = true }
-elements = "0.25.2"
-base64 = "0.22.1"
+elements = { workspace = true }
+base64 = { workspace = true }
 rust-s3 = "0.35.1"
 cron = "0.15.0"
 chrono = "0.4.41"
@@ -125,6 +125,6 @@ eventsource-client = "0.15.0"
 http-body-util = "0.1.3"
 mockall = "0.13.1"
 rstest = { workspace = true }
-serial_test = "3.2.0"
+serial_test = { workspace = true }
 tower = { version = "0.5.2", features = ["util"] }
 wiremock = "0.6.4"

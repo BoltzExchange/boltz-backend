@@ -136,6 +136,12 @@ class ElementsWrapper
   public getNetworkInfo = () =>
     this.annotateLowballInfo((c) => c.getNetworkInfo());
 
+  public getBlock = (hash: string) =>
+    this.annotateLowballInfo((c) => c.getBlock(hash));
+
+  public getBlockhash = (height: number) =>
+    this.annotateLowballInfo((c) => c.getBlockhash(height));
+
   public sendRawTransaction = (
     transactionHex: string,
     isSwapRelated: boolean = true,

@@ -45,6 +45,7 @@ diesel::table! {
         lockupTransactionId -> Nullable<Text>,
         lockupTransactionVout -> Nullable<Integer>,
         createdAt -> Timestamptz,
+        onchainAmount -> Nullable<BigInt>,
     }
 }
 
@@ -52,12 +53,20 @@ diesel::table! {
     #[allow(non_snake_case)]
     reverseSwaps (id) {
         id -> Text,
+        version -> Integer,
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
         preimageHash -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
+        claimPublicKey -> Nullable<Text>,
+        keyIndex -> Nullable<Integer>,
+        lockupAddress -> Text,
+        timeoutBlockHeight -> Integer,
+        redeemScript -> Nullable<Text>,
+        createdAt -> Timestamptz,
+        onchainAmount -> BigInt,
     }
 }
 
@@ -100,6 +109,7 @@ diesel::table! {
         lockupAddress -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
+        amount -> Nullable<BigInt>,
     }
 }
 

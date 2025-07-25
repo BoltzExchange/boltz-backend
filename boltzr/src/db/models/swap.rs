@@ -23,6 +23,7 @@ pub struct Swap {
     pub lockupTransactionId: Option<String>,
     pub lockupTransactionVout: Option<i32>,
     pub createdAt: chrono::NaiveDateTime,
+    pub onchainAmount: Option<i64>,
 }
 
 impl SomeSwap for Swap {

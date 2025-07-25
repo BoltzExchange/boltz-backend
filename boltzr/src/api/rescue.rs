@@ -5,44 +5,10 @@ use crate::swap::manager::SwapManager;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
-use bitcoin::bip32::Xpub;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
-use std::fmt;
-use std::str::FromStr;
+use serde::Deserialize;
 use std::sync::Arc;
 
-struct XpubDeserialize(Xpub);
-
-impl<'de> Deserialize<'de> for XpubDeserialize {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct XpubDeserializeVisitor;
-
-        impl Visitor<'_> for XpubDeserializeVisitor {
-            type Value = XpubDeserialize;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a valid xpub")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match Xpub::from_str(value) {
-                    Ok(xpub) => Ok(XpubDeserialize(xpub)),
-                    Err(err) => Err(E::custom(format!("invalid xpub: {err}"))),
-                }
-            }
-        }
-
-        deserializer.deserialize_string(XpubDeserializeVisitor)
-    }
-}
-
+use crate::utils::serde::XpubDeserialize;
 #[derive(Deserialize)]
 pub struct RescueParams {
     xpub: XpubDeserialize,
@@ -68,6 +34,24 @@ where
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 
+pub async fn swap_restore<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Json(RescueParams {
+        xpub,
+        derivation_path,
+    }): Json<RescueParams>,
+) -> anyhow::Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let res = state
+        .service
+        .swap_rescue
+        .restore_xpub(&xpub.0, derivation_path)?;
+    Ok((StatusCode::OK, Json(res)).into_response())
+}
+
 #[cfg(test)]
 mod test {
     use crate::api::errors::ApiError;
@@ -84,6 +68,10 @@ mod test {
     use std::sync::Arc;
     use tower::ServiceExt;
 
+    const VALID_XPUB: &str = "xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym";
+    const INVALID_XPUB: &str = "invalid";
+    const EXPECTED_ERROR_MSG: &str = "Failed to deserialize the JSON body into the target type: xpub: invalid xpub: base58 encoding error at line 1 column 17";
+
     fn setup_router() -> Router {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
         Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
@@ -96,27 +84,27 @@ mod test {
         )))
     }
 
-    #[tokio::test]
-    async fn test_swap_rescue() {
-        let res = setup_router()
+    async fn make_rescue_request(endpoint: &str, xpub: &str) -> axum::response::Response {
+        setup_router()
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri("/v2/swap/rescue")
+                    .uri(endpoint)
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::to_vec(&serde_json::json!({
-                            "xpub": "xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym"
+                            "xpub": xpub
                         }))
                         .unwrap(),
                     ))
                     .unwrap(),
             )
             .await
-            .unwrap();
+            .unwrap()
+    }
 
+    async fn assert_successful_response(res: axum::response::Response) {
         assert_eq!(res.status(), StatusCode::OK);
-
         let body = res.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
             serde_json::from_slice::<Vec<RescuableSwap>>(&body).unwrap(),
@@ -124,31 +112,36 @@ mod test {
         );
     }
 
-    #[tokio::test]
-    async fn test_swap_rescue_invalid_xpub() {
-        let res = setup_router()
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::POST)
-                    .uri("/v2/swap/rescue")
-                    .header(axum::http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(
-                        serde_json::to_vec(&serde_json::json!({
-                            "xpub": "invalid"
-                        }))
-                        .unwrap(),
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
+    async fn assert_invalid_xpub_response(res: axum::response::Response) {
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-
         let body = res.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
             serde_json::from_slice::<ApiError>(&body).unwrap().error,
-            "Failed to deserialize the JSON body into the target type: xpub: invalid xpub: base58 encoding error at line 1 column 17"
+            EXPECTED_ERROR_MSG
         );
+    }
+
+    #[tokio::test]
+    async fn test_swap_rescue() {
+        let res = make_rescue_request("/v2/swap/rescue", VALID_XPUB).await;
+        assert_successful_response(res).await;
+    }
+
+    #[tokio::test]
+    async fn test_swap_rescue_invalid_xpub() {
+        let res = make_rescue_request("/v2/swap/rescue", INVALID_XPUB).await;
+        assert_invalid_xpub_response(res).await;
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore() {
+        let res = make_rescue_request("/v2/swap/restore", VALID_XPUB).await;
+        assert_successful_response(res).await;
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_invalid_xpub() {
+        let res = make_rescue_request("/v2/swap/restore", INVALID_XPUB).await;
+        assert_invalid_xpub_response(res).await;
     }
 }

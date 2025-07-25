@@ -43,6 +43,7 @@ pub struct ChainSwapData {
     pub lockupAddress: String,
     pub transactionId: Option<String>,
     pub transactionVout: Option<i32>,
+    pub amount: Option<i64>,
 }
 
 #[derive(Default, Clone, Debug)]

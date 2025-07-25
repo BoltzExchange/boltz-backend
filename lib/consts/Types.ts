@@ -92,6 +92,7 @@ type BlockWithoutTransactions = {
   versionHex: string;
   merkleroot: string;
   time: number;
+  mediantime: number;
   nonce: number;
   bits: string;
   difficulty: number;

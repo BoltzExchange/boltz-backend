@@ -62,6 +62,9 @@ interface IChainClient<T extends SomeTransaction = SomeTransaction>
   getBlockchainInfo(): Promise<BlockChainInfoScanned>;
   getNetworkInfo(): Promise<NetworkInfo>;
 
+  getBlock(hash: string): Promise<Block>;
+  getBlockhash(height: number): Promise<string>;
+
   sendRawTransaction(
     transactionHex: string,
     isSwapRelated?: boolean,

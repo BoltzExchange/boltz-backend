@@ -1773,6 +1773,44 @@ describe('SwapRouter', () => {
     });
   });
 
+  test('should create chain swaps with referralId in URL query', async () => {
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      pairHash: 'pHash',
+      userLockAmount: 123,
+      claimPublicKey: '21',
+      claimAddress: '0x123',
+      serverLockAmount: 321,
+      refundPublicKey: '12',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const referralId = 'partner';
+
+    const res = mockResponse();
+
+    await swapRouter['createChain'](
+      mockRequest(reqBody, {
+        referralId,
+      }),
+      res,
+    );
+
+    expect(service.createChainSwap).toHaveBeenCalledTimes(1);
+    expect(service.createChainSwap).toHaveBeenCalledWith({
+      referralId,
+      pairId: 'L-BTC/BTC',
+      orderSide: OrderSide.BUY,
+      pairHash: reqBody.pairHash,
+      claimAddress: reqBody.claimAddress,
+      userLockAmount: reqBody.userLockAmount,
+      serverLockAmount: reqBody.serverLockAmount,
+      preimageHash: getHexBuffer(reqBody.preimageHash),
+      claimPublicKey: getHexBuffer(reqBody.claimPublicKey),
+      refundPublicKey: getHexBuffer(reqBody.refundPublicKey),
+    });
+  });
+
   test('should 404 when getting transactions of chain swap that does not exist', async () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 

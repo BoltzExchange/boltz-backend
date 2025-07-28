@@ -2152,7 +2152,6 @@ class SwapRouter extends RouterBase {
       webhook,
       pairHash,
       extraFees,
-      referralId,
       preimageHash,
       claimAddress,
       claimPublicKey,
@@ -2166,13 +2165,13 @@ class SwapRouter extends RouterBase {
       { name: 'preimageHash', type: 'string', hex: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'extraFees', type: 'object', optional: true },
-      { name: 'referralId', type: 'string', optional: true },
       { name: 'claimAddress', type: 'string', optional: true },
       { name: 'userLockAmount', type: 'number', optional: true },
       { name: 'serverLockAmount', type: 'number', optional: true },
       { name: 'claimPublicKey', type: 'string', hex: true, optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
     ]);
+    const referralId = parseReferralId(req);
 
     checkPreimageHashLength(preimageHash);
     const webHookData = this.parseWebHook(webhook);

@@ -2,7 +2,9 @@ use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
-use crate::db::models::{ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType};
+use crate::db::models::{
+    ChainSwapData, ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType,
+};
 use crate::wallet::Wallet;
 use alloy::hex;
 use anyhow::{Result, anyhow};
@@ -35,10 +37,28 @@ pub struct SwapTree {
     pub covenant_claim_leaf: Option<TreeLeaf>,
 }
 
+impl TryFrom<&str> for SwapTree {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        let tree = serde_json::from_str(value)?;
+        Ok(tree)
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Transaction {
     pub id: String,
     pub vout: u64,
+}
+
+impl From<(String, i32)> for Transaction {
+    fn from((id, vout): (String, i32)) -> Self {
+        Transaction {
+            id,
+            vout: vout as u64,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -59,6 +79,106 @@ pub struct SwapDetailsBase {
     pub blinding_key: Option<String>,
 }
 
+impl TryFrom<(&Swap, u64, String, Option<String>)> for SwapDetailsBase {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (&Swap, u64, String, Option<String>),
+    ) -> Result<Self> {
+        Ok(SwapDetailsBase {
+            amount: s.onchainAmount,
+            tree: s
+                .redeemScript
+                .as_ref()
+                .ok_or_else(|| anyhow!("no swap tree for {}", s.id))?
+                .as_str()
+                .try_into()?,
+            key_index,
+            transaction: if let (Some(id), Some(vout)) =
+                (s.lockupTransactionId.clone(), s.lockupTransactionVout)
+            {
+                Some((id, vout).into())
+            } else {
+                None
+            },
+            lockup_address: s.lockupAddress.clone(),
+            server_public_key,
+            timeout_block_height: s.timeoutBlockHeight as u64,
+            blinding_key,
+        })
+    }
+}
+
+impl TryFrom<(&ReverseSwap, u64, String, Option<String>)> for SwapDetailsBase {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ReverseSwap,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(SwapDetailsBase {
+            amount: Some(s.onchainAmount),
+            tree: s
+                .redeemScript
+                .as_ref()
+                .ok_or_else(|| anyhow!("no swap tree for {}", s.id))?
+                .as_str()
+                .try_into()?,
+            key_index,
+            transaction: if let (Some(id), Some(vout)) =
+                (s.transactionId.clone(), s.transactionVout)
+            {
+                Some((id, vout).into())
+            } else {
+                None
+            },
+            lockup_address: s.lockupAddress.clone(),
+            server_public_key,
+            timeout_block_height: s.timeoutBlockHeight as u64,
+            blinding_key,
+        })
+    }
+}
+
+impl TryFrom<(&ChainSwapData, u64, String, Option<String>)> for SwapDetailsBase {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ChainSwapData,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(SwapDetailsBase {
+            amount: s.amount,
+            tree: s
+                .swapTree
+                .as_ref()
+                .ok_or_else(|| anyhow!("no swap tree for {}", s.swapId))?
+                .as_str()
+                .try_into()?,
+            key_index,
+            transaction: if let (Some(id), Some(vout)) =
+                (s.transactionId.clone(), s.transactionVout)
+            {
+                Some((id, vout).into())
+            } else {
+                None
+            },
+            lockup_address: s.lockupAddress.clone(),
+            server_public_key,
+            timeout_block_height: s.timeoutBlockHeight as u64,
+            blinding_key,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct SwapBase {
     pub id: String,
@@ -67,6 +187,39 @@ pub struct SwapBase {
     pub status: String,
     #[serde(rename = "createdAt")]
     pub created_at: u64,
+}
+
+impl From<&Swap> for SwapBase {
+    fn from(s: &Swap) -> Self {
+        SwapBase {
+            id: s.id.clone(),
+            kind: s.kind(),
+            status: s.status.clone(),
+            created_at: s.createdAt.and_utc().timestamp() as u64,
+        }
+    }
+}
+
+impl From<&ReverseSwap> for SwapBase {
+    fn from(s: &ReverseSwap) -> Self {
+        SwapBase {
+            id: s.id.clone(),
+            kind: s.kind(),
+            status: s.status.clone(),
+            created_at: s.createdAt.and_utc().timestamp() as u64,
+        }
+    }
+}
+
+impl From<&ChainSwapInfo> for SwapBase {
+    fn from(s: &ChainSwapInfo) -> Self {
+        SwapBase {
+            id: s.id().clone(),
+            kind: s.kind(),
+            status: s.swap.status.clone(),
+            created_at: s.swap.createdAt.and_utc().timestamp() as u64,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -80,12 +233,83 @@ pub struct RescuableSwap {
     pub preimage_hash: String,
 }
 
+impl TryFrom<(&Swap, u64, String, Option<String>)> for RescuableSwap {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (&Swap, u64, String, Option<String>),
+    ) -> Result<Self> {
+        Ok(RescuableSwap {
+            base: s.into(),
+            symbol: s.chain_symbol()?,
+            preimage_hash: s.preimageHash.clone(),
+            details: (s, key_index, server_public_key, blinding_key).try_into()?,
+        })
+    }
+}
+
+impl TryFrom<(&ChainSwapInfo, u64, String, Option<String>)> for RescuableSwap {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ChainSwapInfo,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(RescuableSwap {
+            base: s.into(),
+            symbol: s.receiving().symbol.clone(),
+            preimage_hash: s.swap.preimageHash.clone(),
+            details: (s.receiving(), key_index, server_public_key, blinding_key).try_into()?,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct ClaimDetails {
     #[serde(flatten)]
     pub base: SwapDetailsBase,
     #[serde(rename = "preimageHash")]
     pub preimage_hash: String,
+}
+
+impl TryFrom<(&ReverseSwap, u64, String, Option<String>)> for ClaimDetails {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ReverseSwap,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(ClaimDetails {
+            base: (s, key_index, server_public_key, blinding_key).try_into()?,
+            preimage_hash: s.preimageHash.clone(),
+        })
+    }
+}
+
+impl TryFrom<(&ChainSwapInfo, u64, String, Option<String>)> for ClaimDetails {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ChainSwapInfo,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(ClaimDetails {
+            base: (s.sending(), key_index, server_public_key, blinding_key).try_into()?,
+            preimage_hash: s.swap.preimageHash.clone(),
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -98,6 +322,43 @@ pub struct RestorableSwap {
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
     pub refund_details: Option<SwapDetailsBase>,
+}
+
+impl TryFrom<(&Swap, u64, String, Option<String>)> for RestorableSwap {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (&Swap, u64, String, Option<String>),
+    ) -> Result<Self> {
+        Ok(RestorableSwap {
+            base: s.into(),
+            from: s.chain_symbol()?,
+            to: s.lightning_symbol()?,
+            claim_details: None,
+            refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
+        })
+    }
+}
+
+impl TryFrom<(&ReverseSwap, u64, String, Option<String>)> for RestorableSwap {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        (s, key_index, server_public_key, blinding_key): (
+            &ReverseSwap,
+            u64,
+            String,
+            Option<String>,
+        ),
+    ) -> Result<Self> {
+        Ok(RestorableSwap {
+            base: s.into(),
+            from: s.lightning_symbol()?,
+            to: s.chain_symbol()?,
+            claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
+            refund_details: None,
+        })
+    }
 }
 
 pub struct SwapRescue {
@@ -133,19 +394,11 @@ impl SwapRescue {
             xpub.identifier().to_string()
         );
 
-        let mut rescuable = Vec::new();
-        self.scan_swaps(
+        let mut rescuable = self.scan_swaps(
             xpub,
             derivation_path,
             vec![SwapType::Submarine, SwapType::Chain],
-            |keys_map, swaps, chain_swaps, _reverse_swaps| {
-                rescuable.append(&mut self.process_rescuable_swaps(
-                    keys_map,
-                    swaps,
-                    chain_swaps,
-                )?);
-                Ok(())
-            },
+            Self::process_rescuable_swaps,
         )?;
 
         rescuable.sort_by(|a, b| a.details.key_index.cmp(&b.details.key_index));
@@ -163,20 +416,11 @@ impl SwapRescue {
             xpub.identifier().to_string()
         );
 
-        let mut restorable = Vec::new();
-        self.scan_swaps(
+        let mut restorable = self.scan_swaps(
             xpub,
             derivation_path,
             vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
-            |keys_map, swaps, chain_swaps, reverse_swaps| {
-                restorable.append(&mut self.process_restorable_swaps(
-                    keys_map,
-                    swaps,
-                    chain_swaps,
-                    reverse_swaps.unwrap_or_default(),
-                )?);
-                Ok(())
-            },
+            Self::process_restorable_swaps,
         )?;
 
         restorable.sort_by(|a, b| {
@@ -192,20 +436,21 @@ impl SwapRescue {
         Ok(restorable)
     }
 
-    fn scan_swaps<F>(
+    fn scan_swaps<R, F>(
         &self,
         xpub: &Xpub,
         derivation_path: Option<String>,
         swap_types: Vec<SwapType>,
-        mut process_batch: F,
-    ) -> Result<()>
+        process: F,
+    ) -> Result<Vec<R>>
     where
-        F: FnMut(
+        F: Fn(
+            &Self,
             &HashMap<String, u64>,
             Vec<Swap>,
             Vec<ChainSwapInfo>,
-            Option<Vec<ReverseSwap>>,
-        ) -> Result<()>,
+            Vec<ReverseSwap>,
+        ) -> Result<Vec<R>>,
     {
         let secp = Secp256k1::default();
         let derivation_path = if let Some(path) = &derivation_path {
@@ -213,6 +458,8 @@ impl SwapRescue {
         } else {
             DERIVATION_PATH
         };
+
+        let mut result = Vec::new();
 
         for from in (0..).step_by(GAP_LIMIT as usize) {
             let to = from + GAP_LIMIT;
@@ -266,17 +513,25 @@ impl SwapRescue {
 
             if swaps.is_empty() && chain_swaps.is_empty() && reverse_swaps.is_empty() {
                 debug!(
-                    "Scanned {} keys for rescuable swaps for {} but found none",
+                    "Scanned {} keys for swaps for {} and found {}",
                     to,
                     xpub.identifier().to_string(),
+                    result.len(),
                 );
-                break;
+
+                return Ok(result);
             }
 
-            process_batch(&keys_map, swaps, chain_swaps, Some(reverse_swaps))?;
+            result.append(&mut process(
+                self,
+                &keys_map,
+                swaps,
+                chain_swaps,
+                reverse_swaps,
+            )?);
         }
 
-        Ok(())
+        Ok(result)
     }
 
     fn process_rescuable_swaps(
@@ -284,6 +539,7 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         swaps: Vec<Swap>,
         chain_swaps: Vec<ChainSwapInfo>,
+        _reverse_swaps: Vec<ReverseSwap>,
     ) -> Result<Vec<RescuableSwap>> {
         let secp = Secp256k1::default();
         let mut rescuable = Vec::new();
@@ -357,46 +613,15 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: Swap,
     ) -> Result<RescuableSwap> {
-        let wallet = &self
-            .currencies
-            .get(&s.chain_symbol()?)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id))?;
+        let wallet = self.get_wallet(&s.chain_symbol()?)?;
 
-        Ok(RescuableSwap {
-            base: SwapBase {
-                id: s.id.clone(),
-                kind: s.kind(),
-                status: s.status.clone(),
-                created_at: s.createdAt.and_utc().timestamp() as u64,
-            },
-            symbol: s.chain_symbol()?,
-            details: SwapDetailsBase {
-                amount: None,
-                tree: Self::parse_tree(
-                    s.redeemScript
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("no swap tree for {}", s.id))?,
-                )?,
-                key_index: Self::lookup_from_keys(keys_map, s.refundPublicKey.clone(), &s.id)?,
-                transaction: Self::transform_transaction(
-                    s.lockupTransactionId.clone(),
-                    s.lockupTransactionVout,
-                ),
-                lockup_address: s.lockupAddress.clone(),
-                server_public_key: Self::derive_our_public_key(secp, wallet, &s.id(), s.keyIndex)?,
-                timeout_block_height: s.timeoutBlockHeight as u64,
-                blinding_key: Self::derive_blinding_key(
-                    wallet,
-                    &s.id,
-                    &s.chain_symbol()?,
-                    &s.lockupAddress.clone(),
-                )?,
-            },
-            preimage_hash: s.preimageHash,
-        })
+        (
+            &s,
+            Self::lookup_from_keys(keys_map, s.refundPublicKey.clone(), &s.id)?,
+            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_blinding_key(&wallet, &s.id, &s.chain_symbol()?, &s.lockupAddress)?,
+        )
+            .try_into()
     }
 
     fn create_rescuable_chain_swap<C: secp256k1::Signing>(
@@ -405,56 +630,20 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: ChainSwapInfo,
     ) -> Result<RescuableSwap> {
-        let wallet = &self
-            .currencies
-            .get(&s.receiving().symbol)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
+        let wallet = self.get_wallet(&s.receiving().symbol)?;
 
-        Ok(RescuableSwap {
-            base: SwapBase {
-                id: s.id(),
-                kind: s.kind(),
-                status: s.swap.status.clone(),
-                created_at: s.swap.createdAt.and_utc().timestamp() as u64,
-            },
-            symbol: s.receiving().symbol.clone(),
-            details: SwapDetailsBase {
-                amount: None,
-                tree: Self::parse_tree(
-                    s.receiving()
-                        .swapTree
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("no swap tree for {}", s.id()))?,
-                )?,
-                key_index: Self::lookup_from_keys(
-                    keys_map,
-                    s.receiving().theirPublicKey.clone(),
-                    &s.id(),
-                )?,
-                transaction: Self::transform_transaction(
-                    s.receiving().transactionId.clone(),
-                    s.receiving().transactionVout,
-                ),
-                lockup_address: s.receiving().lockupAddress.clone(),
-                server_public_key: Self::derive_our_public_key(
-                    secp,
-                    wallet,
-                    &s.id(),
-                    s.receiving().keyIndex,
-                )?,
-                timeout_block_height: s.receiving().timeoutBlockHeight as u64,
-                blinding_key: Self::derive_blinding_key(
-                    wallet,
-                    &s.id(),
-                    &s.receiving().symbol,
-                    &s.receiving().lockupAddress,
-                )?,
-            },
-            preimage_hash: s.swap.preimageHash,
-        })
+        (
+            &s,
+            Self::lookup_from_keys(keys_map, s.receiving().theirPublicKey.clone(), &s.id())?,
+            Self::derive_our_public_key(secp, &wallet, &s.id(), s.receiving().keyIndex)?,
+            Self::derive_blinding_key(
+                &wallet,
+                &s.id(),
+                &s.receiving().symbol,
+                &s.receiving().lockupAddress,
+            )?,
+        )
+            .try_into()
     }
 
     fn create_restorable_swap<C: secp256k1::Signing>(
@@ -463,47 +652,20 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: Swap,
     ) -> Result<RestorableSwap> {
-        let wallet = &self
-            .currencies
-            .get(&s.chain_symbol()?)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
+        let wallet = self.get_wallet(&s.chain_symbol()?)?;
 
-        Ok(RestorableSwap {
-            base: SwapBase {
-                id: s.id.clone(),
-                kind: s.kind(),
-                status: s.status.clone(),
-                created_at: s.createdAt.and_utc().timestamp() as u64,
-            },
-            from: s.chain_symbol()?,
-            to: s.lightning_symbol()?,
-            claim_details: None,
-            refund_details: Some(SwapDetailsBase {
-                amount: s.onchainAmount,
-                tree: Self::parse_tree(
-                    s.redeemScript
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("no swap tree for {}", s.id))?,
-                )?,
-                key_index: Self::lookup_from_keys(keys_map, s.refundPublicKey.clone(), &s.id)?,
-                transaction: Self::transform_transaction(
-                    s.lockupTransactionId.clone(),
-                    s.lockupTransactionVout,
-                ),
-                lockup_address: s.lockupAddress.clone(),
-                server_public_key: Self::derive_our_public_key(secp, wallet, &s.id(), s.keyIndex)?,
-                timeout_block_height: s.timeoutBlockHeight as u64,
-                blinding_key: Self::derive_blinding_key(
-                    wallet,
-                    &s.id,
-                    &s.chain_symbol()?,
-                    &s.lockupAddress.clone(),
-                )?,
-            }),
-        })
+        (
+            &s,
+            Self::lookup_from_keys(keys_map, s.refundPublicKey.clone(), &s.id)?,
+            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_blinding_key(
+                &wallet,
+                &s.id,
+                &s.chain_symbol()?,
+                &s.lockupAddress.clone(),
+            )?,
+        )
+            .try_into()
     }
 
     fn create_restorable_chain_swap<C: secp256k1::Signing>(
@@ -512,96 +674,55 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: ChainSwapInfo,
     ) -> Result<RestorableSwap> {
-        let receiving_wallet = &self
-            .currencies
-            .get(&s.receiving().symbol)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
-        let sending_wallet = &self
-            .currencies
-            .get(&s.sending().symbol)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
+        let receiving_wallet = self.get_wallet(&s.receiving().symbol)?;
+        let sending_wallet = self.get_wallet(&s.sending().symbol)?;
+
         Ok(RestorableSwap {
-            base: SwapBase {
-                id: s.id(),
-                kind: s.kind(),
-                status: s.swap.status.clone(),
-                created_at: s.swap.createdAt.and_utc().timestamp() as u64,
-            },
+            base: (&s).into(),
             from: s.receiving().symbol.clone(),
             to: s.sending().symbol.clone(),
-            claim_details: Some(ClaimDetails {
-                base: SwapDetailsBase {
-                    amount: s.sending().amount,
-                    tree: Self::parse_tree(
-                        s.sending()
-                            .swapTree
-                            .as_ref()
-                            .ok_or_else(|| anyhow!("no swap tree for {}", s.id()))?,
-                    )?,
-                    key_index: Self::lookup_from_keys(
-                        keys_map,
-                        s.sending().theirPublicKey.clone(),
-                        &s.id(),
-                    )?,
-                    transaction: Self::transform_transaction(
-                        s.sending().transactionId.clone(),
-                        s.sending().transactionVout,
-                    ),
-                    lockup_address: s.sending().lockupAddress.clone(),
-                    server_public_key: Self::derive_our_public_key(
+            claim_details: Some(
+                (
+                    &s,
+                    Self::lookup_from_keys(keys_map, s.sending().theirPublicKey.clone(), &s.id())?,
+                    Self::derive_our_public_key(
                         secp,
-                        sending_wallet,
+                        &sending_wallet,
                         &s.id(),
                         s.sending().keyIndex,
                     )?,
-                    timeout_block_height: s.receiving().timeoutBlockHeight as u64,
-                    blinding_key: Self::derive_blinding_key(
-                        sending_wallet,
+                    Self::derive_blinding_key(
+                        &sending_wallet,
                         &s.id(),
                         &s.sending().symbol,
                         &s.sending().lockupAddress,
                     )?,
-                },
-                preimage_hash: s.swap.preimageHash.clone(),
-            }),
-            refund_details: Some(SwapDetailsBase {
-                amount: s.receiving().amount,
-                tree: Self::parse_tree(
-                    s.receiving()
-                        .swapTree
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("no swap tree for {}", s.id()))?,
-                )?,
-                key_index: Self::lookup_from_keys(
-                    keys_map,
-                    s.receiving().theirPublicKey.clone(),
-                    &s.id(),
-                )?,
-                transaction: Self::transform_transaction(
-                    s.receiving().transactionId.clone(),
-                    s.receiving().transactionVout,
-                ),
-                lockup_address: s.receiving().lockupAddress.clone(),
-                server_public_key: Self::derive_our_public_key(
-                    secp,
-                    receiving_wallet,
-                    &s.id(),
-                    s.receiving().keyIndex,
-                )?,
-                timeout_block_height: s.receiving().timeoutBlockHeight as u64,
-                blinding_key: Self::derive_blinding_key(
-                    receiving_wallet,
-                    &s.id(),
-                    &s.receiving().symbol,
-                    &s.receiving().lockupAddress,
-                )?,
-            }),
+                )
+                    .try_into()?,
+            ),
+            refund_details: Some(
+                (
+                    s.receiving(),
+                    Self::lookup_from_keys(
+                        keys_map,
+                        s.receiving().theirPublicKey.clone(),
+                        &s.id(),
+                    )?,
+                    Self::derive_our_public_key(
+                        secp,
+                        &receiving_wallet,
+                        &s.id(),
+                        s.receiving().keyIndex,
+                    )?,
+                    Self::derive_blinding_key(
+                        &receiving_wallet,
+                        &s.id(),
+                        &s.receiving().symbol,
+                        &s.receiving().lockupAddress,
+                    )?,
+                )
+                    .try_into()?,
+            ),
         })
     }
 
@@ -611,69 +732,29 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: ReverseSwap,
     ) -> Result<RestorableSwap> {
-        let wallet = &self
-            .currencies
-            .get(&s.chain_symbol()?)
-            .ok_or_else(|| anyhow!("no currency for {}", s.id()))?
-            .wallet
-            .clone()
-            .ok_or_else(|| anyhow!("no wallet for {}", s.id()))?;
+        let wallet = self.get_wallet(&s.chain_symbol()?)?;
 
-        Ok(RestorableSwap {
-            base: SwapBase {
-                id: s.id(),
-                kind: s.kind(),
-                status: s.status.clone(),
-                created_at: s.createdAt.and_utc().timestamp() as u64,
-            },
-            from: s.lightning_symbol()?,
-            to: s.chain_symbol()?,
-            claim_details: Some(ClaimDetails {
-                base: SwapDetailsBase {
-                    amount: Some(s.onchainAmount),
-                    tree: Self::parse_tree(
-                        s.redeemScript
-                            .as_ref()
-                            .ok_or_else(|| anyhow!("no swap tree for {}", s.id()))?,
-                    )?,
-                    key_index: Self::lookup_from_keys(keys_map, s.claimPublicKey.clone(), &s.id())?,
-                    transaction: Self::transform_transaction(
-                        s.transactionId.clone(),
-                        s.transactionVout,
-                    ),
-                    lockup_address: s.lockupAddress.clone(),
-                    server_public_key: Self::derive_our_public_key(
-                        secp,
-                        wallet,
-                        &s.id(),
-                        s.keyIndex,
-                    )?,
-                    timeout_block_height: s.timeoutBlockHeight as u64,
-                    blinding_key: Self::derive_blinding_key(
-                        wallet,
-                        &s.id,
-                        &s.chain_symbol()?,
-                        &s.lockupAddress.clone(),
-                    )?,
-                },
-                preimage_hash: s.preimageHash.clone(),
-            }),
-            refund_details: None,
-        })
+        (
+            &s,
+            Self::lookup_from_keys(keys_map, s.claimPublicKey.clone(), &s.id())?,
+            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_blinding_key(
+                &wallet,
+                &s.id,
+                &s.chain_symbol()?,
+                &s.lockupAddress.clone(),
+            )?,
+        )
+            .try_into()
     }
 
-    fn transform_transaction(
-        transaction_id: Option<String>,
-        vout: Option<i32>,
-    ) -> Option<Transaction> {
-        if let (Some(transaction_id), Some(vout)) = (transaction_id, vout) {
-            Some(Transaction {
-                id: transaction_id,
-                vout: vout as u64,
-            })
-        } else {
-            None
-        }
+    fn get_wallet(&self, symbol: &str) -> Result<Arc<dyn Wallet + Send + Sync>> {
+        self.currencies
+            .get(symbol)
+            .ok_or_else(|| anyhow!("no currency for {}", symbol))?
+            .wallet
+            .clone()
+            .ok_or_else(|| anyhow!("no wallet for {}", symbol))
     }
 
     fn derive_our_public_key<C: secp256k1::Signing>(
@@ -736,10 +817,6 @@ impl SwapRescue {
 
         Ok(map)
     }
-
-    fn parse_tree(tree: &str) -> Result<SwapTree> {
-        serde_json::from_str(tree).map_err(|e| e.into())
-    }
 }
 
 #[cfg(test)]
@@ -751,7 +828,6 @@ mod test {
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::wallet::{Elements, Network};
-    use rstest::rstest;
 
     fn get_liquid_wallet() -> Arc<dyn Wallet + Send + Sync> {
         Arc::new(
@@ -915,8 +991,8 @@ mod test {
                 },
                 symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 details: SwapDetailsBase {
-                    amount: None,
-                    tree: SwapRescue::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
+                    amount: Some(100_000),
+                    tree: swap.redeemScript.unwrap().as_str().try_into().unwrap(),
                     key_index: 0,
                     transaction: Some(Transaction {
                         id: swap.lockupTransactionId.unwrap(),
@@ -946,8 +1022,14 @@ mod test {
                 },
                 symbol: crate::chain::elements_client::SYMBOL.to_string(),
                 details: SwapDetailsBase {
-                    amount: None,
-                    tree: SwapRescue::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
+                    amount: Some(50_000),
+                    tree: chain_swap
+                        .receiving()
+                        .swapTree
+                        .clone()
+                        .unwrap()
+                        .as_str()
+                        .try_into()
                         .unwrap(),
                     key_index: 11,
                     transaction: None,
@@ -1092,7 +1174,7 @@ mod test {
                 claim_details: None,
                 refund_details: Some(SwapDetailsBase {
                     amount: swap.onchainAmount,
-                    tree: SwapRescue::parse_tree(&swap.redeemScript.unwrap()).unwrap(),
+                    tree: swap.redeemScript.unwrap().as_str().try_into().unwrap(),
                     key_index: 0,
                     transaction: Some(Transaction {
                         id: swap.lockupTransactionId.unwrap(),
@@ -1125,7 +1207,12 @@ mod test {
                 claim_details: Some(ClaimDetails {
                     base: SwapDetailsBase {
                         amount: Some(reverse_swap.onchainAmount),
-                        tree: SwapRescue::parse_tree(&reverse_swap.redeemScript.unwrap()).unwrap(),
+                        tree: reverse_swap
+                            .redeemScript
+                            .unwrap()
+                            .as_str()
+                            .try_into()
+                            .unwrap(),
                         key_index: 1,
                         transaction: Some(Transaction {
                             id: reverse_swap.transactionId.unwrap(),
@@ -1158,10 +1245,14 @@ mod test {
                 claim_details: Some(ClaimDetails {
                     base: SwapDetailsBase {
                         amount: chain_swap.sending().amount,
-                        tree: SwapRescue::parse_tree(
-                            &chain_swap.sending().swapTree.clone().unwrap()
-                        )
-                        .unwrap(),
+                        tree: chain_swap
+                            .sending()
+                            .swapTree
+                            .clone()
+                            .unwrap()
+                            .as_str()
+                            .try_into()
+                            .unwrap(),
                         key_index: 1,
                         transaction: Some(Transaction {
                             id: chain_swap.sending().transactionId.clone().unwrap(),
@@ -1178,7 +1269,13 @@ mod test {
                 }),
                 refund_details: Some(SwapDetailsBase {
                     amount: chain_swap.receiving().amount,
-                    tree: SwapRescue::parse_tree(&chain_swap.receiving().swapTree.clone().unwrap())
+                    tree: chain_swap
+                        .receiving()
+                        .swapTree
+                        .clone()
+                        .unwrap()
+                        .as_str()
+                        .try_into()
                         .unwrap(),
                     key_index: 11,
                     transaction: Some(Transaction {
@@ -1197,18 +1294,6 @@ mod test {
                 }),
             }
         );
-    }
-
-    #[rstest]
-    #[case(Some("txid".to_string()), Some(23), Some(Transaction { id: "txid".to_string(), vout: 23 }))]
-    #[case(Some("txid".to_string()), None, None)]
-    #[case(None, Some(23), None)]
-    fn test_transform_transaction(
-        #[case] tx_id: Option<String>,
-        #[case] vout: Option<i32>,
-        #[case] res: Option<Transaction>,
-    ) {
-        assert_eq!(SwapRescue::transform_transaction(tx_id, vout), res);
     }
 
     #[test]
@@ -1350,6 +1435,7 @@ mod test {
 
     #[test]
     fn test_parse_tree() {
-        assert!(SwapRescue::parse_tree("{\"claimLeaf\":{\"version\":192,\"output\":\"82012088a91433ca578b1dde9cb32e4b6a2c05fe74520911b66e8820884ff511cc5061a90f07e553de127095df5d438b2bda23db4159c5f32df5e1f9ac\"},\"refundLeaf\":{\"version\":192,\"output\":\"205bbdfe5d1bf863f65c5271d4cd6621c44048b89e80aa79301fe671d98bed598aad026001b1\"}}").err().is_none());
+        let tree: Result<SwapTree> = ("{\"claimLeaf\":{\"version\":192,\"output\":\"82012088a91433ca578b1dde9cb32e4b6a2c05fe74520911b66e8820884ff511cc5061a90f07e553de127095df5d438b2bda23db4159c5f32df5e1f9ac\"},\"refundLeaf\":{\"version\":192,\"output\":\"205bbdfe5d1bf863f65c5271d4cd6621c44048b89e80aa79301fe671d98bed598aad026001b1\"}}").try_into();
+        assert!(tree.is_ok());
     }
 }

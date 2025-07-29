@@ -20,6 +20,7 @@ import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import type {
@@ -546,6 +547,12 @@ class DeferredClaimer extends CoopSignerBase<{
 
         break;
       }
+
+      case CurrencyType.Ark: {
+        throw new Error(
+          `batched claims not supported on ${currencyTypeToString(currency.type)}`,
+        );
+      }
     }
 
     this.logger.info(
@@ -601,6 +608,10 @@ class DeferredClaimer extends CoopSignerBase<{
     }
 
     const currency = this.currencies.get(chainCurrency)!;
+    if (currency.type === CurrencyType.Ark) {
+      return false;
+    }
+
     if (
       currency.type === CurrencyType.Ether ||
       currency.type === CurrencyType.ERC20

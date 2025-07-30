@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::db::helpers::web_hook::test::get_pool;
     use alloy::hex;
     use diesel::RunQueryDsl;
@@ -7,22 +7,22 @@ mod tests {
     use diesel::sql_query;
     use rand::RngCore;
 
-    fn generate_random_preimage_hash() -> String {
+    pub fn generate_random_preimage_hash() -> String {
         let mut entropy_bytes = [0u8; 32];
         let mut rng = rand::thread_rng();
         rng.fill_bytes(&mut entropy_bytes);
         hex::encode(entropy_bytes)
     }
 
-    fn insert_swap<Conn>(conn: &mut Conn, preimage_hash: &str) -> Result<usize, DieselError>
+    pub fn insert_swap<Conn>(conn: &mut Conn, preimage_hash: &str) -> Result<usize, DieselError>
     where
         Conn: diesel::Connection<Backend = diesel::pg::Pg>,
     {
         let sql = format!(
             r#"INSERT INTO swaps (
-                id, "preimageHash"
+                id, "preimageHash", status
             ) VALUES (
-                'test_swap_{preimage_hash}', '{preimage_hash}'
+                'test_swap_{preimage_hash}', '{preimage_hash}', 'swap.created'
             )"#
         );
         sql_query(&sql).execute(conn)

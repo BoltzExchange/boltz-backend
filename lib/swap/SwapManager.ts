@@ -663,7 +663,8 @@ class SwapManager {
       // the lockup transaction is confirmed the swap should be settled directly
       if (
         swap.lockupTransactionId &&
-        previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected
+        previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected &&
+        swap.expectedAmount === swap.onchainAmount
       ) {
         try {
           await this.nursery.attemptSettleSwap(receivingCurrency, updatedSwap);

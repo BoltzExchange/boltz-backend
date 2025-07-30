@@ -1,7 +1,9 @@
 -- Minimum viable tables for preimage hash uniqueness check. Currently, the real swap tables are created and managed by typescript code
 CREATE TABLE IF NOT EXISTS swaps (
     id VARCHAR(255) PRIMARY KEY,
-    "preimageHash" VARCHAR(64) NOT NULL
+    "preimageHash" VARCHAR(64) NOT NULL,
+    invoice TEXT,
+    status VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "reverseSwaps" (

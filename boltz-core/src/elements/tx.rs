@@ -2,20 +2,22 @@ use crate::{
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     elements::InputDetail,
     target_fee::{FeeTarget, target_fee},
-    utils::{InputType, OutputType},
+    utils::{Destination, InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::Witness;
 use elements::{
     Address, AssetId, BlockHash, EcdsaSighashType, LockTime, RangeProofMessage, SchnorrSig,
-    SchnorrSighashType, Sequence, Sighash, SurjectionInput, Transaction, TxIn, TxOut, TxOutSecrets,
-    TxOutWitness,
+    SchnorrSighashType, Script, Sequence, Sighash, SurjectionInput, Transaction, TxIn, TxOut,
+    TxOutSecrets, TxOutWitness,
     confidential::{Asset, AssetBlindingFactor, Nonce, Value, ValueBlindingFactor},
     hashes::sha256,
     opcodes::all::{OP_PUSHBYTES_0, OP_RETURN},
     pset::serialize::Serialize,
     script::Builder,
-    secp256k1_zkp::{Keypair, Message, Secp256k1, SecretKey, Signing, Verification, rand},
+    secp256k1_zkp::{
+        Keypair, Message, PublicKey, Secp256k1, SecretKey, Signing, Verification, rand,
+    },
     sighash::{Prevouts, SighashCache},
     taproot::LeafVersion,
 };
@@ -82,7 +84,7 @@ pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     genesis_hash: BlockHash,
     inputs: &[&InputDetail],
-    destination: &Address,
+    destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<Transaction> {
     let unblinded = unblind_outputs(secp, inputs)?;
@@ -105,7 +107,7 @@ fn construct_raw<C: Signing + Verification>(
     genesis_hash: BlockHash,
     inputs: &[&InputDetail],
     unblinded: &[UnblindedOutput],
-    destination: &Address,
+    destination: &Destination<&Address>,
     fee: u64,
 ) -> Result<Transaction> {
     let mut tx = Transaction {
@@ -290,126 +292,244 @@ fn unblind_outputs<C: Verification>(
 fn blind_outputs<C: Signing>(
     secp: &Secp256k1<C>,
     unblinded: &[UnblindedOutput],
-    destination: &Address,
+    destination: &Destination<&Address>,
     fee: u64,
 ) -> Result<Vec<TxOut>> {
-    let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
-    let mut output_value = unblinded.iter().map(|input| input.amount()).sum::<u64>() - fee;
+    let mut input_sum = unblinded.iter().map(|input| input.amount()).sum::<u64>();
 
-    let mut outputs = Vec::new();
+    // We need a blinded dummy output if there is some blinded input and none of our outputs are blinded
+    let needs_dummy_output = unblinded.iter().any(|i| match i {
+        UnblindedOutput::Unblinded(_) => true,
+        UnblindedOutput::Explicit(_) => false,
+    }) && match destination {
+        Destination::Single(address) => !address.is_blinded(),
+        Destination::Multiple(outputs) => {
+            !outputs.change.is_blinded()
+                && !outputs
+                    .outputs
+                    .iter()
+                    .any(|(address, _)| address.is_blinded())
+        }
+    };
+
     let asset_id = unblinded[0].asset();
+    let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
 
-    if let Some(blinding_key) = destination.blinding_pubkey {
-        let value_bf = ValueBlindingFactor::last(
+    let mut last_to_blind = None;
+    let mut outputs = Vec::new();
+
+    if needs_dummy_output {
+        input_sum -= DUMMY_BLINDED_OUTPUT;
+
+        let stub_script = Builder::new().push_opcode(OP_RETURN).into_script();
+        let blinding_pubkey = Some(SecretKey::new(&mut rand::thread_rng()).public_key(secp));
+
+        let (_, asset_bf, value_bf, output) = create_output(
             secp,
-            output_value,
-            asset_bf,
-            &unblinded.iter().map(|i| i.into()).collect::<Vec<_>>(),
-            &[(
-                fee,
-                AssetBlindingFactor::zero(),
-                ValueBlindingFactor::zero(),
-            )],
-        );
+            unblinded,
+            (asset_id, asset_bf),
+            &stub_script,
+            blinding_pubkey,
+            DUMMY_BLINDED_OUTPUT,
+            None,
+        )?;
 
-        let (blinded_value, nonce, range_proof) = Value::Explicit(output_value).blind(
+        last_to_blind = Some((
+            outputs.len(),
+            DUMMY_BLINDED_OUTPUT,
+            stub_script,
+            blinding_pubkey,
+        ));
+        outputs.push((input_sum, asset_bf, value_bf, output));
+    }
+
+    match destination {
+        Destination::Single(address) => {
+            let amount = input_sum - fee;
+            let (blinded, asset_bf, value_bf, output) = create_output(
+                secp,
+                unblinded,
+                (asset_id, asset_bf),
+                &address.script_pubkey(),
+                address.blinding_pubkey,
+                amount,
+                None,
+            )?;
+
+            if blinded {
+                last_to_blind = Some((
+                    outputs.len(),
+                    amount,
+                    address.script_pubkey(),
+                    address.blinding_pubkey,
+                ));
+            }
+
+            outputs.push((amount, asset_bf, value_bf, output));
+        }
+        Destination::Multiple(destination) => {
+            let output_sum = destination
+                .outputs
+                .iter()
+                .map(|output| output.1)
+                .sum::<u64>();
+
+            if output_sum
+                + fee
+                + match needs_dummy_output {
+                    true => DUMMY_BLINDED_OUTPUT,
+                    false => 0,
+                }
+                > input_sum
+            {
+                return Err(anyhow::anyhow!("output sum is greater than input sum"));
+            }
+
+            for (address, amount) in destination.outputs {
+                let (blinded, asset_bf, value_bf, output) = create_output(
+                    secp,
+                    unblinded,
+                    (asset_id, asset_bf),
+                    &address.script_pubkey(),
+                    address.blinding_pubkey,
+                    *amount,
+                    None,
+                )?;
+
+                if blinded {
+                    last_to_blind = Some((
+                        outputs.len(),
+                        *amount,
+                        address.script_pubkey(),
+                        address.blinding_pubkey,
+                    ));
+                }
+
+                outputs.push((*amount, asset_bf, value_bf, output));
+            }
+
+            let sweep_amount = input_sum - fee - output_sum;
+            let (blinded, asset_bf, value_bf, output) = create_output(
+                secp,
+                unblinded,
+                (asset_id, asset_bf),
+                &destination.change.script_pubkey(),
+                destination.change.blinding_pubkey,
+                sweep_amount,
+                None,
+            )?;
+
+            if blinded {
+                last_to_blind = Some((
+                    outputs.len(),
+                    sweep_amount,
+                    destination.change.script_pubkey(),
+                    destination.change.blinding_pubkey,
+                ));
+            }
+
+            outputs.push((sweep_amount, asset_bf, value_bf, output));
+        }
+    }
+
+    outputs.push((
+        fee,
+        AssetBlindingFactor::zero(),
+        ValueBlindingFactor::zero(),
+        TxOut::new_fee(fee, asset_id),
+    ));
+
+    if let Some((index, amount, script, blinding_pubkey)) = last_to_blind {
+        let (_, asset_bf, value_bf, output) = create_output(
+            secp,
+            unblinded,
+            (asset_id, asset_bf),
+            &script,
+            blinding_pubkey,
+            amount,
+            Some(
+                &outputs
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != index)
+                    .map(|(_, (amount, asset_bf, value_bf, _))| (*amount, *asset_bf, *value_bf))
+                    .collect::<Vec<_>>(),
+            ),
+        )?;
+
+        outputs[index] = (amount, asset_bf, value_bf, output);
+    }
+
+    Ok(outputs
+        .into_iter()
+        .map(|(_, _, _, output)| output)
+        .collect())
+}
+
+fn create_output<C: Signing>(
+    secp: &Secp256k1<C>,
+    unblinded: &[UnblindedOutput],
+    asset: (AssetId, AssetBlindingFactor),
+    script_pubkey: &Script,
+    blinding_pubkey: Option<PublicKey>,
+    amount: u64,
+    last_blinding_params: Option<&[(u64, AssetBlindingFactor, ValueBlindingFactor)]>,
+) -> Result<(bool, AssetBlindingFactor, ValueBlindingFactor, TxOut)> {
+    if let Some(blinding_key) = blinding_pubkey {
+        let value_bf = match last_blinding_params {
+            Some(params) => ValueBlindingFactor::last(
+                secp,
+                amount,
+                asset.1,
+                &unblinded.iter().map(|i| i.into()).collect::<Vec<_>>(),
+                params,
+            ),
+            None => ValueBlindingFactor::new(&mut rand::thread_rng()),
+        };
+        let (blinded_value, nonce, range_proof) = Value::Explicit(amount).blind(
             secp,
             value_bf,
             blinding_key,
             SecretKey::new(&mut rand::thread_rng()),
-            &destination.script_pubkey(),
+            script_pubkey,
             &RangeProofMessage {
-                asset: asset_id,
-                bf: asset_bf,
+                asset: asset.0,
+                bf: asset.1,
             },
         )?;
 
         let (blinded_asset, asset_surjection_proof) =
-            Asset::Explicit(asset_id).blind(&mut rand::thread_rng(), secp, asset_bf, unblinded)?;
+            Asset::Explicit(asset.0).blind(&mut rand::thread_rng(), secp, asset.1, unblinded)?;
 
-        outputs.push(TxOut {
-            nonce,
-            asset: blinded_asset,
-            value: blinded_value,
-            script_pubkey: destination.script_pubkey(),
-            witness: TxOutWitness {
-                surjection_proof: Some(Box::new(asset_surjection_proof)),
-                rangeproof: Some(Box::new(range_proof)),
-            },
-        });
-    } else {
-        let has_blinded_inputs = unblinded.iter().any(|i| match i {
-            UnblindedOutput::Unblinded(_) => true,
-            UnblindedOutput::Explicit(_) => false,
-        });
-
-        if has_blinded_inputs {
-            output_value -= DUMMY_BLINDED_OUTPUT;
-
-            let value_bf = ValueBlindingFactor::last(
-                secp,
-                DUMMY_BLINDED_OUTPUT,
-                asset_bf,
-                &unblinded.iter().map(|i| i.into()).collect::<Vec<_>>(),
-                &[
-                    (
-                        output_value,
-                        AssetBlindingFactor::zero(),
-                        ValueBlindingFactor::zero(),
-                    ),
-                    (
-                        fee,
-                        AssetBlindingFactor::zero(),
-                        ValueBlindingFactor::zero(),
-                    ),
-                ],
-            );
-
-            let stub_script = Builder::new().push_opcode(OP_RETURN).into_script();
-
-            let (blinded_value, nonce, range_proof) = Value::Explicit(DUMMY_BLINDED_OUTPUT).blind(
-                secp,
-                value_bf,
-                SecretKey::new(&mut rand::thread_rng()).public_key(secp),
-                SecretKey::new(&mut rand::thread_rng()),
-                &stub_script,
-                &RangeProofMessage {
-                    asset: asset_id,
-                    bf: asset_bf,
-                },
-            )?;
-
-            let (blinded_asset, asset_surjection_proof) = Asset::Explicit(asset_id).blind(
-                &mut rand::thread_rng(),
-                secp,
-                asset_bf,
-                unblinded,
-            )?;
-
-            outputs.push(TxOut {
+        Ok((
+            true,
+            asset.1,
+            value_bf,
+            TxOut {
                 nonce,
                 asset: blinded_asset,
                 value: blinded_value,
-                script_pubkey: stub_script,
+                script_pubkey: script_pubkey.clone(),
                 witness: TxOutWitness {
                     surjection_proof: Some(Box::new(asset_surjection_proof)),
                     rangeproof: Some(Box::new(range_proof)),
                 },
-            });
-        }
-
-        outputs.push(TxOut {
-            asset: Asset::Explicit(asset_id),
-            value: Value::Explicit(output_value),
-            script_pubkey: destination.script_pubkey(),
-            nonce: Nonce::Null,
-            witness: TxOutWitness::default(),
-        });
+            },
+        ))
+    } else {
+        Ok((
+            false,
+            AssetBlindingFactor::zero(),
+            ValueBlindingFactor::zero(),
+            TxOut {
+                asset: Asset::Explicit(asset.0),
+                value: Value::Explicit(amount),
+                script_pubkey: script_pubkey.clone(),
+                nonce: Nonce::Null,
+                witness: TxOutWitness::default(),
+            },
+        ))
     }
-
-    outputs.push(TxOut::new_fee(fee, asset_id));
-
-    Ok(outputs)
 }
 
 fn legacy_signature<C: Signing>(
@@ -447,8 +567,9 @@ mod tests {
         elements::{
             Tree, UncooperativeDetails, reverse_script, reverse_tree, swap_script, swap_tree,
         },
+        utils::Outputs,
     };
-    use bitcoin::{hashes::Hash, key::rand::RngCore};
+    use bitcoin::{Amount, hashes::Hash, key::rand::RngCore};
     use elements::{
         AddressParams, OutPoint, Script, Txid, hashes::hash160, secp256k1_zkp::PublicKey,
         secp256k1_zkp::XOnlyPublicKey, taproot::TaprootSpendInfo,
@@ -456,6 +577,8 @@ mod tests {
     use rstest::rstest;
     use serial_test::serial;
     use std::str::FromStr;
+
+    const FUNDING_AMOUNT: u64 = 100_000;
 
     fn reverse_tree_without_covenant(
         preimage_hash: hash160::Hash,
@@ -493,13 +616,13 @@ mod tests {
         BlockHash::from_str(&block.hash).unwrap()
     }
 
-    fn fund_address(client: &RpcClient, address: &Address, amount: u64) -> (Transaction, usize) {
+    fn fund_address(client: &RpcClient, address: &Address) -> (Transaction, usize) {
         let tx = client
             .request::<String>(
                 "sendtoaddress",
                 Some(vec![
                     RpcParam::Str(address.to_string()),
-                    RpcParam::Int(amount as i64),
+                    RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
                 ]),
             )
             .unwrap();
@@ -517,6 +640,12 @@ mod tests {
             .unwrap();
 
         (tx, vout_index)
+    }
+
+    fn address_blinding_key(client: &RpcClient, address: String) -> String {
+        client
+            .request::<String>("dumpblindingkey", Some(vec![RpcParam::Str(address)]))
+            .unwrap()
     }
 
     fn send_raw_transaction(client: &RpcClient, tx: &Transaction) -> Txid {
@@ -539,6 +668,28 @@ mod tests {
         } else {
             // Ditch the blinder
             Address::from_script(&address.script_pubkey(), None, &AddressParams::ELEMENTS).unwrap()
+        }
+    }
+
+    fn output_amount<C: Verification>(
+        secp: &Secp256k1<C>,
+        client: &RpcClient,
+        address: &Address,
+        output: &TxOut,
+    ) -> u64 {
+        match output.value {
+            Value::Explicit(amount) => amount,
+            Value::Confidential(_) => {
+                output
+                    .unblind(
+                        secp,
+                        SecretKey::from_str(&address_blinding_key(client, address.to_string()))
+                            .unwrap(),
+                    )
+                    .unwrap()
+                    .value
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -579,7 +730,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, 1);
+        let (funding_tx, vout_index) = fund_address(client, &address);
 
         (
             keys,
@@ -639,7 +790,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, 1);
+        let (funding_tx, vout_index) = fund_address(client, &address);
 
         (
             blinding_keys,
@@ -701,7 +852,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, 1);
+        let (funding_tx, vout_index) = fund_address(client, &address);
 
         (
             blinding_keys,
@@ -759,7 +910,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, 1);
+        let (funding_tx, vout_index) = fund_address(client, &address);
 
         (
             blinding_keys,
@@ -813,7 +964,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -896,7 +1047,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -956,7 +1107,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -991,7 +1142,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1041,7 +1192,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1076,7 +1227,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1126,7 +1277,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1161,7 +1312,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1211,7 +1362,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             &[&input],
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
         .unwrap();
@@ -1266,7 +1417,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             inputs.iter().collect::<Vec<_>>().as_slice(),
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
         .unwrap();
@@ -1321,7 +1472,7 @@ mod tests {
             &secp,
             get_genesis_hash(&client),
             inputs.iter().collect::<Vec<_>>().as_slice(),
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
         .unwrap();
@@ -1334,5 +1485,111 @@ mod tests {
 
         let broadcast = send_raw_transaction(&client, &tx);
         assert_eq!(broadcast, tx.txid());
+    }
+
+    #[rstest]
+    #[case::blinded(true, true)]
+    #[case::unblinded(false, false)]
+    #[case::unblinded_inputs(false, true)]
+    #[case::unblinded_output(true, false)]
+    #[serial(Elements)]
+    fn test_multiple_outputs(#[case] blind_input: bool, #[case] blind_output: bool) {
+        let client = RpcClient::new_elements_regtest();
+        let secp = Secp256k1::new();
+
+        let mut inputs = Vec::new();
+
+        let (keys, tree, _, mut input) = fund_taproot(&secp, &client, None, swap_tree, blind_input);
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
+            tree,
+            internal_key: keys.x_only_public_key().0,
+        }));
+        inputs.push(input);
+
+        inputs.push(fund_segwit_v0(&secp, &client, None, swap_script, blind_input).1);
+
+        let change = get_destination(&client, blind_output);
+        let outputs = [
+            (&get_destination(&client, blind_output), 21_000),
+            (&get_destination(&client, blind_output), 12_123),
+        ];
+
+        let fee = 500;
+        let tx = construct_tx(
+            &secp,
+            get_genesis_hash(&client),
+            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &Destination::Multiple(Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
+
+        let dummy_output = blind_input && !blind_output;
+
+        assert_eq!(
+            tx.output.len(),
+            outputs.len() + if dummy_output { 3 } else { 2 }
+        );
+
+        assert_eq!(
+            tx.output[if dummy_output { 1 } else { 0 }].script_pubkey,
+            outputs[0].0.script_pubkey()
+        );
+        assert_eq!(
+            output_amount(
+                &secp,
+                &client,
+                outputs[0].0,
+                &tx.output[if dummy_output { 1 } else { 0 }]
+            ),
+            outputs[0].1
+        );
+
+        assert_eq!(
+            tx.output[if dummy_output { 2 } else { 1 }].script_pubkey,
+            outputs[1].0.script_pubkey()
+        );
+        assert_eq!(
+            output_amount(
+                &secp,
+                &client,
+                outputs[1].0,
+                &tx.output[if dummy_output { 2 } else { 1 }]
+            ),
+            outputs[1].1
+        );
+
+        assert_eq!(
+            tx.output[if dummy_output { 3 } else { 2 }].script_pubkey,
+            change.script_pubkey()
+        );
+        assert_eq!(
+            output_amount(
+                &secp,
+                &client,
+                &change,
+                &tx.output[if dummy_output { 3 } else { 2 }]
+            ),
+            (FUNDING_AMOUNT * inputs.len() as u64)
+                - outputs[0].1
+                - outputs[1].1
+                - fee
+                - if dummy_output {
+                    DUMMY_BLINDED_OUTPUT
+                } else {
+                    0
+                }
+        );
+
+        assert!(tx.output[if dummy_output { 4 } else { 3 }].is_fee());
+        assert_eq!(
+            tx.output[if dummy_output { 4 } else { 3 }].value,
+            Value::Explicit(fee)
+        );
+
+        assert_eq!(send_raw_transaction(&client, &tx), tx.txid());
     }
 }

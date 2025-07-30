@@ -2,7 +2,7 @@ use crate::{
     bitcoin::InputDetail,
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
-    utils::{InputType, OutputType},
+    utils::{Destination, InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::{
@@ -25,7 +25,7 @@ const SIGHASH_TYPE_TAPROOT: TapSighashType = TapSighashType::Default;
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
-    destination: &Address,
+    destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<Transaction> {
     target_fee(fee, |fee| {
@@ -36,13 +36,47 @@ pub fn construct_tx<C: Signing + Verification>(
 pub fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
-    destination: &Address,
+    destination: &Destination<&Address>,
     fee: Amount,
 ) -> Result<Transaction> {
     let input_sum = inputs
         .iter()
         .map(|input| input.tx_out.value)
         .sum::<Amount>();
+
+    let output = match destination {
+        Destination::Single(address) => vec![TxOut {
+            value: input_sum - fee,
+            script_pubkey: address.script_pubkey(),
+        }],
+        Destination::Multiple(outputs) => {
+            let output_sum = outputs
+                .outputs
+                .iter()
+                .map(|output| Amount::from_sat(output.1))
+                .sum::<Amount>();
+
+            if output_sum + fee > input_sum {
+                return Err(anyhow::anyhow!("output sum is greater than input sum"));
+            }
+
+            let mut res = Vec::with_capacity(outputs.outputs.len() + 1);
+
+            for (address, amount) in outputs.outputs {
+                res.push(TxOut {
+                    value: Amount::from_sat(*amount),
+                    script_pubkey: address.script_pubkey(),
+                });
+            }
+
+            res.push(TxOut {
+                value: input_sum - fee - output_sum,
+                script_pubkey: outputs.change.script_pubkey(),
+            });
+
+            res
+        }
+    };
 
     let mut tx = Transaction {
         version: Version::TWO,
@@ -67,10 +101,7 @@ pub fn construct_raw<C: Signing + Verification>(
                 witness: Witness::new(),
             })
             .collect(),
-        output: vec![TxOut {
-            value: input_sum - fee,
-            script_pubkey: destination.script_pubkey(),
-        }],
+        output,
     };
 
     let prevouts = inputs
@@ -244,6 +275,7 @@ mod tests {
         },
         client::{RpcClient, RpcParam},
         detect_preimage,
+        utils::Outputs,
     };
     use bitcoin::{
         OutPoint, Txid, XOnlyPublicKey,
@@ -255,6 +287,8 @@ mod tests {
     use elements::pset::serialize::Serialize;
     use rstest::rstest;
     use std::str::FromStr;
+
+    const FUNDING_AMOUNT: u64 = 100_000;
 
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
         node.request::<serde_json::Value>(
@@ -268,7 +302,7 @@ mod tests {
                 "sendtoaddress",
                 Some(vec![
                     RpcParam::Str(address.to_string()),
-                    RpcParam::Float(Amount::from_sat(100_000).to_btc()),
+                    RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
                 ]),
             )
             .unwrap();
@@ -516,8 +550,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let mut tx =
-            construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let mut tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -577,7 +616,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
@@ -622,7 +667,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -652,8 +703,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 3.0;
-        let mut tx =
-            construct_tx(&secp, &[&input], &destination, FeeTarget::Relative(fee)).unwrap();
+        let mut tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Relative(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -714,7 +770,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 3.0;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Relative(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Relative(fee),
+        )
+        .unwrap();
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
@@ -748,7 +810,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
@@ -782,7 +850,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -807,7 +881,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
@@ -841,7 +921,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -866,7 +952,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(
             detect_preimage(&tx.input[0]).unwrap(),
@@ -900,7 +992,13 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(&secp, &[&input], &destination, FeeTarget::Absolute(fee)).unwrap();
+        let tx = construct_tx(
+            &secp,
+            &[&input],
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
 
         assert_eq!(tx.output.len(), 1);
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
@@ -946,7 +1044,7 @@ mod tests {
         let tx = construct_tx(
             &secp,
             inputs.iter().collect::<Vec<_>>().as_slice(),
-            &destination,
+            &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
         .unwrap();
@@ -957,6 +1055,59 @@ mod tests {
             tx.output[0].value,
             inputs.iter().map(|i| i.tx_out.value).sum::<Amount>()
                 - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + inputs.len() as u64))
+        );
+
+        assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
+    }
+
+    #[test]
+    fn test_multiple_outputs() {
+        let node = RpcClient::new_bitcoin_regtest();
+        let secp = Secp256k1::new();
+
+        let mut inputs = Vec::new();
+
+        let (keys, tree, _, mut input) = fund_taproot(&secp, &node, None, swap_tree);
+        input.output_type = OutputType::Taproot(Some(UncooperativeDetails {
+            tree,
+            internal_key: keys.x_only_public_key().0,
+        }));
+        inputs.push(input);
+        inputs.push(fund_segwit_v0(&secp, &node, None, swap_script));
+
+        let change = get_destination(&node);
+        let outputs = [
+            (&get_destination(&node), 21_000),
+            (&get_destination(&node), 12_123),
+        ];
+
+        let fee = 500;
+        let tx = construct_tx(
+            &secp,
+            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &Destination::Multiple(Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
+
+        assert_eq!(tx.output.len(), outputs.len() + 1);
+
+        assert_eq!(tx.output[0].script_pubkey, outputs[0].0.script_pubkey());
+        assert_eq!(tx.output[0].value, Amount::from_sat(outputs[0].1));
+
+        assert_eq!(tx.output[1].script_pubkey, outputs[1].0.script_pubkey());
+        assert_eq!(tx.output[1].value, Amount::from_sat(outputs[1].1));
+
+        assert_eq!(tx.output[2].script_pubkey, change.script_pubkey());
+        assert_eq!(
+            tx.output[2].value,
+            Amount::from_sat(FUNDING_AMOUNT * inputs.len() as u64)
+                - Amount::from_sat(outputs[0].1)
+                - Amount::from_sat(outputs[1].1)
+                - Amount::from_sat(fee)
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());

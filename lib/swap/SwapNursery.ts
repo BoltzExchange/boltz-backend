@@ -582,6 +582,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             return;
           }
 
+          if (fetchedSwap.createdRefundSignature) {
+            this.logger.warn(
+              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a lockup transaction because it already signed a refund`,
+            );
+            return;
+          }
+
           if (
             fetchedSwap.sendingData.transactionId !== null &&
             fetchedSwap.sendingData.transactionId !== undefined

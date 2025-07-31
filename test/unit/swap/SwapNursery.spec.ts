@@ -1,8 +1,15 @@
+import { EventEmitter } from 'events';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
-import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
+import {
+  OrderSide,
+  SwapType,
+  SwapUpdateEvent,
+} from '../../../lib/consts/Enums';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
+import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
@@ -11,9 +18,11 @@ import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
 let mockGetSwapResult: any = null;
+let mockGetChainSwapResult: any = null;
 
 jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
+jest.mock('../../../lib/db/repositories/ChainSwapRepository');
 
 // Mock all the classes that SwapNursery instantiates
 jest.mock('../../../lib/swap/hooks/TransactionHook', () =>
@@ -22,11 +31,16 @@ jest.mock('../../../lib/swap/hooks/TransactionHook', () =>
 jest.mock('../../../lib/swap/OverpaymentProtector', () =>
   jest.fn().mockImplementation(() => ({})),
 );
-jest.mock('../../../lib/swap/UtxoNursery', () =>
-  jest
-    .fn()
-    .mockImplementation(() => ({ on: jest.fn(), bindCurrency: jest.fn() })),
-);
+jest.mock('../../../lib/swap/UtxoNursery', () => {
+  return jest.fn().mockImplementation(() => {
+    const emitter = new EventEmitter();
+    return {
+      on: emitter.on.bind(emitter),
+      emit: emitter.emit.bind(emitter),
+      bindCurrency: jest.fn(),
+    };
+  });
+});
 jest.mock('../../../lib/swap/InvoiceNursery', () =>
   jest.fn().mockImplementation(() => ({ on: jest.fn(), init: jest.fn() })),
 );
@@ -49,6 +63,7 @@ jest.mock('../../../lib/swap/RefundWatcher', () =>
 jest.mock('../../../lib/swap/LightningNursery', () => {
   const MockLightningNursery = jest.fn().mockImplementation(() => ({
     bindCurrencies: jest.fn(),
+    on: jest.fn(),
   }));
 
   (MockLightningNursery as any).cancelReverseInvoices = jest
@@ -129,6 +144,12 @@ describe('SwapNursery', () => {
       return mockGetSwapResult;
     });
 
+    (ChainSwapRepository.getChainSwap as jest.Mock).mockImplementation(
+      async () => {
+        return mockGetChainSwapResult;
+      },
+    );
+
     (ReverseSwapRepository.setInvoiceSettled as jest.Mock).mockImplementation(
       async (reverseSwap, preimage) => {
         return {
@@ -167,6 +188,7 @@ describe('SwapNursery', () => {
     swapNursery.currencies = new Map([['BTC', mockCurrency]]);
 
     mockGetSwapResult = null;
+    mockGetChainSwapResult = null;
   });
 
   describe('settleReverseSwapInvoice', () => {
@@ -458,6 +480,146 @@ describe('SwapNursery', () => {
       }
 
       expect(timeoutCallback!).toBeDefined();
+    });
+  });
+
+  describe('chainSwap.lockup', () => {
+    let baseMockChainSwap: ChainSwapInfo;
+    let mockTransaction: any;
+    let mockHandleChainSwapLockup: jest.SpyInstance;
+
+    beforeEach(async () => {
+      baseMockChainSwap = {
+        id: 'test-chain-swap-id',
+        type: SwapType.Chain,
+        createdRefundSignature: false,
+        sendingData: {
+          transactionId: null,
+        },
+      } as unknown as ChainSwapInfo;
+
+      mockTransaction = {};
+
+      mockHandleChainSwapLockup = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should handle chainSwap.lockup event successfully', async () => {
+      mockGetChainSwapResult = baseMockChainSwap;
+
+      const eventPromise = new Promise<void>((resolve) => {
+        swapNursery.once('transaction', ({ swap, transaction, confirmed }) => {
+          expect(swap).toEqual(mockGetChainSwapResult);
+          expect(transaction).toEqual(mockTransaction);
+          expect(confirmed).toEqual(true);
+          resolve();
+        });
+      });
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await eventPromise;
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(mockHandleChainSwapLockup).toHaveBeenCalledWith(
+        mockGetChainSwapResult,
+      );
+      expect(swapNursery.emit).toHaveBeenCalledWith('transaction', {
+        confirmed: true,
+        transaction: mockTransaction,
+        swap: mockGetChainSwapResult,
+      });
+    });
+
+    test('should return early when fetched swap is null', async () => {
+      mockGetChainSwapResult = null;
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+
+    test('should prevent lockup when createdRefundSignature is true', async () => {
+      mockGetChainSwapResult = {
+        ...baseMockChainSwap,
+        createdRefundSignature: true,
+      };
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('already signed a refund'),
+      );
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+
+    test('should prevent second lockup when sendingData.transactionId exists', async () => {
+      mockGetChainSwapResult = {
+        ...baseMockChainSwap,
+        sendingData: {
+          transactionId: 'existing-transaction-id',
+        },
+      };
+
+      (swapNursery as any).utxoNursery.emit('chainSwap.lockup', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('second lockup transaction'),
+      );
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
     });
   });
 });

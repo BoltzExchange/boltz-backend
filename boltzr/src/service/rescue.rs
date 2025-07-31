@@ -68,6 +68,7 @@ impl From<(String, i32)> for Transaction {
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct SwapDetailsBase {
     pub tree: SwapTree,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub amount: Option<i64>,
     #[serde(rename = "keyIndex")]
     pub key_index: u64,
@@ -568,6 +569,7 @@ impl SwapRescue {
         rescuable.append(
             &mut chain_swaps
                 .into_iter()
+                .filter(|s| s.receiving().theirPublicKey.is_some())
                 .map(|s| self.create_rescuable_chain_swap(&secp, keys_map, s))
                 .collect::<Result<Vec<RescuableSwap>>>()?,
         );
@@ -595,6 +597,10 @@ impl SwapRescue {
         restorable.append(
             &mut chain_swaps
                 .into_iter()
+                .filter(|s| {
+                    // Not handling RSK swaps yet
+                    s.receiving().theirPublicKey.is_some() && s.sending().theirPublicKey.is_some()
+                })
                 .map(|s| self.create_restorable_chain_swap(&secp, keys_map, s))
                 .collect::<Result<Vec<RestorableSwap>>>()?,
         );
@@ -671,8 +677,8 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: ChainSwapInfo,
     ) -> Result<RestorableSwap> {
-        let receiving_wallet = self.get_wallet(&s.receiving().symbol)?;
         let sending_wallet = self.get_wallet(&s.sending().symbol)?;
+        let receiving_wallet = self.get_wallet(&s.receiving().symbol)?;
 
         Ok(RestorableSwap {
             base: (&s).into(),

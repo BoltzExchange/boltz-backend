@@ -1,0 +1,27 @@
+[package]
+name = "boltz-core"
+version = "0.0.1"
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[features]
+default = ["musig", "bitcoin", "elements"]
+musig = ["dep:secp256k1"]
+bitcoin = ["dep:bitcoin"]
+elements = ["dep:elements", "dep:bitcoin"]
+
+[dependencies]
+anyhow = { workspace = true }
+bitcoin = { workspace = true, optional = true }
+elements = { workspace = true, optional = true }
+hex = "0.4.3"
+secp256k1 = { git = "https://github.com/rust-bitcoin/rust-secp256k1.git", version = "0.31.1", features = ["rand"], optional = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
+serde_json = { workspace = true }
+serial_test = { workspace = true }
+base64 = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }

@@ -1698,6 +1698,22 @@ class SwapRouter extends RouterBase {
      *         derivationPath:
      *           type: string
      *           description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     Transaction:
+     *       type: object
+     *       required: ["id", "hex"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID of the transaction
+     *         hex:
+     *           type: string
+     *           description: The transaction encoded as HEX
      *
      *     RescuableSwap:
      *       type: object
@@ -1737,16 +1753,7 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Lockup address of the Swap
      *         transaction:
-     *           type: object
-     *           description: Lockup transaction of the Swap
-     *           required: ["id", "hex"]
-     *           properties:
-     *             id:
-     *               type: string
-     *               description: ID of the transaction
-     *             hex:
-     *               type: string
-     *               description: The transaction encoded as HEX
+     *           $ref: '#/components/schemas/Transaction'
      *         createdAt:
      *           type: number
      *           description: UNIX timestamp of the creation of the Swap
@@ -1754,10 +1761,100 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * components:
+     *   schemas:
+     *     RestoreClaimDetails:
+     *       type: object
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight", "preimageHash"]
+     *       properties:
+     *         tree:
+     *           $ref: '#/components/schemas/SwapTree'
+     *         amount:
+     *           type: number
+     *           description: Amount of the swap
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the claim key used in the swap
+     *         transaction:
+     *           $ref: '#/components/schemas/Transaction'
+     *         lockupAddress:
+     *           type: string
+     *           description: Address in which coins are locked
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the HTLC will time out
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
+     *         preimageHash:
+     *           type: string
+     *           description: Hash of the preimage required to claim the swap
+     *
+     *     RestoreRefundDetails:
+     *       type: object
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
+     *       properties:
+     *         tree:
+     *           $ref: '#/components/schemas/SwapTree'
+     *         amount:
+     *           type: number
+     *           description: Amount of the swap
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the refund key used in the swap
+     *         transaction:
+     *           $ref: '#/components/schemas/Transaction'
+     *         lockupAddress:
+     *           type: string
+     *           description: Address in which coins are locked
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the HTLC will time out
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
+     *
+     *     RestorableSwap:
+     *       type: object
+     *       required: ["id", "type", "status", "createdAt", "from", "to"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID of the Swap
+     *         type:
+     *           type: string
+     *           enum: ["submarine", "reverse", "chain"]
+     *           description: Type of the Swap
+     *         status:
+     *           type: string
+     *           description: Status of the Swap
+     *         createdAt:
+     *           type: number
+     *           description: UNIX timestamp of the creation of the Swap
+     *         from:
+     *           type: string
+     *           description: Asset the client is supposed to send
+     *         to:
+     *           type: string
+     *           description: Asset the client is supposed to receive
+     *         claimDetails:
+     *           $ref: '#/components/schemas/RestoreClaimDetails'
+     *         refundDetails:
+     *           $ref: '#/components/schemas/RestoreRefundDetails'
+     */
+
+    /**
+     * @openapi
      * /swap/rescue:
      *   post:
      *     tags: [Swap]
-     *     description: Rescue swaps that were created with an XPUB
+     *     description: Rescue swaps that were created with an XPUB. Use when trying to refund a swap for which all information was lost
      *     requestBody:
      *       required: true
      *       content:
@@ -1773,6 +1870,29 @@ class SwapRouter extends RouterBase {
      *               type: array
      *               items:
      *                 $ref: '#/components/schemas/RescuableSwap'
+     */
+
+    /**
+     * @openapi
+     * /swap/restore:
+     *   post:
+     *     tags: [Swap]
+     *     description: Restore swaps that were created with an XPUB. Use when trying to refund or claim a swap for which all information was lost
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RescueRequest'
+     *     responses:
+     *       '200':
+     *         description: List of swaps that can be restored
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 $ref: '#/components/schemas/RestorableSwap'
      */
 
     return router;

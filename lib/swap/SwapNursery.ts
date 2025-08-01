@@ -282,6 +282,20 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       'swap.lockup',
       async ({ swap, transaction, confirmed }) => {
         await this.lock.acquire(SwapNursery.swapLock, async () => {
+          const fetchedSwap = await SwapRepository.getSwap({
+            id: swap.id,
+          });
+          if (fetchedSwap === null) {
+            return;
+          }
+
+          if (fetchedSwap.createdRefundSignature) {
+            this.logger.warn(
+              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from paying an invoice because it already signed a refund`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             swap,
             confirmed,

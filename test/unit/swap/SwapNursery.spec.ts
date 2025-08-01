@@ -103,15 +103,24 @@ describe('SwapNursery', () => {
     sendMessage: jest.fn(),
   } as unknown as NotificationClient;
 
+  const mockChainClient = {
+    symbol: 'BTC',
+  } as any;
+
+  const mockWallet = {
+    symbol: 'BTC',
+  } as any;
+
   const mockCurrency: Currency = {
     symbol: 'BTC',
     lndClient: mockLightningClient,
     clnClient: mockLightningClient,
+    chainClient: mockChainClient,
   } as Currency;
 
   const mockWalletManager = {
     ethereumManagers: [],
-    wallets: new Map(),
+    wallets: new Map([['BTC', mockWallet]]),
   } as any;
 
   const mockClaimer = {
@@ -620,6 +629,218 @@ describe('SwapNursery', () => {
         'transaction',
         expect.anything(),
       );
+    });
+  });
+
+  describe('swap.lockup', () => {
+    let baseMockSwap: any;
+    let mockTransaction: any;
+    let mockPayInvoice: jest.SpyInstance;
+    let mockClaimUtxo: jest.SpyInstance;
+    let mockSetSwapRate: jest.SpyInstance;
+
+    beforeEach(async () => {
+      baseMockSwap = {
+        id: 'test-swap-id',
+        type: SwapType.Submarine,
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        createdRefundSignature: false,
+        invoice: 'lnbc123...',
+      };
+
+      mockTransaction = {};
+
+      mockPayInvoice = jest
+        .spyOn(swapNursery as any, 'payInvoice')
+        .mockResolvedValue({
+          preimage: Buffer.from('preimage'),
+          channelCreation: null,
+        });
+      mockClaimUtxo = jest
+        .spyOn(swapNursery as any, 'claimUtxo')
+        .mockResolvedValue(undefined);
+      mockSetSwapRate = jest
+        .spyOn(swapNursery as any, 'setSwapRate')
+        .mockResolvedValue(undefined);
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should handle swap.lockup event successfully with invoice', async () => {
+      mockGetSwapResult = baseMockSwap;
+
+      const eventPromise = new Promise<void>((resolve) => {
+        swapNursery.once('transaction', ({ swap, transaction, confirmed }) => {
+          expect(swap).toEqual(baseMockSwap);
+          expect(transaction).toEqual(mockTransaction);
+          expect(confirmed).toEqual(true);
+          resolve();
+        });
+      });
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await eventPromise;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockPayInvoice).toHaveBeenCalledWith(baseMockSwap);
+      expect(mockClaimUtxo).toHaveBeenCalledWith(
+        baseMockSwap,
+        mockChainClient,
+        mockWallet,
+        mockTransaction,
+        Buffer.from('preimage'),
+        null,
+      );
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+    });
+
+    test('should handle swap.lockup event successfully without invoice', async () => {
+      const swapWithoutInvoice = {
+        ...baseMockSwap,
+        invoice: null,
+      };
+      mockGetSwapResult = swapWithoutInvoice;
+
+      const eventPromise = new Promise<void>((resolve) => {
+        swapNursery.once('transaction', ({ swap, transaction, confirmed }) => {
+          expect(swap).toEqual(swapWithoutInvoice);
+          expect(transaction).toEqual(mockTransaction);
+          expect(confirmed).toEqual(true);
+          resolve();
+        });
+      });
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: swapWithoutInvoice,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await eventPromise;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: swapWithoutInvoice.id,
+      });
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+      expect(mockClaimUtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).toHaveBeenCalledWith(swapWithoutInvoice);
+    });
+
+    test('should return early when fetched swap is null', async () => {
+      mockGetSwapResult = null;
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+      expect(mockClaimUtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+
+    test('should prevent invoice payment when createdRefundSignature is true', async () => {
+      mockGetSwapResult = {
+        ...baseMockSwap,
+        createdRefundSignature: true,
+      };
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('already signed a refund'),
+      );
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+      expect(mockClaimUtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+
+    test('should return early when payInvoice returns undefined', async () => {
+      mockGetSwapResult = baseMockSwap;
+      mockPayInvoice.mockResolvedValueOnce(undefined);
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockPayInvoice).toHaveBeenCalledWith(baseMockSwap);
+      expect(mockClaimUtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+    });
+
+    test('should emit transaction event before processing payment', async () => {
+      mockGetSwapResult = baseMockSwap;
+      let transactionEmitted = false;
+
+      swapNursery.once('transaction', () => {
+        transactionEmitted = true;
+      });
+
+      const originalPayInvoice = mockPayInvoice.getMockImplementation();
+      mockPayInvoice.mockImplementationOnce(async (...args) => {
+        expect(transactionEmitted).toBe(true);
+        return (
+          originalPayInvoice?.(...args) || {
+            preimage: Buffer.from('preimage'),
+            channelCreation: null,
+          }
+        );
+      });
+
+      (swapNursery as any).utxoNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        transaction: mockTransaction,
+        confirmed: true,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(mockPayInvoice).toHaveBeenCalled();
     });
   });
 });

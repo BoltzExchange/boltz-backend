@@ -35,6 +35,7 @@ export const swapExample = {
     'lnbcrt10u1pwd0ll7pp5ulhj6g7cxhsnv7daksah2tcegr7crqrkym5lxl96kxn450wj9p5sdqqcqzpghwrktsemktcs8u367pls8t5htnhvh8l5x00zpu2sjq0lmag5zzw58mf3hfw02zj3ucuw7n52t2cajk7d88wzfh9ydwgtl9yz7gu00fqqzku5uy',
   redeemScript:
     'a9140e8ff7435f5e0c9b7b82c5a8b8c0e225f55f956187632103e1afb0000fc8acf1af59792f35d45f74a9b20784321bdfdc6daa54e72784ae046702a300b1752103533d4307acfa023c7870c1f3c981e3973a18d43458857f201288c19967e9763568ac',
+  createdRefundSignature: false,
 } as SwapType;
 
 export const pendingSwapExample: SwapType = {
@@ -113,6 +114,7 @@ export const channelSwapExample = {
   invoiceAmount: 1,
   redeemScript:
     'a91417543b331ad6f253f1632d9c3ded7e03ec2bcd4a87632102ab507fc9eb1a649b8b08124a6eba7dcfe4b274182c8e5f1bdf1aaf26bbccc43a67022001b175210357e57fee8a1adfde4512b01920676b0cbe254ab1f0be8d3aee7c0b7058fd419268ac',
+  createdRefundSignature: false,
 } as SwapType;
 
 export const channelCreationExample: ChannelCreationType = {

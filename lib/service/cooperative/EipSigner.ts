@@ -94,6 +94,8 @@ class EipSigner {
 
       if (swap.type === SwapType.Chain) {
         await ChainSwapRepository.setRefundSignatureCreated(swap.id);
+      } else {
+        await SwapRepository.setRefundSignatureCreated(swap.id);
       }
 
       return `0x${getHexString(sidecarRes)}`;

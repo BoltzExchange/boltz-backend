@@ -130,7 +130,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 20;
+  private static latestSchemaVersion = 21;
 
   private toBackFill: number[] = [];
 
@@ -986,6 +986,19 @@ class Migration {
             },
           );
         });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 20: {
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(Swap.tableName, 'createdRefundSignature', {
+            type: new DataTypes.BOOLEAN(),
+            allowNull: false,
+            defaultValue: false,
+          });
 
         await this.finishMigration(versionRow.version, currencies);
         break;

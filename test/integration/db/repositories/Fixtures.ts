@@ -24,6 +24,7 @@ export const createSubmarineSwapData = (acceptZeroConf = false) => ({
   status: SwapUpdateEvent.SwapCreated,
   id: generateSwapId(SwapVersion.Taproot),
   preimageHash: getHexString(randomBytes(32)),
+  createdRefundSignature: false,
 });
 
 export const createReverseSwap = async (

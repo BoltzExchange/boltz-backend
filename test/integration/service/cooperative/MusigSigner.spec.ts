@@ -198,7 +198,9 @@ describe('MusigSigner', () => {
       false,
     );
 
+    const refundableSwapId = 'refundable';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      id: refundableSwapId,
       keyIndex: 42,
       pair: 'BTC/BTC',
       version: SwapVersion.Taproot,
@@ -208,14 +210,20 @@ describe('MusigSigner', () => {
       invoice: (await bitcoinLndClient2.addInvoice(123)).paymentRequest,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     });
+    SwapRepository.setRefundSignatureCreated = jest.fn();
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(claimKeys);
 
     const boltzPartialSig = await signer.signRefund(
-      'refundable',
+      refundableSwapId,
       Buffer.from(musig.getPublicNonce()),
       refundTx.toBuffer(),
       0,
+    );
+
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(1);
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
+      refundableSwapId,
     );
 
     musig.aggregateNonces([[claimKeys.publicKey, boltzPartialSig.pubNonce]]);

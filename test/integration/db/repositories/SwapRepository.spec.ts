@@ -153,4 +153,28 @@ describe('SwapRepository', () => {
       expect(swap.status).toEqual(SwapUpdateEvent.InvoicePaid);
     });
   });
+
+  describe('setRefundSignatureCreated', () => {
+    test('should set createdRefundSignature to true', async () => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      expect(swap.createdRefundSignature).toEqual(false);
+
+      const [affectedCount] = await SwapRepository.setRefundSignatureCreated(
+        swap.id,
+      );
+      expect(affectedCount).toEqual(1);
+
+      const updatedSwap = await SwapRepository.getSwap({ id: swap.id });
+      expect(updatedSwap!.createdRefundSignature).toEqual(true);
+    });
+
+    test('should handle non-existent swap ID gracefully', async () => {
+      const nonExistentId = 'non-existent-swap-id';
+
+      const [affectedCount] =
+        await SwapRepository.setRefundSignatureCreated(nonExistentId);
+      expect(affectedCount).toEqual(0);
+    });
+  });
 });

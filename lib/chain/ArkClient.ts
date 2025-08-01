@@ -16,6 +16,7 @@ import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
 import * as notificationrpc from '../proto/ark/notification_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import AspClient from './AspClient';
 import type { IChainClient } from './ChainClient';
@@ -26,6 +27,8 @@ export type ArkConfig = {
 
   minWalletBalance?: number;
   maxZeroConfAmount?: number;
+
+  useLocktimeSeconds?: boolean;
 };
 
 export type Timeouts = {
@@ -63,12 +66,15 @@ type SubscribedAddress = {
 
 class ArkClient extends BaseClient<
   BaseClientEvents & {
-    block: number;
+    // "height" is populated when timelocks based on block numbers are used
+    // else, "medianTime" is populated for seconds based timelocks
+    block: { height?: number; medianTime?: number };
     'vhtlc.created': CreatedVHtlc;
     'vhtlc.spent': SpentVHtlc;
   }
 > {
   public static readonly symbol = 'ARK';
+  private static readonly OP_CSV_MULTIPLE = 512;
 
   public aspClient!: AspClient;
 
@@ -86,6 +92,10 @@ class ArkClient extends BaseClient<
     private readonly config: ArkConfig,
   ) {
     super(logger, ArkClient.symbol);
+
+    this.logger.info(
+      `Using ${this.config.useLocktimeSeconds ? 'second' : 'block'} timeouts for ${this.serviceName()} ${this.symbol}`,
+    );
   }
 
   public static decodeAddress = (address: string) => {
@@ -303,10 +313,31 @@ class ArkClient extends BaseClient<
     height: number;
     timeouts: Timeouts;
   }> => {
+    const convertDelay = (delay: number) => {
+      if (this.config.useLocktimeSeconds) {
+        const seconds = TimeoutDeltaProvider.minutesToSeconds(
+          TimeoutDeltaProvider.blockTimes.get(this.chainClient!.symbol)! *
+            delay,
+        );
+        return Math.round(
+          Math.ceil(seconds / ArkClient.OP_CSV_MULTIPLE) *
+            ArkClient.OP_CSV_MULTIPLE,
+        );
+      }
+
+      return delay;
+    };
+
     const createDelay = (delay: number) => {
       const timeout = new arkrpc.RelativeLocktime();
-      timeout.setType(arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK);
+
+      timeout.setType(
+        this.config.useLocktimeSeconds
+          ? arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_SECOND
+          : arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK,
+      );
       timeout.setValue(delay);
+
       return timeout;
     };
 
@@ -323,10 +354,10 @@ class ArkClient extends BaseClient<
 
     const currentHeight = await this.getBlockHeight();
     const timeouts: Timeouts = {
-      refund: Math.ceil(currentHeight + refundDelay),
-      unilateralClaim: Math.ceil(claimDelay),
-      unilateralRefund: Math.ceil(refundDelay),
-      unilateralRefundWithoutReceiver: Math.ceil(refundDelay),
+      refund: convertDelay(Math.ceil(currentHeight + refundDelay)),
+      unilateralClaim: convertDelay(Math.ceil(claimDelay)),
+      unilateralRefund: convertDelay(Math.ceil(refundDelay)),
+      unilateralRefundWithoutReceiver: convertDelay(Math.ceil(refundDelay)),
     };
 
     req.setRefundLocktime(timeouts.refund);
@@ -508,8 +539,19 @@ class ArkClient extends BaseClient<
     });
   };
 
-  private listenBlocks = (blockNumber: number) => {
-    this.emit('block', blockNumber);
+  private listenBlocks = async (blockNumber: number) => {
+    if (this.config.useLocktimeSeconds) {
+      const blockHash = await this.chainClient!.getBlockhash(blockNumber);
+      const block = await this.chainClient!.getBlock(blockHash);
+
+      this.emit('block', {
+        medianTime: block.mediantime,
+      });
+    } else {
+      this.emit('block', {
+        height: blockNumber,
+      });
+    }
   };
 
   private unaryCall = <T, U>(

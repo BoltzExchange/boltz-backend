@@ -16,7 +16,7 @@ codegen-units = 1
 panic = "abort"
 
 [workspace.dependencies]
-alloy = { version = "1.0.22", features = [
+alloy = { version = "1.0.23", features = [
 	"reqwest",
 	"sol-types",
 	"serde",
@@ -32,15 +32,15 @@ anyhow = "1.0.98"
 base64 = "0.22.1"
 bitcoin = { version = "0.32.6", features = ["rand-std"] }
 bitcoin_hashes = "0.16.0"
-clap = { version = "4.5.41", features = ["derive"] }
+clap = { version = "4.5.42", features = ["derive"] }
 elements = "0.25.2"
 rand = "0.8.5"
 reqwest = { version = "0.12.22", features = ["json"] }
-rstest = "0.25.0"
+rstest = "0.26.1"
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
+serde_json = "1.0.142"
 serial_test = "3.2.0"
-tokio = { version = "1.46.1", features = [
+tokio = { version = "1.47.1", features = [
 	"rt-multi-thread",
 	"macros",
 	"process",

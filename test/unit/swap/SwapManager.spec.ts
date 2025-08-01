@@ -614,6 +614,7 @@ describe('SwapManager', () => {
         mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
       redeemScript:
         'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
+      createdRefundSignature: false,
     });
 
     // Channel Creation
@@ -668,6 +669,7 @@ describe('SwapManager', () => {
         mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
       redeemScript:
         'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
+      createdRefundSignature: false,
     });
 
     expect(mockAddChannelCreation).toHaveBeenCalledTimes(1);
@@ -730,9 +732,8 @@ describe('SwapManager', () => {
       orderSide: OrderSide.BUY,
       preimageHash:
         '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
-      reload: jest.fn().mockImplementation(async () => {
-        return swap;
-      }),
+      expectedAmount: 100,
+      onchainAmount: 100,
     } as any as Swap;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
@@ -879,6 +880,54 @@ describe('SwapManager', () => {
 
     swap.lockupTransactionId = undefined;
 
+    // Swap that has mismatched amounts should not be settled
+    const originalGetSwap = SwapRepository.getSwap;
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      ...swap,
+      lockupTransactionId:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      status: SwapUpdateEvent.TransactionConfirmed,
+      expectedAmount: 100,
+      onchainAmount: 90, // Different amount to prevent settlement
+    });
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      invoiceEncode.satoshis!,
+      expectedAmount,
+      percentageFee,
+      acceptZeroConf,
+      true,
+      emitSwapInvoiceSet,
+    );
+
+    // Settlement should not be attempted because amounts don't match
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(3);
+
+    // Swap that has already created a refund signature should throw error
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      ...swap,
+      createdRefundSignature: true,
+    });
+
+    await expect(
+      manager.setSwapInvoice(
+        swap,
+        invoice,
+        invoiceEncode.satoshis!,
+        expectedAmount,
+        percentageFee,
+        acceptZeroConf,
+        true,
+        emitSwapInvoiceSet,
+      ),
+    ).rejects.toEqual(Errors.SWAP_ALREADY_REFUNDED(swap.id));
+
+    SwapRepository.getSwap = originalGetSwap;
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(3);
+
     // Swap with Channel Creation
     mockGetChannelCreationResult = {
       some: 'data',
@@ -895,9 +944,9 @@ describe('SwapManager', () => {
       emitSwapInvoiceSet,
     );
 
-    expect(mockGetChannelCreation).toHaveBeenCalledTimes(5);
-    expect(mockSetInvoice).toHaveBeenCalledTimes(5);
-    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(5);
+    expect(mockGetChannelCreation).toHaveBeenCalledTimes(7);
+    expect(mockSetInvoice).toHaveBeenCalledTimes(6);
+    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(6);
 
     // Swap with Channel Creation and invoice that expires too soon
     swap.timeoutBlockHeight = 1000;

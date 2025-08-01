@@ -138,4 +138,8 @@ export default {
     message: 'payee missing from invoice',
     code: concatErrorCode(ErrorCodePrefix.Swap, 29),
   }),
+  SWAP_ALREADY_REFUNDED: (id: string): Error => ({
+    message: `swap ${id} already refunded`,
+    code: concatErrorCode(ErrorCodePrefix.Swap, 30),
+  }),
 };

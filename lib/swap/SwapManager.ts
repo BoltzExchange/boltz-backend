@@ -450,6 +450,7 @@ class SwapManager {
         paymentTimeout: args.paymentTimeout,
         status: SwapUpdateEvent.SwapCreated,
         timeoutBlockHeight: result.timeoutBlockHeight,
+        createdRefundSignature: false,
         preimageHash: getHexString(args.preimageHash),
         refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript:
@@ -482,6 +483,7 @@ class SwapManager {
         status: SwapUpdateEvent.SwapCreated,
         preimageHash: getHexString(args.preimageHash),
         timeoutBlockHeight: result.timeoutBlockHeight,
+        createdRefundSignature: false,
       });
     }
 
@@ -640,8 +642,12 @@ class SwapManager {
     }
 
     await this.nursery.lock.acquire(SwapNursery.swapLock, async () => {
-      // Fetch the status again to make sure it is the latest from the database
-      const previousStatus = (await swap.reload()).status;
+      // Fetch the swap
+      const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
+
+      if (updatedSwap.createdRefundSignature) {
+        throw Errors.SWAP_ALREADY_REFUNDED(updatedSwap.id);
+      }
 
       await SwapRepository.setInvoice(
         swap,
@@ -652,9 +658,6 @@ class SwapManager {
         acceptZeroConf,
       );
 
-      // Fetch the swap
-      const updatedSwap = (await SwapRepository.getSwap({ id: swap.id }))!;
-
       // Not the most elegant way to emit this event, but the only option
       // to emit it before trying to claim the swap
       emitSwapInvoiceSet(updatedSwap.id);
@@ -662,9 +665,10 @@ class SwapManager {
       // If the onchain coins were sent already and 0-conf can be accepted or
       // the lockup transaction is confirmed the swap should be settled directly
       if (
-        swap.lockupTransactionId &&
-        previousStatus !== SwapUpdateEvent.TransactionZeroConfRejected &&
-        swap.expectedAmount === swap.onchainAmount
+        updatedSwap.lockupTransactionId &&
+        updatedSwap.status !== SwapUpdateEvent.TransactionZeroConfRejected &&
+        swap.expectedAmount === swap.onchainAmount &&
+        updatedSwap.expectedAmount === updatedSwap.onchainAmount
       ) {
         try {
           await this.nursery.attemptSettleSwap(receivingCurrency, updatedSwap);

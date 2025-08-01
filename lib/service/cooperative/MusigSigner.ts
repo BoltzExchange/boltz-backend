@@ -110,7 +110,7 @@ class MusigSigner {
 
     const swapTree = SwapTreeSerializer.deserializeSwapTree(swap.redeemScript!);
 
-    return createPartialSignature(
+    const sig = await createPartialSignature(
       currency,
       this.walletManager.wallets.get(currency.symbol)!,
       swapTree,
@@ -120,6 +120,10 @@ class MusigSigner {
       rawTransaction,
       index,
     );
+
+    await SwapRepository.setRefundSignatureCreated(swap.id);
+
+    return sig;
   };
 
   public signReverseSwapClaim = (

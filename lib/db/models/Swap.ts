@@ -47,6 +47,8 @@ type SwapType = {
   lockupAddress: string;
   lockupTransactionId?: string;
   lockupTransactionVout?: number;
+
+  createdRefundSignature: boolean;
 };
 
 class Swap extends Model implements SwapType {
@@ -83,6 +85,8 @@ class Swap extends Model implements SwapType {
   public lockupAddress!: string;
   public lockupTransactionId?: string;
   public lockupTransactionVout?: number;
+
+  public createdRefundSignature!: boolean;
 
   public createdAt!: Date;
   public updatedAt!: Date;
@@ -152,6 +156,11 @@ class Swap extends Model implements SwapType {
         lockupTransactionVout: {
           type: new DataTypes.INTEGER(),
           allowNull: true,
+        },
+        createdRefundSignature: {
+          type: DataTypes.BOOLEAN(),
+          allowNull: false,
+          defaultValue: false,
         },
       },
       {

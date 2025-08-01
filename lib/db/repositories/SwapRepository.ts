@@ -152,6 +152,18 @@ class SwapRepository {
     });
   };
 
+  public static setRefundSignatureCreated = (id: string) =>
+    Swap.update(
+      {
+        createdRefundSignature: true,
+      },
+      {
+        where: {
+          id,
+        },
+      },
+    );
+
   public static dropTable = (): Promise<void> => {
     return Swap.drop();
   };

@@ -22,6 +22,7 @@ import { getContracts, getSigner } from '../../wallet/EthereumTools';
 
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwap: jest.fn().mockResolvedValue(null),
+  setRefundSignatureCreated: jest.fn(),
 }));
 
 jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
@@ -140,7 +141,9 @@ describe('EipSigner', () => {
     const timelock = (await setup.provider.getBlockNumber()) + 21;
     const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
 
+    const id = 'submarine-ether-swap-id';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      id,
       lockupAddress,
       orderSide: 1,
       pair: 'RBTC/BTC',
@@ -152,7 +155,7 @@ describe('EipSigner', () => {
       onchainAmount: Number(amount / etherDecimals),
     });
 
-    await signer.signSwapRefund('rswap');
+    await signer.signSwapRefund('submarine-ether-swap-id');
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
@@ -162,6 +165,9 @@ describe('EipSigner', () => {
       undefined,
       timelock,
     );
+
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(1);
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(id);
   });
 
   test('should refund chain EtherSwap cooperatively', async () => {
@@ -214,7 +220,9 @@ describe('EipSigner', () => {
     const lockupAddress = '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad';
     const timelock = (await setup.provider.getBlockNumber()) + 21;
 
+    const id = 'submarine-erc20-swap-id';
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      id,
       lockupAddress,
       orderSide: 1,
       pair: 'TOKEN/BTC',
@@ -226,7 +234,7 @@ describe('EipSigner', () => {
       status: SwapUpdateEvent.InvoiceFailedToPay,
     });
 
-    await signer.signSwapRefund('tswap');
+    await signer.signSwapRefund('submarine-erc20-swap-id');
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
@@ -236,6 +244,9 @@ describe('EipSigner', () => {
       await token.getAddress(),
       timelock,
     );
+
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(1);
+    expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(id);
   });
 
   test('should refund chain ERC20Swap cooperatively', async () => {

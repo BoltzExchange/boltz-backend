@@ -11,6 +11,7 @@ export default [
   {
     ignores: [
       'dist',
+      'tools',
       'lib/proto',
       'contracts',
       'node_modules',

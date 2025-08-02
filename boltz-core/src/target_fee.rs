@@ -7,6 +7,18 @@ pub enum FeeTarget {
     Relative(f64),
 }
 
+impl From<u64> for FeeTarget {
+    fn from(value: u64) -> Self {
+        Self::Absolute(value)
+    }
+}
+
+impl From<f64> for FeeTarget {
+    fn from(value: f64) -> Self {
+        Self::Relative(value)
+    }
+}
+
 pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
     fee_target: FeeTarget,
     construct_tx: C,
@@ -51,6 +63,15 @@ mod tests {
         fn vsize(&self) -> usize {
             self.vsize
         }
+    }
+
+    #[test]
+    fn test_from() {
+        let absolute = 21;
+        assert_eq!(FeeTarget::from(absolute), FeeTarget::Absolute(absolute));
+
+        let relative = 21.21;
+        assert_eq!(FeeTarget::from(relative), FeeTarget::Relative(relative));
     }
 
     #[test]

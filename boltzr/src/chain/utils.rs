@@ -243,7 +243,7 @@ mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn calculate_fee_bitcoin() {
-        let client = bitcoin_test::get_client();
+        let client = bitcoin_test::get_client().await;
         let tx = bitcoin_test::send_transaction(&client).await;
         bitcoin_test::generate_block(&client).await;
 

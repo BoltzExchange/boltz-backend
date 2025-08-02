@@ -120,7 +120,7 @@ mod test {
     use mockall::{mock, predicate};
     use std::collections::HashMap;
     use std::str::FromStr;
-    use std::sync::{Arc, OnceLock};
+    use std::sync::Arc;
 
     mock! {
         SwapHelper {}
@@ -141,35 +141,32 @@ mod test {
         }
     }
 
-    fn get_currencies() -> Currencies {
-        static CURRENCIES: OnceLock<Currencies> = OnceLock::new();
-        CURRENCIES
-            .get_or_init(|| {
-                Arc::new(HashMap::<String, Currency>::from([(
-                    String::from("BTC"),
-                    Currency {
-                        network: Network::Regtest,
-                        wallet: Some(Arc::new(
-                            Bitcoin::new(
-                                Network::Regtest,
-                                &Mnemonic::from_str(
-                                    "test test test test test test test test test test test junk",
-                                )
-                                .unwrap()
-                                .to_seed(""),
-                                "m/0/0".to_string(),
-                            )
-                            .unwrap(),
-                        )),
-                        chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
-                        cln: None,
-                        lnd: None,
-                        bumper: None,
-                        evm_manager: None,
-                    },
-                )]))
-            })
-            .clone()
+    async fn get_currencies() -> Currencies {
+        let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
+
+        Arc::new(HashMap::<String, Currency>::from([(
+            String::from("BTC"),
+            Currency {
+                network: Network::Regtest,
+                wallet: Some(Arc::new(
+                    Bitcoin::new(
+                        Network::Regtest,
+                        &Mnemonic::from_str(
+                            "test test test test test test test test test test test junk",
+                        )
+                        .unwrap()
+                        .to_seed(""),
+                        "m/0/0".to_string(),
+                        chain_client.clone(),
+                    )
+                    .unwrap(),
+                )),
+                chain: Some(chain_client),
+                cln: None,
+                lnd: None,
+                evm_manager: None,
+            },
+        )]))
     }
 
     #[tokio::test]
@@ -189,7 +186,7 @@ mod test {
         });
 
         let (tx, _) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpirationChecker::new(tx, get_currencies(), Arc::new(swap));
+        let checker = InvoiceExpirationChecker::new(tx, get_currencies().await, Arc::new(swap));
 
         checker.check().unwrap();
     }
@@ -220,7 +217,7 @@ mod test {
             .returning(|_, _, _| Ok(1));
 
         let (tx, mut rx) = tokio::sync::broadcast::channel(1);
-        let checker = InvoiceExpirationChecker::new(tx, get_currencies(), Arc::new(swap));
+        let checker = InvoiceExpirationChecker::new(tx, get_currencies().await, Arc::new(swap));
 
         checker.check().unwrap();
 

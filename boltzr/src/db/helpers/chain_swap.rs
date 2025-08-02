@@ -11,6 +11,7 @@ pub type ChainSwapCondition = BoxedCondition<chainSwaps::dsl::chainSwaps>;
 pub type ChainSwapDataNullableCondition = BoxedNullableCondition<chainSwapData::dsl::chainSwapData>;
 
 pub trait ChainSwapHelper {
+    fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
     fn get_all(&self, condition: ChainSwapCondition) -> QueryResponse<Vec<ChainSwapInfo>>;
     fn get_by_data_nullable(
         &self,
@@ -30,6 +31,15 @@ impl ChainSwapHelperDatabase {
 }
 
 impl ChainSwapHelper for ChainSwapHelperDatabase {
+    fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo> {
+        let res = self.get_all(Box::new(chainSwaps::dsl::id.eq(id.to_string())))?;
+        if res.is_empty() {
+            return Err(anyhow::anyhow!("swap not found"));
+        }
+
+        Ok(res[0].clone())
+    }
+
     fn get_all(&self, condition: ChainSwapCondition) -> QueryResponse<Vec<ChainSwapInfo>> {
         let chain_swaps = chainSwaps::dsl::chainSwaps
             .select(ChainSwap::as_select())
@@ -83,6 +93,7 @@ pub mod test {
         }
 
         impl ChainSwapHelper for ChainSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
             fn get_all(
                 &self,
                 condition: ChainSwapCondition,

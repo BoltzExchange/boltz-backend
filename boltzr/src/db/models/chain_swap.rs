@@ -1,7 +1,15 @@
+use crate::chain::{Client, elements_client::SYMBOL as ELEMENTS_SYMBOL};
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
+use crate::wallet::Wallet;
+use anyhow::{Context, Result, anyhow};
+use async_trait::async_trait;
+use boltz_core::Musig;
+use boltz_core::utils::{InputType, OutputType};
+use boltz_core::wrapper::{BitcoinInputDetail, ElementsInputDetail, InputDetail};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
+use std::sync::Arc;
 
 #[derive(
     Queryable, Selectable, Insertable, Identifiable, AsChangeset, PartialEq, Default, Clone, Debug,
@@ -54,11 +62,9 @@ pub struct ChainSwapInfo {
 }
 
 impl ChainSwapInfo {
-    pub fn new(swap: ChainSwap, data: Vec<ChainSwapData>) -> anyhow::Result<Self> {
+    pub fn new(swap: ChainSwap, data: Vec<ChainSwapData>) -> Result<Self> {
         if data.len() != 2 {
-            return Err(anyhow::anyhow!(
-                "invalid number of data params for chain swap"
-            ));
+            return Err(anyhow!("invalid number of data params for chain swap"));
         }
 
         let pair = split_pair(&swap.pair)?;
@@ -92,7 +98,7 @@ impl ChainSwapInfo {
             });
         }
 
-        Err(anyhow::anyhow!("invalid data params for chain swap"))
+        Err(anyhow!("invalid data params for chain swap"))
     }
 
     pub fn sending(&self) -> &ChainSwapData {
@@ -108,6 +114,7 @@ impl ChainSwapInfo {
     }
 }
 
+#[async_trait]
 impl SomeSwap for ChainSwapInfo {
     fn kind(&self) -> SwapType {
         SwapType::Chain
@@ -119,6 +126,117 @@ impl SomeSwap for ChainSwapInfo {
 
     fn status(&self) -> SwapUpdate {
         SwapUpdate::parse(self.swap.status.as_str())
+    }
+
+    fn refund_symbol(&self) -> Result<String> {
+        Ok(self.sending().symbol.clone())
+    }
+
+    async fn refund_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail> {
+        let sending = self.sending();
+        let input_type = InputType::Refund(sending.timeoutBlockHeight as u32);
+
+        let keys = wallet.derive_keys(sending.keyIndex.context("key index not found")? as u64)?;
+
+        let key_pair = keys.to_keypair(&bitcoin::secp256k1::Secp256k1::new());
+
+        let secp = Musig::new_secp();
+        let internal_key = Musig::new(
+            &secp,
+            Musig::convert_keypair(&secp, key_pair.secret_key().secret_bytes())?,
+            vec![
+                Musig::convert_pub_key(&key_pair.public_key().serialize())?,
+                Musig::convert_pub_key(&alloy::hex::decode(
+                    sending
+                        .theirPublicKey
+                        .clone()
+                        .context("their public key not found")?,
+                )?)?,
+            ],
+            [0; 32],
+        )?
+        .agg_pk()
+        .serialize();
+
+        if sending.symbol != ELEMENTS_SYMBOL {
+            let output_type =
+                OutputType::Taproot(Some(boltz_core::bitcoin::UncooperativeDetails {
+                    tree: serde_json::from_str(
+                        sending.swapTree.as_ref().context("swap tree not found")?,
+                    )?,
+                    internal_key: bitcoin::XOnlyPublicKey::from_slice(&internal_key)?,
+                }));
+
+            Ok(InputDetail::Bitcoin(Box::new(BitcoinInputDetail {
+                keys: key_pair,
+                output_type,
+                input_type,
+                outpoint: bitcoin::OutPoint::new(
+                    sending
+                        .transactionId
+                        .clone()
+                        .context("lockup transaction id not found")?
+                        .parse()?,
+                    sending
+                        .transactionVout
+                        .context("lockup transaction vout not found")? as u32,
+                ),
+                tx_out: bitcoin::TxOut {
+                    script_pubkey: wallet.decode_address(&sending.lockupAddress)?.into(),
+                    value: bitcoin::Amount::from_sat(
+                        sending.amount.context("amount not found")? as u64
+                    ),
+                },
+            })))
+        } else {
+            let secp = elements::secp256k1_zkp::Secp256k1::new();
+            let keys = elements::secp256k1_zkp::Keypair::from_seckey_slice(
+                &secp,
+                &keys.to_priv().to_bytes(),
+            )?;
+
+            let tx_id = sending
+                .transactionId
+                .clone()
+                .context("lockup transaction id not found")?;
+            let tx_vout = sending
+                .transactionVout
+                .context("lockup transaction vout not found")? as u32;
+
+            let lockup_tx: elements::Transaction = elements::encode::deserialize(
+                &alloy::hex::decode(&client.raw_transaction(&tx_id).await?)?,
+            )?;
+
+            let output_type =
+                OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
+                    tree: serde_json::from_str(
+                        sending.swapTree.as_ref().context("swap tree not found")?,
+                    )?,
+                    internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
+                        &internal_key,
+                    )?,
+                }));
+
+            Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
+                keys,
+                output_type,
+                input_type,
+                outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
+                blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
+                    &secp,
+                    &wallet.derive_blinding_key(&sending.lockupAddress)?,
+                )?),
+                tx_out: lockup_tx
+                    .output
+                    .get(tx_vout as usize)
+                    .context("output not found")?
+                    .clone(),
+            })))
+        }
     }
 }
 

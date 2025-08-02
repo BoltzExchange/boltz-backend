@@ -433,6 +433,13 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
+    if (transaction.ins[inputIndex].witness.length !== 4) {
+      this.logger.debug(
+        `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is a refund transaction`,
+      );
+      return;
+    }
+
     this.logger.verbose(
       `Found ${chainClient.symbol} claim transaction of Chain Swap ${
         swap.chainSwap.id

@@ -1,5 +1,6 @@
 use ::bitcoin::bip32::Xpriv;
 use anyhow::Result;
+use async_trait::async_trait;
 
 mod bitcoin;
 mod elements;
@@ -16,10 +17,13 @@ pub enum Network {
     Regtest,
 }
 
+#[async_trait]
 pub trait Wallet {
     fn decode_address(&self, address: &str) -> Result<Vec<u8>>;
     fn derive_keys(&self, index: u64) -> Result<Xpriv>;
     fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>>;
+
+    async fn get_address(&self, label: String) -> Result<String>;
 }
 
 impl Network {

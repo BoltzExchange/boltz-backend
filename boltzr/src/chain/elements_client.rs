@@ -17,6 +17,8 @@ pub const SYMBOL: &str = "L-BTC";
 
 const TYPE: Type = Type::Elements;
 
+const DEFAULT_ADDRESS_TYPE: &str = "blech32";
+
 #[derive(Clone)]
 pub struct ElementsClient {
     network: Network,
@@ -138,6 +140,23 @@ impl Client for ElementsClient {
         self.wallet_client().raw_transaction_verbose(tx_id).await
     }
 
+    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+        self.wallet_client().send_raw_transaction(tx).await
+    }
+
+    async fn get_new_address(
+        &self,
+        label: String,
+        address_type: Option<String>,
+    ) -> anyhow::Result<String> {
+        self.wallet_client()
+            .get_new_address(
+                label,
+                Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
+            )
+            .await
+    }
+
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
         if self.network == Network::Regtest {
             let (tx, rx) = oneshot::channel();
@@ -185,6 +204,7 @@ pub mod test {
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
             mempool_space: None,
+            wallet: None,
         };
 
         static CLIENT: OnceLock<(ElementsClient, Config)> = OnceLock::new();

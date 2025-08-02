@@ -1,5 +1,4 @@
 use crate::api::ws::types::SwapStatus;
-use crate::chain::bumper::FetcherType;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::RefundSigner;
@@ -9,14 +8,13 @@ use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
     Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
-    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, FeeBumpSuggestion,
-    FeeBumpsRequest, GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse,
-    IsMarkedRequest, IsMarkedResponse, LogLevel, ScanMempoolRequest, ScanMempoolResponse,
-    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
-    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
-    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
-    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
-    TransactionType, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
+    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
+    LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
+    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
+    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
+    SwapUpdateResponse, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -713,61 +711,6 @@ where
             transactions: transaction_serialized,
         }))
     }
-
-    type FeeBumpsStream = Pin<Box<dyn Stream<Item = Result<FeeBumpSuggestion, Status>> + Send>>;
-
-    #[instrument(name = "grpc::fee_bumps", skip_all)]
-    async fn fee_bumps(
-        &self,
-        request: Request<FeeBumpsRequest>,
-    ) -> Result<Response<Self::FeeBumpsStream>, Status> {
-        extract_parent_context(&request);
-
-        let (tx, rx) = mpsc::channel(128);
-
-        for currency in self.manager.get_currencies() {
-            if let Some(bumper) = currency.bumper {
-                let tx = tx.clone();
-                let mut to_bump = bumper.txs_to_bump();
-
-                tokio::spawn(async move {
-                    loop {
-                        match to_bump.recv().await {
-                            Ok(to_bump) => {
-                                if let Err(err) = tx
-                                    .send(Ok(FeeBumpSuggestion {
-                                        r#type: match to_bump.transaction_type {
-                                            FetcherType::Refund => TransactionType::Refund.into(),
-                                        },
-                                        symbol: to_bump.symbol,
-                                        swap_id: to_bump.swap_id,
-                                        transaction_id: to_bump.transaction_id,
-                                        fee_target: to_bump.fee_target,
-                                    }))
-                                    .await
-                                {
-                                    error!("Sending fee bump suggestion failed: {err}");
-                                    break;
-                                }
-                            }
-                            Err(err) => {
-                                error!("Receiving fee bump suggestion failed: {err}");
-                                let _ = tx
-                                    .send(Err(Status::new(
-                                        Code::Internal,
-                                        "receiving fee bump suggestion failed",
-                                    )))
-                                    .await;
-                                break;
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
-    }
 }
 
 fn extract_parent_context<T>(request: &Request<T>) {
@@ -850,6 +793,7 @@ mod test {
         }
 
         impl ChainSwapHelper for ChainSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
             fn get_all(
                 &self,
                 condition: ChainSwapCondition,
@@ -869,6 +813,7 @@ mod test {
         }
 
         impl ReverseSwapHelper for ReverseSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
             fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
             fn get_all_nullable(&self, condition: ReverseSwapNullableCondition) -> QueryResponse<Vec<ReverseSwap>>;
             fn get_routing_hint(&self, swap_id: &str) -> QueryResponse<Option<ReverseRoutingHint>>;

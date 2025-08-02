@@ -845,6 +845,7 @@ mod test {
                 Network::Regtest,
                 &crate::wallet::test::get_seed(),
                 "m/0/1".to_string(),
+                Arc::new(crate::chain::elements_client::test::get_client().0),
             )
             .unwrap(),
         )
@@ -982,7 +983,6 @@ mod test {
                     chain: None,
                     cln: None,
                     lnd: None,
-                    bumper: None,
                     evm_manager: None,
                 },
             )])),
@@ -1148,7 +1148,6 @@ mod test {
                         chain: None,
                         cln: None,
                         lnd: None,
-                        bumper: None,
                         evm_manager: None,
                     },
                 ),
@@ -1160,7 +1159,6 @@ mod test {
                         chain: None,
                         cln: None,
                         lnd: None,
-                        bumper: None,
                         evm_manager: None,
                     },
                 ),

@@ -5,9 +5,6 @@ import { RefundStatus } from '../../../lib/db/models/RefundTransaction';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
-import { TransactionType } from '../../../lib/proto/boltzr_pb';
-import type Sidecar from '../../../lib/sidecar/Sidecar';
-import type { FeeBumpSuggestion } from '../../../lib/sidecar/Sidecar';
 import RefundWatcher from '../../../lib/swap/RefundWatcher';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../Nodes';
@@ -21,12 +18,7 @@ RefundTransactionRepository.getPendingTransactions = jest
   .mockResolvedValue([]);
 
 describe('RefundWatcher', () => {
-  const sidecar = {
-    on: jest.fn(),
-  } as unknown as Sidecar;
-  const refundSwap = jest.fn();
-
-  const watcher = new RefundWatcher(Logger.disabledLogger, sidecar, refundSwap);
+  const watcher = new RefundWatcher(Logger.disabledLogger);
   let setup: Awaited<ReturnType<typeof getSigner>>;
 
   beforeAll(async () => {
@@ -116,80 +108,6 @@ describe('RefundWatcher', () => {
       expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
         swapId,
         RefundStatus.Confirmed,
-      );
-    });
-  });
-
-  describe('handleFeeBumpSuggestion', () => {
-    const handleFeeBumpSuggestion = watcher['handleFeeBumpSuggestion'];
-
-    test('should ignore suggestions that are not refund type', async () => {
-      RefundTransactionRepository.getTransaction = jest.fn();
-
-      await handleFeeBumpSuggestion({
-        type: 21,
-      } as unknown as FeeBumpSuggestion);
-
-      expect(RefundTransactionRepository.getTransaction).not.toHaveBeenCalled();
-    });
-
-    test('should ignore suggestions that cannot be found in database', async () => {
-      RefundTransactionRepository.getTransaction = jest
-        .fn()
-        .mockResolvedValue(null);
-
-      const suggestion = {
-        type: TransactionType.REFUND,
-        transactionId: 'test',
-      } as unknown as FeeBumpSuggestion;
-      await handleFeeBumpSuggestion(suggestion);
-
-      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledTimes(
-        1,
-      );
-      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledWith(
-        suggestion.transactionId,
-      );
-      expect(refundSwap).not.toHaveBeenCalled();
-    });
-
-    test('should fee bump after getting suggestion', async () => {
-      RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue({
-        swapId: 'swapId',
-        id: 'test',
-      });
-
-      const swap = { refundCurrency: 'BTC' } as unknown as any;
-      RefundTransactionRepository.getSwapForTransaction = jest
-        .fn()
-        .mockResolvedValue(swap);
-
-      const suggestion = {
-        type: TransactionType.REFUND,
-        transactionId: 'test',
-        feeTarget: 21,
-      } as unknown as FeeBumpSuggestion;
-      await handleFeeBumpSuggestion(suggestion);
-
-      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledTimes(
-        1,
-      );
-      expect(RefundTransactionRepository.getTransaction).toHaveBeenCalledWith(
-        suggestion.transactionId,
-      );
-
-      expect(
-        RefundTransactionRepository.getSwapForTransaction,
-      ).toHaveBeenCalledTimes(1);
-      expect(
-        RefundTransactionRepository.getSwapForTransaction,
-      ).toHaveBeenCalledWith('swapId');
-
-      expect(refundSwap).toHaveBeenCalledTimes(1);
-      expect(refundSwap).toHaveBeenCalledWith(
-        watcher['currencies'].get('BTC')!,
-        swap,
-        suggestion.feeTarget,
       );
     });
   });

@@ -30,6 +30,8 @@ pub struct Config {
 
     #[serde(rename = "mempoolSpace")]
     mempool_space: Option<String>,
+
+    wallet: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -68,6 +70,11 @@ pub trait Client: BaseClient {
 
     async fn raw_transaction(&self, tx_id: &str) -> Result<String>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
+
+    async fn send_raw_transaction(&self, tx: String) -> Result<String>;
+
+    async fn get_new_address(&self, label: String, address_type: Option<String>) -> Result<String>;
+
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
     fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;

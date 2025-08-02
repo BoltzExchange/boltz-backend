@@ -4,7 +4,8 @@ use secp256k1::musig::{
     Session, SessionSecretRand,
 };
 use secp256k1::{
-    Keypair, PublicKey, Scalar, Secp256k1, Signing, Verification, XOnlyPublicKey, rand,
+    All, Keypair, PublicKey, Scalar, Secp256k1, SecretKey, Signing, Verification, XOnlyPublicKey,
+    rand,
 };
 
 pub struct Musig {
@@ -22,6 +23,21 @@ pub struct Musig {
 }
 
 impl Musig {
+    pub fn new_secp() -> Secp256k1<All> {
+        Secp256k1::new()
+    }
+
+    pub fn convert_keypair<C: Signing>(secp: &Secp256k1<C>, sk: [u8; 32]) -> Result<Keypair> {
+        Ok(Keypair::from_secret_key(
+            secp,
+            &SecretKey::from_byte_array(sk)?,
+        ))
+    }
+
+    pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey> {
+        Ok(PublicKey::from_slice(pub_key)?)
+    }
+
     pub fn new<C: Verification + Signing>(
         secp: &Secp256k1<C>,
         key: Keypair,

@@ -1,16 +1,25 @@
+use crate::chain::Client;
 use crate::wallet::keys::Keys;
 use crate::wallet::{Network, Wallet};
 use anyhow::{Result, anyhow};
+use async_trait::async_trait;
 use bitcoin::bip32::Xpriv;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub struct Bitcoin {
     network: bitcoin::Network,
+    client: Arc<dyn Client + Send + Sync>,
     keys: Keys,
 }
 
 impl Bitcoin {
-    pub fn new(network: Network, seed: &[u8; 64], path: String) -> Result<Self> {
+    pub fn new(
+        network: Network,
+        seed: &[u8; 64],
+        path: String,
+        client: Arc<dyn Client + Send + Sync>,
+    ) -> Result<Self> {
         Ok(Self {
             network: match network {
                 Network::Mainnet => bitcoin::Network::Bitcoin,
@@ -18,11 +27,13 @@ impl Bitcoin {
                 Network::Signet => bitcoin::Network::Signet,
                 Network::Regtest => bitcoin::Network::Regtest,
             },
+            client,
             keys: Keys::new(seed, path)?,
         })
     }
 }
 
+#[async_trait]
 impl Wallet for Bitcoin {
     fn decode_address(&self, address: &str) -> Result<Vec<u8>> {
         let dec = bitcoin::address::Address::from_str(address)?;
@@ -38,6 +49,10 @@ impl Wallet for Bitcoin {
 
     fn derive_blinding_key(&self, _address: &str) -> Result<Vec<u8>> {
         Err(anyhow!("not implemented for bitcoin"))
+    }
+
+    async fn get_address(&self, label: String) -> Result<String> {
+        self.client.get_new_address(label, None).await
     }
 }
 

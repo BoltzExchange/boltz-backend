@@ -7,6 +7,12 @@ pub enum FeeTarget {
     Relative(f64),
 }
 
+impl From<f64> for FeeTarget {
+    fn from(value: f64) -> Self {
+        FeeTarget::Relative(value)
+    }
+}
+
 pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
     fee_target: FeeTarget,
     construct_tx: C,

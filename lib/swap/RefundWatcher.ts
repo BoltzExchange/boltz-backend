@@ -8,11 +8,7 @@ import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { type ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
-import { TransactionType } from '../proto/boltzr_pb';
-import type Sidecar from '../sidecar/Sidecar';
-import type { FeeBumpSuggestion } from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
-import type SwapNursery from './SwapNursery';
 
 // TODO: check replacements
 
@@ -25,18 +21,12 @@ class RefundWatcher extends TypedEventEmitter<{
   private readonly requiredConfirmations = 1;
   private currencies!: Map<string, Currency>;
 
-  constructor(
-    private readonly logger: Logger,
-    private readonly sidecar: Sidecar,
-    private readonly refundSwap: typeof SwapNursery.prototype.refundSwap,
-  ) {
+  constructor(private readonly logger: Logger) {
     super();
   }
 
   public init = (currencies: Map<string, Currency>) => {
     this.currencies = currencies;
-
-    this.sidecar.on('fee.bump.suggestion', this.handleFeeBumpSuggestion);
 
     for (const { chainClient, provider } of this.currencies.values()) {
       if (chainClient) {
@@ -47,45 +37,6 @@ class RefundWatcher extends TypedEventEmitter<{
         provider.on('block', this.checkPendingTransactions);
       }
     }
-  };
-
-  private handleFeeBumpSuggestion = async (suggestion: FeeBumpSuggestion) => {
-    if (suggestion.type !== TransactionType.REFUND) {
-      return;
-    }
-
-    await this.lock.acquire(RefundWatcher.pendingTransactionsLock, async () => {
-      const refundTx = await RefundTransactionRepository.getTransaction(
-        suggestion.transactionId,
-      );
-
-      if (refundTx === null || refundTx === undefined) {
-        this.logger.warn(
-          `No refund transaction found for fee bump suggestion: ${suggestion.transactionId}`,
-        );
-        return;
-      }
-
-      this.logger.info(
-        `Fee bump suggestion received for refund transaction ${refundTx.id}: ${suggestion.feeTarget} sat/vbyte`,
-      );
-
-      try {
-        const swap = await RefundTransactionRepository.getSwapForTransaction(
-          refundTx.swapId,
-        );
-
-        await this.refundSwap(
-          this.currencies.get(swap.refundCurrency)!,
-          swap,
-          suggestion.feeTarget,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Fee bumping refund ${suggestion.swapId} transaction ${suggestion.transactionId} failed: ${formatError(error)}`,
-        );
-      }
-    });
   };
 
   private checkPendingTransactions = async () => {

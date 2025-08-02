@@ -218,11 +218,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.refundWatcher = new RefundWatcher(
-      this.logger,
-      this.sidecar,
-      this.refundSwap,
-    );
+    this.refundWatcher = new RefundWatcher(this.logger);
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -892,7 +888,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
-  public refundSwap = async (
+  private refundSwap = async (
     chainCurrency: Currency,
     swap: ReverseSwap | ChainSwapInfo,
     fee?: number,

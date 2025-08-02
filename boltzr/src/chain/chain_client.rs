@@ -23,6 +23,8 @@ const CACHE_TTL_SECS: u64 = 60 * 60 * 24;
 
 const CACHE_KEY_RAW_TX: &str = "raw_tx";
 
+const DEFAULT_ADDRESS_TYPE: &str = "bech32m";
+
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
@@ -338,6 +340,28 @@ impl Client for ChainClient {
             .request::<RawTransactionVerbose>(
                 "getrawtransaction",
                 Some(vec![RpcParam::Str(tx_id.to_string()), RpcParam::Int(1)]),
+            )
+            .await
+    }
+
+    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+        self.client
+            .request::<String>("sendrawtransaction", Some(vec![RpcParam::Str(tx)]))
+            .await
+    }
+
+    async fn get_new_address(
+        &self,
+        label: String,
+        address_type: Option<String>,
+    ) -> anyhow::Result<String> {
+        self.client
+            .request_wallet::<String>(
+                "getnewaddress",
+                Some(vec![
+                    RpcParam::Str(label),
+                    RpcParam::Str(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
+                ]),
             )
             .await
     }

@@ -1,27 +1,37 @@
+use crate::chain::Client;
 use crate::wallet::keys::Keys;
 use crate::wallet::{Network, Wallet};
 use anyhow::Result;
+use async_trait::async_trait;
 use bitcoin::bip32::Xpriv;
 use elements::pset::serialize::Serialize;
 use elements_miniscript::slip77;
 use lightning::util::ser::Writeable;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub struct Elements {
     network: elements::AddressParams,
+    client: Arc<dyn Client + Send + Sync>,
     keys: Keys,
 
     slip77: slip77::MasterBlindingKey,
 }
 
 impl Elements {
-    pub fn new(network: Network, seed: &[u8; 64], path: String) -> Result<Self> {
+    pub fn new(
+        network: Network,
+        seed: &[u8; 64],
+        path: String,
+        client: Arc<dyn Client + Send + Sync>,
+    ) -> Result<Self> {
         Ok(Self {
             network: match network {
                 Network::Mainnet => elements::AddressParams::LIQUID,
                 Network::Testnet | Network::Signet => elements::AddressParams::LIQUID_TESTNET,
                 Network::Regtest => elements::AddressParams::ELEMENTS,
             },
+            client,
             keys: Keys::new(seed, path)?,
             slip77: slip77::MasterBlindingKey::from_seed(seed),
         })
@@ -37,6 +47,7 @@ impl Elements {
     }
 }
 
+#[async_trait]
 impl Wallet for Elements {
     fn decode_address(&self, address: &str) -> Result<Vec<u8>> {
         Ok(self
@@ -56,6 +67,10 @@ impl Wallet for Elements {
             .slip77
             .blinding_private_key(&address.script_pubkey())
             .encode())
+    }
+
+    async fn get_address(&self, label: String) -> Result<String> {
+        self.client.get_new_address(label, None).await
     }
 }
 

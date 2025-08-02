@@ -1,7 +1,13 @@
+use crate::chain::Client;
 use crate::swap::SwapUpdate;
+use crate::wallet::Wallet;
+use anyhow::Result;
+use async_trait::async_trait;
+use boltz_core::wrapper::InputDetail;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 
 mod chain_swap;
@@ -99,11 +105,36 @@ impl<'de> Deserialize<'de> for SwapType {
     }
 }
 
+#[derive(Display, PartialEq, Clone, Copy, Debug)]
+pub enum SwapVersion {
+    Legacy = 0,
+    Taproot = 1,
+}
+
+impl TryFrom<i32> for SwapVersion {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(SwapVersion::Legacy),
+            1 => Ok(SwapVersion::Taproot),
+            _ => Err(anyhow::anyhow!("invalid value for SwapVersion: {}", value)),
+        }
+    }
+}
+
+#[async_trait]
 pub trait SomeSwap {
     fn kind(&self) -> SwapType;
 
     fn id(&self) -> String;
     fn status(&self) -> SwapUpdate;
+
+    async fn refund_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail>;
 }
 
 pub trait LightningSwap {

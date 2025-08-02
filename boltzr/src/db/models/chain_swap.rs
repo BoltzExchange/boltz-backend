@@ -1,7 +1,12 @@
+use crate::chain::Client;
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
+use crate::wallet::Wallet;
+use async_trait::async_trait;
+use boltz_core::wrapper::InputDetail;
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
+use std::sync::Arc;
 
 #[derive(
     Queryable, Selectable, Insertable, Identifiable, AsChangeset, PartialEq, Default, Clone, Debug,
@@ -108,6 +113,7 @@ impl ChainSwapInfo {
     }
 }
 
+#[async_trait]
 impl SomeSwap for ChainSwapInfo {
     fn kind(&self) -> SwapType {
         SwapType::Chain
@@ -119,6 +125,14 @@ impl SomeSwap for ChainSwapInfo {
 
     fn status(&self) -> SwapUpdate {
         SwapUpdate::parse(self.swap.status.as_str())
+    }
+
+    async fn refund_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> anyhow::Result<InputDetail> {
+        todo!()
     }
 }
 

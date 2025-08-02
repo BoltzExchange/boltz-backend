@@ -14,6 +14,7 @@ pub struct RpcClient {
     pub(crate) symbol: String,
 
     endpoint: String,
+    endpoint_wallet: String,
     cookie: String,
 }
 
@@ -39,10 +40,16 @@ impl RpcClient {
             }
         };
 
+        let endpoint = format!("http://{}:{}", config.host, config.port);
+
         Ok(Self {
             symbol,
-            endpoint: format!("http://{}:{}", config.host, config.port),
             cookie: format!("Basic {}", BASE64_STANDARD.encode(auth)),
+            endpoint_wallet: match config.wallet {
+                Some(wallet) => format!("{endpoint}/wallet/{wallet}"),
+                None => endpoint.clone(),
+            },
+            endpoint,
         })
     }
 
@@ -52,27 +59,17 @@ impl RpcClient {
         method: &str,
         params: Option<Vec<RpcParam>>,
     ) -> anyhow::Result<T> {
-        let client = reqwest::Client::new();
+        self.request_internal(&self.endpoint, method, params).await
+    }
 
-        let response = client
-            .post(&self.endpoint)
-            .headers(self.get_headers()?)
-            .json(&json!({
-                "method": method,
-                "params": params.unwrap_or_default(),
-            }))
-            .send()
-            .await?;
-
-        let data = response.json::<RpcResponse<T>>().await?;
-        if let Some(err) = data.error {
-            return Err(anyhow!(err.message));
-        }
-
-        match data.result {
-            Some(res) => Ok(res),
-            None => Err(anyhow::anyhow!("no result")),
-        }
+    #[instrument(name = "RpcClient::request_wallet", skip(self), fields(symbol = self.symbol))]
+    pub async fn request_wallet<T: DeserializeOwned>(
+        &self,
+        method: &str,
+        params: Option<Vec<RpcParam>>,
+    ) -> anyhow::Result<T> {
+        self.request_internal(&self.endpoint_wallet, method, params)
+            .await
     }
 
     #[instrument(name = "RpcClient::request_batch", skip(self, params), fields(symbol = self.symbol))]
@@ -112,6 +109,35 @@ impl RpcClient {
                 }
             })
             .collect::<Vec<anyhow::Result<T>>>())
+    }
+
+    async fn request_internal<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        method: &str,
+        params: Option<Vec<RpcParam>>,
+    ) -> anyhow::Result<T> {
+        let client = reqwest::Client::new();
+
+        let response = client
+            .post(endpoint)
+            .headers(self.get_headers()?)
+            .json(&json!({
+                "method": method,
+                "params": params.unwrap_or_default(),
+            }))
+            .send()
+            .await?;
+
+        let data = response.json::<RpcResponse<T>>().await?;
+        if let Some(err) = data.error {
+            return Err(anyhow!(err.message));
+        }
+
+        match data.result {
+            Some(res) => Ok(res),
+            None => Err(anyhow::anyhow!("no result")),
+        }
     }
 
     fn get_headers(&self) -> anyhow::Result<HeaderMap> {

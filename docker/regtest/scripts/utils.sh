@@ -106,7 +106,7 @@ function startAsp () {
 
   mkdir -p /root/.arkd
   nohup arkd-wallet > /root/.arkd/wallet-logs.txt 2>&1 & num="0"
-  sleep 5
+  sleep 15
   nohup arkd > /root/.arkd/logs.txt 2>&1 & num="0"
 
   echo "Started ASP"

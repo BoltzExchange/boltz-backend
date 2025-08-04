@@ -471,7 +471,7 @@ class SwapManager {
         undefined,
         args.refundPublicKey!,
       );
-      await receivingCurrency.arkNode!.subscribeAddresses([
+      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           preimageHash: args.preimageHash,
@@ -1047,7 +1047,7 @@ class SwapManager {
         args.claimPublicKey!,
         undefined,
       );
-      await sendingCurrency.arkNode!.subscribeAddresses([
+      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           preimageHash: args.preimageHash,
@@ -1401,7 +1401,7 @@ class SwapManager {
             );
           }
         } else if (arkNode) {
-          arkNode.subscribeAddresses([
+          arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               preimageHash: getHexBuffer(swap.preimageHash),
@@ -1417,7 +1417,7 @@ class SwapManager {
 
           chainClient.addOutputFilter(outputScript);
         } else if (arkNode) {
-          arkNode.subscribeAddresses([
+          arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               preimageHash: getHexBuffer(swap.preimageHash),

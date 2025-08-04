@@ -103,7 +103,7 @@ describe('MusigSigner', () => {
       Logger.disabledLogger,
       new Map<string, any>([
         ['BTC', btcCurrency],
-	['Ark', arkCurrency],
+        ['Ark', arkCurrency],
         ['noChainClient', {}],
       ]),
       walletManager,

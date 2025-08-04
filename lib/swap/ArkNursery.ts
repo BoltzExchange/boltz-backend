@@ -188,7 +188,9 @@ class ArkNursery extends TypedEventEmitter<{
   private static arkConditionPsbtKeyName = Buffer.from('condition', 'utf-8');
 
   private static isPreimage = (field: { type: number; key: Uint8Array }) => {
-    return Buffer.from([field.type, ...field.key]).includes(ArkNursery.arkConditionPsbtKeyName);
+    return Buffer.from([field.type, ...field.key]).includes(
+      ArkNursery.arkConditionPsbtKeyName,
+    );
   };
 }
 

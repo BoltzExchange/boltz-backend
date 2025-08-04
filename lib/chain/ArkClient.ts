@@ -1,22 +1,24 @@
-import {
-  type ClientReadableStream,
-  Metadata,
-  credentials,
-} from '@grpc/grpc-js';
+import { Metadata, credentials } from '@grpc/grpc-js';
 import { bech32m } from '@scure/base';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
+import { formatError, getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
 import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
-import * as notificationrpc from '../proto/ark/notification_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
+import { WalletServiceClient } from '../proto/ark/wallet_grpc_pb';
+import * as walletrpc from '../proto/ark/wallet_pb';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import ArkSubscription, {
+  CreatedVHtlc,
+  type Events,
+  SpentVHtlc,
+} from './ArkSubscription';
 import AspClient from './AspClient';
 import type { IChainClient } from './ChainClient';
 
@@ -41,45 +43,24 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
-type CreatedVHtlc = {
-  address: string;
-  txId: string;
-  vout: number;
-  amount: number;
-};
-
-type SpentVHtlc = {
-  outpoint: {
-    txid: string;
-    vout: number;
-  };
-  spentBy: string;
-};
-
-type SubscribedAddress = {
-  address: string;
-  preimageHash: Buffer;
-};
-
 class ArkClient extends BaseClient<
-  BaseClientEvents & {
-    block: number;
-    'vhtlc.created': CreatedVHtlc;
-    'vhtlc.spent': SpentVHtlc;
-  }
+  BaseClientEvents &
+    Events & {
+      block: number;
+    }
 > {
   public static readonly symbol = 'ARK';
 
   public aspClient!: AspClient;
+  public subscription!: ArkSubscription;
 
   private chainClient?: IChainClient;
 
   private client?: ServiceClient;
+  private walletClient?: WalletServiceClient;
   private notificationClient?: NotificationServiceClient;
-  private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
 
   private readonly meta: Metadata = new Metadata();
-  private readonly subscribedAddresses = new Set<SubscribedAddress>();
 
   constructor(
     protected readonly logger: Logger,
@@ -122,6 +103,11 @@ class ArkClient extends BaseClient<
       credentials.createInsecure(),
     );
 
+    this.walletClient = new WalletServiceClient(
+      `${this.config.host}:${this.config.port}`,
+      credentials.createInsecure(),
+    );
+
     this.notificationClient = new NotificationServiceClient(
       `${this.config.host}:${this.config.port}`,
       credentials.createInsecure(),
@@ -150,7 +136,21 @@ class ArkClient extends BaseClient<
       return false;
     }
 
-    this.streamVhtlcs();
+    this.subscription = new ArkSubscription(
+      this.logger,
+      this,
+      this.notificationClient,
+      this.unaryCall,
+      this.unaryNotificationCall,
+    );
+    this.subscription.on('vhtlc.created', (vHtlc) => {
+      this.emit('vhtlc.created', vHtlc);
+    });
+    this.subscription.on('vhtlc.spent', (vHtlc) => {
+      this.emit('vhtlc.spent', vHtlc);
+    });
+
+    this.subscription.connect();
 
     return true;
   };
@@ -167,7 +167,7 @@ class ArkClient extends BaseClient<
 
       this.clearReconnectTimer();
 
-      this.streamVhtlcs();
+      this.subscription?.connect();
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (err) {
@@ -189,10 +189,8 @@ class ArkClient extends BaseClient<
     this.clearReconnectTimer();
     this.setClientStatus(ClientStatus.Disconnected);
 
-    if (this.vHtlcStream !== undefined) {
-      this.vHtlcStream.cancel();
-      this.vHtlcStream = undefined;
-    }
+    this.subscription?.disconnect();
+    this.subscription?.removeAllListeners();
 
     if (this.client !== undefined) {
       this.client.close();
@@ -218,6 +216,13 @@ class ArkClient extends BaseClient<
       arkrpc.GetInfoRequest,
       arkrpc.GetInfoResponse.AsObject
     >('getInfo', new arkrpc.GetInfoRequest());
+  };
+
+  public getWalletStatus = async () => {
+    return await this.walletUnaryCall<
+      walletrpc.StatusRequest,
+      walletrpc.StatusResponse.AsObject
+    >('status', new walletrpc.StatusRequest());
   };
 
   public getBlockHeight = async (): Promise<number> => {
@@ -346,23 +351,6 @@ class ArkClient extends BaseClient<
     };
   };
 
-  // TODO: subscribe on startup
-  public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
-    // TODO: when do we need that?
-    // TODO: unsubscribe
-    for (const address of addresses) {
-      this.subscribedAddresses.add(address);
-    }
-
-    const req = new notificationrpc.SubscribeForAddressesRequest();
-    req.setAddressesList(addresses.map((a) => a.address));
-
-    await this.unaryNotificationCall<
-      notificationrpc.SubscribeForAddressesRequest,
-      notificationrpc.SubscribeForAddressesResponse.AsObject
-    >('subscribeForAddresses', req);
-  };
-
   public claimVHtlc = async (
     preimage: Buffer,
     label: string,
@@ -401,113 +389,6 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
-  // TODO: rescan for spent
-  // TODO: list vhtlcs not working?
-  public rescan = async () => {
-    const toRescan = Array.from(this.subscribedAddresses);
-    this.subscribedAddresses.clear();
-
-    for (const { address, preimageHash } of toRescan) {
-      try {
-        const req = new arkrpc.ListVHTLCRequest();
-        req.setPreimageHashFilter(getHexString(crypto.ripemd160(preimageHash)));
-
-        const res = await this.unaryCall<
-          arkrpc.ListVHTLCRequest,
-          arkrpc.ListVHTLCResponse.AsObject
-        >('listVHTLC', req, true);
-
-        for (const vhtlc of res.vhtlcsList) {
-          this.emit('vhtlc.created', {
-            address,
-            txId: vhtlc.outpoint!.txid,
-            vout: vhtlc.outpoint!.vout,
-            amount: vhtlc.amount,
-          });
-
-          if (vhtlc.spentBy !== '') {
-            this.emit('vhtlc.spent', {
-              outpoint: {
-                txid: vhtlc.outpoint!.txid,
-                vout: vhtlc.outpoint!.vout,
-              },
-              spentBy: vhtlc.spentBy,
-            });
-          }
-        }
-      } catch (error) {
-        this.logger.silly(
-          `No ${this.serviceName()} ${this.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
-        );
-      }
-    }
-  };
-
-  private streamVhtlcs = async () => {
-    if (this.vHtlcStream !== undefined) {
-      this.vHtlcStream.destroy();
-    }
-
-    const req = new notificationrpc.GetVtxoNotificationsRequest();
-    this.vHtlcStream = this.notificationClient!.getVtxoNotifications(req);
-
-    this.vHtlcStream.on(
-      'data',
-      (res: notificationrpc.GetVtxoNotificationsResponse) => {
-        const notification = res.getNotification()?.toObject();
-
-        if (notification === undefined) {
-          return;
-        }
-
-        const decoded = new Map<string, string>(
-          notification.addressesList.map((address) => [
-            getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
-            address,
-          ]),
-        );
-
-        for (const vhtlc of notification.newVtxosList) {
-          const recipient = decoded.get(
-            getHexString(getHexBuffer(vhtlc.script).subarray(2)),
-          );
-          if (recipient === undefined) {
-            continue;
-          }
-
-          this.emit('vhtlc.created', {
-            address: recipient,
-            txId: vhtlc.outpoint!.txid,
-            vout: vhtlc.outpoint!.vout,
-            amount: vhtlc.amount,
-          });
-        }
-
-        for (const vhtlc of notification.spentVtxosList) {
-          this.emit('vhtlc.spent', {
-            outpoint: {
-              txid: vhtlc.outpoint!.txid,
-              vout: vhtlc.outpoint!.vout,
-            },
-            spentBy: vhtlc.spentBy!,
-          });
-        }
-      },
-    );
-
-    this.vHtlcStream.on('error', (err) => {
-      this.logger.error(`Error streaming VHTLCs: ${err}`);
-
-      if (this.isConnected()) {
-        this.reconnect();
-      }
-    });
-
-    this.vHtlcStream.on('end', () => {
-      this.logger.warn('Stream of vHTLCs ended');
-    });
-  };
-
   private listenBlocks = (blockNumber: number) => {
     this.emit('block', blockNumber);
   };
@@ -533,7 +414,21 @@ class ArkClient extends BaseClient<
       asObject,
     );
   };
+
+  private walletUnaryCall = <T, U>(
+    methodName: keyof WalletServiceClient,
+    params: T,
+    asObject: boolean = true,
+  ): Promise<U> => {
+    return unaryCall(
+      this.walletClient!,
+      methodName,
+      params,
+      this.meta,
+      asObject,
+    );
+  };
 }
 
 export default ArkClient;
-export type { CreatedVHtlc, SpentVHtlc };
+export { CreatedVHtlc, SpentVHtlc };

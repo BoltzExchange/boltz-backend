@@ -154,7 +154,7 @@ class ElementsWrapper
     this.annotateLowballInfo((c) => c.getBlock(hash));
 
   public getBlockhash = (height: number) =>
-    this.annotateLowballInfo((c) => c.getBlockhash(height));
+    this.publicClient().getBlockhash(height);
 
   public sendRawTransaction = (
     transactionHex: string,

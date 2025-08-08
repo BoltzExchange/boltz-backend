@@ -1,5 +1,6 @@
 import { Metadata, credentials } from '@grpc/grpc-js';
 import { bech32m } from '@scure/base';
+import { Script } from '@scure/btc-signer';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -84,6 +85,10 @@ class ArkClient extends BaseClient<
       serverPubKey: data.subarray(1, 33),
       tweakedPubKey: data.subarray(33, 65),
     };
+  };
+
+  public static pkScript = (pubkey: Buffer) => {
+    return Script.encode(['OP_1', pubkey]);
   };
 
   public connect = async (chainClient: IChainClient): Promise<boolean> => {

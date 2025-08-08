@@ -4,6 +4,16 @@ import type {
   TransactionOutput,
 } from '@scure/btc-signer/psbt';
 import axios from 'axios';
+import { getHexString } from '../Utils';
+
+type VtxoInfo = {
+  outpoint: {
+    txid: string;
+    vout: number;
+  };
+  isSpent: boolean;
+  spentBy: string;
+};
 
 class AspClient {
   constructor(private readonly url: string) {
@@ -54,6 +64,15 @@ class AspClient {
     }
 
     return Transaction.fromPSBT(Buffer.from(res.data.txs[0], 'base64'));
+  };
+
+  public getVtxos = async (scripts: Buffer[]) => {
+    const params = new URLSearchParams();
+    params.append('scripts', scripts.map((s) => getHexString(s)).join(','));
+    const res = await axios.get<{ vtxos: VtxoInfo[] }>(
+      `${this.url}/v1/vtxos?${params.toString()}`,
+    );
+    return res.data.vtxos;
   };
 }
 

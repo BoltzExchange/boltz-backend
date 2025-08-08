@@ -36,9 +36,11 @@ type Events = {
 
 class ArkSubscription extends TypedEventEmitter<Events> {
   private static readonly reconnectInterval = 2_500;
+  private static readonly pollInterval = 5_000;
 
   private readonly subscribedAddresses = new Map<string, Buffer>();
 
+  private pollIntervalId?: NodeJS.Timeout;
   private shouldDisconnect = false;
   private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
 
@@ -55,12 +57,25 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   public connect = () => {
     this.shouldDisconnect = false;
 
+    this.pollIntervalId = setInterval(async () => {
+      try {
+        await this.poll();
+      } catch (error) {
+        this.logger.error(`Error polling for vHTLCs: ${formatError(error)}`);
+      }
+    }, ArkSubscription.pollInterval);
+
     this.rescan();
     this.streamVhtlcs();
   };
 
   public disconnect = () => {
     this.shouldDisconnect = true;
+
+    if (this.pollIntervalId !== undefined) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = undefined;
+    }
 
     if (this.vHtlcStream !== undefined) {
       this.vHtlcStream.cancel();
@@ -240,6 +255,26 @@ class ArkSubscription extends TypedEventEmitter<Events> {
           `Could not recreate ${this.client.serviceName()} ${this.client.symbol} subscriptions: ${formatError(e)}`,
         );
       }
+    }
+  };
+
+  private poll = async () => {
+    const scripts = Array.from(this.subscribedAddresses.keys()).map((a) =>
+      Buffer.from(ArkClient.pkScript(ArkClient.decodeAddress(a).tweakedPubKey)),
+    );
+
+    for (const vtxo of await this.client.aspClient.getVtxos(scripts)) {
+      if (!vtxo.isSpent || vtxo.spentBy === '') {
+        continue;
+      }
+
+      this.emit('vhtlc.spent', {
+        outpoint: {
+          txid: vtxo.outpoint.txid,
+          vout: vtxo.outpoint.vout,
+        },
+        spentBy: vtxo.spentBy,
+      });
     }
   };
 }

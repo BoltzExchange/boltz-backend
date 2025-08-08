@@ -471,7 +471,7 @@ class SwapManager {
         undefined,
         args.refundPublicKey!,
       );
-      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
+      receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           preimageHash: args.preimageHash,
@@ -1047,7 +1047,7 @@ class SwapManager {
         args.claimPublicKey!,
         undefined,
       );
-      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
+      sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           preimageHash: args.preimageHash,

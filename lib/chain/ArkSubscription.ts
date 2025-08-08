@@ -37,7 +37,7 @@ type Events = {
 class ArkSubscription extends TypedEventEmitter<Events> {
   private static readonly reconnectInterval = 2_500;
 
-  private readonly subscribedAddresses = new Set<SubscribedAddress>();
+  private readonly subscribedAddresses = new Map<string, Buffer>();
 
   private shouldDisconnect = false;
   private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
@@ -69,9 +69,8 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
-    // TODO: unsubscribe
     for (const address of addresses) {
-      this.subscribedAddresses.add(address);
+      this.subscribedAddresses.set(address.address, address.preimageHash);
     }
 
     const req = new notificationrpc.SubscribeForAddressesRequest();
@@ -83,10 +82,20 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     >('subscribeForAddresses', req);
   };
 
-  public rescan = async () => {
-    const toRescan = Array.from(this.subscribedAddresses);
+  public unsubscribeAddress = async (address: string) => {
+    this.subscribedAddresses.delete(address);
 
-    for (const { address, preimageHash } of toRescan) {
+    const req = new notificationrpc.UnsubscribeForAddressesRequest();
+    req.setAddressesList([address]);
+
+    await this.unaryNotificationCall<
+      notificationrpc.UnsubscribeForAddressesRequest,
+      notificationrpc.UnsubscribeForAddressesResponse.AsObject
+    >('unsubscribeForAddresses', req);
+  };
+
+  public rescan = async () => {
+    for (const [address, preimageHash] of this.subscribedAddresses.entries()) {
       try {
         const req = new arkrpc.ListVHTLCRequest();
         req.setPreimageHashFilter(getHexString(crypto.ripemd160(preimageHash)));

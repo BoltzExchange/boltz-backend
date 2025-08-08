@@ -55,7 +55,7 @@ class ArkNursery extends TypedEventEmitter<{
 
   private bindEvents = (arkNode: ArkClient) => {
     arkNode.on('vhtlc.created', async (vHtlc) => {
-      await this.checkLockups(vHtlc);
+      await this.checkLockups(arkNode, vHtlc);
     });
 
     arkNode.on('vhtlc.spent', async (vHtlc) => {
@@ -67,7 +67,7 @@ class ArkNursery extends TypedEventEmitter<{
     });
   };
 
-  private checkLockups = async (vHtlc: CreatedVHtlc) => {
+  private checkLockups = async (arkNode: ArkClient, vHtlc: CreatedVHtlc) => {
     // TODO: Chain swaps
     const swap = await SwapRepository.getSwap({
       status: {
@@ -79,6 +79,8 @@ class ArkNursery extends TypedEventEmitter<{
     if (swap === null || swap === undefined) {
       return;
     }
+
+    arkNode.subscription.unsubscribeAddress(vHtlc.address);
 
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
@@ -140,6 +142,7 @@ class ArkNursery extends TypedEventEmitter<{
         continue;
       }
 
+      arkNode.subscription.unsubscribeAddress(reverseSwap.lockupAddress);
       this.emit('reverseSwap.claimed', {
         reverseSwap,
         preimage,
@@ -158,6 +161,7 @@ class ArkNursery extends TypedEventEmitter<{
       const { base, quote } = splitPairId(swap.pair);
       const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
 
+      node.subscription.unsubscribeAddress(swap.lockupAddress);
       if (chainCurrency === node.symbol) {
         this.emit('reverseSwap.expired', swap);
       }

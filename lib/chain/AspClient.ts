@@ -68,7 +68,10 @@ class AspClient {
 
   public getVtxos = async (scripts: Buffer[]) => {
     const params = new URLSearchParams();
-    params.append('scripts', scripts.map((s) => getHexString(s)).join(','));
+    for (const script of scripts) {
+      params.append('scripts', getHexString(script));
+    }
+
     const res = await axios.get<{ vtxos: VtxoInfo[] }>(
       `${this.url}/v1/vtxos?${params.toString()}`,
     );

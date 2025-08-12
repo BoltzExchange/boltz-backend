@@ -241,7 +241,7 @@ where
             tokio::time::interval(Duration::from_secs(ACTIVITY_CHECK_INTERVAL_SECS));
         let mut last_activity = Instant::now();
 
-        let (ws_sender, mut ws_receiver) = ws_stream.split();
+        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
         let mut subscribed_ids = HashSet::<String>::new();
 
@@ -621,7 +621,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::Ping(bytes::Bytes::new())).await.unwrap();
@@ -646,7 +646,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -684,7 +684,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text("not json")).await.unwrap();
@@ -717,7 +717,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -798,7 +798,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -869,7 +869,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(
@@ -947,7 +947,7 @@ mod status_test {
             .await
             .unwrap();
 
-        let (tx, mut rx) = client.split();
+        let (mut tx, mut rx) = client.split();
 
         tokio::spawn(async move {
             tx.send(Message::text(

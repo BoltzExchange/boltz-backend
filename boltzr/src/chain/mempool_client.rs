@@ -244,10 +244,10 @@ impl Client {
                 .write()
                 .map_err(|err| anyhow::anyhow!("failed to write to last_block: {}", err))?;
 
-            if let Some(state) = *state {
-                if state >= best_parsed {
-                    return Ok(());
-                }
+            if let Some(current) = *state
+                && current >= best_parsed
+            {
+                return Ok(());
             }
 
             state.replace(best_parsed);

@@ -7776,33 +7776,6 @@ export namespace DecodeInvreqBip353Name {
     }
 }
 
-export class DecodeInvoicePathsPath extends jspb.Message { 
-    getBlindedNodeId(): Uint8Array | string;
-    getBlindedNodeId_asU8(): Uint8Array;
-    getBlindedNodeId_asB64(): string;
-    setBlindedNodeId(value: Uint8Array | string): DecodeInvoicePathsPath;
-    getEncryptedRecipientData(): Uint8Array | string;
-    getEncryptedRecipientData_asU8(): Uint8Array;
-    getEncryptedRecipientData_asB64(): string;
-    setEncryptedRecipientData(value: Uint8Array | string): DecodeInvoicePathsPath;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): DecodeInvoicePathsPath.AsObject;
-    static toObject(includeInstance: boolean, msg: DecodeInvoicePathsPath): DecodeInvoicePathsPath.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: DecodeInvoicePathsPath, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): DecodeInvoicePathsPath;
-    static deserializeBinaryFromReader(message: DecodeInvoicePathsPath, reader: jspb.BinaryReader): DecodeInvoicePathsPath;
-}
-
-export namespace DecodeInvoicePathsPath {
-    export type AsObject = {
-        blindedNodeId: Uint8Array | string,
-        encryptedRecipientData: Uint8Array | string,
-    }
-}
-
 export class DecodeInvoiceFallbacks extends jspb.Message { 
     getVersion(): number;
     setVersion(value: number): DecodeInvoiceFallbacks;

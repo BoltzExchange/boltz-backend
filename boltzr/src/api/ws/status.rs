@@ -305,10 +305,8 @@ where
                 update = swap_status_update_rx.recv() => {
                     match update {
                         Ok((id, updates)) => {
-                            if let Some(id) = id {
-                                if id != connection_id {
-                                    continue;
-                                }
+                            if id.is_some_and(|id| id != connection_id) {
+                                continue;
                             }
 
                             let relevant_updates: Vec<SwapStatus> = updates.iter().filter(|entry| {

@@ -83,12 +83,11 @@ impl Lnd {
                 message = backup_stream.message() => {
                     match message {
                         Ok(message) => {
-                            if let Some(backup) = message {
-                                if let Some(backup) = backup.multi_chan_backup {
-                                    if let Err(err) = self.scb_backup_tx.send(backup.multi_chan_backup) {
-                                        error!("Could not broadcast LND backup: {}", err);
-                                    };
-                                }
+                            if let Some(backup) = message
+                                && let Some(mcb) = backup.multi_chan_backup
+                                && let Err(err) = self.scb_backup_tx.send(mcb.multi_chan_backup)
+                            {
+                                error!("Could not broadcast LND backup: {}", err);
                             }
                         },
                         Err(err) => return Err(anyhow!("{}", err)),

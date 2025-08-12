@@ -48,7 +48,7 @@ impl SwapUpdate {
 
 pub fn serialize_swap_updates(
     status: &[SwapUpdate],
-) -> Map<Iter<SwapUpdate>, fn(&SwapUpdate) -> String> {
+) -> Map<Iter<'_, SwapUpdate>, fn(&SwapUpdate) -> String> {
     status.iter().map(|status| status.to_string())
 }
 

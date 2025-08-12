@@ -34,18 +34,17 @@ pub struct Server {
 
 impl Server {
     pub fn new(cancellation_token: CancellationToken, config: Option<Config>) -> Self {
-        if let Some(cfg) = config.clone() {
-            if !cfg.disable_server_metrics.unwrap_or(false) {
-                let (prometheus_layer, metric_handle) =
-                    axum_prometheus::PrometheusMetricLayer::pair();
+        if let Some(cfg) = config.as_ref()
+            && !cfg.disable_server_metrics.unwrap_or(false)
+        {
+            let (prometheus_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
 
-                return Server {
-                    config,
-                    cancellation_token,
-                    api_metrics_handle: Some(metric_handle),
-                    api_metrics_layer: Some(prometheus_layer),
-                };
-            }
+            return Server {
+                config,
+                cancellation_token,
+                api_metrics_handle: Some(metric_handle),
+                api_metrics_layer: Some(prometheus_layer),
+            };
         }
 
         Server {

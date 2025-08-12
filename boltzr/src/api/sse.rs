@@ -42,7 +42,7 @@ where
     let mut rx = state.swap_status_update_tx.subscribe();
     state
         .swap_infos
-        .fetch_status_info(connection_id, &[params.id.clone()])
+        .fetch_status_info(connection_id, std::slice::from_ref(&params.id))
         .await;
 
     Sse::new(try_stream! {
@@ -51,10 +51,8 @@ where
         loop {
             match rx.recv().await {
                 Ok((id, events)) => {
-                    if let Some(event_id) = id {
-                        if event_id != connection_id {
-                            continue;
-                        }
+                    if id.is_some_and(|id| id != connection_id) {
+                        continue;
                     }
 
                     for e in events {

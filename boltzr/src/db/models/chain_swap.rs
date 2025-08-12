@@ -82,14 +82,14 @@ impl ChainSwapInfo {
             },
         );
 
-        if let Some(sending_data) = sending_data {
-            if let Some(receiving_data) = receiving_data {
-                return Ok(Self {
-                    swap,
-                    sending_data: sending_data.clone(),
-                    receiving_data: receiving_data.clone(),
-                });
-            }
+        if let Some(sending) = sending_data
+            && let Some(receiving) = receiving_data
+        {
+            return Ok(Self {
+                swap,
+                sending_data: sending.clone(),
+                receiving_data: receiving.clone(),
+            });
         }
 
         Err(anyhow::anyhow!("invalid data params for chain swap"))

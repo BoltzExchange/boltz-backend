@@ -1734,11 +1734,6 @@ message DecodeInvreqBip353Name {
 	optional string domain = 2;
 }
 
-message DecodeInvoicePathsPath {
-	bytes blinded_node_id = 1;
-	bytes encrypted_recipient_data = 2;
-}
-
 message DecodeInvoiceFallbacks {
 	uint32 version = 1;
 	bytes hex = 2;

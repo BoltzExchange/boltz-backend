@@ -568,7 +568,7 @@ mod tests {
         let sighash = SighashCache::new(tx.clone())
             .taproot_key_spend_signature_hash(
                 0,
-                &Prevouts::All(&[input.tx_out.clone()]),
+                &Prevouts::All(std::slice::from_ref(&input.tx_out)),
                 SIGHASH_TYPE_TAPROOT,
             )
             .unwrap();
@@ -717,7 +717,7 @@ mod tests {
         let sighash = SighashCache::new(tx.clone())
             .taproot_key_spend_signature_hash(
                 0,
-                &Prevouts::All(&[input.tx_out.clone()]),
+                &Prevouts::All(std::slice::from_ref(&input.tx_out)),
                 SIGHASH_TYPE_TAPROOT,
             )
             .unwrap();

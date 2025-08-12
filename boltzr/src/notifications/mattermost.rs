@@ -373,10 +373,8 @@ where
         is_alert: bool,
         send_alert: bool,
     ) -> anyhow::Result<()> {
-        if send_alert {
-            if let Some(alert_client) = self.alert_client.clone() {
-                alert_client.send_alert("Boltz alert".to_string()).await?;
-            }
+        if send_alert && let Some(alert_client) = self.alert_client.as_ref() {
+            alert_client.send_alert("Boltz alert".to_string()).await?;
         }
 
         if message.len() + self.prefix.clone().unwrap_or("".to_string()).len() + 10

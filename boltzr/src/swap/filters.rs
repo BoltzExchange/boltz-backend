@@ -84,18 +84,18 @@ fn get_reverse_filters(
     ))?;
 
     for swap in pending_reverse {
-        if let Some(ref transaction_id) = swap.transactionId {
-            if let Some(vout) = swap.transactionVout {
-                let chain_symbol = swap.chain_symbol()?;
+        if let Some(ref transaction_id) = swap.transactionId
+            && let Some(vout) = swap.transactionVout
+        {
+            let chain_symbol = swap.chain_symbol()?;
 
-                let (inputs, _) = filters
-                    .entry(chain_symbol)
-                    .or_insert((HashSet::new(), HashSet::new()));
-                inputs.insert(Outpoint {
-                    vout: vout as u32,
-                    hash: parse_transaction_id(transaction_id)?,
-                });
-            }
+            let (inputs, _) = filters
+                .entry(chain_symbol)
+                .or_insert((HashSet::new(), HashSet::new()));
+            inputs.insert(Outpoint {
+                vout: vout as u32,
+                hash: parse_transaction_id(transaction_id)?,
+            });
         }
     }
 
@@ -143,16 +143,16 @@ fn get_chain_filters(
             SwapUpdate::TransactionServerMempool | SwapUpdate::TransactionServerConfirmed => {
                 let sending = swap.sending();
 
-                if let Some(id) = sending.transactionId.clone() {
-                    if let Some(vout) = sending.transactionVout {
-                        let (inputs, _) = filters
-                            .entry(sending.symbol.clone())
-                            .or_insert((HashSet::new(), HashSet::new()));
-                        inputs.insert(Outpoint {
-                            vout: vout as u32,
-                            hash: parse_transaction_id(&id)?,
-                        });
-                    }
+                if let Some(id) = sending.transactionId.as_ref()
+                    && let Some(vout) = sending.transactionVout
+                {
+                    let (inputs, _) = filters
+                        .entry(sending.symbol.clone())
+                        .or_insert((HashSet::new(), HashSet::new()));
+                    inputs.insert(Outpoint {
+                        vout: vout as u32,
+                        hash: parse_transaction_id(id)?,
+                    });
                 }
             }
             _ => {}

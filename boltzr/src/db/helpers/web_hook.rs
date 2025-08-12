@@ -114,12 +114,11 @@ impl WebHookHelper for WebHookHelperDatabase {
 
 impl HookState<WebHook> for WebHookHelperDatabase {
     fn should_be_skipped(&self, hook: &WebHook, params: &WebHookCallData) -> bool {
-        if let WebHookCallData::SwapUpdate(params) = &params {
-            if let Some(status_include) = &hook.status {
-                if !status_include.contains(&params.status) {
-                    return true;
-                }
-            }
+        if let WebHookCallData::SwapUpdate(update) = &params
+            && let Some(status_include) = &hook.status
+            && !status_include.contains(&update.status)
+        {
+            return true;
         }
 
         false

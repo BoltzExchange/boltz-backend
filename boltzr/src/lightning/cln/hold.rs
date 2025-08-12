@@ -379,12 +379,9 @@ impl Hold {
         url: Option<&str>,
     ) -> Result<Vec<u8>> {
         if let Some(url) = url {
-            if let Err(err) = self
-                .invoice_fetcher
+            self.invoice_fetcher
                 .validate_url(url, network == wallet::Network::Regtest)
-            {
-                return Err(anyhow!("invalid URL: {}", err));
-            }
+                .map_err(|err| anyhow!("invalid URL: {}", err))?;
         }
 
         let decoded = match crate::lightning::invoice::decode(network, offer)? {

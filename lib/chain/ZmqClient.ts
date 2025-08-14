@@ -2,8 +2,6 @@ import AsyncLock from 'async-lock';
 import type { Transaction } from 'bitcoinjs-lib';
 import { crypto } from 'bitcoinjs-lib';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
-import type { Socket } from 'zeromq/v5-compat';
-import { socket as openSocket } from 'zeromq/v5-compat';
 import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
 import {
@@ -16,6 +14,7 @@ import { CurrencyType } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type ChainClient from './ChainClient';
 import Errors from './Errors';
+import ZmqSocket from './ZmqSocket';
 
 type ZmqNotification = {
   type: string;
@@ -37,6 +36,11 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     confirmed: boolean;
   };
 }> {
+  // 1 hour
+  private static readonly inactivityTimeoutBlockMs = 3_600_000;
+  // 1 minute
+  private static readonly inactivityTimeoutTransactionMs = 60_000;
+
   // IDs of transactions that contain a UTXOs of Boltz
   public utxos = new Set<string>();
 
@@ -52,15 +56,13 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   private rawBlockAddress?: string;
   private hashBlockAddress?: string;
 
-  private sockets: Socket[] = [];
+  private sockets: ZmqSocket[] = [];
 
   private compatibilityRescan = false;
 
   // Because the event handlers that process the blocks are doing work asynchronously,
   // one has to use a lock to ensure the events get handled sequentially
   private blockHandleLock = new AsyncLock();
-
-  private static readonly connectTimeout = 1000;
 
   constructor(
     private readonly symbol: string,
@@ -88,7 +90,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       switch (notification.type) {
         case filters.rawTx:
           activeFilters.rawtx = true;
-          await this.initRawTransaction(notification.address);
+          this.initRawTransaction(notification.address);
           break;
 
         case filters.rawBlock:
@@ -114,7 +116,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     };
 
     if (activeFilters.rawBlock) {
-      await this.initRawBlock();
+      this.initRawBlock();
     } else {
       logCouldNotSubscribe(filters.rawBlock);
 
@@ -126,7 +128,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
         this.logger.warn(
           `Falling back to ${this.symbol} ${filters.hashBlock} ZMQ filter`,
         );
-        await this.initHashBlock();
+        this.initHashBlock();
       }
     }
   };
@@ -135,7 +137,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     for (const socket of this.sockets) {
       // Catch errors that are thrown if the socket is closed already
       try {
-        socket.close();
+        socket.disconnect();
       } catch (error) {
         this.logger.debug(
           `${this.symbol} socket already closed: ${formatError(error)}`,
@@ -186,10 +188,14 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     }
   };
 
-  private initRawTransaction = async (address: string) => {
-    const socket = await this.createSocket(address, 'rawtx');
+  private initRawTransaction = (address: string) => {
+    const socket = this.createSocket(
+      address,
+      'rawtx',
+      ZmqClient.inactivityTimeoutTransactionMs,
+    );
 
-    socket.on('message', async (_, rawTransaction: Buffer) => {
+    socket.on('data', async (rawTransaction) => {
       const transaction = parseTransaction(
         this.currencyType,
         rawTransaction,
@@ -221,7 +227,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     });
   };
 
-  private initRawBlock = async () => {
+  private initRawBlock = () => {
     // Elements raw block subscriptions are not supported
     if (
       this.currencyType === CurrencyType.Liquid ||
@@ -230,18 +236,13 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       return this.initHashBlock();
     }
 
-    const socket = await this.createSocket(this.rawBlockAddress!, 'rawblock');
+    const socket = this.createSocket(
+      this.rawBlockAddress!,
+      'rawblock',
+      ZmqClient.inactivityTimeoutBlockMs,
+    );
 
-    socket.on('disconnect', () => {
-      socket.disconnect(this.rawBlockAddress!);
-
-      this.logger.warn(
-        `${this.symbol} ${filters.rawBlock} ZMQ filter disconnected. Falling back to ${filters.hashBlock}`,
-      );
-      this.initHashBlock();
-    });
-
-    socket.on('message', async (_, rawBlock: Buffer) => {
+    socket.on('data', async (rawBlock) => {
       const previousBlockHash = getHexString(
         reverseBuffer(rawBlock.subarray(4, 36)),
       );
@@ -290,13 +291,17 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     });
   };
 
-  private initHashBlock = async () => {
+  private initHashBlock = () => {
     if (!this.hashBlockAddress) {
       throw Errors.NO_BLOCK_FALLBACK();
     }
 
     const lockKey = filters.hashBlock;
-    const socket = await this.createSocket(this.hashBlockAddress, 'hashblock');
+    const socket = this.createSocket(
+      this.hashBlockAddress,
+      'hashblock',
+      ZmqClient.inactivityTimeoutBlockMs,
+    );
 
     const handleBlock = async (blockHash: string) => {
       const block = await this.chainClient.getBlock(blockHash);
@@ -323,7 +328,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       }
     };
 
-    socket.on('message', (_, blockHash: Buffer) => {
+    socket.on('data', (blockHash) => {
       const blockHashString = getHexString(blockHash);
 
       this.blockHandleLock.acquire(
@@ -387,36 +392,27 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     this.logger.verbose(`Found ${this.symbol} orphan block: ${hash}`);
   };
 
-  private createSocket = (address: string, filter: string) => {
+  private createSocket = (
+    address: string,
+    filter: string,
+    inactivityTimeoutMs: number,
+  ) => {
     const sanitizedAddress = this.replaceZmqAddressWildcard(address);
     this.logger.silly(
       `Sanitized ${this.symbol} ZMQ filter ${filter} address (${address}) to: ${sanitizedAddress}`,
     );
 
-    return new Promise<Socket>((resolve, reject) => {
-      const socket = openSocket('sub').monitor(0, 0);
+    const socket = new ZmqSocket(
+      this.logger,
+      this.symbol,
+      filter,
+      sanitizedAddress,
+      inactivityTimeoutMs,
+    );
+    this.sockets.push(socket);
+    socket.connect();
 
-      const timeoutHandle = setTimeout(() => {
-        socket.close();
-        reject(
-          Errors.ZMQ_CONNECTION_TIMEOUT(this.symbol, filter, sanitizedAddress),
-        );
-      }, ZmqClient.connectTimeout);
-
-      socket.on('connect', () => {
-        this.logger.debug(
-          `Connected to ${this.symbol} ZMQ filter ${filter} on: ${sanitizedAddress}`,
-        );
-
-        clearTimeout(timeoutHandle);
-        this.sockets.push(socket);
-
-        resolve(socket);
-      });
-
-      socket.connect(sanitizedAddress);
-      socket.subscribe(filter);
-    });
+    return socket;
   };
 
   private replaceZmqAddressWildcard = (address: string) =>

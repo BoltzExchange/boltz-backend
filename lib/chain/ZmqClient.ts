@@ -31,15 +31,19 @@ export type SomeTransaction = Transaction | LiquidTransaction;
 
 class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   block: number;
+  reconnected: unknown;
   transaction: {
     transaction: T;
     confirmed: boolean;
   };
 }> {
   // 1 hour
-  private static readonly inactivityTimeoutBlockMs = 3_600_000;
+  private static readonly inactivityTimeoutMsBlock = 3_600_000;
   // 1 minute
-  private static readonly inactivityTimeoutTransactionMs = 60_000;
+  private static readonly inactivityTimeoutMsTransaction = 60_000;
+
+  // Maximum value for an unsigned 32-bit integer which is the limit of Node.js
+  private static readonly inactivityTimeoutMsRegtest = 2 ** 31 - 1;
 
   // IDs of transactions that contain a UTXOs of Boltz
   public utxos = new Set<string>();
@@ -67,6 +71,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   constructor(
     private readonly symbol: string,
     private readonly logger: Logger,
+    private readonly isRegtest: boolean,
     private readonly chainClient: ChainClient,
     private readonly rpcHost: string,
   ) {
@@ -192,7 +197,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     const socket = this.createSocket(
       address,
       'rawtx',
-      ZmqClient.inactivityTimeoutTransactionMs,
+      this.getInactivityTimeoutMs(ZmqClient.inactivityTimeoutMsTransaction),
     );
 
     socket.on('data', async (rawTransaction) => {
@@ -239,7 +244,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     const socket = this.createSocket(
       this.rawBlockAddress!,
       'rawblock',
-      ZmqClient.inactivityTimeoutBlockMs,
+      this.getInactivityTimeoutMs(ZmqClient.inactivityTimeoutMsBlock),
     );
 
     socket.on('data', async (rawBlock) => {
@@ -300,7 +305,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     const socket = this.createSocket(
       this.hashBlockAddress,
       'hashblock',
-      ZmqClient.inactivityTimeoutBlockMs,
+      this.getInactivityTimeoutMs(ZmqClient.inactivityTimeoutMsBlock),
     );
 
     const handleBlock = async (blockHash: string) => {
@@ -409,6 +414,9 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       sanitizedAddress,
       inactivityTimeoutMs,
     );
+    socket.on('reconnected', () => {
+      this.emit('reconnected', undefined);
+    });
     this.sockets.push(socket);
     socket.connect();
 
@@ -417,6 +425,14 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 
   private replaceZmqAddressWildcard = (address: string) =>
     address.replace('0.0.0.0', this.rpcHost);
+
+  private getInactivityTimeoutMs = (real: number) => {
+    if (this.isRegtest) {
+      return ZmqClient.inactivityTimeoutMsRegtest;
+    }
+
+    return real;
+  };
 }
 
 export default ZmqClient;

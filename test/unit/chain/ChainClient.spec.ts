@@ -2,6 +2,7 @@ import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 import ChainTipRepository from '../../../lib/db/repositories/ChainTipRepository';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 
 const relevantInputs = new Set<string>();
 const relevantOutputs = new Set<string>();
@@ -62,6 +63,8 @@ describe('ChainClient', () => {
 
   const chainClient = new ChainClient(
     Logger.disabledLogger,
+    {} as unknown as Sidecar,
+    'bitcoinRegtest',
     {
       host: '',
       port: 0,

@@ -80,6 +80,7 @@ describe('ZmqClient', () => {
   const zmqClient = new ZmqClient(
     'BTC',
     Logger.disabledLogger,
+    false,
     chainClient as unknown as ChainClient,
     '127.0.0.1',
   );
@@ -107,6 +108,7 @@ describe('ZmqClient', () => {
     const rejectZmqClient = new ZmqClient(
       'BTC',
       Logger.disabledLogger,
+      false,
       chainClient as unknown as ChainClient,
       '127.0.0.1',
     );
@@ -349,6 +351,7 @@ describe('ZmqClient', () => {
       const zmqClient = new ZmqClient(
         'BTC',
         Logger.disabledLogger,
+        false,
         chainClient as unknown as ChainClient,
         '127.0.0.1',
       );

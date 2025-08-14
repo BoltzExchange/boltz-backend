@@ -6,6 +6,7 @@ import { allSettledFirst } from '../PromiseUtils';
 import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import type { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
+import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, ChainClientEvents } from './ChainClient';
 import type { IElementsClient, LiquidAddressType } from './ElementsClient';
 import ElementsClient from './ElementsClient';
@@ -22,14 +23,23 @@ class ElementsWrapper
 
   private readonly clients: ElementsClient[] = [];
 
-  constructor(logger: Logger, config: LiquidChainConfig) {
+  constructor(
+    logger: Logger,
+    sidecar: Sidecar,
+    network: string,
+    config: LiquidChainConfig,
+  ) {
     super(logger, ElementsClient.symbol);
 
-    this.clients.push(new ElementsClient(this.logger, config, false));
+    this.clients.push(
+      new ElementsClient(this.logger, sidecar, network, config, false),
+    );
 
     if (config.lowball !== undefined) {
       this.logger.info(`Using lowball for ${this.clients[0].serviceName()}`);
-      this.clients.push(new ElementsClient(this.logger, config.lowball, true));
+      this.clients.push(
+        new ElementsClient(this.logger, sidecar, network, config.lowball, true),
+      );
     }
 
     if (
@@ -40,6 +50,7 @@ class ElementsWrapper
     } else {
       this.zeroConfCheck = new TestMempoolAccept(
         this.logger,
+        this.clients[0].isRegtest,
         this.publicClient(),
         config.zeroConfWaitTime,
       );

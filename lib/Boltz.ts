@@ -146,6 +146,12 @@ class Boltz {
       })
       .filter((manager): manager is EthereumManager => manager !== undefined);
 
+    this.sidecar = new Sidecar(
+      this.logger,
+      this.config.sidecar,
+      this.config.datadir,
+    );
+
     this.currencies = this.parseCurrencies();
 
     const walletCurrencies = Array.from(this.currencies.values());
@@ -156,12 +162,6 @@ class Boltz {
       this.config.mnemonicpathEvm,
       walletCurrencies,
       this.ethereumManagers,
-    );
-
-    this.sidecar = new Sidecar(
-      this.logger,
-      this.config.sidecar,
-      this.config.datadir,
     );
 
     const notificationClient = new NotificationClient(
@@ -441,6 +441,8 @@ class Boltz {
       try {
         const chainClient = new ChainClient(
           this.logger,
+          this.sidecar,
+          currency.network,
           currency.chain,
           currency.symbol,
         );
@@ -520,7 +522,12 @@ class Boltz {
         type: CurrencyType.Liquid,
         symbol: symbol,
         network: LiquidNetworks[network],
-        chainClient: new ElementsWrapper(this.logger, chain),
+        chainClient: new ElementsWrapper(
+          this.logger,
+          this.sidecar,
+          network,
+          chain,
+        ),
         limits: {
           ...this.config.liquid,
         },

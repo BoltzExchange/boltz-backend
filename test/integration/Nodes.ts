@@ -6,11 +6,14 @@ import ElementsClient from '../../lib/chain/ElementsClient';
 import Redis from '../../lib/db/Redis';
 import LndClient from '../../lib/lightning/LndClient';
 import ClnClient from '../../lib/lightning/cln/ClnClient';
+import type Sidecar from '../../lib/sidecar/Sidecar';
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
 export const bitcoinClient = new ChainClient(
   Logger.disabledLogger,
+  {} as unknown as Sidecar,
+  'bitcoinRegtest',
   {
     host,
     port: 18443,
@@ -28,6 +31,8 @@ export const elementsConfig = {
 };
 export const elementsClient = new ElementsClient(
   Logger.disabledLogger,
+  {} as unknown as Sidecar,
+  'liquidRegtest',
   elementsConfig,
 );
 

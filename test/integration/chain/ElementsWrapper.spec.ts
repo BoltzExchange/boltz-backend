@@ -3,15 +3,21 @@ import Logger from '../../../lib/Logger';
 import { sleep } from '../../../lib/PromiseUtils';
 import ElementsWrapper from '../../../lib/chain/ElementsWrapper';
 import { ClientStatus, CurrencyType } from '../../../lib/consts/Enums';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { elementsConfig } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ElementsWrapper', () => {
-  const wrapper = new ElementsWrapper(Logger.disabledLogger, {
-    ...elementsConfig,
-    lowball: elementsConfig,
-  });
+  const wrapper = new ElementsWrapper(
+    Logger.disabledLogger,
+    {} as unknown as Sidecar,
+    'liquidRegtest',
+    {
+      ...elementsConfig,
+      lowball: elementsConfig,
+    },
+  );
 
   beforeAll(async () => {
     await wrapper.connect();
@@ -57,6 +63,8 @@ describe('ElementsWrapper', () => {
     test('should construct with just public node', () => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
+        {} as unknown as Sidecar,
+        'liquidRegtest',
         elementsConfig,
       );
 
@@ -165,6 +173,8 @@ describe('ElementsWrapper', () => {
     test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configued', async () => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
+        {} as unknown as Sidecar,
+        'liquidRegtest',
         elementsConfig,
       );
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -322,6 +332,8 @@ describe('ElementsWrapper', () => {
     async ({ name }) => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
+        {} as unknown as Sidecar,
+        'liquidRegtest',
         elementsConfig,
       );
       await oneWrapper.connect();

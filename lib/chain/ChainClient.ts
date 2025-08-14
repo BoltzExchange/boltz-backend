@@ -94,11 +94,11 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
   public isRegtest = false;
-  public zmqClient: ZmqClient<T>;
 
   protected client: RpcClient;
   protected feeFloor = 2;
 
+  private readonly zmqClient: ZmqClient<T>;
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
 
@@ -125,7 +125,13 @@ class ChainClient<T extends SomeTransaction = Transaction>
     const rescanner = new Rescanner(this.logger, this, sidecar);
 
     this.zmqClient.on('reconnected', () => {
-      rescanner.rescan();
+      try {
+        rescanner.rescan();
+      } catch (error) {
+        this.logger.error(
+          `Error rescanning ${this.symbol} chain after ZMQ reconnect: ${formatError(error)}`,
+        );
+      }
     });
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
@@ -135,6 +141,10 @@ class ChainClient<T extends SomeTransaction = Transaction>
         this.config.mempoolSpace,
       );
     }
+  }
+
+  public get scannedHeight(): number {
+    return this.zmqClient.blockHeight;
   }
 
   public serviceName = (): string => {

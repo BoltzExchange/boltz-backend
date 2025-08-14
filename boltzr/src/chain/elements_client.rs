@@ -37,6 +37,7 @@ impl ElementsClient {
             cancellation_token.clone(),
             cache.clone(),
             TYPE,
+            network,
             SYMBOL.to_string(),
             config.base,
         )?;
@@ -45,6 +46,7 @@ impl ElementsClient {
                 cancellation_token.clone(),
                 cache,
                 TYPE,
+                network,
                 SYMBOL.to_string(),
                 lowball_config,
             )?),
@@ -139,7 +141,7 @@ impl Client for ElementsClient {
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
         if self.network == Network::Regtest {
             let (tx, rx) = oneshot::channel();
-            tx.send(true).unwrap();
+            let _ = tx.send(true);
             return rx;
         }
 

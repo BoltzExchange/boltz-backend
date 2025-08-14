@@ -31,7 +31,7 @@ export type SomeTransaction = Transaction | LiquidTransaction;
 
 class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   block: number;
-  reconnected: unknown;
+  reconnected: string;
   transaction: {
     transaction: T;
     confirmed: boolean;
@@ -42,7 +42,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   // 1 minute
   private static readonly inactivityTimeoutMsTransaction = 60_000;
 
-  // Maximum value for an unsigned 32-bit integer which is the limit of Node.js
+  // Maximum value for a signed 32-bit integer (Node.js timer limit)
   private static readonly inactivityTimeoutMsRegtest = 2 ** 31 - 1;
 
   // IDs of transactions that contain a UTXOs of Boltz
@@ -415,7 +415,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       inactivityTimeoutMs,
     );
     socket.on('reconnected', () => {
-      this.emit('reconnected', undefined);
+      this.emit('reconnected', filter);
     });
     this.sockets.push(socket);
     socket.connect();

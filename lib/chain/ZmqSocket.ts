@@ -32,6 +32,8 @@ class ZmqSocket extends TypedEventEmitter<{
       `Connecting to ${this.symbol} ZMQ filter ${this.filter}: ${this.address}`,
     );
 
+    this.shouldReconnect = true;
+
     this.socket = new Subscriber();
     this.socket.connect(this.address);
     this.socket.subscribe(this.filter);

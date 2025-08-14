@@ -8,6 +8,7 @@ use crate::chain::types::{
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
+use crate::wallet::Network;
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
@@ -44,6 +45,7 @@ impl ChainClient {
         cancellation_token: CancellationToken,
         cache: Cache,
         client_type: Type,
+        network: Network,
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
@@ -55,7 +57,7 @@ impl ChainClient {
                 .mempool_space
                 .clone()
                 .map(|url| MempoolSpace::new(cancellation_token.clone(), symbol.clone(), url)),
-            zmq_client: ZmqClient::new(client_type, config),
+            zmq_client: ZmqClient::new(client_type, network, config),
             tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
         };
 
@@ -371,6 +373,7 @@ pub mod test {
             CancellationToken::new(),
             cache::Cache::Memory(cache::MemCache::new()),
             Type::Bitcoin,
+            Network::Regtest,
             "BTC".to_string(),
             Config {
                 host: "127.0.0.1".to_string(),

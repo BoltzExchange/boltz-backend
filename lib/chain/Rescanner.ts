@@ -23,13 +23,12 @@ class Rescanner {
     }
 
     await this.lock.acquire(Rescanner.serviceName, async () => {
+      const height = this.chainClient.scannedHeight;
       this.logger.info(
-        `Rescanning ${this.chainClient.symbol} chain from height ${this.chainClient.zmqClient.blockHeight}`,
+        `Rescanning ${this.chainClient.symbol} chain from height ${height}`,
       );
 
-      await this.chainClient.rescanChain(
-        this.chainClient.zmqClient.blockHeight,
-      );
+      await this.chainClient.rescanChain(height);
       await this.sidecar.rescanMempool([this.chainClient.symbol]);
     });
   };

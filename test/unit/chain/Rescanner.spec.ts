@@ -16,7 +16,7 @@ describe('Rescanner', () => {
 
     chainClient = {
       symbol,
-      zmqClient: { blockHeight },
+      scannedHeight: blockHeight,
       rescanChain: jest.fn().mockResolvedValue(undefined),
     } as any;
 

@@ -170,7 +170,7 @@ describe('ElementsWrapper', () => {
       await sleep(wrapper['zeroConfCheckTime'] * 2);
     });
 
-    test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configued', async () => {
+    test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configured', async () => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
         {} as unknown as Sidecar,

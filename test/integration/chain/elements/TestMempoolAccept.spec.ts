@@ -21,7 +21,7 @@ describe('TestMempoolAccept', () => {
 
   test('should use default check time', async () => {
     expect(
-      new TestMempoolAccept(Logger.disabledLogger, elementsClient)[
+      new TestMempoolAccept(Logger.disabledLogger, true, elementsClient)[
         'zeroConfCheckTime'
       ],
     ).toEqual(TestMempoolAccept['zeroConfCheckTimeDefault']);
@@ -31,6 +31,7 @@ describe('TestMempoolAccept', () => {
     const checkTime = 1000;
     testMempoolAccept = new TestMempoolAccept(
       Logger.disabledLogger,
+      true,
       elementsClient,
       checkTime,
     );
@@ -57,6 +58,7 @@ describe('TestMempoolAccept', () => {
 
       const instance = new TestMempoolAccept(
         Logger.disabledLogger,
+        isRegtest,
         elementsClient,
       );
       await instance.init();
@@ -81,9 +83,9 @@ describe('TestMempoolAccept', () => {
 
       const instance = new TestMempoolAccept(
         Logger.disabledLogger,
+        true,
         elementsClient,
       );
-      instance['isRegtest'] = true;
 
       const result = await instance.checkTransaction(mockTransaction);
 
@@ -106,9 +108,9 @@ describe('TestMempoolAccept', () => {
 
       const instance = new TestMempoolAccept(
         Logger.disabledLogger,
+        false,
         elementsClient,
       );
-      instance['isRegtest'] = false;
 
       const result = await instance.checkTransaction(mockTransaction);
 
@@ -138,9 +140,9 @@ describe('TestMempoolAccept', () => {
 
         const instance = new TestMempoolAccept(
           Logger.disabledLogger,
+          false,
           elementsClient,
         );
-        instance['isRegtest'] = false;
 
         const result = await instance.checkTransaction(mockTransaction);
 
@@ -166,9 +168,9 @@ describe('TestMempoolAccept', () => {
 
       const instance = new TestMempoolAccept(
         Logger.disabledLogger,
+        false,
         elementsClient,
       );
-      instance['isRegtest'] = false;
 
       const result = await instance.checkTransaction(mockTransaction);
 

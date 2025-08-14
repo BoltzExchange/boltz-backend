@@ -1,6 +1,7 @@
 import { Transaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import ElementsClient from '../../../lib/chain/ElementsClient';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('ElementsClient', () => {
   test.each`
@@ -12,6 +13,8 @@ describe('ElementsClient', () => {
     async ({ lowball, expected }) => {
       const client = new ElementsClient(
         Logger.disabledLogger,
+        {} as unknown as Sidecar,
+        'liquidRegtest',
         {
           host: '127.0.0.1',
           port: 123,

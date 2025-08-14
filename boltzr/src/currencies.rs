@@ -78,6 +78,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                         cancellation_token.clone(),
                         cache.clone(),
                         crate::chain::types::Type::Bitcoin,
+                        network,
                         currency.symbol.clone(),
                         config,
                     ))

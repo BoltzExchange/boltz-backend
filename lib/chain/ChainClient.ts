@@ -18,8 +18,10 @@ import type {
   WalletTransaction,
 } from '../consts/Types';
 import ChainTipRepository from '../db/repositories/ChainTipRepository';
+import type Sidecar from '../sidecar/Sidecar';
 import MempoolSpace from './MempoolSpace';
 import Rebroadcaster from './Rebroadcaster';
+import Rescanner from './Rescanner';
 import RpcClient from './RpcClient';
 import type { SomeTransaction, ZmqNotification } from './ZmqClient';
 import ZmqClient, { filters } from './ZmqClient';
@@ -91,24 +93,46 @@ class ChainClient<T extends SomeTransaction = Transaction>
   public static readonly decimals = 100_000_000;
 
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
+  public isRegtest = false;
 
   protected client: RpcClient;
-  protected zmqClient: ZmqClient<T>;
   protected feeFloor = 2;
 
+  private readonly zmqClient: ZmqClient<T>;
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
 
   constructor(
     logger: Logger,
+    sidecar: Sidecar,
+    network: string,
     private readonly config: ChainConfig,
     symbol: string,
   ) {
     super(logger, symbol);
 
     this.client = new RpcClient(logger, symbol, this.config);
-    this.zmqClient = new ZmqClient(symbol, logger, this, config.host);
+    this.isRegtest = network.toLowerCase().includes('regtest');
+    this.zmqClient = new ZmqClient(
+      symbol,
+      logger,
+      this.isRegtest,
+      this,
+      config.host,
+    );
     this.rebroadcaster = new Rebroadcaster(this.logger, this);
+
+    const rescanner = new Rescanner(this.logger, this, sidecar);
+
+    this.zmqClient.on('reconnected', () => {
+      try {
+        rescanner.rescan();
+      } catch (error) {
+        this.logger.error(
+          `Error rescanning ${this.symbol} chain after ZMQ reconnect: ${formatError(error)}`,
+        );
+      }
+    });
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(
@@ -117,6 +141,10 @@ class ChainClient<T extends SomeTransaction = Transaction>
         this.config.mempoolSpace,
       );
     }
+  }
+
+  public get scannedHeight(): number {
+    return this.zmqClient.blockHeight;
   }
 
   public serviceName = (): string => {

@@ -1,9 +1,9 @@
 import { Transaction, crypto } from 'bitcoinjs-lib';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import type { Socket } from 'zeromq/v5-compat';
-import { socket as openSocket } from 'zeromq/v5-compat';
+import { Publisher } from 'zeromq';
 import Logger from '../../../lib/Logger';
+import { sleep } from '../../../lib/PromiseUtils';
 import { getHexString, reverseBuffer } from '../../../lib/Utils';
 import type ChainClient from '../../../lib/chain/ChainClient';
 import Errors from '../../../lib/chain/Errors';
@@ -21,20 +21,19 @@ import FakedChainClient from './FakeChainClient';
 class ZmqPublisher {
   public address: string;
 
-  private socket: Socket;
+  private socket: Publisher;
   private readonly filter: string;
 
   constructor(port: number, filter: string) {
     this.address = `tcp://127.0.0.1:${port}`;
     this.filter = filter.replace('pub', '');
 
-    this.socket = openSocket('pub');
+    this.socket = new Publisher();
   }
 
-  public bind = () =>
-    new Promise((resolve) => {
-      this.socket.bind(this.address, resolve);
-    });
+  public bind = async () => {
+    await this.socket.bind(this.address);
+  };
 
   public close = () => {
     this.socket.close();
@@ -81,6 +80,7 @@ describe('ZmqClient', () => {
   const zmqClient = new ZmqClient(
     'BTC',
     Logger.disabledLogger,
+    false,
     chainClient as unknown as ChainClient,
     '127.0.0.1',
   );
@@ -100,6 +100,7 @@ describe('ZmqClient', () => {
     zmqClient.close();
 
     rawTx.close();
+    rawBlock.close();
     hashBlock.close();
   });
 
@@ -107,6 +108,7 @@ describe('ZmqClient', () => {
     const rejectZmqClient = new ZmqClient(
       'BTC',
       Logger.disabledLogger,
+      false,
       chainClient as unknown as ChainClient,
       '127.0.0.1',
     );
@@ -292,20 +294,10 @@ describe('ZmqClient', () => {
     expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
   });
 
-  test('should fallback to hashblock notifications', async () => {
-    rawBlock.close();
-
-    // Wait until there are three sockets in the ZmqClient which
-    // means that the client connected to the hashblock fallback
-    await waitForFunctionToBeTrue(() => {
-      return zmqClient['sockets'].length === 3;
-    });
-
-    // Wait a little longer to make sure the socket is connected
-    await wait(10);
-  });
-
   test('should handle hashblock notifications', async () => {
+    zmqClient['initHashBlock']();
+    await sleep(100);
+
     let blockHeight = 0;
 
     zmqClient.on('block', (height) => {
@@ -348,51 +340,6 @@ describe('ZmqClient', () => {
     expect(blockHeight).toEqual(reorgHeight + blocksToGenerate);
   });
 
-  test('should reject connecting to addresses that are not ZMQ publishers', async () => {
-    expect(ZmqClient['connectTimeout']).toEqual(1000);
-    const createSocket = zmqClient['createSocket'];
-
-    const filter = 'filter';
-
-    expect(zmqClient['sockets'].length).toEqual(3);
-
-    const invalidAddress = `tcp://127.0.0.1:${await getPort()}`;
-    await expect(createSocket(invalidAddress, filter)).rejects.toEqual(
-      Errors.ZMQ_CONNECTION_TIMEOUT(
-        zmqClient['symbol'],
-        filter,
-        invalidAddress,
-      ),
-    );
-
-    expect(zmqClient['sockets'].length).toEqual(3);
-    zmqClient.close();
-  });
-
-  test('should sanitize ZMQ addresses', async () => {
-    const zmqClient = new ZmqClient(
-      'BTC',
-      Logger.disabledLogger,
-      chainClient as unknown as ChainClient,
-      '127.0.0.1',
-    );
-
-    const address = `tcp://0.0.0.0:${await getPort()}`;
-    const filterName = 'name';
-
-    await expect(
-      zmqClient['createSocket'](address, filterName),
-    ).rejects.toEqual(
-      Errors.ZMQ_CONNECTION_TIMEOUT(
-        'BTC',
-        filterName,
-        address.replace('0.0.0.0', '127.0.0.1'),
-      ),
-    );
-
-    zmqClient.close();
-  });
-
   test.each`
     address                   | sanitized
     ${'tcp://127.0.0.1:1234'} | ${'tcp://127.0.0.1:1234'}
@@ -404,6 +351,7 @@ describe('ZmqClient', () => {
       const zmqClient = new ZmqClient(
         'BTC',
         Logger.disabledLogger,
+        false,
         chainClient as unknown as ChainClient,
         '127.0.0.1',
       );

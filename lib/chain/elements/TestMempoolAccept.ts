@@ -6,7 +6,6 @@ import type ElementsClient from '../ElementsClient';
 import type { ZeroConfCheck } from './ZeroConfCheck';
 
 class TestMempoolAccept implements ZeroConfCheck {
-  private static readonly regtestChain = 'liquidregtest';
   private static readonly zeroConfCheckTimeDefault = 1_000;
   private static readonly zeroConfCheckAllowedErrors = [
     'min relay fee not met',
@@ -15,10 +14,9 @@ class TestMempoolAccept implements ZeroConfCheck {
 
   private readonly zeroConfCheckTime: number;
 
-  private isRegtest = false;
-
   constructor(
     private readonly logger: Logger,
+    private readonly isRegtest: boolean,
     private readonly publicClient: ElementsClient,
     zeroConfWaitTime?: number,
   ) {
@@ -34,9 +32,7 @@ class TestMempoolAccept implements ZeroConfCheck {
   }
 
   public init = async (): Promise<void> => {
-    const { chain } = await this.publicClient.getBlockchainInfo();
-    if (chain === TestMempoolAccept.regtestChain) {
-      this.isRegtest = true;
+    if (this.isRegtest) {
       this.logger.warn(
         'Elements chain is regtest; skipping 0-conf mempool acceptance check',
       );

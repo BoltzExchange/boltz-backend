@@ -39,7 +39,7 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
 }> {
   // 1 hour
   private static readonly inactivityTimeoutMsBlock = 3_600_000;
-  // 1 minute
+  // 5 minutes
   private static readonly inactivityTimeoutMsTransaction = 300_000;
 
   // Maximum value for a signed 32-bit integer (Node.js timer limit)

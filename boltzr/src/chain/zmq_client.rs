@@ -13,7 +13,7 @@ use zeromq::{Socket, SocketRecv, SubSocket, ZmqError, ZmqMessage};
 
 pub const ZMQ_TX_CHANNEL_SIZE: usize = 1024 * 16;
 
-const ZMQ_INACTIVITY_TIMEOUT_SECONDS: u64 = 60;
+const ZMQ_INACTIVITY_TIMEOUT_SECONDS: u64 = 300;
 const ZMQ_RECONNECT_DELAY_SECONDS: u64 = 1;
 
 #[derive(Debug, Clone)]

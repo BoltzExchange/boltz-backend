@@ -73,7 +73,7 @@ pub struct SmartFeeEstimate {
     pub feerate: f64,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct ZmqNotification {
     #[serde(rename = "type")]
     pub notification_type: String,

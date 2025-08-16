@@ -158,7 +158,7 @@ impl BaseClient for ChainClient {
             .client
             .request::<Vec<ZmqNotification>>("getzmqnotifications", None)
             .await?;
-        self.zmq_client.connect(notifications).await?;
+        self.zmq_client.connect(&notifications).await?;
 
         if let Some(mempool_space) = &self.mempool_space {
             mempool_space.connect().await?;

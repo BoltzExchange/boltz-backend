@@ -42,7 +42,6 @@ import {
   queryERC20SwapValuesFromLock,
   queryEtherSwapValuesFromLock,
 } from '../../wallet/ethereum/contracts/ContractUtils';
-import Contracts from '../../wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import type { SwapToClaim } from './CoopSignerBase';
@@ -612,7 +611,7 @@ class DeferredClaimer extends CoopSignerBase<{
           : (swap as ChainSwapInfo).receivingData.lockupAddress,
       ))!;
 
-      if (contracts.version !== Contracts.maxVersion) {
+      if (contracts.version !== manager.highestContractsVersion().version) {
         this.logNotDeferringReason(swap.id, 'not using the latest contracts');
         return false;
       }

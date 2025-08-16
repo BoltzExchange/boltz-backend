@@ -2996,7 +2996,7 @@
           },
           "color": {
             "type": "string",
-            "description": "Color code the node"
+            "description": "Color code of the node"
           }
         }
       },
@@ -3755,7 +3755,7 @@
       "ReverseBip21": {
         "type": "object",
         "required": [
-          "bip12",
+          "bip21",
           "signature"
         ],
         "properties": {
@@ -3861,7 +3861,7 @@
           },
           "refundPublicKey": {
             "type": "string",
-            "description": "Public key with which the Chain Swap can be refunded encdoed as HEX"
+            "description": "Public key with which the Chain Swap can be refunded encoded as HEX"
           },
           "claimAddress": {
             "type": "string",

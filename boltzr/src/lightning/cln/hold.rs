@@ -388,7 +388,7 @@ impl Hold {
 
     fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Option<Offer>> {
         let invoice_request = InvoiceRequest::try_from(invoice_request)
-            .map_err(|err| anyhow!("could node decode invoice request: {:?}", err))?;
+            .map_err(|err| anyhow!("could not decode invoice request: {:?}", err))?;
         let signing_pubkey = match invoice_request.issuer_signing_pubkey() {
             Some(pubkey) => pubkey,
             None => return Err(anyhow!("no issuer signing public key")),

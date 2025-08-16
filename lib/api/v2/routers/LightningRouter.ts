@@ -25,7 +25,7 @@
  *           description: Alias of the node
  *         color:
  *           type: string
- *           description: Color code the node
+ *           description: Color code of the node
  *
  *     LightningChannelPolicy:
  *       type: object

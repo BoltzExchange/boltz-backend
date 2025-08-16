@@ -8,7 +8,7 @@ use diesel::{
 
 pub trait OfferHelper {
     fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
-    fn update(&self, signer: &[u8], url: Option<String>) -> QueryResponse<usize>;
+    fn update(&self, signer: &[u8], url: &Option<String>) -> QueryResponse<usize>;
     fn delete(&self, signer: &[u8]) -> QueryResponse<usize>;
     fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
     fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;
@@ -32,7 +32,7 @@ impl OfferHelper for OfferHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
-    fn update(&self, signer: &[u8], url: Option<String>) -> QueryResponse<usize> {
+    fn update(&self, signer: &[u8], url: &Option<String>) -> QueryResponse<usize> {
         Ok(update(offers::dsl::offers)
             .filter(offers::dsl::signer.eq(signer))
             .set(offers::dsl::url.eq(url))
@@ -84,7 +84,7 @@ pub mod test {
 
         impl OfferHelper for OfferHelper {
             fn insert(&self, offer: &Offer) -> QueryResponse<usize>;
-            fn update(&self, signer: &[u8], url: Option<String>) -> QueryResponse<usize>;
+            fn update(&self, signer: &[u8], url: &Option<String>) -> QueryResponse<usize>;
             fn delete(&self, signer: &[u8]) -> QueryResponse<usize>;
             fn get_by_signer(&self, signer: &[u8]) -> QueryResponse<Option<Offer>>;
             fn get_offer(&self, offer: &str) -> QueryResponse<Option<Offer>>;

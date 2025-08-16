@@ -146,13 +146,14 @@ impl Hold {
             ));
         }
 
+        let signer_hex = alloy::hex::encode(&signer);
         self.offer_helper.insert(&Offer {
             signer,
             // Needed when we lookup if we know an offer when fetching
             offer: offer.to_lowercase(),
             url,
         })?;
-        info!("Registered offer");
+        info!("Registered offer of {}", signer_hex);
         Ok(())
     }
 
@@ -170,8 +171,15 @@ impl Hold {
             return Err(anyhow!(ERR_INVALID_SIGNATURE));
         }
 
-        self.offer_helper.update(&signer, url)?;
-        info!("Updated offer");
+        self.offer_helper.update(&signer, &url)?;
+        debug!(
+            "Updated offer of {} to {}",
+            alloy::hex::encode(signer),
+            match url {
+                Some(url) => format!("webhook {}", url),
+                None => "no webhook".to_string(),
+            }
+        );
         Ok(())
     }
 
@@ -186,7 +194,7 @@ impl Hold {
         }
 
         self.offer_helper.delete(&signer)?;
-        info!("Deleted offer");
+        info!("Deleted offer of {}", alloy::hex::encode(signer));
         Ok(())
     }
 

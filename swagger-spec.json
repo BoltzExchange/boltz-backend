@@ -868,10 +868,8 @@
             }
           }
         }
-      }
-    },
-    "/lightning/{currency}/bolt12/delete": {
-      "post": {
+      },
+      "delete": {
         "tags": [
           "Lightning"
         ],

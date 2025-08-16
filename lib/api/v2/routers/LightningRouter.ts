@@ -355,8 +355,8 @@
 
 /**
  * @openapi
- * /lightning/{currency}/bolt12/delete:
- *   post:
+ * /lightning/{currency}/bolt12:
+ *   delete:
  *     tags: [Lightning]
  *     description: Deletes a BOLT12 offer
  *     parameters:

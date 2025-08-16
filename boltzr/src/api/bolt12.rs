@@ -3,6 +3,7 @@ use crate::api::errors::{ApiError, AxumError};
 use crate::api::types::assert_not_zero;
 use crate::api::ws::status::SwapInfos;
 use crate::db::models::SwapType;
+use crate::lightning::cln::OfferError;
 use crate::swap::manager::SwapManager;
 use alloy::hex;
 use anyhow::Result;
@@ -122,7 +123,10 @@ where
         None => return Ok(no_cln_error()),
     };
 
-    cln.hold.update_offer(body.offer, body.url, &signature)?;
+    if let Err(err) = cln.hold.update_offer(body.offer, body.url, &signature) {
+        return Ok(offer_error_response(err));
+    }
+
     Ok((StatusCode::OK, Json(UpdateResponse {})).into_response())
 }
 
@@ -149,7 +153,10 @@ where
         None => return Ok(no_cln_error()),
     };
 
-    cln.hold.delete_offer(body.offer, &signature)?;
+    if let Err(err) = cln.hold.delete_offer(body.offer, &signature) {
+        return Ok(offer_error_response(err));
+    }
+
     Ok((StatusCode::OK, Json(DeleteResponse {})).into_response())
 }
 
@@ -219,6 +226,26 @@ where
         }
         None => no_cln_error(),
     })
+}
+
+fn offer_error_response(err: anyhow::Error) -> Response<Body> {
+    match err.downcast_ref::<OfferError>() {
+        Some(OfferError::NoOfferRegistered) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiError {
+                error: err.to_string(),
+            }),
+        )
+            .into_response(),
+        Some(OfferError::InvalidSignature) => (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiError {
+                error: err.to_string(),
+            }),
+        )
+            .into_response(),
+        None => AxumError::new_with_default_status(err).into_response(),
+    }
 }
 
 fn no_cln_error() -> Response<Body> {

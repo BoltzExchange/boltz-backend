@@ -29,7 +29,8 @@ Supported currencies: Bitcoin, Lightning, Liquid
 ### [Boltz Rust](https://github.com/SatoshiPortal/boltz-rust)
 
 Boltz API library in Rust, developed and maintained by the amazing folks at
-[Bull Bitcoin](https://www.bullbitcoin.com/) and Boltz. Used by e.g.:
+[Bull Bitcoin](https://www.bullbitcoin.com/) and Boltz. Features bindings for
+Python. Used by e.g.:
 [Bull Bitcoin Mobile](https://github.com/SatoshiPortal/bullbitcoin-mobile) and
 [Aqua Wallet](https://github.com/AquaWallet/aqua-wallet) via
 [Boltz Dart](https://github.com/SatoshiPortal/boltz-dart)

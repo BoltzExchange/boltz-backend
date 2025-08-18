@@ -21,6 +21,10 @@ impl AxumError {
     pub fn new(status: StatusCode, error: anyhow::Error) -> Self {
         Self(status, error)
     }
+
+    pub fn new_with_default_status(error: anyhow::Error) -> Self {
+        Self(StatusCode::INTERNAL_SERVER_ERROR, error)
+    }
 }
 
 impl IntoResponse for AxumError {
@@ -40,7 +44,7 @@ where
     E: Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
-        Self(StatusCode::INTERNAL_SERVER_ERROR, err.into())
+        Self::new_with_default_status(err.into())
     }
 }
 

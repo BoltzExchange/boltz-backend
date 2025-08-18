@@ -6,7 +6,7 @@ use crate::api::stats::get_stats;
 use crate::metrics::server::MetricsLayer;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
-use axum::routing::{get, patch, post};
+use axum::routing::{delete, get, patch, post};
 use axum::{Extension, Router};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -154,6 +154,10 @@ where
             .route(
                 "/v2/lightning/{currency}/bolt12",
                 patch(bolt12::update::<S, M>),
+            )
+            .route(
+                "/v2/lightning/{currency}/bolt12",
+                delete(bolt12::delete::<S, M>),
             )
             .route(
                 "/v2/lightning/{currency}/bolt12/delete",

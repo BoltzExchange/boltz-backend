@@ -31,6 +31,7 @@ use lightning::sign::{KeysManager, RandomBytes};
 use lightning::util::ser::Writeable;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -38,19 +39,35 @@ use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{debug, error, info, instrument, warn};
 
-const ERR_INVALID_SIGNATURE: &str = "invalid signature";
-const ERR_NO_OFFER_REGISTERED: &str = "no offer for this signing public key was registered";
+pub mod hold_rpc {
+    tonic::include_proto!("hold");
+}
 
 const OFFER_DELETE_MESSAGE: &str = "DELETE";
 const OFFER_UPDATE_NO_URL_MESSAGE: &str = "UPDATE";
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum OfferError {
+    InvalidSignature,
+    NoOfferRegistered,
+}
+
+impl Display for OfferError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OfferError::InvalidSignature => write!(f, "invalid signature"),
+            OfferError::NoOfferRegistered => {
+                write!(f, "no offer registered for this signing public key")
+            }
+        }
+    }
+}
+
+impl std::error::Error for OfferError {}
+
 enum InvoiceResponse {
     Invoice(Box<Bolt12Invoice>),
     InvoiceError(String),
-}
-
-pub mod hold_rpc {
-    tonic::include_proto!("hold");
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -146,47 +163,55 @@ impl Hold {
             ));
         }
 
+        let signer_hex = alloy::hex::encode(&signer);
         self.offer_helper.insert(&Offer {
             signer,
             // Needed when we lookup if we know an offer when fetching
             offer: offer.to_lowercase(),
             url,
         })?;
-        info!("Registered offer");
+        info!("Registered offer of {}", signer_hex);
         Ok(())
     }
 
     pub fn update_offer(&self, offer: String, url: Option<String>, signature: &[u8]) -> Result<()> {
         let signer = self.prepare_offer(self.network, &offer, url.as_deref())?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
-            return Err(anyhow!(ERR_NO_OFFER_REGISTERED));
+            return Err(OfferError::NoOfferRegistered.into());
         }
 
-        if !Self::schnor_signature_valid(
+        if !Self::schnorr_signature_valid(
             &signer,
             signature,
             url.as_deref().unwrap_or(OFFER_UPDATE_NO_URL_MESSAGE),
         )? {
-            return Err(anyhow!(ERR_INVALID_SIGNATURE));
+            return Err(OfferError::InvalidSignature.into());
         }
 
-        self.offer_helper.update(&signer, url)?;
-        info!("Updated offer");
+        self.offer_helper.update(&signer, &url)?;
+        debug!(
+            "Updated offer of {} to {}",
+            alloy::hex::encode(signer),
+            match url {
+                Some(url) => format!("webhook: {}", url),
+                None => "no webhook".to_string(),
+            }
+        );
         Ok(())
     }
 
     pub fn delete_offer(&self, offer: String, signature: &[u8]) -> Result<()> {
         let signer = self.prepare_offer(self.network, &offer, None)?;
         if self.offer_helper.get_by_signer(&signer)?.is_none() {
-            return Err(anyhow!(ERR_NO_OFFER_REGISTERED));
+            return Err(OfferError::NoOfferRegistered.into());
         }
 
-        if !Self::schnor_signature_valid(&signer, signature, OFFER_DELETE_MESSAGE)? {
-            return Err(anyhow!(ERR_INVALID_SIGNATURE));
+        if !Self::schnorr_signature_valid(&signer, signature, OFFER_DELETE_MESSAGE)? {
+            return Err(OfferError::InvalidSignature.into());
         }
 
         self.offer_helper.delete(&signer)?;
-        info!("Deleted offer");
+        info!("Deleted offer of {}", alloy::hex::encode(signer));
         Ok(())
     }
 
@@ -363,7 +388,7 @@ impl Hold {
 
     fn get_offer_for_invoice_request(&self, invoice_request: Vec<u8>) -> Result<Option<Offer>> {
         let invoice_request = InvoiceRequest::try_from(invoice_request)
-            .map_err(|err| anyhow!("could node decode invoice request: {:?}", err))?;
+            .map_err(|err| anyhow!("could not decode invoice request: {:?}", err))?;
         let signing_pubkey = match invoice_request.issuer_signing_pubkey() {
             Some(pubkey) => pubkey,
             None => return Err(anyhow!("no issuer signing public key")),
@@ -455,7 +480,7 @@ impl Hold {
         Ok((onion.1.blinding_point, packet_bytes))
     }
 
-    fn schnor_signature_valid(signer: &[u8], signature: &[u8], message: &str) -> Result<bool> {
+    fn schnorr_signature_valid(signer: &[u8], signature: &[u8], message: &str) -> Result<bool> {
         let secp = Secp256k1::verification_only();
         Ok(secp
             .verify_schnorr(
@@ -684,7 +709,7 @@ mod test {
             )
             .unwrap_err()
             .to_string(),
-            "no offer for this signing public key was registered"
+            OfferError::NoOfferRegistered.to_string()
         );
     }
 
@@ -730,7 +755,7 @@ mod test {
             )
             .unwrap_err()
             .to_string(),
-            "invalid signature"
+            OfferError::InvalidSignature.to_string()
         );
     }
 
@@ -796,7 +821,7 @@ mod test {
             hold.delete_offer(OFFER.to_uppercase(), &[])
                 .unwrap_err()
                 .to_string(),
-            ERR_NO_OFFER_REGISTERED
+            OfferError::NoOfferRegistered.to_string()
         );
     }
 
@@ -836,7 +861,7 @@ mod test {
             hold.delete_offer(OFFER.to_uppercase(), &sig.serialize())
                 .unwrap_err()
                 .to_string(),
-            ERR_INVALID_SIGNATURE
+            OfferError::InvalidSignature.to_string()
         );
     }
 

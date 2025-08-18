@@ -25,6 +25,7 @@ mod hold;
 mod invoice_fetcher;
 
 pub use crate::lightning::cln::hold::hold_rpc::onion_message::ReplyBlindedPath;
+pub use hold::OfferError;
 
 #[allow(clippy::enum_variant_names)]
 pub(crate) mod cln_rpc {

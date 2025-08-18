@@ -1007,7 +1007,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseBip21:
      *       type: object
-     *       required: ["bip12", "signature"]
+     *       required: ["bip21", "signature"]
      *       properties:
      *         bip21:
      *           type: string
@@ -1150,7 +1150,7 @@ class SwapRouter extends RouterBase {
      *           description: Public key with which the Chain Swap can be claimed encoded as HEX
      *         refundPublicKey:
      *           type: string
-     *           description: Public key with which the Chain Swap can be refunded encdoed as HEX
+     *           description: Public key with which the Chain Swap can be refunded encoded as HEX
      *         claimAddress:
      *           type: string
      *           description: EVM address with which the Chain Swap can be claimed

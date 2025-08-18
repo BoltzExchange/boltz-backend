@@ -191,6 +191,8 @@ describe('WalletManager', () => {
   });
 
   test('should initialize with an existing mnemonic', async () => {
+    listInfoException = undefined;
+
     walletManager = new WalletManager(
       Logger.disabledLogger,
       mnemonicPath,

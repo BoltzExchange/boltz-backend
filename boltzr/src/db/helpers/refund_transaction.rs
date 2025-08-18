@@ -90,10 +90,10 @@ impl RefundTransactionHelper for RefundTransactionHelperDatabase {
     ) -> QueryResponse<usize> {
         Ok(update(refund_transactions::dsl::refund_transactions)
             .filter(refund_transactions::dsl::swapId.eq(swap_id))
-            .set(((
+            .set((
                 refund_transactions::dsl::id.eq(transaction_id),
                 refund_transactions::dsl::vin.eq(vin),
-            ),))
+            ))
             .execute(&mut self.pool.get()?)?)
     }
 }

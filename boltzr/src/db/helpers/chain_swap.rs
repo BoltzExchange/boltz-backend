@@ -32,12 +32,10 @@ impl ChainSwapHelperDatabase {
 
 impl ChainSwapHelper for ChainSwapHelperDatabase {
     fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo> {
-        let res = self.get_all(Box::new(chainSwaps::dsl::id.eq(id.to_string())))?;
-        if res.is_empty() {
-            return Err(anyhow::anyhow!("swap not found"));
-        }
-
-        Ok(res[0].clone())
+        self.get_all(Box::new(chainSwaps::dsl::id.eq(id.to_string())))?
+            .into_iter()
+            .next()
+            .ok_or(anyhow::anyhow!("swap not found"))
     }
 
     fn get_all(&self, condition: ChainSwapCondition) -> QueryResponse<Vec<ChainSwapInfo>> {

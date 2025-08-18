@@ -39,7 +39,7 @@ impl Wallet for Bitcoin {
         let dec = bitcoin::address::Address::from_str(address)?;
         Ok(match dec.require_network(self.network) {
             Ok(address) => address.script_pubkey().into_bytes(),
-            Err(_) => return Err(anyhow::anyhow!("invalid network")),
+            Err(_) => return Err(anyhow!("invalid network")),
         })
     }
 

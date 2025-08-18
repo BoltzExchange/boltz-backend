@@ -136,6 +136,10 @@ impl Musig {
         secp: &Secp256k1<C>,
         nonces: Vec<PublicNonce>,
     ) -> Result<()> {
+        if nonces.len() != self.num_participants() {
+            anyhow::bail!("incorrect number of nonces")
+        }
+
         if let Some((_, our_nonce)) = &self.nonce {
             if nonces[self.our_index()?] != *our_nonce {
                 anyhow::bail!("our nonce is at incorrect index")

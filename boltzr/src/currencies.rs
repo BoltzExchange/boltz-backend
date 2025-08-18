@@ -75,8 +75,9 @@ pub async fn connect_nodes<K: KeysHelper>(
                     && preferred_wallet != PREFERRED_WALLET_CORE
                 {
                     return Err(anyhow!(
-                        "preferred wallet not supported: {}",
-                        preferred_wallet
+                        "preferred wallet not supported: {} (supported: {})",
+                        preferred_wallet,
+                        PREFERRED_WALLET_CORE
                     ));
                 }
 

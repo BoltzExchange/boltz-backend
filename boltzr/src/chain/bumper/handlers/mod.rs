@@ -11,7 +11,7 @@ pub enum HandlerType {
 impl std::fmt::Display for HandlerType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            HandlerType::Refund => write!(f, "Refund"),
+            HandlerType::Refund => write!(f, "refund"),
         }
     }
 }

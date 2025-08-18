@@ -103,7 +103,7 @@ class WalletManager {
         configCurrencies.find((config) => config.symbol === currency.symbol)
           ?.preferredWallet === 'lnd'
       ) {
-        throw 'LND wallet support was removed';
+        throw new Error('LND wallet support was removed');
       }
 
       if (currency.type === CurrencyType.BitcoinLike) {

@@ -7,15 +7,25 @@ use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
 use serde_json::json;
 use std::fs;
+use std::sync::Arc;
 use tracing::{debug, instrument};
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct RpcClient {
     pub(crate) symbol: String,
-
+    client: Arc<reqwest::Client>,
     endpoint: String,
     endpoint_wallet: String,
     cookie: String,
+}
+
+impl PartialEq for RpcClient {
+    fn eq(&self, other: &Self) -> bool {
+        self.symbol == other.symbol
+            && self.endpoint == other.endpoint
+            && self.endpoint_wallet == other.endpoint_wallet
+            && self.cookie == other.cookie
+    }
 }
 
 impl RpcClient {
@@ -44,6 +54,7 @@ impl RpcClient {
 
         Ok(Self {
             symbol,
+            client: Arc::new(reqwest::Client::new()),
             cookie: format!("Basic {}", BASE64_STANDARD.encode(auth)),
             endpoint_wallet: match config.wallet {
                 Some(wallet) => format!("{endpoint}/wallet/{wallet}"),
@@ -78,9 +89,8 @@ impl RpcClient {
         method: &str,
         params: Vec<Vec<RpcParam>>,
     ) -> anyhow::Result<Vec<anyhow::Result<T>>> {
-        let client = reqwest::Client::new();
-
-        let response = client
+        let response = self
+            .client
             .post(&self.endpoint)
             .headers(self.get_headers()?)
             .json(
@@ -117,9 +127,8 @@ impl RpcClient {
         method: &str,
         params: Option<Vec<RpcParam>>,
     ) -> anyhow::Result<T> {
-        let client = reqwest::Client::new();
-
-        let response = client
+        let response = self
+            .client
             .post(endpoint)
             .headers(self.get_headers()?)
             .json(&json!({

@@ -258,10 +258,7 @@ mod test {
         let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
-        let fee = tx
-            .calculate_fee(&std::sync::Arc::new(&client))
-            .await
-            .unwrap();
+        let fee = tx.calculate_fee(&client).await.unwrap();
         assert_eq!(fee, 0.09727626459143969);
     }
 }

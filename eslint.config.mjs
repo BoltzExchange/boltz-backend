@@ -12,6 +12,7 @@ export default [
     ignores: [
       'dist',
       'tools',
+      '.venv',
       'lib/proto',
       'contracts',
       'node_modules',

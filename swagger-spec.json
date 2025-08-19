@@ -2820,6 +2820,56 @@
         }
       }
     },
+    "/swap/status": {
+      "get": {
+        "tags": [
+          "Swap"
+        ],
+        "description": "Get the status of multiple Swaps",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ids",
+            "required": true,
+            "description": "Array of Swap IDs (max 64)",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map of Swap IDs to their latest status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/SwapStatus"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (ids must be an array, contains non-strings, or too many ids)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/{id}": {
       "get": {
         "tags": [

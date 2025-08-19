@@ -8,6 +8,7 @@ import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import RateProviderTaproot from '../../../rates/providers/RateProviderTaproot';
 import Errors from '../../../service/Errors';
+import type { SwapUpdate } from '../../../service/EventHandler';
 import type { ExtraFees, WebHookData } from '../../../service/Service';
 import type Service from '../../../service/Service';
 import type ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
@@ -1655,6 +1656,42 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * /swap/status:
+     *   get:
+     *     tags: [Swap]
+     *     description: Get the status of multiple Swaps
+     *     parameters:
+     *       - in: query
+     *         name: ids
+     *         required: true
+     *         description: Array of Swap IDs (max 64)
+     *         style: form
+     *         explode: true
+     *         schema:
+     *           type: array
+     *           maxItems: 64
+     *           items:
+     *             type: string
+     *     responses:
+     *       '200':
+     *         description: Map of Swap IDs to their latest status
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 $ref: '#/components/schemas/SwapStatus'
+     *       '400':
+     *         description: Invalid request (ids must be an array, contains non-strings, or too many ids)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.get('/status', this.handleError(this.getSwapStatusMultiple));
+
+    /**
+     * @openapi
      * /swap/{id}:
      *   get:
      *     tags: [Swap]
@@ -2504,6 +2541,43 @@ class SwapRouter extends RouterBase {
 
     await this.service.swapManager.renegotiator.acceptQuote(id, amount);
     successResponse(res, {}, 202);
+  };
+
+  private getSwapStatusMultiple = async (req: Request, res: Response) => {
+    const ids = req.query.ids as string[];
+    if (!Array.isArray(ids)) {
+      errorResponse(this.logger, req, res, 'ids must be an array', 400);
+      return;
+    }
+
+    if (ids.length > 64) {
+      errorResponse(this.logger, req, res, 'too many ids', 400);
+      return;
+    }
+
+    if (ids.some((id) => typeof id !== 'string')) {
+      errorResponse(this.logger, req, res, 'invalid ids', 400);
+      return;
+    }
+
+    const result: Record<string, SwapUpdate> = {};
+    try {
+      await Promise.all(
+        ids.map(async (id) => {
+          const status = await this.swapInfos.get(id);
+          if (status) {
+            result[id] = status;
+          } else {
+            throw Errors.SWAP_NOT_FOUND(id);
+          }
+        }),
+      );
+    } catch (e) {
+      errorResponse(this.logger, req, res, e, 400);
+      return;
+    }
+
+    successResponse(res, result);
   };
 
   private getSwapStatus = async (req: Request, res: Response) => {

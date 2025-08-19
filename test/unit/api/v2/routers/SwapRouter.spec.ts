@@ -185,8 +185,9 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(15);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(16);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
+    expect(mockedRouter.get).toHaveBeenCalledWith('/status', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
@@ -288,6 +289,68 @@ describe('SwapRouter', () => {
       '/chain/:id/quote',
       expect.anything(),
     );
+  });
+
+  describe('getSwapStatusMultiple', () => {
+    test('should not get multiple swap statuses when ids is not an array', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, {}),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'ids must be an array' });
+    });
+
+    test('should not get multiple swap statuses when ids contains non-strings', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: ['swapId', 1 as any] }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'invalid ids' });
+    });
+
+    test('should enforce maximum ids length', async () => {
+      const manyIds = Array.from({ length: 65 }, () => 'swapId');
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: manyIds }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'too many ids' });
+    });
+
+    test('should get multiple swap statuses', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: ['swapId'] }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        swapId: await swapInfos.get('swapId'),
+      });
+    });
+
+    test('should return 400 when any requested swap id cannot be found', async () => {
+      const res = mockResponse();
+      await swapRouter['getSwapStatusMultiple'](
+        mockRequest(undefined, { ids: ['notFound'] }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'could not find swap with id: notFound',
+      });
+    });
   });
 
   test.each`

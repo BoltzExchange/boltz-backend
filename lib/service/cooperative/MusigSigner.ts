@@ -29,6 +29,7 @@ import SwapNursery from '../../swap/SwapNursery';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
+import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import { createPartialSignature, isPreimageValid } from './Utils';
 
 type PartialSignature = {
@@ -99,11 +100,8 @@ class MusigSigner {
     }
 
     if (this.disableCooperative) {
-      this.logger.debug(
-        `Cooperative signatures are disabled, not creating partial signature for refund of Swap ${swap.id}`,
-      );
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
-        'cooperative refunds are disabled',
+        cooperativeSignaturesDisabledMessage,
       );
     }
 
@@ -157,9 +155,14 @@ class MusigSigner {
           throw Errors.SWAP_NOT_FOUND(swapId);
         }
 
+        if (this.disableCooperative) {
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+            cooperativeSignaturesDisabledMessage,
+          );
+        }
+
         if (
           swap.version !== SwapVersion.Taproot ||
-          this.disableCooperative ||
           ![
             SwapUpdateEvent.TransactionMempool,
             SwapUpdateEvent.TransactionConfirmed,

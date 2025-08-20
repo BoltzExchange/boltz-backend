@@ -21,7 +21,9 @@ import type {
   CooperativeDetails,
   SwapToClaim,
 } from './CoopSignerBase';
-import CoopSignerBase from './CoopSignerBase';
+import CoopSignerBase, {
+  cooperativeSignaturesDisabledMessage,
+} from './CoopSignerBase';
 import type { PartialSignature } from './MusigSigner';
 import MusigSigner from './MusigSigner';
 import { createPartialSignature, isPreimageValid } from './Utils';
@@ -101,11 +103,8 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       }
 
       if (this.disableCooperative) {
-        this.logger.debug(
-          `Cooperative signatures are disabled, not creating partial signature for refund of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-        );
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
-          'cooperative refunds are disabled',
+          cooperativeSignaturesDisabledMessage,
         );
       }
 
@@ -166,10 +165,9 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
     if (this.disableCooperative) {
-      this.logger.debug(
-        `Cooperative signatures are disabled, not creating cooperative details for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+        cooperativeSignaturesDisabledMessage,
       );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
     if (swap.status === SwapUpdateEvent.TransactionClaimed) {
@@ -197,10 +195,9 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       ChainSwapSigner.cooperativeBroadcastLock,
       async () => {
         if (this.disableCooperative) {
-          this.logger.debug(
-            `Cooperative signatures are disabled, not creating partial signature for claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+            cooperativeSignaturesDisabledMessage,
           );
-          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
         }
 
         // If the swap is settled already, we still allow the partial signing of claims

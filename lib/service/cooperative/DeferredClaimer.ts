@@ -45,7 +45,9 @@ import {
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import type { SwapToClaim } from './CoopSignerBase';
-import CoopSignerBase from './CoopSignerBase';
+import CoopSignerBase, {
+  cooperativeSignaturesDisabledMessage,
+} from './CoopSignerBase';
 import AmountTrigger from './triggers/AmountTrigger';
 import ExpiryTrigger from './triggers/ExpiryTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
@@ -72,7 +74,6 @@ class DeferredClaimer extends CoopSignerBase<{
   );
 
   private readonly lock = new AsyncLock();
-
   private readonly swapsToClaim = new Map<
     string,
     Map<string, SwapToClaimPreimage>
@@ -81,11 +82,9 @@ class DeferredClaimer extends CoopSignerBase<{
     string,
     Map<string, ChainSwapToClaimPreimage>
   >();
-
   private readonly sweepTriggers: SweepTrigger[];
 
   private batchClaimSchedule?: Job;
-
   private disableCooperative = false;
 
   constructor(
@@ -293,10 +292,9 @@ class DeferredClaimer extends CoopSignerBase<{
     transactionHash: Buffer;
   }> => {
     if (this.disableCooperative) {
-      this.logger.debug(
-        `Cooperative signatures are disabled, not creating cooperative details for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+        cooperativeSignaturesDisabledMessage,
       );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
     }
 
     if (this.rateProvider.isBatchOnly(swap)) {
@@ -324,6 +322,12 @@ class DeferredClaimer extends CoopSignerBase<{
     theirPartialSignature: Buffer,
   ) => {
     await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
+      if (this.disableCooperative) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+          cooperativeSignaturesDisabledMessage,
+        );
+      }
+
       const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
       if (toClaim === undefined || toClaim.cooperative === undefined) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();
@@ -671,13 +675,6 @@ class DeferredClaimer extends CoopSignerBase<{
     chainCurrency: Currency;
     toClaim: AnySwapWithPreimage<T> | undefined;
   }> => {
-    if (this.disableCooperative) {
-      this.logger.debug(
-        `Cooperative signatures are disabled, not creating cooperative details for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
-      );
-      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
-    }
-
     let receivingSymbol: string;
     if (swap.type === SwapType.Submarine) {
       const { base, quote } = splitPairId(swap.pair);

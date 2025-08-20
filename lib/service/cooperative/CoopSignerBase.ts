@@ -28,6 +28,9 @@ import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
 
+export const cooperativeSignaturesDisabledMessage =
+  'cooperative signatures are disabled';
+
 type CooperativeDetails = {
   musig: Musig;
   sweepAddress: string;

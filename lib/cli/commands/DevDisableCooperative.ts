@@ -1,9 +1,9 @@
 import type { Arguments } from 'yargs';
-import { SetDisableCooperativeRequest } from '../../proto/boltzrpc_pb';
+import { DevDisableCooperativeRequest } from '../../proto/boltzrpc_pb';
 import type { ApiType, BuilderTypes } from '../BuilderComponents';
 import { callback, loadBoltzClient } from '../Command';
 
-export const command = 'disablecooperative [disabled]';
+export const command = 'dev-disablecooperative [disabled]';
 
 export const describe = 'disable cooperative signatures for swaps';
 
@@ -18,9 +18,8 @@ export const builder = {
 export const handler = (
   argv: Arguments<BuilderTypes<typeof builder> & ApiType>,
 ): void => {
-  const request = new SetDisableCooperativeRequest();
-
+  const request = new DevDisableCooperativeRequest();
   request.setDisabled(argv.disabled);
 
-  loadBoltzClient(argv).setDisableCooperative(request, callback());
+  loadBoltzClient(argv).devDisableCooperative(request, callback());
 };

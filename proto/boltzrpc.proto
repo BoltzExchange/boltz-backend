@@ -66,6 +66,9 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
+
+  /* Disables cooperative signatures for swaps */
+  rpc SetDisableCooperative (SetDisableCooperativeRequest) returns (SetDisableCooperativeResponse);
 }
 
 enum OutputType {
@@ -466,3 +469,9 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
+
+message SetDisableCooperativeRequest {
+  bool disabled = 1;
+}
+
+message SetDisableCooperativeResponse {}

@@ -1918,6 +1918,43 @@ export namespace DevClearSwapUpdateCacheResponse {
     }
 }
 
+export class SetDisableCooperativeRequest extends jspb.Message { 
+    getDisabled(): boolean;
+    setDisabled(value: boolean): SetDisableCooperativeRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetDisableCooperativeRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetDisableCooperativeRequest): SetDisableCooperativeRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetDisableCooperativeRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetDisableCooperativeRequest;
+    static deserializeBinaryFromReader(message: SetDisableCooperativeRequest, reader: jspb.BinaryReader): SetDisableCooperativeRequest;
+}
+
+export namespace SetDisableCooperativeRequest {
+    export type AsObject = {
+        disabled: boolean,
+    }
+}
+
+export class SetDisableCooperativeResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetDisableCooperativeResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetDisableCooperativeResponse): SetDisableCooperativeResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetDisableCooperativeResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetDisableCooperativeResponse;
+    static deserializeBinaryFromReader(message: SetDisableCooperativeResponse, reader: jspb.BinaryReader): SetDisableCooperativeResponse;
+}
+
+export namespace SetDisableCooperativeResponse {
+    export type AsObject = {
+    }
+}
+
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,

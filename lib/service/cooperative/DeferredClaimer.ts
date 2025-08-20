@@ -86,6 +86,8 @@ class DeferredClaimer extends CoopSignerBase<{
 
   private batchClaimSchedule?: Job;
 
+  private disableCooperative = false;
+
   constructor(
     logger: Logger,
     private readonly currencies: Map<string, Currency>,
@@ -112,6 +114,10 @@ class DeferredClaimer extends CoopSignerBase<{
         this.config.sweepAmountTrigger,
       ),
     ];
+  }
+
+  public setDisableCooperative(disabled: boolean) {
+    this.disableCooperative = disabled;
   }
 
   public init = async () => {
@@ -286,6 +292,13 @@ class DeferredClaimer extends CoopSignerBase<{
     publicKey: Buffer;
     transactionHash: Buffer;
   }> => {
+    if (this.disableCooperative) {
+      this.logger.debug(
+        `Cooperative signatures are disabled, not creating cooperative details for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+    }
+
     if (this.rateProvider.isBatchOnly(swap)) {
       this.logger.debug(
         `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} is batch-only`,
@@ -658,6 +671,13 @@ class DeferredClaimer extends CoopSignerBase<{
     chainCurrency: Currency;
     toClaim: AnySwapWithPreimage<T> | undefined;
   }> => {
+    if (this.disableCooperative) {
+      this.logger.debug(
+        `Cooperative signatures are disabled, not creating cooperative details for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+    }
+
     let receivingSymbol: string;
     if (swap.type === SwapType.Submarine) {
       const { base, quote } = splitPairId(swap.pair);

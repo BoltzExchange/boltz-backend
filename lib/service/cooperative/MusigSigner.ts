@@ -51,6 +51,7 @@ class MusigSigner {
 
   private readonly lock = new AsyncLock();
   private readonly allowedRefunds = new Set<string>();
+  private disableCooperative = false;
 
   constructor(
     private readonly logger: Logger,
@@ -58,6 +59,10 @@ class MusigSigner {
     private readonly walletManager: WalletManager,
     private readonly nursery: SwapNursery,
   ) {}
+
+  public setDisableCooperative(disabled: boolean) {
+    this.disableCooperative = disabled;
+  }
 
   public allowRefund = async (id: string) => {
     const swap = await SwapRepository.getSwap({ id });
@@ -91,6 +96,15 @@ class MusigSigner {
     const swap = await SwapRepository.getSwap({ id: swapId });
     if (!swap) {
       throw Errors.SWAP_NOT_FOUND(swapId);
+    }
+
+    if (this.disableCooperative) {
+      this.logger.debug(
+        `Cooperative signatures are disabled, not creating partial signature for refund of Swap ${swap.id}`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        'cooperative refunds are disabled',
+      );
     }
 
     const { base, quote } = splitPairId(swap.pair);
@@ -145,6 +159,7 @@ class MusigSigner {
 
         if (
           swap.version !== SwapVersion.Taproot ||
+          this.disableCooperative ||
           ![
             SwapUpdateEvent.TransactionMempool,
             SwapUpdateEvent.TransactionConfirmed,

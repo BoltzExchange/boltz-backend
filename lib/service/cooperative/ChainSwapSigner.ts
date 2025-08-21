@@ -21,7 +21,9 @@ import type {
   CooperativeDetails,
   SwapToClaim,
 } from './CoopSignerBase';
-import CoopSignerBase from './CoopSignerBase';
+import CoopSignerBase, {
+  cooperativeSignaturesDisabledMessage,
+} from './CoopSignerBase';
 import type { PartialSignature } from './MusigSigner';
 import MusigSigner from './MusigSigner';
 import { createPartialSignature, isPreimageValid } from './Utils';
@@ -46,6 +48,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
 
   private readonly lock = new AsyncLock();
   private readonly swapsToClaim = new Map<string, SwapToClaim<ChainSwapInfo>>();
+  private disableCooperative = false;
 
   constructor(
     logger: Logger,
@@ -54,6 +57,10 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     swapOutputType: SwapOutputType,
   ) {
     super(logger, walletManager, swapOutputType);
+  }
+
+  public setDisableCooperative(disabled: boolean) {
+    this.disableCooperative = disabled;
   }
 
   public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
@@ -93,6 +100,12 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       const currency = this.currencies.get(swap.receivingData.symbol);
       if (currency === undefined || currency.chainClient === undefined) {
         throw Errors.CURRENCY_NOT_UTXO_BASED();
+      }
+
+      if (this.disableCooperative) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          cooperativeSignaturesDisabledMessage,
+        );
       }
 
       {
@@ -151,6 +164,12 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
+    if (this.disableCooperative) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+        cooperativeSignaturesDisabledMessage,
+      );
+    }
+
     if (swap.status === SwapUpdateEvent.TransactionClaimed) {
       throw Errors.SERVER_CLAIM_SUCCEEDED_ALREADY();
     }
@@ -175,6 +194,12 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     return this.lock.acquire(
       ChainSwapSigner.cooperativeBroadcastLock,
       async () => {
+        if (this.disableCooperative) {
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+            cooperativeSignaturesDisabledMessage,
+          );
+        }
+
         // If the swap is settled already, we still allow the partial signing of claims
         if (!swap.isSettled) {
           if (preimage === undefined || !isPreimageValid(swap, preimage)) {

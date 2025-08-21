@@ -649,6 +649,28 @@ class GrpcService {
       callback(typeof error === 'string' ? { message: error } : error, null);
     }
   };
+
+  public devDisableCooperative: handleUnaryCall<
+    boltzrpc.DevDisableCooperativeRequest,
+    boltzrpc.DevDisableCooperativeResponse
+  > = async (call, callback) => {
+    await this.handleCallback(call, callback, async () => {
+      const { disabled } = call.request.toObject();
+      this.logger.warn(
+        `${disabled ? 'Dis' : 'En'}abling cooperative swap signatures`,
+      );
+
+      for (const signer of [
+        this.service.musigSigner,
+        this.service.swapManager.chainSwapSigner,
+        this.service.swapManager.deferredClaimer,
+      ]) {
+        signer.setDisableCooperative(disabled);
+      }
+
+      return new boltzrpc.DevDisableCooperativeResponse();
+    });
+  };
 }
 
 export default GrpcService;

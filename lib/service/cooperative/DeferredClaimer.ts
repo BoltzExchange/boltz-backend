@@ -45,7 +45,9 @@ import {
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
 import type { SwapToClaim } from './CoopSignerBase';
-import CoopSignerBase from './CoopSignerBase';
+import CoopSignerBase, {
+  cooperativeSignaturesDisabledMessage,
+} from './CoopSignerBase';
 import AmountTrigger from './triggers/AmountTrigger';
 import ExpiryTrigger from './triggers/ExpiryTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
@@ -72,7 +74,6 @@ class DeferredClaimer extends CoopSignerBase<{
   );
 
   private readonly lock = new AsyncLock();
-
   private readonly swapsToClaim = new Map<
     string,
     Map<string, SwapToClaimPreimage>
@@ -81,10 +82,10 @@ class DeferredClaimer extends CoopSignerBase<{
     string,
     Map<string, ChainSwapToClaimPreimage>
   >();
-
   private readonly sweepTriggers: SweepTrigger[];
 
   private batchClaimSchedule?: Job;
+  private disableCooperative = false;
 
   constructor(
     logger: Logger,
@@ -112,6 +113,10 @@ class DeferredClaimer extends CoopSignerBase<{
         this.config.sweepAmountTrigger,
       ),
     ];
+  }
+
+  public setDisableCooperative(disabled: boolean) {
+    this.disableCooperative = disabled;
   }
 
   public init = async () => {
@@ -286,6 +291,12 @@ class DeferredClaimer extends CoopSignerBase<{
     publicKey: Buffer;
     transactionHash: Buffer;
   }> => {
+    if (this.disableCooperative) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+        cooperativeSignaturesDisabledMessage,
+      );
+    }
+
     if (this.rateProvider.isBatchOnly(swap)) {
       this.logger.debug(
         `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} is batch-only`,
@@ -311,6 +322,12 @@ class DeferredClaimer extends CoopSignerBase<{
     theirPartialSignature: Buffer,
   ) => {
     await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
+      if (this.disableCooperative) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+          cooperativeSignaturesDisabledMessage,
+        );
+      }
+
       const { toClaim, chainCurrency } = await this.getToClaimDetails(swap);
       if (toClaim === undefined || toClaim.cooperative === undefined) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM_BROADCAST();

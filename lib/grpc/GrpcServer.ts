@@ -52,6 +52,7 @@ class GrpcServer {
       setReferral: grpcService.setReferral,
       invoiceClnThreshold: grpcService.invoiceClnThreshold,
       devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,
+      devDisableCooperative: grpcService.devDisableCooperative,
     });
   }
 

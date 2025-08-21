@@ -66,6 +66,8 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
+
+  rpc DevDisableCooperative (DevDisableCooperativeRequest) returns (DevDisableCooperativeResponse);
 }
 
 enum OutputType {
@@ -466,3 +468,9 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
+
+message DevDisableCooperativeRequest {
+  bool disabled = 1;
+}
+
+message DevDisableCooperativeResponse {}

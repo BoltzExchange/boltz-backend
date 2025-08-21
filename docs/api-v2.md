@@ -8,222 +8,6 @@ integrations.
 The Swagger specifications of the latest Boltz REST API can be found
 :point_right: [here](https://api.boltz.exchange/swagger) :point_left:!
 
-## WebSocket
-
-The mainnet endpoint is available at: `wss://api.boltz.exchange/v2/ws`
-
-### Swap Updates
-
-Instead of polling for swap status updates, clients can subscribe to updates
-with a WebSocket.
-
-To subscribe to swap status updates, send a message like below. `args` is a list
-of swap ids to subscribe to.
-
-```json
-{
-  "op": "subscribe",
-  "channel": "swap.update",
-  "args": ["swap id 1", "swap id 2"]
-}
-```
-
-Boltz API will respond with a message like below, to confirm that the
-subscription was created successfully.
-
-```json
-{
-  "event": "subscribe",
-  "channel": "swap.update",
-  "args": ["swap id 1", "swap id 2"]
-}
-```
-
-After the initial subscription confirmation message and whenever a swap status
-is updated, Boltz API will send a message containing details about the status
-update.
-
-`args` is a list of objects. These objects correspond to responses of
-`GET /swap/{id}`, but additionally contain the id of the swap.
-
-```json
-{
-  "event": "update",
-  "channel": "swap.update",
-  "args": [
-    {
-      "id": "swap id 1",
-      "status": "invoice.set"
-    }
-  ]
-}
-```
-
-To unsubscribe from the updates of one or more swaps, send an `unsubscribe`
-message.
-
-```json
-{
-  "op": "unsubscribe",
-  "channel": "swap.update",
-  "args": ["swap id 1"]
-}
-```
-
-The backend will respond with a message that contains all swap ids the WebSocket
-is still subscribed to.
-
-```json
-{
-  "op": "unsubscribe",
-  "channel": "swap.update",
-  "args": ["swap id 2"]
-}
-```
-
-### BOLT12 Invoice Requests
-
-Clients can subscribe to invoice requests for BOLT12 offers they created via
-WebSockets. That is alternative to webhook calls for environments that can't
-receive webhook calls.
-
-To subscribe to invoice requests for specific offers, send a message like below.
-`args` is a list of objects, each containing the BOLT12 `offer` string and a
-schnorr signature by the signing key of the offer of the SHA256 hash of
-`SUBSCRIBE` serialized as HEX.
-
-```json
-{
-  "op": "subscribe",
-  "channel": "invoice.request",
-  "args": [
-    {
-      "offer": "lno1...",
-      "signature": "0fcdee..."
-    }
-  ]
-}
-```
-
-Boltz API will respond with a message like below to confirm the subscription,
-echoing the subscribed offers.
-
-```json
-{
-  "event": "subscribe",
-  "channel": "invoice.request",
-  "args": ["lno1..."]
-}
-```
-
-When an invoice for one of the subscribed offers is requested, it will send an
-`invoice.request` event. This message includes an unique `id` for this specific
-request, the `offer` for which an invoice is requested and the `invoiceRequest`
-itself serialized as HEX.
-
-```json
-{
-  "event": "request",
-  "channel": "invoice.request",
-  "args": [
-    {
-      "id": "1234567890123456789",
-      "offer": "lno1...",
-      "invoiceRequest": "0010fbb94b0461..."
-    }
-  ]
-}
-```
-
-The client must then generate the requested BOLT12 invoice and send it back
-using the `invoice` operation, referencing the `id` of the invoice request.
-
-```json
-{
-  "op": "invoice",
-  "id": "1234567890123456789",
-  "invoice": "lni1..."
-}
-```
-
-In case the client can't create the BOLT12 invoice, it should send an error with
-a message that will be passed through to the requester of the invoice.
-
-```json
-{
-  "op": "invoice.error",
-  "id": "1234567890123456789",
-  "error": "could not create invoice"
-}
-```
-
-To unsubscribe from invoice requests for specific offers, send an `unsubscribe`
-message. `args` should contain the offer strings to unsubscribe from.
-
-```json
-{
-  "op": "unsubscribe",
-  "channel": "invoice.request",
-  "args": ["lno1..."]
-}
-```
-
-The backend will respond with a message containing all offer ids the WebSocket
-is still subscribed to for invoice requests.
-
-```json
-{
-  "op": "unsubscribe",
-  "channel": "invoice.request",
-  "args": ["lno2..."]
-}
-```
-
-### Magic Routing Hints
-
-To help clients detect transactions to a magic routing hint address as quickly
-as possible, we emit an event whenever we observe a transaction to the magic
-routing hint in the mempool of a swap the client is subscribed to.
-
-```json
-{
-  "event": "update",
-  "channel": "swap.update",
-  "args": [
-    {
-      "id": "<swap id>",
-      "status": "transaction.direct",
-      "transaction": {
-        "id": "<transaction id>",
-        "hex": "<raw transaction encoded as HEX>"
-      }
-    }
-  ],
-  "timestamp": "1751717655632"
-}
-```
-
-### Application Level Pings
-
-To ensure the connection is alive, besides the native WebSocket pings, Boltz API
-will also respond to application-level pings, which is useful when the WebSocket
-client cannot control the low-level WebSocket connection (like on browsers). To
-send a ping, send a message like below.
-
-```json
-{
-  "op": "ping"
-}
-```
-
-The backend will respond with a `pong` message.
-
-```json
-{
-  "event": "pong"
-}
-```
-
 ## Examples
 
 Below are some examples covering the flow of a given swap type from beginning to
@@ -628,152 +412,8 @@ const submarineSwap = async () => {
 })();
 ```
 
-```go [Go Bitcoin]
-package main
-
-import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"github.com/btcsuite/btcd/btcec/v2"
-	"os"
-
-	"github.com/BoltzExchange/boltz-client/v2/pkg/boltz"
-	"github.com/lightningnetwork/lnd/zpay32"
-)
-
-const endpoint = "<Boltz API endpoint>"
-const invoice = "<the invoice you want to pay"
-
-var network = boltz.Regtest
-
-func printJson(v any) {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	fmt.Println(string(b))
-}
-
-func submarineSwap() error {
-	keys, err := btcec.NewPrivateKey()
-	if err != nil {
-		return err
-	}
-
-	boltzApi := &boltz.Api{URL: endpoint}
-
-	swap, err := boltzApi.CreateSwap(boltz.CreateSwapRequest{
-		From:            boltz.CurrencyBtc,
-		To:              boltz.CurrencyBtc,
-		RefundPublicKey: keys.PubKey().SerializeCompressed(),
-		Invoice:         invoice,
-	})
-	if err != nil {
-		return fmt.Errorf("Could not create swap: %s", err)
-	}
-
-	boltzPubKey, err := btcec.ParsePubKey(swap.ClaimPublicKey)
-	if err != nil {
-		return err
-	}
-
-	tree := swap.SwapTree.Deserialize()
-	if err := tree.Init(boltz.CurrencyBtc, false, keys, boltzPubKey); err != nil {
-		return err
-	}
-
-	decodedInvoice, err := zpay32.Decode(invoice, network.Btc)
-	if err != nil {
-		return fmt.Errorf("could not decode swap invoice: %s", err)
-	}
-
-	// Check the scripts of the Taptree to make sure Boltz is not cheating
-	if err := tree.Check(boltz.NormalSwap, swap.TimeoutBlockHeight, decodedInvoice.PaymentHash[:]); err != nil {
-		return err
-	}
-
-	// Verify that Boltz is giving us the correct address
-	if err := tree.CheckAddress(swap.Address, network, nil); err != nil {
-		return err
-	}
-
-	fmt.Println("Swap created")
-	printJson(swap)
-
-	boltzWs := boltzApi.NewWebsocket()
-	if err := boltzWs.Connect(); err != nil {
-		return fmt.Errorf("Could not connect to Boltz websocket: %s", err)
-	}
-
-	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
-		return err
-	}
-
-	for update := range boltzWs.Updates {
-		parsedStatus := boltz.ParseEvent(update.Status)
-
-		printJson(update)
-
-		switch parsedStatus {
-		case boltz.InvoiceSet:
-			fmt.Println("Waiting for onchain transaction")
-			break
-
-		case boltz.TransactionMempool:
-			fmt.Println("Boltz found transaction in mempool")
-			break
-
-		case boltz.TransactionConfirmed:
-			fmt.Println("Boltz found transaction in blockchain")
-			break
-
-		case boltz.TransactionClaimPending:
-			// Create a partial signature to allow Boltz to do a key path spend to claim the onchain coins
-			claimDetails, err := boltzApi.GetSwapClaimDetails(swap.Id)
-			if err != nil {
-				return fmt.Errorf("Could not get claim details from Boltz: %s", err)
-			}
-
-			// Verify that the invoice was actually paid
-			preimageHash := sha256.Sum256(claimDetails.Preimage)
-			if !bytes.Equal(decodedInvoice.PaymentHash[:], preimageHash[:]) {
-				return fmt.Errorf("Boltz returned wrong preimage: %x", claimDetails.Preimage)
-			}
-
-			session, err := boltz.NewSigningSession(tree)
-			partial, err := session.Sign(claimDetails.TransactionHash, claimDetails.PubNonce)
-			if err != nil {
-				return fmt.Errorf("could not create partial signature: %s", err)
-			}
-
-			if err := boltzApi.SendSwapClaimSignature(swap.Id, partial); err != nil {
-				return fmt.Errorf("could not send partial signature to Boltz: %s", err)
-			}
-			break
-
-		case boltz.TransactionClaimed:
-			fmt.Println("Swap succeeded", swap.Id)
-			if err := boltzWs.Close(); err != nil {
-				return err
-			}
-			break
-		}
-
-	}
-
-	return nil
-}
-
-func main() {
-	if err := submarineSwap(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
+```[Go Bitcoin]
+https://github.com/BoltzExchange/boltz-client/blob/master/examples/submarine/submarine.go
 ```
 
 :::
@@ -1282,166 +922,8 @@ const reverseSwap = async () => {
 })();
 ```
 
-```go [Go Bitcoin]
-package main
-
-import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"os"
-
-	"github.com/BoltzExchange/boltz-client/v2/pkg/boltz"
-	"github.com/btcsuite/btcd/btcec/v2"
-)
-
-const endpoint = "<Boltz API endpoint>"
-const invoiceAmount = 100000
-const destinationAddress = "<address to which the swap should be claimed>"
-
-// Swap from Lightning to BTC mainchain
-var toCurrency = boltz.CurrencyBtc
-
-var network = boltz.Regtest
-
-func printJson(v interface{}) {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	fmt.Println(string(b))
-}
-
-func reverseSwap() error {
-	ourKeys, err := btcec.NewPrivateKey()
-	if err != nil {
-		return err
-	}
-
-	preimage := make([]byte, 32)
-	_, err = rand.Read(preimage)
-	if err != nil {
-		return err
-	}
-	preimageHash := sha256.Sum256(preimage)
-
-	boltzApi := &boltz.Api{URL: endpoint}
-
-	swap, err := boltzApi.CreateReverseSwap(boltz.CreateReverseSwapRequest{
-		From:           boltz.CurrencyBtc,
-		To:             toCurrency,
-		ClaimPublicKey: ourKeys.PubKey().SerializeCompressed(),
-		PreimageHash:   preimageHash[:],
-		InvoiceAmount:  invoiceAmount,
-	})
-	if err != nil {
-		return fmt.Errorf("Could not create swap: %s", err)
-	}
-
-	boltzPubKey, err := btcec.ParsePubKey(swap.RefundPublicKey)
-	if err != nil {
-		return err
-	}
-
-	tree := swap.SwapTree.Deserialize()
-	if err := tree.Init(toCurrency, false, ourKeys, boltzPubKey); err != nil {
-		return err
-	}
-
-	if err := tree.Check(boltz.ReverseSwap, swap.TimeoutBlockHeight, preimageHash[:]); err != nil {
-		return err
-	}
-
-	fmt.Println("Swap created")
-	printJson(swap)
-
-	boltzWs := boltzApi.NewWebsocket()
-	if err := boltzWs.Connect(); err != nil {
-		return fmt.Errorf("Could not connect to Boltz websocket: %w", err)
-	}
-
-	if err := boltzWs.Subscribe([]string{swap.Id}); err != nil {
-		return err
-	}
-
-	for update := range boltzWs.Updates {
-		parsedStatus := boltz.ParseEvent(update.Status)
-
-		printJson(update)
-
-		switch parsedStatus {
-		case boltz.SwapCreated:
-			fmt.Println("Waiting for invoice to be paid")
-			break
-
-		case boltz.TransactionMempool:
-			lockupTransaction, err := boltz.NewTxFromHex(toCurrency, update.Transaction.Hex, nil)
-			if err != nil {
-				return err
-			}
-
-			vout, _, err := lockupTransaction.FindVout(network, swap.LockupAddress)
-			if err != nil {
-				return err
-			}
-
-			satPerVbyte := float64(2)
-			claimTransaction, _, err := boltz.ConstructTransaction(
-				network,
-				boltz.CurrencyBtc,
-				[]boltz.OutputDetails{
-					{
-						SwapId:            swap.Id,
-						SwapType:          boltz.ReverseSwap,
-						Address:           destinationAddress,
-						LockupTransaction: lockupTransaction,
-						Vout:              vout,
-						Preimage:          preimage,
-						PrivateKey:        ourKeys,
-						SwapTree:          tree,
-						Cooperative:       true,
-					},
-				},
-				satPerVbyte,
-				boltzApi,
-			)
-			if err != nil {
-				return fmt.Errorf("could not create claim transaction: %w", err)
-			}
-
-			txHex, err := claimTransaction.Serialize()
-			if err != nil {
-				return fmt.Errorf("could not serialize claim transaction: %w", err)
-			}
-
-			txId, err := boltzApi.BroadcastTransaction(toCurrency, txHex)
-			if err != nil {
-				return fmt.Errorf("could not broadcast transaction: %w", err)
-			}
-
-			fmt.Printf("Broadcast claim transaction: %s\n", txId)
-			break
-
-		case boltz.InvoiceSettled:
-			fmt.Println("Swap succeeded", swap.Id)
-			if err := boltzWs.Close(); err != nil {
-				return err
-			}
-			break
-		}
-	}
-	return nil
-}
-
-func main() {
-	if err := reverseSwap(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
+```[Go Bitcoin]
+https://github.com/BoltzExchange/boltz-client/blob/master/examples/reverse/reverse.go
 ```
 
 :::
@@ -1891,3 +1373,219 @@ const chainSwap = async () => {
 ```
 
 :::
+
+## WebSocket
+
+The mainnet endpoint is available at: `wss://api.boltz.exchange/v2/ws`
+
+### Swap Updates
+
+Instead of polling for swap status updates, clients can subscribe to updates
+with a WebSocket.
+
+To subscribe to swap status updates, send a message like below. `args` is a list
+of swap ids to subscribe to.
+
+```json
+{
+  "op": "subscribe",
+  "channel": "swap.update",
+  "args": ["swap id 1", "swap id 2"]
+}
+```
+
+Boltz API will respond with a message like below, to confirm that the
+subscription was created successfully.
+
+```json
+{
+  "event": "subscribe",
+  "channel": "swap.update",
+  "args": ["swap id 1", "swap id 2"]
+}
+```
+
+After the initial subscription confirmation message and whenever a swap status
+is updated, Boltz API will send a message containing details about the status
+update.
+
+`args` is a list of objects. These objects correspond to responses of
+`GET /swap/{id}`, but additionally contain the id of the swap.
+
+```json
+{
+  "event": "update",
+  "channel": "swap.update",
+  "args": [
+    {
+      "id": "swap id 1",
+      "status": "invoice.set"
+    }
+  ]
+}
+```
+
+To unsubscribe from the updates of one or more swaps, send an `unsubscribe`
+message.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "swap.update",
+  "args": ["swap id 1"]
+}
+```
+
+The backend will respond with a message that contains all swap ids the WebSocket
+is still subscribed to.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "swap.update",
+  "args": ["swap id 2"]
+}
+```
+
+### BOLT12 Invoice Requests
+
+Clients can subscribe to invoice requests for BOLT12 offers they created via
+WebSockets. That is alternative to webhook calls for environments that can't
+receive webhook calls.
+
+To subscribe to invoice requests for specific offers, send a message like below.
+`args` is a list of objects, each containing the BOLT12 `offer` string and a
+schnorr signature by the signing key of the offer of the SHA256 hash of
+`SUBSCRIBE` serialized as HEX.
+
+```json
+{
+  "op": "subscribe",
+  "channel": "invoice.request",
+  "args": [
+    {
+      "offer": "lno1...",
+      "signature": "0fcdee..."
+    }
+  ]
+}
+```
+
+Boltz API will respond with a message like below to confirm the subscription,
+echoing the subscribed offers.
+
+```json
+{
+  "event": "subscribe",
+  "channel": "invoice.request",
+  "args": ["lno1..."]
+}
+```
+
+When an invoice for one of the subscribed offers is requested, it will send an
+`invoice.request` event. This message includes an unique `id` for this specific
+request, the `offer` for which an invoice is requested and the `invoiceRequest`
+itself serialized as HEX.
+
+```json
+{
+  "event": "request",
+  "channel": "invoice.request",
+  "args": [
+    {
+      "id": "1234567890123456789",
+      "offer": "lno1...",
+      "invoiceRequest": "0010fbb94b0461..."
+    }
+  ]
+}
+```
+
+The client must then generate the requested BOLT12 invoice and send it back
+using the `invoice` operation, referencing the `id` of the invoice request.
+
+```json
+{
+  "op": "invoice",
+  "id": "1234567890123456789",
+  "invoice": "lni1..."
+}
+```
+
+In case the client can't create the BOLT12 invoice, it should send an error with
+a message that will be passed through to the requester of the invoice.
+
+```json
+{
+  "op": "invoice.error",
+  "id": "1234567890123456789",
+  "error": "could not create invoice"
+}
+```
+
+To unsubscribe from invoice requests for specific offers, send an `unsubscribe`
+message. `args` should contain the offer strings to unsubscribe from.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "invoice.request",
+  "args": ["lno1..."]
+}
+```
+
+The backend will respond with a message containing all offer ids the WebSocket
+is still subscribed to for invoice requests.
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "invoice.request",
+  "args": ["lno2..."]
+}
+```
+
+### Magic Routing Hints
+
+To help clients detect transactions to a magic routing hint address as quickly
+as possible, we emit an event whenever we observe a transaction to the magic
+routing hint in the mempool of a swap the client is subscribed to.
+
+```json
+{
+  "event": "update",
+  "channel": "swap.update",
+  "args": [
+    {
+      "id": "<swap id>",
+      "status": "transaction.direct",
+      "transaction": {
+        "id": "<transaction id>",
+        "hex": "<raw transaction encoded as HEX>"
+      }
+    }
+  ],
+  "timestamp": "1751717655632"
+}
+```
+
+### Application Level Pings
+
+To ensure the connection is alive, besides the native WebSocket pings, Boltz API
+will also respond to application-level pings, which is useful when the WebSocket
+client cannot control the low-level WebSocket connection (like on browsers). To
+send a ping, send a message like below.
+
+```json
+{
+  "op": "ping"
+}
+```
+
+The backend will respond with a `pong` message.
+
+```json
+{
+  "event": "pong"
+}
+```

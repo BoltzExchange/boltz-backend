@@ -43,8 +43,9 @@
     "test:int": "jest test/integration --runInBand --testTimeout 10000",
     "changelog": "git-cliff -o CHANGELOG.md",
     "prepublishOnly": "npm run compile && rm -f dist/package.json",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:setup": "node docs/setup.js",
+    "docs:dev": "npm run docs:setup && vitepress dev docs",
+    "docs:build": "npm run docs:setup && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "bin": {

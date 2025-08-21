@@ -412,9 +412,7 @@ const submarineSwap = async () => {
 })();
 ```
 
-```[Go Bitcoin]
-https://github.com/BoltzExchange/boltz-client/blob/master/examples/submarine/submarine.go
-```
+<<< @/fetched/submarine.go [Go Bitcoin]
 
 :::
 
@@ -922,9 +920,7 @@ const reverseSwap = async () => {
 })();
 ```
 
-```[Go Bitcoin]
-https://github.com/BoltzExchange/boltz-client/blob/master/examples/reverse/reverse.go
-```
+<<< @/fetched/reverse.go [Go Bitcoin]
 
 :::
 

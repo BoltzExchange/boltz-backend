@@ -6,7 +6,7 @@ next: false
 
 This page lists all available endpoints of the deprecated Boltz API v1.
 
-::: danger
+::: warning
 
 API v1 is maintained for existing integrations only and does not include the
 latest features or swap pairs. For any new integrations, we strongly recommend

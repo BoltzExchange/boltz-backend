@@ -1,4 +1,4 @@
-import { ContractABIs } from 'boltz-core';
+import { ContractABIs } from 'boltz-core/dist/lib/ABIs';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type { Signer } from 'ethers';
@@ -24,7 +24,13 @@ class Contracts {
   public static readonly supportedFeatures = new DefaultMap<
     bigint,
     Set<Feature>
-  >(() => new Set(), [[4n, new Set([Feature.BatchClaim])]]);
+  >(
+    () => new Set(),
+    [
+      [4n, new Set([Feature.BatchClaim])],
+      [5n, new Set([Feature.BatchClaim])],
+    ],
+  );
 
   public features: Set<Feature> = new Set();
   public version!: bigint;
@@ -116,6 +122,7 @@ class Contracts {
   ): { preimage: string; amount: bigint }[] => {
     for (const decoder of [
       this.decodeEtherClaimBatch,
+      this.decodeEtherClaimBatchWithCommitment,
       this.decodeEtherClaim,
       this.decodeEtherClaimForAddress,
     ]) {
@@ -131,10 +138,24 @@ class Contracts {
   };
 
   private decodeEtherClaimBatch = (data: string) => {
-    const dec = this.etherSwap.interface.decodeFunctionData('claimBatch', data);
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      'claimBatch(bytes32[],uint256[],address[],uint256[])',
+      data,
+    );
     return dec[0].map((preimage: string, index: number) => ({
       preimage,
       amount: dec[1][index],
+    }));
+  };
+
+  private decodeEtherClaimBatchWithCommitment = (data: string) => {
+    const dec = this.etherSwap.interface.decodeFunctionData(
+      'claimBatch((bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])',
+      data,
+    );
+    return dec[0].map(({ preimage, amount }) => ({
+      preimage,
+      amount,
     }));
   };
 

@@ -1,10 +1,10 @@
 use crate::evm::contracts::SwapContract;
 use crate::evm::contracts::erc20_swap::ERC20Swap::ERC20SwapInstance;
 use crate::evm::utils::check_contract_exists;
-use alloy::primitives::{Address, U256};
+use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::Provider;
 use alloy::sol;
-use alloy::sol_types::Eip712Domain;
+use alloy::sol_types::{Eip712Domain, SolStruct};
 use tracing::{debug, info};
 
 sol!(
@@ -14,13 +14,27 @@ sol!(
     "../node_modules/boltz-core/dist/out/ERC20Swap.sol/ERC20Swap.json"
 );
 
+mod v4 {
+    use alloy::sol;
+
+    sol!(
+        struct Refund {
+            bytes32 preimageHash;
+            uint256 amount;
+            address tokenAddress;
+            address claimAddress;
+            uint256 timeout;
+        }
+    );
+}
+
 sol!(
     struct Refund {
         bytes32 preimageHash;
         uint256 amount;
         address tokenAddress;
         address claimAddress;
-        uint256 timeout;
+        uint256 timelock;
     }
 );
 
@@ -74,6 +88,36 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> Sw
 
     fn version(&self) -> u8 {
         self.version
+    }
+
+    fn refund_hash(
+        &self,
+        domain: &Eip712Domain,
+        preimage_hash: FixedBytes<32>,
+        amount: U256,
+        token_address: Address,
+        claim_address: Address,
+        timelock: U256,
+    ) -> FixedBytes<32> {
+        if self.version <= 4 {
+            v4::Refund {
+                preimageHash: preimage_hash,
+                amount,
+                tokenAddress: token_address,
+                claimAddress: claim_address,
+                timeout: timelock,
+            }
+            .eip712_signing_hash(domain)
+        } else {
+            Refund {
+                preimageHash: preimage_hash,
+                amount,
+                tokenAddress: token_address,
+                claimAddress: claim_address,
+                timelock,
+            }
+            .eip712_signing_hash(domain)
+        }
     }
 
     fn eip712_domain(&self) -> &Eip712Domain {

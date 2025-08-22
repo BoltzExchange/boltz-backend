@@ -71,7 +71,7 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to EtherSwap lockup events', async () => {
-    const tx = await contracts.etherSwap.lock(
+    const tx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
       crypto.sha256(preimage),
       await setup.etherBase.getAddress(),
       timelock,
@@ -133,7 +133,7 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to EtherSwap refund events', async () => {
-    const claimTx = await contracts.etherSwap.lock(
+    const claimTx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
       crypto.sha256(preimage),
       await setup.etherBase.getAddress(),
       timelock,
@@ -171,7 +171,9 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to ERC20Swap lockup events', async () => {
-    const tx = await contracts.erc20Swap.lock(
+    const tx = await contracts.erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
       crypto.sha256(preimage),
       amount,
       await contracts.token.getAddress(),
@@ -233,7 +235,9 @@ describe('ContractEventHandler', () => {
   });
 
   test('should listen to ERC20 refund events', async () => {
-    const claimTx = await contracts.erc20Swap.lock(
+    const claimTx = await contracts.erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
       crypto.sha256(preimage),
       amount,
       await contracts.token.getAddress(),
@@ -417,7 +421,7 @@ describe('ContractEventHandler', () => {
 
     const preimage = randomBytes(32);
 
-    const lockupTx = await contracts.etherSwap.lock(
+    const lockupTx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
       crypto.sha256(preimage),
       await setup.etherBase.getAddress(),
       timelock,

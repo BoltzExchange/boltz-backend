@@ -284,7 +284,7 @@ describe('ContractHandler', () => {
 
       let nonce = await setup.signer.getNonce();
       for (const v of valuesWithPreimageHash) {
-        const tx = await etherSwap.lock(
+        const tx = await etherSwap['lock(bytes32,address,uint256)'](
           v.preimageHash,
           await setup.signer.getAddress(),
           v.timelock,
@@ -501,7 +501,9 @@ describe('ContractHandler', () => {
       nonce += 1;
 
       for (const v of valuesWithPreimageHash) {
-        const tx = await erc20Swap.lock(
+        const tx = await erc20Swap[
+          'lock(bytes32,uint256,address,address,uint256)'
+        ](
           v.preimageHash,
           v.amount,
           await tokenContract.getAddress(),

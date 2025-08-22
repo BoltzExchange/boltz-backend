@@ -244,7 +244,7 @@ describe('DeferredClaimer', () => {
       crypto.sha256(getHexBuffer(swap.preimage!)),
     );
 
-    const tx = await contracts.etherSwap.lock(
+    const tx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
       getHexBuffer(swap.preimageHash),
       await ethereumSetup.signer.getAddress(),
       swap.timeoutBlockHeight,
@@ -306,7 +306,9 @@ describe('DeferredClaimer', () => {
     );
     await approveTx.wait(1);
 
-    const tx = await contracts.erc20Swap.lock(
+    const tx = await contracts.erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
       getHexBuffer(swap.preimageHash),
       amount,
       await contracts.token.getAddress(),

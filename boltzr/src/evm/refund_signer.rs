@@ -1,3 +1,6 @@
+use crate::evm::contracts::erc20_swap::ERC20SwapContract;
+use crate::evm::contracts::ether_swap::EtherSwapContract;
+use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::RootProvider;
 use alloy::providers::fillers::{
@@ -6,13 +9,8 @@ use alloy::providers::fillers::{
 use alloy::providers::network::{AnyNetwork, EthereumWallet};
 use alloy::signers::Signer;
 use alloy::signers::local::PrivateKeySigner;
-use alloy::sol_types::SolStruct;
 use anyhow::anyhow;
 use tracing::info;
-
-use crate::evm::contracts::erc20_swap::ERC20SwapContract;
-use crate::evm::contracts::ether_swap::EtherSwapContract;
-use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 
 const MIN_VERSION: u8 = 3;
 const MAX_VERSION: u8 = 5;
@@ -95,22 +93,23 @@ impl LocalRefundSigner {
         );
 
         let hash = if let Some(token_address) = token_address {
-            erc20_swap::Refund {
+            self.erc20_swap.refund_hash(
+                self.erc20_swap.eip712_domain(),
+                preimage_hash,
                 amount,
-                preimageHash: preimage_hash,
-                tokenAddress: token_address,
-                claimAddress: signer.address(),
-                timeout: U256::from(timeout),
-            }
-            .eip712_signing_hash(self.erc20_swap.eip712_domain())
+                token_address,
+                signer.address(),
+                U256::from(timeout),
+            )
         } else {
-            ether_swap::Refund {
+            self.ether_swap.refund_hash(
+                self.ether_swap.eip712_domain(),
+                preimage_hash,
                 amount,
-                preimageHash: preimage_hash,
-                claimAddress: signer.address(),
-                timeout: U256::from(timeout),
-            }
-            .eip712_signing_hash(self.ether_swap.eip712_domain())
+                Address::ZERO,
+                signer.address(),
+                U256::from(timeout),
+            )
         };
 
         Ok(signer.sign_hash(&hash).await?)
@@ -182,7 +181,7 @@ pub mod test {
         let timelock: u64 = 1;
 
         contract
-            .lock(preimage_hash, claim_keys.address(), U256::from(timelock))
+            .lock_0(preimage_hash, claim_keys.address(), U256::from(timelock))
             .value(amount)
             .send()
             .await
@@ -192,12 +191,12 @@ pub mod test {
             .unwrap();
 
         let refund_sig = signer
-            .sign(&claim_keys, preimage_hash, amount, None, 1)
+            .sign(&claim_keys, preimage_hash, amount, None, timelock)
             .await
             .unwrap();
 
         let refund_tx_hash = contract
-            .refundCooperative(
+            .refundCooperative_1(
                 preimage_hash,
                 amount,
                 claim_keys.address(),
@@ -262,7 +261,7 @@ pub mod test {
             .unwrap();
 
         contract
-            .lock(
+            .lock_0(
                 preimage_hash,
                 amount,
                 *token.address(),
@@ -288,7 +287,7 @@ pub mod test {
             .unwrap();
 
         let refund_tx_hash = contract
-            .refundCooperative(
+            .refundCooperative_1(
                 preimage_hash,
                 amount,
                 *token.address(),

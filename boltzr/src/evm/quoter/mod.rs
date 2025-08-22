@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 use crate::evm::utils::check_contract_exists;
 
@@ -78,6 +78,7 @@ trait Quoter {
 
 #[derive(Clone)]
 pub struct QuoteAggregator {
+    symbol: String,
     quoters: Vec<Arc<dyn Quoter + Send + Sync>>,
 }
 
@@ -100,7 +101,10 @@ impl QuoteAggregator {
             }
         }
 
-        Ok(Self { quoters })
+        Ok(Self {
+            symbol: symbol.to_string(),
+            quoters,
+        })
     }
 
     #[instrument(name = "QuoteAggregator::quote_input", skip(self))]
@@ -110,6 +114,8 @@ impl QuoteAggregator {
         token_out: Address,
         amount_in: U256,
     ) -> Result<Vec<(U256, Data)>> {
+        debug!("Quoting {}", self.symbol);
+
         let results = futures::future::join_all(
             self.quoters
                 .iter()
@@ -130,6 +136,8 @@ impl QuoteAggregator {
         token_out: Address,
         amount_out: U256,
     ) -> Result<Vec<(U256, Data)>> {
+        debug!("Quoting {}", self.symbol);
+
         let results = futures::future::join_all(
             self.quoters
                 .iter()

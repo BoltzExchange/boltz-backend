@@ -84,7 +84,7 @@ async-tungstenite = { version = "0.31.0", features = [
 	"tokio-native-tls",
 	"tokio-runtime",
 ] }
-async-trait = "0.1.88"
+async-trait = "0.1.89"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
 anyhow = { workspace = true }

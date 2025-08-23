@@ -237,7 +237,7 @@ mod test {
     use mockall::mock;
     use std::collections::HashMap;
     use std::str::FromStr;
-    use std::sync::{Arc, OnceLock};
+    use std::sync::Arc;
 
     mock! {
         SwapHelper {}
@@ -266,6 +266,7 @@ mod test {
         }
 
         impl ChainSwapHelper for ChainSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
             fn get_all(
                 &self,
                 condition: ChainSwapCondition,
@@ -283,61 +284,70 @@ mod test {
             .to_seed("")
     }
 
-    fn get_currencies() -> Currencies {
-        static CURRENCIES: OnceLock<Currencies> = OnceLock::new();
-        CURRENCIES
-            .get_or_init(|| {
-                Arc::new(HashMap::<String, Currency>::from([
-                    (
-                        String::from("BTC"),
-                        Currency {
-                            network: Network::Regtest,
-                            wallet: Some(Arc::new(
-                                Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
-                                    .unwrap(),
-                            )),
-                            chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
-                            cln: None,
-                            lnd: None,
-                            bumper: None,
-                            evm_manager: None,
-                        },
-                    ),
-                    (
-                        String::from("LTC"),
-                        Currency {
-                            network: Network::Regtest,
-                            wallet: Some(Arc::new(
-                                Bitcoin::new(Network::Regtest, &get_seed(), "m/0/1".to_string())
-                                    .unwrap(),
-                            )),
-                            chain: None,
-                            cln: None,
-                            lnd: None,
-                            bumper: None,
-                            evm_manager: None,
-                        },
-                    ),
-                    (
-                        String::from("L-BTC"),
-                        Currency {
-                            network: Network::Regtest,
-                            wallet: Some(Arc::new(
-                                Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
-                                    .unwrap(),
-                            )),
-                            chain: Some(Arc::new(
-                                crate::chain::elements_client::test::get_client().0,
-                            )),
-                            cln: None,
-                            lnd: None,
-                            bumper: None,
-                            evm_manager: None,
-                        },
-                    ),
-                ]))
-            })
-            .clone()
+    async fn get_currencies() -> Currencies {
+        Arc::new(HashMap::<String, Currency>::from([
+            (
+                String::from("BTC"),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(Arc::new(
+                        Bitcoin::new(
+                            Network::Regtest,
+                            &get_seed(),
+                            "m/0/0".to_string(),
+                            Arc::new(crate::chain::chain_client::test::get_client().await),
+                        )
+                        .unwrap(),
+                    )),
+                    chain: Some(Arc::new(
+                        crate::chain::chain_client::test::get_client().await,
+                    )),
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            ),
+            (
+                String::from("LTC"),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(Arc::new(
+                        Bitcoin::new(
+                            Network::Regtest,
+                            &get_seed(),
+                            "m/0/1".to_string(),
+                            Arc::new(crate::chain::chain_client::test::get_client().await),
+                        )
+                        .unwrap(),
+                    )),
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            ),
+            (
+                String::from("L-BTC"),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(Arc::new(
+                        Elements::new(
+                            Network::Regtest,
+                            &get_seed(),
+                            "m/0/2".to_string(),
+                            Arc::new(crate::chain::elements_client::test::get_client().0),
+                        )
+                        .unwrap(),
+                    )),
+                    chain: Some(Arc::new(
+                        crate::chain::elements_client::test::get_client().0,
+                    )),
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            ),
+        ]))
     }
 
     #[tokio::test]
@@ -373,7 +383,7 @@ mod test {
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
         let chain_filters = get_input_output_filters(
-            &get_currencies(),
+            &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
@@ -387,10 +397,15 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
-                    .unwrap()
-                    .decode_address(address_bitcoin)
-                    .unwrap()
+                &Bitcoin::new(
+                    Network::Regtest,
+                    &get_seed(),
+                    "m/0/0".to_string(),
+                    Arc::new(crate::chain::chain_client::test::get_client().await)
+                )
+                .unwrap()
+                .decode_address(address_bitcoin)
+                .unwrap()
             )
         );
 
@@ -399,10 +414,15 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Elements::new(Network::Regtest, &get_seed(), "m/0/2".to_string())
-                    .unwrap()
-                    .decode_address(address_elements)
-                    .unwrap()
+                &Elements::new(
+                    Network::Regtest,
+                    &get_seed(),
+                    "m/0/2".to_string(),
+                    Arc::new(crate::chain::elements_client::test::get_client().0)
+                )
+                .unwrap()
+                .decode_address(address_elements)
+                .unwrap()
             )
         );
     }
@@ -432,7 +452,7 @@ mod test {
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
         let chain_filters = get_input_output_filters(
-            &get_currencies(),
+            &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
@@ -512,7 +532,7 @@ mod test {
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
         let chain_filters = get_input_output_filters(
-            &get_currencies(),
+            &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
@@ -526,10 +546,15 @@ mod test {
         assert_eq!(outputs.len(), 1);
         assert!(
             outputs.contains(
-                &Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string())
-                    .unwrap()
-                    .decode_address(address)
-                    .unwrap()
+                &Bitcoin::new(
+                    Network::Regtest,
+                    &get_seed(),
+                    "m/0/0".to_string(),
+                    Arc::new(crate::chain::chain_client::test::get_client().await)
+                )
+                .unwrap()
+                .decode_address(address)
+                .unwrap()
             )
         );
 
@@ -544,7 +569,7 @@ mod test {
 
     #[tokio::test]
     async fn test_get_currency() {
-        let currencies = get_currencies();
+        let currencies = get_currencies().await;
 
         let symbol = "BTC";
         let currency = get_currency(&currencies, symbol, &Swap::default());
@@ -554,20 +579,27 @@ mod test {
 
     #[tokio::test]
     async fn test_get_currency_no_chain_client() {
-        let currencies = get_currencies();
-        assert!(get_currency(&currencies, "LTC", &Swap::default(),).is_none());
+        let currencies = get_currencies().await;
+        assert!(get_currency(&currencies, "LTC", &Swap::default()).is_none());
     }
 
     #[tokio::test]
     async fn test_get_currency_none() {
-        let currencies = get_currencies();
+        let currencies = get_currencies().await;
         assert!(get_currency(&currencies, "NOTFOUND", &Swap::default()).is_none());
     }
 
-    #[test]
-    fn test_decode_script() {
-        let wallet: Arc<dyn Wallet + Send + Sync> =
-            Arc::new(Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string()).unwrap());
+    #[tokio::test]
+    async fn test_decode_script() {
+        let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(
+            Bitcoin::new(
+                Network::Regtest,
+                &get_seed(),
+                "m/0/0".to_string(),
+                Arc::new(crate::chain::chain_client::test::get_client().await),
+            )
+            .unwrap(),
+        );
         let swap = Swap {
             id: "id".to_string(),
             ..Default::default()
@@ -580,10 +612,17 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_decode_script_invalid() {
-        let wallet: Arc<dyn Wallet + Send + Sync> =
-            Arc::new(Bitcoin::new(Network::Regtest, &get_seed(), "m/0/0".to_string()).unwrap());
+    #[tokio::test]
+    async fn test_decode_script_invalid() {
+        let wallet: Arc<dyn Wallet + Send + Sync> = Arc::new(
+            Bitcoin::new(
+                Network::Regtest,
+                &get_seed(),
+                "m/0/0".to_string(),
+                Arc::new(crate::chain::chain_client::test::get_client().await),
+            )
+            .unwrap(),
+        );
         let swap = Swap {
             id: "id".to_string(),
             ..Default::default()

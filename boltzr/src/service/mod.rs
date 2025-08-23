@@ -117,6 +117,7 @@ pub mod test {
         }
 
         impl ChainSwapHelper for ChainSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
             fn get_all(
                 &self,
                 condition: ChainSwapCondition,
@@ -136,6 +137,7 @@ pub mod test {
         }
 
         impl ReverseSwapHelper for ReverseSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
             fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
             fn get_all_nullable(&self, condition: ReverseSwapNullableCondition) -> QueryResponse<Vec<ReverseSwap>>;
             fn get_routing_hint(&self, id: &str) -> QueryResponse<Option<ReverseRoutingHint>>;

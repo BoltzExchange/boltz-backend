@@ -243,7 +243,7 @@ mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn calculate_fee_bitcoin() {
-        let client = bitcoin_test::get_client();
+        let client = bitcoin_test::get_client().await;
         let tx = bitcoin_test::send_transaction(&client).await;
         bitcoin_test::generate_block(&client).await;
 
@@ -258,10 +258,7 @@ mod test {
         let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
-        let fee = tx
-            .calculate_fee(&std::sync::Arc::new(&client))
-            .await
-            .unwrap();
+        let fee = tx.calculate_fee(&client).await.unwrap();
         assert_eq!(fee, 0.09727626459143969);
     }
 }

@@ -24,7 +24,6 @@ import WalletLiquid from './WalletLiquid';
 import type EthereumManager from './ethereum/EthereumManager';
 import CoreWalletProvider from './providers/CoreWalletProvider';
 import ElementsWalletProvider from './providers/ElementsWalletProvider';
-import LndWalletProvider from './providers/LndWalletProvider';
 import type WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
@@ -100,41 +99,34 @@ class WalletManager {
 
       let walletProvider: WalletProviderInterface | undefined = undefined;
 
-      // The LND client is also used as onchain wallet for UTXO based chains if available
       if (
         configCurrencies.find((config) => config.symbol === currency.symbol)
-          ?.preferredWallet !== 'core' &&
-        currency.lndClient
+          ?.preferredWallet === 'lnd'
       ) {
-        walletProvider = new LndWalletProvider(
+        throw new Error('LND wallet support was removed');
+      }
+
+      if (currency.type === CurrencyType.BitcoinLike) {
+        walletProvider = new CoreWalletProvider(
           this.logger,
-          currency.lndClient,
           currency.chainClient!,
         );
       } else {
-        // Else the Bitcoin Core wallet is used
-        if (currency.type === CurrencyType.BitcoinLike) {
-          walletProvider = new CoreWalletProvider(
-            this.logger,
-            currency.chainClient!,
-          );
-        } else {
-          walletProvider = new ElementsWalletProvider(
-            this.logger,
-            currency.chainClient! as IElementsClient,
-          );
-        }
+        walletProvider = new ElementsWalletProvider(
+          this.logger,
+          currency.chainClient! as IElementsClient,
+        );
+      }
 
-        // Sanity check that wallet support is compiled in
-        try {
-          await walletProvider.getBalance();
-        } catch (error) {
-          // No wallet support is compiled in
-          if ((error as any).message === 'Method not found') {
-            throw Errors.NO_WALLET_SUPPORT(currency.symbol);
-          } else {
-            throw error;
-          }
+      // Sanity check that wallet support is compiled in
+      try {
+        await walletProvider.getBalance();
+      } catch (error) {
+        // No wallet support is compiled in
+        if ((error as any).message === 'Method not found') {
+          throw Errors.NO_WALLET_SUPPORT(currency.symbol);
+        } else {
+          throw error;
         }
       }
 

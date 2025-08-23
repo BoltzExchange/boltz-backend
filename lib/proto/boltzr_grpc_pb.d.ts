@@ -21,7 +21,6 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     isMarked: IBoltzRService_IIsMarked;
     scanMempool: IBoltzRService_IScanMempool;
-    feeBumps: IBoltzRService_IFeeBumps;
 }
 
 interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse> {
@@ -141,15 +140,6 @@ interface IBoltzRService_IScanMempool extends grpc.MethodDefinition<boltzr_pb.Sc
     responseSerialize: grpc.serialize<boltzr_pb.ScanMempoolResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolResponse>;
 }
-interface IBoltzRService_IFeeBumps extends grpc.MethodDefinition<boltzr_pb.FeeBumpsRequest, boltzr_pb.FeeBumpSuggestion> {
-    path: "/boltzr.BoltzR/FeeBumps";
-    requestStream: false;
-    responseStream: true;
-    requestSerialize: grpc.serialize<boltzr_pb.FeeBumpsRequest>;
-    requestDeserialize: grpc.deserialize<boltzr_pb.FeeBumpsRequest>;
-    responseSerialize: grpc.serialize<boltzr_pb.FeeBumpSuggestion>;
-    responseDeserialize: grpc.deserialize<boltzr_pb.FeeBumpSuggestion>;
-}
 
 export const BoltzRService: IBoltzRService;
 
@@ -167,7 +157,6 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
     scanMempool: grpc.handleUnaryCall<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse>;
-    feeBumps: grpc.handleServerStreamingCall<boltzr_pb.FeeBumpsRequest, boltzr_pb.FeeBumpSuggestion>;
 }
 
 export interface IBoltzRClient {
@@ -208,8 +197,6 @@ export interface IBoltzRClient {
     scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    feeBumps(request: boltzr_pb.FeeBumpsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.FeeBumpSuggestion>;
-    feeBumps(request: boltzr_pb.FeeBumpsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.FeeBumpSuggestion>;
 }
 
 export class BoltzRClient extends grpc.Client implements IBoltzRClient {
@@ -250,6 +237,4 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
     public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    public feeBumps(request: boltzr_pb.FeeBumpsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.FeeBumpSuggestion>;
-    public feeBumps(request: boltzr_pb.FeeBumpsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.FeeBumpSuggestion>;
 }

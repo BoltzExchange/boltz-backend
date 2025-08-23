@@ -307,7 +307,9 @@ mod test {
 
     #[tokio::test]
     async fn test_bolt12_fetch() {
+        let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
         let mut cln = crate::lightning::cln::test::cln_client().await;
+
         let offer = cln.offer().await.unwrap();
 
         let mut manager = MockManager::new();
@@ -325,13 +327,13 @@ mod test {
                             .unwrap()
                             .to_seed(""),
                             "m/0/0".to_string(),
+                            chain_client.clone(),
                         )
                         .unwrap(),
                     )),
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
-                    bumper: None,
                     evm_manager: None,
                 })
             });
@@ -376,7 +378,9 @@ mod test {
 
     #[tokio::test]
     async fn test_bolt12_fetch_note() {
+        let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);
         let mut cln = crate::lightning::cln::test::cln_client().await;
+
         let offer = cln.offer().await.unwrap();
 
         let mut manager = MockManager::new();
@@ -394,13 +398,13 @@ mod test {
                             .unwrap()
                             .to_seed(""),
                             "m/0/0".to_string(),
+                            chain_client.clone(),
                         )
                         .unwrap(),
                     )),
                     cln: Some(cln.clone()),
                     lnd: None,
                     chain: None,
-                    bumper: None,
                     evm_manager: None,
                 })
             });

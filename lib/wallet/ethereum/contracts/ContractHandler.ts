@@ -50,10 +50,15 @@ class ContractHandler {
     this.annotateLabel(
       TransactionLabelRepository.lockupLabel(swap),
       this.networkDetails.symbol,
-      this.etherSwap.lock(preimageHash, claimAddress, timeLock, {
-        value: amount,
-        ...(await getGasPrices(this.provider)),
-      }),
+      this.etherSwap['lock(bytes32,address,uint256)'](
+        preimageHash,
+        claimAddress,
+        timeLock,
+        {
+          value: amount,
+          ...(await getGasPrices(this.provider)),
+        },
+      ),
     );
 
   public lockupEtherPrepayMinerfee = async (
@@ -66,15 +71,11 @@ class ContractHandler {
   ): Promise<ContractTransactionResponse> => {
     const transactionValue = amount + amountPrepay;
 
-    const gasLimitEstimationWithoutPrepay =
-      await this.etherSwap.lock.estimateGas(
-        preimageHash,
-        claimAddress,
-        timeLock,
-        {
-          value: transactionValue,
-        },
-      );
+    const gasLimitEstimationWithoutPrepay = await this.etherSwap[
+      'lock(bytes32,address,uint256)'
+    ].estimateGas(preimageHash, claimAddress, timeLock, {
+      value: transactionValue,
+    });
 
     return this.annotateLabel(
       TransactionLabelRepository.lockupLabel(swap, true),
@@ -127,7 +128,7 @@ class ContractHandler {
     return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       this.networkDetails.symbol,
-      this.etherSwap.claimBatch(
+      this.etherSwap['claimBatch(bytes32[],uint256[],address[],uint256[])'](
         values.map((v) => v.preimage),
         values.map((v) => v.amount),
         values.map((v) => v.refundAddress),
@@ -171,7 +172,7 @@ class ContractHandler {
     this.annotateLabel(
       TransactionLabelRepository.lockupLabel(swap),
       token.symbol,
-      this.erc20Swap.lock(
+      this.erc20Swap['lock(bytes32,uint256,address,address,uint256)'](
         preimageHash,
         amount,
         token.tokenAddress,
@@ -192,14 +193,15 @@ class ContractHandler {
     claimAddress: string,
     timeLock: number,
   ): Promise<ContractTransactionResponse> => {
-    const gasLimitEstimationWithoutPrepay =
-      await this.erc20Swap.lock.estimateGas(
-        preimageHash,
-        amount,
-        token.tokenAddress,
-        claimAddress,
-        timeLock,
-      );
+    const gasLimitEstimationWithoutPrepay = await this.erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ].estimateGas(
+      preimageHash,
+      amount,
+      token.tokenAddress,
+      claimAddress,
+      timeLock,
+    );
 
     return this.annotateLabel(
       TransactionLabelRepository.lockupLabel(swap, true),
@@ -255,7 +257,9 @@ class ContractHandler {
     return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       token.symbol,
-      this.erc20Swap.claimBatch(
+      this.erc20Swap[
+        'claimBatch(address,bytes32[],uint256[],address[],uint256[])'
+      ](
         token.tokenAddress,
         values.map((v) => v.preimage),
         values.map((v) => v.amount),

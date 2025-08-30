@@ -211,6 +211,7 @@ mod test {
                 user: None,
                 password: None,
                 mempool_space: None,
+                wallet: None,
             },
         );
 
@@ -267,6 +268,7 @@ mod test {
                 user: None,
                 password: None,
                 mempool_space: None,
+                wallet: None,
             },
         );
 
@@ -323,6 +325,7 @@ mod test {
                 user: None,
                 password: None,
                 mempool_space: None,
+                wallet: None,
             },
         );
         assert_eq!(

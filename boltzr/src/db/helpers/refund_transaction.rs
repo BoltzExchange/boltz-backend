@@ -2,7 +2,7 @@ use crate::db::Pool;
 use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::RefundTransaction;
 use crate::db::schema::refund_transactions;
-use diesel::{QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, update};
 use serde::{Deserialize, Serialize};
 
 pub type RefundTransactionCondition = BoxedCondition<refund_transactions::table>;
@@ -51,6 +51,13 @@ pub trait RefundTransactionHelper {
         &self,
         condition: RefundTransactionCondition,
     ) -> QueryResponse<Vec<RefundTransaction>>;
+
+    fn update_transaction_id(
+        &self,
+        swap_id: &str,
+        transaction_id: &str,
+        vin: Option<i32>,
+    ) -> QueryResponse<usize>;
 }
 
 #[derive(Clone, Debug)]
@@ -74,12 +81,41 @@ impl RefundTransactionHelper for RefundTransactionHelperDatabase {
             .filter(condition)
             .load(&mut self.pool.get()?)?)
     }
+
+    fn update_transaction_id(
+        &self,
+        swap_id: &str,
+        transaction_id: &str,
+        vin: Option<i32>,
+    ) -> QueryResponse<usize> {
+        Ok(update(refund_transactions::dsl::refund_transactions)
+            .filter(refund_transactions::dsl::swapId.eq(swap_id))
+            .set((
+                refund_transactions::dsl::id.eq(transaction_id),
+                refund_transactions::dsl::vin.eq(vin),
+            ))
+            .execute(&mut self.pool.get()?)?)
+    }
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
+    use mockall::mock;
     use rstest::rstest;
+
+    mock! {
+        pub RefundTransactionHelper {}
+
+        impl Clone for RefundTransactionHelper {
+            fn clone(&self) -> Self;
+        }
+
+        impl RefundTransactionHelper for RefundTransactionHelper {
+            fn get_all(&self, condition: RefundTransactionCondition) -> QueryResponse<Vec<RefundTransaction>>;
+            fn update_transaction_id(&self, swap_id: &str, transaction_id: &str, vin: Option<i32>) -> QueryResponse<usize>;
+        }
+    }
 
     #[rstest]
     fn refund_status_serialization() {

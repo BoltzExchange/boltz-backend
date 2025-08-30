@@ -364,13 +364,15 @@ mod test {
                         .unwrap()
                         .to_seed(""),
                         "m/0/0".to_string(),
+                        Arc::new(crate::chain::chain_client::test::get_client().await),
                     )
                     .unwrap(),
                 )),
-                chain: Some(Arc::new(crate::chain::chain_client::test::get_client())),
+                chain: Some(Arc::new(
+                    crate::chain::chain_client::test::get_client().await,
+                )),
                 cln: Some(cln_client().await),
                 lnd: None,
-                bumper: None,
                 evm_manager: None,
             },
         )]))

@@ -1,29 +1,31 @@
 use crate::api::ws::OfferSubscriptions;
 use crate::cache::Cache;
-use crate::chain::BaseClient;
-use crate::chain::bumper::Bumper;
-use crate::chain::bumper::RefundTransactionFetcher;
-use crate::chain::chain_client::ChainClient;
-use crate::chain::elements_client::ElementsClient;
+use crate::chain::{
+    BaseClient,
+    bumper::{Bumper, RefundTransactionHandler},
+    chain_client::ChainClient,
+    elements_client::ElementsClient,
+};
 use crate::config::{CurrencyConfig, LiquidConfig};
-use crate::db::Pool;
-use crate::db::helpers::keys::KeysHelper;
-use crate::db::helpers::offer::OfferHelperDatabase;
-use crate::db::helpers::refund_transaction::RefundTransactionHelperDatabase;
-use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
+use crate::db::{
+    Pool,
+    helpers::{
+        chain_swap::ChainSwapHelperDatabase, keys::KeysHelper, offer::OfferHelperDatabase,
+        refund_transaction::RefundTransactionHelperDatabase,
+        reverse_swap::ReverseSwapHelperDatabase,
+    },
+};
 use crate::evm::manager::Manager;
-use crate::lightning::cln::Cln;
-use crate::lightning::lnd::Lnd;
-use crate::wallet;
-use crate::wallet::Wallet;
+use crate::lightning::{cln::Cln, lnd::Lnd};
+use crate::wallet::{self, Wallet};
 use anyhow::anyhow;
 use bip39::Mnemonic;
 use std::collections::HashMap;
-use std::fs;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{fs, str::FromStr, sync::Arc};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
+
+const PREFERRED_WALLET_CORE: &str = "core";
 
 #[derive(Clone)]
 pub struct Currency {
@@ -32,7 +34,6 @@ pub struct Currency {
     pub wallet: Option<Arc<dyn Wallet + Send + Sync>>,
 
     pub chain: Option<Arc<dyn crate::chain::Client + Send + Sync>>,
-    pub bumper: Option<Bumper>,
     pub cln: Option<Cln>,
     pub lnd: Option<Lnd>,
     pub evm_manager: Option<Arc<Manager>>,
@@ -70,6 +71,16 @@ pub async fn connect_nodes<K: KeysHelper>(
     match currencies {
         Some(currencies) => {
             for currency in currencies {
+                if let Some(preferred_wallet) = currency.preferred_wallet
+                    && preferred_wallet != PREFERRED_WALLET_CORE
+                {
+                    return Err(anyhow!(
+                        "preferred wallet not supported: {} (supported: {})",
+                        preferred_wallet,
+                        PREFERRED_WALLET_CORE
+                    ));
+                }
+
                 debug!("Connecting to nodes of {}", currency.symbol);
 
                 let keys_info = keys_helper.get_for_symbol(&currency.symbol)?;
@@ -87,19 +98,34 @@ pub async fn connect_nodes<K: KeysHelper>(
                     None => None,
                 };
 
+                let wallet = match chain {
+                    Some(ref chain) => Some(wallet::Bitcoin::new(
+                        network,
+                        &seed,
+                        keys_info.derivationPath,
+                        chain.clone(),
+                    )?),
+                    None => None,
+                }
+                .map(|wallet| Arc::new(wallet) as Arc<dyn Wallet + Send + Sync>);
+
+                if let Some(chain) = chain.as_ref()
+                    && let Some(wallet) = wallet.as_ref()
+                {
+                    create_bumper(
+                        cancellation_token.clone(),
+                        db.clone(),
+                        chain.clone(),
+                        wallet.clone(),
+                    );
+                }
+
                 curs.insert(
                     currency.symbol.clone(),
                     Currency {
                         network,
-                        bumper: chain.as_ref().map(|chain| {
-                            create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
-                        }),
+                        wallet,
                         chain,
-                        wallet: Some(Arc::new(wallet::Bitcoin::new(
-                            network,
-                            &seed,
-                            keys_info.derivationPath,
-                        )?)),
                         cln: match currency.cln {
                             Some(config) => {
                                 connect_client(
@@ -156,21 +182,36 @@ pub async fn connect_nodes<K: KeysHelper>(
         .await
         .map(|client| Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>);
 
+        let wallet = match chain {
+            Some(ref chain) => Some(wallet::Elements::new(
+                network,
+                &seed,
+                keys_info.derivationPath,
+                chain.clone(),
+            )?),
+            None => None,
+        }
+        .map(|wallet| Arc::new(wallet) as Arc<dyn Wallet + Send + Sync>);
+
+        if let Some(chain) = chain.as_ref()
+            && let Some(wallet) = wallet.as_ref()
+        {
+            create_bumper(
+                cancellation_token.clone(),
+                db.clone(),
+                chain.clone(),
+                wallet.clone(),
+            );
+        }
+
         curs.insert(
             crate::chain::elements_client::SYMBOL.to_string(),
             Currency {
                 network,
                 cln: None,
                 lnd: None,
-                wallet: Some(Arc::new(wallet::Elements::new(
-                    network,
-                    &seed,
-                    keys_info.derivationPath,
-                )?)),
-                bumper: chain.as_ref().map(|chain| {
-                    create_bumper(cancellation_token.clone(), chain.clone(), db.clone())
-                }),
                 chain,
+                wallet,
                 evm_manager: None,
             },
         );
@@ -182,7 +223,6 @@ pub async fn connect_nodes<K: KeysHelper>(
             Currency {
                 network,
                 evm_manager: Some(rsk_manager),
-                bumper: None,
                 chain: None,
                 wallet: None,
                 cln: None,
@@ -196,26 +236,25 @@ pub async fn connect_nodes<K: KeysHelper>(
 
 fn create_bumper(
     cancellation_token: CancellationToken,
-    chain: Arc<dyn crate::chain::Client + Send + Sync>,
     db: Pool,
-) -> Bumper {
+    chain: Arc<dyn crate::chain::Client + Send + Sync>,
+    wallet: Arc<dyn Wallet + Send + Sync>,
+) {
     let bumper = Bumper::new(
         cancellation_token.clone(),
         chain.clone(),
-        vec![Arc::new(RefundTransactionFetcher::new(
-            chain.symbol(),
-            RefundTransactionHelperDatabase::new(db),
+        vec![Arc::new(RefundTransactionHandler::new(
+            RefundTransactionHelperDatabase::new(db.clone()),
+            ReverseSwapHelperDatabase::new(db.clone()),
+            ChainSwapHelperDatabase::new(db),
+            wallet,
+            chain,
         ))],
     );
 
-    {
-        let bumper = bumper.clone();
-        tokio::spawn(async move {
-            bumper.start().await;
-        });
-    }
-
-    bumper
+    tokio::spawn(async move {
+        bumper.start().await;
+    });
 }
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {

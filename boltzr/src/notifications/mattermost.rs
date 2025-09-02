@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{Instrument, debug, error, info, instrument, trace, warn};
 
 const HEADER_AUTHORIZATION: &str = "Authorization";
 const HEADER_BEARER: &str = "BEARER";
@@ -86,8 +87,11 @@ enum WebSocketEvent {
     Posted(WebSocketMessage<WebSocketPost>),
 }
 
-#[derive(Clone, Debug)]
-pub struct Client<C> {
+#[derive(Debug, Clone)]
+pub struct Client<C>
+where
+    C: CommandHandler + Send + Sync + Clone + 'static,
+{
     cancellation_token: CancellationToken,
 
     token: String,
@@ -101,13 +105,13 @@ pub struct Client<C> {
 
     msg_tx: tokio::sync::broadcast::Sender<String>,
 
-    commands: C,
+    commands: Arc<C>,
     alert_client: Option<crate::notifications::alerts::Client>,
 }
 
 impl<C> Client<C>
 where
-    C: CommandHandler + Send + Sync,
+    C: CommandHandler + Send + Sync + Clone + 'static,
 {
     #[instrument(name = "Mattermost::new", skip_all)]
     pub async fn new(
@@ -127,7 +131,7 @@ where
 
         let mut c = Client {
             msg_tx,
-            commands,
+            commands: Arc::new(commands),
             alert_client,
             cancellation_token,
             token: config.token,
@@ -237,9 +241,7 @@ where
                             _ => continue,
                         };
 
-                        if let Err(err) = self.handle_websocket_message(msg.as_ref()).await {
-                            error!("Handling message failed: {}", err);
-                        };
+                        self.handle_websocket_message(msg.as_ref());
                     }
                 },
                 _ = self.cancellation_token.cancelled() => {
@@ -253,39 +255,57 @@ where
         }
     }
 
-    async fn handle_websocket_message(&self, msg: &[u8]) -> anyhow::Result<()> {
+    fn handle_websocket_message(&self, msg: &[u8]) {
         let msg = match serde_json::from_slice::<WebSocketEvent>(msg) {
             Ok(res) => res,
             // We just ignore messages we cannot parse
-            Err(_) => return Ok(()),
+            Err(_) => return,
         };
 
         let WebSocketEvent::Posted(posted) = msg;
         if posted.broadcast.channel_id != self.channel_id {
-            return Ok(());
+            return;
         }
 
         let post = match serde_json::from_str::<Post>(&posted.data.post) {
             Ok(post) => post,
-            Err(_) => return Ok(()),
+            Err(_) => return,
         };
         // Ignore our own messages
-        if post.user_id.is_some() && post.user_id.unwrap() == self.user_id {
-            return Ok(());
+        if let Some(user_id) = post.user_id.as_deref()
+            && user_id == self.user_id
+        {
+            return;
         }
 
         trace!("Got WebSocket message: {}", post.message);
 
-        let (handled, res) = self.commands.handle_message(&post.message).await?;
-        if let Some(res) = res {
-            self.send_message(&res, false, false).await?;
-        }
+        let self_cp = self.clone();
 
-        if !handled {
-            let _ = self.msg_tx.send(post.message);
-        }
+        // Handle the message async to not block the WebSocket loop
+        tokio::spawn(
+            async move {
+                let (handled, res) = match self_cp.commands.handle_message(&post.message).await {
+                    Ok((handled, res)) => (handled, res),
+                    Err(err) => {
+                        error!("Handling message failed: {}", err);
+                        return;
+                    }
+                };
 
-        Ok(())
+                if let Some(res) = res
+                    && let Err(err) = self_cp.send_message(&res, false, false).await
+                {
+                    error!("Sending message failed: {}", err);
+                    return;
+                }
+
+                if !handled {
+                    let _ = self_cp.msg_tx.send(post.message);
+                }
+            }
+            .in_current_span(),
+        );
     }
 
     async fn send_get_request<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<T> {
@@ -361,7 +381,7 @@ where
 #[async_trait]
 impl<C> NotificationClient for Client<C>
 where
-    C: CommandHandler + Send + Sync,
+    C: CommandHandler + Send + Sync + Clone + 'static,
 {
     fn listen_to_messages(&self) -> tokio::sync::broadcast::Receiver<String> {
         self.msg_tx.subscribe()

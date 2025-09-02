@@ -72,6 +72,10 @@ impl S3 {
 
 #[async_trait]
 impl BackupProvider for S3 {
+    fn name(&self) -> String {
+        format!("S3:{}@{}", self.bucket.name, self.bucket.region.endpoint())
+    }
+
     #[instrument(name = "S3::put", skip(self, data))]
     async fn put(&self, path: &str, data: &[u8]) -> anyhow::Result<()> {
         self.bucket.put_object(path, data).await?;

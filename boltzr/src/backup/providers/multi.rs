@@ -25,23 +25,26 @@ impl MultiProvider {
 
 #[async_trait]
 impl BackupProvider for MultiProvider {
+    fn name(&self) -> String {
+        "multi".to_string()
+    }
+
     async fn put(&self, path: &str, data: &[u8]) -> anyhow::Result<()> {
-        let results = futures::future::join_all(
-            self.providers
-                .iter()
-                .map(|provider| provider.put(path, data)),
-        )
+        let results = futures::future::join_all(self.providers.iter().map(|provider| async move {
+            match provider.put(path, data).await {
+                Ok(_) => (provider, Ok(())),
+                Err(e) => (provider, Err(e)),
+            }
+        }))
         .await;
 
-        let (successes, failures): (Vec<_>, Vec<_>) = results
-            .into_iter()
-            .enumerate()
-            .partition(|(_, result)| result.is_ok());
+        let (successes, failures): (Vec<_>, Vec<_>) =
+            results.into_iter().partition(|(_, result)| result.is_ok());
 
-        for (index, result) in failures {
+        for (provider, result) in failures {
             error!(
                 "Backup to provider {} failed: {}",
-                index,
+                provider.name(),
                 result.unwrap_err()
             );
         }
@@ -86,6 +89,10 @@ mod tests {
 
     #[async_trait]
     impl BackupProvider for TestBackupProvider {
+        fn name(&self) -> String {
+            "test".to_string()
+        }
+
         async fn put(&self, _path: &str, _data: &[u8]) -> anyhow::Result<()> {
             if self.should_fail.load(Ordering::SeqCst) {
                 Err(anyhow!("Test backup provider failure"))

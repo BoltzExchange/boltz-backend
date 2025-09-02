@@ -53,11 +53,18 @@ pub struct Call {
 trait Quoter {
     fn quoter_type(&self) -> QuoterType;
 
-    async fn quote(
+    async fn quote_input(
         &self,
         token_in: Address,
         token_out: Address,
         amount_in: U256,
+    ) -> Result<(U256, Data)>;
+
+    async fn quote_output(
+        &self,
+        token_in: Address,
+        token_out: Address,
+        amount_out: U256,
     ) -> Result<(U256, Data)>;
 
     fn encode(
@@ -96,8 +103,8 @@ impl QuoteAggregator {
         Ok(Self { quoters })
     }
 
-    #[instrument(name = "QuoteAggregator::quote", skip(self))]
-    pub async fn quote(
+    #[instrument(name = "QuoteAggregator::quote_input", skip(self))]
+    pub async fn quote_input(
         &self,
         token_in: Address,
         token_out: Address,
@@ -106,7 +113,27 @@ impl QuoteAggregator {
         let results = futures::future::join_all(
             self.quoters
                 .iter()
-                .map(|quoter| quoter.quote(token_in, token_out, amount_in)),
+                .map(|quoter| quoter.quote_input(token_in, token_out, amount_in)),
+        )
+        .await
+        .into_iter()
+        .flatten()
+        .collect();
+
+        Ok(results)
+    }
+
+    #[instrument(name = "QuoteAggregator::quote_output", skip(self))]
+    pub async fn quote_output(
+        &self,
+        token_in: Address,
+        token_out: Address,
+        amount_out: U256,
+    ) -> Result<Vec<(U256, Data)>> {
+        let results = futures::future::join_all(
+            self.quoters
+                .iter()
+                .map(|quoter| quoter.quote_output(token_in, token_out, amount_out)),
         )
         .await
         .into_iter()

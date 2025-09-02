@@ -1,4 +1,6 @@
-use crate::evm::quoter::uniswap_v3::IQuoterV2::{IQuoterV2Instance, QuoteExactInputSingleParams};
+use crate::evm::quoter::uniswap_v3::IQuoterV2::{
+    IQuoterV2Instance, QuoteExactInputSingleParams, QuoteExactOutputSingleParams,
+};
 use crate::evm::quoter::{Call, Data as QuoterData, Quoter, QuoterType};
 use crate::evm::utils::check_contract_exists;
 use alloy::primitives::{Address, U256, Uint};
@@ -68,8 +70,8 @@ where
         &self,
         token_in: Address,
         token_out: Address,
-        amount_in: U256,
         fee: u64,
+        amount_in: U256,
     ) -> Option<(Uint<24, 1>, U256)> {
         let fee = Uint::from(fee);
         let params = QuoteExactInputSingleParams {
@@ -87,6 +89,30 @@ where
             .ok()
             .map(|result| (fee, result.amountOut))
     }
+
+    async fn quote_exact_output_single(
+        &self,
+        token_in: Address,
+        token_out: Address,
+        fee: u64,
+        amount_out: U256,
+    ) -> Option<(Uint<24, 1>, U256)> {
+        let fee = Uint::from(fee);
+        let params = QuoteExactOutputSingleParams {
+            tokenIn: token_in,
+            tokenOut: token_out,
+            amount: amount_out,
+            fee,
+            sqrtPriceLimitX96: Uint::from(0),
+        };
+
+        self.quoter
+            .quoteExactOutputSingle(params)
+            .call()
+            .await
+            .ok()
+            .map(|result| (fee, result.amountIn))
+    }
 }
 
 #[async_trait]
@@ -99,8 +125,8 @@ where
         QuoterType::UniswapV3
     }
 
-    #[instrument(name = "UniswapV3::quote", skip(self))]
-    async fn quote(
+    #[instrument(name = "UniswapV3::quote_input", skip(self))]
+    async fn quote_input(
         &self,
         token_in: Address,
         token_out: Address,
@@ -110,8 +136,8 @@ where
             self.quote_exact_input_single(
                 self.router.handle_eth(token_in),
                 self.router.handle_eth(token_out),
-                amount_in,
                 *fee,
+                amount_in,
             )
         }))
         .await
@@ -122,6 +148,37 @@ where
 
         Ok((
             amount_out,
+            QuoterData::UniswapV3(Data {
+                token_in,
+                token_out,
+                fee: fee.try_into()?,
+            }),
+        ))
+    }
+
+    #[instrument(name = "UniswapV3::quote_output", skip(self))]
+    async fn quote_output(
+        &self,
+        token_in: Address,
+        token_out: Address,
+        amount_out: U256,
+    ) -> Result<(U256, QuoterData)> {
+        let (fee, amount_in) = futures::future::join_all(FEE_OPTIONS.iter().map(|fee| {
+            self.quote_exact_output_single(
+                self.router.handle_eth(token_in),
+                self.router.handle_eth(token_out),
+                *fee,
+                amount_out,
+            )
+        }))
+        .await
+        .into_iter()
+        .flatten()
+        .min_by_key(|(_, amount_in)| *amount_in)
+        .ok_or_else(|| anyhow::anyhow!("no results"))?;
+
+        Ok((
+            amount_in,
             QuoterData::UniswapV3(Data {
                 token_in,
                 token_out,
@@ -166,7 +223,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_quote() {
+    async fn test_quote_input() {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
@@ -180,7 +237,7 @@ mod test {
         .unwrap();
 
         let (quote, data) = quoter
-            .quote(
+            .quote_input(
                 WRBTC.parse().unwrap(),
                 USDT.parse().unwrap(),
                 U256::from_str_radix("100000000000", 10).unwrap(),
@@ -203,7 +260,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_quote_select_best() {
+    async fn test_quote_input_select_best() {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
@@ -220,12 +277,15 @@ mod test {
         let token_out: Address = USDT.parse().unwrap();
         let amount_in = U256::from_str_radix("100000000000", 10).unwrap();
 
-        let (quote, data) = quoter.quote(token_in, token_out, amount_in).await.unwrap();
+        let (quote, data) = quoter
+            .quote_input(token_in, token_out, amount_in)
+            .await
+            .unwrap();
 
         let mut fee_results = Vec::new();
         for fee in FEE_OPTIONS {
             if let Some(res) = quoter
-                .quote_exact_input_single(token_in, token_out, amount_in, fee)
+                .quote_exact_input_single(token_in, token_out, fee, amount_in)
                 .await
             {
                 fee_results.push(res);
@@ -251,7 +311,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_quote_fail() {
+    async fn test_quote_input_fail() {
         let quoter = UniswapV3::new(
             "RBTC",
             get_provider(),
@@ -266,7 +326,7 @@ mod test {
 
         // Quotes with random addresses should fail
         let err = quoter
-            .quote(
+            .quote_input(
                 "0x000009D2295e689B3497eCcE4A28244c09D26071"
                     .parse()
                     .unwrap(),
@@ -280,5 +340,170 @@ mod test {
             .unwrap();
 
         assert_eq!(err.to_string(), "no results");
+    }
+
+    #[tokio::test]
+    async fn test_quote_output() {
+        let quoter = UniswapV3::new(
+            "RBTC",
+            get_provider(),
+            WRBTC.parse().unwrap(),
+            Config {
+                quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let (quote, data) = quoter
+            .quote_output(
+                WRBTC.parse().unwrap(),
+                USDT.parse().unwrap(),
+                U256::from_str_radix("100000000000", 10).unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert!(!quote.is_zero());
+        match data {
+            QuoterData::UniswapV3(Data {
+                token_in,
+                token_out,
+                fee,
+            }) => {
+                assert_eq!(token_in, Address::from_str(WRBTC).unwrap());
+                assert_eq!(token_out, Address::from_str(USDT).unwrap());
+                assert!(fee > 0);
+            }
+        };
+    }
+
+    #[tokio::test]
+    async fn test_quote_output_select_best() {
+        let quoter = UniswapV3::new(
+            "RBTC",
+            get_provider(),
+            WRBTC.parse().unwrap(),
+            Config {
+                quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let token_in: Address = WRBTC.parse().unwrap();
+        let token_out: Address = USDT.parse().unwrap();
+        let amount_out = U256::from_str_radix("100000000000", 10).unwrap();
+
+        let (quote, data) = quoter
+            .quote_output(token_in, token_out, amount_out)
+            .await
+            .unwrap();
+
+        let mut fee_results = Vec::new();
+        for fee in FEE_OPTIONS {
+            if let Some(res) = quoter
+                .quote_exact_output_single(token_in, token_out, fee, amount_out)
+                .await
+            {
+                fee_results.push(res);
+            }
+        }
+
+        assert!(!fee_results.is_empty());
+
+        let best_result = fee_results
+            .iter()
+            .min_by_key(|(_, amount)| *amount)
+            .unwrap();
+
+        assert_eq!(best_result.1, quote);
+        assert_eq!(
+            QuoterData::UniswapV3(Data {
+                token_in,
+                token_out,
+                fee: best_result.0.try_into().unwrap(),
+            }),
+            data
+        );
+    }
+
+    #[tokio::test]
+    async fn test_quote_output_fail() {
+        let quoter = UniswapV3::new(
+            "RBTC",
+            get_provider(),
+            WRBTC.parse().unwrap(),
+            Config {
+                quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+
+        // Quotes with random addresses should fail
+        let err = quoter
+            .quote_output(
+                "0x000009D2295e689B3497eCcE4A28244c09D26071"
+                    .parse()
+                    .unwrap(),
+                "0x0Dd5C41069d0Cb5085Bf2a1f279b25654704371e"
+                    .parse()
+                    .unwrap(),
+                U256::from_str_radix("123", 10).unwrap(),
+            )
+            .await
+            .err()
+            .unwrap();
+
+        assert_eq!(err.to_string(), "no results");
+    }
+
+    #[tokio::test]
+    async fn test_quote_roundtrip_input_then_output() {
+        let quoter = UniswapV3::new(
+            "RBTC",
+            get_provider(),
+            WRBTC.parse().unwrap(),
+            Config {
+                quoter: QUOTER.parse().unwrap(),
+                router: ROUTER.parse().unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let token_in: Address = WRBTC.parse().unwrap();
+        let token_out: Address = USDT.parse().unwrap();
+        let original_amount_in = U256::from_str_radix("100000000000", 10).unwrap();
+
+        let (quoted_amount_out, _) = quoter
+            .quote_input(token_in, token_out, original_amount_in)
+            .await
+            .unwrap();
+
+        let (roundtripped_amount_in, _) = quoter
+            .quote_output(token_in, token_out, quoted_amount_out)
+            .await
+            .unwrap();
+
+        // Allow a 1% margin of error due to rounding/slippage
+        let diff = if roundtripped_amount_in > original_amount_in {
+            roundtripped_amount_in - original_amount_in
+        } else {
+            original_amount_in - roundtripped_amount_in
+        };
+        let one_percent = original_amount_in / U256::from(100u64);
+        assert!(
+            diff <= one_percent,
+            "Difference {} exceeds 1% ({}) between roundtripped {} and original {}",
+            diff,
+            one_percent,
+            roundtripped_amount_in,
+            original_amount_in
+        );
     }
 }

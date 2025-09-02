@@ -124,13 +124,17 @@ where
 
     fn add_routes(router: Router) -> Router {
         router
+            // Server-Sent events
             .route("/streamswapstatus", get(sse_handler::<S, M>))
+            // Stats
             .route(
                 "/v2/swap/{swap_type}/stats/{from}/{to}",
                 get(get_stats::<S, M>),
             )
+            // Swap rescue
             .route("/v2/swap/rescue", post(swap_rescue::<S, M>))
             .route("/v2/swap/restore", post(swap_restore::<S, M>))
+            // Lightning
             .route(
                 "/v2/lightning/{currency}/node/{node}",
                 get(lightning::node_info::<S, M>),
@@ -171,8 +175,14 @@ where
                 "/v2/lightning/{currency}/bolt12/fetch",
                 post(bolt12::fetch::<S, M>),
             )
-            .route("/v2/quote/{currency}", get(quoter::quote::<S, M>))
+            // Quoter
+            .route("/v2/quote/{currency}/in", get(quoter::quote_input::<S, M>))
+            .route(
+                "/v2/quote/{currency}/out",
+                get(quoter::quote_output::<S, M>),
+            )
             .route("/v2/quote/{currency}/encode", post(quoter::encode::<S, M>))
+            // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))
     }

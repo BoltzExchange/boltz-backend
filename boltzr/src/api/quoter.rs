@@ -23,8 +23,22 @@ pub struct QuoteParams {
     pub token_in: Address,
     #[serde(rename = "tokenOut")]
     pub token_out: Address,
+}
+
+#[derive(Deserialize)]
+pub struct QuoteInputParams {
+    #[serde(flatten)]
+    pub params: QuoteParams,
     #[serde(rename = "amountIn")]
     pub amount_in: U256,
+}
+
+#[derive(Deserialize)]
+pub struct QuoteOutputParams {
+    #[serde(flatten)]
+    pub params: QuoteParams,
+    #[serde(rename = "amountOut")]
+    pub amount_out: U256,
 }
 
 #[derive(Serialize)]
@@ -49,17 +63,21 @@ pub struct EncodeResponse {
     pub calls: Vec<Call>,
 }
 
-pub async fn quote<S, M>(
+pub async fn quote_input<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(path): Path<QuotePath>,
-    Query(params): Query<QuoteParams>,
+    Query(params): Query<QuoteInputParams>,
 ) -> Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
     let mut quotes = get_quote_aggregator(&state, &path.currency)?
-        .quote(params.token_in, params.token_out, params.amount_in)
+        .quote_input(
+            params.params.token_in,
+            params.params.token_out,
+            params.amount_in,
+        )
         .await?
         .into_iter()
         .map(|(quote, data)| QuoteResponse { quote, data })
@@ -67,6 +85,32 @@ where
 
     // Descending order
     quotes.sort_by(|a, b| b.quote.cmp(&a.quote));
+
+    Ok((StatusCode::OK, Json(quotes)).into_response())
+}
+
+pub async fn quote_output<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(path): Path<QuotePath>,
+    Query(params): Query<QuoteOutputParams>,
+) -> Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let mut quotes = get_quote_aggregator(&state, &path.currency)?
+        .quote_output(
+            params.params.token_in,
+            params.params.token_out,
+            params.amount_out,
+        )
+        .await?
+        .into_iter()
+        .map(|(quote, data)| QuoteResponse { quote, data })
+        .collect::<Vec<_>>();
+
+    // Ascending order
+    quotes.sort_by(|a, b| a.quote.cmp(&b.quote));
 
     Ok((StatusCode::OK, Json(quotes)).into_response())
 }

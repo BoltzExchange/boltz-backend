@@ -1180,12 +1180,12 @@
         }
       }
     },
-    "/quote/{currency}": {
+    "/quote/{currency}/in": {
       "get": {
         "tags": [
           "Quotes"
         ],
-        "description": "Gets quotes for a token swap",
+        "description": "Gets quotes for a token swap with specified input amount",
         "parameters": [
           {
             "in": "path",
@@ -1226,7 +1226,88 @@
         ],
         "responses": {
           "200": {
-            "description": "Quotes for the token swap",
+            "description": "Quotes for the token swap sorted by highest output (descending)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenQuote"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the network is not supported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quote/{currency}/out": {
+      "get": {
+        "tags": [
+          "Quotes"
+        ],
+        "description": "Gets quotes for a token swap with specified output amount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Network for the token swap"
+          },
+          {
+            "in": "query",
+            "name": "tokenIn",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token to swap from"
+          },
+          {
+            "in": "query",
+            "name": "tokenOut",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token to swap to"
+          },
+          {
+            "in": "query",
+            "name": "amountOut",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Amount to receive from swap"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quotes for the token swap sorted by lowest input (ascending)",
             "content": {
               "application/json": {
                 "schema": {

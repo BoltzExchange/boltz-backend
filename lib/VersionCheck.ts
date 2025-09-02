@@ -81,8 +81,8 @@ class VersionCheck {
       maximal: 290000,
     },
     [ClnClient.serviceName]: {
-      minimal: '25.02',
-      maximal: '25.05',
+      minimal: '25.05',
+      maximal: '25.09',
     },
     [ClnClient.serviceNameHold]: {
       minimal: '0.3.0',

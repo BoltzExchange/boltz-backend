@@ -12,34 +12,37 @@ RUN apt-get update && apt-get -y upgrade
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   jq \
   git \
-  cargo \
   gettext \
   libtool \
   python3 \
-  rustfmt \
   autoconf \
   automake \
   libpq-dev \
   net-tools \
   libgmp-dev \
   zlib1g-dev \
-  python3-pip \
   libsodium-dev \
   libsqlite3-dev \
   build-essential \
   protobuf-compiler \
   python-is-python3
 
-RUN pip3 install mako --break-system-packages
+RUN curl -sSf https://sh.rustup.rs -o rustup-install.sh && \
+    bash rustup-install.sh --default-toolchain none --quiet -y && \
+    rm rustup-install.sh && \
+    /root/.cargo/bin/rustup install 1.85
+ENV PATH="/root/.cargo/bin:$PATH"
 
-RUN git clone https://github.com/ElementsProject/lightning.git
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin/:$PATH"
+
+RUN git clone --depth 1 --branch v${VERSION} https://github.com/ElementsProject/lightning.git /lightning
 WORKDIR /lightning
 
-RUN git checkout v${VERSION}
 RUN git submodule init && git submodule update
 
 RUN ./configure
-RUN RUST_PROFILE=release make install -j$(nproc)
+RUN RUST_PROFILE=release uv run make install -j$(nproc)
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}

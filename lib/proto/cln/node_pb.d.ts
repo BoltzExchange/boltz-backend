@@ -8616,6 +8616,98 @@ export namespace FeeratesOnchainFeeEstimates {
     }
 }
 
+export class Fetchbip353Request extends jspb.Message { 
+    getAddress(): string;
+    setAddress(value: string): Fetchbip353Request;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Fetchbip353Request.AsObject;
+    static toObject(includeInstance: boolean, msg: Fetchbip353Request): Fetchbip353Request.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Fetchbip353Request, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Fetchbip353Request;
+    static deserializeBinaryFromReader(message: Fetchbip353Request, reader: jspb.BinaryReader): Fetchbip353Request;
+}
+
+export namespace Fetchbip353Request {
+    export type AsObject = {
+        address: string,
+    }
+}
+
+export class Fetchbip353Response extends jspb.Message { 
+    getProof(): string;
+    setProof(value: string): Fetchbip353Response;
+    clearInstructionsList(): void;
+    getInstructionsList(): Array<Fetchbip353Instructions>;
+    setInstructionsList(value: Array<Fetchbip353Instructions>): Fetchbip353Response;
+    addInstructions(value?: Fetchbip353Instructions, index?: number): Fetchbip353Instructions;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Fetchbip353Response.AsObject;
+    static toObject(includeInstance: boolean, msg: Fetchbip353Response): Fetchbip353Response.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Fetchbip353Response, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Fetchbip353Response;
+    static deserializeBinaryFromReader(message: Fetchbip353Response, reader: jspb.BinaryReader): Fetchbip353Response;
+}
+
+export namespace Fetchbip353Response {
+    export type AsObject = {
+        proof: string,
+        instructionsList: Array<Fetchbip353Instructions.AsObject>,
+    }
+}
+
+export class Fetchbip353Instructions extends jspb.Message { 
+
+    hasDescription(): boolean;
+    clearDescription(): void;
+    getDescription(): string | undefined;
+    setDescription(value: string): Fetchbip353Instructions;
+
+    hasOffer(): boolean;
+    clearOffer(): void;
+    getOffer(): string | undefined;
+    setOffer(value: string): Fetchbip353Instructions;
+
+    hasOnchain(): boolean;
+    clearOnchain(): void;
+    getOnchain(): string | undefined;
+    setOnchain(value: string): Fetchbip353Instructions;
+
+    hasOffchainAmountMsat(): boolean;
+    clearOffchainAmountMsat(): void;
+    getOffchainAmountMsat(): number | undefined;
+    setOffchainAmountMsat(value: number): Fetchbip353Instructions;
+
+    hasOnchainAmountSat(): boolean;
+    clearOnchainAmountSat(): void;
+    getOnchainAmountSat(): number | undefined;
+    setOnchainAmountSat(value: number): Fetchbip353Instructions;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Fetchbip353Instructions.AsObject;
+    static toObject(includeInstance: boolean, msg: Fetchbip353Instructions): Fetchbip353Instructions.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Fetchbip353Instructions, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Fetchbip353Instructions;
+    static deserializeBinaryFromReader(message: Fetchbip353Instructions, reader: jspb.BinaryReader): Fetchbip353Instructions;
+}
+
+export namespace Fetchbip353Instructions {
+    export type AsObject = {
+        description?: string,
+        offer?: string,
+        onchain?: string,
+        offchainAmountMsat?: number,
+        onchainAmountSat?: number,
+    }
+}
+
 export class FetchinvoiceRequest extends jspb.Message { 
     getOffer(): string;
     setOffer(value: string): FetchinvoiceRequest;
@@ -12968,6 +13060,8 @@ export namespace WaitRequest {
     FORWARDS = 1,
     SENDPAYS = 2,
     HTLCS = 3,
+    CHAINMOVES = 4,
+    CHANNELMOVES = 5,
     }
 
     export enum WaitIndexname {
@@ -13022,6 +13116,16 @@ export class WaitResponse extends jspb.Message {
     getHtlcs(): WaitHtlcs | undefined;
     setHtlcs(value?: WaitHtlcs): WaitResponse;
 
+    hasChainmoves(): boolean;
+    clearChainmoves(): void;
+    getChainmoves(): WaitChainmoves | undefined;
+    setChainmoves(value?: WaitChainmoves): WaitResponse;
+
+    hasChannelmoves(): boolean;
+    clearChannelmoves(): void;
+    getChannelmoves(): WaitChannelmoves | undefined;
+    setChannelmoves(value?: WaitChannelmoves): WaitResponse;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): WaitResponse.AsObject;
     static toObject(includeInstance: boolean, msg: WaitResponse): WaitResponse.AsObject;
@@ -13043,6 +13147,8 @@ export namespace WaitResponse {
         invoices?: WaitInvoices.AsObject,
         sendpays?: WaitSendpays.AsObject,
         htlcs?: WaitHtlcs.AsObject,
+        chainmoves?: WaitChainmoves.AsObject,
+        channelmoves?: WaitChannelmoves.AsObject,
     }
 
     export enum WaitSubsystem {
@@ -13050,6 +13156,8 @@ export namespace WaitResponse {
     FORWARDS = 1,
     SENDPAYS = 2,
     HTLCS = 3,
+    CHAINMOVES = 4,
+    CHANNELMOVES = 5,
     }
 
 }
@@ -13301,6 +13409,70 @@ export namespace WaitHtlcs {
     IN = 1,
     }
 
+}
+
+export class WaitChainmoves extends jspb.Message { 
+    getAccount(): string;
+    setAccount(value: string): WaitChainmoves;
+
+    hasCreditMsat(): boolean;
+    clearCreditMsat(): void;
+    getCreditMsat(): cln_primitives_pb.Amount | undefined;
+    setCreditMsat(value?: cln_primitives_pb.Amount): WaitChainmoves;
+
+    hasDebitMsat(): boolean;
+    clearDebitMsat(): void;
+    getDebitMsat(): cln_primitives_pb.Amount | undefined;
+    setDebitMsat(value?: cln_primitives_pb.Amount): WaitChainmoves;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitChainmoves.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitChainmoves): WaitChainmoves.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitChainmoves, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitChainmoves;
+    static deserializeBinaryFromReader(message: WaitChainmoves, reader: jspb.BinaryReader): WaitChainmoves;
+}
+
+export namespace WaitChainmoves {
+    export type AsObject = {
+        account: string,
+        creditMsat?: cln_primitives_pb.Amount.AsObject,
+        debitMsat?: cln_primitives_pb.Amount.AsObject,
+    }
+}
+
+export class WaitChannelmoves extends jspb.Message { 
+    getAccount(): string;
+    setAccount(value: string): WaitChannelmoves;
+
+    hasCreditMsat(): boolean;
+    clearCreditMsat(): void;
+    getCreditMsat(): cln_primitives_pb.Amount | undefined;
+    setCreditMsat(value?: cln_primitives_pb.Amount): WaitChannelmoves;
+
+    hasDebitMsat(): boolean;
+    clearDebitMsat(): void;
+    getDebitMsat(): cln_primitives_pb.Amount | undefined;
+    setDebitMsat(value?: cln_primitives_pb.Amount): WaitChannelmoves;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WaitChannelmoves.AsObject;
+    static toObject(includeInstance: boolean, msg: WaitChannelmoves): WaitChannelmoves.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WaitChannelmoves, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WaitChannelmoves;
+    static deserializeBinaryFromReader(message: WaitChannelmoves, reader: jspb.BinaryReader): WaitChannelmoves;
+}
+
+export namespace WaitChannelmoves {
+    export type AsObject = {
+        account: string,
+        creditMsat?: cln_primitives_pb.Amount.AsObject,
+        debitMsat?: cln_primitives_pb.Amount.AsObject,
+    }
 }
 
 export class WaitDetails extends jspb.Message { 
@@ -18066,6 +18238,11 @@ export class GetroutesRequest extends jspb.Message {
     getMaxdelay(): number | undefined;
     setMaxdelay(value: number): GetroutesRequest;
 
+    hasMaxparts(): boolean;
+    clearMaxparts(): void;
+    getMaxparts(): number | undefined;
+    setMaxparts(value: number): GetroutesRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetroutesRequest.AsObject;
     static toObject(includeInstance: boolean, msg: GetroutesRequest): GetroutesRequest.AsObject;
@@ -18085,6 +18262,7 @@ export namespace GetroutesRequest {
         maxfeeMsat?: cln_primitives_pb.Amount.AsObject,
         finalCltv?: number,
         maxdelay?: number,
+        maxparts?: number,
     }
 }
 
@@ -19154,6 +19332,7 @@ export namespace PeerConnectAddress {
     IPV6 = 2,
     TORV2 = 3,
     TORV3 = 4,
+    WEBSOCKET = 5,
     }
 
 }
@@ -19228,7 +19407,10 @@ export class ChannelStateChangedNotification extends jspb.Message {
     getChannelId_asU8(): Uint8Array;
     getChannelId_asB64(): string;
     setChannelId(value: Uint8Array | string): ChannelStateChangedNotification;
-    getShortChannelId(): string;
+
+    hasShortChannelId(): boolean;
+    clearShortChannelId(): void;
+    getShortChannelId(): string | undefined;
     setShortChannelId(value: string): ChannelStateChangedNotification;
     getTimestamp(): string;
     setTimestamp(value: string): ChannelStateChangedNotification;
@@ -19258,7 +19440,7 @@ export namespace ChannelStateChangedNotification {
     export type AsObject = {
         peerId: Uint8Array | string,
         channelId: Uint8Array | string,
-        shortChannelId: string,
+        shortChannelId?: string,
         timestamp: string,
         oldState?: cln_primitives_pb.ChannelState,
         newState: cln_primitives_pb.ChannelState,

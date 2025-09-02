@@ -68,6 +68,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     enableOffer: INodeService_IEnableOffer;
     disconnect: INodeService_IDisconnect;
     feerates: INodeService_IFeerates;
+    fetchBip353: INodeService_IFetchBip353;
     fetchInvoice: INodeService_IFetchInvoice;
     fundChannelCancel: INodeService_IFundChannelCancel;
     fundChannelComplete: INodeService_IFundChannelComplete;
@@ -682,6 +683,15 @@ interface INodeService_IFeerates extends grpc.MethodDefinition<cln_node_pb.Feera
     requestDeserialize: grpc.deserialize<cln_node_pb.FeeratesRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.FeeratesResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.FeeratesResponse>;
+}
+interface INodeService_IFetchBip353 extends grpc.MethodDefinition<cln_node_pb.Fetchbip353Request, cln_node_pb.Fetchbip353Response> {
+    path: "/cln.Node/FetchBip353";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.Fetchbip353Request>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.Fetchbip353Request>;
+    responseSerialize: grpc.serialize<cln_node_pb.Fetchbip353Response>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.Fetchbip353Response>;
 }
 interface INodeService_IFetchInvoice extends grpc.MethodDefinition<cln_node_pb.FetchinvoiceRequest, cln_node_pb.FetchinvoiceResponse> {
     path: "/cln.Node/FetchInvoice";
@@ -1484,6 +1494,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     enableOffer: grpc.handleUnaryCall<cln_node_pb.EnableofferRequest, cln_node_pb.EnableofferResponse>;
     disconnect: grpc.handleUnaryCall<cln_node_pb.DisconnectRequest, cln_node_pb.DisconnectResponse>;
     feerates: grpc.handleUnaryCall<cln_node_pb.FeeratesRequest, cln_node_pb.FeeratesResponse>;
+    fetchBip353: grpc.handleUnaryCall<cln_node_pb.Fetchbip353Request, cln_node_pb.Fetchbip353Response>;
     fetchInvoice: grpc.handleUnaryCall<cln_node_pb.FetchinvoiceRequest, cln_node_pb.FetchinvoiceResponse>;
     fundChannelCancel: grpc.handleUnaryCall<cln_node_pb.FundchannelCancelRequest, cln_node_pb.FundchannelCancelResponse>;
     fundChannelComplete: grpc.handleUnaryCall<cln_node_pb.FundchannelCompleteRequest, cln_node_pb.FundchannelCompleteResponse>;
@@ -1746,6 +1757,9 @@ export interface INodeClient {
     feerates(request: cln_node_pb.FeeratesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
     feerates(request: cln_node_pb.FeeratesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
     feerates(request: cln_node_pb.FeeratesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
+    fetchBip353(request: cln_node_pb.Fetchbip353Request, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
+    fetchBip353(request: cln_node_pb.Fetchbip353Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
+    fetchBip353(request: cln_node_pb.Fetchbip353Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
@@ -2167,6 +2181,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public feerates(request: cln_node_pb.FeeratesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
     public feerates(request: cln_node_pb.FeeratesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
     public feerates(request: cln_node_pb.FeeratesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FeeratesResponse) => void): grpc.ClientUnaryCall;
+    public fetchBip353(request: cln_node_pb.Fetchbip353Request, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
+    public fetchBip353(request: cln_node_pb.Fetchbip353Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
+    public fetchBip353(request: cln_node_pb.Fetchbip353Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.Fetchbip353Response) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;

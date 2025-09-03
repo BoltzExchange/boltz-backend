@@ -97,7 +97,7 @@ class ReferralRouter extends RouterBase {
      *         description: HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path
      *     responses:
      *       '200':
-     *         description: The referral ID for your API-KEY to be used when creating Swaps
+     *         description: Referral fees collected per currency grouped by year and month
      *         content:
      *           application/json:
      *             schema:
@@ -128,7 +128,7 @@ class ReferralRouter extends RouterBase {
      * @openapi
      * /referral/stats:
      *   get:
-     *     description: Statistics for Swaps created with an referral ID
+     *     description: Statistics for Swaps created with a referral ID
      *     tags: [Referral]
      *     parameters:
      *       - in: header
@@ -165,6 +165,7 @@ class ReferralRouter extends RouterBase {
      *                   description: Swap statistics for that month
      *                   properties:
      *                     volume:
+     *                       type: object
      *                       description: Swap volume
      *                       properties:
      *                         total:
@@ -187,15 +188,58 @@ class ReferralRouter extends RouterBase {
      *                       type: object
      *                       description: Swap failure rates for each type
      *                       properties:
-     *                         swaps:
+     *                         submarine:
      *                           type: number
      *                           description: Submarine Swap failure rate
-     *                         reverseSwaps:
+     *                         reverse:
      *                           type: number
      *                           description: Reverse Swap failure rate
+     *                         chain:
+     *                           type: number
+     *                           description: Chain Swap failure rate
+     *                     groups:
+     *                       type: object
+     *                       description: Stats grouped by extra fee identifier
+     *                       additionalProperties:
+     *                         type: object
+     *                         description: Stats for a specific group
+     *                         properties:
+     *                           volume:
+     *                             type: object
+     *                             description: Swap volume for the group
+     *                             properties:
+     *                               total:
+     *                                 type: string
+     *                                 description: Volume across all pairs in BTC for the group
+     *                             additionalProperties:
+     *                               type: string
+     *                               description: Volume in that pair in BTC for the group
+     *                           trades:
+     *                             type: object
+     *                             description: Swap counts for the group
+     *                             properties:
+     *                               total:
+     *                                 type: integer
+     *                                 description: Swap count across all pairs for the group
+     *                             additionalProperties:
+     *                               type: integer
+     *                               description: Swap count for that pair for the group
+     *                           failureRates:
+     *                             type: object
+     *                             description: Failure rates for the group by swap type
+     *                             properties:
+     *                               submarine:
+     *                                 type: number
+     *                                 description: Submarine Swap failure rate for the group
+     *                               reverse:
+     *                                 type: number
+     *                                 description: Reverse Swap failure rate for the group
+     *                               chain:
+     *                                 type: number
+     *                                 description: Chain Swap failure rate for the group
      *             examples:
      *               json:
-     *                 value: '{"2024":{"1":{"volume":{"total":"0.00321844","L-BTC/BTC":"0.00321844"},"trades":{"total":3,"L-BTC/BTC":3},"failureRates":{"swaps": 0.12, "reverseSwaps":0}}}}'
+     *                 value: '{"2024":{"1":{"volume":{"total":"0.00321844","L-BTC/BTC":"0.00321844"},"trades":{"total":3,"L-BTC/BTC":3},"failureRates":{"submarine": 0.12, "reverse":0, "chain":0}}}}'
      *       '401':
      *         description: Unauthorized in case of an unknown API-KEY or bad HMAC
      *         content:
@@ -232,7 +276,7 @@ class ReferralRouter extends RouterBase {
      *         description: HMAC-SHA256 with your API-Secret as key of the TS + HTTP method (all uppercase) + the HTTP path
      *     responses:
      *       '200':
-     *         description: Extra fees collected by swap ID grouped by year and month
+     *         description: Extra fees collected by extra id grouped by year and month
      *         content:
      *           application/json:
      *             schema:
@@ -287,7 +331,12 @@ class ReferralRouter extends RouterBase {
       return;
     }
 
-    successResponse(res, await Stats.generate(0, 0, referral.id));
+    const [stats, extraStats] = await Promise.all([
+      Stats.generate(0, 0, referral.id),
+      ExtraFeeRepository.getStatsByReferral(referral.id),
+    ]);
+
+    successResponse(res, ExtraFeeRepository.mergeStats(stats, extraStats));
   };
 
   private getExtraFees = async (req: Request, res: Response) => {
@@ -296,7 +345,10 @@ class ReferralRouter extends RouterBase {
       return;
     }
 
-    successResponse(res, await ExtraFeeRepository.getStats(referral.id));
+    successResponse(
+      res,
+      await ExtraFeeRepository.getFeesByReferral(referral.id),
+    );
   };
 
   private checkAuthentication = async (

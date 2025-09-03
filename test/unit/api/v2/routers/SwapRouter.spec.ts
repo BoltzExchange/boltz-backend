@@ -2218,6 +2218,29 @@ describe('SwapRouter', () => {
       expect(swapRouter['parseExtraFees'](data)).toEqual(data);
     });
 
+    test('should parse extra fees with undefined percentage defaulting to 0', () => {
+      const data = {
+        id: 'id',
+      };
+
+      expect(swapRouter['parseExtraFees'](data)).toEqual({
+        id: 'id',
+        percentage: 0,
+      });
+    });
+
+    test('should parse extra fees with explicitly undefined percentage', () => {
+      const data = {
+        id: 'id',
+        percentage: undefined,
+      };
+
+      expect(swapRouter['parseExtraFees'](data)).toEqual({
+        id: 'id',
+        percentage: 0,
+      });
+    });
+
     test('should omit extra data', () => {
       const data = {
         id: 'id',
@@ -2237,7 +2260,7 @@ describe('SwapRouter', () => {
 
     test.each`
       percentage | error
-      ${0}       | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(0)}
+      ${-0.1}    | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(-0.1)}
       ${-1}      | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(-1)}
       ${11}      | ${ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(11)}
     `(
@@ -2251,6 +2274,30 @@ describe('SwapRouter', () => {
         ).toThrow(error);
       },
     );
+
+    test('should not validate percentage when undefined', () => {
+      const data = {
+        id: 'id',
+        percentage: undefined,
+      };
+
+      // Should not throw even though 0 would normally be invalid
+      expect(() => swapRouter['parseExtraFees'](data)).not.toThrow();
+      expect(swapRouter['parseExtraFees'](data)).toEqual({
+        id: 'id',
+        percentage: 0,
+      });
+    });
+
+    test('should allow valid percentages between 0.01 and 10', () => {
+      const validPercentages = [0.01, 1, 5, 10];
+
+      validPercentages.forEach((percentage) => {
+        const data = { id: 'id', percentage };
+        expect(() => swapRouter['parseExtraFees'](data)).not.toThrow();
+        expect(swapRouter['parseExtraFees'](data)).toEqual(data);
+      });
+    });
   });
 
   describe('getReferralFromHeader', () => {

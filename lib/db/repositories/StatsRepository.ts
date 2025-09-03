@@ -8,8 +8,8 @@ import {
 import Database from '../Database';
 
 type StatsDate = {
-  year: number;
-  month: number;
+  year: string;
+  month: string;
 };
 
 type Volume = StatsDate & {

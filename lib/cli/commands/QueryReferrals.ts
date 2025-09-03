@@ -3,25 +3,13 @@ import axios from 'axios';
 import { createHmac } from 'crypto';
 import type { Arguments } from 'yargs';
 import { getUnixTime, stringify } from '../../Utils';
+import type { ApiType, BuilderTypes } from '../BuilderComponents';
 
 export const command = 'queryreferrals <key> <secret>';
 
 export const describe = 'queries referrals with API key and secret';
 
 export const builder = {
-  rest: {
-    hidden: true,
-  },
-  'rest.host': {
-    type: 'string',
-    default: '127.0.0.1',
-    describe: 'Boltz REST API host',
-  },
-  'rest.port': {
-    type: 'number',
-    default: '9001',
-    describe: 'Boltz REST API port',
-  },
   key: {
     type: 'string',
     describe: 'API key',
@@ -32,16 +20,24 @@ export const builder = {
   },
 };
 
-export const handler = async (argv: Arguments<any>): Promise<void> => {
+type Argv = Arguments<BuilderTypes<typeof builder> & ApiType>;
+
+export const handler = async (argv: Argv): Promise<void> => {
   try {
-    const [idRes, fees, stats] = await Promise.all([
+    const [idRes, fees, stats, extra] = await Promise.all([
       sendAuthenticatedRequest<{ id: string }>(argv, '/v2/referral'),
       sendAuthenticatedRequest(argv, '/v2/referral/fees'),
       sendAuthenticatedRequest(argv, '/v2/referral/stats'),
+      sendAuthenticatedRequest(argv, '/v2/referral/stats/extra'),
     ]);
 
     console.log(
-      stringify({ id: idRes.data.id, fees: fees.data, stats: stats.data }),
+      stringify({
+        id: idRes.data.id,
+        fees: fees.data,
+        stats: stats.data,
+        extra: extra.data,
+      }),
     );
   } catch (error: any) {
     if (error.message && error.response) {
@@ -53,7 +49,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
 };
 
 const sendAuthenticatedRequest = <T = any>(
-  argv: Arguments<any>,
+  argv: Argv,
   path: string,
 ): Promise<AxiosResponse<T>> => {
   const ts = getUnixTime();
@@ -61,7 +57,7 @@ const sendAuthenticatedRequest = <T = any>(
     .update(`${ts}GET${path}`)
     .digest('hex');
 
-  return axios.get<T>(`http://${argv.rest.host}:${argv.rest.port}${path}`, {
+  return axios.get<T>(`${argv.api.endpoint}${path}`, {
     headers: {
       TS: ts.toString(),
       'API-KEY': argv.key,

@@ -97,6 +97,31 @@ describe('ReferralRouter', () => {
   });
 
   test('should get stats of referral id', async () => {
+    const mockExtraStats = [
+      {
+        year: '2024',
+        month: '1',
+        id: 'test',
+        pair: 'BTC/BTC',
+        swap_count: 10,
+        volume: '1000000',
+        failure_rate_submarine: 0.1,
+        failure_rate_reverse: 0.05,
+        failure_rate_chain: 0.02,
+      },
+    ];
+
+    ExtraFeeRepository.getStatsByReferral = jest
+      .fn()
+      .mockResolvedValue(mockExtraStats);
+    ExtraFeeRepository.mergeStats = jest.fn().mockReturnValue({
+      2024: {
+        1: {
+          merged: 'data',
+        },
+      },
+    });
+
     mockValidateAuthResult = { id: 'partner', other: 'data' };
 
     const res = mockResponse();
@@ -108,13 +133,30 @@ describe('ReferralRouter', () => {
       0,
       mockValidateAuthResult.id,
     );
+    expect(ExtraFeeRepository.getStatsByReferral).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.getStatsByReferral).toHaveBeenCalledWith(
+      mockValidateAuthResult.id,
+    );
+
+    // Should merge results
+    expect(ExtraFeeRepository.mergeStats).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.mergeStats).toHaveBeenCalledWith(
+      await Stats.generate(0, 0, ''),
+      mockExtraStats,
+    );
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(await Stats.generate(0, 0, ''));
+    expect(res.json).toHaveBeenCalledWith({
+      2024: {
+        1: {
+          merged: 'data',
+        },
+      },
+    });
   });
 
   test('should get extra fees of referral id', async () => {
-    ExtraFeeRepository.getStats = jest.fn().mockResolvedValue({
+    ExtraFeeRepository.getFeesByReferral = jest.fn().mockResolvedValue({
       some: 'data',
     });
 
@@ -123,15 +165,51 @@ describe('ReferralRouter', () => {
     const res = mockResponse();
     await referralRouter['getExtraFees'](mockRequest(), res);
 
-    expect(ExtraFeeRepository.getStats).toHaveBeenCalledTimes(1);
-    expect(ExtraFeeRepository.getStats).toHaveBeenCalledWith(
+    expect(ExtraFeeRepository.getFeesByReferral).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.getFeesByReferral).toHaveBeenCalledWith(
       mockValidateAuthResult.id,
     );
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
-      await ExtraFeeRepository.getStats(''),
+      await ExtraFeeRepository.getFeesByReferral(''),
     );
+  });
+
+  test('should handle errors in stats generation', async () => {
+    const statsError = new Error('Stats generation failed');
+    Stats.generate = jest.fn().mockRejectedValue(statsError);
+    ExtraFeeRepository.getStatsByReferral = jest.fn().mockResolvedValue([]);
+
+    mockValidateAuthResult = { id: 'partner', other: 'data' };
+
+    const res = mockResponse();
+
+    await expect(
+      referralRouter['getStats'](mockRequest(), res),
+    ).rejects.toThrow('Stats generation failed');
+
+    expect(Stats.generate).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.getStatsByReferral).toHaveBeenCalledTimes(1);
+  });
+
+  test('should handle errors in extra stats generation', async () => {
+    const extraStatsError = new Error('Extra stats generation failed');
+    Stats.generate = jest.fn().mockResolvedValue({});
+    ExtraFeeRepository.getStatsByReferral = jest
+      .fn()
+      .mockRejectedValue(extraStatsError);
+
+    mockValidateAuthResult = { id: 'partner', other: 'data' };
+
+    const res = mockResponse();
+
+    await expect(
+      referralRouter['getStats'](mockRequest(), res),
+    ).rejects.toThrow('Extra stats generation failed');
+
+    expect(Stats.generate).toHaveBeenCalledTimes(1);
+    expect(ExtraFeeRepository.getStatsByReferral).toHaveBeenCalledTimes(1);
   });
 
   test.each`

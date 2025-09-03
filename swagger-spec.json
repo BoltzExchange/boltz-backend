@@ -1544,7 +1544,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The referral ID for your API-KEY to be used when creating Swaps",
+            "description": "Referral fees collected per currency grouped by year and month",
             "content": {
               "application/json": {
                 "schema": {
@@ -1586,7 +1586,7 @@
     },
     "/referral/stats": {
       "get": {
-        "description": "Statistics for Swaps created with an referral ID",
+        "description": "Statistics for Swaps created with a referral ID",
         "tags": [
           "Referral"
         ],
@@ -1635,6 +1635,7 @@
                       "description": "Swap statistics for that month",
                       "properties": {
                         "volume": {
+                          "type": "object",
                           "description": "Swap volume",
                           "properties": {
                             "total": {
@@ -1665,13 +1666,73 @@
                           "type": "object",
                           "description": "Swap failure rates for each type",
                           "properties": {
-                            "swaps": {
+                            "submarine": {
                               "type": "number",
                               "description": "Submarine Swap failure rate"
                             },
-                            "reverseSwaps": {
+                            "reverse": {
                               "type": "number",
                               "description": "Reverse Swap failure rate"
+                            },
+                            "chain": {
+                              "type": "number",
+                              "description": "Chain Swap failure rate"
+                            }
+                          }
+                        },
+                        "groups": {
+                          "type": "object",
+                          "description": "Stats grouped by extra fee identifier",
+                          "additionalProperties": {
+                            "type": "object",
+                            "description": "Stats for a specific group",
+                            "properties": {
+                              "volume": {
+                                "type": "object",
+                                "description": "Swap volume for the group",
+                                "properties": {
+                                  "total": {
+                                    "type": "string",
+                                    "description": "Volume across all pairs in BTC for the group"
+                                  }
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "description": "Volume in that pair in BTC for the group"
+                                }
+                              },
+                              "trades": {
+                                "type": "object",
+                                "description": "Swap counts for the group",
+                                "properties": {
+                                  "total": {
+                                    "type": "integer",
+                                    "description": "Swap count across all pairs for the group"
+                                  }
+                                },
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "description": "Swap count for that pair for the group"
+                                }
+                              },
+                              "failureRates": {
+                                "type": "object",
+                                "description": "Failure rates for the group by swap type",
+                                "properties": {
+                                  "submarine": {
+                                    "type": "number",
+                                    "description": "Submarine Swap failure rate for the group"
+                                  },
+                                  "reverse": {
+                                    "type": "number",
+                                    "description": "Reverse Swap failure rate for the group"
+                                  },
+                                  "chain": {
+                                    "type": "number",
+                                    "description": "Chain Swap failure rate for the group"
+                                  }
+                                }
+                              }
                             }
                           }
                         }
@@ -1681,7 +1742,7 @@
                 },
                 "examples": {
                   "json": {
-                    "value": "{\"2024\":{\"1\":{\"volume\":{\"total\":\"0.00321844\",\"L-BTC/BTC\":\"0.00321844\"},\"trades\":{\"total\":3,\"L-BTC/BTC\":3},\"failureRates\":{\"swaps\": 0.12, \"reverseSwaps\":0}}}}"
+                    "value": "{\"2024\":{\"1\":{\"volume\":{\"total\":\"0.00321844\",\"L-BTC/BTC\":\"0.00321844\"},\"trades\":{\"total\":3,\"L-BTC/BTC\":3},\"failureRates\":{\"submarine\": 0.12, \"reverse\":0, \"chain\":0}}}}"
                   }
                 }
               }
@@ -1737,7 +1798,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Extra fees collected by swap ID grouped by year and month",
+            "description": "Extra fees collected by extra id grouped by year and month",
             "content": {
               "application/json": {
                 "schema": {
@@ -3346,8 +3407,7 @@
       "ExtraFees": {
         "type": "object",
         "required": [
-          "id",
-          "percentage"
+          "id"
         ],
         "properties": {
           "id": {
@@ -3356,7 +3416,11 @@
           },
           "percentage": {
             "type": "number",
-            "description": "Additional fee percentage to be charged"
+            "description": "Additional fee percentage to be charged. Defaults to 0 when omitted",
+            "default": 0,
+            "minimum": 0,
+            "exclusiveMinimum": false,
+            "maximum": 10
           }
         }
       },

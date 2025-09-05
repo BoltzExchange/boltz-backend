@@ -1,5 +1,5 @@
 mod engine;
-mod fetcher;
+mod handlers;
 
 pub use engine::Bumper;
-pub use fetcher::{FetcherType, RefundTransactionFetcher};
+pub use handlers::refund::RefundTransactionHandler;

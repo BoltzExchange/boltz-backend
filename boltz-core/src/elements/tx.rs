@@ -580,6 +580,15 @@ mod tests {
 
     const FUNDING_AMOUNT: u64 = 100_000;
 
+    // There is some variance in the proof sizes of Elements transactions
+    fn assert_within_one_percent(actual: u64, expected: u64) {
+        let tolerance = expected / 100;
+        let lower_bound = expected.saturating_sub(tolerance);
+        let upper_bound = expected.saturating_add(tolerance);
+
+        assert!(actual >= lower_bound && actual <= upper_bound);
+    }
+
     fn reverse_tree_without_covenant(
         preimage_hash: hash160::Hash,
         claim_key: &XOnlyPublicKey,
@@ -1424,9 +1433,12 @@ mod tests {
 
         let has_dummy_output = blind_input && !blind_output;
         assert_eq!(tx.output.len(), if has_dummy_output { 3 } else { 2 });
-        assert_eq!(
-            tx.output[if has_dummy_output { 2 } else { 1 }].value,
-            Value::Explicit(fee as u64 * (tx.discount_vsize() as u64 + inputs.len() as u64))
+        assert_within_one_percent(
+            tx.output[if has_dummy_output { 2 } else { 1 }]
+                .value
+                .explicit()
+                .unwrap(),
+            fee as u64 * (tx.discount_vsize() as u64 + inputs.len() as u64),
         );
 
         let broadcast = send_raw_transaction(&client, &tx);
@@ -1478,9 +1490,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(tx.output.len(), if blind_output { 2 } else { 3 });
-        assert_eq!(
-            tx.output[if blind_output { 1 } else { 2 }].value,
-            Value::Explicit(fee as u64 * (tx.discount_vsize() as u64 + inputs.len() as u64))
+        assert_within_one_percent(
+            tx.output[if blind_output { 1 } else { 2 }]
+                .value
+                .explicit()
+                .unwrap(),
+            fee as u64 * (tx.discount_vsize() as u64 + inputs.len() as u64),
         );
 
         let broadcast = send_raw_transaction(&client, &tx);

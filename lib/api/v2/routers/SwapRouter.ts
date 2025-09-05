@@ -74,14 +74,18 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ExtraFees:
      *       type: object
-     *       required: ["id", "percentage"]
+     *       required: ["id"]
      *       properties:
      *         id:
      *           type: string
      *           description: Identifier for the extra fee
      *         percentage:
      *           type: number
-     *           description: Additional fee percentage to be charged
+     *           description: Additional fee percentage to be charged. Defaults to 0 when omitted
+     *           default: 0
+     *           minimum: 0
+     *           exclusiveMinimum: false
+     *           maximum: 10
      */
 
     const router = Router();
@@ -2630,16 +2634,19 @@ class SwapRouter extends RouterBase {
 
     const res = validateRequest(data, [
       { name: 'id', type: 'string' },
-      { name: 'percentage', type: 'number' },
+      { name: 'percentage', type: 'number', optional: true },
     ]);
 
-    if (res.percentage <= 0 || res.percentage > 10) {
+    if (
+      res.percentage !== undefined &&
+      (res.percentage < 0 || res.percentage > 10)
+    ) {
       throw ApiErrors.INVALID_EXTRA_FEES_PERCENTAGE(res.percentage);
     }
 
     return {
       id: res.id,
-      percentage: res.percentage,
+      percentage: res.percentage ?? 0,
     };
   };
 

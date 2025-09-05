@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`WalletLiquid should derive blinding keys from script for address AzpvTi6t8GTVxhg6tZ4vxNCdQKS9YYMMgJmxQAFYfhVvaogb6iVgTixvtv246tSbeM3zdgG1Z2ToreMt 1`] = `
 {

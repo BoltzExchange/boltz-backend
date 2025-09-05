@@ -3,12 +3,13 @@ import type { StatsDate } from '../db/repositories/StatsRepository';
 import StatsRepository from '../db/repositories/StatsRepository';
 import { getNestedObject } from './Utils';
 
-type MonthStats = {
+export type MonthStats = {
   volume: Record<string, number>;
   trades: Record<string, number>;
   failureRates: {
-    swaps: number;
-    reverseSwaps: number;
+    chain?: number;
+    reverse?: number;
+    submarine?: number;
   };
 };
 
@@ -26,7 +27,7 @@ class Stats {
       StatsRepository.getFailureRates(minYear, minMonth, referral),
     ]);
 
-    const stats = {};
+    const stats: Awaited<ReturnType<typeof Stats.generate>> = {};
 
     const getMonthObj = ({ year, month }: StatsDate) => {
       return getNestedObject(getNestedObject(stats, year), month);

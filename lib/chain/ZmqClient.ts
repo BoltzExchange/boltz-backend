@@ -45,9 +45,6 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
   // Maximum value for a signed 32-bit integer (Node.js timer limit)
   private static readonly inactivityTimeoutMsRegtest = 2 ** 31 - 1;
 
-  // IDs of transactions that contain a UTXOs of Boltz
-  public utxos = new Set<string>();
-
   public relevantInputs = new Set<string>();
   public relevantOutputs = new Set<string>();
 
@@ -76,6 +73,20 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
     private readonly rpcHost: string,
   ) {
     super();
+
+    // For an unreproducible issue with transactions we did not see in the mempool
+    if (this.symbol === 'BTC') {
+      this.on('block', async (height) => {
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        try {
+          await this.rescanChain(height);
+        } catch (error) {
+          this.logger.error(
+            `Error rescanning ${this.symbol} chain after ZMQ block: ${formatError(error)}`,
+          );
+        }
+      });
+    }
   }
 
   public init = async (
@@ -207,26 +218,19 @@ class ZmqClient<T extends SomeTransaction> extends TypedEventEmitter<{
       ) as T;
       const id = transaction.getId();
 
-      // If the client has already verified that the transaction is relevant for the wallet
-      // when it got added to the mempool we can safely assume that it got included in a block
-      // the second time the client receives the transaction
-      if (this.utxos.has(id)) {
-        this.utxos.delete(id);
-        this.emit('transaction', { transaction, confirmed: true });
-
-        return;
-      }
-
       if (this.isRelevantTransaction(transaction)) {
-        const transactionData =
-          await this.chainClient.getRawTransactionVerbose(id);
+        try {
+          const transactionData =
+            await this.chainClient.getRawTransactionVerbose(id);
 
-        // Check whether the transaction got confirmed or added to the mempool
-        if (isTxConfirmed(transactionData)) {
-          this.emit('transaction', { transaction, confirmed: true });
-        } else {
-          this.utxos.add(id);
-          this.emit('transaction', { transaction, confirmed: false });
+          this.emit('transaction', {
+            transaction,
+            confirmed: isTxConfirmed(transactionData),
+          });
+        } catch (error) {
+          this.logger.error(
+            `Getting confirmation status of ${this.symbol} transaction ${id} failed: ${formatError(error)}`,
+          );
         }
       }
     });

@@ -213,7 +213,7 @@ describe('ZmqClient', () => {
       }
     });
 
-    // Flow of a transaction that gets added to the mempool and afterwards included in a block
+    // Flow of a transaction that gets added to the mempool
     const mempoolTransaction = generateTransaction(false);
 
     rawTx.sendMessage(mempoolTransaction.toBuffer());
@@ -226,19 +226,7 @@ describe('ZmqClient', () => {
       return !blockAcceptance;
     });
 
-    expect(zmqClient.utxos.has(mempoolTransaction.getId())).toBeTruthy();
-
-    rawTx.sendMessage(mempoolTransaction.toBuffer());
-
-    await waitForFunctionToBeTrue(() => {
-      return blockAcceptance;
-    });
-
-    expect(zmqClient.utxos.has(mempoolTransaction.getId())).toBeFalsy();
-
-    blockAcceptance = false;
-
-    // Flow of a transaction that is added to a block directly
+    // Flow of a transaction that is added to a block
     const blockTransaction = generateTransaction(true);
 
     rawTx.sendMessage(blockTransaction.toBuffer());

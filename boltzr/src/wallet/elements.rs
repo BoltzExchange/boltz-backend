@@ -54,7 +54,9 @@ impl Wallet for Elements {
 
         Ok(self
             .slip77
-            .blinding_private_key(&address.script_pubkey())
+            .blinding_private_key(&elements_miniscript::elements::Script::from(
+                address.script_pubkey().serialize(),
+            ))
             .encode())
     }
 }

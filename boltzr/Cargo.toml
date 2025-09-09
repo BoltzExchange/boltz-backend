@@ -31,7 +31,7 @@ axum = "0.8.4"
 bitcoin_hashes = { workspace = true }
 clap = { workspace = true }
 crossbeam-channel = "0.5.15"
-ctrlc = { version = "3.4.7", features = ["termination"] }
+ctrlc = { version = "3.5.0", features = ["termination"] }
 dirs = "6.0.0"
 num_cpus = "1.17.0"
 prost = "0.14.1"
@@ -41,7 +41,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 toml = "0.9.5"
-tonic = { version = "0.14.1", features = ["tls-ring"] }
+tonic = { version = "0.14.2", features = ["tls-ring"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tokio-util = "0.7.16"
@@ -98,7 +98,7 @@ elements = { workspace = true }
 base64 = { workspace = true }
 rust-s3 = "0.35.1"
 cron = "0.15.0"
-chrono = "0.4.41"
+chrono = "0.4.42"
 fedimint-tonic-lnd = { version = "0.3.0", features = [
 	"lightningrpc",
 ], default-features = false }
@@ -115,11 +115,11 @@ rand = { workspace = true }
 tokio-stream = "0.1.17"
 rapidfuzz = "0.5.0"
 zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
-tonic-prost = "0.14.1"
+tonic-prost = "0.14.2"
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
-tonic-prost-build = "0.14.1"
+tonic-prost-build = "0.14.2"
 
 [dev-dependencies]
 eventsource-client = "0.15.0"
@@ -128,4 +128,4 @@ mockall = "0.13.1"
 rstest = { workspace = true }
 serial_test = { workspace = true }
 tower = { version = "0.5.2", features = ["util"] }
-wiremock = "0.6.4"
+wiremock = "0.6.5"

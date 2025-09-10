@@ -9,7 +9,6 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
-import ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   CurrencyType,
@@ -58,7 +57,7 @@ class TimeoutDeltaProvider {
     ['BTC', 10],
     ['LTC', 2.5],
     [Rsk.symbol, 0.5],
-    [ArkClient.symbol, 10],
+    ['ARK', 10],
     [Ethereum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);
@@ -88,6 +87,8 @@ class TimeoutDeltaProvider {
     // reverse swap which has to be longer than the second one
     return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   };
+
+  public static minutesToSeconds = (minutes: number) => Math.ceil(minutes * 60);
 
   public init = (
     pairs: PairConfig[],

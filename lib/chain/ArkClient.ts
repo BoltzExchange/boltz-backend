@@ -13,6 +13,7 @@ import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
 import { WalletServiceClient } from '../proto/ark/wallet_grpc_pb';
 import * as walletrpc from '../proto/ark/wallet_pb';
+import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import ArkSubscription, {
   CreatedVHtlc,
@@ -28,6 +29,8 @@ export type ArkConfig = {
 
   minWalletBalance?: number;
   maxZeroConfAmount?: number;
+
+  useLocktimeSeconds?: boolean;
 };
 
 export type Timeouts = {
@@ -46,10 +49,13 @@ type ArkAddress = {
 class ArkClient extends BaseClient<
   BaseClientEvents &
     Events & {
-      block: number;
+      // "height" is populated when timelocks based on block numbers are used
+      // else, "medianTime" is populated for seconds based timelocks
+      block: { height?: number; medianTime?: number };
     }
 > {
   public static readonly symbol = 'ARK';
+  private static readonly OP_CSV_MULTIPLE = 512;
 
   public aspClient!: AspClient;
   public subscription!: ArkSubscription;
@@ -59,6 +65,8 @@ class ArkClient extends BaseClient<
   private client?: ServiceClient;
   private walletClient?: WalletServiceClient;
   private notificationClient?: NotificationServiceClient;
+
+  private useLocktimeSeconds: boolean = false;
 
   private readonly meta: Metadata = new Metadata();
 
@@ -87,6 +95,21 @@ class ArkClient extends BaseClient<
   };
 
   public connect = async (chainClient: IChainClient): Promise<boolean> => {
+    if (chainClient === undefined) {
+      throw new Error('BTC chain client is required for ARK node connection');
+    }
+
+    if (this.config.useLocktimeSeconds === undefined) {
+      // On regtest we want to use block timeouts
+      this.useLocktimeSeconds = !chainClient.isRegtest;
+    } else {
+      this.useLocktimeSeconds = this.config.useLocktimeSeconds;
+    }
+
+    this.logger.info(
+      `Using ${this.useLocktimeSeconds ? 'second' : 'block'} timeouts for ${this.serviceName()} ${this.symbol}`,
+    );
+
     if (this.isConnected()) {
       return true;
     }
@@ -308,10 +331,31 @@ class ArkClient extends BaseClient<
     height: number;
     timeouts: Timeouts;
   }> => {
+    const convertDelay = (delay: number) => {
+      if (this.useLocktimeSeconds) {
+        const seconds = TimeoutDeltaProvider.minutesToSeconds(
+          TimeoutDeltaProvider.blockTimes.get(this.chainClient!.symbol)! *
+            delay,
+        );
+        return Math.round(
+          Math.ceil(seconds / ArkClient.OP_CSV_MULTIPLE) *
+            ArkClient.OP_CSV_MULTIPLE,
+        );
+      }
+
+      return delay;
+    };
+
     const createDelay = (delay: number) => {
       const timeout = new arkrpc.RelativeLocktime();
-      timeout.setType(arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK);
+
+      timeout.setType(
+        this.useLocktimeSeconds
+          ? arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_SECOND
+          : arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK,
+      );
       timeout.setValue(delay);
+
       return timeout;
     };
 
@@ -328,10 +372,10 @@ class ArkClient extends BaseClient<
 
     const currentHeight = await this.getBlockHeight();
     const timeouts: Timeouts = {
-      refund: Math.ceil(currentHeight + refundDelay),
-      unilateralClaim: Math.ceil(claimDelay),
-      unilateralRefund: Math.ceil(refundDelay),
-      unilateralRefundWithoutReceiver: Math.ceil(refundDelay),
+      refund: convertDelay(Math.ceil(currentHeight + refundDelay)),
+      unilateralClaim: convertDelay(Math.ceil(claimDelay)),
+      unilateralRefund: convertDelay(Math.ceil(refundDelay)),
+      unilateralRefundWithoutReceiver: convertDelay(Math.ceil(refundDelay)),
     };
 
     req.setRefundLocktime(timeouts.refund);
@@ -389,8 +433,19 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
-  private listenBlocks = (blockNumber: number) => {
-    this.emit('block', blockNumber);
+  private listenBlocks = async (blockNumber: number) => {
+    if (this.useLocktimeSeconds) {
+      const blockHash = await this.chainClient!.getBlockhash(blockNumber);
+      const block = await this.chainClient!.getBlock(blockHash);
+
+      this.emit('block', {
+        medianTime: block.mediantime,
+      });
+    } else {
+      this.emit('block', {
+        height: blockNumber,
+      });
+    }
   };
 
   private unaryCall = <T, U>(

@@ -188,6 +188,8 @@ describe('WalletManager', () => {
     await expect(noLndWalletManager.init(currencies as any)).rejects.toEqual(
       WalletErrors.NO_WALLET_SUPPORT(currenciesNoLnd[0].symbol),
     );
+
+    listInfoException = undefined;
   });
 
   test('should initialize with an existing mnemonic', async () => {

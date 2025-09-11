@@ -1,7 +1,16 @@
-use crate::db::models::{LightningSwap, SomeSwap, SwapType};
+use crate::chain::{Client, elements_client::SYMBOL as ELEMENTS_SYMBOL};
+use crate::db::models::{LightningSwap, SomeSwap, SwapType, SwapVersion};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
+use crate::wallet::Wallet;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
+use boltz_core::Musig;
+use boltz_core::utils::{InputType, OutputType};
+use boltz_core::wrapper::{BitcoinInputDetail, ElementsInputDetail, InputDetail};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};
+use elements::hex::FromHex;
+use std::sync::Arc;
 
 #[derive(
     Queryable, Identifiable, Selectable, Insertable, AsChangeset, PartialEq, Default, Clone, Debug,
@@ -40,6 +49,7 @@ pub struct ReverseRoutingHint {
     pub signature: Vec<u8>,
 }
 
+#[async_trait]
 impl SomeSwap for ReverseSwap {
     fn kind(&self) -> SwapType {
         SwapType::Reverse
@@ -52,10 +62,153 @@ impl SomeSwap for ReverseSwap {
     fn status(&self) -> SwapUpdate {
         SwapUpdate::parse(self.status.as_str())
     }
+
+    fn refund_symbol(&self) -> Result<String> {
+        self.chain_symbol()
+    }
+
+    async fn refund_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail> {
+        let keys = wallet.derive_keys(self.keyIndex.context("key index not found")? as u64)?;
+        let input_type = InputType::Refund(self.timeoutBlockHeight as u32);
+
+        if self.chain_symbol()? != ELEMENTS_SYMBOL {
+            let keys = keys.to_keypair(&bitcoin::secp256k1::Secp256k1::new());
+
+            let output_type = match SwapVersion::try_from(self.version)? {
+                SwapVersion::Legacy => {
+                    OutputType::Compatibility(bitcoin::ScriptBuf::from_bytes(alloy::hex::decode(
+                        self.redeemScript
+                            .clone()
+                            .context("redeem script not found")?,
+                    )?))
+                }
+                SwapVersion::Taproot => {
+                    let secp = Musig::new_secp();
+
+                    OutputType::Taproot(Some(boltz_core::bitcoin::UncooperativeDetails {
+                        tree: serde_json::from_str(
+                            &self.redeemScript.clone().context("swap tree not found")?,
+                        )?,
+                        internal_key: bitcoin::XOnlyPublicKey::from_slice(
+                            &Musig::new(
+                                &secp,
+                                Musig::convert_keypair(&secp, keys.secret_key().secret_bytes())?,
+                                vec![
+                                    Musig::convert_pub_key(&keys.public_key().serialize())?,
+                                    Musig::convert_pub_key(&alloy::hex::decode(
+                                        self.claimPublicKey
+                                            .clone()
+                                            .context("refund public key not found")?,
+                                    )?)?,
+                                ],
+                                [0; 32],
+                            )?
+                            .agg_pk()
+                            .serialize(),
+                        )?,
+                    }))
+                }
+            };
+
+            Ok(InputDetail::Bitcoin(Box::new(BitcoinInputDetail {
+                keys,
+                output_type,
+                input_type,
+                outpoint: bitcoin::OutPoint::new(
+                    self.transactionId
+                        .clone()
+                        .context("lockup transaction id not found")?
+                        .parse()?,
+                    self.transactionVout
+                        .context("lockup transaction vout not found")? as u32,
+                ),
+                tx_out: bitcoin::TxOut {
+                    script_pubkey: wallet.decode_address(&self.lockupAddress)?.into(),
+                    value: bitcoin::Amount::from_sat(self.onchainAmount as u64),
+                },
+            })))
+        } else {
+            let secp = elements::secp256k1_zkp::Secp256k1::new();
+            let keys = elements::secp256k1_zkp::Keypair::from_seckey_slice(
+                &secp,
+                &keys.to_priv().to_bytes(),
+            )?;
+
+            let tx_id = self
+                .transactionId
+                .clone()
+                .context("lockup transaction id not found")?;
+            let tx_vout = self
+                .transactionVout
+                .context("lockup transaction vout not found")? as u32;
+
+            let lockup_tx: elements::Transaction = elements::encode::deserialize(
+                &alloy::hex::decode(&client.raw_transaction(&tx_id).await?)?,
+            )?;
+
+            let output_type = match SwapVersion::try_from(self.version)? {
+                SwapVersion::Legacy => OutputType::Compatibility(
+                    elements::Script::from_hex(
+                        &self
+                            .redeemScript
+                            .clone()
+                            .context("redeem script not found")?,
+                    )
+                    .map_err(|e| anyhow::anyhow!("failed to parse redeem script: {}", e))?,
+                ),
+                SwapVersion::Taproot => {
+                    let secp = Musig::new_secp();
+
+                    OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
+                        tree: serde_json::from_str(
+                            &self.redeemScript.clone().context("swap tree not found")?,
+                        )?,
+                        internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
+                            &Musig::new(
+                                &secp,
+                                Musig::convert_keypair(&secp, keys.secret_key().secret_bytes())?,
+                                vec![
+                                    Musig::convert_pub_key(&keys.public_key().serialize())?,
+                                    Musig::convert_pub_key(&alloy::hex::decode(
+                                        self.claimPublicKey
+                                            .clone()
+                                            .context("refund public key not found")?,
+                                    )?)?,
+                                ],
+                                [0; 32],
+                            )?
+                            .agg_pk()
+                            .serialize(),
+                        )?,
+                    }))
+                }
+            };
+
+            Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
+                keys,
+                output_type,
+                input_type,
+                outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
+                blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
+                    &secp,
+                    &wallet.derive_blinding_key(&self.lockupAddress)?,
+                )?),
+                tx_out: lockup_tx
+                    .output
+                    .get(tx_vout as usize)
+                    .context("output not found")?
+                    .clone(),
+            })))
+        }
+    }
 }
 
 impl LightningSwap for ReverseSwap {
-    fn chain_symbol(&self) -> anyhow::Result<String> {
+    fn chain_symbol(&self) -> Result<String> {
         let pair = split_pair(&self.pair)?;
         Ok(if self.orderSide == OrderSide::Buy as i32 {
             pair.base
@@ -64,7 +217,7 @@ impl LightningSwap for ReverseSwap {
         })
     }
 
-    fn lightning_symbol(&self) -> anyhow::Result<String> {
+    fn lightning_symbol(&self) -> Result<String> {
         let pair = split_pair(&self.pair)?;
         Ok(if self.orderSide == OrderSide::Buy as i32 {
             pair.quote

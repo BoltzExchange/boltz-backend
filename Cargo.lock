@@ -1771,7 +1771,7 @@ dependencies = [
 
 [[package]]
 name = "boltz-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1802,6 +1802,7 @@ dependencies = [
  "bech32 0.11.0",
  "bitcoin",
  "bitcoin_hashes 0.16.0",
+ "boltz-core",
  "built",
  "bytes",
  "chrono",

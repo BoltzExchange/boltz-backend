@@ -24,9 +24,12 @@ const CACHE_TTL_SECS: u64 = 60 * 60 * 24;
 
 const CACHE_KEY_RAW_TX: &str = "raw_tx";
 
+const DEFAULT_ADDRESS_TYPE: &str = "bech32m";
+
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
+    network: Network,
     cache: Cache,
     client_type: Type,
     zmq_client: ZmqClient,
@@ -51,6 +54,7 @@ impl ChainClient {
     ) -> anyhow::Result<Self> {
         let client = Self {
             cache,
+            network,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
             mempool_space: config
@@ -177,6 +181,10 @@ impl BaseClient for ChainClient {
 impl Client for ChainClient {
     fn chain_type(&self) -> Type {
         self.client_type
+    }
+
+    fn network(&self) -> Network {
+        self.network
     }
 
     async fn scan_mempool(
@@ -344,6 +352,28 @@ impl Client for ChainClient {
             .await
     }
 
+    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+        self.client
+            .request::<String>("sendrawtransaction", Some(vec![RpcParam::Str(tx)]))
+            .await
+    }
+
+    async fn get_new_address(
+        &self,
+        label: String,
+        address_type: Option<String>,
+    ) -> anyhow::Result<String> {
+        self.client
+            .request_wallet::<String>(
+                "getnewaddress",
+                Some(vec![
+                    RpcParam::Str(label),
+                    RpcParam::Str(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
+                ]),
+            )
+            .await
+    }
+
     fn zero_conf_safe(&self, _transaction: &Transaction) -> oneshot::Receiver<bool> {
         let (tx, rx) = oneshot::channel();
         tx.send(false).unwrap();
@@ -363,12 +393,19 @@ pub mod test {
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
+    use rstest::rstest;
+    use serde::Deserialize;
     use serial_test::serial;
     use std::collections::HashSet;
 
     const PORT: u16 = 18_443;
 
-    pub fn get_client() -> ChainClient {
+    #[derive(Deserialize)]
+    struct AddressInfo {
+        labels: Vec<String>,
+    }
+
+    pub async fn get_client() -> ChainClient {
         ChainClient::new(
             CancellationToken::new(),
             cache::Cache::Memory(cache::MemCache::new()),
@@ -378,10 +415,9 @@ pub mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: PORT,
-                cookie: None,
                 user: Some("boltz".to_string()),
                 password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
-                mempool_space: None,
+                ..Default::default()
             },
         )
         .unwrap()
@@ -437,15 +473,26 @@ pub mod test {
         .unwrap()
     }
 
+    async fn get_address_info(client: &ChainClient, address: &str) -> AddressInfo {
+        client
+            .client
+            .request::<AddressInfo>(
+                "getaddressinfo",
+                Some(vec![RpcParam::Str(address.to_string())]),
+            )
+            .await
+            .unwrap()
+    }
+
     #[tokio::test]
     async fn test_chain_type() {
-        let client = get_client();
+        let client = get_client().await;
         assert_eq!(client.chain_type(), Type::Bitcoin);
     }
 
     #[tokio::test]
     async fn test_connect() {
-        let mut client = get_client();
+        let mut client = get_client().await;
 
         client.connect().await.unwrap();
 
@@ -458,7 +505,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn scan_mempool_empty() {
-        let client = get_client();
+        let client = get_client().await;
 
         generate_block(&client).await;
 
@@ -479,7 +526,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn scan_mempool_relevant_input() {
-        let client = get_client();
+        let client = get_client().await;
         let tx = send_transaction(&client).await;
 
         let mut inputs = HashSet::new();
@@ -495,7 +542,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn scan_mempool_relevant_output() {
-        let client = get_client();
+        let client = get_client().await;
         let tx = send_transaction(&client).await;
 
         let mut outputs = HashSet::new();
@@ -513,7 +560,7 @@ pub mod test {
 
     #[tokio::test]
     async fn test_get_fees_smart_fee() {
-        let client = get_client();
+        let client = get_client().await;
         let fees = client.estimate_fee().await.unwrap();
         assert_eq!(fees, 2.0);
     }
@@ -521,7 +568,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn raw_transaction() {
-        let client = get_client();
+        let client = get_client().await;
         let tx = send_transaction(&client).await;
 
         let tx_id = tx.txid_hex();
@@ -537,7 +584,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn raw_transaction_verbose_unconfirmed() {
-        let client = get_client();
+        let client = get_client().await;
 
         let tx = send_transaction(&client).await;
         let verbose = client
@@ -551,7 +598,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn raw_transaction_verbose_confirmed() {
-        let client = get_client();
+        let client = get_client().await;
 
         let tx = send_transaction(&client).await;
         generate_block(&client).await;
@@ -566,8 +613,59 @@ pub mod test {
 
     #[tokio::test]
     #[serial(BTC)]
+    async fn test_send_raw_transaction() {
+        let client = get_client().await;
+        let tx = send_transaction(&client).await;
+
+        let tx_id = client
+            .send_raw_transaction(alloy::hex::encode(tx.serialize()))
+            .await
+            .unwrap();
+
+        assert_eq!(tx_id, tx.txid_hex());
+        generate_block(&client).await;
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn test_get_new_address_label() {
+        let client = get_client().await;
+
+        let label = "some tx";
+        let address = client
+            .get_new_address(label.to_string(), None)
+            .await
+            .unwrap();
+
+        let info = get_address_info(&client, &address).await;
+        assert_eq!(info.labels, vec![label.to_string()]);
+    }
+
+    #[rstest]
+    #[case(None, "bcrt1p")]
+    #[case(Some("bech32m".to_string()), "bcrt1p")]
+    #[case(Some("bech32".to_string()), "bcrt1q")]
+    #[case(Some("p2sh-segwit".to_string()), "2")]
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn test_get_new_address_type(
+        #[case] address_type: Option<String>,
+        #[case] expected_prefix: &str,
+    ) {
+        let client = get_client().await;
+
+        let address = client
+            .get_new_address("".to_string(), address_type)
+            .await
+            .unwrap();
+
+        assert!(address.starts_with(expected_prefix));
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
     async fn test_tx_receiver() {
-        let mut client = get_client();
+        let mut client = get_client().await;
         client.connect().await.unwrap();
         let mut tx_receiver = client.tx_receiver();
 
@@ -589,7 +687,7 @@ pub mod test {
     #[tokio::test]
     #[serial(BTC)]
     async fn test_zero_conf_safe() {
-        let client = get_client();
+        let client = get_client().await;
 
         let tx = send_transaction(&client).await;
         let zero_conf_safe = client.zero_conf_safe(&tx);

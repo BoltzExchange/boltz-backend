@@ -207,10 +207,7 @@ mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: 28332,
-                cookie: None,
-                user: None,
-                password: None,
-                mempool_space: None,
+                ..Default::default()
             },
         );
 
@@ -263,10 +260,7 @@ mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: 28332,
-                cookie: None,
-                user: None,
-                password: None,
-                mempool_space: None,
+                ..Default::default()
             },
         );
 
@@ -319,10 +313,7 @@ mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: 28332,
-                cookie: None,
-                user: None,
-                password: None,
-                mempool_space: None,
+                ..Default::default()
             },
         );
         assert_eq!(

@@ -17,6 +17,8 @@ pub const SYMBOL: &str = "L-BTC";
 
 const TYPE: Type = Type::Elements;
 
+const DEFAULT_ADDRESS_TYPE: &str = "blech32";
+
 #[derive(Clone)]
 pub struct ElementsClient {
     network: Network,
@@ -112,6 +114,10 @@ impl Client for ElementsClient {
         TYPE
     }
 
+    fn network(&self) -> Network {
+        self.network
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
@@ -136,6 +142,23 @@ impl Client for ElementsClient {
 
     async fn raw_transaction_verbose(&self, tx_id: &str) -> anyhow::Result<RawTransactionVerbose> {
         self.wallet_client().raw_transaction_verbose(tx_id).await
+    }
+
+    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+        self.wallet_client().send_raw_transaction(tx).await
+    }
+
+    async fn get_new_address(
+        &self,
+        label: String,
+        address_type: Option<String>,
+    ) -> anyhow::Result<String> {
+        self.wallet_client()
+            .get_new_address(
+                label,
+                Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
+            )
+            .await
     }
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
@@ -181,10 +204,9 @@ pub mod test {
         let config = Config {
             host: "127.0.0.1".to_string(),
             port: 18_884,
-            cookie: None,
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
-            mempool_space: None,
+            ..Default::default()
         };
 
         static CLIENT: OnceLock<(ElementsClient, Config)> = OnceLock::new();

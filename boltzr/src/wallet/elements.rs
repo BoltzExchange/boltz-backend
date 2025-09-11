@@ -1,27 +1,37 @@
+use crate::chain::Client;
 use crate::wallet::keys::Keys;
 use crate::wallet::{Network, Wallet};
 use anyhow::Result;
+use async_trait::async_trait;
 use bitcoin::bip32::Xpriv;
 use elements::pset::serialize::Serialize;
 use elements_miniscript::slip77;
 use lightning::util::ser::Writeable;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub struct Elements {
     network: elements::AddressParams,
+    client: Arc<dyn Client + Send + Sync>,
     keys: Keys,
 
     slip77: slip77::MasterBlindingKey,
 }
 
 impl Elements {
-    pub fn new(network: Network, seed: &[u8; 64], path: String) -> Result<Self> {
+    pub fn new(
+        network: Network,
+        seed: &[u8; 64],
+        path: String,
+        client: Arc<dyn Client + Send + Sync>,
+    ) -> Result<Self> {
         Ok(Self {
             network: match network {
                 Network::Mainnet => elements::AddressParams::LIQUID,
                 Network::Testnet | Network::Signet => elements::AddressParams::LIQUID_TESTNET,
                 Network::Regtest => elements::AddressParams::ELEMENTS,
             },
+            client,
             keys: Keys::new(seed, path)?,
             slip77: slip77::MasterBlindingKey::from_seed(seed),
         })
@@ -37,6 +47,7 @@ impl Elements {
     }
 }
 
+#[async_trait]
 impl Wallet for Elements {
     fn decode_address(&self, address: &str) -> Result<Vec<u8>> {
         Ok(self
@@ -59,11 +70,16 @@ impl Wallet for Elements {
             ))
             .encode())
     }
+
+    async fn get_address(&self, label: String) -> Result<String> {
+        self.client.get_new_address(label, None).await
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::wallet::{Elements, Network, Wallet};
+    use super::*;
+    use crate::chain::elements_client::test::get_client;
     use alloy::hex;
     use bip39::Mnemonic;
     use bitcoin::key::Secp256k1;
@@ -85,7 +101,7 @@ mod test {
     #[case::regtest(Network::Regtest, elements::AddressParams::ELEMENTS)]
     fn test_new(#[case] network: Network, #[case] expected: elements::AddressParams) {
         let (seed, path) = get_seed();
-        let wallet = Elements::new(network, &seed, path).unwrap();
+        let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
         assert_eq!(wallet.network, expected);
     }
 
@@ -118,14 +134,14 @@ mod test {
     #[case::regtest_legacy_unconfidential(Network::Regtest, "2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe")]
     fn test_decode_address(#[case] network: Network, #[case] address: &str) {
         let (seed, path) = get_seed();
-        let wallet = Elements::new(network, &seed, path).unwrap();
+        let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
         assert!(wallet.decode_address(address).is_ok());
     }
 
     #[test]
     fn test_decode_address_invalid() {
         let (seed, path) = get_seed();
-        let result = Elements::new(Network::Regtest, &seed, path)
+        let result = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
             .unwrap()
             .decode_address("invalid");
         assert!(result.is_err());
@@ -135,7 +151,7 @@ mod test {
     #[test]
     fn test_decode_address_invalid_network() {
         let (seed, path) = get_seed();
-        let result = Elements::new(Network::Testnet, &seed, path)
+        let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
             .unwrap()
             .decode_address("2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe");
         assert!(result.is_err());
@@ -145,7 +161,7 @@ mod test {
     #[test]
     fn test_derive_keys() {
         let (seed, path) = get_seed();
-        let result = Elements::new(Network::Testnet, &seed, path)
+        let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
             .unwrap()
             .derive_keys(0)
             .unwrap();
@@ -163,7 +179,7 @@ mod test {
     #[test]
     fn test_derive_blinding_key() {
         let (seed, path) = get_seed();
-        let key = Elements::new(Network::Regtest, &seed, path)
+        let key = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
             .unwrap()
             .derive_blinding_key("el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq")
             .unwrap();

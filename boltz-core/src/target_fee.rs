@@ -7,6 +7,18 @@ pub enum FeeTarget {
     Relative(f64),
 }
 
+impl From<u64> for FeeTarget {
+    fn from(value: u64) -> Self {
+        Self::Absolute(value)
+    }
+}
+
+impl From<f64> for FeeTarget {
+    fn from(value: f64) -> Self {
+        Self::Relative(value)
+    }
+}
+
 pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
     fee_target: FeeTarget,
     construct_tx: C,
@@ -14,8 +26,12 @@ pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
     match fee_target {
         FeeTarget::Absolute(fee) => construct_tx(fee),
         FeeTarget::Relative(fee_rate) => {
+            if !fee_rate.is_finite() || fee_rate < 0.0 {
+                anyhow::bail!("invalid fee rate");
+            }
+
             let tx = construct_tx(1)?;
-            // Add an extra vbyte per input to account for potiential variance
+            // Add an extra vbyte per input to account for potential variance
             construct_tx(((tx.vsize() + tx.input_len()) as f64 * fee_rate).ceil() as u64)
         }
     }
@@ -51,6 +67,15 @@ mod tests {
         fn vsize(&self) -> usize {
             self.vsize
         }
+    }
+
+    #[test]
+    fn test_from() {
+        let absolute = 21;
+        assert_eq!(FeeTarget::from(absolute), FeeTarget::Absolute(absolute));
+
+        let relative = 21.21;
+        assert_eq!(FeeTarget::from(relative), FeeTarget::Relative(relative));
     }
 
     #[test]
@@ -184,5 +209,27 @@ mod tests {
         assert!(result.is_ok());
         let tx = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
+    }
+
+    #[test]
+    fn test_invalid_fee_rate() {
+        assert_eq!(
+            target_fee(FeeTarget::Relative(f64::INFINITY), |_fee| {
+                Ok(MockTransaction::new(0, 0, 0))
+            })
+            .err()
+            .unwrap()
+            .to_string(),
+            "invalid fee rate"
+        );
+        assert_eq!(
+            target_fee(FeeTarget::Relative(-2.1), |_fee| {
+                Ok(MockTransaction::new(0, 0, 0))
+            })
+            .err()
+            .unwrap()
+            .to_string(),
+            "invalid fee rate"
+        );
     }
 }

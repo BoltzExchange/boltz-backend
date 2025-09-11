@@ -1067,55 +1067,6 @@ export namespace ScanMempoolResponse {
 
 }
 
-export class FeeBumpsRequest extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FeeBumpsRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: FeeBumpsRequest): FeeBumpsRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FeeBumpsRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FeeBumpsRequest;
-    static deserializeBinaryFromReader(message: FeeBumpsRequest, reader: jspb.BinaryReader): FeeBumpsRequest;
-}
-
-export namespace FeeBumpsRequest {
-    export type AsObject = {
-    }
-}
-
-export class FeeBumpSuggestion extends jspb.Message { 
-    getType(): TransactionType;
-    setType(value: TransactionType): FeeBumpSuggestion;
-    getSymbol(): string;
-    setSymbol(value: string): FeeBumpSuggestion;
-    getSwapId(): string;
-    setSwapId(value: string): FeeBumpSuggestion;
-    getTransactionId(): string;
-    setTransactionId(value: string): FeeBumpSuggestion;
-    getFeeTarget(): number;
-    setFeeTarget(value: number): FeeBumpSuggestion;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FeeBumpSuggestion.AsObject;
-    static toObject(includeInstance: boolean, msg: FeeBumpSuggestion): FeeBumpSuggestion.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FeeBumpSuggestion, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FeeBumpSuggestion;
-    static deserializeBinaryFromReader(message: FeeBumpSuggestion, reader: jspb.BinaryReader): FeeBumpSuggestion;
-}
-
-export namespace FeeBumpSuggestion {
-    export type AsObject = {
-        type: TransactionType,
-        symbol: string,
-        swapId: string,
-        transactionId: string,
-        feeTarget: number,
-    }
-}
-
 export enum LogLevel {
     ERROR = 0,
     WARN = 1,
@@ -1126,8 +1077,4 @@ export enum LogLevel {
 
 export enum Feature {
     BASIC_MPP = 0,
-}
-
-export enum TransactionType {
-    REFUND = 0,
 }

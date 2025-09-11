@@ -24,8 +24,6 @@ service BoltzR {
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
-
-  rpc FeeBumps (FeeBumpsRequest) returns (stream FeeBumpSuggestion);
 }
 
 message GetInfoRequest {}
@@ -241,17 +239,4 @@ message ScanMempoolResponse {
   }
 
   map<string, Transactions> transactions = 1;
-}
-
-enum TransactionType {
-  REFUND = 0;
-}
-
-message FeeBumpsRequest {}
-message FeeBumpSuggestion {
-  TransactionType type = 1;
-  string symbol = 2;
-  string swap_id = 3;
-  string transaction_id = 4;
-  double fee_target = 5;
 }

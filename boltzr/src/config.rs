@@ -7,6 +7,8 @@ use tracing::{debug, info, trace};
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct CurrencyConfig {
     pub symbol: String,
+    #[serde(rename = "preferredWallet")]
+    pub preferred_wallet: Option<String>,
     pub chain: Option<crate::chain::Config>,
     pub cln: Option<crate::lightning::cln::Config>,
     pub lnd: Option<crate::lightning::lnd::Config>,

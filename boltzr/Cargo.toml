@@ -116,6 +116,7 @@ tokio-stream = "0.1.17"
 rapidfuzz = "0.5.0"
 zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
 tonic-prost = "0.14.2"
+boltz-core = { path = "../boltz-core" }
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }

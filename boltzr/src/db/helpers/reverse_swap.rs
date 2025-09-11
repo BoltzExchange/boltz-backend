@@ -9,6 +9,7 @@ pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;
 pub type ReverseSwapNullableCondition = BoxedNullableCondition<reverseSwaps::table>;
 
 pub trait ReverseSwapHelper {
+    fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
     fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
     fn get_all_nullable(
         &self,
@@ -33,6 +34,13 @@ impl ReverseSwapHelperDatabase {
 }
 
 impl ReverseSwapHelper for ReverseSwapHelperDatabase {
+    fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap> {
+        Ok(reverseSwaps::dsl::reverseSwaps
+            .select(ReverseSwap::as_select())
+            .filter(reverseSwaps::dsl::id.eq(id))
+            .first(&mut self.pool.get()?)?)
+    }
+
     fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>> {
         Ok(reverseSwaps::dsl::reverseSwaps
             .select(ReverseSwap::as_select())
@@ -85,6 +93,7 @@ pub mod test {
         }
 
         impl ReverseSwapHelper for ReverseSwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
             fn get_all(
                 &self,
                 condition: ReverseSwapCondition,

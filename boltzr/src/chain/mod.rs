@@ -2,6 +2,7 @@ use crate::chain::types::Type;
 use crate::chain::utils::{Outpoint, Transaction};
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_core::Network;
 use elements::ZeroConfToolConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -18,7 +19,7 @@ pub mod types;
 pub mod utils;
 pub mod zmq_client;
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct Config {
     host: String,
     port: u16,
@@ -30,6 +31,8 @@ pub struct Config {
 
     #[serde(rename = "mempoolSpace")]
     mempool_space: Option<String>,
+
+    wallet: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -54,6 +57,7 @@ pub trait BaseClient {
 #[async_trait]
 pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;
+    fn network(&self) -> Network;
 
     async fn scan_mempool(
         &self,
@@ -68,6 +72,11 @@ pub trait Client: BaseClient {
 
     async fn raw_transaction(&self, tx_id: &str) -> Result<String>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
+
+    async fn send_raw_transaction(&self, tx: String) -> Result<String>;
+
+    async fn get_new_address(&self, label: String, address_type: Option<String>) -> Result<String>;
+
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
     fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;

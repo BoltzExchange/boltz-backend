@@ -71,7 +71,7 @@ impl Wallet for Elements {
             .encode())
     }
 
-    async fn get_address(&self, label: String) -> Result<String> {
+    async fn get_address(&self, label: &str) -> Result<String> {
         self.client.get_new_address(label, None).await
     }
 }

@@ -293,22 +293,22 @@ mod tests {
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
         node.request::<serde_json::Value>(
             "generatetoaddress",
-            Some(vec![RpcParam::Int(1), RpcParam::Str(address.to_string())]),
+            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
         )
         .unwrap();
 
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
-                Some(vec![
-                    RpcParam::Str(address.to_string()),
+                Some(&[
+                    RpcParam::Str(&address.to_string()),
                     RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
                 ]),
             )
             .unwrap();
 
         let tx = node
-            .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(funding_tx)]))
+            .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&funding_tx)]))
             .unwrap();
 
         let tx: Transaction = bitcoin::consensus::deserialize(&hex::decode(tx).unwrap()).unwrap();
@@ -336,7 +336,7 @@ mod tests {
         let txid = node
             .request::<String>(
                 "sendrawtransaction",
-                Some(vec![RpcParam::Str(hex::encode(tx.serialize()))]),
+                Some(&[RpcParam::Str(&hex::encode(tx.serialize()))]),
             )
             .unwrap();
 

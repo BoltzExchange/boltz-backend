@@ -73,9 +73,9 @@ pub trait Client: BaseClient {
     async fn raw_transaction(&self, tx_id: &str) -> Result<String>;
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
-    async fn send_raw_transaction(&self, tx: String) -> Result<String>;
+    async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
 
-    async fn get_new_address(&self, label: String, address_type: Option<String>) -> Result<String>;
+    async fn get_new_address(&self, label: &str, address_type: Option<&str>) -> Result<String>;
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 

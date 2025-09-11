@@ -5,7 +5,6 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
-use serde_json::json;
 use std::fs;
 use std::sync::Arc;
 use tracing::{debug, instrument};
@@ -68,7 +67,7 @@ impl RpcClient {
     pub async fn request<T: DeserializeOwned>(
         &self,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         self.request_internal(&self.endpoint, method, params).await
     }
@@ -77,7 +76,7 @@ impl RpcClient {
     pub async fn request_wallet<T: DeserializeOwned>(
         &self,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         self.request_internal(&self.endpoint_wallet, method, params)
             .await
@@ -87,7 +86,7 @@ impl RpcClient {
     pub async fn request_batch<T: DeserializeOwned>(
         &self,
         method: &str,
-        params: Vec<Vec<RpcParam>>,
+        params: &[Vec<RpcParam<'_>>],
     ) -> anyhow::Result<Vec<anyhow::Result<T>>> {
         let response = self
             .client
@@ -95,10 +94,10 @@ impl RpcClient {
             .headers(self.get_headers()?)
             .json(
                 &params
-                    .into_iter()
+                    .iter()
                     .map(|params| RpcRequest {
-                        params: Some(params),
-                        method: method.to_string(),
+                        method,
+                        params: Some(params.as_slice()),
                     })
                     .collect::<Vec<RpcRequest>>(),
             )
@@ -125,16 +124,13 @@ impl RpcClient {
         &self,
         endpoint: &str,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         let response = self
             .client
             .post(endpoint)
             .headers(self.get_headers()?)
-            .json(&json!({
-                "method": method,
-                "params": params.unwrap_or_default(),
-            }))
+            .json(&RpcRequest { method, params })
             .send()
             .await?;
 

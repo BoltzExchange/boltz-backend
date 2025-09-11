@@ -16,7 +16,7 @@ pub trait Wallet {
     fn derive_keys(&self, index: u64) -> Result<Xpriv>;
     fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>>;
 
-    async fn get_address(&self, label: String) -> Result<String>;
+    async fn get_address(&self, label: &str) -> Result<String>;
 }
 
 #[cfg(test)]

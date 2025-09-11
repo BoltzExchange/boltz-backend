@@ -124,7 +124,7 @@ where
             Some(address) => address,
             None => Address::try_from(
                 self.wallet
-                    .get_address(format!(
+                    .get_address(&format!(
                         "Refund of {} swap {}",
                         swap.kind(),
                         pending.swap_id
@@ -141,7 +141,7 @@ where
         }))?;
 
         self.chain_client
-            .send_raw_transaction(alloy::hex::encode(tx.serialize()))
+            .send_raw_transaction(&alloy::hex::encode(tx.serialize()))
             .await?;
 
         let tx_id = tx.txid();

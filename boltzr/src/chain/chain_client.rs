@@ -39,7 +39,9 @@ pub struct ChainClient {
 
 impl PartialEq for ChainClient {
     fn eq(&self, other: &Self) -> bool {
-        self.client == other.client && self.client_type == other.client_type
+        self.client == other.client
+            && self.client_type == other.client_type
+            && self.network == other.network
     }
 }
 
@@ -131,7 +133,7 @@ impl ChainClient {
 
         match self
             .client
-            .request::<SmartFeeEstimate>("estimatesmartfee", Some(vec![RpcParam::Int(1)]))
+            .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(1)]))
             .await
             .map(|fee| fee.feerate)
         {
@@ -224,10 +226,10 @@ impl Client for ChainClient {
                         .client
                         .request_batch::<String>(
                             "getrawtransaction",
-                            tx_ids
+                            &tx_ids
                                 .iter()
-                                .map(|tx_id| vec![RpcParam::Str(tx_id.clone())])
-                                .collect(),
+                                .map(|tx_id| vec![RpcParam::Str(tx_id)])
+                                .collect::<Vec<_>>(),
                         )
                         .await
                     {
@@ -327,10 +329,7 @@ impl Client for ChainClient {
 
         let res = self
             .client
-            .request::<String>(
-                "getrawtransaction",
-                Some(vec![RpcParam::Str(tx_id.to_string())]),
-            )
+            .request::<String>("getrawtransaction", Some(&[RpcParam::Str(tx_id)]))
             .await;
 
         if let Ok(tx) = res {
@@ -347,28 +346,28 @@ impl Client for ChainClient {
         self.client
             .request::<RawTransactionVerbose>(
                 "getrawtransaction",
-                Some(vec![RpcParam::Str(tx_id.to_string()), RpcParam::Int(1)]),
+                Some(&[RpcParam::Str(tx_id), RpcParam::Int(1)]),
             )
             .await
     }
 
-    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+    async fn send_raw_transaction(&self, tx: &str) -> anyhow::Result<String> {
         self.client
-            .request::<String>("sendrawtransaction", Some(vec![RpcParam::Str(tx)]))
+            .request::<String>("sendrawtransaction", Some(&[RpcParam::Str(tx)]))
             .await
     }
 
     async fn get_new_address(
         &self,
-        label: String,
-        address_type: Option<String>,
+        label: &str,
+        address_type: Option<&str>,
     ) -> anyhow::Result<String> {
         self.client
             .request_wallet::<String>(
                 "getnewaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Str(label),
-                    RpcParam::Str(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
+                    RpcParam::Str(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE)),
                 ]),
             )
             .await
@@ -428,10 +427,10 @@ pub mod test {
             .client
             .request::<serde_json::Value>(
                 "generatetoaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Int(1),
                     RpcParam::Str(
-                        client
+                        &client
                             .client
                             .request::<String>("getnewaddress", None)
                             .await
@@ -448,9 +447,9 @@ pub mod test {
             .client
             .request::<String>(
                 "sendtoaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Str(
-                        client
+                        &client
                             .client
                             .request::<String>("getnewaddress", None)
                             .await
@@ -466,7 +465,7 @@ pub mod test {
             &Type::Bitcoin,
             &client
                 .client
-                .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(tx_id)]))
+                .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx_id)]))
                 .await
                 .unwrap(),
         )
@@ -476,10 +475,7 @@ pub mod test {
     async fn get_address_info(client: &ChainClient, address: &str) -> AddressInfo {
         client
             .client
-            .request::<AddressInfo>(
-                "getaddressinfo",
-                Some(vec![RpcParam::Str(address.to_string())]),
-            )
+            .request::<AddressInfo>("getaddressinfo", Some(&[RpcParam::Str(address)]))
             .await
             .unwrap()
     }
@@ -618,7 +614,7 @@ pub mod test {
         let tx = send_transaction(&client).await;
 
         let tx_id = client
-            .send_raw_transaction(alloy::hex::encode(tx.serialize()))
+            .send_raw_transaction(&alloy::hex::encode(tx.serialize()))
             .await
             .unwrap();
 
@@ -632,10 +628,7 @@ pub mod test {
         let client = get_client().await;
 
         let label = "some tx";
-        let address = client
-            .get_new_address(label.to_string(), None)
-            .await
-            .unwrap();
+        let address = client.get_new_address(label, None).await.unwrap();
 
         let info = get_address_info(&client, &address).await;
         assert_eq!(info.labels, vec![label.to_string()]);
@@ -655,10 +648,9 @@ pub mod test {
         let client = get_client().await;
 
         let address = client
-            .get_new_address("".to_string(), address_type)
+            .get_new_address("", address_type.as_deref())
             .await
             .unwrap();
-
         assert!(address.starts_with(expected_prefix));
     }
 

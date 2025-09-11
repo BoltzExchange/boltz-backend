@@ -602,9 +602,9 @@ mod tests {
         client
             .request::<serde_json::Value>(
                 "generatetoaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Int(1),
-                    RpcParam::Str(get_destination(client, true).to_string()),
+                    RpcParam::Str(&get_destination(client, true).to_string()),
                 ]),
             )
             .unwrap();
@@ -616,11 +616,11 @@ mod tests {
 
     fn get_genesis_hash(client: &RpcClient) -> BlockHash {
         let block_hash = client
-            .request::<String>("getblockhash", Some(vec![RpcParam::Int(0)]))
+            .request::<String>("getblockhash", Some(&[RpcParam::Int(0)]))
             .unwrap();
 
         let block = client
-            .request::<RpcBlock>("getblock", Some(vec![RpcParam::Str(block_hash)]))
+            .request::<RpcBlock>("getblock", Some(&[RpcParam::Str(&block_hash)]))
             .unwrap();
         BlockHash::from_str(&block.hash).unwrap()
     }
@@ -629,15 +629,15 @@ mod tests {
         let tx = client
             .request::<String>(
                 "sendtoaddress",
-                Some(vec![
-                    RpcParam::Str(address.to_string()),
+                Some(&[
+                    RpcParam::Str(&address.to_string()),
                     RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
                 ]),
             )
             .unwrap();
 
         let tx = client
-            .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(tx)]))
+            .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx)]))
             .unwrap();
 
         let tx: Transaction = elements::encode::deserialize(&hex::decode(tx).unwrap()).unwrap();
@@ -653,7 +653,7 @@ mod tests {
 
     fn address_blinding_key(client: &RpcClient, address: String) -> String {
         client
-            .request::<String>("dumpblindingkey", Some(vec![RpcParam::Str(address)]))
+            .request::<String>("dumpblindingkey", Some(&[RpcParam::Str(&address)]))
             .unwrap()
     }
 
@@ -661,7 +661,7 @@ mod tests {
         let res = client
             .request::<String>(
                 "sendrawtransaction",
-                Some(vec![RpcParam::Str(hex::encode(tx.serialize()))]),
+                Some(&[RpcParam::Str(&hex::encode(tx.serialize()))]),
             )
             .unwrap();
 

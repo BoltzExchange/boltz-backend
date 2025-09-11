@@ -18,16 +18,14 @@ RUN rm eclair-node/target/eclair-node-*.zip
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
 
-# Copy the executables first to avoid caching of the apt repositories
+RUN apt-get update && apt-get -y upgrade && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl openjdk-21-jre-headless && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy eclair-cli executable
 COPY --from=builder /eclair/eclair-core/eclair-cli /usr/local/bin/
 
 # Copy the actual node
 COPY --from=builder /eclair/eclair-node/target/eclair-node-* /eclair-node
-
-RUN apt-get update && apt-get -y upgrade && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl openjdk-21-jre-headless && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["/eclair-node/bin/eclair-node.sh"]

@@ -30,7 +30,6 @@ RUN apt-get update && \
   libdb++-dev \
   libzmq3-dev \
   libevent-dev \
-  libevent-dev \
   libsqlite3-dev \
   libboost-chrono-dev \
   libboost-system-dev \

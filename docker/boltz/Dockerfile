@@ -21,8 +21,8 @@ RUN apt-get -y install \
     python3-dev \
     protobuf-compiler
 
-RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgres.gpg && \
+    sh -c 'echo "deb [signed-by=/usr/share/keyrings/postgres.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
     apt-get update && \
     apt-get -y install libpq-dev
 
@@ -34,22 +34,18 @@ RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
 WORKDIR /boltz-backend
 RUN git submodule update --init
 
-# Remove dependency that is not needed for the build and unavailable on ARM64
-RUN sed -i "/grpc-tools/d" package.json
-
-RUN npm install -g npm
-RUN npm install
+RUN npm ci
 RUN npm run compile:release
 
 # We do not need dev dependencies in the final image
-RUN rm -rf node_modules && npm install --omit dev
+RUN rm -rf node_modules && npm ci --omit dev
 
 FROM node:${NODE_VERSION} AS final
 
 RUN apt-get update && apt-get -y upgrade && \
     apt-get -y install gnupg2 wget lsb-release zstd && \
-    sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgres.gpg && \
+    sh -c 'echo "deb [signed-by=/usr/share/keyrings/postgres.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
     apt-get update && \
     apt-get -y install postgresql-client-17 postgresql-client-common && \
     apt-get clean all && rm -rf /var/lib/apt/lists/*

@@ -8,19 +8,18 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install git make
 
-RUN git clone https://github.com/ethereum/go-ethereum.git $GOPATH/src/github.com/ethereum/go-ethereum
+RUN git clone --branch v${VERSION} --depth 1 https://github.com/ethereum/go-ethereum.git $GOPATH/src/github.com/ethereum/go-ethereum
 
 WORKDIR $GOPATH/src/github.com/ethereum/go-ethereum
-
-RUN git checkout v${VERSION}
 
 RUN make geth
 
 # Start again with a new image to reduce the size
 FROM ubuntu:${UBUNTU_VERSION}
 
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install psmisc
+RUN apt-get update && apt-get -y upgrade && \
+    apt-get -y install psmisc && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Expose the RPC and websocket port
 EXPOSE 8545 8546

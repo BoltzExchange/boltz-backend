@@ -2,6 +2,7 @@ use crate::chain::types::Type;
 use crate::chain::utils::{Outpoint, Transaction};
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_core::Network;
 use elements::ZeroConfToolConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -56,6 +57,7 @@ pub trait BaseClient {
 #[async_trait]
 pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;
+    fn network(&self) -> Network;
 
     async fn scan_mempool(
         &self,

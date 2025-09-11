@@ -17,8 +17,7 @@ use crate::{
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_core::{
-    Destination,
-    address::Address,
+    Address, Destination,
     wrapper::{BitcoinParams, Params, construct_tx},
 };
 use diesel::{BoolExpressionMethods, ExpressionMethods};
@@ -103,7 +102,12 @@ where
     }
 
     #[tracing::instrument(name = "RefundTransactionHandler::bump_fee", skip(self))]
-    async fn bump_fee(&self, pending: &PendingTransaction, fee_target: f64) -> Result<String> {
+    async fn bump_fee(
+        &self,
+        pending: &PendingTransaction,
+        fee_target: f64,
+        sweep_address: Option<Address>,
+    ) -> Result<String> {
         let swap = self.get_swap(&pending.swap_id)?;
         if swap.refund_symbol()? == ELEMENTS_SYMBOL {
             return Err(anyhow::anyhow!(
@@ -116,22 +120,24 @@ where
             .refund_details(&self.wallet, &self.chain_client)
             .await?;
 
+        let destination = match sweep_address {
+            Some(address) => address,
+            None => Address::try_from(
+                self.wallet
+                    .get_address(format!(
+                        "Refund of {} swap {}",
+                        swap.kind(),
+                        pending.swap_id
+                    ))
+                    .await?
+                    .as_str(),
+            )?,
+        };
+
         let tx = construct_tx(&Params::Bitcoin(BitcoinParams {
             inputs: &[&refund_details.try_into()?],
             fee: fee_target.into(),
-            destination: &Destination::Single(
-                &Address::try_from(
-                    self.wallet
-                        .get_address(format!(
-                            "Refund of {} swap {}",
-                            swap.kind(),
-                            pending.swap_id
-                        ))
-                        .await?
-                        .as_str(),
-                )?
-                .try_into()?,
-            ),
+            destination: &Destination::Single(&destination.try_into()?),
         }))?;
 
         self.chain_client
@@ -199,7 +205,7 @@ mod test {
 
         assert_eq!(
             handler
-                .bump_fee(&pending, 21.0)
+                .bump_fee(&pending, 21.0, None)
                 .await
                 .err()
                 .unwrap()

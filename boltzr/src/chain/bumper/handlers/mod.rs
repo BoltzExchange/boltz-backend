@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_core::Address;
 
 pub mod refund;
 
@@ -26,5 +27,10 @@ pub struct PendingTransaction {
 pub trait TransactionHandler {
     fn handler_type(&self) -> HandlerType;
     fn fetch_pending(&self) -> Result<Vec<PendingTransaction>>;
-    async fn bump_fee(&self, tx: &PendingTransaction, fee_target: f64) -> Result<String>;
+    async fn bump_fee(
+        &self,
+        tx: &PendingTransaction,
+        fee_target: f64,
+        sweep_address: Option<Address>,
+    ) -> Result<String>;
 }

@@ -114,6 +114,10 @@ impl Client for ElementsClient {
         TYPE
     }
 
+    fn network(&self) -> Network {
+        self.network
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,

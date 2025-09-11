@@ -29,6 +29,7 @@ const DEFAULT_ADDRESS_TYPE: &str = "bech32m";
 #[derive(Debug, Clone)]
 pub struct ChainClient {
     pub client: RpcClient,
+    network: Network,
     cache: Cache,
     client_type: Type,
     zmq_client: ZmqClient,
@@ -53,6 +54,7 @@ impl ChainClient {
     ) -> anyhow::Result<Self> {
         let client = Self {
             cache,
+            network,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
             mempool_space: config
@@ -179,6 +181,10 @@ impl BaseClient for ChainClient {
 impl Client for ChainClient {
     fn chain_type(&self) -> Type {
         self.client_type
+    }
+
+    fn network(&self) -> Network {
+        self.network
     }
 
     async fn scan_mempool(

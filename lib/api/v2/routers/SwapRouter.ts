@@ -93,7 +93,7 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * tags:
-     *   name: Submarine
+     *   name: Submarine Swap
      *   description: Submarine Swap related endpoints
      */
 
@@ -144,7 +144,7 @@ class SwapRouter extends RouterBase {
      * /swap/submarine:
      *   get:
      *     description: Possible pairs for Submarine Swaps
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     responses:
      *       '200':
      *         description: Dictionary of the from -> to currencies that can be used in a Submarine Swap
@@ -267,7 +267,7 @@ class SwapRouter extends RouterBase {
      * /swap/submarine:
      *   post:
      *     description: Create a new Submarine Swap from onchain to lightning
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     requestBody:
      *       required: true
      *       content:
@@ -294,7 +294,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/invoice:
      *   post:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Set the invoice for a Submarine Swap
      *     parameters:
      *       - in: path
@@ -350,7 +350,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/invoice/amount:
      *   get:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Get the expected amount of the invoice that should be set after the Swap was created with a preimage hash and an onchain transaction was sent
      *     parameters:
      *       - in: path
@@ -409,7 +409,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/transaction:
      *   get:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Get the lockup transaction of a Submarine Swap
      *     parameters:
      *       - in: path
@@ -454,7 +454,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/preimage:
      *   get:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Get the preimage of a successful Submarine Swap
      *     parameters:
      *       - in: path
@@ -486,7 +486,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/refund:
      *   get:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Get an EIP-712 signature for a cooperative EVM refund
      *     parameters:
      *       - in: path
@@ -556,7 +556,7 @@ class SwapRouter extends RouterBase {
      * /swap/submarine/{id}/refund:
      *   post:
      *     description: Requests a partial signature for a cooperative Submarine Swap refund transaction
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     parameters:
      *       - in: path
      *         name: id
@@ -621,7 +621,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/claim:
      *   get:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Get the needed information to post a partial signature for a cooperative Submarine Swap claim transaction
      *     parameters:
      *       - in: path
@@ -659,7 +659,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/submarine/{id}/claim:
      *   post:
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     description: Send Boltz the clients partial signature for a cooperative Submarine Swap claim transaction
      *     parameters:
      *       - in: path
@@ -699,7 +699,7 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * tags:
-     *   name: Reverse
+     *   name: Reverse Swap
      *   description: Reverse Swap related endpoints
      */
 
@@ -751,7 +751,7 @@ class SwapRouter extends RouterBase {
      * /swap/reverse:
      *   get:
      *     description: Possible pairs for Reverse Swaps
-     *     tags: [Reverse]
+     *     tags: [Reverse Swap]
      *     responses:
      *       '200':
      *         description: Dictionary of the from -> to currencies that can be used in a Reverse Swap
@@ -872,7 +872,7 @@ class SwapRouter extends RouterBase {
      * /swap/reverse:
      *   post:
      *     description: Create a new Reverse Swap from lightning to onchain
-     *     tags: [Reverse]
+     *     tags: [Reverse Swap]
      *     requestBody:
      *       required: true
      *       content:
@@ -918,7 +918,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/reverse/{id}/transaction:
      *   get:
-     *     tags: [Reverse]
+     *     tags: [Reverse Swap]
      *     description: Get the lockup transaction of a Reverse Swap
      *     parameters:
      *       - in: path
@@ -973,7 +973,7 @@ class SwapRouter extends RouterBase {
      * /swap/reverse/{id}/claim:
      *   post:
      *     description: Requests a partial signature for a cooperative Reverse Swap claim transaction. To settle the invoice, but not claim the onchain HTLC (eg to create a batched claim in the future), only the preimage is required. If no transaction is provided, an empty object is returned as response.
-     *     tags: [Reverse]
+     *     tags: [Reverse Swap]
      *     parameters:
      *       - in: path
      *         name: id
@@ -1026,7 +1026,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/reverse/{invoice}/bip21:
      *   get:
-     *     tags: [Reverse]
+     *     tags: [Reverse Swap]
      *     description: Get the BIP-21 of a Reverse Swap for a direct payment
      *     parameters:
      *       - in: path
@@ -1936,6 +1936,109 @@ class SwapRouter extends RouterBase {
      *                 $ref: '#/components/schemas/RestorableSwap'
      */
 
+    /**
+     * @openapi
+     * tags:
+     *   name: Historical Data
+     *   description: Historical data related endpoints
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     PairStats:
+     *       type: object
+     *       required: ["fee"]
+     *       properties:
+     *         fee:
+     *           type: array
+     *           description: Time series data for swap fees
+     *           items:
+     *             type: array
+     *             items:
+     *               oneOf:
+     *                 - type: integer
+     *                   description: UNIX timestamp
+     *                 - type: number
+     *                   description: Fee value
+     *             minItems: 2
+     *             maxItems: 2
+     *         maximalRoutingFee:
+     *           type: array
+     *           description: Time series data for maximal Lightning routing fees (only for submarine swaps)
+     *           items:
+     *             type: array
+     *             items:
+     *               oneOf:
+     *                 - type: integer
+     *                   description: UNIX timestamp
+     *                 - type: number
+     *                   description: Maximal Lightning routing fee percentage
+     *             minItems: 2
+     *             maxItems: 2
+     */
+
+    /**
+     * @openapi
+     * /swap/{swap_type}/stats/{from}/{to}:
+     *   get:
+     *     tags: [Historical Data]
+     *     description: Get historical fee statistics for pairs.
+     *     parameters:
+     *       - name: swap_type
+     *         in: path
+     *         required: true
+     *         schema:
+     *           type: string
+     *           enum: [submarine, reverse, chain]
+     *         description: Type of the swap
+     *       - name: from
+     *         in: path
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Source currency symbol
+     *       - name: to
+     *         in: path
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Destination currency symbol
+     *       - name: Referral
+     *         in: header
+     *         required: true
+     *         schema:
+     *           type: string
+     *           enum: [pro]
+     *         description: Referral header must be set to 'pro' to access this endpoint
+     *     responses:
+     *       200:
+     *         description: Historical fee statistics for the swap pair
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/PairStats'
+     *       400:
+     *         description: Bad request - invalid referral or parameters
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       404:
+     *         description: Invalid pair or no data available
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       501:
+     *         description: Historical data not available
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+
     return router;
   };
 
@@ -2208,7 +2311,7 @@ class SwapRouter extends RouterBase {
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Reverse Swap with id: ${response.id}`);
-    this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+    this.logger.silly(`Reverse Swap ${response.id}: ${stringify(response)}`);
 
     createdResponse(res, response);
   };
@@ -2357,7 +2460,7 @@ class SwapRouter extends RouterBase {
     await markSwap(this.service.sidecar, req.ip, response.id);
 
     this.logger.verbose(`Created Chain Swap with id: ${response.id}`);
-    this.logger.silly(`Chain swap ${response.id}: ${stringify(response)}`);
+    this.logger.silly(`Chain Swap ${response.id}: ${stringify(response)}`);
 
     createdResponse(res, response);
   };

@@ -200,11 +200,9 @@ pub mod test {
         let config = Config {
             host: "127.0.0.1".to_string(),
             port: 18_884,
-            cookie: None,
             user: Some("boltz".to_string()),
             password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
-            mempool_space: None,
-            wallet: None,
+            ..Default::default()
         };
 
         static CLIENT: OnceLock<(ElementsClient, Config)> = OnceLock::new();

@@ -387,6 +387,7 @@ pub mod test {
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
+    use rstest::rstest;
     use serde::Deserialize;
     use serial_test::serial;
     use std::collections::HashSet;
@@ -408,11 +409,9 @@ pub mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: PORT,
-                cookie: None,
                 user: Some("boltz".to_string()),
                 password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
-                mempool_space: None,
-                wallet: None,
+                ..Default::default()
             },
         )
         .unwrap()
@@ -636,39 +635,25 @@ pub mod test {
         assert_eq!(info.labels, vec![label.to_string()]);
     }
 
+    #[rstest]
+    #[case(None, "bcrt1p")]
+    #[case(Some("bech32m".to_string()), "bcrt1p")]
+    #[case(Some("bech32".to_string()), "bcrt1q")]
+    #[case(Some("p2sh-segwit".to_string()), "2")]
     #[tokio::test]
     #[serial(BTC)]
-    async fn test_get_new_address_type() {
+    async fn test_get_new_address_type(
+        #[case] address_type: Option<String>,
+        #[case] expected_prefix: &str,
+    ) {
         let client = get_client().await;
 
-        assert!(
-            client
-                .get_new_address("".to_string(), None)
-                .await
-                .unwrap()
-                .starts_with("bcrt1p")
-        );
-        assert!(
-            client
-                .get_new_address("".to_string(), Some("bech32m".to_string()))
-                .await
-                .unwrap()
-                .starts_with("bcrt1p")
-        );
-        assert!(
-            client
-                .get_new_address("".to_string(), Some("bech32".to_string()))
-                .await
-                .unwrap()
-                .starts_with("bcrt1q")
-        );
-        assert!(
-            client
-                .get_new_address("".to_string(), Some("p2sh-segwit".to_string()))
-                .await
-                .unwrap()
-                .starts_with("2")
-        );
+        let address = client
+            .get_new_address("".to_string(), address_type)
+            .await
+            .unwrap();
+
+        assert!(address.starts_with(expected_prefix));
     }
 
     #[tokio::test]

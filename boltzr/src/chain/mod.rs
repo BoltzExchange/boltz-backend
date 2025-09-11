@@ -18,7 +18,7 @@ pub mod types;
 pub mod utils;
 pub mod zmq_client;
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct Config {
     host: String,
     port: u16,

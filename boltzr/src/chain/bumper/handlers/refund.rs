@@ -140,7 +140,10 @@ where
 
         let tx_id = tx.txid();
         self.tx_helper
-            .update_transaction_id(&pending.swap_id, &tx_id, Some(0))?;
+            .update_transaction_id(&pending.swap_id, &tx_id, Some(0))
+            .map_err(|err| {
+                anyhow::anyhow!("failed to update transaction id to ({}): {}", tx_id, err)
+            })?;
 
         Ok(tx_id)
     }

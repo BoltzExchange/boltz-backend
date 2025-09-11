@@ -61,17 +61,18 @@ FROM ubuntu:${UBUNTU_VERSION}
 
 ARG VERSION
 
-RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install \
-  openssl \
-  libdb-dev \
-  libdb++-dev \
-  libzmq3-dev \
-  libevent-dev \
-  libboost-chrono-dev \
-  libboost-system-dev \
-  libboost-thread-dev \
-  libboost-filesystem-dev
+RUN apt-get update && apt-get -y upgrade && \
+    apt-get -y install \
+    openssl \
+    libdb-dev \
+    libdb++-dev \
+    libzmq3-dev \
+    libevent-dev \
+    libboost-chrono-dev \
+    libboost-system-dev \
+    libboost-thread-dev \
+    libboost-filesystem-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=litecoin-core /opt/litecoin-${VERSION}/bin /bin
 

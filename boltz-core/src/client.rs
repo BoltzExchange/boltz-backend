@@ -30,18 +30,21 @@ impl Serialize for RpcParam<'_> {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RpcError {
     pub message: String,
 }
 
-#[derive(Deserialize)]
-pub struct RpcResponse<T> {
+#[derive(Deserialize, Debug)]
+pub struct RpcResponse<T>
+where
+    T: std::fmt::Debug,
+{
     pub result: Option<T>,
     pub error: Option<RpcError>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RpcBlock {
     pub hash: String,
 }
@@ -73,7 +76,7 @@ impl RpcClient {
         Self::new(REGTEST_HOST, 18884, REGTEST_USER, REGTEST_PASSWORD)
     }
 
-    pub fn request<T: DeserializeOwned>(
+    pub fn request<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
         params: Option<&[RpcParam]>,

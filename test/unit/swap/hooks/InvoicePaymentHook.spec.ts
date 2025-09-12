@@ -35,7 +35,7 @@ describe('InvoicePaymentHook', () => {
       grpcNode             | expected
       ${boltzrpc.Node.CLN} | ${{ node: NodeType.CLN }}
       ${boltzrpc.Node.LND} | ${{ node: NodeType.LND }}
-      ${undefined}         | ${undefined}
+      ${undefined}         | ${{ node: undefined }}
     `(
       'should parse gRPC node $grpcNode to NodeType $expectedNodeType',
       ({ grpcNode, expected }) => {

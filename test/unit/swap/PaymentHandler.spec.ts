@@ -260,10 +260,11 @@ describe('PaymentHandler', () => {
   });
 
   test.each`
-    hookNodeReturn                               | getSwapNodeReturn       | expected                                     | getSwapNodeCalled
-    ${{ node: 'hookNode' }}                      | ${{ node: 'swapNode' }} | ${{ node: 'hookNode' }}                      | ${false}
-    ${{ node: 'hookNode', timePreference: 0.5 }} | ${{ node: 'swapNode' }} | ${{ node: 'hookNode', timePreference: 0.5 }} | ${false}
-    ${undefined}                                 | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' } }}          | ${true}
+    hookNodeReturn                                   | getSwapNodeReturn       | expected                                                 | getSwapNodeCalled
+    ${{ client: 'hookClient' }}                      | ${{ node: 'swapNode' }} | ${{ client: 'hookClient' }}                              | ${false}
+    ${{ client: 'hookClient', timePreference: 0.5 }} | ${{ node: 'swapNode' }} | ${{ client: 'hookClient', timePreference: 0.5 }}         | ${false}
+    ${{ timePreference: 0.5 }}                       | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' }, timePreference: 0.5 }} | ${true}
+    ${undefined}                                     | ${{ node: 'swapNode' }} | ${{ client: { node: 'swapNode' } }}                      | ${true}
   `(
     'should get preferred node (hook: $hookNodeReturn, swap: $getSwapNodeReturn)',
     async ({

@@ -140,7 +140,7 @@ class PaymentHandler {
       await this.pendingPaymentTracker.getRelevantNode(
         lightningCurrency,
         swap,
-        preferredNode?.client,
+        preferredNode.client,
       );
 
     try {
@@ -387,22 +387,29 @@ class PaymentHandler {
     lightningCurrency: Currency,
     swap: Swap,
     decoded: DecodedInvoice,
-  ) => {
+  ): Promise<{ client: LightningClient; timePreference?: number }> => {
     const hookNode = await this.nodeSwitch.invoicePaymentHook(
       lightningCurrency,
       { id: swap.id, invoice: swap.invoice! },
       decoded,
     );
-    if (hookNode !== undefined) {
-      return hookNode;
+
+    if (hookNode?.client) {
+      return {
+        client: hookNode.client,
+        timePreference: hookNode.timePreference,
+      };
     }
 
+    const fallbackClient = await this.nodeSwitch.getSwapNode(
+      lightningCurrency,
+      decoded,
+      swap,
+    );
+
     return {
-      client: await this.nodeSwitch.getSwapNode(
-        lightningCurrency,
-        decoded,
-        swap,
-      ),
+      client: fallbackClient,
+      timePreference: hookNode?.timePreference,
     };
   };
 

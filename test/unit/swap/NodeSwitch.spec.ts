@@ -220,13 +220,16 @@ describe('NodeSwitch', () => {
 
   describe('invoicePaymentHook', () => {
     test.each`
-      hookResult                                     | testCurrency     | expected                                      | description
-      ${{ node: NodeType.LND }}                      | ${currency}      | ${{ client: lndClient }}                      | ${'LND'}
-      ${{ node: NodeType.LND, timePreference: 0.5 }} | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND with time preferrence'}
-      ${{ node: NodeType.CLN }}                      | ${currency}      | ${{ client: clnClient }}                      | ${'CLN'}
-      ${undefined}                                   | ${currency}      | ${undefined}                                  | ${'undefined when hook returns undefined'}
-      ${{ node: NodeType.LND }}                      | ${{ clnClient }} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
-      ${{ node: NodeType.CLN }}                      | ${{ lndClient }} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
+      hookResult                                      | testCurrency     | expected                                      | description
+      ${{ node: NodeType.LND }}                       | ${currency}      | ${{ client: lndClient }}                      | ${'LND'}
+      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND with time preferrence'}
+      ${{ node: NodeType.CLN }}                       | ${currency}      | ${{ client: clnClient }}                      | ${'CLN'}
+      ${undefined}                                    | ${currency}      | ${undefined}                                  | ${'undefined when hook returns undefined'}
+      ${{ node: NodeType.LND }}                       | ${{ clnClient }} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
+      ${{ node: NodeType.CLN }}                       | ${{ lndClient }} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
+      ${{ timePreference: -1 }}                       | ${currency}      | ${{ timePreference: -1 }}                     | ${'time preference only without client'}
+      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${{ clnClient }} | ${{ timePreference: 0.5 }}                    | ${'time preference only when requested client missing'}
+      ${{ node: NodeType.CLN, timePreference: -0.2 }} | ${{ lndClient }} | ${{ timePreference: -0.2 }}                   | ${'time preference only when requested client missing'}
     `(
       'should return $description',
       async ({ hookResult, testCurrency, expected }) => {

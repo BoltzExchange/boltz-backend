@@ -6,7 +6,7 @@ import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
 type HookResult = {
-  node: NodeType;
+  node?: NodeType;
   timePreference?: number;
 };
 
@@ -42,42 +42,50 @@ class InvoicePaymentHook extends Hook<
     msg.setDecoded(decoded.rawRes);
 
     const res = await this.sendHook(swapId, msg);
-
-    if (res !== undefined) {
-      this.logger.debug(
-        `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res.node)}${
-          res.timePreference !== undefined
-            ? ` with time preference ${res.timePreference}`
-            : ''
-        }`,
-      );
-    } else {
-      this.logger.debug(
-        `Invoice payment hook for ${swapId} returned without preference`,
-      );
-    }
+    this.logHookResult(swapId, res);
 
     return res;
+  };
+
+  private logHookResult = (swapId: string, res?: HookResult) => {
+    if (res === undefined) {
+      this.logger.debug(
+        `Invoice payment hook for ${swapId} returned no response`,
+      );
+      return;
+    }
+
+    const preferences: string[] = [];
+
+    if (res.node !== undefined) {
+      preferences.push(`node: ${nodeTypeToPrettyString(res.node)}`);
+    }
+
+    if (res.timePreference !== undefined) {
+      preferences.push(`time preference: ${res.timePreference}`);
+    }
+
+    const info =
+      preferences.length > 0 ? preferences.join(', ') : 'no preferences';
+    this.logger.debug(`Invoice payment hook for ${swapId} returned ${info}`);
   };
 
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
   ): HookResult | undefined => {
-    if (!res.hasAction()) {
-      return undefined;
-    }
-
     let node: NodeType | undefined;
 
-    switch (res.getAction()) {
-      case boltzrpc.Node.CLN:
-        node = NodeType.CLN;
-        break;
-      case boltzrpc.Node.LND:
-        node = NodeType.LND;
-        break;
-      default:
-        return undefined;
+    if (res.hasAction()) {
+      switch (res.getAction()) {
+        case boltzrpc.Node.CLN:
+          node = NodeType.CLN;
+          break;
+        case boltzrpc.Node.LND:
+          node = NodeType.LND;
+          break;
+        default:
+          break;
+      }
     }
 
     if (res.hasTimePreference()) {

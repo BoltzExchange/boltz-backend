@@ -35,7 +35,7 @@ describe('InvoicePaymentHook', () => {
       grpcNode             | expected
       ${boltzrpc.Node.CLN} | ${{ node: NodeType.CLN }}
       ${boltzrpc.Node.LND} | ${{ node: NodeType.LND }}
-      ${undefined}         | ${undefined}
+      ${undefined}         | ${{ node: undefined }}
     `(
       'should parse gRPC node $grpcNode to NodeType $expectedNodeType',
       ({ grpcNode, expected }) => {
@@ -49,14 +49,48 @@ describe('InvoicePaymentHook', () => {
       },
     );
 
-    test('should return undefined if no action', () => {
-      const mockResponse = {
-        hasAction: () => false,
-      } as boltzrpc.InvoicePaymentHookResponse;
-      expect(hook['parseGrpcAction'](mockResponse)).toBeUndefined();
+    describe('when no action provided', () => {
+      test('should return node undefined if no time preference', () => {
+        const mockResponse = {
+          hasAction: () => false,
+          hasTimePreference: () => false,
+        } as boltzrpc.InvoicePaymentHookResponse;
+        expect(hook['parseGrpcAction'](mockResponse)).toEqual({
+          node: undefined,
+        });
+      });
+
+      test('should return time preference when time preference provided', () => {
+        const mockResponse = {
+          hasAction: () => false,
+          hasTimePreference: () => true,
+          getTimePreference: () => -0.5,
+        } as boltzrpc.InvoicePaymentHookResponse;
+
+        expect(hook['parseGrpcAction'](mockResponse)).toEqual({
+          node: undefined,
+          timePreference: -0.5,
+        });
+      });
     });
 
-    describe('time preference', () => {
+    describe('when both action and time preference provided', () => {
+      test('should return both node and time preference', () => {
+        const mockResponse = {
+          hasAction: () => true,
+          getAction: () => boltzrpc.Node.LND,
+          hasTimePreference: () => true,
+          getTimePreference: () => 0.8,
+        } as boltzrpc.InvoicePaymentHookResponse;
+
+        expect(hook['parseGrpcAction'](mockResponse)).toEqual({
+          node: NodeType.LND,
+          timePreference: 0.8,
+        });
+      });
+    });
+
+    describe('time preference validation', () => {
       test.each`
         timePreference
         ${-1}

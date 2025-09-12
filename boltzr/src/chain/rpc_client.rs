@@ -5,7 +5,6 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
-use serde_json::json;
 use std::fs;
 use std::sync::Arc;
 use tracing::{debug, instrument};
@@ -65,29 +64,29 @@ impl RpcClient {
     }
 
     #[instrument(name = "RpcClient::request", skip(self), fields(symbol = self.symbol))]
-    pub async fn request<T: DeserializeOwned>(
+    pub async fn request<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         self.request_internal(&self.endpoint, method, params).await
     }
 
     #[instrument(name = "RpcClient::request_wallet", skip(self), fields(symbol = self.symbol))]
-    pub async fn request_wallet<T: DeserializeOwned>(
+    pub async fn request_wallet<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         self.request_internal(&self.endpoint_wallet, method, params)
             .await
     }
 
     #[instrument(name = "RpcClient::request_batch", skip(self, params), fields(symbol = self.symbol))]
-    pub async fn request_batch<T: DeserializeOwned>(
+    pub async fn request_batch<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
-        params: Vec<Vec<RpcParam>>,
+        params: &[Vec<RpcParam<'_>>],
     ) -> anyhow::Result<Vec<anyhow::Result<T>>> {
         let response = self
             .client
@@ -95,10 +94,10 @@ impl RpcClient {
             .headers(self.get_headers()?)
             .json(
                 &params
-                    .into_iter()
+                    .iter()
                     .map(|params| RpcRequest {
-                        params: Some(params),
-                        method: method.to_string(),
+                        method,
+                        params: Some(params.as_slice()),
                     })
                     .collect::<Vec<RpcRequest>>(),
             )
@@ -121,20 +120,17 @@ impl RpcClient {
             .collect::<Vec<anyhow::Result<T>>>())
     }
 
-    async fn request_internal<T: DeserializeOwned>(
+    async fn request_internal<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         endpoint: &str,
         method: &str,
-        params: Option<Vec<RpcParam>>,
+        params: Option<&[RpcParam<'_>]>,
     ) -> anyhow::Result<T> {
         let response = self
             .client
             .post(endpoint)
             .headers(self.get_headers()?)
-            .json(&json!({
-                "method": method,
-                "params": params.unwrap_or_default(),
-            }))
+            .json(&RpcRequest { method, params })
             .send()
             .await?;
 
@@ -208,5 +204,28 @@ mod test {
             .await
             .unwrap();
         assert!(res.starts_with("bcrt1"));
+    }
+
+    #[tokio::test]
+    async fn test_request_not_found() {
+        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
+        let res = client
+            .request::<String>("notfound", None)
+            .await
+            .unwrap_err();
+        assert_eq!(res.to_string(), "Method not found");
+    }
+
+    #[tokio::test]
+    async fn test_request_invalid_param() {
+        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
+        let res = client
+            .request::<String>(
+                "getnewaddress",
+                Some(&[RpcParam::Str(""), RpcParam::Str("invalid")]),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(res.to_string(), "Unknown address type 'invalid'");
     }
 }

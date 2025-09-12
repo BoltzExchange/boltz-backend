@@ -144,20 +144,17 @@ impl Client for ElementsClient {
         self.wallet_client().raw_transaction_verbose(tx_id).await
     }
 
-    async fn send_raw_transaction(&self, tx: String) -> anyhow::Result<String> {
+    async fn send_raw_transaction(&self, tx: &str) -> anyhow::Result<String> {
         self.wallet_client().send_raw_transaction(tx).await
     }
 
     async fn get_new_address(
         &self,
-        label: String,
-        address_type: Option<String>,
+        label: &str,
+        address_type: Option<&str>,
     ) -> anyhow::Result<String> {
         self.wallet_client()
-            .get_new_address(
-                label,
-                Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE.to_string())),
-            )
+            .get_new_address(label, Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE)))
             .await
     }
 
@@ -236,9 +233,9 @@ pub mod test {
             .client
             .request::<String>(
                 "sendtoaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Str(
-                        client
+                        &client
                             .wallet_client()
                             .client
                             .request::<String>("getnewaddress", None)
@@ -256,7 +253,7 @@ pub mod test {
             &client
                 .wallet_client()
                 .client
-                .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(tx_id)]))
+                .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx_id)]))
                 .await
                 .unwrap(),
         )
@@ -269,10 +266,10 @@ pub mod test {
             .client
             .request::<serde_json::Value>(
                 "generatetoaddress",
-                Some(vec![
+                Some(&[
                     RpcParam::Int(1),
                     RpcParam::Str(
-                        client
+                        &client
                             .wallet_client()
                             .client
                             .request::<String>("getnewaddress", None)

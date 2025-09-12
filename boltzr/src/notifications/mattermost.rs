@@ -18,6 +18,7 @@ use tracing::{Instrument, debug, error, info, instrument, trace, warn};
 const HEADER_AUTHORIZATION: &str = "Authorization";
 const HEADER_BEARER: &str = "BEARER";
 
+const WEBSOCKET_INACTIVITY_TIMEOUT_SECONDS: u64 = 120;
 const WEBSOCKET_RECONNECT_INTERVAL_SECONDS: u64 = 15;
 
 const MAX_MESSAGE_LENGTH: usize = 4_000;
@@ -225,23 +226,26 @@ where
         loop {
             tokio::select! {
                 event = ws_stream.next() => {
-                    if let Some(event) = event {
-                        let msg = match event {
-                            Ok(msg) => msg,
-                            Err(err) => return Err(err.into()),
-                        };
+                    match event {
+                        Some(Ok(msg)) => {
+                            let msg = match msg {
+                                Message::Text(data) => data,
+                                Message::Ping(data) => {
+                                    ws_stream.send(Message::Pong(data)).await?;
+                                    continue;
+                                }
+                                Message::Close(_) => return Err(MattermostError::WebSocketClosed.into()),
+                                _ => continue,
+                            };
 
-                        let msg = match msg {
-                            Message::Text(data) => data,
-                            Message::Ping(data) => {
-                                ws_stream.send(Message::Pong(data)).await?;
-                                continue;
-                            }
-                            Message::Close(_) => return Err(MattermostError::WebSocketClosed.into()),
-                            _ => continue,
-                        };
-
-                        self.handle_websocket_message(msg.as_ref());
+                            self.handle_websocket_message(msg.as_ref());
+                        }
+                        Some(Err(err)) => {
+                            return Err(err.into());
+                        }
+                        None => {
+                            return Err(anyhow!("WebSocket closed"));
+                        }
                     }
                 },
                 _ = self.cancellation_token.cancelled() => {
@@ -250,6 +254,10 @@ where
                         warn!("Closing WebSocket failed: {}", err);
                     });
                     return Ok(());
+                },
+                _ = tokio::time::sleep(Duration::from_secs(WEBSOCKET_INACTIVITY_TIMEOUT_SECONDS)) => {
+                    warn!("Timing out WebSocket due to inactivity of {} seconds", WEBSOCKET_INACTIVITY_TIMEOUT_SECONDS);
+                    return Err(anyhow!("WebSocket inactivity timeout"));
                 }
             }
         }

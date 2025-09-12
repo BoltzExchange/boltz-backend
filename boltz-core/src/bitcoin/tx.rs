@@ -286,6 +286,7 @@ mod tests {
     };
     use elements::pset::serialize::Serialize;
     use rstest::rstest;
+    use serial_test::serial;
     use std::str::FromStr;
 
     const FUNDING_AMOUNT: u64 = 100_000;
@@ -293,22 +294,22 @@ mod tests {
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
         node.request::<serde_json::Value>(
             "generatetoaddress",
-            Some(vec![RpcParam::Int(1), RpcParam::Str(address.to_string())]),
+            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
         )
         .unwrap();
 
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
-                Some(vec![
-                    RpcParam::Str(address.to_string()),
+                Some(&[
+                    RpcParam::Str(&address.to_string()),
                     RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
                 ]),
             )
             .unwrap();
 
         let tx = node
-            .request::<String>("getrawtransaction", Some(vec![RpcParam::Str(funding_tx)]))
+            .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&funding_tx)]))
             .unwrap();
 
         let tx: Transaction = bitcoin::consensus::deserialize(&hex::decode(tx).unwrap()).unwrap();
@@ -336,7 +337,7 @@ mod tests {
         let txid = node
             .request::<String>(
                 "sendrawtransaction",
-                Some(vec![RpcParam::Str(hex::encode(tx.serialize()))]),
+                Some(&[RpcParam::Str(&hex::encode(tx.serialize()))]),
             )
             .unwrap();
 
@@ -535,6 +536,7 @@ mod tests {
     #[rstest]
     #[case::swap_tree(swap_tree)]
     #[case::reverse_tree(reverse_tree)]
+    #[serial(Bitcoin)]
     fn test_taproot_claim_cooperative(
         #[case] create_tree: impl FnOnce(
             hash160::Hash,
@@ -596,6 +598,7 @@ mod tests {
     #[rstest]
     #[case::swap_tree(swap_tree)]
     #[case::reverse_tree(reverse_tree)]
+    #[serial(Bitcoin)]
     fn test_taproot_claim_uncooperative(
         #[case] create_tree: impl FnOnce(
             hash160::Hash,
@@ -646,6 +649,7 @@ mod tests {
     #[rstest]
     #[case::swap_tree(swap_tree)]
     #[case::reverse_tree(reverse_tree)]
+    #[serial(Bitcoin)]
     fn test_taproot_refund_uncooperative(
         #[case] create_tree: impl FnOnce(
             hash160::Hash,
@@ -688,6 +692,7 @@ mod tests {
     #[rstest]
     #[case::swap_tree(swap_tree)]
     #[case::reverse_tree(reverse_tree)]
+    #[serial(Bitcoin)]
     fn test_taproot_claim_cooperative_relative_fee(
         #[case] create_tree: impl FnOnce(
             hash160::Hash,
@@ -750,6 +755,7 @@ mod tests {
     #[rstest]
     #[case::swap_tree(swap_tree)]
     #[case::reverse_tree(reverse_tree)]
+    #[serial(Bitcoin)]
     fn test_taproot_claim_uncooperative_relative_fee(
         #[case] create_tree: impl FnOnce(
             hash160::Hash,
@@ -800,6 +806,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_segwit_v0_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -840,6 +847,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_segwit_v0_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -871,6 +879,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_compatibility_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -911,6 +920,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_compatibility_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -942,6 +952,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_legacy_claim(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -982,6 +993,7 @@ mod tests {
     #[rstest]
     #[case::swap_script(swap_script)]
     #[case::reverse_script(reverse_script)]
+    #[serial(Bitcoin)]
     fn test_legacy_refund(
         #[case] create_script: impl FnOnce(hash160::Hash, &PublicKey, &PublicKey, LockTime) -> ScriptBuf,
     ) {
@@ -1011,6 +1023,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(Bitcoin)]
     fn test_multiple_inputs() {
         let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();
@@ -1061,6 +1074,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(Bitcoin)]
     fn test_multiple_outputs() {
         let node = RpcClient::new_bitcoin_regtest();
         let secp = Secp256k1::new();

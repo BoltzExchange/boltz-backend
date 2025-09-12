@@ -25,21 +25,21 @@ impl Display for Type {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
-pub enum RpcParam {
-    Str(String),
+pub enum RpcParam<'a> {
+    Str(&'a str),
     Int(i64),
     Float(f64),
 }
 
-impl Serialize for RpcParam {
+impl Serialize for RpcParam<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match *self {
-            RpcParam::Str(ref s) => serializer.serialize_str(s),
+            RpcParam::Str(s) => serializer.serialize_str(s),
             RpcParam::Int(num) => serializer.serialize_i64(num),
             RpcParam::Float(num) => serializer.serialize_f64(num),
         }
@@ -47,18 +47,21 @@ impl Serialize for RpcParam {
 }
 
 #[derive(Serialize)]
-pub struct RpcRequest {
-    pub method: String,
-    pub params: Option<Vec<RpcParam>>,
+pub struct RpcRequest<'a> {
+    pub method: &'a str,
+    pub params: Option<&'a [RpcParam<'a>]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RpcError {
     pub message: String,
 }
 
-#[derive(Deserialize)]
-pub struct RpcResponse<T> {
+#[derive(Deserialize, Debug)]
+pub struct RpcResponse<T>
+where
+    T: std::fmt::Debug,
+{
     pub result: Option<T>,
     pub error: Option<RpcError>,
 }

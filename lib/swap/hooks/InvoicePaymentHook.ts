@@ -84,7 +84,7 @@ class InvoicePaymentHook extends Hook<
           node = NodeType.LND;
           break;
         default:
-          return undefined;
+          break
       }
     }
 

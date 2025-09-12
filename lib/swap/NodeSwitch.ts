@@ -214,14 +214,18 @@ class NodeSwitch {
     { client: LightningClient; timePreference?: number } | undefined
   > => {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
-    if (res !== undefined) {
-      const node = NodeSwitch.switchOnNodeType(currency, res.node);
-      if (node !== undefined) {
-        return { client: node, timePreference: res.timePreference };
+    if (!res) return undefined;
+
+    if (res.node !== undefined) {
+      const requestedClient = NodeSwitch.switchOnNodeType(currency, res.node);
+      if (requestedClient) {
+        return { client: requestedClient, timePreference: res.timePreference };
       }
+      if (res.timePreference === undefined) return undefined;
     }
 
-    return undefined;
+    const client = await this.getSwapNode(currency, decoded, swap);
+    return { client, timePreference: res.timePreference };
   };
 
   public getNodeForReverseSwap = (

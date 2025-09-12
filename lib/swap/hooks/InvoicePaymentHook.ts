@@ -6,7 +6,7 @@ import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
 type HookResult = {
-  node: NodeType;
+  node?: NodeType;
   timePreference?: number;
 };
 
@@ -42,42 +42,43 @@ class InvoicePaymentHook extends Hook<
     msg.setDecoded(decoded.rawRes);
 
     const res = await this.sendHook(swapId, msg);
-
-    if (res !== undefined) {
-      this.logger.debug(
-        `Invoice payment hook for ${swapId} returned ${nodeTypeToPrettyString(res.node)}${
-          res.timePreference !== undefined
-            ? ` with time preference ${res.timePreference}`
-            : ''
-        }`,
-      );
-    } else {
-      this.logger.debug(
-        `Invoice payment hook for ${swapId} returned without preference`,
-      );
-    }
+    this.logHookResult(swapId, res);
 
     return res;
+  };
+
+  private logHookResult = (swapId: string, res: HookResult | undefined) => {
+    const info =
+      res !== undefined
+        ? [
+            res.node !== undefined &&
+              `node: ${nodeTypeToPrettyString(res.node)}`,
+            res.timePreference !== undefined &&
+              `time preference: ${res.timePreference}`,
+          ]
+            .filter(Boolean)
+            .join(', ') || 'no preferences'
+        : 'no response';
+
+    this.logger.debug(`Invoice payment hook for ${swapId} returned ${info}`);
   };
 
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
   ): HookResult | undefined => {
-    if (!res.hasAction()) {
-      return undefined;
-    }
-
     let node: NodeType | undefined;
 
-    switch (res.getAction()) {
-      case boltzrpc.Node.CLN:
-        node = NodeType.CLN;
-        break;
-      case boltzrpc.Node.LND:
-        node = NodeType.LND;
-        break;
-      default:
-        return undefined;
+    if (res.hasAction()) {
+      switch (res.getAction()) {
+        case boltzrpc.Node.CLN:
+          node = NodeType.CLN;
+          break;
+        case boltzrpc.Node.LND:
+          node = NodeType.LND;
+          break;
+        default:
+          return undefined;
+      }
     }
 
     if (res.hasTimePreference()) {

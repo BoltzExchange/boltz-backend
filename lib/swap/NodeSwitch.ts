@@ -211,7 +211,7 @@ class NodeSwitch {
     swap: { id: string; invoice: string },
     decoded: DecodedInvoice,
   ): Promise<
-    { client: LightningClient; timePreference?: number } | undefined
+    { client?: LightningClient; timePreference?: number } | undefined
   > => {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
     if (!res) return undefined;
@@ -221,11 +221,13 @@ class NodeSwitch {
       if (requestedClient) {
         return { client: requestedClient, timePreference: res.timePreference };
       }
-      if (res.timePreference === undefined) return undefined;
     }
 
-    const client = await this.getSwapNode(currency, decoded, swap);
-    return { client, timePreference: res.timePreference };
+    if (res.timePreference !== undefined) {
+      return { timePreference: res.timePreference };
+    }
+
+    return undefined;
   };
 
   public getNodeForReverseSwap = (

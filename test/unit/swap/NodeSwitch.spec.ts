@@ -220,28 +220,22 @@ describe('NodeSwitch', () => {
 
   describe('invoicePaymentHook', () => {
     test.each`
-      hookResult                                      | testCurrency     | expected                                       | description
-      ${{ node: NodeType.LND }}                       | ${currency}      | ${{ client: lndClient }}                       | ${'LND'}
-      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }}  | ${'LND with time preferrence'}
-      ${{ node: NodeType.CLN }}                       | ${currency}      | ${{ client: clnClient }}                       | ${'CLN'}
-      ${undefined}                                    | ${currency}      | ${undefined}                                   | ${'undefined when hook returns undefined'}
-      ${{ node: NodeType.LND }}                       | ${{ clnClient }} | ${undefined}                                   | ${'undefined when hook returns LND but LND client is missing'}
-      ${{ node: NodeType.CLN }}                       | ${{ lndClient }} | ${undefined}                                   | ${'undefined when hook returns CLN but CLN client is missing'}
-      ${{ timePreference: -1 }}                       | ${currency}      | ${{ client: lndClient, timePreference: -1 }}   | ${'time preference only with fallback to default'}
-      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${{ clnClient }} | ${{ client: clnClient, timePreference: 0.5 }}  | ${'fallback but preserve time preference when LND missing'}
-      ${{ node: NodeType.CLN, timePreference: -0.2 }} | ${{ lndClient }} | ${{ client: lndClient, timePreference: -0.2 }} | ${'fallback but preserve time preference when CLN missing'}
+      hookResult                                      | testCurrency     | expected                                      | description
+      ${{ node: NodeType.LND }}                       | ${currency}      | ${{ client: lndClient }}                      | ${'LND'}
+      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND with time preferrence'}
+      ${{ node: NodeType.CLN }}                       | ${currency}      | ${{ client: clnClient }}                      | ${'CLN'}
+      ${undefined}                                    | ${currency}      | ${undefined}                                  | ${'undefined when hook returns undefined'}
+      ${{ node: NodeType.LND }}                       | ${{ clnClient }} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
+      ${{ node: NodeType.CLN }}                       | ${{ lndClient }} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
+      ${{ timePreference: -1 }}                       | ${currency}      | ${{ timePreference: -1 }}                     | ${'time preference only without client'}
+      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${{ clnClient }} | ${{ timePreference: 0.5 }}                    | ${'time preference only when requested client missing'}
+      ${{ node: NodeType.CLN, timePreference: -0.2 }} | ${{ lndClient }} | ${{ timePreference: -0.2 }}                   | ${'time preference only when requested client missing'}
     `(
       'should return $description',
       async ({ hookResult, testCurrency, expected }) => {
         const ns = new NodeSwitch(Logger.disabledLogger, {});
 
         const hook = jest.fn().mockResolvedValue(hookResult);
-
-        const availableClient =
-          testCurrency.lndClient || testCurrency.clnClient;
-        const getSwapNodeSpy = jest
-          .spyOn(ns as any, 'getSwapNode')
-          .mockResolvedValue(availableClient);
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
@@ -263,31 +257,6 @@ describe('NodeSwitch', () => {
 
         expect(hook).toHaveBeenCalledTimes(1);
         expect(hook).toHaveBeenCalledWith(swap.id, swap.invoice, decoded);
-
-        // getSwapNode should be called in these scenarios:
-        // 1. No node specified - fall back to default node selection
-        // 2. Specific node requested but unavailable AND time preference exists - preserve time preference with fallback node
-        const shouldCallGetSwapNode =
-          hookResult &&
-          (hookResult.node === undefined ||
-            (hookResult.node !== undefined &&
-              hookResult.timePreference !== undefined &&
-              ((hookResult.node === NodeType.LND && !testCurrency.lndClient) ||
-                (hookResult.node === NodeType.CLN &&
-                  !testCurrency.clnClient))));
-
-        if (shouldCallGetSwapNode) {
-          expect(getSwapNodeSpy).toHaveBeenCalledTimes(1);
-          expect(getSwapNodeSpy).toHaveBeenCalledWith(
-            testCurrency,
-            decoded,
-            swap,
-          );
-        } else {
-          expect(getSwapNodeSpy).not.toHaveBeenCalled();
-        }
-
-        getSwapNodeSpy.mockRestore();
       },
     );
   });

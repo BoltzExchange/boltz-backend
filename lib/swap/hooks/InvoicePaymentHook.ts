@@ -47,19 +47,26 @@ class InvoicePaymentHook extends Hook<
     return res;
   };
 
-  private logHookResult = (swapId: string, res: HookResult | undefined) => {
-    const info =
-      res !== undefined
-        ? [
-            res.node !== undefined &&
-              `node: ${nodeTypeToPrettyString(res.node)}`,
-            res.timePreference !== undefined &&
-              `time preference: ${res.timePreference}`,
-          ]
-            .filter(Boolean)
-            .join(', ') || 'no preferences'
-        : 'no response';
+  private logHookResult = (swapId: string, res?: HookResult) => {
+    if (res === undefined) {
+      this.logger.debug(
+        `Invoice payment hook for ${swapId} returned no response`,
+      );
+      return;
+    }
 
+    const preferences: string[] = [];
+
+    if (res.node !== undefined) {
+      preferences.push(`node: ${nodeTypeToPrettyString(res.node)}`);
+    }
+
+    if (res.timePreference !== undefined) {
+      preferences.push(`time preference: ${res.timePreference}`);
+    }
+
+    const info =
+      preferences.length > 0 ? preferences.join(', ') : 'no preferences';
     this.logger.debug(`Invoice payment hook for ${swapId} returned ${info}`);
   };
 

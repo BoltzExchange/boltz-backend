@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { defaultRegtestNodesPw } from '../../lib/Config';
 import Logger from '../../lib/Logger';
+import ArkClient from '../../lib/chain/ArkClient';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
 import Redis from '../../lib/db/Redis';
@@ -82,6 +83,13 @@ export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
     certChainPath: `${clnHoldPath}/client.pem`,
   },
 });
+
+export const arkClient = new ArkClient(Logger.disabledLogger, {
+  host: '127.0.0.1',
+  port: 7000,
+});
+
+export const aspUrl = 'http://localhost:7070';
 
 export const waitForClnChainSync = () =>
   new Promise<void>((resolve) => {

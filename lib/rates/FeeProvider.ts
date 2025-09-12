@@ -9,6 +9,7 @@ import {
   stringify,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
+import ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import { etherDecimals, gweiDecimals } from '../consts/Consts';
 import {
@@ -393,6 +394,26 @@ class FeeProvider {
         break;
       }
 
+      case ArkClient.symbol:
+        // ARK is 0 fee for now
+        this.minerFees.set(chainCurrency, {
+          [SwapVersion.Taproot]: {
+            normal: 0,
+            reverse: {
+              claim: 0,
+              lockup: 0,
+            },
+          },
+          [SwapVersion.Legacy]: {
+            normal: 0,
+            reverse: {
+              claim: 0,
+              lockup: 0,
+            },
+          },
+        });
+        break;
+
       case Ethereum.symbol:
       case Rsk.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
@@ -421,7 +442,7 @@ class FeeProvider {
         break;
       }
 
-      // If it is not BTC, LTC or ETH, it is an ERC20 token
+      // If it is not BTC, LTC, ETH or ARK, it is an ERC20 token
       default: {
         const networkSymbol = this.walletManager.ethereumManagers.find(
           (manager) => manager.hasSymbol(chainCurrency),

@@ -52,13 +52,16 @@ pub struct RpcRequest<'a> {
     pub params: Option<&'a [RpcParam<'a>]>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RpcError {
     pub message: String,
 }
 
-#[derive(Deserialize)]
-pub struct RpcResponse<T> {
+#[derive(Deserialize, Debug)]
+pub struct RpcResponse<T>
+where
+    T: std::fmt::Debug,
+{
     pub result: Option<T>,
     pub error: Option<RpcError>,
 }

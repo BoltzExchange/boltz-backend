@@ -399,7 +399,7 @@ pub mod test {
 
     const PORT: u16 = 18_443;
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     struct AddressInfo {
         labels: Vec<String>,
     }

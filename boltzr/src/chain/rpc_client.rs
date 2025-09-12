@@ -64,7 +64,7 @@ impl RpcClient {
     }
 
     #[instrument(name = "RpcClient::request", skip(self), fields(symbol = self.symbol))]
-    pub async fn request<T: DeserializeOwned>(
+    pub async fn request<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
         params: Option<&[RpcParam<'_>]>,
@@ -73,7 +73,7 @@ impl RpcClient {
     }
 
     #[instrument(name = "RpcClient::request_wallet", skip(self), fields(symbol = self.symbol))]
-    pub async fn request_wallet<T: DeserializeOwned>(
+    pub async fn request_wallet<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
         params: Option<&[RpcParam<'_>]>,
@@ -83,7 +83,7 @@ impl RpcClient {
     }
 
     #[instrument(name = "RpcClient::request_batch", skip(self, params), fields(symbol = self.symbol))]
-    pub async fn request_batch<T: DeserializeOwned>(
+    pub async fn request_batch<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         method: &str,
         params: &[Vec<RpcParam<'_>>],
@@ -120,7 +120,7 @@ impl RpcClient {
             .collect::<Vec<anyhow::Result<T>>>())
     }
 
-    async fn request_internal<T: DeserializeOwned>(
+    async fn request_internal<T: DeserializeOwned + std::fmt::Debug>(
         &self,
         endpoint: &str,
         method: &str,
@@ -204,5 +204,28 @@ mod test {
             .await
             .unwrap();
         assert!(res.starts_with("bcrt1"));
+    }
+
+    #[tokio::test]
+    async fn test_request_not_found() {
+        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
+        let res = client
+            .request::<String>("notfound", None)
+            .await
+            .unwrap_err();
+        assert_eq!(res.to_string(), "Method not found");
+    }
+
+    #[tokio::test]
+    async fn test_request_invalid_param() {
+        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
+        let res = client
+            .request::<String>(
+                "getnewaddress",
+                Some(&[RpcParam::Str(""), RpcParam::Str("invalid")]),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(res.to_string(), "Unknown address type 'invalid'");
     }
 }

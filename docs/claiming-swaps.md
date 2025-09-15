@@ -261,11 +261,11 @@ refund transaction, in case refund info stored by the API client is lost.
 
 Alternatively, a rescue key, which is represented as a 12 word mnemonic, can be
 used to obtain all necessary swap info from Boltz without revealing refund keys.
-The advantage is, that one refund key is valid for all swaps created with it.
+The advantage is, that one rescue key is valid for all swaps created with it.
 
-All clients that offer the option for users to save refund files should format
-them in a standardized way. This is necessary for refund files to work with
-[Boltz Web App](https://boltz.exchange/refund/external).
+All clients that offer the option for users to save refund files or rescue keys
+should format them in a standardized way. This is necessary for refund files to
+work with [Boltz Web App](https://boltz.exchange/refund/external).
 
 The default refund files format accepted by Boltz Web App is `JSON` , but Boltz
 parses files with other extension too and treats them as raw `JSON`.

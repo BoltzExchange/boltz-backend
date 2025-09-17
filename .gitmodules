@@ -1,3 +1,6 @@
+[submodule "regtest"]
+	path = regtest
+	url = https://github.com/BoltzExchange/regtest.git
 [submodule "hold"]
 	path = hold
-	url = https://github.com/boltzExchange/hold
+	url = https://github.com/BoltzExchange/hold.git

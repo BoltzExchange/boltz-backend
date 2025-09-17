@@ -414,8 +414,9 @@ pub mod test {
             Config {
                 host: "127.0.0.1".to_string(),
                 port: PORT,
-                user: Some("boltz".to_string()),
-                password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+                user: Some("backend".to_string()),
+                password: Some("DPGn0yNNWN5YvBBeRX2kEcJBwv8zwrw9Mw9nkIl05o4".to_string()),
+                wallet: Some("regtest".to_string()),
                 ..Default::default()
             },
         )
@@ -425,14 +426,14 @@ pub mod test {
     pub async fn generate_block(client: &ChainClient) {
         client
             .client
-            .request::<serde_json::Value>(
+            .request_wallet::<serde_json::Value>(
                 "generatetoaddress",
                 Some(&[
                     RpcParam::Int(1),
                     RpcParam::Str(
                         &client
                             .client
-                            .request::<String>("getnewaddress", None)
+                            .request_wallet::<String>("getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -445,13 +446,13 @@ pub mod test {
     pub async fn send_transaction(client: &ChainClient) -> Transaction {
         let tx_id = client
             .client
-            .request::<String>(
+            .request_wallet::<String>(
                 "sendtoaddress",
                 Some(&[
                     RpcParam::Str(
                         &client
                             .client
-                            .request::<String>("getnewaddress", None)
+                            .request_wallet::<String>("getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -475,7 +476,7 @@ pub mod test {
     async fn get_address_info(client: &ChainClient, address: &str) -> AddressInfo {
         client
             .client
-            .request::<AddressInfo>("getaddressinfo", Some(&[RpcParam::Str(address)]))
+            .request_wallet::<AddressInfo>("getaddressinfo", Some(&[RpcParam::Str(address)]))
             .await
             .unwrap()
     }

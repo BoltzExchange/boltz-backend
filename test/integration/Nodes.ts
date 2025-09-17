@@ -1,5 +1,4 @@
 import { resolve } from 'path';
-import { defaultRegtestNodesPw } from '../../lib/Config';
 import Logger from '../../lib/Logger';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
@@ -17,8 +16,9 @@ export const bitcoinClient = new ChainClient(
   {
     host,
     port: 18443,
-    user: 'boltz',
-    password: defaultRegtestNodesPw,
+    wallet: 'regtest',
+    user: 'backend',
+    password: 'DPGn0yNNWN5YvBBeRX2kEcJBwv8zwrw9Mw9nkIl05o4',
   },
   'BTC',
 );
@@ -26,8 +26,9 @@ export const bitcoinClient = new ChainClient(
 export const elementsConfig = {
   host,
   port: 18884,
-  user: 'boltz',
-  password: defaultRegtestNodesPw,
+  wallet: 'regtest',
+  user: 'regtest',
+  password: 'regtest',
 };
 export const elementsClient = new ElementsClient(
   Logger.disabledLogger,
@@ -36,50 +37,43 @@ export const elementsClient = new ElementsClient(
   elementsConfig,
 );
 
-export const lndDataPath = `${resolve(
-  __dirname,
-  '..',
-  '..',
-)}/docker/regtest/data/lnd`;
+export const lndDataPath = (number: number) =>
+  `${resolve(__dirname, '..', '..')}/regtest/data/lnd${number}`;
 
 export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
   host,
   port: 10009,
-  certpath: `${lndDataPath}/certificates/tls.cert`,
-  macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+  certpath: `${lndDataPath(1)}/tls.cert`,
+  macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
   maxPaymentFeeRatio: 0.01,
 });
 
 export const bitcoinLndClient2 = new LndClient(Logger.disabledLogger, 'BTC', {
   host,
-  port: 10011,
-  certpath: `${lndDataPath}/certificates/tls.cert`,
-  macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+  port: 11009,
+  certpath: `${lndDataPath(2)}/tls.cert`,
+  macaroonpath: `${lndDataPath(2)}/data/chain/bitcoin/regtest/admin.macaroon`,
   maxPaymentFeeRatio: 0.01,
 });
 
-export const clnDataPath = `${resolve(
-  __dirname,
-  '..',
-  '..',
-)}/docker/regtest/data/cln`;
+export const clnDataPath = (number: number) =>
+  `${resolve(__dirname, '..', '..')}/regtest/data/cln${number}/regtest`;
 
-export const clnCertsPath = `${clnDataPath}/certs`;
-export const clnHoldPath = `${clnDataPath}/hold`;
+export const clnHoldPath = (number: number) => `${clnDataPath(number)}/hold`;
 
 export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
   host: host,
-  port: 9291,
+  port: 9736,
   maxPaymentFeeRatio: 0.01,
-  rootCertPath: `${clnCertsPath}/ca.pem`,
-  privateKeyPath: `${clnCertsPath}/client-key.pem`,
-  certChainPath: `${clnCertsPath}/client.pem`,
+  rootCertPath: `${clnDataPath(1)}/ca.pem`,
+  privateKeyPath: `${clnDataPath(1)}/client-key.pem`,
+  certChainPath: `${clnDataPath(1)}/client.pem`,
   hold: {
     host: host,
     port: 9292,
-    rootCertPath: `${clnHoldPath}/ca.pem`,
-    privateKeyPath: `${clnHoldPath}/client-key.pem`,
-    certChainPath: `${clnHoldPath}/client.pem`,
+    rootCertPath: `${clnHoldPath(1)}/ca.pem`,
+    privateKeyPath: `${clnHoldPath(1)}/client-key.pem`,
+    certChainPath: `${clnHoldPath(1)}/client.pem`,
   },
 });
 

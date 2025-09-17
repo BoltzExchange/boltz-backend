@@ -13,6 +13,7 @@ export default [
       'dist',
       'tools',
       '.venv',
+      'regtest',
       'lib/proto',
       'contracts',
       'node_modules',

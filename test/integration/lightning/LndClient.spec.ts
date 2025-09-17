@@ -164,8 +164,8 @@ describe('LndClient', () => {
         `${serverHost}:${serverPort}`,
         grpc.ServerCredentials.createSsl(null, [
           {
-            cert_chain: readFileSync(`${lndDataPath}/certificates/tls.cert`),
-            private_key: readFileSync(`${lndDataPath}/certificates/tls.key`),
+            cert_chain: readFileSync(`${lndDataPath(1)}/tls.cert`),
+            private_key: readFileSync(`${lndDataPath(1)}/tls.key`),
           },
         ]),
         (_, port) => {
@@ -180,8 +180,8 @@ describe('LndClient', () => {
     const lndClient = new LndClient(Logger.disabledLogger, 'MOCK', {
       host: serverHost,
       port: serverPort,
-      certpath: `${lndDataPath}/certificates/tls.cert`,
-      macaroonpath: `${lndDataPath}/macaroons/admin.macaroon`,
+      certpath: `${lndDataPath(1)}/tls.cert`,
+      macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
       maxPaymentFeeRatio: maxPaymentFeeRatio,
     });
     await lndClient.connect(false);

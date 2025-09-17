@@ -346,7 +346,7 @@ impl MempoolSpace {
         let len = vec.len();
         let mid = len / 2;
 
-        Some(if len % 2 == 0 {
+        Some(if len.is_multiple_of(2) {
             let left = vec[mid - 1];
             let right = vec[mid];
             (left + right) / 2.0

@@ -70,10 +70,10 @@
     "dist/**/!(tsconfig.tsbuildinfo)"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/grpc-js": "^1.14.0",
     "@iarna/toml": "^2.2.5",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.205.0",
@@ -86,7 +86,7 @@
     "@pyroscope/nodejs": "^0.4.5",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
-    "axios": "^1.12.0",
+    "axios": "^1.12.2",
     "bip32": "^4.0.0",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.7",
@@ -125,12 +125,12 @@
     "@types/node-schedule": "^2.1.8",
     "@types/pg": "^8.15.5",
     "@types/yargs": "^17.0.33",
-    "@typescript-eslint/parser": "^8.43.0",
+    "@typescript-eslint/parser": "^8.44.0",
     "cross-os": "^1.5.0",
     "eslint": "^9.35.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jest": "^29.0.1",
-    "eslint-plugin-n": "^17.21.3",
+    "eslint-plugin-n": "^17.23.0",
     "eslint-plugin-node": "^11.1.0",
     "git-cliff": "^2.10.0",
     "globals": "^16.4.0",
@@ -140,9 +140,9 @@
     "prettier": "^3.6.2",
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
-    "ts-jest": "^29.4.1",
+    "ts-jest": "^29.4.2",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.43.0",
+    "typescript-eslint": "^8.44.0",
     "vitepress": "^1.6.4"
   },
   "optionalDependencies": {

@@ -47,7 +47,7 @@ class AspClient {
 
   public getTx = async (txId: string): Promise<Transaction> => {
     const res = await axios.get<{ txs: string[] }>(
-      `${this.url}/v1/virtualTx/${txId}`,
+      `${this.url}/v1/indexer/virtualTx/${txId}`,
     );
     if (res.data.txs.length === 0) {
       throw new Error('transaction not found');

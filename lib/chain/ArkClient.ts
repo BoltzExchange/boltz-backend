@@ -27,6 +27,8 @@ export type ArkConfig = {
   host: string;
   port: number;
 
+  asp?: string;
+
   minWalletBalance?: number;
   maxZeroConfAmount?: number;
 
@@ -138,7 +140,7 @@ class ArkClient extends BaseClient<
 
     try {
       const info = await this.getInfo();
-      this.aspClient = new AspClient(info.serverUrl);
+      this.aspClient = new AspClient(this.config.asp ?? info.serverUrl);
       this.logger.debug(
         `Connected to ASP with pubkey: ${(await this.aspClient.getInfo()).signerPubkey}`,
       );

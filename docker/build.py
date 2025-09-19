@@ -179,6 +179,7 @@ def build_images(
             tag = branch
 
         build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
+        build_args.append(f"VERSION={tag if tag != 'latest' else branch}")
 
         # Add the prefix "--build-arg " to every entry and
         # join the array to a string

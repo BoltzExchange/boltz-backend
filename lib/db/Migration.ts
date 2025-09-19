@@ -163,6 +163,12 @@ class Migration {
       return;
     }
 
+    if (versionRow.version > Migration.latestSchemaVersion) {
+      throw new Error(
+        `found future database schema version ${versionRow.version}; latest version is ${Migration.latestSchemaVersion}`,
+      );
+    }
+
     this.logOutdatedVersion(versionRow.version);
 
     switch (versionRow.version) {

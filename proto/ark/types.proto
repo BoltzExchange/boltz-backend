@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package fulmine.v1;
+
+message AccountInfo {
+  string namespace = 1;
+  string label = 2;
+  string derivation_path = 3;
+  string xpubs = 4;
+}
+
+message BlockDetails {
+  string hash = 1;
+  uint64 height = 2;
+  int64 timestamp = 3;
+}
+
+message BuildInfo {
+  string version = 1;
+  string commit = 2;
+  string date = 3;
+}
+
+message Fees {
+  uint64 boltz = 1;
+  uint64 network = 2;
+}
+
+message Input {
+  string txid = 1;
+  uint32 vout = 2;
+}
+
+message Node {
+  string txid = 1;
+  string tx = 2;
+  string parent_txid = 3;
+}
+
+message Output {
+  string pubkey = 1;
+  uint64 amount = 2;
+}
+
+message Round {
+  string id = 1;
+  int64 start = 2;
+  int64 end = 3;
+}
+
+message TransactionInfo {
+  string date = 1;
+  uint64 amount = 2;
+  string commitment_txid = 3;
+  string ark_txid = 4;
+  string boarding_txid = 5;
+  TxType type = 6; 
+  bool settled = 7;
+}
+
+message Tree {
+  repeated TreeLevel levels = 1;
+}
+
+message TreeLevel {
+  repeated Node nodes = 1;
+}
+
+message Vtxo {
+  Input outpoint = 1;
+  int64 created_at = 2;
+  int64 expires_at = 3;
+  repeated string commitment_txids = 4;
+  bool is_preconfirmed = 5;
+  bool is_swept = 6;
+  bool is_unrolled = 7;
+  bool is_spent = 8;
+  string spent_by = 9;
+  string settled_by = 10;
+  string ark_txid = 11;
+  string script = 12;
+  uint64 amount = 13;
+}
+
+message TxData {
+  string txid = 1;
+  string tx = 2;
+}
+
+message Notification {
+  repeated string addresses = 1;
+  repeated Vtxo new_vtxos = 2;
+  repeated Vtxo spent_vtxos = 3;
+  string txid = 4;
+  string tx = 5;
+  map<string, TxData> checkpoints = 6;
+}
+
+enum RoundEventType {
+  ROUND_EVENT_TYPE_UNSPECIFIED = 0;
+  ROUND_EVENT_TYPE_BROADCASTED = 1;
+  ROUND_EVENT_TYPE_UNCONFIRMED = 2;
+  ROUND_EVENT_TYPE_CONFIRMED = 3;
+}
+
+enum WebhookEventType {
+  WEBHOOK_EVENT_TYPE_UNSPECIFIED = 0;
+  WEBHOOK_EVENT_TYPE_ROUND = 1;
+}
+
+enum TxType {
+  TX_TYPE_UNSPECIFIED = 0;
+  TX_TYPE_SENT = 1;
+  TX_TYPE_RECEIVED = 2;
+}

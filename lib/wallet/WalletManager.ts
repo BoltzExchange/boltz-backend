@@ -12,6 +12,7 @@ import * as ecc from 'tiny-secp256k1';
 import type { CurrencyConfig } from '../Config';
 import type Logger from '../Logger';
 import { splitDerivationPath } from '../Utils';
+import type ArkClient from '../chain/ArkClient';
 import type { IChainClient } from '../chain/ChainClient';
 import { CurrencyType } from '../consts/Enums';
 import type { KeyProviderType } from '../db/models/KeyProvider';
@@ -22,6 +23,7 @@ import Errors from './Errors';
 import Wallet from './Wallet';
 import WalletLiquid from './WalletLiquid';
 import type EthereumManager from './ethereum/EthereumManager';
+import ArkWallet from './providers/ArkWallet';
 import CoreWalletProvider from './providers/CoreWalletProvider';
 import ElementsWalletProvider from './providers/ElementsWalletProvider';
 import type WalletProviderInterface from './providers/WalletProviderInterface';
@@ -45,6 +47,9 @@ type Currency = {
   lndClient?: LndClient;
   clnClient?: ClnClient;
   chainClient?: IChainClient;
+
+  // Needed for ARK
+  arkNode?: ArkClient;
 
   // Needed for Ether and tokens on Ethereum
   provider?: Provider;
@@ -179,6 +184,20 @@ class WalletManager {
 
       for (const [symbol, ethereumWallet] of ethereumWallets) {
         this.wallets.set(symbol, ethereumWallet);
+      }
+    }
+
+    {
+      const ark = this.currencies.find((c) => c.type === CurrencyType.Ark);
+      if (ark !== undefined) {
+        this.wallets.set(
+          ark.symbol,
+          new Wallet(
+            this.logger,
+            CurrencyType.Ark,
+            new ArkWallet(this.logger, ark.arkNode!),
+          ),
+        );
       }
     }
   };

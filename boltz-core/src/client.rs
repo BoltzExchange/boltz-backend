@@ -6,8 +6,6 @@ use serde_json::json;
 use std::sync::Arc;
 
 const REGTEST_HOST: &str = "127.0.0.1";
-const REGTEST_USER: &str = "boltz";
-const REGTEST_PASSWORD: &str = "anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI";
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -57,9 +55,9 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    pub fn new(host: &str, port: u16, user: &str, password: &str) -> Self {
+    pub fn new(host: &str, port: u16, user: &str, password: &str, wallet: &str) -> Self {
         Self {
-            endpoint: format!("http://{host}:{port}"),
+            endpoint: format!("http://{host}:{port}/wallet/{wallet}"),
             cookie: format!(
                 "Basic {}",
                 BASE64_STANDARD.encode(format!("{user}:{password}").as_bytes())
@@ -69,11 +67,17 @@ impl RpcClient {
     }
 
     pub fn new_bitcoin_regtest() -> Self {
-        Self::new(REGTEST_HOST, 18443, REGTEST_USER, REGTEST_PASSWORD)
+        Self::new(
+            REGTEST_HOST,
+            18443,
+            "backend",
+            "DPGn0yNNWN5YvBBeRX2kEcJBwv8zwrw9Mw9nkIl05o4",
+            "regtest",
+        )
     }
 
     pub fn new_elements_regtest() -> Self {
-        Self::new(REGTEST_HOST, 18884, REGTEST_USER, REGTEST_PASSWORD)
+        Self::new(REGTEST_HOST, 18884, "regtest", "regtest", "regtest")
     }
 
     pub fn request<T: DeserializeOwned + std::fmt::Debug>(

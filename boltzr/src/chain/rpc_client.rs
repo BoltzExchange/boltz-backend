@@ -162,15 +162,18 @@ mod test {
         Config {
             host: "127.0.0.1".to_string(),
             port: 18_443,
-            user: Some("boltz".to_string()),
-            password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+            user: Some("backend".to_string()),
+            password: Some("DPGn0yNNWN5YvBBeRX2kEcJBwv8zwrw9Mw9nkIl05o4".to_string()),
+            wallet: Some("regtest".to_string()),
             ..Default::default()
         }
     }
 
     #[test]
     fn test_wallet_endpoint() {
-        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
+        let mut config_no_wallet = get_config();
+        config_no_wallet.wallet = None;
+        let client = RpcClient::new("BTC".to_string(), config_no_wallet).unwrap();
         assert_eq!(client.endpoint, client.endpoint_wallet);
 
         let mut config = get_config();
@@ -186,19 +189,13 @@ mod test {
     #[tokio::test]
     async fn test_request() {
         let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
-        let res = client
-            .request::<String>("getnewaddress", None)
-            .await
-            .unwrap();
-        assert!(res.starts_with("bcrt1"));
+        let res = client.request::<u64>("getblockcount", None).await.unwrap();
+        assert!(res > 0);
     }
 
     #[tokio::test]
     async fn test_request_wallet() {
-        let mut config = get_config();
-        config.wallet = Some("default".to_string());
-
-        let client = RpcClient::new("BTC".to_string(), config.clone()).unwrap();
+        let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
         let res = client
             .request_wallet::<String>("getnewaddress", None)
             .await
@@ -220,7 +217,7 @@ mod test {
     async fn test_request_invalid_param() {
         let client = RpcClient::new("BTC".to_string(), get_config()).unwrap();
         let res = client
-            .request::<String>(
+            .request_wallet::<String>(
                 "getnewaddress",
                 Some(&[RpcParam::Str(""), RpcParam::Str("invalid")]),
             )

@@ -40,14 +40,8 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
-      - name: Start PostgreSQL
-        run: npm run db:start
-
-      - name: Start containers
-        run: npm run docker:regtest && npm run docker:solidity
-
-      - name: Deploy Ethereum contracts
-        run: npm run docker:solidity:deploy
+      - name: Start regtest
+        run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
       - name: Build cache
         uses: actions/cache@v4
@@ -70,11 +64,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Start hold invoice plugin
-        run: npm run docker:cln:hold
-
       - name: Unit tests
-        run: npm run test:unit
+        run: npm run test:unit -- -w 2
 
       - name: Integration tests
         run: node run-int.js
@@ -120,14 +111,8 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
-      - name: Start PostgreSQL
-        run: npm run db:start
-
-      - name: Start containers
-        run: npm run docker:regtest && npm run docker:solidity
-
-      - name: Deploy Ethereum contracts
-        run: npm run docker:solidity:deploy
+      - name: Start regtest
+        run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
       - name: Build cache
         uses: actions/cache@v4
@@ -149,9 +134,6 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Start hold invoice plugin
-        run: npm run docker:cln:hold
 
       - name: Tests
         run: cargo test

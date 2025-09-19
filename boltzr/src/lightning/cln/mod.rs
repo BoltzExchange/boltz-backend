@@ -317,8 +317,8 @@ pub mod test {
         }
     }
 
-    const CLN_CERTS_PATH: &str = "../docker/regtest/data/cln/certs";
-    const HOLD_CERTS_PATH: &str = "../docker/regtest/data/cln/hold";
+    const CLN_CERTS_PATH: &str = "../regtest/data/cln1/regtest/";
+    const HOLD_CERTS_PATH: &str = "../regtest/data/cln1/regtest/hold";
 
     pub async fn cln_client() -> Cln {
         let mut offer_helper = crate::db::helpers::offer::test::MockOfferHelper::new();
@@ -337,7 +337,7 @@ pub mod test {
             &Config {
                 cln: hold::Config {
                     host: "127.0.0.1".to_string(),
-                    port: 9291,
+                    port: 9736,
                     root_cert_path: Path::new(CLN_CERTS_PATH)
                         .join("ca.pem")
                         .to_str()

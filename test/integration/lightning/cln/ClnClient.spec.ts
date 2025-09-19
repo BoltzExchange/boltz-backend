@@ -47,10 +47,8 @@ describe('ClnClient', () => {
   });
 
   test('should parse node URIs in getinfo', async () => {
-    const { pubkey, uris } = await clnClient.getInfo();
-
-    expect(uris).toHaveLength(1);
-    expect(uris[0]).toEqual(`${pubkey}@127.0.0.1:9737`);
+    const { uris } = await clnClient.getInfo();
+    expect(uris).toHaveLength(0);
   });
 
   describe('addHoldInvoice', () => {
@@ -396,11 +394,11 @@ describe('ClnClient', () => {
       ),
     ).resolves.toEqual([]);
 
-    const channels = await clnClient.listChannels(false, true);
+    const channels = await clnClient.listChannels(false, false);
     expect(channels.length).toBeGreaterThan(0);
 
     const routingHints = await clnClient.routingHints(channels[0].remotePubkey);
-    expect(routingHints).toHaveLength(1);
+    expect(routingHints).toHaveLength(0);
   });
 
   test.each`

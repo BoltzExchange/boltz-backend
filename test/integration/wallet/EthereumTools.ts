@@ -3,8 +3,8 @@ import { ContractABIs } from 'boltz-core';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import type { Block, Provider, Signer, TransactionResponse } from 'ethers';
-import { Contract, JsonRpcProvider, Wallet, getCreateAddress } from 'ethers';
+import type { Signer } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 
 export type EthereumSetup = {
   mnemonic: string;
@@ -65,34 +65,6 @@ export const waitForTransactionHash = async (
   await transaction!.wait(1);
 };
 
-class TransactionIterator {
-  private static readonly firstBlock = 1;
-
-  private block?: Block;
-  private txCount = 0;
-
-  constructor(private provider: Provider) {}
-
-  public getNextTransaction = async (): Promise<TransactionResponse | null> => {
-    if (this.block === undefined) {
-      this.block = (await this.provider.getBlock(
-        TransactionIterator.firstBlock,
-      ))!;
-    }
-
-    if (this.txCount < this.block.transactions.length) {
-      this.txCount++;
-      return this.provider.getTransaction(
-        this.block.transactions[this.txCount - 1],
-      );
-    } else {
-      this.txCount = 0;
-      this.block = (await this.provider.getBlock(this.block.number + 1))!;
-      return this.getNextTransaction();
-    }
-  };
-}
-
 export const getContracts = async (
   signer: Signer,
 ): Promise<{
@@ -100,23 +72,21 @@ export const getContracts = async (
   etherSwap: EtherSwap;
   erc20Swap: ERC20Swap;
 }> => {
-  const contractsAbis = [
-    ContractABIs.EtherSwap,
-    ContractABIs.ERC20Swap,
-    ContractABIs.ERC20,
-  ];
-  const contracts: any[] = [];
-
-  const iter = new TransactionIterator(signer.provider!);
-
-  for (const abi of contractsAbis) {
-    const tx = await iter.getNextTransaction();
-    contracts.push(new Contract(getCreateAddress(tx!), abi, signer));
-  }
-
   return {
-    etherSwap: contracts[0],
-    erc20Swap: contracts[1],
-    token: contracts[2],
+    etherSwap: new Contract(
+      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      ContractABIs.EtherSwap,
+      signer,
+    ) as unknown as EtherSwap,
+    erc20Swap: new Contract(
+      '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      ContractABIs.ERC20Swap,
+      signer,
+    ) as unknown as ERC20Swap,
+    token: new Contract(
+      '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      ContractABIs.ERC20,
+      signer,
+    ) as unknown as ERC20,
   };
 };

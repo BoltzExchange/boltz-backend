@@ -107,25 +107,6 @@ IMAGES: dict[str, Image] = {
             NODE_VERSION,
         ],
     ),
-    "regtest": Image(
-        tag="4.9.4",
-        arguments=[
-            UBUNTU_VERSION,
-            BITCOIN_BUILD_ARG,
-            BuildArgument(
-                name="ELEMENTS_VERSION",
-                value=ELEMENTS_VERSION,
-            ),
-            BuildArgument(
-                name="LND_VERSION",
-                value=LND_VERSION,
-            ),
-            BuildArgument(
-                name="C_LIGHTNING_VERSION",
-                value=C_LIGHTNING_VERSION,
-            ),
-        ],
-    ),
 }
 
 
@@ -198,10 +179,6 @@ def build_images(
             tag = branch
 
         build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
-
-        # The regtest image doesn't need the version as a build flag
-        if image != "regtest":
-            build_args.append(f"VERSION={tag if tag != 'latest' else branch}")
 
         # Add the prefix "--build-arg " to every entry and
         # join the array to a string

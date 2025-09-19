@@ -201,8 +201,9 @@ pub mod test {
         let config = Config {
             host: "127.0.0.1".to_string(),
             port: 18_884,
-            user: Some("boltz".to_string()),
-            password: Some("anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI".to_string()),
+            user: Some("regtest".to_string()),
+            password: Some("regtest".to_string()),
+            wallet: Some("regtest".to_string()),
             ..Default::default()
         };
 
@@ -231,14 +232,14 @@ pub mod test {
         let tx_id = client
             .wallet_client()
             .client
-            .request::<String>(
+            .request_wallet::<String>(
                 "sendtoaddress",
                 Some(&[
                     RpcParam::Str(
                         &client
                             .wallet_client()
                             .client
-                            .request::<String>("getnewaddress", None)
+                            .request_wallet::<String>("getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -264,7 +265,7 @@ pub mod test {
         client
             .wallet_client()
             .client
-            .request::<serde_json::Value>(
+            .request_wallet::<serde_json::Value>(
                 "generatetoaddress",
                 Some(&[
                     RpcParam::Int(1),
@@ -272,7 +273,7 @@ pub mod test {
                         &client
                             .wallet_client()
                             .client
-                            .request::<String>("getnewaddress", None)
+                            .request_wallet::<String>("getnewaddress", None)
                             .await
                             .unwrap(),
                     ),

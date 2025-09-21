@@ -1,4 +1,4 @@
-import type { ConfigType } from '../Config';
+import type { ConfigType, SwapConfig } from '../Config';
 import type Logger from '../Logger';
 import {
   formatError,
@@ -70,6 +70,7 @@ class TimeoutDeltaProvider {
     private readonly sidecar: Sidecar,
     private readonly currencies: Map<string, Currency>,
     private readonly nodeSwitch: NodeSwitch,
+    private readonly swapConfig: Pick<SwapConfig, 'cltvDelta'>,
   ) {
     this.routingOffsets = new RoutingOffsets(this.logger, config);
   }
@@ -154,7 +155,7 @@ class TimeoutDeltaProvider {
       swap.timeoutBlockHeight - currentBlock,
     );
 
-    return Math.floor(blocksLeft - 20);
+    return Math.floor(blocksLeft - this.swapConfig.cltvDelta);
   };
 
   public getTimeout = async (

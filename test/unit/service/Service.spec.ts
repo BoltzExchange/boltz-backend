@@ -784,6 +784,9 @@ describe('Service', () => {
     new NodeSwitch(Logger.disabledLogger),
     currencies,
     sidecar,
+    {
+      cltvDelta: 20,
+    },
   );
 
   // Inject a mocked SwapManager

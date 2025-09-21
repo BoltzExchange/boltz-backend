@@ -178,6 +178,7 @@ class Boltz {
         new NodeSwitch(this.logger, this.config.nodeSwitch),
         this.currencies,
         this.sidecar,
+        this.config.swap,
       );
 
       if (notificationClient !== undefined) {

@@ -459,6 +459,13 @@ class Config {
       deepMerge(this.config, this.getDataDirPaths(this.config.datadir));
     }
 
+    if (!tomlConfig?.grpc?.certificates) {
+      this.config.grpc.certificates = path.join(
+        this.config.datadir,
+        'certificates',
+      );
+    }
+
     deepMerge(this.config, tomlConfig);
 
     if (args.currencies) {

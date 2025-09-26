@@ -11,6 +11,7 @@ import {
 } from '../Utils';
 import ElementsClient from '../chain/ElementsClient';
 import {
+  CurrencyType,
   OrderSide,
   SwapType,
   SwapVersion,
@@ -56,6 +57,7 @@ class TimeoutDeltaProvider {
     ['BTC', 10],
     ['LTC', 2.5],
     [Rsk.symbol, 0.5],
+    ['ARK', 10],
     [Ethereum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);
@@ -85,6 +87,8 @@ class TimeoutDeltaProvider {
     // reverse swap which has to be longer than the second one
     return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   };
+
+  public static minutesToSeconds = (minutes: number) => Math.ceil(minutes * 60);
 
   public init = (
     pairs: PairConfig[],
@@ -144,9 +148,24 @@ class TimeoutDeltaProvider {
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
-    const currentBlock = chainCurrency.chainClient
-      ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
-      : await chainCurrency.provider!.getBlockNumber();
+    let currentBlock: number;
+
+    switch (chainCurrency.type) {
+      case CurrencyType.Ark:
+        currentBlock = await chainCurrency.arkNode!.getBlockHeight();
+        break;
+
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
+        currentBlock = (await chainCurrency.chainClient!.getBlockchainInfo())
+          .blocks;
+        break;
+
+      case CurrencyType.Ether:
+      case CurrencyType.ERC20:
+        currentBlock = await chainCurrency.provider!.getBlockNumber();
+        break;
+    }
 
     const blocksLeft = TimeoutDeltaProvider.convertBlocks(
       chainCurrency.symbol,

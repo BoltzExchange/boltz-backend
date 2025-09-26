@@ -214,7 +214,7 @@ mod test {
     const ROUTER: &str = "0x244f68E77357f86A8522323EbF80B5FC2f814d3E";
 
     const WRBTC: &str = "0x542fda317318ebf1d3deaf76e0b632741a7e677d";
-    const USDT: &str = "0xaf368c91793cb22739386dfcbbb2f1a9e4bcbebf";
+    const USDT: &str = "0x779ded0c9e1022225f8e0630b35a9b54be713736";
 
     fn get_provider() -> impl Provider<AnyNetwork> + Clone + 'static {
         ProviderBuilder::new()

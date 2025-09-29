@@ -124,6 +124,9 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private checkClaims = async (arkNode: ArkClient, vHtlc: SpentVHtlc) => {
+    this.logger.debug(
+      `Checking claims for ${ArkClient.symbol} vHTLC in: ${vHtlc.spentBy}`,
+    );
     const claimTx = await arkNode.aspClient.getTx(vHtlc.spentBy);
     for (const preimage of ArkNursery.extractPreimages(claimTx)) {
       const preimageHash = createHash('sha256').update(preimage).digest('hex');

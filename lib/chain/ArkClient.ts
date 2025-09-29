@@ -96,6 +96,10 @@ class ArkClient extends BaseClient<
     };
   };
 
+  public get lockTimeInSeconds(): boolean {
+    return this.useLocktimeSeconds;
+  }
+
   public connect = async (chainClient: IChainClient): Promise<boolean> => {
     if (chainClient === undefined) {
       throw new Error('BTC chain client is required for ARK node connection');

@@ -1369,6 +1369,9 @@ class Service {
     }
 
     const { base, quote } = splitPairId(swap.pair);
+    const chainCurrency = this.currencies.get(
+      getChainCurrency(base, quote, swap.orderSide, false),
+    )!;
     const lightningCurrency = getLightningCurrency(
       base,
       quote,
@@ -1377,7 +1380,10 @@ class Service {
     );
 
     const [cltvLimit, decodedInvoice] = await Promise.all([
-      this.timeoutDeltaProvider.getCltvLimit(swap),
+      this.timeoutDeltaProvider.getCltvLimit(
+        swap,
+        chainCurrency.arkNode?.lockTimeInSeconds ?? false,
+      ),
       this.sidecar.decodeInvoiceOrOffer(invoice),
     ]);
     swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);

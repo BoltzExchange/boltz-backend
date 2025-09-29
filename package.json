@@ -27,7 +27,7 @@
     "regtest:db:setup": "docker exec boltz-postgres sh -c \"sleep 5 && psql -U boltz -tc \\\"SELECT 1 FROM pg_database WHERE datname = 'boltz_test'\\\" | grep -q 1 || psql -U boltz -c \\\"CREATE DATABASE boltz_test\\\"\"",
     "regtest:solidity:deploy": "cd node_modules/boltz-core && cp -R ../@openzeppelin node_modules/ && npm run deploy:solidity",
     "regtest:solidity:fund": "./bin/boltz-ethereum send 100000000000 && ./bin/boltz-ethereum send 1000000000 --token",
-    "docker:nginx": "docker run -d --rm --name boltz-nginx --network host -v ./docker/regtest/nginx.conf:/etc/nginx/conf.d/nginx.conf nginx:stable",
+    "docker:nginx": "docker run -d --rm --name boltz-nginx --network host -v ./docker/nginx.conf:/etc/nginx/conf.d/nginx.conf nginx:stable",
     "docker:nginx:stop": "docker stop boltz-nginx",
     "test:unit": "GRPC_NODE_VERBOSITY=NONE jest --testTimeout 10000 test/unit",
     "changelog": "git-cliff -o CHANGELOG.md",

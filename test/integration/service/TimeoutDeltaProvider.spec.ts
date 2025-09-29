@@ -56,6 +56,9 @@ describe('TimeoutDeltaProvider', () => {
       ],
     ]),
     new NodeSwitch(Logger.disabledLogger),
+    {
+      cltvDelta: 20,
+    },
   );
 
   const pair = 'L-BTC/BTC';

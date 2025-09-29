@@ -142,6 +142,7 @@ describe('DeferredClaimer', () => {
       deferredClaimSymbols: ['BTC', 'RBTC', 'TRC', 'DOGE'],
       expiryTolerance: 10,
       batchClaimInterval: '*/15 * * * *',
+      cltvDelta: 20,
     },
   );
 

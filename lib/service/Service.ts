@@ -5,7 +5,7 @@ import type { Provider } from 'ethers';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { Order } from 'sequelize';
 import { Op } from 'sequelize';
-import type { ConfigType } from '../Config';
+import type { ConfigType, SwapConfig } from '../Config';
 import { parseTransaction } from '../Core';
 import type { LogLevel } from '../Logger';
 import type Logger from '../Logger';
@@ -169,6 +169,7 @@ class Service {
     public readonly nodeSwitch: NodeSwitch,
     public currencies: Map<string, Currency>,
     public readonly sidecar: Sidecar,
+    public readonly swapConfig: Pick<SwapConfig, 'cltvDelta'>,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -186,6 +187,7 @@ class Service {
       this.sidecar,
       currencies,
       this.nodeSwitch,
+      this.swapConfig,
     );
     this.rateProvider = new RateProvider(
       this.logger,

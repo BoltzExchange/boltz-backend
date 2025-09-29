@@ -129,6 +129,7 @@ describe('UtxoNursery', () => {
       batchClaimInterval: '',
       expiryTolerance: 10_000,
       deferredClaimSymbols: [],
+      cltvDelta: 20,
     },
     lockupTracker,
     sidecar,

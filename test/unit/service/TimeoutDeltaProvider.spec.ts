@@ -76,6 +76,9 @@ describe('TimeoutDeltaProvider', () => {
     sidecar,
     new Map<string, Currency>(),
     new NodeSwitch(Logger.disabledLogger),
+    {
+      cltvDelta: 20,
+    },
   );
 
   const createDeltas = (val: number): PairTimeoutBlocksDelta => {

@@ -179,6 +179,7 @@ type SwapConfig = {
   deferredClaimSymbols: string[];
   batchClaimInterval: string;
   expiryTolerance: number;
+  cltvDelta: number;
   sweepAmountTrigger?: number;
 
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
@@ -281,6 +282,7 @@ class Config {
         deferredClaimSymbols: ['L-BTC'],
         batchClaimInterval: '*/15 * * * *',
         expiryTolerance: 120,
+        cltvDelta: 20,
       },
 
       api: {

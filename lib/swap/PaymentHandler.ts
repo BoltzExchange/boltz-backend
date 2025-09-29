@@ -3,6 +3,7 @@ import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transact
 import type Logger from '../Logger';
 import {
   formatError,
+  getChainCurrency,
   getHexBuffer,
   getHexString,
   getLightningCurrency,
@@ -117,10 +118,17 @@ class PaymentHandler {
       );
     }
 
-    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
+    const { base, quote } = splitPairId(swap.pair);
+    const chainCurrency = this.currencies.get(
+      getChainCurrency(base, quote, swap.orderSide, false),
+    )!;
+
+    const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(
+      swap,
+      chainCurrency.arkNode?.lockTimeInSeconds ?? false,
+    );
     const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
 
-    const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(
       base,
       quote,

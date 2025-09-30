@@ -491,8 +491,7 @@ class SwapManager {
         },
       ]);
 
-      result.claimPublicKey =
-        (await receivingCurrency.arkNode!.getInfo())!.pubkey;
+      result.claimPublicKey = getHexString(receivingCurrency.arkNode!.pubkey);
       result.address = vHtlc.vHtlc.address;
       result.timeoutBlockHeights = vHtlc.timeouts;
 
@@ -1067,9 +1066,7 @@ class SwapManager {
         },
       ]);
 
-      result.refundPublicKey = (
-        await sendingCurrency.arkNode!.getInfo()
-      ).pubkey;
+      result.refundPublicKey = getHexString(sendingCurrency.arkNode!.pubkey);
       result.lockupAddress = vHtlc.vHtlc.address;
 
       result.timeoutBlockHeights = vHtlc.timeouts;
@@ -1205,6 +1202,7 @@ class SwapManager {
       claimAddress: string | undefined;
       refundAddress: string | undefined;
       tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+      timeouts?: Timeouts;
     }> => {
       const res: Partial<ChainSwapDataType> = {
         swapId: id,
@@ -1216,6 +1214,7 @@ class SwapManager {
       let claimAddress: string | undefined;
       let refundAddress: string | undefined;
       let tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
+      let timeouts: Timeouts | undefined;
 
       if (
         currency.type === CurrencyType.BitcoinLike ||
@@ -1257,6 +1256,26 @@ class SwapManager {
             ).privateKey!,
           );
         }
+      } else if (currency.type === CurrencyType.Ark) {
+        const vHtlc = await currency.arkNode!.createVHtlc(
+          args.preimageHash,
+          arkClaimDelay,
+          timeoutBlockDelta,
+          isSending ? theirPublicKey : undefined,
+          isSending ? undefined : theirPublicKey,
+        );
+        currency.arkNode!.subscription.subscribeAddresses([
+          {
+            address: vHtlc.vHtlc.address,
+            vHtlcId: vHtlc.vHtlc.id,
+          },
+        ]);
+
+        timeouts = vHtlc.timeouts;
+
+        res.theirPublicKey = getHexString(theirPublicKey!);
+        res.lockupAddress = vHtlc.vHtlc.address;
+        res.timeoutBlockHeight = vHtlc.timeouts.refund;
       } else {
         const blockNumber = await currency.provider!.getBlockNumber();
         res.timeoutBlockHeight = blockNumber + timeoutBlockDelta;
@@ -1284,6 +1303,7 @@ class SwapManager {
         blindingKey,
         claimAddress,
         refundAddress,
+        timeouts,
         dbData: res as ChainSwapDataType,
       };
     };
@@ -1323,17 +1343,18 @@ class SwapManager {
     });
 
     const serializeDetails = (
-      receivingData: Awaited<ReturnType<typeof createChainData>>,
+      data: Awaited<ReturnType<typeof createChainData>>,
     ) => ({
-      blindingKey: receivingData.blindingKey,
-      claimAddress: receivingData.claimAddress,
-      serverPublicKey: receivingData.serverKeys,
-      refundAddress: receivingData.refundAddress,
-      amount: receivingData.dbData.expectedAmount,
-      lockupAddress: receivingData.dbData.lockupAddress,
-      timeoutBlockHeight: receivingData.dbData.timeoutBlockHeight,
-      swapTree: receivingData.tree
-        ? SwapTreeSerializer.serializeSwapTree(receivingData.tree)
+      blindingKey: data.blindingKey,
+      claimAddress: data.claimAddress,
+      serverPublicKey: data.serverKeys,
+      refundAddress: data.refundAddress,
+      amount: data.dbData.expectedAmount,
+      lockupAddress: data.dbData.lockupAddress,
+      timeoutBlockHeight: data.dbData.timeoutBlockHeight,
+      timeouts: data.timeouts,
+      swapTree: data.tree
+        ? SwapTreeSerializer.serializeSwapTree(data.tree)
         : undefined,
     });
 
@@ -1412,14 +1433,12 @@ class SwapManager {
             );
           }
         } else if (arkNode) {
-          const refundPubKey = (await arkNode.getInfo()).pubkey;
-
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               vHtlcId: ArkClient.createVhtlcId(
                 getHexBuffer(swap.preimageHash),
-                getHexBuffer(refundPubKey),
+                arkNode.pubkey,
                 getHexBuffer((swap as ReverseSwap).claimPublicKey!),
               ),
             },
@@ -1434,15 +1453,13 @@ class SwapManager {
 
           chainClient.addOutputFilter(outputScript);
         } else if (arkNode) {
-          const claimPubKey = (await arkNode.getInfo()).pubkey;
-
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               vHtlcId: ArkClient.createVhtlcId(
                 getHexBuffer(swap.preimageHash),
                 getHexBuffer((swap as Swap).refundPublicKey!),
-                getHexBuffer(claimPubKey),
+                arkNode.pubkey,
               ),
             },
           ]);
@@ -1456,46 +1473,68 @@ class SwapManager {
       switch (swap.chainSwap.status) {
         case SwapUpdateEvent.SwapCreated:
         case SwapUpdateEvent.TransactionMempool: {
-          const { chainClient } = this.currencies.get(
+          const { chainClient, arkNode } = this.currencies.get(
             swap.receivingData.symbol,
           )!;
-          if (chainClient === undefined) {
-            continue;
+          if (chainClient !== undefined) {
+            const wallet = this.walletManager.wallets.get(
+              swap.receivingData.symbol,
+            )!;
+
+            chainClient.addOutputFilter(
+              wallet.decodeAddress(swap.receivingData.lockupAddress),
+            );
+          } else if (arkNode !== undefined) {
+            arkNode.subscription.subscribeAddresses([
+              {
+                address: swap.receivingData.lockupAddress,
+                vHtlcId: ArkClient.createVhtlcId(
+                  getHexBuffer(swap.preimageHash),
+                  getHexBuffer(swap.receivingData.theirPublicKey!),
+                  arkNode.pubkey,
+                ),
+              },
+            ]);
           }
 
-          const wallet = this.walletManager.wallets.get(
-            swap.receivingData.symbol,
-          )!;
-
-          chainClient.addOutputFilter(
-            wallet.decodeAddress(swap.receivingData.lockupAddress),
-          );
           break;
         }
 
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed: {
-          const { chainClient } = this.currencies.get(swap.sendingData.symbol)!;
-          if (chainClient === undefined) {
-            continue;
-          }
-
-          const wallet = this.walletManager.wallets.get(
+          const { chainClient, arkNode } = this.currencies.get(
             swap.sendingData.symbol,
           )!;
 
-          // To detect the confirmation
-          if (
-            swap.chainSwap.status === SwapUpdateEvent.TransactionServerMempool
-          ) {
-            chainClient.addOutputFilter(
-              wallet.decodeAddress(swap.sendingData.lockupAddress),
-            );
-          }
+          if (chainClient !== undefined) {
+            const wallet = this.walletManager.wallets.get(
+              swap.sendingData.symbol,
+            )!;
 
-          chainClient.addInputFilter(
-            reverseBuffer(getHexBuffer(swap.sendingData.transactionId!)),
-          );
+            // To detect the confirmation
+            if (
+              swap.chainSwap.status === SwapUpdateEvent.TransactionServerMempool
+            ) {
+              chainClient.addOutputFilter(
+                wallet.decodeAddress(swap.sendingData.lockupAddress),
+              );
+            }
+
+            chainClient.addInputFilter(
+              reverseBuffer(getHexBuffer(swap.sendingData.transactionId!)),
+            );
+          } else if (arkNode !== undefined) {
+            arkNode.subscription.subscribeAddresses([
+              {
+                address: swap.sendingData.lockupAddress,
+                vHtlcId: ArkClient.createVhtlcId(
+                  getHexBuffer(swap.preimageHash),
+                  arkNode.pubkey,
+                  getHexBuffer(swap.sendingData.theirPublicKey!),
+                ),
+              },
+            ]);
+          }
 
           break;
         }

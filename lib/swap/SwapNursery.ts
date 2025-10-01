@@ -1544,8 +1544,13 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
+    const claimPubkey = (await arkClient.getInfo()!).pubkey;
+
     const claimTransaction = await arkClient.claimVHtlc(
       preimage,
+      (swap as Swap).preimageHash,
+      claimPubkey,
+      (swap as Swap).refundPublicKey!,
       TransactionLabelRepository.claimLabel(swap),
     );
     this.logger.info(
@@ -1901,8 +1906,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
+    const refundPubKey = (await arkClient.getInfo()).pubkey;
+
     const txId = await arkClient.refundVHtlc(
-      getHexBuffer(swap.preimageHash),
+      swap.preimageHash,
+      swap.claimPublicKey,
+      refundPubKey,
       TransactionLabelRepository.refundLabel(swap),
     );
 

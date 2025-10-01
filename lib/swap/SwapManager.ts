@@ -24,6 +24,7 @@ import {
 } from '../Core';
 import type Logger from '../Logger';
 import {
+  createVhtlcId,
   formatError,
   generateSwapId,
   getChainCurrency,
@@ -474,7 +475,7 @@ class SwapManager {
       receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          preimageHash: args.preimageHash,
+          vhtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1050,7 +1051,7 @@ class SwapManager {
       sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          preimageHash: args.preimageHash,
+          vhtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1401,10 +1402,15 @@ class SwapManager {
             );
           }
         } else if (arkNode) {
+          const refundPubKey = (await arkNode.getInfo()).pubkey;
+
+          const swapReverse = swap as ReverseSwap;
+          const vhtlcId = createVhtlcId(swap.preimageHash, refundPubKey, swapReverse.claimPublicKey!);
+
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              preimageHash: getHexBuffer(swap.preimageHash),
+              vhtlcId: vhtlcId,
             },
           ]);
         }
@@ -1417,10 +1423,14 @@ class SwapManager {
 
           chainClient.addOutputFilter(outputScript);
         } else if (arkNode) {
+          const claimPubKey = (await arkNode.getInfo()).pubkey;
+          const swapSubmarine = swap as Swap;
+          const vhtlcId = createVhtlcId(swap.preimageHash, swapSubmarine.refundPublicKey!, claimPubKey);
+
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              preimageHash: getHexBuffer(swap.preimageHash),
+              vhtlcId: vhtlcId,
             },
           ]);
         }

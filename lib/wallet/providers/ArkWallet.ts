@@ -1,6 +1,5 @@
 import type Logger from '../../Logger';
 import ArkClient from '../../chain/ArkClient';
-import AspClient from '../../chain/AspClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 
@@ -56,10 +55,10 @@ class ArkWallet implements WalletProviderInterface {
     address: string,
     amount: number,
   ): Promise<SentTransaction> => {
-    const tx = await this.node.aspClient.getTx(transactionId);
+    const tx = await this.node.getTx(transactionId);
 
     const addressPubkey = ArkClient.decodeAddress(address).tweakedPubKey;
-    const vout = AspClient.mapOutputs(tx).findIndex(
+    const vout = ArkClient.mapOutputs(tx).findIndex(
       (output) =>
         output.amount === BigInt(amount) &&
         Buffer.from(output.script!).subarray(2).equals(addressPubkey),

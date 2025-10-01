@@ -22,6 +22,7 @@ import {
 import type Logger from '../Logger';
 import {
   calculateEthereumTransactionFee,
+  createVhtlcId,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -1544,8 +1545,15 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
+    const receiverPubkey = (await arkClient.getInfo()!).pubkey;
+    const senderPubkey = (swap as Swap).refundPublicKey!;
+    const preimageHash = (swap as Swap).preimageHash;
+
+    const vhtlcId = createVhtlcId(preimageHash, senderPubkey, receiverPubkey);
+
     const claimTransaction = await arkClient.claimVHtlc(
       preimage,
+      vhtlcId,
       TransactionLabelRepository.claimLabel(swap),
     );
     this.logger.info(
@@ -1901,8 +1909,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
+    const senderPubkey = (await arkClient.getInfo()).pubkey;
+    const receiverPubkey = swap.claimPublicKey!;
+    const { preimageHash } = swap;
+
+    const vhtlcId = createVhtlcId(preimageHash, senderPubkey, receiverPubkey);
+
     const txId = await arkClient.refundVHtlc(
-      getHexBuffer(swap.preimageHash),
+      vhtlcId,
       TransactionLabelRepository.refundLabel(swap),
     );
 

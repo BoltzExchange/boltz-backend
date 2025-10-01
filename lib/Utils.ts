@@ -244,6 +244,20 @@ export const getHexString = (input: Buffer): string => {
   return input.toString('hex');
 };
 
+export const createVhtlcId = (
+  preimageHash: string,
+  senderPubkey: string,
+  receiverPubkey: string,
+): string => {
+  const data = Buffer.concat([
+      crypto.ripemd160(getHexBuffer(preimageHash)),
+      getHexBuffer(senderPubkey),
+      getHexBuffer(receiverPubkey),
+    ]);
+  const hash = crypto.sha256(data);
+  return getHexString(hash);
+};
+
 /**
  * Check whether a variable is a non-array object
  */

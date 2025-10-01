@@ -30,7 +30,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 ARG VERSION
-RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
+RUN git clone https://github.com/altafan/boltz-backend.git -b ${VERSION}
 WORKDIR /boltz-backend
 RUN git submodule update --init
 

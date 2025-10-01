@@ -1,5 +1,4 @@
 import type { ClientReadableStream } from '@grpc/grpc-js';
-import { crypto } from 'bitcoinjs-lib';
 import type Logger from '../Logger';
 import { sleep } from '../PromiseUtils';
 import { formatError, getHexBuffer, getHexString } from '../Utils';
@@ -11,7 +10,7 @@ import ArkClient from './ArkClient';
 
 type SubscribedAddress = {
   address: string;
-  preimageHash: Buffer;
+  vhtlcId: string;
 };
 
 type CreatedVHtlc = {
@@ -37,7 +36,7 @@ type Events = {
 class ArkSubscription extends TypedEventEmitter<Events> {
   private static readonly reconnectInterval = 2_500;
 
-  private readonly subscribedAddresses = new Map<string, Buffer>();
+  private readonly subscribedAddresses = new Map<string, string>();
 
   private shouldDisconnect = false;
   private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
@@ -70,7 +69,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
 
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
     for (const address of addresses) {
-      this.subscribedAddresses.set(address.address, address.preimageHash);
+      this.subscribedAddresses.set(address.address, address.vhtlcId);
     }
 
     const req = new notificationrpc.SubscribeForAddressesRequest();
@@ -95,10 +94,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   public rescan = async () => {
-    for (const [address, preimageHash] of this.subscribedAddresses.entries()) {
+    for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
       try {
         const req = new arkrpc.ListVHTLCRequest();
-        req.setPreimageHashFilter(getHexString(crypto.ripemd160(preimageHash)));
+        req.setVhtlcId(vhtlcId);
 
         const res = await this.unaryCall<
           arkrpc.ListVHTLCRequest,

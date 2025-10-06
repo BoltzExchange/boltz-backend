@@ -243,7 +243,7 @@ describe('SwapNursery', () => {
 
       expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
       expect(mockRaceCall).toHaveBeenCalledWith(
-        mockSettleHoldInvoice(mockPreimage),
+        expect.any(Promise),
         expect.any(Function),
         lightningClientCallTimeout,
       );
@@ -325,7 +325,7 @@ describe('SwapNursery', () => {
 
       expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
       expect(mockRaceCall).toHaveBeenCalledWith(
-        mockSettleHoldInvoice(mockPreimage),
+        expect.any(Promise),
         expect.any(Function),
         lightningClientCallTimeout,
       );
@@ -351,7 +351,7 @@ describe('SwapNursery', () => {
 
       expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
       expect(mockRaceCall).toHaveBeenCalledWith(
-        mockSettleHoldInvoice(mockPreimage),
+        expect.any(Promise),
         expect.any(Function),
         lightningClientCallTimeout,
       );

@@ -243,7 +243,7 @@ impl Cln {
         }
 
         if msg.is_empty() {
-            return anyhow!("{}", status.code().to_string());
+            return anyhow!("{}", status.code());
         }
 
         anyhow!(msg.to_owned())

@@ -38,10 +38,7 @@ where
 {
     let code = provider.get_code_at(address).await?;
     if code.is_empty() {
-        return Err(anyhow::anyhow!(
-            "no contract at address: {}",
-            address.to_string()
-        ));
+        return Err(anyhow::anyhow!("no contract at address: {}", address));
     }
     Ok(())
 }

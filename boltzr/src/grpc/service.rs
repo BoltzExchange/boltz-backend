@@ -721,7 +721,7 @@ fn extract_parent_context<T>(request: &Request<T>) {
         let parent_cx = opentelemetry::global::get_text_map_propagator(|prop| {
             prop.extract(&MetadataMap(request.metadata()))
         });
-        tracing::Span::current().set_parent(parent_cx);
+        let _ = tracing::Span::current().set_parent(parent_cx);
     }
 }
 

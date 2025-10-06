@@ -11,6 +11,7 @@ use api::ws::{self};
 use clap::Parser;
 use serde::Serialize;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task;
 use tracing::{debug, error, info, trace, warn};
 
@@ -39,6 +40,8 @@ mod metrics;
 #[cfg(feature = "otel")]
 mod profiling;
 
+const INIT_TIMEOUT: Duration = Duration::from_secs(15);
+
 #[derive(Parser, Serialize, Debug, Clone)]
 #[command(author = "Boltz", about = "Boltz Backend sidecar", version, about, long_about = None)]
 struct Args {
@@ -50,6 +53,28 @@ struct Args {
     /// Possible values: error, warn, info, debug, trace
     #[arg(short, long, default_value_t = String::from("debug"))]
     log_level: String,
+}
+
+async fn create_with_timeout<T, E: std::fmt::Display>(
+    timeout: Duration,
+    component_name: &str,
+    future: impl std::future::Future<Output = Result<T, E>>,
+) -> Option<T> {
+    match tokio::time::timeout(timeout, future).await {
+        Ok(Ok(result)) => Some(result),
+        Ok(Err(err)) => {
+            error!("Could not create {}: {}", component_name, err);
+            None
+        }
+        Err(_) => {
+            error!(
+                "Timeout creating {} after {} seconds",
+                component_name,
+                timeout.as_secs()
+            );
+            std::process::exit(1);
+        }
+    }
 }
 
 #[tokio::main]
@@ -194,39 +219,33 @@ async fn main() {
     }
 
     let backup_client = if let Some(backup_config) = config.backup {
-        match backup::Backup::new(
-            cancellation_token.clone(),
-            backup_config,
-            config.postgres,
-            currencies.clone(),
+        create_with_timeout(
+            INIT_TIMEOUT,
+            "backup client",
+            backup::Backup::new(
+                cancellation_token.clone(),
+                backup_config,
+                config.postgres,
+                currencies.clone(),
+            ),
         )
         .await
-        {
-            Ok(b) => Some(b),
-            Err(err) => {
-                error!("Could not create backup client: {}", err);
-                None
-            }
-        }
     } else {
         warn!("Backup config is missing");
         None
     };
 
     let notification_client = if let Some(config) = config.notification {
-        match notifications::mattermost::Client::<notifications::commands::Commands>::new(
-            cancellation_token.clone(),
-            config,
-            notifications::commands::Commands::new(db_pool.clone(), backup_client.clone()),
+        create_with_timeout(
+            INIT_TIMEOUT,
+            "notification client",
+            notifications::mattermost::Client::<notifications::commands::Commands>::new(
+                cancellation_token.clone(),
+                config,
+                notifications::commands::Commands::new(db_pool.clone(), backup_client.clone()),
+            ),
         )
         .await
-        {
-            Ok(c) => Some(c),
-            Err(err) => {
-                error!("Could not create notification client: {}", err);
-                None
-            }
-        }
     } else {
         warn!("Notification client not configured");
         None

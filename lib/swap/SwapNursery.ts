@@ -22,7 +22,6 @@ import {
 import type Logger from '../Logger';
 import {
   calculateEthereumTransactionFee,
-  createVhtlcId,
   formatError,
   getChainCurrency,
   getHexBuffer,
@@ -1297,9 +1296,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       );
 
       this.logger.verbose(
-        `Locked up VHTLC ${swap.onchainAmount!} ${
+        `Locked up ${swap.onchainAmount!} ${
           wallet.symbol
-        } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
+        } in vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
       );
 
       this.emit('coins.sent', {
@@ -1545,19 +1544,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage: Buffer,
     channelCreation: ChannelCreation | null,
   ) => {
-    const receiverPubkey = (await arkClient.getInfo()!).pubkey;
-    const senderPubkey = (swap as Swap).refundPublicKey!;
-    const preimageHash = (swap as Swap).preimageHash;
-
-    const vhtlcId = createVhtlcId(preimageHash, senderPubkey, receiverPubkey);
-
     const claimTransaction = await arkClient.claimVHtlc(
       preimage,
-      vhtlcId,
+      getHexBuffer(swap.theirRefundPublicKey!),
+      getHexBuffer((await arkClient.getInfo()!).pubkey),
       TransactionLabelRepository.claimLabel(swap),
     );
     this.logger.info(
-      `Claimed ${arkClient.symbol} VHLTC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
+      `Claimed ${arkClient.symbol} vHLTC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
     );
 
     this.emit('claim', {
@@ -1909,14 +1903,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
-    const senderPubkey = (await arkClient.getInfo()).pubkey;
-    const receiverPubkey = swap.claimPublicKey!;
-    const { preimageHash } = swap;
-
-    const vhtlcId = createVhtlcId(preimageHash, senderPubkey, receiverPubkey);
-
     const txId = await arkClient.refundVHtlc(
-      vhtlcId,
+      getHexBuffer(swap.preimageHash),
+      getHexBuffer((await arkClient.getInfo()).pubkey),
+      getHexBuffer(swap.claimPublicKey!),
       TransactionLabelRepository.refundLabel(swap),
     );
 

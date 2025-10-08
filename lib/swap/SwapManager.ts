@@ -24,7 +24,6 @@ import {
 } from '../Core';
 import type Logger from '../Logger';
 import {
-  createVhtlcId,
   formatError,
   generateSwapId,
   getChainCurrency,
@@ -40,6 +39,7 @@ import {
   splitPairId,
 } from '../Utils';
 import type { Timeouts } from '../chain/ArkClient';
+import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import type { OrderSide } from '../consts/Enums';
 import {
@@ -475,7 +475,7 @@ class SwapManager {
       receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          vhtlcId: vHtlc.vHtlc.id,
+          vHtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1051,7 +1051,7 @@ class SwapManager {
       sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          vhtlcId: vHtlc.vHtlc.id,
+          vHtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1404,17 +1404,14 @@ class SwapManager {
         } else if (arkNode) {
           const refundPubKey = (await arkNode.getInfo()).pubkey;
 
-          const swapReverse = swap as ReverseSwap;
-          const vhtlcId = createVhtlcId(
-            swap.preimageHash,
-            refundPubKey,
-            swapReverse.claimPublicKey!,
-          );
-
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              vhtlcId: vhtlcId,
+              vHtlcId: ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                getHexBuffer(refundPubKey),
+                getHexBuffer((swap as ReverseSwap).claimPublicKey!),
+              ),
             },
           ]);
         }
@@ -1428,17 +1425,15 @@ class SwapManager {
           chainClient.addOutputFilter(outputScript);
         } else if (arkNode) {
           const claimPubKey = (await arkNode.getInfo()).pubkey;
-          const swapSubmarine = swap as Swap;
-          const vhtlcId = createVhtlcId(
-            swap.preimageHash,
-            swapSubmarine.refundPublicKey!,
-            claimPubKey,
-          );
 
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              vhtlcId: vhtlcId,
+              vHtlcId: ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                getHexBuffer((swap as Swap).refundPublicKey!),
+                getHexBuffer(claimPubKey),
+              ),
             },
           ]);
         }

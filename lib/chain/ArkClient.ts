@@ -1,6 +1,11 @@
 import type { Client } from '@grpc/grpc-js';
 import { Metadata, credentials } from '@grpc/grpc-js';
 import { bech32m } from '@scure/base';
+import { Transaction } from '@scure/btc-signer';
+import type {
+  TransactionInput,
+  TransactionOutput,
+} from '@scure/btc-signer/psbt';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -22,11 +27,7 @@ import ArkSubscription, {
   SpentVHtlc,
 } from './ArkSubscription';
 import type { IChainClient } from './ChainClient';
-import { Transaction } from '@scure/btc-signer';
-import type {
-  TransactionInput,
-  TransactionOutput,
-} from '@scure/btc-signer/psbt';
+
 export type ArkConfig = {
   host: string;
   port: number;
@@ -99,6 +100,41 @@ class ArkClient extends BaseClient<
     };
   };
 
+  public static mapInputs = (tx: Transaction): TransactionInput[] => {
+    const inputs: TransactionInput[] = [];
+
+    for (let i = 0; i < tx.inputsLength; i++) {
+      inputs.push(tx.getInput(i));
+    }
+
+    return inputs;
+  };
+
+  public static mapOutputs = (tx: Transaction): TransactionOutput[] => {
+    const outputs: TransactionOutput[] = [];
+    for (let i = 0; i < tx.outputsLength; i++) {
+      outputs.push(tx.getOutput(i));
+    }
+
+    return outputs;
+  };
+
+  /**
+   * @param preimageHash - SHA256 hash of the preimage
+   */
+  public static createVhtlcId = (
+    preimageHash: Buffer,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
+  ) => {
+    const data = Buffer.concat([
+      crypto.ripemd160(preimageHash),
+      senderPubkey,
+      receiverPubkey,
+    ]);
+    return getHexString(crypto.sha256(data));
+  };
+
   public get lockTimeInSeconds(): boolean {
     return this.useLocktimeSeconds;
   }
@@ -148,7 +184,7 @@ class ArkClient extends BaseClient<
     try {
       const info = await this.getInfo();
       this.logger.debug(
-        `Connected to Ark(Fulmine) with pubkey: ${info.signerPubkey}`,
+        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.signerPubkey}`,
       );
 
       this.setClientStatus(ClientStatus.Connected);
@@ -181,7 +217,7 @@ class ArkClient extends BaseClient<
       this.emit('vhtlc.spent', vHtlc);
     });
 
-    this.subscription.connect();
+    await this.subscription.connect();
 
     return true;
   };
@@ -198,7 +234,7 @@ class ArkClient extends BaseClient<
 
       this.clearReconnectTimer();
 
-      this.subscription?.connect();
+      await this.subscription?.connect();
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (err) {
@@ -398,8 +434,6 @@ class ArkClient extends BaseClient<
       createDelay(timeouts.unilateralRefundWithoutReceiver),
     );
 
-    this.logger.silly(`Creating vHTLC check: ${timeouts}`);
-
     return {
       timeouts,
       height: currentHeight,
@@ -412,12 +446,19 @@ class ArkClient extends BaseClient<
 
   public claimVHtlc = async (
     preimage: Buffer,
-    vhtlcId: string,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
     label: string,
   ): Promise<string> => {
     const req = new arkrpc.ClaimVHTLCRequest();
     req.setPreimage(getHexString(preimage));
-    req.setVhtlcId(vhtlcId);
+    req.setVhtlcId(
+      ArkClient.createVhtlcId(
+        crypto.sha256(preimage),
+        senderPubkey,
+        receiverPubkey,
+      ),
+    );
 
     const res = await this.unaryCall<
       arkrpc.ClaimVHTLCRequest,
@@ -432,9 +473,19 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
-  public refundVHtlc = async (vhtlcId: string, label: string) => {
+  /**
+   * @param preimageHash - sha256 hash of the preimage
+   */
+  public refundVHtlc = async (
+    preimageHash: Buffer,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
+    label: string,
+  ) => {
     const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
-    req.setVhtlcId(vhtlcId);
+    req.setVhtlcId(
+      ArkClient.createVhtlcId(preimageHash, senderPubkey, receiverPubkey),
+    );
 
     const res = await this.unaryCall<
       arkrpc.RefundVHTLCWithoutReceiverRequest,
@@ -466,25 +517,6 @@ class ArkClient extends BaseClient<
     return Transaction.fromPSBT(
       Uint8Array.from(Buffer.from(res.txsList[0], 'base64')),
     );
-  };
-
-  public static mapInputs = (tx: Transaction): TransactionInput[] => {
-    const inputs: TransactionInput[] = [];
-
-    for (let i = 0; i < tx.inputsLength; i++) {
-      inputs.push(tx.getInput(i));
-    }
-
-    return inputs;
-  };
-
-  public static mapOutputs = (tx: Transaction): TransactionOutput[] => {
-    const outputs: TransactionOutput[] = [];
-    for (let i = 0; i < tx.outputsLength; i++) {
-      outputs.push(tx.getOutput(i));
-    }
-
-    return outputs;
   };
 
   private listenBlocks = async (blockNumber: number) => {

@@ -10,7 +10,7 @@ import ArkClient from './ArkClient';
 
 type SubscribedAddress = {
   address: string;
-  vhtlcId: string;
+  vHtlcId: string;
 };
 
 type CreatedVHtlc = {
@@ -51,10 +51,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     super();
   }
 
-  public connect = () => {
+  public connect = async () => {
     this.shouldDisconnect = false;
 
-    this.rescan();
+    await this.rescan();
     this.streamVhtlcs();
   };
 
@@ -69,7 +69,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
 
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
     for (const address of addresses) {
-      this.subscribedAddresses.set(address.address, address.vhtlcId);
+      this.subscribedAddresses.set(address.address, address.vHtlcId);
     }
 
     const req = new notificationrpc.SubscribeForAddressesRequest();

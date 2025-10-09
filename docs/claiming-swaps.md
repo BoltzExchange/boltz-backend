@@ -2,7 +2,9 @@
 
 This document provides an overview of claims and refunds, describes how Boltz
 API clients create claim and refund transactions and outlines emergency
-procedures for recovering funds from failed swaps.
+procedures for recovering funds from failed swaps. If local client state was
+lost, see [Swap Restore](./swap-restore.md) for deriving keys and restoring
+swaps using a 12‑word mnemonic.
 
 ## Summary
 
@@ -16,7 +18,7 @@ and handle refund transactions for failed Submarine and Chain Swaps.
 
 ## Refunds
 
-Refunds differs depending on the swap type. Refunds for failed Submarine and
+Refunds differ depending on the swap type. Refunds for failed Submarine and
 Chain Swaps require users to have a refund or rescue key and actively broadcast
 a refund transaction. Failed Reverse Swaps do not need active refunding; funds
 bounce back to the user via the Lightning Network automatically when the swap

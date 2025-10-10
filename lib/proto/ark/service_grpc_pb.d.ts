@@ -31,6 +31,7 @@ interface IServiceService extends grpc.ServiceDefinition<grpc.UntypedServiceImpl
     watchAddressForRollover: IServiceService_IWatchAddressForRollover;
     unwatchAddress: IServiceService_IUnwatchAddress;
     listWatchedAddresses: IServiceService_IListWatchedAddresses;
+    getVirtualTxs: IServiceService_IGetVirtualTxs;
 }
 
 interface IServiceService_IGetAddress extends grpc.MethodDefinition<ark_service_pb.GetAddressRequest, ark_service_pb.GetAddressResponse> {
@@ -231,6 +232,15 @@ interface IServiceService_IListWatchedAddresses extends grpc.MethodDefinition<ar
     responseSerialize: grpc.serialize<ark_service_pb.ListWatchedAddressesResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.ListWatchedAddressesResponse>;
 }
+interface IServiceService_IGetVirtualTxs extends grpc.MethodDefinition<ark_service_pb.GetVirtualTxsRequest, ark_service_pb.GetVirtualTxsResponse> {
+    path: "/fulmine.v1.Service/GetVirtualTxs";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.GetVirtualTxsRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.GetVirtualTxsRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.GetVirtualTxsResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.GetVirtualTxsResponse>;
+}
 
 export const ServiceService: IServiceService;
 
@@ -257,6 +267,7 @@ export interface IServiceServer extends grpc.UntypedServiceImplementation {
     watchAddressForRollover: grpc.handleUnaryCall<ark_service_pb.WatchAddressForRolloverRequest, ark_service_pb.WatchAddressForRolloverResponse>;
     unwatchAddress: grpc.handleUnaryCall<ark_service_pb.UnwatchAddressRequest, ark_service_pb.UnwatchAddressResponse>;
     listWatchedAddresses: grpc.handleUnaryCall<ark_service_pb.ListWatchedAddressesRequest, ark_service_pb.ListWatchedAddressesResponse>;
+    getVirtualTxs: grpc.handleUnaryCall<ark_service_pb.GetVirtualTxsRequest, ark_service_pb.GetVirtualTxsResponse>;
 }
 
 export interface IServiceClient {
@@ -326,6 +337,9 @@ export interface IServiceClient {
     listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
+    getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class ServiceClient extends grpc.Client implements IServiceClient {
@@ -396,4 +410,7 @@ export class ServiceClient extends grpc.Client implements IServiceClient {
     public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
+    public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
 }

@@ -96,7 +96,7 @@ service Service {
       body: "*"
     };
   }
-  // ListVHTLC = list all vhtlc OR filter by preimage_hash
+  // ListVHTLC = list all vhtlc OR filter by vhtlc_id
   rpc ListVHTLC(ListVHTLCRequest) returns (ListVHTLCResponse) {
     option (google.api.http) = {
       get: "/v1/vhtlc"
@@ -143,6 +143,12 @@ service Service {
   rpc ListWatchedAddresses(ListWatchedAddressesRequest) returns (ListWatchedAddressesResponse) {
     option (google.api.http) = {
       get: "/v1/delegate/watched"
+    };
+  };
+  // GetVirtualTxs returns the virtual transactions in hex format for the specified txids.
+  rpc GetVirtualTxs(GetVirtualTxsRequest) returns (GetVirtualTxsResponse) {
+    option (google.api.http) = {
+      get: "/v1/virtualTx/{txids}"
     };
   };
 }
@@ -248,33 +254,35 @@ message CreateVHTLCRequest {
   RelativeLocktime unilateral_refund_without_receiver_delay = 7;
 }
 message CreateVHTLCResponse {
-  string address = 1;
-  string claim_pubkey = 2;
-  string refund_pubkey = 3;
-  string server_pubkey = 4;
-  TaprootTree swap_tree = 5;
-  int64 refund_locktime = 6;
-  int64 unilateral_claim_delay = 7;
-  int64 unilateral_refund_delay = 8;
-  int64 unilateral_refund_without_receiver_delay = 9;
+  string id = 1;
+  string address = 2;
+  string claim_pubkey = 3;
+  string refund_pubkey = 4;
+  string server_pubkey = 5;
+  TaprootTree swap_tree = 6;
+  int64 refund_locktime = 7;
+  int64 unilateral_claim_delay = 8;
+  int64 unilateral_refund_delay = 9;
+  int64 unilateral_refund_without_receiver_delay = 10;
 }
 
 message ClaimVHTLCRequest {
-  string preimage = 1;
+  string vhtlc_id = 1;
+  string preimage = 2;
 }
 message ClaimVHTLCResponse {
   string redeem_txid = 1;
 }
 
 message RefundVHTLCWithoutReceiverRequest {
-  string preimage_hash = 1;
+  string vhtlc_id = 1;
 }
 message RefundVHTLCWithoutReceiverResponse {
   string redeem_txid = 1;
 }
 
 message ListVHTLCRequest {
-  string preimage_hash_filter = 1;
+  string vhtlc_id = 1;
 }
 message ListVHTLCResponse {
   repeated Vtxo vhtlcs = 1;
@@ -365,4 +373,12 @@ message RolloverAddress {
 
 message Tapscripts {
   repeated string scripts = 1;
+}
+
+message GetVirtualTxsRequest {
+  repeated string txids = 1;
+}
+
+message GetVirtualTxsResponse {
+  repeated string txs = 1;
 }

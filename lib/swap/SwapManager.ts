@@ -39,6 +39,7 @@ import {
   splitPairId,
 } from '../Utils';
 import type { Timeouts } from '../chain/ArkClient';
+import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import type { OrderSide } from '../consts/Enums';
 import {
@@ -486,7 +487,7 @@ class SwapManager {
       receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          preimageHash: args.preimageHash,
+          vHtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1062,7 +1063,7 @@ class SwapManager {
       sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
-          preimageHash: args.preimageHash,
+          vHtlcId: vHtlc.vHtlc.id,
         },
       ]);
 
@@ -1413,10 +1414,16 @@ class SwapManager {
             );
           }
         } else if (arkNode) {
+          const refundPubKey = (await arkNode.getInfo()).pubkey;
+
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              preimageHash: getHexBuffer(swap.preimageHash),
+              vHtlcId: ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                getHexBuffer(refundPubKey),
+                getHexBuffer((swap as ReverseSwap).claimPublicKey!),
+              ),
             },
           ]);
         }
@@ -1429,10 +1436,16 @@ class SwapManager {
 
           chainClient.addOutputFilter(outputScript);
         } else if (arkNode) {
+          const claimPubKey = (await arkNode.getInfo()).pubkey;
+
           arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
-              preimageHash: getHexBuffer(swap.preimageHash),
+              vHtlcId: ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                getHexBuffer((swap as Swap).refundPublicKey!),
+                getHexBuffer(claimPubKey),
+              ),
             },
           ]);
         }

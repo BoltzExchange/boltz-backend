@@ -26,8 +26,11 @@ describe('ArkNursery', () => {
 
   describe('checkClaims', () => {
     test('should check reverse swap claims', async () => {
-      const aspClient = {
+      const arkClient = {
         getTx: jest.fn().mockResolvedValue(claimTx),
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
       };
 
       const swap = {
@@ -38,15 +41,13 @@ describe('ArkNursery', () => {
       jest.spyOn(nursery, 'emit');
 
       await nursery['checkClaims'](
-        {
-          aspClient,
-        } as unknown as ArkClient,
+        arkClient as unknown as ArkClient,
         {
           spentBy: 'txid',
         } as unknown as any,
       );
 
-      expect(aspClient.getTx).toHaveBeenCalledWith('txid');
+      expect(arkClient.getTx).toHaveBeenCalledWith('txid');
       expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
         status: {
           [Op.in]: [

@@ -1296,9 +1296,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       );
 
       this.logger.verbose(
-        `Locked up VHTLC ${swap.onchainAmount!} ${
+        `Locked up ${swap.onchainAmount!} ${
           wallet.symbol
-        } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
+        } in vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
       );
 
       this.emit('coins.sent', {
@@ -1546,10 +1546,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   ) => {
     const claimTransaction = await arkClient.claimVHtlc(
       preimage,
+      getHexBuffer(swap.theirRefundPublicKey!),
+      getHexBuffer((await arkClient.getInfo()!).pubkey),
       TransactionLabelRepository.claimLabel(swap),
     );
     this.logger.info(
-      `Claimed ${arkClient.symbol} VHLTC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
+      `Claimed ${arkClient.symbol} vHLTC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
     );
 
     this.emit('claim', {
@@ -1903,6 +1905,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     const txId = await arkClient.refundVHtlc(
       getHexBuffer(swap.preimageHash),
+      getHexBuffer((await arkClient.getInfo()).pubkey),
+      getHexBuffer(swap.claimPublicKey!),
       TransactionLabelRepository.refundLabel(swap),
     );
 

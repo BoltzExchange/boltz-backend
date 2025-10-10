@@ -520,6 +520,8 @@ export namespace CreateVHTLCRequest {
 }
 
 export class CreateVHTLCResponse extends jspb.Message { 
+    getId(): string;
+    setId(value: string): CreateVHTLCResponse;
     getAddress(): string;
     setAddress(value: string): CreateVHTLCResponse;
     getClaimPubkey(): string;
@@ -554,6 +556,7 @@ export class CreateVHTLCResponse extends jspb.Message {
 
 export namespace CreateVHTLCResponse {
     export type AsObject = {
+        id: string,
         address: string,
         claimPubkey: string,
         refundPubkey: string,
@@ -567,6 +570,8 @@ export namespace CreateVHTLCResponse {
 }
 
 export class ClaimVHTLCRequest extends jspb.Message { 
+    getVhtlcId(): string;
+    setVhtlcId(value: string): ClaimVHTLCRequest;
     getPreimage(): string;
     setPreimage(value: string): ClaimVHTLCRequest;
 
@@ -582,6 +587,7 @@ export class ClaimVHTLCRequest extends jspb.Message {
 
 export namespace ClaimVHTLCRequest {
     export type AsObject = {
+        vhtlcId: string,
         preimage: string,
     }
 }
@@ -607,8 +613,8 @@ export namespace ClaimVHTLCResponse {
 }
 
 export class RefundVHTLCWithoutReceiverRequest extends jspb.Message { 
-    getPreimageHash(): string;
-    setPreimageHash(value: string): RefundVHTLCWithoutReceiverRequest;
+    getVhtlcId(): string;
+    setVhtlcId(value: string): RefundVHTLCWithoutReceiverRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RefundVHTLCWithoutReceiverRequest.AsObject;
@@ -622,7 +628,7 @@ export class RefundVHTLCWithoutReceiverRequest extends jspb.Message {
 
 export namespace RefundVHTLCWithoutReceiverRequest {
     export type AsObject = {
-        preimageHash: string,
+        vhtlcId: string,
     }
 }
 
@@ -647,8 +653,8 @@ export namespace RefundVHTLCWithoutReceiverResponse {
 }
 
 export class ListVHTLCRequest extends jspb.Message { 
-    getPreimageHashFilter(): string;
-    setPreimageHashFilter(value: string): ListVHTLCRequest;
+    getVhtlcId(): string;
+    setVhtlcId(value: string): ListVHTLCRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListVHTLCRequest.AsObject;
@@ -662,7 +668,7 @@ export class ListVHTLCRequest extends jspb.Message {
 
 export namespace ListVHTLCRequest {
     export type AsObject = {
-        preimageHashFilter: string,
+        vhtlcId: string,
     }
 }
 
@@ -1115,5 +1121,49 @@ export class Tapscripts extends jspb.Message {
 export namespace Tapscripts {
     export type AsObject = {
         scriptsList: Array<string>,
+    }
+}
+
+export class GetVirtualTxsRequest extends jspb.Message { 
+    clearTxidsList(): void;
+    getTxidsList(): Array<string>;
+    setTxidsList(value: Array<string>): GetVirtualTxsRequest;
+    addTxids(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetVirtualTxsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetVirtualTxsRequest): GetVirtualTxsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetVirtualTxsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetVirtualTxsRequest;
+    static deserializeBinaryFromReader(message: GetVirtualTxsRequest, reader: jspb.BinaryReader): GetVirtualTxsRequest;
+}
+
+export namespace GetVirtualTxsRequest {
+    export type AsObject = {
+        txidsList: Array<string>,
+    }
+}
+
+export class GetVirtualTxsResponse extends jspb.Message { 
+    clearTxsList(): void;
+    getTxsList(): Array<string>;
+    setTxsList(value: Array<string>): GetVirtualTxsResponse;
+    addTxs(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetVirtualTxsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetVirtualTxsResponse): GetVirtualTxsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetVirtualTxsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetVirtualTxsResponse;
+    static deserializeBinaryFromReader(message: GetVirtualTxsResponse, reader: jspb.BinaryReader): GetVirtualTxsResponse;
+}
+
+export namespace GetVirtualTxsResponse {
+    export type AsObject = {
+        txsList: Array<string>,
     }
 }

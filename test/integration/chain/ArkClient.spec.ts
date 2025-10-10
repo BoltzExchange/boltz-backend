@@ -6,7 +6,6 @@ import ArkClient, {
   type CreatedVHtlc,
   type SpentVHtlc,
 } from '../../../lib/chain/ArkClient';
-import AspClient from '../../../lib/chain/AspClient';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, aspUrl, bitcoinClient } from '../Nodes';
@@ -84,7 +83,7 @@ describe('ArkClient', () => {
     const txid = await arkClient.sendOffchain(address.address, amount, label);
     expect(txid).toBeDefined();
 
-    const tx = await new AspClient(aspUrl).getTx(txid);
+    const tx = await arkClient.getTx(txid);
     expect(tx.outputsLength).toEqual(2);
     expect(tx.getOutput(0).amount).toEqual(BigInt(amount));
 
@@ -265,5 +264,57 @@ describe('ArkClient', () => {
     await bitcoinClient.generate(1);
 
     await emitPromise;
+  });
+
+  describe('getTx', () => {
+    test('should get transactions', async () => {
+      const txId = await arkClient.sendOffchain(
+        (await arkClient.getAddress()).address,
+        10_000,
+        'test',
+      );
+
+      const tx = await arkClient.getTx(txId);
+
+      expect(tx).toBeDefined();
+      expect(tx.inputsLength).toBeGreaterThanOrEqual(1);
+      expect(tx.outputsLength).toEqual(2);
+    });
+
+    test('should throw an error if the transaction is not found', async () => {
+      await expect(
+        arkClient.getTx(randomBytes(32).toString('hex')),
+      ).rejects.toThrow('transaction not found');
+    });
+  });
+
+  test('should map inputs', async () => {
+    const txId = await arkClient.sendOffchain(
+      (await arkClient.getAddress()).address,
+      10_000,
+      'test',
+    );
+
+    const tx = await arkClient.getTx(txId);
+
+    expect(ArkClient.mapInputs(tx)).toHaveLength(tx.inputsLength);
+    for (let i = 0; i < tx.inputsLength; i++) {
+      expect(ArkClient.mapInputs(tx)[i]).toEqual(tx.getInput(i));
+    }
+  });
+
+  test('should map outputs', async () => {
+    const txId = await arkClient.sendOffchain(
+      (await arkClient.getAddress()).address,
+      10_000,
+      'test',
+    );
+
+    const tx = await arkClient.getTx(txId);
+
+    expect(ArkClient.mapOutputs(tx)).toHaveLength(tx.outputsLength);
+    for (let i = 0; i < tx.outputsLength; i++) {
+      expect(ArkClient.mapOutputs(tx)[i]).toEqual(tx.getOutput(i));
+    }
   });
 });

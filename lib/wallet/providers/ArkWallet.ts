@@ -1,6 +1,5 @@
 import type Logger from '../../Logger';
 import ArkClient from '../../chain/ArkClient';
-import AspClient from '../../chain/AspClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
 
@@ -31,7 +30,7 @@ class ArkWallet implements WalletProviderInterface {
     label: string,
   ): Promise<SentTransaction> => {
     const transactionId = await this.node.sendOffchain(address, amount, label);
-    return await this.handleTransaction(transactionId, address, amount);
+    return await this.handleTransaction(transactionId, address, BigInt(amount));
   };
 
   public sweepWallet = async (
@@ -44,24 +43,20 @@ class ArkWallet implements WalletProviderInterface {
       BigInt(balance.confirmedBalance) + BigInt(balance.unconfirmedBalance);
 
     const txId = await this.node.sendOffchain(address, Number(amount), label);
-    return await this.handleTransaction(
-      txId,
-      address,
-      balance.confirmedBalance,
-    );
+    return await this.handleTransaction(txId, address, amount);
   };
 
   private handleTransaction = async (
     transactionId: string,
     address: string,
-    amount: number,
+    amount: bigint,
   ): Promise<SentTransaction> => {
-    const tx = await this.node.aspClient.getTx(transactionId);
+    const tx = await this.node.getTx(transactionId);
 
     const addressPubkey = ArkClient.decodeAddress(address).tweakedPubKey;
-    const vout = AspClient.mapOutputs(tx).findIndex(
+    const vout = ArkClient.mapOutputs(tx).findIndex(
       (output) =>
-        output.amount === BigInt(amount) &&
+        output.amount === amount &&
         Buffer.from(output.script!).subarray(2).equals(addressPubkey),
     );
     if (vout === -1) {

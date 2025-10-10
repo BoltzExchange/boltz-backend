@@ -1,5 +1,11 @@
+import type { Client } from '@grpc/grpc-js';
 import { Metadata, credentials } from '@grpc/grpc-js';
 import { bech32m } from '@scure/base';
+import { Transaction } from '@scure/btc-signer';
+import type {
+  TransactionInput,
+  TransactionOutput,
+} from '@scure/btc-signer/psbt';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
@@ -20,7 +26,6 @@ import ArkSubscription, {
   type Events,
   SpentVHtlc,
 } from './ArkSubscription';
-import AspClient from './AspClient';
 import type { IChainClient } from './ChainClient';
 
 export type ArkConfig = {
@@ -59,14 +64,13 @@ class ArkClient extends BaseClient<
   public static readonly symbol = 'ARK';
   private static readonly OP_CSV_MULTIPLE = 512;
 
-  public aspClient!: AspClient;
   public subscription!: ArkSubscription;
 
   private chainClient?: IChainClient;
 
-  private client?: ServiceClient;
-  private walletClient?: WalletServiceClient;
-  private notificationClient?: NotificationServiceClient;
+  private client?: ServiceClient & Client;
+  private walletClient?: WalletServiceClient & Client;
+  private notificationClient?: NotificationServiceClient & Client;
 
   private useLocktimeSeconds: boolean = false;
 
@@ -94,6 +98,41 @@ class ArkClient extends BaseClient<
       serverPubKey: data.subarray(1, 33),
       tweakedPubKey: data.subarray(33, 65),
     };
+  };
+
+  public static mapInputs = (tx: Transaction): TransactionInput[] => {
+    const inputs: TransactionInput[] = [];
+
+    for (let i = 0; i < tx.inputsLength; i++) {
+      inputs.push(tx.getInput(i));
+    }
+
+    return inputs;
+  };
+
+  public static mapOutputs = (tx: Transaction): TransactionOutput[] => {
+    const outputs: TransactionOutput[] = [];
+    for (let i = 0; i < tx.outputsLength; i++) {
+      outputs.push(tx.getOutput(i));
+    }
+
+    return outputs;
+  };
+
+  /**
+   * @param preimageHash - SHA256 hash of the preimage
+   */
+  public static createVhtlcId = (
+    preimageHash: Buffer,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
+  ) => {
+    const data = Buffer.concat([
+      crypto.ripemd160(preimageHash),
+      senderPubkey,
+      receiverPubkey,
+    ]);
+    return getHexString(crypto.sha256(data));
   };
 
   public get lockTimeInSeconds(): boolean {
@@ -144,9 +183,8 @@ class ArkClient extends BaseClient<
 
     try {
       const info = await this.getInfo();
-      this.aspClient = new AspClient(this.config.asp ?? info.serverUrl);
       this.logger.debug(
-        `Connected to ASP with pubkey: ${(await this.aspClient.getInfo()).signerPubkey}`,
+        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.signerPubkey}`,
       );
 
       this.setClientStatus(ClientStatus.Connected);
@@ -179,7 +217,7 @@ class ArkClient extends BaseClient<
       this.emit('vhtlc.spent', vHtlc);
     });
 
-    this.subscription.connect();
+    await this.subscription.connect();
 
     return true;
   };
@@ -196,7 +234,7 @@ class ArkClient extends BaseClient<
 
       this.clearReconnectTimer();
 
-      this.subscription?.connect();
+      await this.subscription?.connect();
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (err) {
@@ -224,6 +262,11 @@ class ArkClient extends BaseClient<
     if (this.client !== undefined) {
       this.client.close();
       this.client = undefined;
+    }
+
+    if (this.walletClient !== undefined) {
+      this.walletClient.close();
+      this.walletClient = undefined;
     }
 
     if (this.notificationClient !== undefined) {
@@ -403,10 +446,19 @@ class ArkClient extends BaseClient<
 
   public claimVHtlc = async (
     preimage: Buffer,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
     label: string,
   ): Promise<string> => {
     const req = new arkrpc.ClaimVHTLCRequest();
     req.setPreimage(getHexString(preimage));
+    req.setVhtlcId(
+      ArkClient.createVhtlcId(
+        crypto.sha256(preimage),
+        senderPubkey,
+        receiverPubkey,
+      ),
+    );
 
     const res = await this.unaryCall<
       arkrpc.ClaimVHTLCRequest,
@@ -421,9 +473,19 @@ class ArkClient extends BaseClient<
     return res.redeemTxid;
   };
 
-  public refundVHtlc = async (preimageHash: Buffer, label: string) => {
+  /**
+   * @param preimageHash - sha256 hash of the preimage
+   */
+  public refundVHtlc = async (
+    preimageHash: Buffer,
+    senderPubkey: Buffer,
+    receiverPubkey: Buffer,
+    label: string,
+  ) => {
     const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
-    req.setPreimageHash(getHexString(crypto.ripemd160(preimageHash)));
+    req.setVhtlcId(
+      ArkClient.createVhtlcId(preimageHash, senderPubkey, receiverPubkey),
+    );
 
     const res = await this.unaryCall<
       arkrpc.RefundVHTLCWithoutReceiverRequest,
@@ -437,6 +499,24 @@ class ArkClient extends BaseClient<
     );
 
     return res.redeemTxid;
+  };
+
+  public getTx = async (txId: string): Promise<Transaction> => {
+    const req = new arkrpc.GetVirtualTxsRequest();
+    req.setTxidsList([txId]);
+
+    const res = await this.unaryCall<
+      arkrpc.GetVirtualTxsRequest,
+      arkrpc.GetVirtualTxsResponse.AsObject
+    >('getVirtualTxs', req);
+
+    if (res.txsList.length === 0) {
+      throw new Error('transaction not found');
+    }
+
+    return Transaction.fromPSBT(
+      Uint8Array.from(Buffer.from(res.txsList[0], 'base64')),
+    );
   };
 
   private listenBlocks = async (blockNumber: number) => {

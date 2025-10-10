@@ -1,6 +1,5 @@
 import Logger from '../../../../lib/Logger';
 import ArkClient from '../../../../lib/chain/ArkClient';
-import AspClient from '../../../../lib/chain/AspClient';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import ArkWallet from '../../../../lib/wallet/providers/ArkWallet';
 import { arkClient, aspUrl, bitcoinClient } from '../../Nodes';
@@ -63,11 +62,11 @@ describe('ArkWallet', () => {
       label,
     );
 
-    const tx = await new AspClient(aspUrl).getTx(sentTransaction.transactionId);
+    const tx = await arkClient.getTx(sentTransaction.transactionId);
 
     const pubkey = ArkClient.decodeAddress(address).tweakedPubKey;
     expect(
-      AspClient.mapOutputs(tx).findIndex(
+      ArkClient.mapOutputs(tx).findIndex(
         (output) =>
           output.amount === BigInt(amount) &&
           Buffer.from(output.script!).subarray(2).equals(pubkey),
@@ -92,11 +91,11 @@ describe('ArkWallet', () => {
       label,
     );
 
-    const tx = await new AspClient(aspUrl).getTx(sentTransaction.transactionId);
+    const tx = await arkClient.getTx(sentTransaction.transactionId);
 
     const pubkey = ArkClient.decodeAddress(address).tweakedPubKey;
     expect(
-      AspClient.mapOutputs(tx).findIndex(
+      ArkClient.mapOutputs(tx).findIndex(
         (output) =>
           output.amount === BigInt(amount) &&
           Buffer.from(output.script!).subarray(2).equals(pubkey),

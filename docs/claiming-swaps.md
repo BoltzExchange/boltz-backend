@@ -4,7 +4,7 @@ This document provides an overview of claims and refunds, describes how Boltz
 API clients create claim and refund transactions and outlines emergency
 procedures for recovering funds from failed swaps. If local client state was
 lost, see [Swap Restore](./swap-restore.md) for deriving keys and restoring
-swaps using a 12‑word mnemonic.
+swaps using an xpub.
 
 ## Summary
 
@@ -253,49 +253,10 @@ block height as argument and sets an empty preimage.
 
 ### UTXO Chains
 
-#### Single-Swap Refund Files and Rescue Keys
+#### Swap Restore
 
-For web applications integrating submarine or chain swaps with UTXO chains, we
-recommend providing a so-called **refund file,** which is valid for one
-particular swap as a last layer of defense against loss of funds to end users.
-This refund file contains all necessary information to successfully craft a
-refund transaction, in case refund info stored by the API client is lost.
-
-Alternatively, a rescue key, which is represented as a 12 word mnemonic, can be
-used to obtain all necessary swap info from Boltz without revealing refund keys.
-The advantage is, that one rescue key is valid for all swaps created with it.
-
-All clients that offer the option for users to save refund files or rescue keys
-should format them in a standardized way. This is necessary for refund files to
-work with [Boltz Web App](https://boltz.exchange/refund/external).
-
-The default refund files format accepted by Boltz Web App is `JSON` , but Boltz
-parses files with other extension too and treats them as raw `JSON`.
-
-The data that should be in the file or encoded in the `JSON` with the following
-values:
-
-- `id`: the ID of the swap
-- `currency`: symbol of the chain on which bitcoin were locked up
-- `redeemScript`: the redeem script of the lockup address
-- `privateKey`: the private key of the refund key pair
-- `timeoutBlockHeight`: block height at which the swap times out
-
-The values of `id`, `redeemScript` and `timeoutBlockHeight` are returned by the
-Boltz API when the Swap is created. `currency` and `privateKey` are known by the
-client already.
-
-Example:
-
-```json
-{
-  "id": "qZf1Zb",
-  "currency": "BTC",
-  "redeemScript": "a9146a24b142de20b50871a247c1c66a6e41ee199017876321038ce1d1be5a22b396ccafc109c86717bc081301fe58d1958546d5aba647047af3670381a81ab1752102d23a7d39395f40a71a490cf79e0f2df5da2fb006fdab660bc0c78ef0c9ba457668ac",
-  "privateKey": "1736eb52267524619289a5c9b58dab9339b2bb389764ad5c5be8955d9aadeeab",
-  "timeoutBlockHeight": 1747073
-}
-```
+For information about refund files, rescue keys, and restoring swaps, please
+refer to the [Swap Restore documentation](./swap-restore.md).
 
 #### Invoice Preimage
 

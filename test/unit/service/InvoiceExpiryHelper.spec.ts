@@ -80,7 +80,7 @@ describe('InvoiceExpiryHelper', () => {
     'should throw when custom expiry is invalid',
     (expiry) => {
       expect(() => helper.getExpiry('BTC/BTC', expiry)).toThrow(
-        Errors.INVALID_INVOICE_EXPIRY().message,
+        Errors.INVALID_INVOICE_EXPIRY(expiry, 60, 123).message,
       );
     },
   );
@@ -97,6 +97,6 @@ describe('InvoiceExpiryHelper', () => {
     ${123} | ${true}
     ${124} | ${false}
   `('should determine if expiry $expiry is valid', ({ expiry, valid }) => {
-    expect(helper['isValidExpiry']('BTC/BTC', expiry)).toEqual(valid);
+    expect(helper['isValidExpiry'](123, expiry)).toEqual(valid);
   });
 });

@@ -118,8 +118,12 @@ export default {
     message: 'invalid description hash',
     code: concatErrorCode(ErrorCodePrefix.Swap, 24),
   }),
-  INVALID_INVOICE_EXPIRY: (): Error => ({
-    message: 'invalid invoice expiry',
+  INVALID_INVOICE_EXPIRY: (
+    actual: number,
+    min: number,
+    max: number,
+  ): Error => ({
+    message: `invalid invoice expiry ${actual}; valid range: ${min} to ${max} seconds`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 25),
   }),
   NO_OFFERS_ALLOWED: (): Error => ({

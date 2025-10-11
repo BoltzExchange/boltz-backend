@@ -31,24 +31,28 @@ class InvoiceExpiryHelper {
   }
 
   public getExpiry = (pair: string, customExpiry?: number): number => {
+    const maxExpiry = this.calculateMaxExpiry(pair);
+
     if (customExpiry !== undefined) {
-      if (!this.isValidExpiry(pair, customExpiry)) {
-        throw Errors.INVALID_INVOICE_EXPIRY();
+      if (!this.isValidExpiry(maxExpiry, customExpiry)) {
+        throw Errors.INVALID_INVOICE_EXPIRY(
+          customExpiry,
+          InvoiceExpiryHelper.minInvoiceExpiry,
+          maxExpiry,
+        );
       }
 
       return customExpiry;
     }
 
-    return (
-      this.invoiceExpiry.get(pair) || InvoiceExpiryHelper.defaultInvoiceExpiry
-    );
+    return maxExpiry;
   };
 
-  private isValidExpiry = (pair: string, expiry: number) =>
-    expiry >= InvoiceExpiryHelper.minInvoiceExpiry &&
-    expiry <=
-      (this.invoiceExpiry.get(pair) ||
-        InvoiceExpiryHelper.defaultInvoiceExpiry);
+  private isValidExpiry = (maxExpiry: number, expiry: number) =>
+    expiry >= InvoiceExpiryHelper.minInvoiceExpiry && expiry <= maxExpiry;
+
+  private calculateMaxExpiry = (pair: string) =>
+    this.invoiceExpiry.get(pair) || InvoiceExpiryHelper.defaultInvoiceExpiry;
 }
 
 export default InvoiceExpiryHelper;

@@ -1895,7 +1895,8 @@ class SwapRouter extends RouterBase {
      * /swap/rescue:
      *   post:
      *     tags: [Swap]
-     *     description: Rescue swaps that were created with an XPUB. Use when trying to refund a swap for which all information was lost
+     *     description: Rescue swaps that were created with an XPUB. Use when trying to refund a swap for which all information was lost. Deprecated. Use /swap/restore instead
+     *     deprecated: true
      *     requestBody:
      *       required: true
      *       content:
@@ -1918,7 +1919,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps that were created with an XPUB. Use when trying to refund or claim a swap for which all information was lost
+     *     description: Restore swaps that were created with an XPUB. Use when trying to resume or refund a swap for which all information was lost
      *     requestBody:
      *       required: true
      *       content:

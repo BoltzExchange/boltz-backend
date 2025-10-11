@@ -34,6 +34,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
+import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import type PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
@@ -352,6 +353,8 @@ jest.mock('../../../lib/service/InvoiceExpiryHelper', () => {
   return mockedImplementation;
 });
 
+(InvoiceExpiryHelper as any).minInvoiceExpiry = 60;
+
 jest.mock('../../../lib/swap/SwapNursery', () => {
   return jest.fn().mockImplementation(() => ({
     lock: new AsyncLock(),
@@ -557,6 +560,11 @@ describe('SwapManager', () => {
       mockGetReverseSwapsResult,
       true,
     );
+  });
+
+  test('should return invoice expiry range', () => {
+    const range = manager.getInvoiceExpiryRange('BTC/BTC');
+    expect(range).toEqual({ min: 60, max: 3600 });
   });
 
   test('should create Swaps', async () => {

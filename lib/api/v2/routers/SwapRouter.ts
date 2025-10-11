@@ -14,6 +14,7 @@ import type Service from '../../../service/Service';
 import type ChainSwapSigner from '../../../service/cooperative/ChainSwapSigner';
 import type { PartialSignature } from '../../../service/cooperative/MusigSigner';
 import type MusigSigner from '../../../service/cooperative/MusigSigner';
+import type { InvoiceExpiryRange } from '../../../swap/SwapManager';
 import ApiErrors from '../../Errors';
 import type SwapInfos from '../../SwapInfos';
 import {
@@ -894,6 +895,42 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/reverse', this.handleError(this.createReverse));
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     InvoiceExpiryRange:
+     *       type: object
+     *       required: ["min", "max"]
+     *       properties:
+     *         min:
+     *           type: number
+     *           description: Minimum allowed invoice expiry in seconds for the pair
+     *         max:
+     *           type: number
+     *           description: Maximum allowed invoice expiry in seconds for the pair
+     */
+
+    /**
+     * @openapi
+     * /swap/reverse/expiry:
+     *   get:
+     *     description: Allowed invoice expiry range per Reverse Swap pair
+     *     tags: [Reverse Swap]
+     *     responses:
+     *       '200':
+     *         description: Nested map of from -> to -> expiry range
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               additionalProperties:
+     *                 type: object
+     *                 additionalProperties:
+     *                   $ref: '#/components/schemas/InvoiceExpiryRange'
+     */
+    router.get('/reverse/expiry', this.handleError(this.getReverseExpiry));
 
     /**
      * @openapi
@@ -2236,6 +2273,31 @@ class SwapRouter extends RouterBase {
         ].getReversePairs(referral),
       ),
     );
+  };
+
+  private getReverseExpiry = async (_req: Request, res: Response) => {
+    const pairs =
+      this.service.rateProvider.providers[
+        SwapVersion.Taproot
+      ].getReversePairs();
+
+    const result: Record<string, Record<string, InvoiceExpiryRange>> = {};
+
+    pairs.forEach((toMap, from) => {
+      const nested: Record<string, InvoiceExpiryRange> = {};
+
+      for (const to of toMap.keys()) {
+        nested[to] = this.service.swapManager.getInvoiceExpiryRange(
+          this.service.convertToPairAndSide(from, to).pairId,
+        );
+      }
+
+      if (Object.keys(nested).length > 0) {
+        result[from] = nested;
+      }
+    });
+
+    successResponse(res, result);
   };
 
   private createReverse = async (req: Request, res: Response) => {

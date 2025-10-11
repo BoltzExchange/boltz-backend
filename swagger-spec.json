@@ -640,6 +640,32 @@
         }
       }
     },
+    "/swap/reverse/expiry": {
+      "get": {
+        "description": "Allowed invoice expiry range per Reverse Swap pair",
+        "tags": [
+          "Reverse Swap"
+        ],
+        "responses": {
+          "200": {
+            "description": "Nested map of from -> to -> expiry range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/InvoiceExpiryRange"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/swap/reverse/{id}/transaction": {
       "get": {
         "tags": [
@@ -3745,6 +3771,23 @@
           "referralId": {
             "type": "string",
             "description": "Referral ID used for the swap"
+          }
+        }
+      },
+      "InvoiceExpiryRange": {
+        "type": "object",
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "min": {
+            "type": "number",
+            "description": "Minimum allowed invoice expiry in seconds for the pair"
+          },
+          "max": {
+            "type": "number",
+            "description": "Maximum allowed invoice expiry in seconds for the pair"
           }
         }
       },

@@ -185,7 +185,7 @@ describe('SwapRouter', () => {
 
     expect(Router).toHaveBeenCalledTimes(1);
 
-    expect(mockedRouter.get).toHaveBeenCalledTimes(16);
+    expect(mockedRouter.get).toHaveBeenCalledTimes(17);
     expect(mockedRouter.get).toHaveBeenCalledWith('/:id', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith('/status', expect.anything());
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -219,6 +219,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
       '/reverse/:invoice/bip21',
+      expect.anything(),
+    );
+    expect(mockedRouter.get).toHaveBeenCalledWith(
+      '/reverse/expiry',
       expect.anything(),
     );
     expect(mockedRouter.get).toHaveBeenCalledWith(
@@ -1079,6 +1083,34 @@ describe('SwapRouter', () => {
         service.rateProvider.providers[SwapVersion.Taproot].getReversePairs(),
       ),
     );
+  });
+
+  test('should get reverse expiry map', async () => {
+    service.swapManager.getInvoiceExpiryRange = jest
+      .fn()
+      .mockReturnValue({ min: 60, max: 1800 });
+
+    const res = mockResponse();
+    await swapRouter['getReverseExpiry'](mockRequest(), res);
+
+    expect(
+      service.rateProvider.providers[SwapVersion.Taproot].getReversePairs,
+    ).toHaveBeenCalledTimes(1);
+
+    expect(service.convertToPairAndSide).toHaveBeenCalledTimes(1);
+    expect(service.convertToPairAndSide).toHaveBeenCalledWith('BTC', 'L-BTC');
+
+    expect(service.swapManager.getInvoiceExpiryRange).toHaveBeenCalledTimes(1);
+    expect(service.swapManager.getInvoiceExpiryRange).toHaveBeenCalledWith(
+      'L-BTC/BTC',
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      BTC: {
+        'L-BTC': { min: 60, max: 1800 },
+      },
+    });
   });
 
   test.each`

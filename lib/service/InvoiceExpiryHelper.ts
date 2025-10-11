@@ -4,7 +4,7 @@ import Errors from '../swap/Errors';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 
 class InvoiceExpiryHelper {
-  private static readonly minInvoiceExpiry = 60;
+  public static readonly minInvoiceExpiry = 60;
   private static readonly defaultInvoiceExpiry = 3_600;
 
   private readonly invoiceExpiry = new Map<string, number>();

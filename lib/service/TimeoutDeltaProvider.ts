@@ -145,7 +145,6 @@ class TimeoutDeltaProvider {
 
   public getCltvLimit = async (
     swap: Swap,
-    timeoutInSeconds: boolean,
   ): Promise<number> => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = this.currencies.get(
@@ -171,20 +170,10 @@ class TimeoutDeltaProvider {
         break;
     }
 
-    let timeoutBlockHeight = swap.timeoutBlockHeight;
-    if (timeoutInSeconds) {
-      timeoutBlockHeight = Math.floor(
-        timeoutBlockHeight /
-          TimeoutDeltaProvider.minutesToSeconds(
-            TimeoutDeltaProvider.blockTimes.get(chainCurrency.symbol)!,
-          ),
-      );
-    }
-
     const blocksLeft = TimeoutDeltaProvider.convertBlocks(
       chainCurrency.symbol,
       getLightningCurrency(base, quote, swap.orderSide, false),
-      timeoutBlockHeight - currentBlock,
+      swap.timeoutBlockHeight - currentBlock,
     );
 
     return Math.floor(blocksLeft - this.swapConfig.cltvDelta);

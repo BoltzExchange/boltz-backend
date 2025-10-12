@@ -88,6 +88,11 @@ import type SwapOutputType from './SwapOutputType';
 import CreationHook from './hooks/CreationHook';
 import RoutingHints from './routing/RoutingHints';
 
+export type InvoiceExpiryRange = {
+  min: number;
+  max: number;
+};
+
 type ChannelCreationInfo = {
   auto: boolean;
   private: boolean;
@@ -323,6 +328,13 @@ class SwapManager {
     );
 
     await this.deferredClaimer.init();
+  };
+
+  public getInvoiceExpiryRange = (pairId: string): InvoiceExpiryRange => {
+    return {
+      min: InvoiceExpiryHelper.minInvoiceExpiry,
+      max: this.invoiceExpiryHelper.getExpiry(pairId),
+    };
   };
 
   /**

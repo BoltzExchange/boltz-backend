@@ -11,11 +11,13 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install \
   cmake \
   libtool \
   python3 \
+  capnproto \
   libdb-dev \
   pkg-config \
   libdb++-dev \
   libzmq3-dev \
   bsdmainutils \
+  libcapnp-dev \
   libevent-dev \
   autotools-dev \
   libsqlite3-dev \

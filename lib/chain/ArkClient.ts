@@ -305,7 +305,7 @@ class ArkClient extends BaseClient<
     return (await this.chainClient.getBlockchainInfo()).blocks;
   };
 
-  public getBlockTimestamp = async (height: number): Promise<number> => {
+  private getBlockTimestamp = async (height: number): Promise<number> => {
     if (this.chainClient === undefined) {
       throw new Error('chain client not set');
     }
@@ -430,11 +430,14 @@ class ArkClient extends BaseClient<
     }
 
     const currentHeight = await this.getBlockHeight();
-    const currentTimestamp = await this.getBlockTimestamp(currentHeight);
 
-    const refund = this.useLocktimeSeconds ?  currentTimestamp + convertDelay(Math.ceil(refundDelay)) :
-    currentHeight + refundDelay;
-
+    let refund: number;
+    if (this.useLocktimeSeconds) {
+      const currentTimestamp = await this.getBlockTimestamp(currentHeight);
+      refund = currentTimestamp + convertDelay(Math.ceil(refundDelay));
+    } else {
+      refund = currentHeight + refundDelay;
+    }
 
     const timeouts: Timeouts = {
       refund: Math.ceil(refund),

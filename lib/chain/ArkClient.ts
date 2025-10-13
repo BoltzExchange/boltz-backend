@@ -305,6 +305,16 @@ class ArkClient extends BaseClient<
     return (await this.chainClient.getBlockchainInfo()).blocks;
   };
 
+  private getBlockTimestamp = async (height: number): Promise<number> => {
+    if (this.chainClient === undefined) {
+      throw new Error('chain client not set');
+    }
+
+    const blockHash = await this.chainClient.getBlockhash(height);
+    const block = await this.chainClient.getBlock(blockHash);
+    return block.mediantime;
+  };
+
   public getBalance = async (): Promise<WalletBalance> => {
     const balance = await this.unaryCall<
       arkrpc.GetBalanceRequest,
@@ -420,8 +430,17 @@ class ArkClient extends BaseClient<
     }
 
     const currentHeight = await this.getBlockHeight();
+
+    let refund: number;
+    if (this.useLocktimeSeconds) {
+      const currentTimestamp = await this.getBlockTimestamp(currentHeight);
+      refund = currentTimestamp + convertDelay(Math.ceil(refundDelay));
+    } else {
+      refund = currentHeight + refundDelay;
+    }
+
     const timeouts: Timeouts = {
-      refund: convertDelay(Math.ceil(currentHeight + refundDelay)),
+      refund: Math.ceil(refund),
       unilateralClaim: convertDelay(Math.ceil(claimDelay)),
       unilateralRefund: convertDelay(Math.ceil(refundDelay)),
       unilateralRefundWithoutReceiver: convertDelay(Math.ceil(refundDelay)),

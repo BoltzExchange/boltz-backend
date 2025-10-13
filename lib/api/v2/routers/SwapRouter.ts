@@ -1919,7 +1919,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps that were created with an XPUB. Use when trying to resume or refund a swap for which all information was lost
+     *     description: Restore swaps whose private keys were derived from an XPUB. Use when trying to resume or refund a swap for which all information was lost
      *     requestBody:
      *       required: true
      *       content:

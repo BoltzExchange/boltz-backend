@@ -1585,3 +1585,205 @@ The backend will respond with a `pong` message.
   "event": "pong"
 }
 ```
+
+## Authentication
+
+Referral-related API endpoints require authentication using HMAC-based request
+signing. This authentication mechanism is used to ensure secure access to
+sensitive referral data and statistics.
+
+### Authentication Headers
+
+Authenticated requests must include three headers:
+
+- `API-KEY` - The unique API key identifier
+- `TS` - Unix timestamp (in seconds) of when the request is made
+- `API-HMAC` - HMAC signature of the request
+
+### HMAC Signature Generation
+
+The HMAC signature is generated using the HMAC-SHA256 algorithm with the API
+secret as the key. The message to be signed is constructed as follows:
+
+For GET requests: `timestamp + method + path`
+
+For POST requests: `timestamp + method + path + body`
+
+Where:
+
+- `timestamp` is the same Unix timestamp sent in the `TS` header
+- `method` is the HTTP method in uppercase (e.g., `GET`, `POST`)
+- `path` is the full request path including query parameters
+- `body` is the raw request body (only for POST requests)
+
+The resulting HMAC digest should be encoded as a hexadecimal string and sent in
+the `API-HMAC` header.
+
+### Timestamp Validation
+
+The timestamp in the `TS` header must be within 60 seconds of the server's
+current time. Requests with timestamps outside this window will be rejected to
+prevent replay attacks.
+
+### Examples
+
+::: code-group
+
+```typescript [TypeScript]
+import axios from 'axios';
+import { createHmac } from 'crypto';
+
+const endpoint = 'https://api.boltz.exchange';
+const apiKey = '<your API key>';
+const apiSecret = '<your API secret>';
+
+const sendAuthenticatedRequest = async (path: string) => {
+  // Get current Unix timestamp in seconds
+  const ts = Math.floor(Date.now() / 1000);
+
+  // Create HMAC signature: timestamp + method + path
+  const hmac = createHmac('sha256', apiSecret)
+    .update(`${ts}GET${path}`)
+    .digest('hex');
+
+  // Send request with authentication headers
+  return axios.get(`${endpoint}${path}`, {
+    headers: {
+      TS: ts.toString(),
+      'API-KEY': apiKey,
+      'API-HMAC': hmac,
+    },
+  });
+};
+
+// Example: Query referral stats
+const response = await sendAuthenticatedRequest('/v2/referral/stats');
+console.log(JSON.stringify(response.data, undefined, 2));
+```
+
+```rust [Rust]
+use hmac::{Hmac, Mac};
+use reqwest::Client;
+use sha2::Sha256;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const ENDPOINT: &str = "https://api.boltz.exchange";
+const API_KEY: &str = "<your API key>";
+const API_SECRET: &str = "<your API secret>";
+
+async fn send_authenticated_request(client: &Client, path: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    // Get current Unix timestamp in seconds
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
+        .as_secs();
+
+    // Create HMAC signature: timestamp + method + path
+    let mut mac = Hmac::<Sha256>::new_from_slice(API_SECRET.as_bytes())?;
+    mac.update(format!("{}GET{}", ts, path).as_bytes());
+    let hmac = hex::encode(mac.finalize().into_bytes());
+
+    // Send request with authentication headers
+    let response = client
+        .get(format!("{}{}", ENDPOINT, path))
+        .header("TS", ts.to_string())
+        .header("API-KEY", API_KEY)
+        .header("API-HMAC", hmac)
+        .send()
+        .await?;
+
+    let json: serde_json::Value = response.json().await?;
+    Ok(json)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::new();
+
+    // Example: Query referral stats
+    let response = send_authenticated_request(&client, "/v2/referral/stats").await?;
+    println!("{}", serde_json::to_string_pretty(&response)?);
+
+    Ok(())
+}
+```
+
+```go [Go]
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+)
+
+const endpoint = "https://api.boltz.exchange"
+const apiKey = "<your API key>"
+const apiSecret = "<your API secret>"
+
+func sendAuthenticatedRequest(path string) (map[string]any, error) {
+	// Get current Unix timestamp in seconds
+	ts := time.Now().Unix()
+
+	// Create HMAC signature: timestamp + method + path
+	message := fmt.Sprintf("%dGET%s", ts, path)
+	mac := hmac.New(sha256.New, []byte(apiSecret))
+	mac.Write([]byte(message))
+	hmacSignature := hex.EncodeToString(mac.Sum(nil))
+
+	// Create HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", endpoint+path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add authentication headers
+	req.Header.Set("TS", fmt.Sprintf("%d", ts))
+	req.Header.Set("API-KEY", apiKey)
+	req.Header.Set("API-HMAC", hmacSignature)
+
+	// Send request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read and parse JSON response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var jsonResponse map[string]any
+	if err := json.Unmarshal(body, &jsonResponse); err != nil {
+		return nil, err
+	}
+
+	return jsonResponse, nil
+}
+
+func main() {
+	// Example: Query referral stats
+	response, err := sendAuthenticatedRequest("/v2/referral/stats")
+	if err != nil {
+		panic(err)
+	}
+
+	// Pretty print JSON response
+	prettyJSON, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(prettyJSON))
+}
+
+```
+
+:::

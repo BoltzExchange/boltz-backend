@@ -86,6 +86,10 @@ class ArkClient extends BaseClient<
     super(logger, ArkClient.symbol);
   }
 
+  public get usesLocktimeSeconds(): boolean {
+    return this.useLocktimeSeconds;
+  }
+
   public static decodeAddress = (address: string) => {
     const dec = bech32m.decodeUnsafe(address, 1023);
     if (dec === undefined) {
@@ -308,7 +312,7 @@ class ArkClient extends BaseClient<
     return (await this.chainClient.getBlockchainInfo()).blocks;
   };
 
-  private getBlockTimestamp = async (height: number): Promise<number> => {
+  public getBlockTimestamp = async (height: number): Promise<number> => {
     if (this.chainClient === undefined) {
       throw new Error('chain client not set');
     }
@@ -390,7 +394,6 @@ class ArkClient extends BaseClient<
     refundPublicKey?: Buffer,
   ): Promise<{
     vHtlc: arkrpc.CreateVHTLCResponse.AsObject;
-    height: number;
     timeouts: Timeouts;
   }> => {
     const convertDelay = (delay: number) => {
@@ -458,7 +461,6 @@ class ArkClient extends BaseClient<
 
     return {
       timeouts,
-      height: currentHeight,
       vHtlc: await this.unaryCall<
         arkrpc.CreateVHTLCRequest,
         arkrpc.CreateVHTLCResponse.AsObject

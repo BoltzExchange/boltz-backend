@@ -143,38 +143,54 @@ class TimeoutDeltaProvider {
     }
   };
 
-  public getCltvLimit = async (
-    swap: Swap,
-  ): Promise<number> => {
+  public getCltvLimit = async (swap: Swap): Promise<number> => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = this.currencies.get(
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
-    let currentBlock: number;
+    let blocksLeft: number;
 
-    switch (chainCurrency.type) {
-      case CurrencyType.Ark:
-        currentBlock = await chainCurrency.arkNode!.getBlockHeight();
-        break;
+    if (
+      chainCurrency.type === CurrencyType.Ark &&
+      chainCurrency.arkNode?.usesLocktimeSeconds
+    ) {
+      const currentTimestamp = await chainCurrency.arkNode!.getBlockTimestamp(
+        await chainCurrency.arkNode!.getBlockHeight(),
+      );
+      blocksLeft = Math.floor(
+        (swap.timeoutBlockHeight - currentTimestamp) /
+          // To minutes
+          60 /
+          // To blocks
+          TimeoutDeltaProvider.blockTimes.get(chainCurrency.symbol)!,
+      );
+    } else {
+      let currentBlock: number;
 
-      case CurrencyType.BitcoinLike:
-      case CurrencyType.Liquid:
-        currentBlock = (await chainCurrency.chainClient!.getBlockchainInfo())
-          .blocks;
-        break;
+      switch (chainCurrency.type) {
+        case CurrencyType.Ark:
+          currentBlock = await chainCurrency.arkNode!.getBlockHeight();
+          break;
 
-      case CurrencyType.Ether:
-      case CurrencyType.ERC20:
-        currentBlock = await chainCurrency.provider!.getBlockNumber();
-        break;
+        case CurrencyType.BitcoinLike:
+        case CurrencyType.Liquid:
+          currentBlock = (await chainCurrency.chainClient!.getBlockchainInfo())
+            .blocks;
+          break;
+
+        case CurrencyType.Ether:
+        case CurrencyType.ERC20:
+          currentBlock = await chainCurrency.provider!.getBlockNumber();
+          break;
+      }
+
+      blocksLeft = TimeoutDeltaProvider.convertBlocks(
+        chainCurrency.symbol,
+        getLightningCurrency(base, quote, swap.orderSide, false),
+        swap.timeoutBlockHeight - currentBlock,
+      );
     }
-
-    const blocksLeft = TimeoutDeltaProvider.convertBlocks(
-      chainCurrency.symbol,
-      getLightningCurrency(base, quote, swap.orderSide, false),
-      swap.timeoutBlockHeight - currentBlock,
-    );
 
     return Math.floor(blocksLeft - this.swapConfig.cltvDelta);
   };

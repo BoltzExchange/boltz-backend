@@ -163,8 +163,8 @@ class ArkNursery extends TypedEventEmitter<{
       const { base, quote } = splitPairId(swap.pair);
       const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
 
-      node.subscription.unsubscribeAddress(swap.lockupAddress);
       if (chainCurrency === node.symbol) {
+        node.subscription.unsubscribeAddress(swap.lockupAddress);
         this.emit('reverseSwap.expired', swap);
       }
     }

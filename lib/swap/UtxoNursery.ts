@@ -157,12 +157,20 @@ class UtxoNursery extends TypedEventEmitter<{
     );
 
     if (swap.receivingData.expectedAmount > outputValue) {
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.INSUFFICIENT_AMOUNT(
+      let reason: string;
+
+      if (outputValue === 0) {
+        reason = Errors.INCORRECT_ASSET_SENT().message;
+      } else {
+        reason = Errors.INSUFFICIENT_AMOUNT(
           outputValue,
           swap.receivingData.expectedAmount,
-        ).message,
+        ).message;
+      }
+
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason,
       });
 
       return;
@@ -768,13 +776,21 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (updatedSwap.expectedAmount) {
       if (updatedSwap.expectedAmount > outputValue) {
-        chainClient.removeOutputFilter(swapOutput.script);
-        this.emit('swap.lockup.failed', {
-          swap: updatedSwap,
-          reason: Errors.INSUFFICIENT_AMOUNT(
+        let reason: string;
+
+        if (outputValue === 0) {
+          reason = Errors.INCORRECT_ASSET_SENT().message;
+        } else {
+          reason = Errors.INSUFFICIENT_AMOUNT(
             outputValue,
             updatedSwap.expectedAmount,
-          ).message,
+          ).message;
+        }
+
+        chainClient.removeOutputFilter(swapOutput.script);
+        this.emit('swap.lockup.failed', {
+          reason,
+          swap: updatedSwap,
         });
 
         return;

@@ -141,13 +141,9 @@ impl SomeSwap for ChainSwapInfo {
         let input_type = InputType::Refund(sending.timeoutBlockHeight as u32);
 
         let keys = wallet.derive_keys(sending.keyIndex.context("key index not found")? as u64)?;
-
         let key_pair = keys.to_keypair(&bitcoin::secp256k1::Secp256k1::new());
-
-        let secp = Musig::new_secp();
         let internal_key = Musig::new(
-            &secp,
-            Musig::convert_keypair(&secp, key_pair.secret_key().secret_bytes())?,
+            Musig::convert_keypair(key_pair.secret_key().secret_bytes())?,
             vec![
                 Musig::convert_pub_key(&key_pair.public_key().serialize())?,
                 Musig::convert_pub_key(&alloy::hex::decode(

@@ -65,13 +65,13 @@
     "@grpc/grpc-js": "^1.14.0",
     "@iarna/toml": "^2.2.5",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.205.0",
-    "@opentelemetry/instrumentation-express": "^0.54.3",
-    "@opentelemetry/instrumentation-grpc": "^0.205.0",
-    "@opentelemetry/instrumentation-http": "^0.205.0",
-    "@opentelemetry/instrumentation-pg": "^0.58.3",
-    "@opentelemetry/instrumentation-winston": "^0.50.2",
-    "@opentelemetry/sdk-node": "^0.205.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.206.0",
+    "@opentelemetry/instrumentation-express": "^0.55.0",
+    "@opentelemetry/instrumentation-grpc": "^0.206.0",
+    "@opentelemetry/instrumentation-http": "^0.206.0",
+    "@opentelemetry/instrumentation-pg": "^0.59.0",
+    "@opentelemetry/instrumentation-winston": "^0.51.0",
+    "@opentelemetry/sdk-node": "^0.206.0",
     "@pyroscope/nodejs": "^0.4.5",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
@@ -114,7 +114,7 @@
     "@types/node-schedule": "^2.1.8",
     "@types/pg": "^8.15.5",
     "@types/yargs": "^17.0.33",
-    "@typescript-eslint/parser": "^8.45.0",
+    "@typescript-eslint/parser": "^8.46.1",
     "cross-os": "^1.5.0",
     "eslint": "^9.37.0",
     "eslint-plugin-import": "^2.32.0",
@@ -129,13 +129,13 @@
     "prettier": "^3.6.2",
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
-    "ts-jest": "^29.4.4",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.45.0",
+    "typescript-eslint": "^8.46.1",
     "vitepress": "^1.6.4"
   },
   "optionalDependencies": {
     "@types/nodemailer": "^7.0.2",
-    "nodemailer": "^7.0.7"
+    "nodemailer": "^7.0.9"
   }
 }

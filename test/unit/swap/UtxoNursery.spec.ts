@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import type { ECPairInterface } from 'ecpair';
 import { Op } from 'sequelize';
 import { createMusig, setup, tweakMusig } from '../../../lib/Core';
+import * as Core from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, transactionHashToId } from '../../../lib/Utils';
@@ -1074,6 +1075,181 @@ describe('UtxoNursery', () => {
 
     expect(await transactionSignalsRbf(btcChainClient, transaction)).toEqual(
       false,
+    );
+  });
+
+  describe('amount error messages', () => {
+    test.each([
+      {
+        testName: 'INCORRECT_ASSET_SENT when outputValue is 0',
+        expectedAmount: 100214,
+        outputValue: 0,
+        expectedError: Errors.INCORRECT_ASSET_SENT(),
+      },
+      {
+        testName: 'INSUFFICIENT_AMOUNT when outputValue is less than expected',
+        expectedAmount: 100214,
+        outputValue: 50000,
+        expectedError: Errors.INSUFFICIENT_AMOUNT(50000, 100214),
+      },
+      {
+        testName: 'OVERPAID_AMOUNT when outputValue is more than expected',
+        expectedAmount: 100214,
+        outputValue: 200000,
+        expectedError: Errors.OVERPAID_AMOUNT(200000, 100214),
+      },
+    ])(
+      'should emit swap.lockup.failed with $testName',
+      async ({ expectedAmount, outputValue, expectedError }) => {
+        const checkSwapOutputs = nursery['checkOutputs'];
+
+        const transaction = Transaction.fromHex(sampleTransactions.lockup);
+
+        let eventEmitted = false;
+
+        mockGetSwapResult = {
+          id: 'testSwap',
+          expectedAmount,
+          redeemScript: sampleRedeemScript,
+        };
+
+        mockSetLockupTransaction.mockImplementationOnce(async (swap) => ({
+          ...swap,
+          expectedAmount,
+        }));
+
+        const getOutputValueSpy = jest
+          .spyOn(Core, 'getOutputValue')
+          .mockReturnValue(outputValue);
+
+        nursery.once('swap.lockup.failed', ({ swap, reason }) => {
+          expect(swap.id).toEqual(mockGetSwapResult.id);
+          expect(reason).toEqual(expectedError.message);
+
+          eventEmitted = true;
+        });
+
+        await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+
+        expect(eventEmitted).toEqual(true);
+
+        expect(mockGetSwap).toHaveBeenCalledTimes(1);
+        expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+        expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+
+        expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
+        expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
+          transaction.outs[0].script,
+        );
+
+        getOutputValueSpy.mockRestore();
+      },
+    );
+
+    test.each([
+      {
+        testName: 'INCORRECT_ASSET_SENT when outputValue is 0',
+        expectedAmount: 123,
+        outputValue: 0,
+        expectedError: Errors.INCORRECT_ASSET_SENT(),
+      },
+      {
+        testName: 'INSUFFICIENT_AMOUNT when outputValue is less than expected',
+        expectedAmount: 123,
+        outputValue: 50,
+        expectedError: Errors.INSUFFICIENT_AMOUNT(50, 123),
+      },
+      {
+        testName: 'OVERPAID_AMOUNT when outputValue is more than expected',
+        expectedAmount: 123,
+        outputValue: 500,
+        expectedError: Errors.OVERPAID_AMOUNT(500, 123),
+      },
+    ])(
+      'should emit chainSwap.lockup.failed with $testName',
+      async ({ expectedAmount, outputValue, expectedError }) => {
+        const checkChainSwapTransaction = nursery['checkChainSwapTransaction'];
+
+        const ourKeys = ECPair.makeRandom();
+        const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+
+        const tree = swapTree(
+          false,
+          randomBytes(32),
+          Buffer.from(ourKeys.publicKey),
+          theirPublicKey,
+          210,
+        );
+
+        const transaction = new Transaction();
+        transaction.addOutput(
+          Scripts.p2trOutput(
+            tweakMusig(
+              CurrencyType.BitcoinLike,
+              createMusig(ourKeys, theirPublicKey),
+              tree,
+            ),
+          ),
+          123,
+        );
+
+        mockGetKeysByIndexResult = ourKeys;
+
+        const mockChainSwap = {
+          id: 'testChainSwap',
+          type: SwapType.Chain,
+          receivingData: {
+            keyIndex: 123,
+            expectedAmount,
+            theirPublicKey: theirPublicKey.toString('hex'),
+            swapTree: JSON.stringify(
+              SwapTreeSerializer.serializeSwapTree(tree),
+            ),
+          },
+        };
+
+        ChainSwapRepository.setUserLockupTransaction = jest
+          .fn()
+          .mockResolvedValue(mockChainSwap);
+
+        const getOutputValueSpy = jest
+          .spyOn(Core, 'getOutputValue')
+          .mockReturnValue(outputValue);
+
+        let eventEmitted = false;
+
+        nursery.once('chainSwap.lockup.failed', ({ swap, reason }) => {
+          expect(swap.id).toEqual(mockChainSwap.id);
+          expect(reason).toEqual(expectedError.message);
+
+          eventEmitted = true;
+        });
+
+        await checkChainSwapTransaction(
+          mockChainSwap as any,
+          btcChainClient,
+          btcWallet,
+          transaction,
+          true,
+        );
+
+        expect(eventEmitted).toEqual(true);
+
+        expect(
+          ChainSwapRepository.setUserLockupTransaction,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          ChainSwapRepository.setUserLockupTransaction,
+        ).toHaveBeenCalledWith(
+          mockChainSwap,
+          transaction.getId(),
+          outputValue,
+          true,
+          0,
+        );
+
+        getOutputValueSpy.mockRestore();
+      },
     );
   });
 });

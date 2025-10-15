@@ -3,10 +3,7 @@ use secp256k1::musig::{
     AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
     Session, SessionSecretRand,
 };
-use secp256k1::{
-    All, Keypair, PublicKey, Scalar, Secp256k1, SecretKey, Signing, Verification, XOnlyPublicKey,
-    rand,
-};
+use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, XOnlyPublicKey, rand};
 
 pub struct Musig {
     key: Keypair,
@@ -23,29 +20,17 @@ pub struct Musig {
 }
 
 impl Musig {
-    pub fn new_secp() -> Secp256k1<All> {
-        Secp256k1::new()
-    }
-
-    pub fn convert_keypair<C: Signing>(secp: &Secp256k1<C>, sk: [u8; 32]) -> Result<Keypair> {
-        Ok(Keypair::from_secret_key(
-            secp,
-            &SecretKey::from_byte_array(sk)?,
-        ))
+    pub fn convert_keypair(sk: [u8; 32]) -> Result<Keypair> {
+        Ok(Keypair::from_secret_key(&SecretKey::from_secret_bytes(sk)?))
     }
 
     pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey> {
         Ok(PublicKey::from_slice(pub_key)?)
     }
 
-    pub fn new<C: Verification + Signing>(
-        secp: &Secp256k1<C>,
-        key: Keypair,
-        pub_keys: Vec<PublicKey>,
-        msg: [u8; 32],
-    ) -> Result<Self> {
+    pub fn new(key: Keypair, pub_keys: Vec<PublicKey>, msg: [u8; 32]) -> Result<Self> {
         let pub_key_refs: Vec<&PublicKey> = pub_keys.iter().collect();
-        let aggcache = KeyAggCache::new(secp, &pub_key_refs);
+        let aggcache = KeyAggCache::new(&pub_key_refs);
 
         let res = Self {
             key,
@@ -72,38 +57,22 @@ impl Musig {
         self.aggcache.agg_pk()
     }
 
-    pub fn xonly_tweak_add<C: Verification>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        tweak: &Scalar,
-    ) -> Result<()> {
-        self.aggcache.pubkey_xonly_tweak_add(secp, tweak)?;
+    pub fn xonly_tweak_add(&mut self, tweak: &Scalar) -> Result<()> {
+        self.aggcache.pubkey_xonly_tweak_add(tweak)?;
         Ok(())
     }
 
-    pub fn generate_nonce<C: Signing, R: rand::Rng + ?Sized>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        rng: &mut R,
-    ) -> PublicNonce {
+    pub fn generate_nonce<R: rand::Rng + ?Sized>(&mut self, rng: &mut R) -> PublicNonce {
         let session_secrand = SessionSecretRand::from_rng(rng);
-        let (secret, public) = self.aggcache.nonce_gen(
-            secp,
-            session_secrand,
-            self.key.public_key(),
-            &self.msg,
-            None,
-        );
+        let (secret, public) =
+            self.aggcache
+                .nonce_gen(session_secrand, self.key.public_key(), &self.msg, None);
         self.nonce = Some((secret, public));
 
         public
     }
 
-    pub fn aggregate_nonces<C: Signing>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        mut nonces: Vec<(PublicKey, PublicNonce)>,
-    ) -> Result<()> {
+    pub fn aggregate_nonces(&mut self, mut nonces: Vec<(PublicKey, PublicNonce)>) -> Result<()> {
         if !nonces.iter().any(|(pk, _)| pk == &self.key.public_key()) {
             if let Some((_, our_nonce)) = &self.nonce {
                 nonces.push((self.key.public_key(), *our_nonce));
@@ -126,16 +95,12 @@ impl Musig {
             }
         }
 
-        self.aggregate_nonces_ordered(secp, ordered)?;
+        self.aggregate_nonces_ordered(ordered)?;
 
         Ok(())
     }
 
-    pub fn aggregate_nonces_ordered<C: Signing>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        nonces: Vec<PublicNonce>,
-    ) -> Result<()> {
+    pub fn aggregate_nonces_ordered(&mut self, nonces: Vec<PublicNonce>) -> Result<()> {
         if nonces.len() != self.num_participants() {
             anyhow::bail!("incorrect number of nonces")
         }
@@ -149,16 +114,16 @@ impl Musig {
         }
 
         let nonce_refs: Vec<&PublicNonce> = nonces.iter().collect();
-        self.aggnonce = Some(AggregatedNonce::new(secp, &nonce_refs));
+        self.aggnonce = Some(AggregatedNonce::new(&nonce_refs));
 
         self.pub_nonces = Some(nonces);
 
         Ok(())
     }
 
-    pub fn initialize_session<C: Signing>(&mut self, secp: &Secp256k1<C>) -> Result<()> {
+    pub fn initialize_session(&mut self) -> Result<()> {
         if let Some(aggnonce) = &self.aggnonce {
-            self.session = Some(Session::new(secp, &self.aggcache, *aggnonce, &self.msg));
+            self.session = Some(Session::new(&self.aggcache, *aggnonce, &self.msg));
         } else {
             anyhow::bail!("aggnonce is not generated yet")
         }
@@ -166,10 +131,10 @@ impl Musig {
         Ok(())
     }
 
-    pub fn partial_sign<C: Signing>(&mut self, secp: &Secp256k1<C>) -> Result<()> {
+    pub fn partial_sign(&mut self) -> Result<()> {
         if let Some((secnonce, _)) = self.nonce.take() {
             if let Some(session) = &self.session {
-                let partial_sig = session.partial_sign(secp, secnonce, &self.key, &self.aggcache);
+                let partial_sig = session.partial_sign(secnonce, &self.key, &self.aggcache);
                 let our_index = self.our_index()?;
                 self.partial_sigs[our_index] = Some(partial_sig);
             } else {
@@ -182,19 +147,14 @@ impl Musig {
         Ok(())
     }
 
-    pub fn partial_verify<C: Signing>(
-        &self,
-        secp: &Secp256k1<C>,
-        public_key: PublicKey,
-        sig: PartialSignature,
-    ) -> Result<bool> {
+    pub fn partial_verify(&self, public_key: PublicKey, sig: PartialSignature) -> Result<bool> {
         let index = self.key_index(public_key)?;
 
         if let Some(pub_nonces) = &self.pub_nonces {
             let nonce = pub_nonces[index];
 
             if let Some(session) = &self.session {
-                Ok(session.partial_verify(secp, &self.aggcache, &sig, &nonce, public_key))
+                Ok(session.partial_verify(&self.aggcache, &sig, &nonce, public_key))
             } else {
                 anyhow::bail!("session is not initialized")
             }
@@ -203,13 +163,8 @@ impl Musig {
         }
     }
 
-    pub fn partial_add<C: Signing>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        public_key: PublicKey,
-        sig: PartialSignature,
-    ) -> Result<()> {
-        if !self.partial_verify(secp, public_key, sig)? {
+    pub fn partial_add(&mut self, public_key: PublicKey, sig: PartialSignature) -> Result<()> {
+        if !self.partial_verify(public_key, sig)? {
             anyhow::bail!("partial signature is not valid")
         }
 
@@ -259,19 +214,15 @@ mod tests {
 
     #[test]
     fn test_our_key_not_in_list() {
-        let secp = Secp256k1::new();
-        let key = Keypair::new(&secp, &mut rand::rng());
+        let key = Keypair::new(&mut rand::rng());
         let pub_keys = vec![
-            Keypair::new(&secp, &mut rand::rng()).public_key(),
-            Keypair::new(&secp, &mut rand::rng()).public_key(),
+            Keypair::new(&mut rand::rng()).public_key(),
+            Keypair::new(&mut rand::rng()).public_key(),
         ];
         let msg = [0u8; 32];
 
         assert_eq!(
-            Musig::new(&secp, key, pub_keys, msg)
-                .err()
-                .unwrap()
-                .to_string(),
+            Musig::new(key, pub_keys, msg).err().unwrap().to_string(),
             "key not found in public keys"
         );
     }
@@ -288,19 +239,17 @@ mod tests {
     #[case::hundred(100, false)]
     #[case::thousand(1_000, false)]
     fn test_musig(#[case] size: usize, #[case] tweak: bool) {
-        let secp = Secp256k1::new();
-        let key = Keypair::new(&secp, &mut rand::rng());
+        let key = Keypair::new(&mut rand::rng());
 
         let mut counterparties = Vec::new();
         for _ in 0..size - 1 {
-            counterparties.push(Keypair::new(&secp, &mut rand::rng()));
+            counterparties.push(Keypair::new(&mut rand::rng()));
         }
 
         let mut nonces = Vec::new();
 
         for counterparty in counterparties.iter() {
             let (secnonce, pubnonce) = new_nonce_pair(
-                &secp,
                 SessionSecretRand::from_rng(&mut rand::rng()),
                 None,
                 None,
@@ -320,16 +269,15 @@ mod tests {
         let mut msg = [0u8; 32];
         rand::rng().fill(&mut msg);
 
-        let mut musig = Musig::new(&secp, key, pub_keys, msg).unwrap();
+        let mut musig = Musig::new(key, pub_keys, msg).unwrap();
 
         if tweak {
-            musig.xonly_tweak_add(&secp, &Scalar::random()).unwrap();
+            musig.xonly_tweak_add(&Scalar::random()).unwrap();
         }
 
-        musig.generate_nonce(&secp, &mut rand::rng());
+        musig.generate_nonce(&mut rand::rng());
         musig
             .aggregate_nonces(
-                &secp,
                 counterparties
                     .iter()
                     .enumerate()
@@ -337,25 +285,22 @@ mod tests {
                     .collect(),
             )
             .unwrap();
-        musig.initialize_session(&secp).unwrap();
-        musig.partial_sign(&secp).unwrap();
+        musig.initialize_session().unwrap();
+        musig.partial_sign().unwrap();
 
         for counterparty in counterparties.iter() {
             let (secnonce, _) = nonces.remove(0);
-            let sig =
-                musig
-                    .session
-                    .unwrap()
-                    .partial_sign(&secp, secnonce, counterparty, &musig.aggcache);
-            musig
-                .partial_add(&secp, counterparty.public_key(), sig)
-                .unwrap();
+            let sig = musig
+                .session
+                .unwrap()
+                .partial_sign(secnonce, counterparty, &musig.aggcache);
+            musig.partial_add(counterparty.public_key(), sig).unwrap();
         }
 
         let sig = musig.partial_aggregate().unwrap();
         let agg_pk = musig.agg_pk();
 
-        let sig = sig.verify(&secp, &agg_pk, &msg).unwrap();
-        assert!(secp.verify_schnorr(&sig, &msg, &agg_pk).is_ok());
+        let sig = sig.verify(&agg_pk, &msg).unwrap();
+        assert!(sig.verify(&msg, &agg_pk).is_ok());
     }
 }

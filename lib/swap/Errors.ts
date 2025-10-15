@@ -146,4 +146,8 @@ export default {
     message: `swap ${id} already refunded`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 30),
   }),
+  INCORRECT_ASSET_SENT: (): Error => ({
+    message: 'incorrect asset was sent',
+    code: concatErrorCode(ErrorCodePrefix.Swap, 31),
+  }),
 };

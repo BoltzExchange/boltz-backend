@@ -87,16 +87,13 @@ impl SomeSwap for ReverseSwap {
                     )?))
                 }
                 SwapVersion::Taproot => {
-                    let secp = Musig::new_secp();
-
                     OutputType::Taproot(Some(boltz_core::bitcoin::UncooperativeDetails {
                         tree: serde_json::from_str(
                             &self.redeemScript.clone().context("swap tree not found")?,
                         )?,
                         internal_key: bitcoin::XOnlyPublicKey::from_slice(
                             &Musig::new(
-                                &secp,
-                                Musig::convert_keypair(&secp, keys.secret_key().secret_bytes())?,
+                                Musig::convert_keypair(keys.secret_key().secret_bytes())?,
                                 vec![
                                     Musig::convert_pub_key(&keys.public_key().serialize())?,
                                     Musig::convert_pub_key(&alloy::hex::decode(
@@ -161,16 +158,13 @@ impl SomeSwap for ReverseSwap {
                     .map_err(|e| anyhow::anyhow!("failed to parse redeem script: {}", e))?,
                 ),
                 SwapVersion::Taproot => {
-                    let secp = Musig::new_secp();
-
                     OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
                         tree: serde_json::from_str(
                             &self.redeemScript.clone().context("swap tree not found")?,
                         )?,
                         internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
                             &Musig::new(
-                                &secp,
-                                Musig::convert_keypair(&secp, keys.secret_key().secret_bytes())?,
+                                Musig::convert_keypair(keys.secret_key().secret_bytes())?,
                                 vec![
                                     Musig::convert_pub_key(&keys.public_key().serialize())?,
                                     Musig::convert_pub_key(&alloy::hex::decode(

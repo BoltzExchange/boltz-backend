@@ -28,7 +28,7 @@ import {
   splitPairId,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
-import { checkPreimageHashLength } from '../api/Utils';
+import { checkPreimageHashLength, errorsNotToLog } from '../api/Utils';
 import ElementsClient from '../chain/ElementsClient';
 import {
   etherDecimals,
@@ -925,9 +925,12 @@ class Service {
       );
     } catch (error) {
       if (isSwapRelated) {
-        this.logger.warn(
-          `Broadcast of ${symbol} transaction related to Swaps (${relevantSwapIds.join(', ')}) failed ${formatError(error)}: ${transactionHex}`,
-        );
+        const errorMsg = formatError(error);
+        if (!errorsNotToLog.includes(errorMsg)) {
+          this.logger.warn(
+            `Broadcast of ${symbol} transaction related to Swaps (${relevantSwapIds.join(', ')}) failed ${errorMsg}: ${transactionHex}`,
+          );
+        }
       }
 
       // This special error is thrown when a Submarine Swap that has not timed out yet is refunded

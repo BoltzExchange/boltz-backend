@@ -15,6 +15,8 @@ import type RateProvider from '../../../lib/rates/RateProvider';
 import { wait } from '../../Utils';
 import { bitcoinClient, elementsClient } from '../Nodes';
 
+const waitTime = 250;
+
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('LockupTransactionTracker', () => {
@@ -318,7 +320,7 @@ describe('LockupTransactionTracker', () => {
         tracker['risk'].set(symbol, BigInt(amount));
 
         await client.generate(1);
-        await wait(100);
+        await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(0n);
 
@@ -381,7 +383,7 @@ describe('LockupTransactionTracker', () => {
         tracker['risk'].set(symbol, BigInt(amount));
 
         await client.generate(1);
-        await wait(100);
+        await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(0n);
 
@@ -438,7 +440,7 @@ describe('LockupTransactionTracker', () => {
         tracker['risk'].set(symbol, BigInt(amount));
 
         client['emit']('block', 1);
-        await wait(100);
+        await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(BigInt(amount));
 
@@ -474,7 +476,7 @@ describe('LockupTransactionTracker', () => {
       });
 
       await bitcoinClient.generate(1);
-      await wait(100);
+      await wait(waitTime);
 
       expect(tracker.zeroConfAccepted('BTC')).toEqual(false);
 
@@ -505,7 +507,7 @@ describe('LockupTransactionTracker', () => {
       ]);
 
       await bitcoinClient.generate(1);
-      await wait(100);
+      await wait(waitTime);
 
       expect(tracker.zeroConfAccepted('BTC')).toEqual(false);
 

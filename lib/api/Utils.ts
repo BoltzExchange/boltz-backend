@@ -16,9 +16,10 @@ export type ApiArgument = {
 };
 
 // Some endpoints are getting spammed on mainnet, so we don't log the warnings for them
-const errorsNotToLog: any[] = [
+export const errorsNotToLog: string[] = [
   ServiceErrors.SWAP_NO_LOCKUP().message,
   ServiceErrors.ETHEREUM_NOT_ENABLED().message,
+  'bad-txns-inputs-missingorspent',
 ];
 
 /**

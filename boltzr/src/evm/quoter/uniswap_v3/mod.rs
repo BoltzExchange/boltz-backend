@@ -360,7 +360,7 @@ mod test {
             .quote_output(
                 WRBTC.parse().unwrap(),
                 USDT.parse().unwrap(),
-                U256::from_str_radix("100000000000", 10).unwrap(),
+                U256::from_str_radix("100000000", 10).unwrap(),
             )
             .await
             .unwrap();
@@ -395,7 +395,7 @@ mod test {
 
         let token_in: Address = WRBTC.parse().unwrap();
         let token_out: Address = USDT.parse().unwrap();
-        let amount_out = U256::from_str_radix("100000000000", 10).unwrap();
+        let amount_out = U256::from_str_radix("100000000", 10).unwrap();
 
         let (quote, data) = quoter
             .quote_output(token_in, token_out, amount_out)

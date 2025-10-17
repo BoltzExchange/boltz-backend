@@ -1,54 +1,66 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
+use crate::service::{PubkeyIterator, SingleKeyIterator, XpubIterator};
 use crate::swap::manager::SwapManager;
+use crate::utils::serde::{PublicKeyDeserialize, XpubDeserialize};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::utils::serde::XpubDeserialize;
 #[derive(Deserialize)]
-pub struct RescueParams {
-    xpub: XpubDeserialize,
-    #[serde(rename = "derivationPath")]
-    derivation_path: Option<String>,
+#[serde(untagged)]
+pub enum RescueParams {
+    Xpub {
+        xpub: XpubDeserialize,
+        #[serde(rename = "derivationPath")]
+        derivation_path: Option<String>,
+    },
+    PublicKey {
+        #[serde(rename = "publicKey")]
+        public_key: PublicKeyDeserialize,
+    },
+}
+
+impl TryFrom<RescueParams> for Box<dyn PubkeyIterator> {
+    type Error = anyhow::Error;
+
+    fn try_from(params: RescueParams) -> Result<Self, Self::Error> {
+        match params {
+            RescueParams::Xpub {
+                xpub,
+                derivation_path,
+            } => Ok(Box::new(XpubIterator::new(xpub.0, derivation_path)?)),
+            RescueParams::PublicKey { public_key } => {
+                Ok(Box::new(SingleKeyIterator::new(public_key.0)))
+            }
+        }
+    }
 }
 
 pub async fn swap_rescue<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
-    Json(RescueParams {
-        xpub,
-        derivation_path,
-    }): Json<RescueParams>,
+    Json(params): Json<RescueParams>,
 ) -> anyhow::Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let res = state
-        .service
-        .swap_rescue
-        .rescue_xpub(&xpub.0, derivation_path)?;
+    let res = state.service.swap_rescue.rescue(params.try_into()?)?;
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 
 pub async fn swap_restore<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
-    Json(RescueParams {
-        xpub,
-        derivation_path,
-    }): Json<RescueParams>,
+    Json(params): Json<RescueParams>,
 ) -> anyhow::Result<impl IntoResponse, AxumError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let res = state
-        .service
-        .swap_rescue
-        .restore_xpub(&xpub.0, derivation_path)?;
+    let res = state.service.swap_rescue.restore(params.try_into()?)?;
     Ok((StatusCode::OK, Json(res)).into_response())
 }
 
@@ -70,7 +82,7 @@ mod test {
 
     const VALID_XPUB: &str = "xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym";
     const INVALID_XPUB: &str = "invalid";
-    const EXPECTED_ERROR_MSG: &str = "Failed to deserialize the JSON body into the target type: xpub: invalid xpub: base58 encoding error at line 1 column 17";
+    const EXPECTED_ERROR_MSG: &str = "Failed to deserialize the JSON body into the target type: data did not match any variant of untagged enum RescueParams";
 
     fn setup_router() -> Router {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);

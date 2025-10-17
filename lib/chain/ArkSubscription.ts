@@ -112,7 +112,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
             amount: vhtlc.amount,
           });
 
-          if (vhtlc.isSpent && vhtlc.spentBy !== '') {
+          if (vhtlc.spentBy !== '') {
             this.emit('vhtlc.spent', {
               outpoint: {
                 txid: vhtlc.outpoint!.txid,

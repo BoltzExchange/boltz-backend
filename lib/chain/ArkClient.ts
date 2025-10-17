@@ -33,8 +33,6 @@ export type ArkConfig = {
   host: string;
   port: number;
 
-  asp?: string;
-
   minWalletBalance?: number;
   maxZeroConfAmount?: number;
 

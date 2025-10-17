@@ -3,7 +3,7 @@ use crate::wallet::keys::Keys;
 use crate::wallet::{Network, Wallet};
 use anyhow::Result;
 use async_trait::async_trait;
-use bitcoin::bip32::Xpriv;
+use bitcoin::{bip32::Xpriv, secp256k1};
 use elements::pset::serialize::Serialize;
 use elements_miniscript::slip77;
 use lightning::util::ser::Writeable;
@@ -60,6 +60,14 @@ impl Wallet for Elements {
         self.keys.derive_key(index)
     }
 
+    fn derive_pubkey(
+        &self,
+        secp: &secp256k1::Secp256k1<secp256k1::All>,
+        index: u64,
+    ) -> Result<secp256k1::PublicKey> {
+        Ok(self.derive_keys(index)?.private_key.public_key(secp))
+    }
+
     fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>> {
         let address = self.decode_address_inner(address)?;
 
@@ -95,16 +103,18 @@ mod test {
         )
     }
 
+    #[tokio::test]
     #[rstest]
     #[case::mainnet(Network::Mainnet, elements::AddressParams::LIQUID)]
     #[case::testnet(Network::Testnet, elements::AddressParams::LIQUID_TESTNET)]
     #[case::regtest(Network::Regtest, elements::AddressParams::ELEMENTS)]
-    fn test_new(#[case] network: Network, #[case] expected: elements::AddressParams) {
+    async fn test_new(#[case] network: Network, #[case] expected: elements::AddressParams) {
         let (seed, path) = get_seed();
         let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
         assert_eq!(wallet.network, expected);
     }
 
+    #[tokio::test]
     #[rstest]
     #[case::regtest_taproot(
         Network::Regtest,
@@ -132,14 +142,14 @@ mod test {
         "CTEtw32YvtisKRpVzzFdHzWqihHmVfE2NpGVSuCdGnNppzGJU55xvLARDW3PaHEwYSaXtsr5akCiAfNN"
     )]
     #[case::regtest_legacy_unconfidential(Network::Regtest, "2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe")]
-    fn test_decode_address(#[case] network: Network, #[case] address: &str) {
+    async fn test_decode_address(#[case] network: Network, #[case] address: &str) {
         let (seed, path) = get_seed();
         let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
         assert!(wallet.decode_address(address).is_ok());
     }
 
-    #[test]
-    fn test_decode_address_invalid() {
+    #[tokio::test]
+    async fn test_decode_address_invalid() {
         let (seed, path) = get_seed();
         let result = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
             .unwrap()
@@ -148,8 +158,8 @@ mod test {
         assert_eq!(result.unwrap_err().to_string(), "base58 error: decode");
     }
 
-    #[test]
-    fn test_decode_address_invalid_network() {
+    #[tokio::test]
+    async fn test_decode_address_invalid_network() {
         let (seed, path) = get_seed();
         let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
             .unwrap()
@@ -158,8 +168,8 @@ mod test {
         assert_eq!(result.unwrap_err().to_string(), "invalid network");
     }
 
-    #[test]
-    fn test_derive_keys() {
+    #[tokio::test]
+    async fn test_derive_keys() {
         let (seed, path) = get_seed();
         let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
             .unwrap()
@@ -176,8 +186,40 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_derive_blinding_key() {
+    #[tokio::test]
+    async fn test_derive_pubkey() {
+        let (seed, path) = get_seed();
+        let wallet =
+            Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0)).unwrap();
+        let secp = Secp256k1::new();
+        let pubkey = wallet.derive_pubkey(&secp, 0).unwrap();
+        assert_eq!(
+            hex::encode(pubkey.serialize()),
+            "0371ce2b829f0de3863be481d9d72fde7a11f780e070be73f35b5ddd4a878327f9"
+        );
+    }
+
+    #[tokio::test]
+    #[rstest]
+    #[case(
+        0,
+        "0371ce2b829f0de3863be481d9d72fde7a11f780e070be73f35b5ddd4a878327f9"
+    )]
+    #[case(
+        1,
+        "03f80e5650435fb598bb07257d50af378d4f7ddf8f2f78181f8b29abb0b05ecb47"
+    )]
+    async fn test_derive_pubkey_multiple_indices(#[case] index: u64, #[case] expected: &str) {
+        let (seed, path) = get_seed();
+        let wallet =
+            Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0)).unwrap();
+        let secp = Secp256k1::new();
+        let pubkey = wallet.derive_pubkey(&secp, index).unwrap();
+        assert_eq!(hex::encode(pubkey.serialize()), expected);
+    }
+
+    #[tokio::test]
+    async fn test_derive_blinding_key() {
         let (seed, path) = get_seed();
         let key = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
             .unwrap()

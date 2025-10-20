@@ -1433,7 +1433,7 @@ class SwapManager {
           const outputScript = wallet.decodeAddress(swap.lockupAddress);
 
           chainClient.addOutputFilter(outputScript);
-        } else if (arkNode) {
+        } else if (arkNode && !isReverse) {
           const claimPubKey = (await arkNode.getInfo()).pubkey;
 
           arkNode.subscription.subscribeAddresses([

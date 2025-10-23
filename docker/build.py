@@ -196,9 +196,7 @@ def build_images(
             )
         else:
             extra_tag = "" if no_latest else f"-t {name}:latest"
-            command = (
-                f"docker build -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
-            )
+            command = f"docker build --load -t {name}:{tag} {extra_tag} -f {dockerfile} {args} ."
 
         if no_cache:
             command = command + " --no-cache"

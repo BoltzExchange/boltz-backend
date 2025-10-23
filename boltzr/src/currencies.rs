@@ -1,4 +1,5 @@
 use crate::api::ws::OfferSubscriptions;
+use crate::ark::Config as ArkConfig;
 use crate::cache::Cache;
 use crate::chain::{
     BaseClient,
@@ -49,6 +50,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     network: Option<String>,
     currencies: Option<Vec<CurrencyConfig>>,
     liquid: Option<LiquidConfig>,
+    ark: Option<ArkConfig>,
     db: Pool,
     cache: Cache,
     rsk_manager: Option<Arc<Manager>>,
@@ -227,6 +229,30 @@ pub async fn connect_nodes<K: KeysHelper>(
                 wallet: None,
                 cln: None,
                 lnd: None,
+            },
+        );
+    }
+
+    if let Some(ark) = ark {
+        let client = connect_client(
+            crate::ark::ArkClient::new(crate::ark::CHAIN_SYMBOL.to_string(), &ark).await,
+        )
+        .await
+        .map(Arc::new);
+
+        let wallet = client.map(|client| {
+            Arc::new(wallet::Ark::new(client.clone())) as Arc<dyn Wallet + Send + Sync>
+        });
+
+        curs.insert(
+            crate::ark::SYMBOL.to_string(),
+            Currency {
+                network,
+                chain: None,
+                wallet,
+                cln: None,
+                lnd: None,
+                evm_manager: None,
             },
         );
     }

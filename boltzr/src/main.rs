@@ -16,6 +16,7 @@ use tokio::task;
 use tracing::{debug, error, info, trace, warn};
 
 mod api;
+mod ark;
 mod backup;
 mod cache;
 mod chain;
@@ -179,6 +180,7 @@ async fn main() {
         config.network,
         config.currencies,
         config.liquid,
+        config.ark,
         db_pool.clone(),
         cache.clone(),
         rsk_manager.clone(),

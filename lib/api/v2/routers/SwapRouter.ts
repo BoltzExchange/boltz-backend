@@ -2737,15 +2737,20 @@ class SwapRouter extends RouterBase {
       { name: 'id', type: 'string' },
     ]);
 
-    const { transaction } = validateRequest(req.body, [
+    const { transaction, checkpoint } = validateRequest(req.body, [
       { name: 'transaction', type: 'string' },
+      { name: 'checkpoint', type: 'string' },
     ]);
 
+    const signed = await this.service.musigSigner.signRefundArk(
+      id,
+      transaction,
+      checkpoint,
+    );
+
     successResponse(res, {
-      transaction: await this.service.musigSigner.signRefundArk(
-        id,
-        transaction,
-      ),
+      transaction: signed.transaction,
+      checkpoint: signed.checkpoint,
     });
   };
 

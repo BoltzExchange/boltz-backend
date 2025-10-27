@@ -522,7 +522,7 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let (cancel_token, received_calls) = start_server(port).await;
+        let (cancel_token, received_calls, _received_headers) = start_server(port).await;
         let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
             status: "some.update".to_string(),
@@ -541,6 +541,60 @@ mod caller_test {
                 event: WebHookEvent::SwapUpdate,
                 data,
             }
+        );
+
+        cancel_token.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_call_webhook_content_type_header() {
+        let mut web_hook_helper = make_mock_hook_state();
+        web_hook_helper
+            .expect_should_be_skipped()
+            .returning(|_, _| false);
+
+        let id = "header_test";
+        let port = 10008;
+
+        let hook = WebHook {
+            id: id.to_string(),
+            url: format!("http://127.0.0.1:{port}"),
+            ..Default::default()
+        };
+
+        web_hook_helper
+            .expect_set_state()
+            .with(predicate::eq(hook.clone()), predicate::eq(WebHookState::Ok))
+            .returning(|_, _| Ok(()));
+
+        let caller = Caller::new(
+            CancellationToken::new(),
+            "test".to_string(),
+            Config {
+                max_retries: Some(5),
+                retry_interval: Some(60),
+                request_timeout: Some(10),
+                block_list: None,
+            },
+            true,
+            web_hook_helper,
+        );
+
+        let (cancel_token, received_calls, received_headers) = start_server(port).await;
+        let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
+            id: id.to_string(),
+            status: "header.test".to_string(),
+        });
+
+        let res = caller.call_webhook(hook, data.clone()).await.unwrap();
+        assert!(res == CallResult::Success);
+
+        assert_eq!(received_calls.lock().unwrap().len(), 1);
+        let headers = received_headers.lock().unwrap();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(
+            headers[0], "application/json",
+            "Content-Type header should be application/json"
         );
 
         cancel_token.cancel();
@@ -630,7 +684,7 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let (cancel_token, received_calls) = start_server(port).await;
+        let (cancel_token, received_calls, _received_headers) = start_server(port).await;
 
         let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
@@ -695,7 +749,7 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let (cancel_token, received_calls) = start_server(port).await;
+        let (cancel_token, received_calls, _received_headers) = start_server(port).await;
 
         let data = WebHookCallData::SwapUpdate(SwapUpdateCallData {
             id: id.to_string(),
@@ -777,7 +831,7 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let (cancel_token, received_calls) = start_server(port).await;
+        let (cancel_token, received_calls, _received_headers) = start_server(port).await;
 
         let caller_cp = caller.clone();
         let retry_loop_future = tokio::spawn(async move {
@@ -874,7 +928,7 @@ mod caller_test {
             web_hook_helper,
         );
 
-        let (cancel_token, received_calls) = start_server(port).await;
+        let (cancel_token, received_calls, _received_headers) = start_server(port).await;
         caller.retry_calls().await.unwrap();
 
         assert_eq!(received_calls.lock().unwrap().len(), 2);
@@ -1145,23 +1199,52 @@ mod caller_test {
         assert_eq!(result.is_ok(), should_pass, "err: {:?}", result.err());
     }
 
-    async fn start_server(port: u16) -> (CancellationToken, Arc<Mutex<Vec<WebHookCallParams>>>) {
+    async fn start_server(
+        port: u16,
+    ) -> (
+        CancellationToken,
+        Arc<Mutex<Vec<WebHookCallParams>>>,
+        Arc<Mutex<Vec<String>>>,
+    ) {
+        use axum::http::HeaderMap;
+
         struct ServerState {
             received_calls: Arc<Mutex<Vec<WebHookCallParams>>>,
+            received_headers: Arc<Mutex<Vec<String>>>,
         }
 
         async fn ok_handler(
             Extension(state): Extension<Arc<ServerState>>,
+            headers: HeaderMap,
             Json(body): Json<WebHookCallParams>,
         ) -> impl IntoResponse {
+            if let Some(content_type) = headers.get("content-type")
+                && let Ok(value) = content_type.to_str()
+            {
+                state
+                    .received_headers
+                    .lock()
+                    .unwrap()
+                    .push(value.to_string());
+            }
             state.received_calls.lock().unwrap().push(body);
             (StatusCode::OK, Json(json!("{}")))
         }
 
         async fn failed_handler(
             Extension(state): Extension<Arc<ServerState>>,
+            headers: HeaderMap,
             Json(body): Json<WebHookCallParams>,
         ) -> impl IntoResponse {
+            if let Some(content_type) = headers.get("content-type")
+                && let Ok(value) = content_type.to_str()
+            {
+                state
+                    .received_headers
+                    .lock()
+                    .unwrap()
+                    .push(value.to_string());
+            }
             state.received_calls.lock().unwrap().push(body);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1170,11 +1253,13 @@ mod caller_test {
         }
 
         let received_calls = Arc::new(Mutex::new(Vec::new()));
+        let received_headers = Arc::new(Mutex::new(Vec::new()));
         let router = Router::new()
             .route("/", post(ok_handler))
             .route("/fail", post(failed_handler))
             .layer(Extension(Arc::new(ServerState {
                 received_calls: received_calls.clone(),
+                received_headers: received_headers.clone(),
             })));
 
         let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}"))
@@ -1193,7 +1278,7 @@ mod caller_test {
         });
         tokio::time::sleep(Duration::from_millis(10)).await;
 
-        (cancellation_token, received_calls)
+        (cancellation_token, received_calls, received_headers)
     }
 
     fn make_mock_hook_state() -> MockHookState {

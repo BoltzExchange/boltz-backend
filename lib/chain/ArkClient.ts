@@ -10,7 +10,6 @@ import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { racePromise } from '../PromiseUtils';
 import { formatError, getHexString } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
@@ -63,7 +62,6 @@ class ArkClient extends BaseClient<
   public static readonly symbol = 'ARK';
 
   private static readonly opCsvMultiple = 512;
-  private static readonly callTimeout = 30_000;
 
   public subscription!: ArkSubscription;
 
@@ -556,33 +554,12 @@ class ArkClient extends BaseClient<
     }
   };
 
-  private withTimeout = <T>(
-    methodName: string,
-    promise: Promise<T>,
-  ): Promise<T> => {
-    return racePromise(
-      promise,
-      (reject) => {
-        this.logger.warn(
-          `${this.serviceName()} ${methodName} call timed out after ${ArkClient.callTimeout}ms`,
-        );
-        reject(
-          new Error(`${methodName} timed out after ${ArkClient.callTimeout}ms`),
-        );
-      },
-      ArkClient.callTimeout,
-    );
-  };
-
   private unaryCall = <T, U>(
     methodName: keyof ServiceClient,
     params: T,
     asObject: boolean = true,
   ): Promise<U> => {
-    return this.withTimeout(
-      methodName as string,
-      unaryCall(this.client!, methodName, params, this.meta, asObject),
-    );
+    return unaryCall(this.client!, methodName, params, this.meta, asObject);
   };
 
   private unaryNotificationCall = <T, U>(
@@ -590,15 +567,12 @@ class ArkClient extends BaseClient<
     params: T,
     asObject: boolean = true,
   ): Promise<U> => {
-    return this.withTimeout(
-      methodName as string,
-      unaryCall(
-        this.notificationClient!,
-        methodName,
-        params,
-        this.meta,
-        asObject,
-      ),
+    return unaryCall(
+      this.notificationClient!,
+      methodName,
+      params,
+      this.meta,
+      asObject,
     );
   };
 
@@ -607,9 +581,12 @@ class ArkClient extends BaseClient<
     params: T,
     asObject: boolean = true,
   ): Promise<U> => {
-    return this.withTimeout(
-      methodName as string,
-      unaryCall(this.walletClient!, methodName, params, this.meta, asObject),
+    return unaryCall(
+      this.walletClient!,
+      methodName,
+      params,
+      this.meta,
+      asObject,
     );
   };
 }

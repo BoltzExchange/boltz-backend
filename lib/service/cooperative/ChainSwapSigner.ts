@@ -185,13 +185,21 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     );
   };
 
-  public signClaim = (
+  public signClaim = async (
     swap: ChainSwapInfo,
     toSign: TheirSigningData,
     preimage?: Buffer,
     theirSignature?: PartialSignature,
   ): Promise<PartialSignature> => {
-    return this.lock.acquire(
+    // To avoid clients shooting themselves in the foot, we don't allow cooperative claims for refunded swaps
+    if (swap.status === SwapUpdateEvent.TransactionRefunded) {
+      this.logger.verbose(
+        `Not cooperatively claiming ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it has been refunded`,
+      );
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM();
+    }
+
+    return await this.lock.acquire(
       ChainSwapSigner.cooperativeBroadcastLock,
       async () => {
         if (this.disableCooperative) {

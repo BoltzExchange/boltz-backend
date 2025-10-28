@@ -777,6 +777,19 @@ describe('ChainSwapSigner', () => {
         ),
       ).rejects.toEqual(Errors.INVALID_PARTIAL_SIGNATURE());
     });
+
+    test('should throw when trying to cooperatively claim a refunded swap', async () => {
+      const { chainSwapInfo } = await createOutputs();
+      (chainSwapInfo as any).status = SwapUpdateEvent.TransactionRefunded;
+
+      await expect(
+        signer.signClaim(chainSwapInfo, {
+          index: 0,
+          transaction: Buffer.alloc(0),
+          pubNonce: Buffer.alloc(0),
+        }),
+      ).rejects.toEqual(Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM());
+    });
   });
 
   test.each`

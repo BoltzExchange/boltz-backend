@@ -601,7 +601,7 @@ class SwapRouter extends RouterBase {
      * /swap/submarine/{id}/refund/ark:
      *   post:
      *     description: Signs cooperative refund transactions for Ark Submarine Swaps
-     *     tags: [Submarine]
+     *     tags: [Submarine Swap]
      *     parameters:
      *       - in: path
      *         name: id
@@ -615,11 +615,14 @@ class SwapRouter extends RouterBase {
      *         application/json:
      *           schema:
      *             type: object
-     *             required: ["transaction"]
+     *             required: ["transaction", "checkpoint"]
      *             properties:
      *               transaction:
      *                 type: string
-     *                 description: Partially signed Bitcoin transaction (PSBT) encoded in base64
+     *                 description: Partially signed Bitcoin transaction (PSBT) encoded as base64
+     *               checkpoint:
+     *                 type: string
+     *                 description: Ark checkpoint PSBT encoded as base64
      *     responses:
      *       '200':
      *         description: The signed refund transaction
@@ -627,11 +630,14 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               type: object
-     *               required: ["transaction"]
+     *               required: ["transaction", "checkpoint"]
      *               properties:
      *                 transaction:
      *                   type: string
-     *                   description: Signed PSBT, encoded in base64
+     *                   description: Signed transaction PSBT encoded as base64
+     *                 checkpoint:
+     *                   type: string
+     *                   description: Signed Ark checkpoint PSBT encoded as base64
      *       '400':
      *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
      *         content:
@@ -2737,15 +2743,20 @@ class SwapRouter extends RouterBase {
       { name: 'id', type: 'string' },
     ]);
 
-    const { transaction } = validateRequest(req.body, [
+    const { transaction, checkpoint } = validateRequest(req.body, [
       { name: 'transaction', type: 'string' },
+      { name: 'checkpoint', type: 'string' },
     ]);
 
+    const signed = await this.service.musigSigner.signRefundArk(
+      id,
+      transaction,
+      checkpoint,
+    );
+
     successResponse(res, {
-      transaction: await this.service.musigSigner.signRefundArk(
-        id,
-        transaction,
-      ),
+      transaction: signed.transaction,
+      checkpoint: signed.checkpoint,
     });
   };
 

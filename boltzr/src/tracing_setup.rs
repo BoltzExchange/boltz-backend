@@ -169,6 +169,8 @@ fn setup_loki(
 
 #[cfg(feature = "otel")]
 fn init_tracer(config: &GlobalConfig) -> anyhow::Result<Option<opentelemetry_sdk::trace::Tracer>> {
+    use opentelemetry_otlp::WithTonicConfig;
+
     let endpoint = config.otlp_endpoint.clone();
 
     if endpoint.is_none() || endpoint.clone().unwrap() == "" {
@@ -183,8 +185,9 @@ fn init_tracer(config: &GlobalConfig) -> anyhow::Result<Option<opentelemetry_sdk
     );
 
     let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_http()
+        .with_tonic()
         .with_endpoint(endpoint.unwrap())
+        .with_compression(opentelemetry_otlp::Compression::Gzip)
         .build()?;
 
     let tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()

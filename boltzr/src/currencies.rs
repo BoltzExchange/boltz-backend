@@ -22,10 +22,12 @@ use anyhow::anyhow;
 use bip39::Mnemonic;
 use std::collections::HashMap;
 use std::{fs, str::FromStr, sync::Arc};
+use tokio::time::{Duration, timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 const PREFERRED_WALLET_CORE: &str = "core";
+const NODE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct Currency {
@@ -259,14 +261,23 @@ fn create_bumper(
 
 async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {
     match client {
-        Ok(mut client) => match client.connect().await {
-            Ok(_) => Some(client),
-            Err(err) => {
+        Ok(mut client) => match timeout(NODE_CONNECTION_TIMEOUT, client.connect()).await {
+            Ok(Ok(_)) => Some(client),
+            Ok(Err(err)) => {
                 error!(
                     "Could not connect to {} {}: {}",
                     client.symbol(),
                     client.kind(),
                     err
+                );
+                None
+            }
+            Err(_) => {
+                error!(
+                    "Connection timeout for {} {} after {} seconds",
+                    client.symbol(),
+                    client.kind(),
+                    NODE_CONNECTION_TIMEOUT.as_secs()
                 );
                 None
             }

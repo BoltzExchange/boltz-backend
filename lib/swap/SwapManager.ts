@@ -171,9 +171,6 @@ type CreatedChainSwap = {
   lockupDetails: CreatedChainSwapDetails;
 };
 
-// TODO: what is a reasonable value here?
-const arkClaimDelay = 16;
-
 class SwapManager {
   public currencies = new Map<string, Currency>();
 
@@ -479,7 +476,6 @@ class SwapManager {
     } else if (receivingCurrency.type === CurrencyType.Ark) {
       const vHtlc = await receivingCurrency.arkNode!.createVHtlc(
         args.preimageHash,
-        arkClaimDelay,
         args.timeoutBlockDelta,
         undefined,
         args.refundPublicKey!,
@@ -1055,7 +1051,6 @@ class SwapManager {
     } else if (sendingCurrency.type === CurrencyType.Ark) {
       const vHtlc = await sendingCurrency.arkNode!.createVHtlc(
         args.preimageHash,
-        arkClaimDelay,
         args.onchainTimeoutBlockDelta,
         args.claimPublicKey!,
         undefined,

@@ -36,6 +36,8 @@ export type ArkConfig = {
   maxZeroConfAmount?: number;
 
   useLocktimeSeconds?: boolean;
+
+  unilateralDelays?: Delays;
 };
 
 export type Timeouts = {
@@ -43,6 +45,13 @@ export type Timeouts = {
   unilateralClaim: number;
   unilateralRefund: number;
   unilateralRefundWithoutReceiver: number;
+};
+
+// All values in blocks
+type Delays = {
+  claim: number;
+  refund: number;
+  refundWithoutReceiver: number;
 };
 
 type ArkAddress = {
@@ -74,12 +83,33 @@ class ArkClient extends BaseClient<
   private useLocktimeSeconds: boolean = false;
 
   private readonly meta: Metadata = new Metadata();
+  private readonly delays: Delays;
 
   constructor(
     protected readonly logger: Logger,
     private readonly config: ArkConfig,
   ) {
     super(logger, ArkClient.symbol);
+    console.log(this.config);
+
+    if (this.config.unilateralDelays !== undefined) {
+      if (
+        [
+          this.config.unilateralDelays.claim,
+          this.config.unilateralDelays.refund,
+          this.config.unilateralDelays.refundWithoutReceiver,
+        ].some((delay) => delay === undefined || isNaN(delay) || delay < 1)
+      ) {
+        throw new Error('all ark delays must be set');
+      }
+    }
+
+    this.delays = this.config.unilateralDelays ?? {
+      claim: 16,
+      refund: 32,
+      refundWithoutReceiver: 64,
+    };
+    console.log(this.delays);
   }
 
   public get usesLocktimeSeconds(): boolean {
@@ -384,7 +414,6 @@ class ArkClient extends BaseClient<
    */
   public createVHtlc = async (
     preimageHash: Buffer,
-    claimDelay: number,
     refundDelay: number,
     claimPublicKey?: Buffer,
     refundPublicKey?: Buffer,
@@ -443,9 +472,11 @@ class ArkClient extends BaseClient<
 
     const timeouts: Timeouts = {
       refund: Math.ceil(refund),
-      unilateralClaim: convertDelay(Math.ceil(claimDelay)),
-      unilateralRefund: convertDelay(Math.ceil(refundDelay)),
-      unilateralRefundWithoutReceiver: convertDelay(Math.ceil(refundDelay)),
+      unilateralClaim: convertDelay(Math.ceil(this.delays.claim)),
+      unilateralRefund: convertDelay(Math.ceil(this.delays.refund)),
+      unilateralRefundWithoutReceiver: convertDelay(
+        Math.ceil(this.delays.refundWithoutReceiver),
+      ),
     };
 
     req.setRefundLocktime(timeouts.refund);

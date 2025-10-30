@@ -47,7 +47,7 @@ describe('ContractUtils', () => {
       refundAddress: await setup.etherBase.getAddress(),
     };
 
-    const etherSwapLock = await etherSwap.lock(
+    const etherSwapLock = await etherSwap['lock(bytes32,address,uint256)'](
       etherSwapValues.preimageHash,
       etherSwapValues.claimAddress,
       etherSwapValues.timelock,
@@ -69,7 +69,9 @@ describe('ContractUtils', () => {
     };
 
     await contracts.token.approve(await erc20Swap.getAddress(), MaxUint256);
-    const erc20SwapLock = await erc20Swap.lock(
+    const erc20SwapLock = await erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
       erc20SwapValues.preimageHash,
       erc20SwapValues.amount,
       erc20SwapValues.tokenAddress,

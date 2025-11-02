@@ -35,11 +35,15 @@ type Events = {
 
 class ArkSubscription extends TypedEventEmitter<Events> {
   private static readonly reconnectInterval = 2_500;
+  private static readonly rescanInterval = 5 * 60 * 1_000;
 
   private readonly subscribedAddresses = new Map<string, string>();
 
   private shouldDisconnect = false;
+  private isReconnecting = false;
+  private isRescanning = false;
   private vHtlcStream?: ClientReadableStream<notificationrpc.GetVtxoNotificationsResponse>;
+  private rescanTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly logger: Logger,
@@ -54,8 +58,25 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   public connect = async () => {
     this.shouldDisconnect = false;
 
+    if (this.rescanTimer !== undefined) {
+      clearInterval(this.rescanTimer);
+    }
+
     await this.rescan();
     this.streamVhtlcs();
+
+    this.logger.debug(
+      `Rescanning ${this.client.serviceName()} ${this.client.symbol} every ${ArkSubscription.rescanInterval / 1_000 / 60} minutes`,
+    );
+    this.rescanTimer = setInterval(async () => {
+      if (
+        !this.shouldDisconnect &&
+        !this.isReconnecting &&
+        !this.isRescanning
+      ) {
+        await this.rescan();
+      }
+    }, ArkSubscription.rescanInterval);
   };
 
   public disconnect = () => {
@@ -64,6 +85,11 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     if (this.vHtlcStream !== undefined) {
       this.vHtlcStream.cancel();
       this.vHtlcStream = undefined;
+    }
+
+    if (this.rescanTimer !== undefined) {
+      clearInterval(this.rescanTimer);
+      this.rescanTimer = undefined;
     }
   };
 
@@ -94,43 +120,49 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   public rescan = async () => {
-    this.logger.debug(
-      `Rescanning ${this.client.serviceName()} ${this.client.symbol}`,
-    );
+    this.isRescanning = true;
 
-    for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
-      try {
-        const req = new arkrpc.ListVHTLCRequest();
-        req.setVhtlcId(vhtlcId);
+    try {
+      this.logger.debug(
+        `Rescanning ${this.client.serviceName()} ${this.client.symbol}`,
+      );
 
-        const res = await this.unaryCall<
-          arkrpc.ListVHTLCRequest,
-          arkrpc.ListVHTLCResponse.AsObject
-        >('listVHTLC', req, true);
+      for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
+        try {
+          const req = new arkrpc.ListVHTLCRequest();
+          req.setVhtlcId(vhtlcId);
 
-        for (const vhtlc of res.vhtlcsList) {
-          this.emit('vhtlc.created', {
-            address,
-            txId: vhtlc.outpoint!.txid,
-            vout: vhtlc.outpoint!.vout,
-            amount: vhtlc.amount,
-          });
+          const res = await this.unaryCall<
+            arkrpc.ListVHTLCRequest,
+            arkrpc.ListVHTLCResponse.AsObject
+          >('listVHTLC', req, true);
 
-          if (vhtlc.isSpent && vhtlc.spentBy !== '') {
-            this.emit('vhtlc.spent', {
-              outpoint: {
-                txid: vhtlc.outpoint!.txid,
-                vout: vhtlc.outpoint!.vout,
-              },
-              spentBy: vhtlc.spentBy,
+          for (const vhtlc of res.vhtlcsList) {
+            this.emit('vhtlc.created', {
+              address,
+              txId: vhtlc.outpoint!.txid,
+              vout: vhtlc.outpoint!.vout,
+              amount: vhtlc.amount,
             });
+
+            if (vhtlc.isSpent && vhtlc.spentBy !== '') {
+              this.emit('vhtlc.spent', {
+                outpoint: {
+                  txid: vhtlc.outpoint!.txid,
+                  vout: vhtlc.outpoint!.vout,
+                },
+                spentBy: vhtlc.spentBy,
+              });
+            }
           }
+        } catch (error) {
+          this.logger.silly(
+            `No ${this.client.serviceName()} ${this.client.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
+          );
         }
-      } catch (error) {
-        this.logger.silly(
-          `No ${this.client.serviceName()} ${this.client.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
-        );
       }
+    } finally {
+      this.isRescanning = false;
     }
   };
 
@@ -201,49 +233,55 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   private reconnect = async () => {
-    if (this.shouldDisconnect) {
+    if (this.shouldDisconnect || this.isReconnecting) {
       return;
     }
+
+    this.isReconnecting = true;
 
     if (this.vHtlcStream !== undefined) {
       this.vHtlcStream.cancel();
       this.vHtlcStream = undefined;
     }
 
-    while (true) {
-      await sleep(ArkSubscription.reconnectInterval);
+    try {
+      while (true) {
+        await sleep(ArkSubscription.reconnectInterval);
 
-      this.logger.verbose(
-        `Reconnecting to ${this.client.serviceName()} ${this.client.symbol}`,
-      );
-      try {
-        const status = await this.client.getWalletStatus();
-        if (!status.unlocked) {
-          this.logger.warn(
-            `${this.client.serviceName()} ${this.client.symbol} wallet is locked, waiting for ${ArkSubscription.reconnectInterval}ms`,
-          );
-          continue;
-        }
-
-        if (!status.synced) {
-          this.logger.warn(
-            `${this.client.serviceName()} ${this.client.symbol} wallet is not synced, waiting for ${ArkSubscription.reconnectInterval}ms`,
-          );
-          continue;
-        }
-
-        this.logger.info(
-          `${this.client.serviceName()} ${this.client.symbol} wallet is synced, recreating subscriptions`,
+        this.logger.verbose(
+          `Reconnecting to ${this.client.serviceName()} ${this.client.symbol}`,
         );
+        try {
+          const status = await this.client.getWalletStatus();
+          if (!status.unlocked) {
+            this.logger.warn(
+              `${this.client.serviceName()} ${this.client.symbol} wallet is locked, waiting for ${ArkSubscription.reconnectInterval}ms`,
+            );
+            continue;
+          }
 
-        await this.rescan();
-        this.streamVhtlcs();
-        break;
-      } catch (e) {
-        this.logger.error(
-          `Could not recreate ${this.client.serviceName()} ${this.client.symbol} subscriptions: ${formatError(e)}`,
-        );
+          if (!status.synced) {
+            this.logger.warn(
+              `${this.client.serviceName()} ${this.client.symbol} wallet is not synced, waiting for ${ArkSubscription.reconnectInterval}ms`,
+            );
+            continue;
+          }
+
+          this.logger.info(
+            `${this.client.serviceName()} ${this.client.symbol} wallet is synced, recreating subscriptions`,
+          );
+
+          await this.rescan();
+          this.streamVhtlcs();
+          break;
+        } catch (e) {
+          this.logger.error(
+            `Could not recreate ${this.client.serviceName()} ${this.client.symbol} subscriptions: ${formatError(e)}`,
+          );
+        }
       }
+    } finally {
+      this.isReconnecting = false;
     }
   };
 }

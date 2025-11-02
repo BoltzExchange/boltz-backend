@@ -10,7 +10,7 @@ import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexString } from '../Utils';
+import { formatError, getHexString, stringify } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
@@ -90,7 +90,6 @@ class ArkClient extends BaseClient<
     private readonly config: ArkConfig,
   ) {
     super(logger, ArkClient.symbol);
-    console.log(this.config);
 
     if (this.config.unilateralDelays !== undefined) {
       if (
@@ -109,7 +108,9 @@ class ArkClient extends BaseClient<
       refund: 32,
       refundWithoutReceiver: 64,
     };
-    console.log(this.delays);
+    this.logger.debug(
+      `${this.serviceName()} ${this.symbol} delays: ${stringify(this.delays)}`,
+    );
   }
 
   public get usesLocktimeSeconds(): boolean {

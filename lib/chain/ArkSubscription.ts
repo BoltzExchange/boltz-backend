@@ -94,6 +94,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   public rescan = async () => {
+    this.logger.debug(
+      `Rescanning ${this.client.serviceName()} ${this.client.symbol}`,
+    );
+
     for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
       try {
         const req = new arkrpc.ListVHTLCRequest();
@@ -184,12 +188,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
 
     this.vHtlcStream.on('end', () => {
       this.logger.warn('Stream of vHTLCs ended');
-      this.reconnect();
     });
 
     this.vHtlcStream.on('error', (err) => {
       this.logger.error(`Error streaming vHTLCs: ${err}`);
-      this.reconnect();
     });
 
     this.vHtlcStream.on('close', () => {
@@ -211,6 +213,9 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     while (true) {
       await sleep(ArkSubscription.reconnectInterval);
 
+      this.logger.verbose(
+        `Reconnecting to ${this.client.serviceName()} ${this.client.symbol}`,
+      );
       try {
         const status = await this.client.getWalletStatus();
         if (!status.unlocked) {

@@ -480,7 +480,7 @@ class SwapManager {
         undefined,
         args.refundPublicKey!,
       );
-      receivingCurrency.arkNode!.subscription.subscribeAddresses([
+      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           vHtlcId: vHtlc.vHtlc.id,
@@ -1055,7 +1055,7 @@ class SwapManager {
         args.claimPublicKey!,
         undefined,
       );
-      sendingCurrency.arkNode!.subscription.subscribeAddresses([
+      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           vHtlcId: vHtlc.vHtlc.id,
@@ -1409,7 +1409,7 @@ class SwapManager {
         } else if (arkNode) {
           const refundPubKey = (await arkNode.getInfo()).pubkey;
 
-          arkNode.subscription.subscribeAddresses([
+          await arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               vHtlcId: ArkClient.createVhtlcId(
@@ -1431,7 +1431,7 @@ class SwapManager {
         } else if (arkNode && !isReverse) {
           const claimPubKey = (await arkNode.getInfo()).pubkey;
 
-          arkNode.subscription.subscribeAddresses([
+          await arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
               vHtlcId: ArkClient.createVhtlcId(

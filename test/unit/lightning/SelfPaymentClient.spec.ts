@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { formatError, getHexBuffer, getHexString } from '../../../lib/Utils';
 import {
   OrderSide,
   SwapType,
@@ -234,6 +234,53 @@ describe('SelfPaymentClient', () => {
         mockReverseSwap,
         false,
       );
+    });
+
+    test('should log warning and continue when cancelReverseInvoices throws an error', async () => {
+      const mockReverseSwap = {
+        preimageHash,
+        id: 'rev',
+        pair: 'L-BTC/BTC',
+        orderSide: OrderSide.BUY,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+
+      const cancellationError = new Error('Failed to cancel invoice');
+      LightningNursery.cancelReverseInvoices = jest
+        .fn()
+        .mockRejectedValue(cancellationError);
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+      const emitSpy = jest.spyOn(client, 'emit');
+      const warnSpy = jest.spyOn(Logger.disabledLogger, 'warn');
+
+      await expect(
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+      ).resolves.toEqual({
+        isSelf: true,
+        result: undefined,
+      });
+
+      expect(emitSpy).toHaveBeenCalledTimes(1);
+      expect(emitSpy).toHaveBeenCalledWith(
+        'htlc.accepted',
+        mockReverseSwap.invoice,
+      );
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledTimes(1);
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        nursery.currencies.get('BTC')!.clnClient,
+        mockReverseSwap,
+        false,
+      );
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        `Could not cancel hold invoice of Reverse Swap ${mockReverseSwap.id} because: ${formatError(cancellationError)}`,
+      );
+
+      warnSpy.mockRestore();
     });
 
     test('should not emit htlc.accepted when reverse swap status is not SwapCreated', async () => {

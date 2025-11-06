@@ -3,6 +3,7 @@ import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
 import {
+  formatError,
   getHexBuffer,
   getHexString,
   getLightningCurrency,
@@ -117,23 +118,31 @@ class SelfPaymentClient
             `Cancelling hold invoice of Reverse Swap ${reverseSwap.id} because it is a self payment`,
           );
 
-          const { base, quote } = splitPairId(reverseSwap.pair);
-          const receiveCurrency = getLightningCurrency(
-            base,
-            quote,
-            reverseSwap.orderSide,
-            true,
-          );
-          const lightningClient = NodeSwitch.getReverseSwapNode(
-            this.swapNursery.currencies.get(receiveCurrency)!,
-            reverseSwap,
-          );
+          // Has to be in a try catch block, else the submarine self payment will fail,
+          // when the reverse swap invoice cannot be cancelled by the lightning node
+          try {
+            const { base, quote } = splitPairId(reverseSwap.pair);
+            const receiveCurrency = getLightningCurrency(
+              base,
+              quote,
+              reverseSwap.orderSide,
+              true,
+            );
+            const lightningClient = NodeSwitch.getReverseSwapNode(
+              this.swapNursery.currencies.get(receiveCurrency)!,
+              reverseSwap,
+            );
 
-          await LightningNursery.cancelReverseInvoices(
-            lightningClient,
-            reverseSwap,
-            false,
-          );
+            await LightningNursery.cancelReverseInvoices(
+              lightningClient,
+              reverseSwap,
+              false,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Could not cancel hold invoice of Reverse Swap ${reverseSwap.id} because: ${formatError(error)}`,
+            );
+          }
 
           const res = await this.waitForPreimage(reverseSwap);
           if (res === undefined) {

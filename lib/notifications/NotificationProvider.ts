@@ -329,6 +329,20 @@ class NotificationProvider {
         `${message}${NotificationProvider.trailingWhitespace}`,
       );
     });
+
+    this.service.swapManager.deferredClaimer.on(
+      'batch.claim.failure',
+      async ({ symbol, error }) => {
+        const truncatedError =
+          error.length > 200 ? error.substring(0, 200) + '...' : error;
+
+        const message =
+          `${Emojis.RotatingLight} **Batch claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+          `Error: ${truncatedError}`;
+
+        await this.client.sendMessage(message, true, true);
+      },
+    );
   };
 
   private sendLostConnection = async (

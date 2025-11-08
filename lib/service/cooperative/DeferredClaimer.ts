@@ -64,6 +64,10 @@ class DeferredClaimer extends CoopSignerBase<{
     swap: Swap | ChainSwapInfo;
     channelCreation?: ChannelCreation;
   };
+  'batch.claim.failure': {
+    symbol: string;
+    error: string;
+  };
 }> {
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
@@ -413,6 +417,12 @@ class DeferredClaimer extends CoopSignerBase<{
         this.logger.error(
           `Batch claim for currency ${symbol} failed: ${formatError(e)}`,
         );
+
+        this.emit('batch.claim.failure', {
+          symbol,
+          error: formatError(e),
+        });
+
         await this.lock.acquire(DeferredClaimer.swapsToClaimLock, async () => {
           const submarineMap = this.swapsToClaim.get(symbol)!;
           const chainMap = this.chainSwapsToClaim.get(symbol)!;

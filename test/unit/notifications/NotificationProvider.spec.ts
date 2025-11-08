@@ -34,6 +34,7 @@ type failureCallback = (args: {
 let emitSwapSuccess: successCallback;
 let emitSwapFailure: failureCallback;
 let emitZeroConfDisabled: (symbol: string) => void;
+let emitBatchClaimFailure: (args: { symbol: string; error: string }) => void;
 
 const mockGetInfo = jest.fn().mockImplementation(() =>
   Promise.resolve({
@@ -57,6 +58,15 @@ jest.mock('../../../lib/service/Service', () => {
           } else {
             emitSwapFailure = callback;
           }
+        },
+      },
+      swapManager: {
+        deferredClaimer: {
+          on: (event: string, callback: any) => {
+            if (event === 'batch.claim.failure') {
+              emitBatchClaimFailure = callback;
+            }
+          },
         },
       },
       currencies: new Map<string, any>([
@@ -366,6 +376,39 @@ describe('NotificationProvider', () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       `${Emojis.RotatingLight} **Disabled 0-conf for ${symbol}** ${Emojis.RotatingLight}`,
+      true,
+      true,
+    );
+  });
+
+  test('should send notification on batch claim failure', async () => {
+    const symbol = 'L-BTC';
+    const error = 'bad-txns-inputs-missingorspent';
+
+    emitBatchClaimFailure({ symbol, error });
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **Batch claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+        `Error: ${error}`,
+      true,
+      true,
+    );
+  });
+
+  test('should truncate long error messages in batch claim failures', async () => {
+    const symbol = 'L-BTC';
+    const longError = 'a'.repeat(250);
+
+    emitBatchClaimFailure({ symbol, error: longError });
+    await wait(5);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    const expectedError = longError.substring(0, 200) + '...';
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      `${Emojis.RotatingLight} **Batch claim failure for ${symbol}** ${Emojis.RotatingLight}\n` +
+        `Error: ${expectedError}`,
       true,
       true,
     );

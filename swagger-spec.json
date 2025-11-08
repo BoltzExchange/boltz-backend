@@ -465,7 +465,7 @@
       "post": {
         "description": "Signs cooperative refund transactions for Ark Submarine Swaps",
         "tags": [
-          "Submarine"
+          "Submarine Swap"
         ],
         "parameters": [
           {
@@ -485,12 +485,17 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "transaction"
+                  "transaction",
+                  "checkpoint"
                 ],
                 "properties": {
                   "transaction": {
                     "type": "string",
-                    "description": "Partially signed Bitcoin transaction (PSBT) encoded in base64"
+                    "description": "Partially signed Bitcoin transaction (PSBT) encoded as base64"
+                  },
+                  "checkpoint": {
+                    "type": "string",
+                    "description": "Ark checkpoint PSBT encoded as base64"
                   }
                 }
               }
@@ -505,12 +510,17 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "transaction"
+                    "transaction",
+                    "checkpoint"
                   ],
                   "properties": {
                     "transaction": {
                       "type": "string",
-                      "description": "Signed PSBT, encoded in base64"
+                      "description": "Signed transaction PSBT encoded as base64"
+                    },
+                    "checkpoint": {
+                      "type": "string",
+                      "description": "Signed Ark checkpoint PSBT encoded as base64"
                     }
                   }
                 }

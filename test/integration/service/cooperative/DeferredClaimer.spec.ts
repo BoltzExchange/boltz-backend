@@ -869,6 +869,36 @@ describe('DeferredClaimer', () => {
     test('should sweep currency that is not configured', async () => {
       await expect(claimer.sweepSymbol('notConfigured')).resolves.toEqual([]);
     });
+
+    test('should emit event and re-queue swaps on batch claim failure', async () => {
+      await bitcoinClient.generate(1);
+      const { swap, preimage } = await createClaimableOutput();
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
+
+      const emittedEvents: any[] = [];
+      claimer.on('batch.claim.failure', (event) => {
+        emittedEvents.push(event);
+      });
+
+      const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
+      btcCurrency.chainClient!.sendRawTransaction = jest
+        .fn()
+        .mockRejectedValue(new Error('bad-txns-inputs-missingorspent'));
+
+      await expect(claimer.sweepSymbol('BTC')).rejects.toThrow(
+        'bad-txns-inputs-missingorspent',
+      );
+
+      expect(emittedEvents).toHaveLength(1);
+      expect(emittedEvents[0]).toEqual({
+        symbol: 'BTC',
+        error: expect.stringContaining('bad-txns-inputs-missingorspent'),
+      });
+
+      expect(claimer['swapsToClaim'].get('BTC')!.has(swap.id)).toBe(true);
+
+      btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
+    });
   });
 
   test('should claim leftovers on startup', async () => {

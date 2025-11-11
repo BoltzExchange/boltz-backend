@@ -214,7 +214,7 @@ export PATH="$boltzDir/bin:$PATH"
 
 ## boltz-cli
 
-The `boltz-cli` tool allows you to interact with a running backend over gRPC. It can be useful for backend development and perform maintenance tasks. It is available on the `bin` folder after compiling the backend.
+The `boltz-cli` tool allows you to interact with a running backend over gRPC. It can be useful for backend development and to perform maintenance tasks. It is available on the `bin` folder after compiling the backend.
 
 Commands:
 

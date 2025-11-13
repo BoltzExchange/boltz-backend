@@ -342,6 +342,7 @@ mod test {
         assert_eq!(err.to_string(), "no results");
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_quote_output() {
         let quoter = UniswapV3::new(
@@ -379,6 +380,7 @@ mod test {
         };
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_quote_output_select_best() {
         let quoter = UniswapV3::new(

@@ -425,7 +425,7 @@ impl Hold {
         our_pubkey: PublicKey,
     ) -> Result<(PublicKey, Vec<u8>)> {
         let (entropy_bytes, random) = Self::entropy_source();
-        let keys_manager = KeysManager::new(&entropy_bytes, 0, 0);
+        let keys_manager = KeysManager::new(&entropy_bytes, 0, 0, false);
 
         let secp_ctx = Secp256k1::new();
 
@@ -435,7 +435,7 @@ impl Hold {
             &EmptyNodeIdLookUp {},
             &secp_ctx,
             OnionMessagePath {
-                first_node_addresses: None,
+                first_node_addresses: vec![],
                 intermediate_nodes: vec![our_pubkey],
                 destination: Destination::BlindedPath(BlindedMessagePath::from_blinded_path(
                     match (path.first_node_id, path.first_scid, path.first_scid_dir) {

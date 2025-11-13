@@ -638,18 +638,6 @@ class GrpcService {
     });
   };
 
-  private handleCallback = async <R, T>(
-    call: R,
-    callback: (error: any, res: T | null) => void,
-    handler: (call: R) => Promise<T>,
-  ) => {
-    try {
-      callback(null, await handler(call));
-    } catch (error) {
-      callback(typeof error === 'string' ? { message: error } : error, null);
-    }
-  };
-
   public devDisableCooperative: handleUnaryCall<
     boltzrpc.DevDisableCooperativeRequest,
     boltzrpc.DevDisableCooperativeResponse
@@ -670,6 +658,18 @@ class GrpcService {
 
       return new boltzrpc.DevDisableCooperativeResponse();
     });
+  };
+
+  private handleCallback = async <R, T>(
+    call: R,
+    callback: (error: any, res: T | null) => void,
+    handler: (call: R) => Promise<T>,
+  ) => {
+    try {
+      callback(null, await handler(call));
+    } catch (error) {
+      callback(typeof error === 'string' ? { message: error } : error, null);
+    }
   };
 }
 

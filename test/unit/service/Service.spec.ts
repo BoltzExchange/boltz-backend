@@ -2871,6 +2871,8 @@ describe('Service', () => {
     await expect(
       service.createReverseSwap({
         preimageHash,
+        orderSide: 'buy',
+        pairId: 'BTC/BTC',
       } as any),
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
 
@@ -2887,6 +2889,8 @@ describe('Service', () => {
     async (length) => {
       await expect(
         service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           preimageHash: randomBytes(length),
         } as any),
       ).rejects.toEqual(`invalid preimage hash length: ${length}`);
@@ -3182,6 +3186,8 @@ describe('Service', () => {
       await expect(
         service.createReverseSwap({
           invoice: 'lni',
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           preimageHash: randomBytes(32),
         } as any),
       ).rejects.toEqual(Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED());
@@ -3194,15 +3200,20 @@ describe('Service', () => {
 
       await expect(
         service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           invoice: 'not a bolt12 invoice',
         } as any),
       ).rejects.toEqual(Errors.INVOICE_NOT_BOLT12());
     });
 
     test('should throw if invoice and preimageHash are not specified', async () => {
-      await expect(service.createReverseSwap({} as any)).rejects.toEqual(
-        Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED(),
-      );
+      await expect(
+        service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
+        } as any),
+      ).rejects.toEqual(Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED());
     });
 
     test.each`
@@ -3218,6 +3229,8 @@ describe('Service', () => {
         service.createReverseSwap({
           ...params,
           invoice: 'lni',
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
         }),
       ).rejects.toEqual(Errors.BOLT12_INVOICE_AMOUNT_CONFLICT());
     });

@@ -11,6 +11,7 @@ import {
 } from '../Utils';
 import ElementsClient from '../chain/ElementsClient';
 import {
+  CurrencyType,
   OrderSide,
   SwapType,
   SwapVersion,
@@ -56,6 +57,7 @@ class TimeoutDeltaProvider {
     ['BTC', 10],
     ['LTC', 2.5],
     [Rsk.symbol, 0.5],
+    ['ARK', 10],
     [Ethereum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);
@@ -86,6 +88,8 @@ class TimeoutDeltaProvider {
     // reverse swap which has to be longer than the second one
     return Math.ceil(minutes / TimeoutDeltaProvider.blockTimes.get(toSymbol)!);
   };
+
+  public static minutesToSeconds = (minutes: number) => Math.ceil(minutes * 60);
 
   public init = (
     pairs: PairConfig[],
@@ -145,15 +149,48 @@ class TimeoutDeltaProvider {
       getChainCurrency(base, quote, swap.orderSide, false),
     )!;
 
-    const currentBlock = chainCurrency.chainClient
-      ? (await chainCurrency.chainClient.getBlockchainInfo()).blocks
-      : await chainCurrency.provider!.getBlockNumber();
+    let blocksLeft: number;
 
-    const blocksLeft = TimeoutDeltaProvider.convertBlocks(
-      chainCurrency.symbol,
-      getLightningCurrency(base, quote, swap.orderSide, false),
-      swap.timeoutBlockHeight - currentBlock,
-    );
+    if (
+      chainCurrency.type === CurrencyType.Ark &&
+      chainCurrency.arkNode?.usesLocktimeSeconds
+    ) {
+      const currentTimestamp = await chainCurrency.arkNode!.getBlockTimestamp(
+        await chainCurrency.arkNode!.getBlockHeight(),
+      );
+      blocksLeft = Math.floor(
+        (swap.timeoutBlockHeight - currentTimestamp) /
+          // To minutes
+          60 /
+          // To blocks
+          TimeoutDeltaProvider.blockTimes.get(chainCurrency.symbol)!,
+      );
+    } else {
+      let currentBlock: number;
+
+      switch (chainCurrency.type) {
+        case CurrencyType.Ark:
+          currentBlock = await chainCurrency.arkNode!.getBlockHeight();
+          break;
+
+        case CurrencyType.BitcoinLike:
+        case CurrencyType.Liquid:
+          currentBlock = (await chainCurrency.chainClient!.getBlockchainInfo())
+            .blocks;
+          break;
+
+        case CurrencyType.Ether:
+        case CurrencyType.ERC20:
+          currentBlock = await chainCurrency.provider!.getBlockNumber();
+          break;
+      }
+
+      blocksLeft = TimeoutDeltaProvider.convertBlocks(
+        chainCurrency.symbol,
+        getLightningCurrency(base, quote, swap.orderSide, false),
+        swap.timeoutBlockHeight - currentBlock,
+      );
+    }
 
     return Math.floor(blocksLeft - this.swapConfig.cltvDelta);
   };

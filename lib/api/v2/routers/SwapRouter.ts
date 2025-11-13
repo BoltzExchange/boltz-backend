@@ -1889,15 +1889,22 @@ class SwapRouter extends RouterBase {
      * components:
      *   schemas:
      *     RescueRequest:
-     *       type: object
-     *       required: ["xpub"]
-     *       properties:
-     *         xpub:
-     *           type: string
-     *           description: XPUB from which the refund keys were derived
-     *         derivationPath:
-     *           type: string
-     *           description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     *       oneOf:
+     *         - type: object
+     *           required: ["xpub"]
+     *           properties:
+     *             xpub:
+     *               type: string
+     *               description: XPUB from which the refund keys were derived
+     *             derivationPath:
+     *               type: string
+     *               description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     *         - type: object
+     *           required: ["publicKey"]
+     *           properties:
+     *             publicKey:
+     *               type: string
+     *               description: Single public key which was used as refund key
      */
 
     /**

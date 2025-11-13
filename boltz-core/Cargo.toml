@@ -16,7 +16,7 @@ anyhow = { workspace = true }
 bitcoin = { workspace = true, optional = true }
 elements = { workspace = true, optional = true }
 hex = "0.4.3"
-secp256k1 = { version = "0.32.0-beta.1", features = ["rand", "global-context"], optional = true }
+secp256k1 = { version = "0.32.0-beta.2", features = ["rand", "global-context"], optional = true }
 serde = { workspace = true }
 
 [dev-dependencies]

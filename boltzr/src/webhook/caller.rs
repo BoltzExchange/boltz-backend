@@ -247,11 +247,7 @@ where
                 if status.is_success() {
                     res.bytes().await.map_err(|err| anyhow::anyhow!(err))
                 } else {
-                    let error_body = match res.text().await {
-                        Ok(body) => body,
-                        Err(_) => "<failed to read error response body>".to_string(),
-                    };
-                    Err(anyhow::anyhow!("HTTP {}: {}", status.as_u16(), error_body))
+                    Err(anyhow::anyhow!("HTTP {}", status.as_u16()))
                 }
             }
             Err(err) => Err(anyhow::anyhow!(err)),

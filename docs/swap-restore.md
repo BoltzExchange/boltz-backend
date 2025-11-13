@@ -64,9 +64,41 @@ server‑side swap matching. Individual swap keys are derived at
 with the Web App, though a different derivation path can be specified when using
 the API directly.
 
+### BIP85: Avoiding Derivation Path Collisions
+
+For wallets that already use standard derivation paths like `m/44/0/0/0` for
+regular transactions, using the same path for swap keys creates a risk of
+derivation path collisions. If the wallet later generates keys at the same
+indices for regular spending, it could inadvertently reuse keys that were
+previously used in swaps, compromising privacy and potentially security.
+
+[BIP85](https://github.com/bitcoin/bips/blob/master/bip-0085.mediawiki) provides
+a solution by deriving a child entropy seed from the master seed. This child
+seed can then be used exclusively for Boltz swaps, completely isolating swap
+keys from the wallet's main key derivation tree while not adding any additional
+information to back up for end user.
+
+#### Implementation
+
+1. Derive a BIP85 child entropy using the application number for Boltz (e.g.,
+   `26589` for "BOLTZ" in T9)
+2. Use the derived entropy to create a new mnemonic or seed
+3. From this child seed, derive the swap account at `m/44/0/0/0` and export its
+   xpub
+4. All swap keys and preimages are then derived from this isolated child seed
+
+This approach ensures that:
+
+- Swap keys never collide with the main wallet's key derivation
+- The entire swap key hierarchy is deterministically recoverable from the master
+  mnemonic
+- Privacy is preserved by separating swap activity from regular wallet activity
+- The same master mnemonic can safely be used across both regular wallet
+  operations and Boltz swaps
+
 ### Preimages
 
-We deterministically derive preimages with `sha256(privateKey(index))`. This
-allows swaps to be fully restored from the mnemonic alone. Using deterministic
-preimages in this exact way is necessary for restored swaps to be claimable in
-our Web App.
+We recommend deriving preimages deterministically with
+`sha256(privateKey(index))`. This allows swaps to be fully restored from the
+mnemonic alone. Using deterministic preimages in this exact way is necessary for
+restored swaps to be claimable in our Web App.

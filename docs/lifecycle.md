@@ -169,10 +169,38 @@ bitcoin shouldn't be sent anymore. When the client fails to lock coins in a way
 that is satisfactory to the server, like sending too little or too much, it will
 set the status to `transaction.lockupFailed`.
 
-For the swap states `swap.expired` where bitcoin were sent and
-`transaction.lockupFailed`, the user needs to submit a refund transaction to
-reclaim the locked chain bitcoin. For more information about how Boltz API
-clients can construct and submit refund transactions for users, check the
+When a Chain Swap enters the `transaction.lockupFailed` state due to the client
+sending an amount that differs from what was expected, the swap becomes eligible
+for renegotiation instead of requiring an immediate refund. This feature allows
+the swap to be salvaged by recalculating the server's lockup amount based on the
+actual amount the client locked.
+
+API clients can renegotiate a Chain Swap in state `transaction.lockupFailed`
+using the quote endpoint:
+
+1. **Get a new quote**: The client calls `GET /swap/chain/{id}/quote` to
+   retrieve a new quote based on the actual amount locked by the client
+2. **Accept the quote**: If the client agrees with the new quote, they call
+   `POST /swap/chain/{id}/quote` with the quoted amount. Boltz validates that
+   the quote hasn't changed and that sufficient liquidity is available, then
+   proceeds to lock the adjusted amount on the destination chain, allowing the
+   swap to continue as usual.
+
+A Chain Swap is eligible for renegotiation only if:
+
+- The swap status is `transaction.lockupFailed`
+- The status was set because of over- or underpayment
+- No refund signature has been created yet for the swap
+- The actual amount locked by the client still falls within the pair's minimal
+  and maximal limits
+- There is at least 60 minutes remaining until the swap expires
+
+Requesting and accepting a new quote is optional; swap clients may revert to
+refunding instead of accepting a new quote. For failed Chain Swap states that
+cannot be renegotiated, like `swap.expired` but coins were sent, the user needs
+to submit a refund transaction to reclaim the locked bitcoin. For more
+information about how Boltz API clients can construct and submit refund
+transactions for users, check the
 [Claim & Refund Transactions](claiming-swaps.md) section. In the unlikely event
 that Boltz is unable to lock the agreed amount of chain bitcoin, the final
 status will be `transaction.failed`.
@@ -185,5 +213,5 @@ swap will be `transaction.refunded`.
 The state `transaction.lockupFailed` is _not_ final and changes to
 `swap.expired` after the swap expired; the failure reason will be kept and
 informs e.g. if the user sending too little or too much was the reason for the
-swap to fail. The states `swap.expired` and `transaction.refunded`are final.
+swap to fail. The states `swap.expired` and `transaction.refunded` are final.
 Boltz is _not_ monitoring user's refund transactions.

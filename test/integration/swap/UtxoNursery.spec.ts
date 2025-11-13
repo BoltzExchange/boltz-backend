@@ -382,6 +382,10 @@ describe('UtxoNursery', () => {
       acceptZeroConf = false,
       version = SwapVersion.Taproot,
     ) => {
+      swapManager['rateProvider'].acceptZeroConf = jest
+        .fn()
+        .mockReturnValue(acceptZeroConf);
+
       const invoiceAmount = 100_000;
       const invoice = await bitcoinLndClient2.addInvoice(invoiceAmount);
       const preimageHash = bolt11
@@ -400,14 +404,15 @@ describe('UtxoNursery', () => {
         preimageHash: getHexBuffer(preimageHash),
       });
 
-      const expectedAmount = invoiceAmount + 1_000;
-      await swapManager.setSwapInvoice(
+      const { expectedAmount } = await swapManager.setSwapInvoice(
         (await SwapRepository.getSwap({ id: created.id }))!,
         invoice.paymentRequest,
-        invoiceAmount,
-        expectedAmount,
-        1000,
-        acceptZeroConf,
+        1,
+        {
+          baseFee: 1000,
+          percentageFee: 1000,
+          percentageFeeRate: 0,
+        },
         true,
         () => {},
       );

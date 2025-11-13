@@ -23,7 +23,6 @@ import {
   getRate,
   getSendingReceivingCurrency,
   getSwapMemo,
-  getUnixTime,
   getVersion,
   splitPairId,
 } from '../Utils';
@@ -1305,7 +1304,7 @@ class Service {
       BaseFeeType.NormalClaim,
     );
 
-    const invoiceAmount = this.calculateInvoiceAmount(
+    const invoiceAmount = SwapManager.calculateInvoiceAmount(
       swap.orderSide,
       rate,
       swap.onchainAmount,
@@ -1467,77 +1466,29 @@ class Service {
       swap.referral,
     );
 
-    const { baseFee, percentageFee, extraFee } =
-      this.rateProvider.feeProvider.getFees(
-        swap.pair,
-        swap.version,
-        rate,
-        swap.orderSide,
-        swap.invoiceAmount,
-        SwapType.Submarine,
-        BaseFeeType.NormalClaim,
-        referral,
-        extraFees,
-      );
-
-    const expectedAmount =
-      Math.floor(swap.invoiceAmount * rate) +
-      baseFee +
-      percentageFee +
-      (extraFee || 0);
-
-    if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
-      const maxInvoiceAmount = this.calculateInvoiceAmount(
-        swap.orderSide,
-        rate,
-        swap.onchainAmount,
-        baseFee,
-        this.rateProvider.feeProvider.getPercentageFee(
-          swap.pair,
-          swap.orderSide,
-          SwapType.Submarine,
-          PercentageFeeType.Calculation,
-          referral,
-        ),
-      );
-
-      throw Errors.INVALID_INVOICE_AMOUNT(maxInvoiceAmount);
-    }
-
-    const acceptZeroConf = this.rateProvider.acceptZeroConf(
-      chainCurrency,
-      expectedAmount,
-    );
-
-    const minutesUntilExpiry =
-      (decodedInvoice.expiryTimestamp - getUnixTime()) / 60;
-
-    if (minutesUntilExpiry < 0) {
-      throw SwapErrors.INVOICE_EXPIRED_ALREADY();
-    }
-
-    // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
-    if (!acceptZeroConf) {
-      if (
-        (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
-        minutesUntilExpiry
-      ) {
-        throw Errors.INVOICE_EXPIRY_TOO_SHORT();
-      }
-    }
-
-    await this.swapManager.setSwapInvoice(
-      swap,
-      invoice,
+    const fees = this.rateProvider.feeProvider.getFees(
+      swap.pair,
+      swap.version,
+      rate,
+      swap.orderSide,
       swap.invoiceAmount,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
-      canBeRouted,
-      this.eventHandler.emitSwapInvoiceSet,
+      SwapType.Submarine,
+      BaseFeeType.NormalClaim,
+      referral,
+      extraFees,
     );
 
-    await this.createExtraFees(swap.id, extraFee, extraFees);
+    const { expectedAmount, acceptZeroConf } =
+      await this.swapManager.setSwapInvoice(
+        swap,
+        invoice,
+        rate,
+        fees,
+        canBeRouted,
+        this.eventHandler.emitSwapInvoiceSet,
+      );
+
+    await this.createExtraFees(swap.id, fees.extraFee, extraFees);
 
     return {
       expectedAmount,
@@ -2574,23 +2525,6 @@ class Service {
         percentage: extraFees.percentage,
       });
     }
-  };
-
-  /**
-   * Calculates the amount of an invoice for a Submarine Swap
-   */
-  private calculateInvoiceAmount = (
-    orderSide: number,
-    rate: number,
-    onchainAmount: number,
-    baseFee: number,
-    percentageFee: number,
-  ) => {
-    if (orderSide === OrderSide.BUY) {
-      rate = 1 / rate;
-    }
-
-    return Math.floor(((onchainAmount - baseFee) * rate) / (1 + percentageFee));
   };
 
   private getPair = async (

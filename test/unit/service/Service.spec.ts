@@ -49,7 +49,7 @@ import LightningErrors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import type { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
-import FeeProvider from '../../../lib/rates/FeeProvider';
+import FeeProvider, { type SwapFees } from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
 import type { WebHookData } from '../../../lib/service/Service';
@@ -58,7 +58,6 @@ import Service, {
 } from '../../../lib/service/Service';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
-import SwapErrors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import SwapManager from '../../../lib/swap/SwapManager';
 import type Wallet from '../../../lib/wallet/Wallet';
@@ -133,14 +132,17 @@ const mockSetSwapInvoice = jest
     async (
       swap: Swap,
       _invoice: string,
-      _invoiceAmount: number,
-      _expectedAmount: number,
-      _percentageFee: number,
-      _acceptZeroConf: boolean,
+      _rate: number,
+      _fees: SwapFees,
       _canBeRouted: boolean,
       emitSwapInvoiceSet: (id: string) => void,
     ) => {
       emitSwapInvoiceSet(swap.id);
+
+      return {
+        expectedAmount: 100002,
+        acceptZeroConf: true,
+      };
     },
   );
 
@@ -186,6 +188,26 @@ jest.mock('../../../lib/swap/SwapManager', () => {
 });
 
 const mockedSwapManager = <jest.Mock<SwapManager>>(<any>SwapManager);
+
+SwapManager.calculateInvoiceAmount = jest
+  .fn()
+  .mockImplementation(
+    (
+      orderSide: number,
+      rate: number,
+      onchainAmount: number,
+      baseFee: number,
+      percentageFee: number,
+    ) => {
+      if (orderSide === OrderSide.BUY) {
+        rate = 1 / rate;
+      }
+
+      return Math.floor(
+        ((onchainAmount - baseFee) * rate) / (1 + percentageFee),
+      );
+    },
+  );
 
 const mockGetFeeDataResult: any = {
   gasPrice: BigInt(10) * gweiDecimals,
@@ -351,8 +373,8 @@ const mockInitFeeProvider = jest.fn().mockReturnValue(undefined);
 const mockGetFees = jest.fn().mockReturnValue({
   baseFee: 1,
   percentageFee: 1,
-  percentageSwapInFee: 0,
-});
+  percentageFeeRate: 0,
+} as SwapFees);
 
 const mockGetBaseFeeResult = 320;
 const mockGetBaseFee = jest.fn().mockReturnValue(mockGetBaseFeeResult);
@@ -2130,17 +2152,12 @@ describe('Service', () => {
       undefined,
     );
 
-    expect(mockAcceptZeroConf).toHaveBeenCalledTimes(1);
-    expect(mockAcceptZeroConf).toHaveBeenCalledWith('BTC', invoiceAmount + 2);
-
     expect(mockSetSwapInvoice).toHaveBeenCalledTimes(1);
     expect(mockSetSwapInvoice).toHaveBeenCalledWith(
       mockGetSwapResult,
       invoice,
-      invoiceAmount,
-      invoiceAmount + 2,
       1,
-      true,
+      { baseFee: 1, percentageFee: 1, percentageFeeRate: 0 },
       true,
       expect.anything(),
     );
@@ -2211,7 +2228,8 @@ describe('Service', () => {
     service['rateProvider'].feeProvider.getFees = jest.fn().mockReturnValue({
       baseFee: 1_200,
       extraFee: 1_001,
-      percentageFee: 2_000,
+      percentageFee: 1_002,
+      percentageFeeRate: 2_000,
     });
 
     await service.setInvoice(
@@ -2225,10 +2243,13 @@ describe('Service', () => {
     expect(service['swapManager'].setSwapInvoice).toHaveBeenCalledWith(
       mockGetSwapResult,
       invoice,
-      invoiceAmount,
-      104201,
-      2_000,
-      true,
+      1,
+      {
+        baseFee: 1200,
+        extraFee: 1001,
+        percentageFee: 1002,
+        percentageFeeRate: 2000,
+      },
       true,
       expect.anything(),
     );
@@ -2240,21 +2261,6 @@ describe('Service', () => {
       swapId: mockGetSwapResult.id,
       percentage: extraFees.percentage,
     });
-  });
-
-  test('should throw when setting expired invoices', async () => {
-    mockGetSwapResult = {
-      id: 'invoiceId',
-      pair: 'BTC/BTC',
-      orderSide: 0,
-      version: SwapVersion.Taproot,
-      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
-    };
-
-    const invoice = createInvoice(undefined, getUnixTime() - 100, 1, 100000);
-    await expect(
-      service.setInvoice(mockGetSwapResult.id, invoice),
-    ).rejects.toEqual(SwapErrors.INVOICE_EXPIRED_ALREADY());
   });
 
   test('should not set swap invoice if it is from an un-route-able node', async () => {
@@ -2297,25 +2303,6 @@ describe('Service', () => {
     expect(mockDecodeInvoice).toHaveBeenCalledWith(invoice);
 
     decodedInvoice.features = new Set<InvoiceFeature>();
-  });
-
-  test('should reject setting invoices that expire too soon', async () => {
-    mockGetSwapResult = {
-      id: 'invoiceId',
-      pair: 'BTC/BTC',
-      orderSide: 0,
-      acceptZeroConfig: false,
-      lockupAddress: 'bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu',
-    };
-
-    mockAcceptZeroConfResult = false;
-    const invoice = createInvoice(undefined, undefined, 1200 - 1);
-
-    await expect(
-      service.setInvoice(mockGetSwapResult.id, invoice),
-    ).rejects.toEqual(Errors.INVOICE_EXPIRY_TOO_SHORT());
-
-    mockAcceptZeroConfResult = true;
   });
 
   test('should set invoices with sufficient time left until expiry', async () => {
@@ -3940,24 +3927,6 @@ describe('Service', () => {
 
       expect(ExtraFeeRepository.create).not.toHaveBeenCalled();
     });
-  });
-
-  test('should calculate invoice amounts', () => {
-    const calculateInvoiceAmount = service['calculateInvoiceAmount'];
-
-    expect(
-      calculateInvoiceAmount(OrderSide.BUY, 1, 1000000, 210, 0.02),
-    ).toEqual(980186);
-    expect(
-      calculateInvoiceAmount(OrderSide.SELL, 1, 1000000, 210, 0.02),
-    ).toEqual(980186);
-
-    expect(
-      calculateInvoiceAmount(OrderSide.BUY, 0.005, 1000000, 120, 0.05),
-    ).toEqual(190453333);
-    expect(
-      calculateInvoiceAmount(OrderSide.SELL, 0.005, 1000000, 120, 0.05),
-    ).toEqual(4761);
   });
 
   describe('getPair', () => {

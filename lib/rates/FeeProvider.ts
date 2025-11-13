@@ -27,6 +27,13 @@ import type WalletManager from '../wallet/WalletManager';
 import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
 import type DataAggregator from './data/DataAggregator';
 
+export type SwapFees = {
+  baseFee: number;
+  percentageFee: number;
+  percentageFeeRate: number;
+  extraFee?: number;
+};
+
 type TransactionSizesForVersion = {
   normalClaim: number;
 
@@ -249,12 +256,8 @@ class FeeProvider {
     feeType: BaseFeeType,
     referral: Referral | null,
     extraFees: ExtraFees | undefined,
-  ): {
-    baseFee: number;
-    percentageFee: number;
-    extraFee?: number;
-  } => {
-    const percentageFeeCalculation = this.getPercentageFee(
+  ): SwapFees => {
+    const percentageFeeRate = this.getPercentageFee(
       pair,
       orderSide,
       type,
@@ -262,7 +265,7 @@ class FeeProvider {
       referral,
     );
 
-    const percentageFee = Math.ceil(percentageFeeCalculation * amount * rate);
+    const percentageFee = Math.ceil(percentageFeeRate * amount * rate);
 
     const { base, quote } = splitPairId(pair);
     const chainCurrency = getChainCurrency(
@@ -277,7 +280,7 @@ class FeeProvider {
     if (extraFees !== undefined) {
       const totalPercentageFeeCalculation =
         FeeProvider.calculateTotalPercentageFeeCalculation(
-          percentageFeeCalculation,
+          percentageFeeRate,
           extraFees.percentage,
         );
 
@@ -291,6 +294,7 @@ class FeeProvider {
     return {
       extraFee,
       percentageFee,
+      percentageFeeRate,
       baseFee: this.getBaseFee(chainCurrency, swapVersion, feeType),
     };
   };

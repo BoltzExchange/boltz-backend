@@ -284,10 +284,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           if (fetchedSwap === null) {
             return;
           }
+          swap = fetchedSwap;
 
-          if (fetchedSwap.createdRefundSignature) {
+          if (swap.createdRefundSignature) {
             this.logger.warn(
-              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from paying an invoice because it already signed a refund`,
+              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} from paying an invoice because it already signed a refund`,
             );
             return;
           }

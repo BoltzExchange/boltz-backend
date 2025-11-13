@@ -44,7 +44,7 @@ toml = "0.9.8"
 tonic = { version = "0.14.2", features = ["tls-ring"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-tokio-util = "0.7.16"
+tokio-util = "0.7.17"
 tracing-loki = { version = "0.2.6", optional = true }
 futures = "0.3.31"
 metrics-process = { version = "2.4.2", optional = true }
@@ -72,7 +72,10 @@ opentelemetry-semantic-conventions = { version = "0.31.0", optional = true, feat
 opentelemetry_sdk = { version = "0.31.0", optional = true, features = [
 	"rt-tokio",
 ] }
-opentelemetry-otlp = { version = "0.31.0", optional = true, features = ["grpc-tonic", "gzip-tonic"] }
+opentelemetry-otlp = { version = "0.31.0", optional = true, features = [
+	"grpc-tonic",
+	"gzip-tonic",
+] }
 tracing-opentelemetry = { version = "0.32.0", optional = true }
 diesel-tracing = { version = "0.3.1", optional = true, features = [
 	"postgres",
@@ -80,7 +83,7 @@ diesel-tracing = { version = "0.3.1", optional = true, features = [
 	"statement-fields",
 ] }
 alloy = { workspace = true }
-async-tungstenite = { version = "0.31.0", features = [
+async-tungstenite = { version = "0.32.0", features = [
 	"tokio-native-tls",
 	"tokio-runtime",
 ] }
@@ -88,10 +91,8 @@ async-trait = "0.1.89"
 futures-util = "0.3.31"
 async-stream = "0.3.6"
 anyhow = { workspace = true }
-lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev = "030a7845d23fa2629353071f53f95dc8ad421377", features = [
-	"std",
-] }
-lightning-invoice = { version = "0.33.1", features = ["std"] }
+lightning = { version = "0.2.0-rc2", features = ["std"] }
+lightning-invoice = { version = "0.33.2", features = ["std"] }
 bech32 = "0.11.0"
 bitcoin = { workspace = true }
 elements = { workspace = true }
@@ -106,10 +107,9 @@ flate2 = "1.1.5"
 pyroscope = { version = "0.5.8", optional = true }
 pyroscope_pprofrs = { version = "0.2.10", optional = true }
 csv = "1.4.0"
-axum-extra = { version = "0.10.3", features = ["typed-header"] }
+axum-extra = { version = "0.12.1", features = ["typed-header"] }
 redis = { version = "0.32.7", features = ["tokio-comp", "r2d2"] }
 bytes = "1.10.1"
-rust-bip39 = "1.0.0"
 elements-miniscript = "0.4.0"
 rand = { workspace = true }
 tokio-stream = "0.1.17"
@@ -117,6 +117,7 @@ rapidfuzz = "0.5.0"
 zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
 tonic-prost = "0.14.2"
 boltz-core = { path = "../boltz-core" }
+bip39 = "2.2.0"
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }

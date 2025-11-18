@@ -10,11 +10,15 @@ The Swagger specifications of the latest Boltz REST API can be found
 
 ## Examples
 
-Below are some examples covering the flow of a given swap type from beginning to
-end, using API v2 and its WebSocket. **The examples are not feature-complete, do
-not cover all edge cases and are not to be used in production as-is.**
+::: danger ⚠️ WARNING: Code for educational purposes only
 
-<!-- TODO: import code snippets from type checked and tested files -->
+The sample code below is not feature-complete, does not cover important edge
+cases, and almost certainly will lead to loss of funds if used in production.
+
+:::
+
+Below are some examples covering the flow of a given swap type from beginning to
+end, using API v2 and its WebSocket.
 
 ### Submarine Swap (Chain -> Lightning)
 

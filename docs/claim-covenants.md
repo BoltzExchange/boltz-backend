@@ -3,45 +3,64 @@
 To reduce the interactivity requirements of Reverse Swaps, one can make use of
 covenants.
 
-Covenants are available on [Liquid](https://liquid.net/) in the form of
-[direction introspection](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality).
-These opcodes allow the script in the witness to inspect the inputs, outputs and
-other properties of the transaction it is executed in.
+Covenants are available, e.g., on the [Liquid Network](https://liquid.net/) in
+the form of
+[introspection opcodes](https://github.com/ElementsProject/elements/blob/master/doc/tapscript_opcodes.md#new-opcodes-for-additional-functionality).
+These opcodes allow the script in the witness to inspect the inputs, outputs,
+and other properties of the transaction in which it is executed.
 
 ## Disclaimer
 
-In most cases, claim covenants do **not** allow Boltz Swap clients to
-trustlessly receive Lightning payments when offline.
+Claim covenants have different trust assumptions depending on how they are used.
+Below are two common use cases with their respective trust implications.
 
-While a swap can be restricted to a specific claiming address, potentially
-giving this impression, it is crucial to acknowledge that the swap creator
-retains sole control over the actual claiming conditions. If the receiving
-client cannot validate the swap's covenant setup after the swap was created
-(because they are offline), they are inherently trusting the entity that created
-the swap to configure it correctly. From a trust perspective, this is similar to
-providing an xpub or wallet descriptor as swap destination directly to the swap
-creator.
+### Invoice-based Creation & Validation of Swaps
 
-Further, when handing over the preimage of a Reverse Swap to a third party like
-a mobile wallet provider, you have to rely on this party not to collude with the
-Lightning node that accepts HTLCs for the hold invoice. If that happens, the
-covenant script path spend would not be executed, but the Lightning HTLCs
-resolved and eventually, the coins locked on Liquid will be refunded. A work
-around could be access to multiple servers that enforce covenant claims for the
-swap client.
+When using claim covenants with an **on-demand invoice creation and validation
+workflow**, they can be used in a trust-minimized manner:
 
-Also, Liquid swap transactions need to be unblinded for covenants and therefore
-cannot leverage the privacy benefits of
+The client initiates the swap and immediately receives and validates the
+covenant script setup. Since the client can verify that the covenant is properly
+configured before sharing payment details, this approach maintains minimal trust
+assumptions.
+
+**This is the recommended way to use claim covenants.**
+
+### LNURL/LN-Address Spontaneous Offline Payments
+
+When using claim covenants for **spontaneous payments via LNURL or Lightning
+addresses** while the swap client is offline, they **cannot** be used in a
+trust-minimized manner:
+
+In this scenario, the sender pulls payment details on-demand (e.g., via LNURL or
+a Lightning address), but the receiving client is offline and cannot validate
+the covenant script setup. The swap creator retains sole control over the actual
+claiming conditions, and the offline recipient has no way to verify correctness.
+From a trust perspective, this is similar to providing an xpub or wallet
+descriptor as the swap destination directly to the swap creator.
+
+**We do NOT recommend using claim covenants this way.**
+
+### General Considerations
+
+When handing over the preimage of a Reverse Swap to the swap creator, which is
+usually a third party like a mobile wallet provider, you have to rely on this
+party not to collude with the Lightning node that accepts HTLCs for the hold
+invoice. If that happens, the covenant script path spend would not be executed,
+while the Lightning HTLCs are resolved and eventually, the coins locked on
+Liquid will be refunded. A workaround could be using multiple servers that
+enforce covenant claims for the swap client.
+
+Additionally, note that Liquid swap transactions need to be unblinded for
+covenants and therefore cannot leverage the privacy benefits of
 [Confidential Transactions](https://glossary.blockstream.com/confidential-transactions/).
-
-Therefore, we currently do not recommend claim covenants for use in production.
 
 ## Boltz API
 
 Boltz API clients can ask for a covenant to be included in the Taptree of a
 Reverse Swap. With that new leaf in the tree, the coins locked for the Reverse
 Swap can be claimed by revealing the preimage and sending the expected asset
-with expected amount to an address of the client in the 0th output of the
+with the expected amount to an address of the client in the 0th output of the
 transaction. This is what the script looks like:
 
 ```
@@ -56,7 +75,7 @@ OP_EQUALVERIFY
 OP_INSPECTOUTPUTSCRIPTPUBKEY
 <version of the output script of the address of the client>
 OP_EQUALVERIFY
-<output script of the output script of the address of the client>
+<output script of the address of the client>
 OP_EQUALVERIFY
 
 0

@@ -61,8 +61,8 @@ Starting from a mnemonic, derive a seed and then a BIP32 root. From there,
 derive the account at `m/44/0/0/0` (the default path) and export its xpub for
 server‑side swap matching. Individual swap keys are derived at
 `m/44/0/0/0/{index}`. This default path must be used for implementations to work
-with the Web App, though a different derivation path can be specified when using
-the API directly.
+with Boltz Web App, though a different derivation path can be specified when
+using Boltz API directly.
 
 ### BIP85: Avoiding Derivation Path Collisions
 
@@ -73,18 +73,18 @@ indices for regular spending, it could inadvertently reuse keys that were
 previously used in swaps, compromising privacy and potentially security.
 
 [BIP85](https://github.com/bitcoin/bips/blob/master/bip-0085.mediawiki) provides
-a solution by deriving a child entropy seed from the master seed. This child
-seed can then be used exclusively for Boltz swaps, completely isolating swap
-keys from the wallet's main key derivation tree while not adding any additional
-information to back up for end user.
+a solution by deriving application-specific entropy from a master seed. This
+entropy can then be used to create a child seed exclusively for Boltz swaps,
+isolating swap keys from the wallet's main key derivation tree while not adding
+any additional information to back up for end users.
 
 #### Implementation
 
-1. Derive a BIP85 child entropy using the application number for Boltz (e.g.,
-   `26589` for "BOLTZ" in T9)
-2. Use the derived entropy to create a new mnemonic or seed
-3. From this child seed, derive the swap account at `m/44/0/0/0` and export its
-   xpub
+1. Derive entropy from the master seed via BIP85 using the application number
+   for Boltz (e.g., `26589` for "BOLTZ" in T9)
+2. Use the derived entropy to create a seed
+3. From this derived child seed, derive the swap account at `m/44/0/0/0` and
+   export its xpub
 4. All swap keys and preimages are then derived from this isolated child seed
 
 This approach ensures that:

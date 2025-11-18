@@ -39,11 +39,11 @@ import {
   splitPairId,
 } from '../Utils';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
-import type { OrderSide } from '../consts/Enums';
 import {
   ChannelCreationType,
   CurrencyType,
   FinalChainSwapEvents,
+  OrderSide,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -61,11 +61,14 @@ import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintR
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
+import { msatToSat } from '../lightning/ChannelUtils';
 import type { HopHint, LightningClient } from '../lightning/LightningClient';
 import type NotificationClient from '../notifications/NotificationClient';
+import type { SwapFees } from '../rates/FeeProvider';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import type RateProvider from '../rates/RateProvider';
 import type BalanceCheck from '../service/BalanceCheck';
+import ServiceErrors from '../service/Errors';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import type PaymentRequestUtils from '../service/PaymentRequestUtils';
 import Renegotiator from '../service/Renegotiator';
@@ -101,6 +104,8 @@ type ChannelCreationInfo = {
 
 type SetSwapInvoiceResponse = {
   channelCreationError?: string;
+  expectedAmount: number;
+  acceptZeroConf: boolean;
 };
 
 type CreatedSwap = {
@@ -255,6 +260,23 @@ class SwapManager {
 
     this.creationHook = new CreationHook(this.logger, notifications);
   }
+
+  /**
+   * Calculates the amount of an invoice for a Submarine Swap
+   */
+  public static calculateInvoiceAmount = (
+    orderSide: number,
+    rate: number,
+    onchainAmount: number,
+    baseFee: number,
+    percentageFee: number,
+  ) => {
+    if (orderSide === OrderSide.BUY) {
+      rate = 1 / rate;
+    }
+
+    return Math.floor(((onchainAmount - baseFee) * rate) / (1 + percentageFee));
+  };
 
   public init = async (
     currencies: Currency[],
@@ -520,25 +542,19 @@ class SwapManager {
    *
    * @param swap database object of the swap
    * @param invoice invoice of the Swap
-   * @param invoiceAmount amount of the invoice in satoshis
-   * @param expectedAmount amount that is expected onchain
-   * @param percentageFee fee Boltz charges for the Swap
-   * @param acceptZeroConf whether 0-conf transactions should be accepted
-   * @param canBeRouted whether the invoice for the swap
+   * @param rate exchange rate for the swap pair
+   * @param fees fee structure including base, percentage, and extra fees
+   * @param canBeRouted whether the invoice can be routed
    * @param emitSwapInvoiceSet method to emit an event after the invoice has been set
    */
   public setSwapInvoice = async (
     swap: Swap,
     invoice: string,
-    invoiceAmount: number,
-    expectedAmount: number,
-    percentageFee: number,
-    acceptZeroConf: boolean,
+    rate: number,
+    fees: SwapFees,
     canBeRouted: boolean,
     emitSwapInvoiceSet: (id: string) => void,
   ): Promise<SetSwapInvoiceResponse> => {
-    const response: SetSwapInvoiceResponse = {};
-
     const { base, quote } = splitPairId(swap.pair);
     const { receivingCurrency } = this.getCurrencies(
       base,
@@ -550,6 +566,7 @@ class SwapManager {
     if (decodedInvoice.type === InvoiceType.Offer) {
       throw Errors.NO_OFFERS_ALLOWED();
     }
+    const invoiceAmount = msatToSat(decodedInvoice.amountMsat);
 
     if (getHexString(decodedInvoice.paymentHash!) !== swap.preimageHash) {
       throw Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash);
@@ -562,6 +579,8 @@ class SwapManager {
     const channelCreation = await ChannelCreationRepository.getChannelCreation({
       swapId: swap.id,
     });
+
+    let channelCreationError: string | undefined;
 
     if (channelCreation) {
       const getChainInfo = async (
@@ -609,7 +628,7 @@ class SwapManager {
           this.logger.info(
             `Disabling Channel Creation for Swap ${swap.id}: ${invoiceError.message}`,
           );
-          response.channelCreationError = invoiceError.message;
+          channelCreationError = invoiceError.message;
 
           await channelCreation.destroy();
 
@@ -660,13 +679,61 @@ class SwapManager {
       if (updatedSwap.createdRefundSignature) {
         throw Errors.SWAP_ALREADY_REFUNDED(updatedSwap.id);
       }
+      swap = updatedSwap;
+
+      const expectedAmount =
+        Math.floor(invoiceAmount * rate) +
+        fees.baseFee +
+        fees.percentageFee +
+        (fees.extraFee || 0);
+
+      if (swap.onchainAmount && expectedAmount > swap.onchainAmount) {
+        const maxInvoiceAmount = SwapManager.calculateInvoiceAmount(
+          swap.orderSide,
+          rate,
+          swap.onchainAmount,
+          fees.baseFee,
+          fees.percentageFeeRate,
+        );
+
+        // that error was originally thrown in the `Service` class, so we keep backwards-compat
+        // by not changing the error code
+        throw ServiceErrors.INVALID_INVOICE_AMOUNT(
+          Math.max(maxInvoiceAmount, 0),
+        );
+      }
+
+      const chainCurrency = getChainCurrency(
+        base,
+        quote,
+        swap.orderSide,
+        false,
+      );
+
+      const acceptZeroConf = this.rateProvider.acceptZeroConf(
+        chainCurrency,
+        expectedAmount,
+      );
+
+      const minutesUntilExpiry =
+        (decodedInvoice.expiryTimestamp - getUnixTime()) / 60;
+
+      // When we do not accept 0-conf, we make sure there is enough time for a lockup transaction to confirm
+      if (!acceptZeroConf) {
+        if (
+          (TimeoutDeltaProvider.blockTimes.get(chainCurrency) || 0) * 2 >
+          minutesUntilExpiry
+        ) {
+          throw ServiceErrors.INVOICE_EXPIRY_TOO_SHORT();
+        }
+      }
 
       await SwapRepository.setInvoice(
         swap,
         invoice,
         invoiceAmount,
         expectedAmount,
-        percentageFee,
+        fees.percentageFee,
         acceptZeroConf,
       );
 
@@ -692,7 +759,11 @@ class SwapManager {
       }
     });
 
-    return response;
+    return {
+      channelCreationError,
+      acceptZeroConf: swap.acceptZeroConf!,
+      expectedAmount: swap.expectedAmount!,
+    };
   };
 
   /**

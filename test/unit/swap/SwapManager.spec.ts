@@ -34,6 +34,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import RateProvider from '../../../lib/rates/RateProvider';
+import ServiceErrors from '../../../lib/service/Errors';
 import InvoiceExpiryHelper from '../../../lib/service/InvoiceExpiryHelper';
 import type PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
@@ -91,6 +92,7 @@ jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      acceptZeroConf: jest.fn().mockReturnValue(true),
       feeProvider: {
         minerFees: new Map<string, any>([
           [
@@ -375,6 +377,7 @@ describe('SwapManager', () => {
         return {
           expiryTimestamp: expiry,
           type: InvoiceType.Bolt11,
+          amountMsat: dec.satoshis! * 1000,
           payee: getHexBuffer(dec.payeeNodeKey!),
           isExpired: expiry < getUnixTime(),
           paymentHash: getHexBuffer(
@@ -492,6 +495,27 @@ describe('SwapManager', () => {
       manager.routingHints.stop();
     }
   });
+
+  test.each`
+    side              | rate     | onchainAmount | baseFee | percentageFee | expected
+    ${OrderSide.BUY}  | ${1}     | ${1000000}    | ${210}  | ${0.02}       | ${980186}
+    ${OrderSide.SELL} | ${1}     | ${1000000}    | ${210}  | ${0.02}       | ${980186}
+    ${OrderSide.BUY}  | ${0.005} | ${1000000}    | ${120}  | ${0.05}       | ${190453333}
+    ${OrderSide.SELL} | ${0.005} | ${1000000}    | ${120}  | ${0.05}       | ${4761}
+  `(
+    'should calculate invoice amounts',
+    ({ side, rate, onchainAmount, baseFee, percentageFee, expected }) => {
+      expect(
+        SwapManager.calculateInvoiceAmount(
+          side,
+          rate,
+          onchainAmount,
+          baseFee,
+          percentageFee,
+        ),
+      ).toEqual(expected);
+    },
+  );
 
   test('it should init', async () => {
     const mockRecreateFilters = jest.fn().mockImplementation();
@@ -740,8 +764,8 @@ describe('SwapManager', () => {
       orderSide: OrderSide.BUY,
       preimageHash:
         '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
-      expectedAmount: 100,
-      onchainAmount: 100,
+      expectedAmount: 350,
+      onchainAmount: 350,
     } as any as Swap;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
@@ -766,19 +790,27 @@ describe('SwapManager', () => {
 
     const invoice = bolt11.sign(invoiceEncode, invoiceSignKeys).paymentRequest!;
 
-    const expectedAmount = 100;
+    const expectedAmount = 350;
     const percentageFee = 50;
     const acceptZeroConf = false;
     const emitSwapInvoiceSet = jest.fn().mockImplementation();
+
+    manager['rateProvider'].acceptZeroConf = jest
+      .fn()
+      .mockImplementation(() => acceptZeroConf);
+
+    const fees = {
+      baseFee: 100,
+      percentageFee: 50,
+      percentageFeeRate: 0.05,
+    };
 
     const creationHook = jest.spyOn(manager.creationHook, 'hook');
     await manager.setSwapInvoice(
       swap,
       invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
+      1,
+      fees,
       true,
       emitSwapInvoiceSet,
     );
@@ -829,10 +861,8 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
+      1,
+      fees,
       true,
       emitSwapInvoiceSet,
     );
@@ -852,10 +882,8 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
+      1,
+      fees,
       true,
       emitSwapInvoiceSet,
     );
@@ -876,10 +904,8 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
+      1,
+      fees,
       true,
       emitSwapInvoiceSet,
     );
@@ -899,16 +925,9 @@ describe('SwapManager', () => {
       onchainAmount: 90, // Different amount to prevent settlement
     });
 
-    await manager.setSwapInvoice(
-      swap,
-      invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
-      true,
-      emitSwapInvoiceSet,
-    );
+    await expect(
+      manager.setSwapInvoice(swap, invoice, 1, fees, true, emitSwapInvoiceSet),
+    ).rejects.toEqual(ServiceErrors.INVALID_INVOICE_AMOUNT(0));
 
     // Settlement should not be attempted because amounts don't match
     expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(3);
@@ -920,16 +939,7 @@ describe('SwapManager', () => {
     });
 
     await expect(
-      manager.setSwapInvoice(
-        swap,
-        invoice,
-        invoiceEncode.satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
-        true,
-        emitSwapInvoiceSet,
-      ),
+      manager.setSwapInvoice(swap, invoice, 1, fees, true, emitSwapInvoiceSet),
     ).rejects.toEqual(Errors.SWAP_ALREADY_REFUNDED(swap.id));
 
     SwapRepository.getSwap = originalGetSwap;
@@ -944,17 +954,15 @@ describe('SwapManager', () => {
     await manager.setSwapInvoice(
       swap,
       invoice,
-      invoiceEncode.satoshis!,
-      expectedAmount,
-      percentageFee,
-      acceptZeroConf,
+      1,
+      fees,
       true,
       emitSwapInvoiceSet,
     );
 
     expect(mockGetChannelCreation).toHaveBeenCalledTimes(7);
-    expect(mockSetInvoice).toHaveBeenCalledTimes(6);
-    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(6);
+    expect(mockSetInvoice).toHaveBeenCalledTimes(5);
+    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(5);
 
     // Swap with Channel Creation and invoice that expires too soon
     swap.timeoutBlockHeight = 1000;
@@ -965,10 +973,8 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoice,
-        invoiceEncode.satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
+        1,
+        fees,
         true,
         emitSwapInvoiceSet,
       );
@@ -1016,10 +1022,8 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceNoExpiry,
-        invoiceNoExpiryEncode.satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
+        1,
+        fees,
         true,
         emitSwapInvoiceSet,
       );
@@ -1044,10 +1048,8 @@ describe('SwapManager', () => {
       await manager.setSwapInvoice(
         swap,
         invoiceExpired,
-        bolt11.decode(invoiceExpired).satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
+        1,
+        fees,
         true,
         emitSwapInvoiceSet,
       );
@@ -1064,35 +1066,109 @@ describe('SwapManager', () => {
     swap.preimageHash = getHexString(randomBytes(32));
 
     await expect(
-      manager.setSwapInvoice(
-        swap,
-        invoice,
-        invoiceEncode.satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
-        true,
-        emitSwapInvoiceSet,
-      ),
+      manager.setSwapInvoice(swap, invoice, 1, fees, true, emitSwapInvoiceSet),
     ).rejects.toEqual(Errors.INVOICE_INVALID_PREIMAGE_HASH(swap.preimageHash));
 
     swap.preimageHash = invoicePreimageHash;
 
     // Routability check fails
     await expect(
-      manager.setSwapInvoice(
-        swap,
-        invoice,
-        invoiceEncode.satoshis!,
-        expectedAmount,
-        percentageFee,
-        acceptZeroConf,
-        false,
-        emitSwapInvoiceSet,
-      ),
+      manager.setSwapInvoice(swap, invoice, 1, fees, false, emitSwapInvoiceSet),
     ).rejects.toEqual(Errors.NO_ROUTE_FOUND());
 
     mockAttemptSettleSwapThrow = false;
+  });
+
+  test('should throw when setting expired invoices', async () => {
+    const swap = {
+      id: 'expiredInvoice',
+      pair: 'BTC/BTC',
+      chainCurrency: 'BTC',
+      lightningCurrency: 'BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.BUY,
+      preimageHash:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      expectedAmount: 350,
+      onchainAmount: 350,
+    } as any as Swap;
+
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    const expiredInvoice =
+      'lnbcrt3210n1p00galgpp5z4vdz7weu008q6vhuwmtkvlhqjjmszrtyafcl5zw7h33x3nnxwuqdqqcqzpgsp5q70xcl9mw3dcxmc78el7m2gl86rtv60tazlay6tz5ddpjuu0p4mq9qy9qsqcympv8hx4j877hm26uyrpfxur497x27kuqvlq7kdd8wjucjla849d8nc2m38ce04f26vycv6mjqxusva8ge36jnrrgnj4fzey70yy4cpaac77a';
+
+    const fees = {
+      baseFee: 100,
+      percentageFee: 50,
+      percentageFeeRate: 0.05,
+    };
+    const emitSwapInvoiceSet = jest.fn().mockImplementation();
+
+    await expect(
+      manager.setSwapInvoice(
+        swap,
+        expiredInvoice,
+        1,
+        fees,
+        true,
+        emitSwapInvoiceSet,
+      ),
+    ).rejects.toEqual(Errors.INVOICE_EXPIRED_ALREADY());
+  });
+
+  test('should reject setting invoices that expire too soon', async () => {
+    const swap = {
+      id: 'expiryTooSoon',
+      pair: 'BTC/BTC',
+      chainCurrency: 'BTC',
+      lightningCurrency: 'BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.BUY,
+      preimageHash:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      expectedAmount: 350,
+      onchainAmount: 350,
+    } as any as Swap;
+
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    const invoiceSignKeys = getHexBuffer(
+      'bd67aa04f8e310ad257f2d7f5a2f4cf314c6c6017515748fb05c33763b1c6744',
+    );
+    const invoiceEncode = bolt11.encode({
+      payeeNodeKey: getHexString(
+        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+      ),
+      satoshis: 200,
+      tags: [
+        {
+          data: swap.preimageHash,
+          tagName: 'payment_hash',
+        },
+        {
+          data: 60,
+          tagName: 'expire_time',
+        },
+      ],
+    });
+
+    const invoice = bolt11.sign(invoiceEncode, invoiceSignKeys).paymentRequest!;
+
+    manager['rateProvider'].acceptZeroConf = jest
+      .fn()
+      .mockImplementation(() => false);
+
+    const fees = {
+      baseFee: 100,
+      percentageFee: 50,
+      percentageFeeRate: 0.05,
+    };
+    const emitSwapInvoiceSet = jest.fn().mockImplementation();
+
+    await expect(
+      manager.setSwapInvoice(swap, invoice, 1, fees, true, emitSwapInvoiceSet),
+    ).rejects.toEqual(ServiceErrors.INVOICE_EXPIRY_TOO_SHORT());
   });
 
   test('should create Reverse Swaps', async () => {

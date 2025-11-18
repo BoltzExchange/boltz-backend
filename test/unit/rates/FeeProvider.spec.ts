@@ -476,6 +476,7 @@ describe('FeeProvider', () => {
       ).toEqual({
         baseFee: 6120,
         percentageFee: -2000000,
+        percentageFeeRate: -0.01,
       });
 
       expect(
@@ -493,6 +494,7 @@ describe('FeeProvider', () => {
       ).toEqual({
         baseFee: 5436,
         percentageFee: -2000000,
+        percentageFeeRate: -0.01,
       });
 
       expect(
@@ -510,6 +512,7 @@ describe('FeeProvider', () => {
       ).toEqual({
         baseFee: 459,
         percentageFee: 4000000,
+        percentageFeeRate: 0.02,
       });
 
       expect(
@@ -527,6 +530,7 @@ describe('FeeProvider', () => {
       ).toEqual({
         baseFee: 462,
         percentageFee: 4000000,
+        percentageFeeRate: 0.02,
       });
 
       const referral = {
@@ -548,6 +552,7 @@ describe('FeeProvider', () => {
       ).toEqual({
         baseFee: 462,
         percentageFee: 4400000,
+        percentageFeeRate: 0.022000000000000002,
       });
     });
 
@@ -572,6 +577,7 @@ describe('FeeProvider', () => {
         baseFee: 462,
         extraFee: 2_000,
         percentageFee: 4_000,
+        percentageFeeRate: 0.02,
       });
 
       expect(
@@ -592,6 +598,7 @@ describe('FeeProvider', () => {
         baseFee: 462,
         extraFee: 20,
         percentageFee: 4_000,
+        percentageFeeRate: 0.02,
       });
     });
   });

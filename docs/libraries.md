@@ -25,7 +25,7 @@ with.**
 **Covers most server-side use cases (e.g., swap server creating swaps for
 clients).** Our battle-tested reference client for accepting Lightning payments
 without running a node and rebalancing existing Lightning nodes; it also
-provides a fully fledged Go library for Boltz API. Used by e.g.:
+provides a full-fledged Go library for Boltz API. Used by e.g.:
 [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin/)
 
 Supported currencies: Bitcoin, Lightning, Liquid

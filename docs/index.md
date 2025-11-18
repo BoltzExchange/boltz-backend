@@ -1,14 +1,14 @@
 ---
 next:
-  text: '📙 Libraries'
+  text: '📙 Clients, SDKs & Libraries'
   link: '/libraries'
 ---
 
 # 👋 Introduction
 
-Boltz exposes a RESTful HTTP API that can be used to query information like
-supported pairs as well as to create and monitor swaps. All swap clients, like
-Boltz Web App, use Boltz API under the hood.
+Boltz exposes a RESTful HTTP API that can be used to query information such as
+supported pairs as well as to create and monitor swaps. All swap clients, such
+as Boltz Web App, use Boltz API under the hood.
 
 ## Instances
 
@@ -30,6 +30,6 @@ We operate the following lightning nodes:
 |
 [LND](https://amboss.space/node/026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2)
 
-In the following sections we'll describe the available libraries for our API,
-the REST API itself, walk through swap types & states, how to craft
-transactions, handle refunds and more.
+In the following sections we'll describe the available clients, SDKs, and
+libraries for our API, the REST API itself, walk through swap types & states,
+how to craft transactions, handle refunds and more.

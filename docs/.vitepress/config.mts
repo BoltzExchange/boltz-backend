@@ -20,7 +20,7 @@ export default defineConfig({
       {
         items: [
           { text: '👋 Introduction', link: '/index' },
-          { text: '📙 Libraries', link: '/libraries' },
+          { text: '📙 Clients, SDKs & Libraries', link: '/libraries' },
           { text: '🤖 REST API v2', link: '/api-v2' },
           { text: '🔁 Swap Types & States', link: '/lifecycle' },
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },

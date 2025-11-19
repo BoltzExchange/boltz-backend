@@ -766,6 +766,7 @@ describe('SwapManager', () => {
         '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
       expectedAmount: 350,
       onchainAmount: 350,
+      status: SwapUpdateEvent.TransactionConfirmed,
     } as any as Swap;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
@@ -1077,6 +1078,105 @@ describe('SwapManager', () => {
     ).rejects.toEqual(Errors.NO_ROUTE_FOUND());
 
     mockAttemptSettleSwapThrow = false;
+  });
+
+  test('should only attempt to settle swap when status is TransactionConfirmed', async () => {
+    const swap = {
+      id: 'settleOnlyWhenConfirmed',
+      pair: 'BTC/BTC',
+      chainCurrency: 'BTC',
+      lightningCurrency: 'BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.BUY,
+      preimageHash:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+      expectedAmount: 350,
+      onchainAmount: 350,
+      lockupTransactionId:
+        '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+    } as any as Swap;
+
+    const invoiceSignKeys = getHexBuffer(
+      'bd67aa04f8e310ad257f2d7f5a2f4cf314c6c6017515748fb05c33763b1c6744',
+    );
+    const invoiceEncode = bolt11.encode({
+      payeeNodeKey: getHexString(
+        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+      ),
+      satoshis: 200,
+      tags: [
+        {
+          data: swap.preimageHash,
+          tagName: 'payment_hash',
+        },
+      ],
+    });
+    const invoice = bolt11.sign(invoiceEncode, invoiceSignKeys).paymentRequest!;
+
+    const fees = {
+      baseFee: 100,
+      percentageFee: 50,
+      percentageFeeRate: 0.05,
+    };
+    const emitSwapInvoiceSet = jest.fn().mockImplementation();
+
+    const mockAttemptSettleSwap = jest.fn().mockResolvedValue(undefined);
+    manager.nursery.attemptSettleSwap = mockAttemptSettleSwap;
+
+    mockGetRawTransactionResult =
+      '020000000001018542307f1f57326e533123327f6a7e5729241c9cf468bca7897c47c0019a21010100000000fdffffff0298560b0000000000160014c99fd000fb30137ae03fd2b28f52878e9b29194f2e020000000000001976a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac02473044022034deabdeb0d1d4d2fe2cf450f5ef27c1e5709670b87dbe3b8e175ac094fb935802207630148ec8e73c24e284af700ac1f34e8058735a8852e8fd4c81ad04233b12230121031f6fa906bb52f3e1bdc59156a5659ce1aa251eaf26f411413c76409360ef7205bcaf0900';
+
+    swap.status = SwapUpdateEvent.TransactionMempool;
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      1,
+      fees,
+      true,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(0);
+
+    // Test with status TransactionConfirmed (should call attemptSettleSwap)
+    swap.status = SwapUpdateEvent.TransactionConfirmed;
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      1,
+      fees,
+      true,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(1);
+    expect(mockAttemptSettleSwap).toHaveBeenCalledWith(
+      {
+        ...btcCurrency,
+        wallet: mockWallets.get('BTC'),
+      },
+      swap,
+    );
+
+    // no lockup tx
+    mockAttemptSettleSwap.mockClear();
+    swap.lockupTransactionId = undefined;
+    SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+
+    await manager.setSwapInvoice(
+      swap,
+      invoice,
+      1,
+      fees,
+      true,
+      emitSwapInvoiceSet,
+    );
+
+    expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(0);
   });
 
   test('should throw when setting expired invoices', async () => {

@@ -597,10 +597,7 @@ impl SwapRescue {
         restorable.append(
             &mut chain_swaps
                 .into_iter()
-                .filter(|s| {
-                    // Not handling RSK swaps yet
-                    s.receiving().theirPublicKey.is_some() && s.sending().theirPublicKey.is_some()
-                })
+                .filter(|s| s.receiving().theirPublicKey.is_some())
                 .map(|s| self.create_restorable_chain_swap(&secp, keys_map, s))
                 .collect::<Result<Vec<RestorableSwap>>>()?,
         );
@@ -677,32 +674,40 @@ impl SwapRescue {
         keys_map: &HashMap<String, u64>,
         s: ChainSwapInfo,
     ) -> Result<RestorableSwap> {
-        let sending_wallet = self.get_wallet(&s.sending().symbol)?;
         let receiving_wallet = self.get_wallet(&s.receiving().symbol)?;
+        let sending_data = s.sending();
 
-        Ok(RestorableSwap {
-            base: (&s).into(),
-            from: s.receiving().symbol.clone(),
-            to: s.sending().symbol.clone(),
-            claim_details: Some(
+        // No support for claim details on RSK yet
+        let claim_details = if sending_data.theirPublicKey.is_some() {
+            let sending_wallet = self.get_wallet(&sending_data.symbol)?;
+            Some(
                 (
                     &s,
-                    Self::lookup_from_keys(keys_map, &s.sending().theirPublicKey, &s.id())?,
+                    Self::lookup_from_keys(keys_map, &sending_data.theirPublicKey, &s.id())?,
                     Self::derive_our_public_key(
                         secp,
                         &sending_wallet,
                         &s.id(),
-                        s.sending().keyIndex,
+                        sending_data.keyIndex,
                     )?,
                     Self::derive_blinding_key(
                         &sending_wallet,
                         &s.id(),
-                        &s.sending().symbol,
-                        &s.sending().lockupAddress,
+                        &sending_data.symbol,
+                        &sending_data.lockupAddress,
                     )?,
                 )
                     .try_into()?,
-            ),
+            )
+        } else {
+            None
+        };
+
+        Ok(RestorableSwap {
+            base: (&s).into(),
+            from: s.receiving().symbol.clone(),
+            to: sending_data.symbol.clone(),
+            claim_details,
             refund_details: Some(
                 (
                     s.receiving(),

@@ -745,7 +745,7 @@ class SwapManager {
       // the lockup transaction is confirmed the swap should be settled directly
       if (
         updatedSwap.lockupTransactionId &&
-        updatedSwap.status !== SwapUpdateEvent.TransactionZeroConfRejected &&
+        updatedSwap.status === SwapUpdateEvent.TransactionConfirmed &&
         swap.expectedAmount === swap.onchainAmount &&
         updatedSwap.expectedAmount === updatedSwap.onchainAmount
       ) {

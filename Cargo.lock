@@ -1965,6 +1965,7 @@ dependencies = [
  "tonic-prost",
  "tonic-prost-build",
  "tower 0.5.2",
+ "tower-http 0.6.6",
  "tracing",
  "tracing-loki",
  "tracing-opentelemetry",
@@ -7473,6 +7474,7 @@ dependencies = [
  "tower 0.5.2",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

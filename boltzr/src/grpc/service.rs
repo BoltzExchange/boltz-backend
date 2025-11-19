@@ -90,26 +90,6 @@ impl<M, T> BoltzService<M, T> {
     }
 }
 
-#[cfg(feature = "otel")]
-struct MetadataMap<'a>(&'a tonic::metadata::MetadataMap);
-
-#[cfg(feature = "otel")]
-impl opentelemetry::propagation::Extractor for MetadataMap<'_> {
-    fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).and_then(|metadata| metadata.to_str().ok())
-    }
-
-    fn keys(&self) -> Vec<&str> {
-        self.0
-            .keys()
-            .map(|key| match key {
-                tonic::metadata::KeyRef::Ascii(v) => v.as_str(),
-                tonic::metadata::KeyRef::Binary(v) => v.as_str(),
-            })
-            .collect::<Vec<_>>()
-    }
-}
-
 #[tonic::async_trait]
 impl<M, T> BoltzR for BoltzService<M, T>
 where
@@ -119,10 +99,8 @@ where
     #[instrument(name = "grpc::get_info", skip_all)]
     async fn get_info(
         &self,
-        request: Request<GetInfoRequest>,
+        _: Request<GetInfoRequest>,
     ) -> Result<Response<GetInfoResponse>, Status> {
-        extract_parent_context(&request);
-
         Ok(Response::new(GetInfoResponse {
             version: crate::utils::get_version(),
         }))
@@ -133,8 +111,6 @@ where
         &self,
         request: Request<SetLogLevelRequest>,
     ) -> Result<Response<SetLogLevelResponse>, Status> {
-        extract_parent_context(&request);
-
         let level_enum = match LogLevel::try_from(request.into_inner().level) {
             Ok(level) => level,
             Err(_) => return Err(Status::new(Code::InvalidArgument, "invalid log level")),
@@ -160,8 +136,6 @@ where
         &self,
         request: Request<SendMessageRequest>,
     ) -> Result<Response<SendMessageResponse>, Status> {
-        extract_parent_context(&request);
-
         let client = match &self.notification_client {
             Some(client) => client,
             None => {
@@ -195,10 +169,8 @@ where
     #[instrument(name = "grpc::get_messages", skip_all)]
     async fn get_messages(
         &self,
-        request: Request<GetMessagesRequest>,
+        _: Request<GetMessagesRequest>,
     ) -> Result<Response<Self::GetMessagesStream>, Status> {
-        extract_parent_context(&request);
-
         let client = match &self.notification_client {
             Some(client) => client,
             None => {
@@ -233,8 +205,6 @@ where
         &self,
         request: Request<Streaming<SwapUpdateRequest>>,
     ) -> Result<Response<Self::SwapUpdateStream>, Status> {
-        extract_parent_context(&request);
-
         let mut in_stream = request.into_inner();
         let (tx, rx) = mpsc::channel(128);
 
@@ -281,10 +251,8 @@ where
     #[instrument(name = "grpc::send_swap_update", skip_all)]
     async fn send_swap_update(
         &self,
-        request: Request<SendSwapUpdateRequest>,
+        _: Request<SendSwapUpdateRequest>,
     ) -> Result<Response<Self::SendSwapUpdateStream>, Status> {
-        extract_parent_context(&request);
-
         let mut update_rx = self.manager.listen_to_updates();
 
         let (tx, rx) = mpsc::channel(128);
@@ -326,10 +294,8 @@ where
     #[instrument(name = "grpc::start_web_hook_retries", skip_all)]
     async fn start_web_hook_retries(
         &self,
-        request: Request<StartWebHookRetriesRequest>,
+        _: Request<StartWebHookRetriesRequest>,
     ) -> Result<Response<StartWebHookRetriesResponse>, Status> {
-        extract_parent_context(&request);
-
         let handle_lock = self.web_hook_retry_handle.clone();
         let mut handle = handle_lock.lock().await;
         if handle.get_mut().is_some() {
@@ -352,8 +318,6 @@ where
         &self,
         request: Request<CreateWebHookRequest>,
     ) -> Result<Response<CreateWebHookResponse>, Status> {
-        extract_parent_context(&request);
-
         let params = request.into_inner();
         debug!("Adding new WebHook for swap {}", params.id);
         trace!("Adding WebHook: {:#?}", params);
@@ -387,8 +351,6 @@ where
         &self,
         request: Request<SendWebHookRequest>,
     ) -> Result<Response<SendWebHookResponse>, Status> {
-        extract_parent_context(&request);
-
         let params = request.into_inner();
 
         let hook = match self.web_hook_helper.get_by_id(&params.id) {
@@ -422,8 +384,6 @@ where
         &self,
         request: Request<SignEvmRefundRequest>,
     ) -> Result<Response<SignEvmRefundResponse>, Status> {
-        extract_parent_context(&request);
-
         let refund_signer = match &self.refund_signer {
             Some(signer) => signer,
             None => {
@@ -519,8 +479,6 @@ where
         &self,
         request: Request<DecodeInvoiceOrOfferRequest>,
     ) -> Result<Response<DecodeInvoiceOrOfferResponse>, Status> {
-        extract_parent_context(&request);
-
         let network = match self.manager.get_currency("BTC") {
             Some(cur) => cur.network,
             None => {
@@ -663,8 +621,6 @@ where
         &self,
         request: Request<IsMarkedRequest>,
     ) -> Result<Response<IsMarkedResponse>, Status> {
-        extract_parent_context(&request);
-
         match request.into_inner().ip.parse::<IpAddr>() {
             Ok(ip) => Ok(Response::new(IsMarkedResponse {
                 is_marked: self.service.country_codes.is_relevant(&ip),
@@ -681,8 +637,6 @@ where
         &self,
         request: Request<ScanMempoolRequest>,
     ) -> Result<Response<ScanMempoolResponse>, Status> {
-        extract_parent_context(&request);
-
         let params = request.into_inner();
         let res = match self
             .manager
@@ -710,18 +664,6 @@ where
         Ok(Response::new(ScanMempoolResponse {
             transactions: transaction_serialized,
         }))
-    }
-}
-
-fn extract_parent_context<T>(request: &Request<T>) {
-    #[cfg(feature = "otel")]
-    {
-        use tracing_opentelemetry::OpenTelemetrySpanExt;
-
-        let parent_cx = opentelemetry::global::get_text_map_propagator(|prop| {
-            prop.extract(&MetadataMap(request.metadata()))
-        });
-        let _ = tracing::Span::current().set_parent(parent_cx);
     }
 }
 

@@ -3,7 +3,7 @@ use crate::utils::built_info;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::Path;
-use tracing::{Subscriber, debug, error, info, warn};
+use tracing::{Subscriber, debug, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::{EnvFilter, Layer, Registry, fmt, reload};
@@ -98,7 +98,7 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
     #[cfg(feature = "otel")]
     let layers: Box<dyn Layer<_> + Send + Sync + 'static> = {
         let tracer = init_tracer(config).unwrap_or_else(|err| {
-            error!("Could not create OpenTelemetry: {}", err);
+            tracing::error!("Could not create OpenTelemetry: {}", err);
             None
         });
         if let Some(tracer) = tracer {
@@ -120,7 +120,7 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
     #[cfg(feature = "loki")]
     let layers: Box<dyn Layer<_> + Send + Sync + 'static> = {
         let loki_log = setup_loki(config).unwrap_or_else(|err| {
-            error!("Could not create Loki: {}", err);
+            tracing::error!("Could not create Loki: {}", err);
             None
         });
         if let Some(loki_log) = loki_log {
@@ -144,7 +144,7 @@ fn setup_loki(
     config: &GlobalConfig,
 ) -> Result<Option<tracing_loki::Layer>, Box<dyn std::error::Error>> {
     if config.loki_endpoint.is_none() || config.loki_endpoint.clone().unwrap() == "" {
-        warn!("Not enabling Loki because it was not configured");
+        tracing::warn!("Not enabling Loki because it was not configured");
         return Ok(None);
     }
 
@@ -174,7 +174,7 @@ fn init_tracer(config: &GlobalConfig) -> anyhow::Result<Option<opentelemetry_sdk
     let endpoint = config.otlp_endpoint.clone();
 
     if endpoint.is_none() || endpoint.clone().unwrap() == "" {
-        warn!("Not enabling OpenTelemetry because it was not configured");
+        tracing::warn!("Not enabling OpenTelemetry because it was not configured");
         return Ok(None);
     }
 

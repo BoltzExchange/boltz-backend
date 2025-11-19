@@ -17,6 +17,7 @@ metrics = [
 loki = ["dep:tracing-loki"]
 otel = [
 	"dep:pyroscope",
+	"dep:tower-http",
 	"dep:opentelemetry",
 	"dep:diesel-tracing",
 	"dep:opentelemetry_sdk",
@@ -118,6 +119,7 @@ zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
 tonic-prost = "0.14.2"
 boltz-core = { path = "../boltz-core" }
 bip39 = "2.2.0"
+tower-http = { version = "0.6.6", optional = true, features = ["trace"] }
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }

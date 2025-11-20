@@ -16,10 +16,12 @@ mod country_codes;
 mod lightning_info;
 mod pair_stats;
 mod prometheus;
+mod pubkey_iterator;
 mod rescue;
 
 pub use country_codes::MarkingsConfig;
 pub use pair_stats::HistoricalConfig;
+pub use pubkey_iterator::{PubkeyIterator, SingleKeyIterator, XpubIterator};
 
 pub struct Service {
     pub swap_rescue: SwapRescue,

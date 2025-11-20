@@ -1,4 +1,4 @@
-use bitcoin::bip32::Xpub;
+use bitcoin::{PublicKey, bip32::Xpub};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
 use std::fmt;
@@ -44,6 +44,39 @@ impl<'de> Deserialize<'de> for XpubDeserialize {
         }
 
         deserializer.deserialize_string(XpubDeserializeVisitor)
+    }
+}
+
+pub struct PublicKeyDeserialize(pub PublicKey);
+
+impl<'de> Deserialize<'de> for PublicKeyDeserialize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PublicKeyDeserializeVisitor;
+
+        impl Visitor<'_> for PublicKeyDeserializeVisitor {
+            type Value = PublicKeyDeserialize;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid bitcoin public key in hex format")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let bytes = alloy::hex::decode(value)
+                    .map_err(|err| E::custom(format!("invalid hex: {err}")))?;
+                match PublicKey::from_slice(&bytes) {
+                    Ok(pubkey) => Ok(PublicKeyDeserialize(pubkey)),
+                    Err(err) => Err(E::custom(format!("invalid public key: {err}"))),
+                }
+            }
+        }
+
+        deserializer.deserialize_string(PublicKeyDeserializeVisitor)
     }
 }
 
@@ -139,6 +172,53 @@ mod tests {
                 serde_json::to_string(&wrapper).unwrap(),
                 "{\"value\":\"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
             );
+        }
+    }
+
+    mod public_key {
+        use bitcoin::secp256k1::Secp256k1;
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct PublicKeyWrapper {
+            #[serde(rename = "publicKey")]
+            public_key: super::super::PublicKeyDeserialize,
+        }
+
+        #[test]
+        fn test_deserialize_valid_public_key() {
+            let secp = Secp256k1::new();
+            let secret_key = bitcoin::PrivateKey::generate(bitcoin::Network::Regtest);
+            let public_key = secret_key.public_key(&secp);
+            let hex = alloy::hex::encode(public_key.inner.serialize());
+
+            let json = format!(r#"{{"publicKey":"{}"}}"#, hex);
+            let wrapper: PublicKeyWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.public_key.0, public_key);
+        }
+
+        #[test]
+        fn test_deserialize_valid_public_key_parsed() {
+            let pubkey = "02440ad87b11738cb0c76f5fc48372d27ed9132112b2fc76eac83fbd544918d0b9";
+            let public_key =
+                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey).unwrap()).unwrap();
+            let wrapper: PublicKeyWrapper =
+                serde_json::from_str(&format!(r#"{{"publicKey":"{}"}}"#, pubkey)).unwrap();
+            assert_eq!(wrapper.public_key.0, public_key);
+        }
+
+        #[test]
+        fn test_deserialize_invalid_hex() {
+            let json = r#"{"publicKey":"not-hex"}"#;
+            let result: Result<PublicKeyWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_deserialize_invalid_public_key() {
+            let json = r#"{"publicKey":"0123456789abcdef"}"#;
+            let result: Result<PublicKeyWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
         }
     }
 }

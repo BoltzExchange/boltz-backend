@@ -1,4 +1,4 @@
-use crate::service::MAX_BATCH_SIZE;
+use crate::service::MAX_GAP_LIMIT;
 use bitcoin::{PublicKey, bip32::Xpub};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
@@ -103,9 +103,9 @@ impl<'de> Deserialize<'de> for PublicKeyVecDeserialize {
             {
                 let mut vec = Vec::new();
                 while let Some(value) = seq.next_element::<String>()? {
-                    if vec.len() >= MAX_BATCH_SIZE as usize {
+                    if vec.len() >= MAX_GAP_LIMIT as usize {
                         return Err(serde::de::Error::custom(format!(
-                            "public key array exceeds maximum length of {MAX_BATCH_SIZE}",
+                            "public key array exceeds maximum length of {MAX_GAP_LIMIT}",
                         )));
                     }
 
@@ -336,16 +336,16 @@ mod tests {
         #[test]
         fn test_deserialize_max_limit() {
             let pubkey = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
-            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); MAX_BATCH_SIZE as usize];
+            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); MAX_GAP_LIMIT as usize];
             let json = format!(r#"{{"publicKeys":[{}]}}"#, keys.join(","));
             let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
-            assert_eq!(wrapper.public_keys.0.len(), MAX_BATCH_SIZE as usize);
+            assert_eq!(wrapper.public_keys.0.len(), MAX_GAP_LIMIT as usize);
         }
 
         #[test]
         fn test_deserialize_exceeds_max_limit() {
             let pubkey = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
-            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); (MAX_BATCH_SIZE + 1) as usize];
+            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); (MAX_GAP_LIMIT + 1) as usize];
             let json = format!(r#"{{"publicKeys":[{}]}}"#, keys.join(","));
             let result: Result<PublicKeyVecWrapper, _> = serde_json::from_str(&json);
             assert!(result.is_err());

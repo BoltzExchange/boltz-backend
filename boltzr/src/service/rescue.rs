@@ -17,10 +17,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
 
-pub const MAX_BATCH_SIZE: u32 = 150;
-
-const GAP_LIMIT: u32 = 50;
-
 trait Identifiable {
     fn id(&self) -> &str;
     fn created_at(&self) -> u64;
@@ -492,7 +488,7 @@ impl SwapRescue {
         let mut result = HashMap::new();
         let mut keys_map = HashMap::new();
 
-        let gap_limit = std::cmp::min(GAP_LIMIT, iterator.max_keys());
+        let gap_limit = std::cmp::min(iterator.gap_limit(), iterator.max_keys());
         if gap_limit == 0 {
             log_scan_result!(0, iterator, result);
             return Ok(vec![]);
@@ -986,7 +982,7 @@ mod test {
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
-            .rescue(Box::new(XpubIterator::new(xpub, None).unwrap()))
+            .rescue(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
             .unwrap();
         assert_eq!(res.len(), 2);
         assert_eq!(
@@ -1165,7 +1161,7 @@ mod test {
         );
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let res = rescue
-            .restore(Box::new(XpubIterator::new(xpub, None).unwrap()))
+            .restore(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
             .unwrap();
         assert_eq!(res.len(), 3);
 

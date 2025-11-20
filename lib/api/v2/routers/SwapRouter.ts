@@ -1777,6 +1777,11 @@ class SwapRouter extends RouterBase {
      *             derivationPath:
      *               type: string
      *               description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     *             gapLimit:
+     *               type: number
+     *               description: Maximum number of consecutive unused public keys to check before stopping the search. Must be at least 1 and not exceed 150
+     *               minimum: 1
+     *               maximum: 150
      *         - type: object
      *           required: ["publicKey"]
      *           properties:

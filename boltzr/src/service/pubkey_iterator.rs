@@ -11,10 +11,14 @@ use std::{
     str::FromStr,
 };
 
+pub const MAX_GAP_LIMIT: u32 = 150;
+
+const DEFAULT_GAP_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
 
 pub trait PubkeyIterator {
     fn identifier(&self) -> String;
+    fn gap_limit(&self) -> u32;
     fn max_keys(&self) -> u32;
     fn derive_keys(
         &self,
@@ -28,6 +32,7 @@ pub struct XpubIterator {
     secp: Secp256k1<VerifyOnly>,
     xpub: Xpub,
     derivation_path: DerivationPath,
+    gap_limit: u32,
 }
 
 pub struct KeyVecIterator {
@@ -39,13 +44,18 @@ pub struct SingleKeyIterator {
 }
 
 impl XpubIterator {
-    pub fn new(xpub: Xpub, derivation_path: Option<String>) -> Result<Self> {
+    pub fn new(
+        xpub: Xpub,
+        derivation_path: Option<String>,
+        gap_limit: Option<u32>,
+    ) -> Result<Self> {
         Ok(Self {
             secp: Secp256k1::verification_only(),
             xpub,
             derivation_path: DerivationPath::from_str(
                 &derivation_path.unwrap_or(DEFAULT_DERIVATION_PATH.to_string()),
             )?,
+            gap_limit: gap_limit.unwrap_or(DEFAULT_GAP_LIMIT),
         })
     }
 }
@@ -53,6 +63,10 @@ impl XpubIterator {
 impl PubkeyIterator for XpubIterator {
     fn identifier(&self) -> String {
         self.xpub.identifier().to_string()
+    }
+
+    fn gap_limit(&self) -> u32 {
+        self.gap_limit
     }
 
     fn max_keys(&self) -> u32 {
@@ -108,6 +122,10 @@ impl PubkeyIterator for KeyVecIterator {
         self.keys.len() as u32
     }
 
+    fn gap_limit(&self) -> u32 {
+        DEFAULT_GAP_LIMIT
+    }
+
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,
@@ -149,6 +167,10 @@ impl PubkeyIterator for SingleKeyIterator {
         1
     }
 
+    fn gap_limit(&self) -> u32 {
+        DEFAULT_GAP_LIMIT
+    }
+
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,
@@ -175,7 +197,7 @@ mod tests {
         #[test]
         fn test_new_with_default_derivation_path() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
 
             assert_eq!(
                 iterator.derivation_path,
@@ -188,7 +210,7 @@ mod tests {
         fn test_new_with_custom_derivation_path() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
             let custom_path = "m/84/1/0/0";
-            let iterator = XpubIterator::new(xpub, Some(custom_path.to_string())).unwrap();
+            let iterator = XpubIterator::new(xpub, Some(custom_path.to_string()), None).unwrap();
 
             assert_eq!(
                 iterator.derivation_path,
@@ -199,7 +221,7 @@ mod tests {
         #[test]
         fn test_identifier() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
 
             assert_eq!(iterator.identifier(), xpub.identifier().to_string());
         }
@@ -207,15 +229,71 @@ mod tests {
         #[test]
         fn test_max_keys() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
 
             assert_eq!(iterator.max_keys(), u32::MAX);
         }
 
         #[test]
+        fn test_gap_limit_default() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
+
+            assert_eq!(iterator.gap_limit(), DEFAULT_GAP_LIMIT);
+        }
+
+        #[test]
+        fn test_gap_limit_custom() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let custom_limit = 75;
+            let iterator = XpubIterator::new(xpub, None, Some(custom_limit)).unwrap();
+
+            assert_eq!(iterator.gap_limit(), custom_limit);
+        }
+
+        #[test]
+        fn test_gap_limit_min() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let iterator = XpubIterator::new(xpub, None, Some(1)).unwrap();
+
+            assert_eq!(iterator.gap_limit(), 1);
+        }
+
+        #[test]
+        fn test_gap_limit_max() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let iterator = XpubIterator::new(xpub, None, Some(MAX_GAP_LIMIT)).unwrap();
+
+            assert_eq!(iterator.gap_limit(), MAX_GAP_LIMIT);
+        }
+
+        #[test]
+        fn test_gap_limit_zero() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let iterator = XpubIterator::new(xpub, None, Some(0)).unwrap();
+
+            assert_eq!(iterator.gap_limit(), 0);
+        }
+
+        #[test]
+        fn test_gap_limit_with_custom_derivation_path() {
+            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
+            let custom_path = "m/84/1/0/0";
+            let custom_limit = 100;
+            let iterator =
+                XpubIterator::new(xpub, Some(custom_path.to_string()), Some(custom_limit)).unwrap();
+
+            assert_eq!(iterator.gap_limit(), custom_limit);
+            assert_eq!(
+                iterator.derivation_path,
+                DerivationPath::from_str(custom_path).unwrap()
+            );
+        }
+
+        #[test]
         fn test_derive_keys_basic() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let result = iterator.derive_keys(&mut keys, 0, 5).unwrap();
@@ -248,7 +326,7 @@ mod tests {
         #[test]
         fn test_derive_keys_single_key() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let result = iterator.derive_keys(&mut keys, 0, 1).unwrap();
@@ -260,7 +338,7 @@ mod tests {
         #[test]
         fn test_derive_keys_same_start_and_end() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let result = iterator.derive_keys(&mut keys, 5, 5).unwrap();
@@ -272,7 +350,7 @@ mod tests {
         #[test]
         fn test_derive_keys_sequential_batches() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys1 = HashMap::new();
             let mut keys2 = HashMap::new();
 
@@ -291,8 +369,8 @@ mod tests {
         #[test]
         fn test_derive_keys_custom_derivation_path() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator1 = XpubIterator::new(xpub, None).unwrap();
-            let iterator2 = XpubIterator::new(xpub, Some("m/84/0/0/0".to_string())).unwrap();
+            let iterator1 = XpubIterator::new(xpub, None, None).unwrap();
+            let iterator2 = XpubIterator::new(xpub, Some("m/84/0/0/0".to_string()), None).unwrap();
 
             let mut keys1 = HashMap::new();
             let mut keys2 = HashMap::new();
@@ -306,7 +384,7 @@ mod tests {
         #[test]
         fn test_derive_keys_deterministic() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
 
             let mut keys1 = HashMap::new();
             let mut keys2 = HashMap::new();
@@ -320,7 +398,7 @@ mod tests {
         #[test]
         fn test_derive_keys_large_index() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let start = 1000;
@@ -334,7 +412,7 @@ mod tests {
         #[test]
         fn test_derive_keys_gap_limit_calculation() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let result = iterator.derive_keys(&mut keys, 0, 10).unwrap();
@@ -349,7 +427,7 @@ mod tests {
         #[test]
         fn test_derive_keys_all_keys_are_hex() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None).unwrap();
+            let iterator = XpubIterator::new(xpub, None, None).unwrap();
             let mut keys = HashMap::new();
 
             let result = iterator.derive_keys(&mut keys, 0, 3).unwrap();
@@ -363,7 +441,7 @@ mod tests {
         #[test]
         fn test_invalid_derivation_path_error() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            assert!(XpubIterator::new(xpub, Some("invalid/path".to_string())).is_err());
+            assert!(XpubIterator::new(xpub, Some("invalid/path".to_string()), None).is_err());
         }
 
         #[rstest::rstest]
@@ -376,7 +454,7 @@ mod tests {
         fn test_invalid_derivation_paths(#[case] path: &str, #[case] description: &str) {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
             assert!(
-                XpubIterator::new(xpub, Some(path.to_string())).is_err(),
+                XpubIterator::new(xpub, Some(path.to_string()), None).is_err(),
                 "{}",
                 description
             );
@@ -466,6 +544,14 @@ mod tests {
             let iterator = KeyVecIterator::new(keys.clone());
 
             assert_eq!(iterator.max_keys(), keys.len() as u32);
+        }
+
+        #[test]
+        fn test_gap_limit() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+
+            assert_eq!(iterator.gap_limit(), DEFAULT_GAP_LIMIT);
         }
 
         #[test]
@@ -706,6 +792,14 @@ mod tests {
             let iterator = SingleKeyIterator::new(pubkey);
 
             assert_eq!(iterator.max_keys(), 1);
+        }
+
+        #[test]
+        fn test_gap_limit() {
+            let pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
+            let iterator = SingleKeyIterator::new(pubkey);
+
+            assert_eq!(iterator.gap_limit(), DEFAULT_GAP_LIMIT);
         }
 
         #[test]

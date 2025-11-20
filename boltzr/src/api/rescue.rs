@@ -1,9 +1,9 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::service::{PubkeyIterator, SingleKeyIterator, XpubIterator};
+use crate::service::{KeyVecIterator, PubkeyIterator, SingleKeyIterator, XpubIterator};
 use crate::swap::manager::SwapManager;
-use crate::utils::serde::{PublicKeyDeserialize, XpubDeserialize};
+use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
@@ -22,6 +22,10 @@ pub enum RescueParams {
         #[serde(rename = "publicKey")]
         public_key: PublicKeyDeserialize,
     },
+    PublicKeyVec {
+        #[serde(rename = "publicKeys")]
+        public_keys: PublicKeyVecDeserialize,
+    },
 }
 
 impl TryFrom<RescueParams> for Box<dyn PubkeyIterator> {
@@ -35,6 +39,9 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator> {
             } => Ok(Box::new(XpubIterator::new(xpub.0, derivation_path)?)),
             RescueParams::PublicKey { public_key } => {
                 Ok(Box::new(SingleKeyIterator::new(public_key.0)))
+            }
+            RescueParams::PublicKeyVec { public_keys } => {
+                Ok(Box::new(KeyVecIterator::new(public_keys.0)))
             }
         }
     }

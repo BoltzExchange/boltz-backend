@@ -1,3 +1,4 @@
+use crate::service::MAX_BATCH_SIZE;
 use bitcoin::{PublicKey, bip32::Xpub};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
@@ -80,6 +81,50 @@ impl<'de> Deserialize<'de> for PublicKeyDeserialize {
     }
 }
 
+pub struct PublicKeyVecDeserialize(pub Vec<PublicKey>);
+
+impl<'de> Deserialize<'de> for PublicKeyVecDeserialize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PublicKeyVecVisitor;
+
+        impl<'de> Visitor<'de> for PublicKeyVecVisitor {
+            type Value = PublicKeyVecDeserialize;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("an array of hex-encoded public keys")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut vec = Vec::new();
+                while let Some(value) = seq.next_element::<String>()? {
+                    if vec.len() >= MAX_BATCH_SIZE as usize {
+                        return Err(serde::de::Error::custom(format!(
+                            "public key array exceeds maximum length of {MAX_BATCH_SIZE}",
+                        )));
+                    }
+
+                    let bytes = alloy::hex::decode(&value)
+                        .map_err(|err| serde::de::Error::custom(format!("invalid hex: {err}")))?;
+                    let pubkey = PublicKey::from_slice(&bytes).map_err(|err| {
+                        serde::de::Error::custom(format!("invalid public key: {err}"))
+                    })?;
+
+                    vec.push(pubkey);
+                }
+                Ok(PublicKeyVecDeserialize(vec))
+            }
+        }
+
+        deserializer.deserialize_seq(PublicKeyVecVisitor)
+    }
+}
+
 pub mod u256 {
     use super::*;
     use alloy::primitives::U256;
@@ -94,6 +139,7 @@ pub mod u256 {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use serde::Serialize;
     use std::str::FromStr;
 
@@ -219,6 +265,97 @@ mod tests {
             let json = r#"{"publicKey":"0123456789abcdef"}"#;
             let result: Result<PublicKeyWrapper, _> = serde_json::from_str(json);
             assert!(result.is_err());
+        }
+    }
+
+    mod public_key_vec {
+        use super::*;
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct PublicKeyVecWrapper {
+            #[serde(rename = "publicKeys")]
+            public_keys: PublicKeyVecDeserialize,
+        }
+
+        #[test]
+        fn test_deserialize_empty_vec() {
+            let json = r#"{"publicKeys":[]}"#;
+            let wrapper: PublicKeyVecWrapper = serde_json::from_str(json).unwrap();
+            assert_eq!(wrapper.public_keys.0.len(), 0);
+        }
+
+        #[test]
+        fn test_deserialize_single_public_key() {
+            let pubkey = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
+            let json = format!(r#"{{"publicKeys":["{}"]}}"#, pubkey);
+            let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.public_keys.0.len(), 1);
+            let expected =
+                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey).unwrap()).unwrap();
+            assert_eq!(wrapper.public_keys.0[0], expected);
+        }
+
+        #[test]
+        fn test_deserialize_multiple_public_keys() {
+            let pubkey1 = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
+            let pubkey2 = "026d8e73088e7a896e64f27b49d89beea8cd56a17547cda805a606eac658d50253";
+            let json = format!(r#"{{"publicKeys":["{}","{}"]}}"#, pubkey1, pubkey2);
+            let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.public_keys.0.len(), 2);
+            let expected1 =
+                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey1).unwrap()).unwrap();
+            let expected2 =
+                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey2).unwrap()).unwrap();
+            assert_eq!(wrapper.public_keys.0[0], expected1);
+            assert_eq!(wrapper.public_keys.0[1], expected2);
+        }
+
+        #[test]
+        fn test_deserialize_invalid_hex_in_vec() {
+            let json = r#"{"publicKeys":["not-hex"]}"#;
+            let result: Result<PublicKeyVecWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_deserialize_invalid_public_key_in_vec() {
+            let json = r#"{"publicKeys":["0123456789abcdef"]}"#;
+            let result: Result<PublicKeyVecWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_deserialize_mixed_valid_invalid() {
+            let pubkey1 = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
+            let json = format!(r#"{{"publicKeys":["{}","invalid"]}}"#, pubkey1);
+            let result: Result<PublicKeyVecWrapper, _> = serde_json::from_str(&json);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_deserialize_max_limit() {
+            let pubkey = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
+            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); MAX_BATCH_SIZE as usize];
+            let json = format!(r#"{{"publicKeys":[{}]}}"#, keys.join(","));
+            let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.public_keys.0.len(), MAX_BATCH_SIZE as usize);
+        }
+
+        #[test]
+        fn test_deserialize_exceeds_max_limit() {
+            let pubkey = "03e27c9e4fcb8d0c16cf60f9358833b86d39f2a7dab981c7812724dba786b1efee";
+            let keys: Vec<String> = vec![format!("\"{}\"", pubkey); (MAX_BATCH_SIZE + 1) as usize];
+            let json = format!(r#"{{"publicKeys":[{}]}}"#, keys.join(","));
+            let result: Result<PublicKeyVecWrapper, _> = serde_json::from_str(&json);
+            assert!(result.is_err());
+            assert!(
+                result
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("exceeds maximum length of 150")
+            );
         }
     }
 }

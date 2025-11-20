@@ -21,7 +21,8 @@ mod rescue;
 
 pub use country_codes::MarkingsConfig;
 pub use pair_stats::HistoricalConfig;
-pub use pubkey_iterator::{PubkeyIterator, SingleKeyIterator, XpubIterator};
+pub use pubkey_iterator::{KeyVecIterator, PubkeyIterator, SingleKeyIterator, XpubIterator};
+pub use rescue::MAX_BATCH_SIZE;
 
 pub struct Service {
     pub swap_rescue: SwapRescue,

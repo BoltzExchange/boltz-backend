@@ -17,6 +17,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
 
+pub const MAX_BATCH_SIZE: u32 = 150;
+
 const GAP_LIMIT: u32 = 50;
 
 trait Identifiable {
@@ -491,6 +493,11 @@ impl SwapRescue {
         let mut keys_map = HashMap::new();
 
         let gap_limit = std::cmp::min(GAP_LIMIT, iterator.max_keys());
+        if gap_limit == 0 {
+            log_scan_result!(0, iterator, result);
+            return Ok(vec![]);
+        }
+
         for from in (0..).step_by(gap_limit as usize) {
             let to = from + gap_limit;
 

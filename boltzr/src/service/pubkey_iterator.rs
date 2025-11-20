@@ -5,7 +5,11 @@ use bitcoin::{
     bip32::{ChildNumber, DerivationPath, Xpub},
     secp256k1::{Secp256k1, VerifyOnly},
 };
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::HashMap,
+    hash::{DefaultHasher, Hash, Hasher},
+    str::FromStr,
+};
 
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
 
@@ -24,6 +28,10 @@ pub struct XpubIterator {
     secp: Secp256k1<VerifyOnly>,
     xpub: Xpub,
     derivation_path: DerivationPath,
+}
+
+pub struct KeyVecIterator {
+    keys: Vec<PublicKey>,
 }
 
 pub struct SingleKeyIterator {
@@ -75,6 +83,49 @@ impl PubkeyIterator for XpubIterator {
             keys.insert(key.clone(), i);
 
             if i < end {
+                result.push(key);
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+impl KeyVecIterator {
+    pub fn new(keys: Vec<PublicKey>) -> Self {
+        Self { keys }
+    }
+}
+
+impl PubkeyIterator for KeyVecIterator {
+    fn identifier(&self) -> String {
+        let mut hasher = DefaultHasher::new();
+        self.keys.hash(&mut hasher);
+        hasher.finish().to_string()
+    }
+
+    fn max_keys(&self) -> u32 {
+        self.keys.len() as u32
+    }
+
+    fn derive_keys(
+        &self,
+        keys: &mut HashMap<String, u32>,
+        start: u32,
+        end: u32,
+    ) -> Result<Vec<String>> {
+        let mut result = Vec::new();
+
+        // Add some buffer to avoid keys not being found because of the gap limit
+        let actual_end = std::cmp::min((end + (end - start)) as usize, self.keys.len());
+        for (i, key) in self.keys[start as usize..actual_end].iter().enumerate() {
+            let key = hex::encode(key.inner.serialize());
+
+            let index = start + i as u32;
+            keys.insert(key.clone(), index);
+
+            // Only add to result if within the requested range
+            if index < end {
                 result.push(key);
             }
         }
@@ -329,6 +380,299 @@ mod tests {
                 "{}",
                 description
             );
+        }
+    }
+
+    mod key_vec_iterator {
+        use super::*;
+
+        const TEST_PUBKEYS: [&str; 5] = [
+            TEST_PUBKEY,
+            "02e6ce4f5cef0de71a0c770cc8617b92b651a18efa16dfffe07b77a6ade0bf6a03",
+            "0228f13c45e10d92defefd0076f5ce827813674d83f6577c9924899f611a03fd41",
+            "034a84f58797b2dc027ec3ad15dc5f670f775bd80dd56f9c57569a8f68f8628a04",
+            "0317549d6206db40f2ad09d36ef6ba7793d35c77d0f629758a3e13dc31411e2b58",
+        ];
+
+        fn test_keys() -> Vec<PublicKey> {
+            TEST_PUBKEYS
+                .iter()
+                .map(|k| PublicKey::from_str(k).unwrap())
+                .collect()
+        }
+
+        #[test]
+        fn test_new() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys.clone());
+
+            assert_eq!(iterator.keys.len(), 5);
+            for (i, key) in keys.iter().enumerate() {
+                assert_eq!(
+                    hex::encode(iterator.keys[i].inner.serialize()),
+                    hex::encode(key.inner.serialize())
+                );
+            }
+        }
+
+        #[test]
+        fn test_new_empty() {
+            let iterator = KeyVecIterator::new(vec![]);
+            assert_eq!(iterator.keys.len(), 0);
+        }
+
+        #[test]
+        fn test_new_single_key() {
+            let keys = vec![PublicKey::from_str(TEST_PUBKEY).unwrap()];
+            let iterator = KeyVecIterator::new(keys);
+            assert_eq!(iterator.keys.len(), 1);
+        }
+
+        #[test]
+        fn test_identifier_deterministic() {
+            let keys = test_keys();
+            let iterator1 = KeyVecIterator::new(keys.clone());
+            let iterator2 = KeyVecIterator::new(keys);
+
+            assert_eq!(iterator1.identifier(), iterator2.identifier());
+        }
+
+        #[test]
+        fn test_identifier_different_for_different_keys() {
+            let keys1 = test_keys();
+            let keys2 = vec![PublicKey::from_str(TEST_PUBKEY).unwrap()];
+
+            let iterator1 = KeyVecIterator::new(keys1);
+            let iterator2 = KeyVecIterator::new(keys2);
+
+            assert_ne!(iterator1.identifier(), iterator2.identifier());
+        }
+
+        #[test]
+        fn test_identifier_order_matters() {
+            let keys1 = test_keys();
+            let mut keys2 = keys1.clone();
+            keys2.reverse();
+
+            let iterator1 = KeyVecIterator::new(keys1);
+            let iterator2 = KeyVecIterator::new(keys2);
+
+            assert_ne!(iterator1.identifier(), iterator2.identifier());
+        }
+
+        #[test]
+        fn test_max_keys() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys.clone());
+
+            assert_eq!(iterator.max_keys(), keys.len() as u32);
+        }
+
+        #[test]
+        fn test_max_keys_empty() {
+            let iterator = KeyVecIterator::new(vec![]);
+            assert_eq!(iterator.max_keys(), 0);
+        }
+
+        #[test]
+        fn test_max_keys_single() {
+            let keys = vec![PublicKey::from_str(TEST_PUBKEY).unwrap()];
+            let iterator = KeyVecIterator::new(keys);
+            assert_eq!(iterator.max_keys(), 1);
+        }
+
+        #[test]
+        fn test_derive_keys_basic() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 0, 3).unwrap();
+
+            assert_eq!(result.len(), 3);
+            // With buffer: end + (end - start) = 3 + 3 = 6, but we only have 5 keys
+            assert_eq!(key_map.len(), 5);
+
+            assert_eq!(result[0], TEST_PUBKEYS[0].to_lowercase());
+            assert_eq!(result[1], TEST_PUBKEYS[1].to_lowercase());
+            assert_eq!(result[2], TEST_PUBKEYS[2].to_lowercase());
+
+            for (i, key) in result.iter().enumerate() {
+                assert_eq!(key_map.get(key), Some(&(i as u32)));
+            }
+        }
+
+        #[test]
+        fn test_derive_keys_all_keys() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 0, 5).unwrap();
+
+            assert_eq!(result.len(), 5);
+            assert_eq!(key_map.len(), 5);
+
+            for (i, expected) in TEST_PUBKEYS.iter().enumerate() {
+                assert_eq!(result[i], expected.to_lowercase());
+                assert_eq!(key_map.get(&result[i]), Some(&(i as u32)));
+            }
+        }
+
+        #[test]
+        fn test_derive_keys_overflow() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 0, 100).unwrap();
+            assert_eq!(result.len(), 5);
+        }
+
+        #[test]
+        fn test_derive_keys_single_key() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 0, 1).unwrap();
+
+            assert_eq!(result.len(), 1);
+            // With buffer: 1 + (1 - 0) = 2
+            assert_eq!(key_map.len(), 2);
+            assert_eq!(result[0], TEST_PUBKEYS[0].to_lowercase());
+        }
+
+        #[test]
+        fn test_derive_keys_middle_range() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 1, 4).unwrap();
+
+            assert_eq!(result.len(), 3);
+            // With buffer: 4 + (4 - 1) = 7, but we only have 5 keys total
+            // So from index 1, we can only get keys[1..5] = 4 keys
+            assert_eq!(key_map.len(), 4);
+
+            assert_eq!(result[0], TEST_PUBKEYS[1].to_lowercase());
+            assert_eq!(result[1], TEST_PUBKEYS[2].to_lowercase());
+            assert_eq!(result[2], TEST_PUBKEYS[3].to_lowercase());
+        }
+
+        #[test]
+        fn test_derive_keys_with_offset() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 2, 4).unwrap();
+
+            assert_eq!(result.len(), 2);
+            assert_eq!(result[0], TEST_PUBKEYS[2].to_lowercase());
+            assert_eq!(result[1], TEST_PUBKEYS[3].to_lowercase());
+
+            assert_eq!(key_map.get(&result[0]), Some(&2));
+            assert_eq!(key_map.get(&result[1]), Some(&3));
+        }
+
+        #[test]
+        fn test_derive_keys_buffer_logic() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            // Request 2 keys (0-2), buffer should add 2 more (2-4)
+            let result = iterator.derive_keys(&mut key_map, 0, 2).unwrap();
+
+            assert_eq!(result.len(), 2);
+            // Buffer: 2 + (2 - 0) = 4 keys in map
+            assert_eq!(key_map.len(), 4);
+
+            // Verify buffer keys are in the map
+            for (i, expected_key) in TEST_PUBKEYS.into_iter().enumerate().take(4) {
+                assert!(key_map.contains_key(expected_key));
+                assert_eq!(key_map.get(expected_key), Some(&(i as u32)));
+            }
+        }
+
+        #[test]
+        fn test_derive_keys_sequential_batches() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut keys1 = HashMap::new();
+            let mut keys2 = HashMap::new();
+
+            let result1 = iterator.derive_keys(&mut keys1, 0, 2).unwrap();
+            let result2 = iterator.derive_keys(&mut keys2, 2, 4).unwrap();
+
+            assert_eq!(result1.len(), 2);
+            assert_eq!(result2.len(), 2);
+
+            // Check no overlap in results
+            for key in &result1 {
+                assert!(!result2.contains(key));
+            }
+
+            assert_eq!(result1[0], TEST_PUBKEYS[0].to_lowercase());
+            assert_eq!(result1[1], TEST_PUBKEYS[1].to_lowercase());
+            assert_eq!(result2[0], TEST_PUBKEYS[2].to_lowercase());
+            assert_eq!(result2[1], TEST_PUBKEYS[3].to_lowercase());
+        }
+
+        #[test]
+        fn test_derive_keys_same_start_and_end() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 2, 2).unwrap();
+
+            assert_eq!(result.len(), 0);
+            assert_eq!(key_map.len(), 0);
+        }
+
+        #[test]
+        fn test_derive_keys_all_keys_are_hex() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 0, 3).unwrap();
+
+            for key in result {
+                assert!(hex::decode(&key).is_ok());
+                assert_eq!(key.len(), 66);
+            }
+        }
+
+        #[test]
+        fn test_derive_keys_deterministic() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+
+            let mut keys1 = HashMap::new();
+            let mut keys2 = HashMap::new();
+
+            let result1 = iterator.derive_keys(&mut keys1, 0, 3).unwrap();
+            let result2 = iterator.derive_keys(&mut keys2, 0, 3).unwrap();
+
+            assert_eq!(result1, result2);
+            assert_eq!(keys1, keys2);
+        }
+
+        #[test]
+        fn test_derive_keys_last_key() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            let result = iterator.derive_keys(&mut key_map, 4, 5).unwrap();
+
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0], TEST_PUBKEYS[4].to_lowercase());
+            assert_eq!(key_map.get(&result[0]), Some(&4));
         }
     }
 

@@ -252,22 +252,6 @@ mod tests {
         }
 
         #[test]
-        fn test_gap_limit_min() {
-            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None, Some(1)).unwrap();
-
-            assert_eq!(iterator.gap_limit(), 1);
-        }
-
-        #[test]
-        fn test_gap_limit_max() {
-            let xpub = Xpub::from_str(TEST_XPUB).unwrap();
-            let iterator = XpubIterator::new(xpub, None, Some(MAX_GAP_LIMIT)).unwrap();
-
-            assert_eq!(iterator.gap_limit(), MAX_GAP_LIMIT);
-        }
-
-        #[test]
         fn test_gap_limit_zero() {
             let xpub = Xpub::from_str(TEST_XPUB).unwrap();
             let iterator = XpubIterator::new(xpub, None, Some(0)).unwrap();

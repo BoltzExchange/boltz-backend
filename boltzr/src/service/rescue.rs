@@ -284,7 +284,7 @@ impl TryFrom<(&ChainSwapInfo, u32, String, Option<String>)> for RescuableSwap {
 pub struct ClaimDetails {
     #[serde(flatten)]
     pub base: SwapDetailsBase,
-    // Redunant information because it is already in RestorableSwap
+    // Redundant information because it is already in RestorableSwap
     // but kept here for backwards compatibility
     #[serde(rename = "preimageHash")]
     pub preimage_hash: String,
@@ -456,6 +456,37 @@ impl SwapRescue {
                 .then(a.created_at().cmp(&b.created_at()))
         });
         Ok(restorable)
+    }
+
+    #[instrument(name = "SwapRescue::index", skip_all)]
+    pub fn index(&self, iterator: Box<dyn PubkeyIterator>) -> Result<i64> {
+        debug!(
+            "Scanning for highest key index for {}",
+            iterator.identifier()
+        );
+
+        let restorable = self.scan_swaps(
+            iterator,
+            vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
+            Self::process_restorable_swaps,
+        )?;
+
+        let highest_index = restorable
+            .iter()
+            .filter_map(|swap| {
+                match (
+                    swap.refund_details.as_ref().map(|r| r.key_index),
+                    swap.claim_details.as_ref().map(|c| c.base.key_index),
+                ) {
+                    (Some(refund), Some(claim)) => Some(std::cmp::max(refund, claim)),
+                    (Some(refund), None) => Some(refund),
+                    (None, Some(claim)) => Some(claim),
+                    (None, None) => None,
+                }
+            })
+            .max();
+
+        Ok(highest_index.map(|i| i as i64).unwrap_or(-1))
     }
 
     fn scan_swaps<R, F>(
@@ -1501,5 +1532,365 @@ mod test {
     fn test_parse_tree() {
         let tree: Result<SwapTree> = ("{\"claimLeaf\":{\"version\":192,\"output\":\"82012088a91433ca578b1dde9cb32e4b6a2c05fe74520911b66e8820884ff511cc5061a90f07e553de127095df5d438b2bda23db4159c5f32df5e1f9ac\"},\"refundLeaf\":{\"version\":192,\"output\":\"205bbdfe5d1bf863f65c5271d4cd6621c44048b89e80aa79301fe671d98bed598aad026001b1\"}}").try_into();
         assert!(tree.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_index_no_swaps() {
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([(
+                crate::chain::elements_client::SYMBOL.to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(get_liquid_wallet()),
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            )])),
+        );
+
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let index = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .unwrap();
+
+        assert_eq!(index, -1);
+    }
+
+    #[tokio::test]
+    async fn test_index_submarine_swap_only() {
+        let tree = get_test_tree();
+        let swap = get_test_swap(tree);
+
+        let mut swap_helper = MockSwapHelper::new();
+        {
+            let swap = swap.clone();
+            swap_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap.clone()]))
+                .times(1);
+        }
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(2);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(2);
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([(
+                crate::chain::elements_client::SYMBOL.to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(get_liquid_wallet()),
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            )])),
+        );
+
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let index = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .unwrap();
+
+        assert_eq!(index, 0);
+    }
+
+    #[tokio::test]
+    async fn test_index_reverse_swap_only() {
+        let tree = get_test_tree();
+        let mut reverse_swap = get_test_reverse_swap(tree);
+        reverse_swap.keyIndex = Some(42);
+
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        {
+            let reverse_swap = reverse_swap.clone();
+            reverse_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![reverse_swap.clone()]))
+                .times(1);
+        }
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+
+        let pubkey = PublicKey::from_str(
+            "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0",
+        )
+        .unwrap();
+        let index = rescue
+            .index(Box::new(SingleKeyIterator::new(pubkey)))
+            .unwrap();
+
+        assert_eq!(index, 0);
+    }
+
+    #[tokio::test]
+    async fn test_index_chain_swap_with_both_details() {
+        let tree = get_test_tree();
+        let chain_swap = ChainSwapInfo::new(
+            get_test_chain_swap(),
+            vec![
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "L-BTC".to_string(),
+                    keyIndex: Some(123),
+                    theirPublicKey: Some(
+                        "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree.clone()),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress:
+                        "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m"
+                            .to_string(),
+                    amount: Some(50000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "BTC".to_string(),
+                    keyIndex: Some(456),
+                    theirPublicKey: Some(
+                        "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                    amount: Some(200000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+            ],
+        )
+        .unwrap();
+
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(2);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        {
+            let chain_swap = chain_swap.clone();
+            chain_helper
+                .expect_get_by_data_nullable()
+                .returning(move |_| Ok(vec![chain_swap.clone()]))
+                .times(1);
+        }
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(2);
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let index = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .unwrap();
+
+        assert_eq!(index, 11);
+    }
+
+    #[tokio::test]
+    async fn test_index_multiple_swaps_returns_highest() {
+        let tree = get_test_tree();
+        let mut swap1 = get_test_swap(tree.clone());
+        swap1.id = "swap1".to_string();
+        swap1.keyIndex = Some(5);
+
+        let mut swap2 = get_test_swap(tree.clone());
+        swap2.id = "swap2".to_string();
+        swap2.keyIndex = Some(10);
+        swap2.refundPublicKey =
+            Some("02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b".to_string());
+
+        let mut reverse_swap = get_test_reverse_swap(tree.clone());
+        reverse_swap.keyIndex = Some(15);
+
+        let mut swap_helper = MockSwapHelper::new();
+        {
+            let swap1 = swap1.clone();
+            let swap2 = swap2.clone();
+            swap_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap1.clone(), swap2.clone()]))
+                .times(1);
+        }
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(2);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        {
+            let reverse_swap = reverse_swap.clone();
+            reverse_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![reverse_swap.clone()]))
+                .times(1);
+        }
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnd: None,
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let index = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .unwrap();
+
+        assert_eq!(index, 11);
     }
 }

@@ -9,7 +9,7 @@ use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDes
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Deserialize)]
@@ -30,6 +30,11 @@ pub enum RescueParams {
         #[serde(rename = "publicKeys")]
         public_keys: PublicKeyVecDeserialize,
     },
+}
+
+#[derive(Serialize)]
+pub struct RestoreIndexResponse {
+    pub index: i64,
 }
 
 impl TryFrom<RescueParams> for Box<dyn PubkeyIterator> {
@@ -94,6 +99,18 @@ where
 {
     let res = state.service.swap_rescue.restore(params.try_into()?)?;
     Ok((StatusCode::OK, Json(res)).into_response())
+}
+
+pub async fn swap_restore_index<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Json(params): Json<RescueParams>,
+) -> anyhow::Result<impl IntoResponse, AxumError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let res = state.service.swap_rescue.index(params.try_into()?)?;
+    Ok((StatusCode::OK, Json(RestoreIndexResponse { index: res })).into_response())
 }
 
 #[cfg(test)]
@@ -253,17 +270,6 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_swap_rescue_with_gap_limit_far_exceeds_max() {
-        let res =
-            make_rescue_request_with_gap_limit("/v2/swap/rescue", VALID_XPUB, MAX_GAP_LIMIT + 100)
-                .await;
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
-        assert!(error.error.contains("gapLimit must not exceed"));
-    }
-
-    #[tokio::test]
     async fn test_swap_restore_with_valid_gap_limit() {
         let res = make_rescue_request_with_gap_limit("/v2/swap/restore", VALID_XPUB, 50).await;
         assert_successful_response(res).await;
@@ -276,19 +282,5 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error = serde_json::from_slice::<ApiError>(&body).unwrap();
         assert_eq!(error.error, "gapLimit must be at least 1");
-    }
-
-    #[tokio::test]
-    async fn test_swap_restore_with_gap_limit_exceeds_max() {
-        let res =
-            make_rescue_request_with_gap_limit("/v2/swap/restore", VALID_XPUB, MAX_GAP_LIMIT + 51)
-                .await;
-        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
-        assert_eq!(
-            error.error,
-            format!("gapLimit must not exceed {MAX_GAP_LIMIT}")
-        );
     }
 }

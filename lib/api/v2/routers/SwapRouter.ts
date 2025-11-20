@@ -1180,10 +1180,10 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         from:
      *           type: string
-     *           description: The asset that is sent on lightning
+     *           description: The asset that is sent onchain by the client
      *         to:
      *           type: string
-     *           description: The asset that is received onchain
+     *           description: The asset that is received onchain by the client
      *         preimageHash:
      *           type: string
      *           description: SHA-256 hash of the preimage of the Chain Swap encoded as HEX
@@ -1257,7 +1257,7 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         id:
      *           type: string
-     *           description: ID of the created Reverse Swap
+     *           description: ID of the created Chain Swap
      *         referralId:
      *           type: string
      *           description: Referral ID used for the swap
@@ -1773,13 +1773,13 @@ class SwapRouter extends RouterBase {
      *           properties:
      *             xpub:
      *               type: string
-     *               description: XPUB from which the refund keys were derived
+     *               description: Extended public key (XPUB) to derive child keys from and search for associated swaps
      *             derivationPath:
      *               type: string
-     *               description: Derivation path to use for the rescue. Defaults to m/44/0/0/0
+     *               description: Optional derivation path for child key derivation. Defaults to m/44/0/0/0
      *             gapLimit:
      *               type: number
-     *               description: Maximum number of consecutive unused public keys to check before stopping the search. Must be at least 1 and not exceed 150
+     *               description: Maximum number of consecutive unused keys to scan before stopping. Must be between 1 and 150. Defaults to 50
      *               minimum: 1
      *               maximum: 150
      *         - type: object
@@ -1787,7 +1787,7 @@ class SwapRouter extends RouterBase {
      *           properties:
      *             publicKey:
      *               type: string
-     *               description: Single public key to search for in swaps
+     *               description: Single public key (hex-encoded) to search for in swaps. Use this when you know the exact key used
      *         - type: object
      *           required: ["publicKeys"]
      *           properties:
@@ -1795,7 +1795,7 @@ class SwapRouter extends RouterBase {
      *               type: array
      *               items:
      *                 type: string
-     *               description: Array of public keys to search for in swaps
+     *               description: Array of public keys (hex-encoded) to search for in swaps. Use this to check multiple specific keys at once
      */
 
     /**
@@ -1869,7 +1869,7 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/SwapTree'
      *         amount:
      *           type: number
-     *           description: Amount of the swap
+     *           description: Amount locked in the swap (in satoshis)
      *         keyIndex:
      *           type: number
      *           description: Derivation index for the claim key used in the swap
@@ -1955,7 +1955,7 @@ class SwapRouter extends RouterBase {
      * /swap/rescue:
      *   post:
      *     tags: [Swap]
-     *     description: Rescue swaps that were created with an XPUB. Use when trying to refund a swap for which all information was lost. Deprecated. Use /swap/restore instead
+     *     description: Rescue swaps by searching with an XPUB, a single public key, or multiple public keys. Returns swaps that can be refunded when all information was lost. Deprecated - use /swap/restore instead
      *     deprecated: true
      *     requestBody:
      *       required: true
@@ -1979,7 +1979,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps whose private keys were derived from an XPUB. Use when trying to resume or refund a swap for which all information was lost
+     *     description: Restore swaps by searching with an XPUB, a single public key, or multiple public keys. Returns full swap details needed to resume, claim, or refund swaps when information was lost
      *     requestBody:
      *       required: true
      *       content:
@@ -1995,6 +1995,46 @@ class SwapRouter extends RouterBase {
      *               type: array
      *               items:
      *                 $ref: '#/components/schemas/RestorableSwap'
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     RestoreIndexResponse:
+     *       type: object
+     *       required: ["index"]
+     *       properties:
+     *         index:
+     *           type: number
+     *           description: Highest key derivation index found among all swaps associated with the provided keys. Returns -1 if no swaps were found
+     */
+
+    /**
+     * @openapi
+     * /swap/restore/index:
+     *   post:
+     *     tags: [Swap]
+     *     description: Get the highest derivation index for swaps associated with an XPUB, a single public key, or multiple public keys. Useful for wallet restoration to determine the next key index to use. Returns -1 if no swaps are found
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RescueRequest'
+     *     responses:
+     *       '200':
+     *         description: Highest key derivation index found among all swaps associated with the provided keys
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/RestoreIndexResponse'
+     *       '400':
+     *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
 
     /**

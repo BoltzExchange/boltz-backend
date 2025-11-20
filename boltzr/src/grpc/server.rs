@@ -20,6 +20,21 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::ServerTlsConfig;
 use tracing::{debug, info, warn};
+#[cfg(feature = "otel")]
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+#[cfg(feature = "otel")]
+struct HeaderExtractor<'a>(&'a axum::http::HeaderMap);
+
+#[cfg(feature = "otel")]
+impl<'a> opentelemetry::propagation::Extractor for HeaderExtractor<'a> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|v| v.to_str().ok())
+    }
+    fn keys(&self) -> Vec<&str> {
+        self.0.keys().map(|k| k.as_str()).collect()
+    }
+}
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
@@ -124,20 +139,39 @@ where
         #[cfg(not(feature = "metrics"))]
         let svc = BoltzRServer::new(service);
 
-        let mut server = tonic::transport::Server::builder();
+        let server = tonic::transport::Server::builder();
 
-        if !self.config.disable_ssl.unwrap_or(false) {
+        #[cfg(feature = "otel")]
+        let server = server.layer(
+            tower_http::trace::TraceLayer::new_for_grpc().make_span_with(
+                |req: &axum::http::Request<_>| {
+                    let parent_cx = opentelemetry::global::get_text_map_propagator(|prop| {
+                        prop.extract(&HeaderExtractor(req.headers()))
+                    });
+
+                    let span = tracing::info_span!("grpc_request");
+                    if let Err(e) = span.set_parent(parent_cx) {
+                        tracing::warn!("Failed to set parent span context: {:?}", e);
+                    }
+
+                    span
+                },
+            ),
+        );
+
+        let mut server = if !self.config.disable_ssl.unwrap_or(false) {
             debug!("Starting gRPC server with TLS authentication");
             let (identity, ca) = load_certificates(self.config.certificates.clone().unwrap())?;
-            server = server.tls_config(
+            server.tls_config(
                 ServerTlsConfig::new()
                     .identity(identity)
                     .client_ca_root(ca)
                     .client_auth_optional(false),
-            )?;
+            )?
         } else {
             warn!("Starting insecure gRPC server");
-        }
+            server
+        };
 
         Ok(server
             .add_service(svc)

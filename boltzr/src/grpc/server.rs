@@ -150,9 +150,8 @@ where
                     });
 
                     let span = tracing::info_span!("grpc_request");
-                    if let Err(e) = span.set_parent(parent_cx) {
-                        tracing::warn!("Failed to set parent span context: {:?}", e);
-                    }
+                    // Ignore the error, else this will log when OpenTelemetry is disabled in the Node.js daemon
+                    let _ = span.set_parent(parent_cx);
 
                     span
                 },

@@ -2149,34 +2149,6 @@ export namespace Chain {
     }
 }
 
-export class ConfirmationUpdate extends jspb.Message { 
-    getBlockSha(): Uint8Array | string;
-    getBlockSha_asU8(): Uint8Array;
-    getBlockSha_asB64(): string;
-    setBlockSha(value: Uint8Array | string): ConfirmationUpdate;
-    getBlockHeight(): number;
-    setBlockHeight(value: number): ConfirmationUpdate;
-    getNumConfsLeft(): number;
-    setNumConfsLeft(value: number): ConfirmationUpdate;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ConfirmationUpdate.AsObject;
-    static toObject(includeInstance: boolean, msg: ConfirmationUpdate): ConfirmationUpdate.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ConfirmationUpdate, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ConfirmationUpdate;
-    static deserializeBinaryFromReader(message: ConfirmationUpdate, reader: jspb.BinaryReader): ConfirmationUpdate;
-}
-
-export namespace ConfirmationUpdate {
-    export type AsObject = {
-        blockSha: Uint8Array | string,
-        blockHeight: number,
-        numConfsLeft: number,
-    }
-}
-
 export class ChannelOpenUpdate extends jspb.Message { 
 
     hasChannelPoint(): boolean;
@@ -3234,6 +3206,10 @@ export namespace PendingChannelsResponse {
         setFeePerKw(value: number): PendingOpenChannel;
         getFundingExpiryBlocks(): number;
         setFundingExpiryBlocks(value: number): PendingOpenChannel;
+        getConfirmationsUntilActive(): number;
+        setConfirmationsUntilActive(value: number): PendingOpenChannel;
+        getConfirmationHeight(): number;
+        setConfirmationHeight(value: number): PendingOpenChannel;
 
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): PendingOpenChannel.AsObject;
@@ -3252,6 +3228,8 @@ export namespace PendingChannelsResponse {
             commitWeight: number,
             feePerKw: number,
             fundingExpiryBlocks: number,
+            confirmationsUntilActive: number,
+            confirmationHeight: number,
         }
     }
 
@@ -3757,6 +3735,10 @@ export class QueryRoutesRequest extends jspb.Message {
     addDestFeatures(value: FeatureBit, index?: number): FeatureBit;
     getTimePref(): number;
     setTimePref(value: number): QueryRoutesRequest;
+    clearOutgoingChanIdsList(): void;
+    getOutgoingChanIdsList(): Array<number>;
+    setOutgoingChanIdsList(value: Array<number>): QueryRoutesRequest;
+    addOutgoingChanIds(value: number, index?: number): number;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): QueryRoutesRequest.AsObject;
@@ -3789,6 +3771,7 @@ export namespace QueryRoutesRequest {
         blindedPaymentPathsList: Array<BlindedPaymentPath.AsObject>,
         destFeaturesList: Array<FeatureBit>,
         timePref: number,
+        outgoingChanIdsList: Array<number>,
     }
 }
 
@@ -4051,6 +4034,8 @@ export class NodeInfoRequest extends jspb.Message {
     setPubKey(value: string): NodeInfoRequest;
     getIncludeChannels(): boolean;
     setIncludeChannels(value: boolean): NodeInfoRequest;
+    getIncludeAuthProof(): boolean;
+    setIncludeAuthProof(value: boolean): NodeInfoRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): NodeInfoRequest.AsObject;
@@ -4066,6 +4051,7 @@ export namespace NodeInfoRequest {
     export type AsObject = {
         pubKey: string,
         includeChannels: boolean,
+        includeAuthProof: boolean,
     }
 }
 
@@ -4219,6 +4205,43 @@ export namespace RoutingPolicy {
     }
 }
 
+export class ChannelAuthProof extends jspb.Message { 
+    getNodeSig1(): Uint8Array | string;
+    getNodeSig1_asU8(): Uint8Array;
+    getNodeSig1_asB64(): string;
+    setNodeSig1(value: Uint8Array | string): ChannelAuthProof;
+    getBitcoinSig1(): Uint8Array | string;
+    getBitcoinSig1_asU8(): Uint8Array;
+    getBitcoinSig1_asB64(): string;
+    setBitcoinSig1(value: Uint8Array | string): ChannelAuthProof;
+    getNodeSig2(): Uint8Array | string;
+    getNodeSig2_asU8(): Uint8Array;
+    getNodeSig2_asB64(): string;
+    setNodeSig2(value: Uint8Array | string): ChannelAuthProof;
+    getBitcoinSig2(): Uint8Array | string;
+    getBitcoinSig2_asU8(): Uint8Array;
+    getBitcoinSig2_asB64(): string;
+    setBitcoinSig2(value: Uint8Array | string): ChannelAuthProof;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ChannelAuthProof.AsObject;
+    static toObject(includeInstance: boolean, msg: ChannelAuthProof): ChannelAuthProof.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ChannelAuthProof, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChannelAuthProof;
+    static deserializeBinaryFromReader(message: ChannelAuthProof, reader: jspb.BinaryReader): ChannelAuthProof;
+}
+
+export namespace ChannelAuthProof {
+    export type AsObject = {
+        nodeSig1: Uint8Array | string,
+        bitcoinSig1: Uint8Array | string,
+        nodeSig2: Uint8Array | string,
+        bitcoinSig2: Uint8Array | string,
+    }
+}
+
 export class ChannelEdge extends jspb.Message { 
     getChannelId(): string;
     setChannelId(value: string): ChannelEdge;
@@ -4246,6 +4269,11 @@ export class ChannelEdge extends jspb.Message {
     getCustomRecordsMap(): jspb.Map<number, Uint8Array | string>;
     clearCustomRecordsMap(): void;
 
+    hasAuthProof(): boolean;
+    clearAuthProof(): void;
+    getAuthProof(): ChannelAuthProof | undefined;
+    setAuthProof(value?: ChannelAuthProof): ChannelEdge;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChannelEdge.AsObject;
     static toObject(includeInstance: boolean, msg: ChannelEdge): ChannelEdge.AsObject;
@@ -4268,12 +4296,15 @@ export namespace ChannelEdge {
         node2Policy?: RoutingPolicy.AsObject,
 
         customRecordsMap: Array<[number, Uint8Array | string]>,
+        authProof?: ChannelAuthProof.AsObject,
     }
 }
 
 export class ChannelGraphRequest extends jspb.Message { 
     getIncludeUnannounced(): boolean;
     setIncludeUnannounced(value: boolean): ChannelGraphRequest;
+    getIncludeAuthProof(): boolean;
+    setIncludeAuthProof(value: boolean): ChannelGraphRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChannelGraphRequest.AsObject;
@@ -4288,6 +4319,7 @@ export class ChannelGraphRequest extends jspb.Message {
 export namespace ChannelGraphRequest {
     export type AsObject = {
         includeUnannounced: boolean,
+        includeAuthProof: boolean,
     }
 }
 
@@ -4390,6 +4422,8 @@ export class ChanInfoRequest extends jspb.Message {
     setChanId(value: string): ChanInfoRequest;
     getChanPoint(): string;
     setChanPoint(value: string): ChanInfoRequest;
+    getIncludeAuthProof(): boolean;
+    setIncludeAuthProof(value: boolean): ChanInfoRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ChanInfoRequest.AsObject;
@@ -4405,6 +4439,7 @@ export namespace ChanInfoRequest {
     export type AsObject = {
         chanId: string,
         chanPoint: string,
+        includeAuthProof: boolean,
     }
 }
 
@@ -5040,6 +5075,10 @@ export class BlindedPathConfig extends jspb.Message {
     getNodeOmissionListList_asB64(): Array<string>;
     setNodeOmissionListList(value: Array<Uint8Array | string>): BlindedPathConfig;
     addNodeOmissionList(value: Uint8Array | string, index?: number): Uint8Array | string;
+    clearIncomingChannelListList(): void;
+    getIncomingChannelListList(): Array<number>;
+    setIncomingChannelListList(value: Array<number>): BlindedPathConfig;
+    addIncomingChannelList(value: number, index?: number): number;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BlindedPathConfig.AsObject;
@@ -5057,6 +5096,7 @@ export namespace BlindedPathConfig {
         numHops?: number,
         maxNumPaths?: number,
         nodeOmissionListList: Array<Uint8Array | string>,
+        incomingChannelListList: Array<number>,
     }
 }
 
@@ -5301,6 +5341,46 @@ export namespace InvoiceSubscription {
     export type AsObject = {
         addIndex: number,
         settleIndex: number,
+    }
+}
+
+export class DelCanceledInvoiceReq extends jspb.Message { 
+    getInvoiceHash(): string;
+    setInvoiceHash(value: string): DelCanceledInvoiceReq;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DelCanceledInvoiceReq.AsObject;
+    static toObject(includeInstance: boolean, msg: DelCanceledInvoiceReq): DelCanceledInvoiceReq.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DelCanceledInvoiceReq, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DelCanceledInvoiceReq;
+    static deserializeBinaryFromReader(message: DelCanceledInvoiceReq, reader: jspb.BinaryReader): DelCanceledInvoiceReq;
+}
+
+export namespace DelCanceledInvoiceReq {
+    export type AsObject = {
+        invoiceHash: string,
+    }
+}
+
+export class DelCanceledInvoiceResp extends jspb.Message { 
+    getStatus(): string;
+    setStatus(value: string): DelCanceledInvoiceResp;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DelCanceledInvoiceResp.AsObject;
+    static toObject(includeInstance: boolean, msg: DelCanceledInvoiceResp): DelCanceledInvoiceResp.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DelCanceledInvoiceResp, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DelCanceledInvoiceResp;
+    static deserializeBinaryFromReader(message: DelCanceledInvoiceResp, reader: jspb.BinaryReader): DelCanceledInvoiceResp;
+}
+
+export namespace DelCanceledInvoiceResp {
+    export type AsObject = {
+        status: string,
     }
 }
 
@@ -6039,6 +6119,14 @@ export class ForwardingHistoryRequest extends jspb.Message {
     setNumMaxEvents(value: number): ForwardingHistoryRequest;
     getPeerAliasLookup(): boolean;
     setPeerAliasLookup(value: boolean): ForwardingHistoryRequest;
+    clearIncomingChanIdsList(): void;
+    getIncomingChanIdsList(): Array<number>;
+    setIncomingChanIdsList(value: Array<number>): ForwardingHistoryRequest;
+    addIncomingChanIds(value: number, index?: number): number;
+    clearOutgoingChanIdsList(): void;
+    getOutgoingChanIdsList(): Array<number>;
+    setOutgoingChanIdsList(value: Array<number>): ForwardingHistoryRequest;
+    addOutgoingChanIds(value: number, index?: number): number;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ForwardingHistoryRequest.AsObject;
@@ -6057,6 +6145,8 @@ export namespace ForwardingHistoryRequest {
         indexOffset: number,
         numMaxEvents: number,
         peerAliasLookup: boolean,
+        incomingChanIdsList: Array<number>,
+        outgoingChanIdsList: Array<number>,
     }
 }
 
@@ -6812,6 +6902,8 @@ export class CheckMacPermRequest extends jspb.Message {
     addPermissions(value?: MacaroonPermission, index?: number): MacaroonPermission;
     getFullmethod(): string;
     setFullmethod(value: string): CheckMacPermRequest;
+    getCheckDefaultPermsFromFullMethod(): boolean;
+    setCheckDefaultPermsFromFullMethod(value: boolean): CheckMacPermRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CheckMacPermRequest.AsObject;
@@ -6828,6 +6920,7 @@ export namespace CheckMacPermRequest {
         macaroon: Uint8Array | string,
         permissionsList: Array<MacaroonPermission.AsObject>,
         fullmethod: string,
+        checkDefaultPermsFromFullMethod: boolean,
     }
 }
 

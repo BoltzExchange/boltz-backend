@@ -45,6 +45,7 @@ interface ILightningService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
     listInvoices: ILightningService_IListInvoices;
     lookupInvoice: ILightningService_ILookupInvoice;
     subscribeInvoices: ILightningService_ISubscribeInvoices;
+    deleteCanceledInvoice: ILightningService_IDeleteCanceledInvoice;
     decodePayReq: ILightningService_IDecodePayReq;
     listPayments: ILightningService_IListPayments;
     deletePayment: ILightningService_IDeletePayment;
@@ -411,6 +412,15 @@ interface ILightningService_ISubscribeInvoices extends grpc.MethodDefinition<lnd
     responseSerialize: grpc.serialize<lnd_rpc_pb.Invoice>;
     responseDeserialize: grpc.deserialize<lnd_rpc_pb.Invoice>;
 }
+interface ILightningService_IDeleteCanceledInvoice extends grpc.MethodDefinition<lnd_rpc_pb.DelCanceledInvoiceReq, lnd_rpc_pb.DelCanceledInvoiceResp> {
+    path: "/lnrpc.Lightning/DeleteCanceledInvoice";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<lnd_rpc_pb.DelCanceledInvoiceReq>;
+    requestDeserialize: grpc.deserialize<lnd_rpc_pb.DelCanceledInvoiceReq>;
+    responseSerialize: grpc.serialize<lnd_rpc_pb.DelCanceledInvoiceResp>;
+    responseDeserialize: grpc.deserialize<lnd_rpc_pb.DelCanceledInvoiceResp>;
+}
 interface ILightningService_IDecodePayReq extends grpc.MethodDefinition<lnd_rpc_pb.PayReqString, lnd_rpc_pb.PayReq> {
     path: "/lnrpc.Lightning/DecodePayReq";
     requestStream: false;
@@ -731,6 +741,7 @@ export interface ILightningServer extends grpc.UntypedServiceImplementation {
     listInvoices: grpc.handleUnaryCall<lnd_rpc_pb.ListInvoiceRequest, lnd_rpc_pb.ListInvoiceResponse>;
     lookupInvoice: grpc.handleUnaryCall<lnd_rpc_pb.PaymentHash, lnd_rpc_pb.Invoice>;
     subscribeInvoices: grpc.handleServerStreamingCall<lnd_rpc_pb.InvoiceSubscription, lnd_rpc_pb.Invoice>;
+    deleteCanceledInvoice: grpc.handleUnaryCall<lnd_rpc_pb.DelCanceledInvoiceReq, lnd_rpc_pb.DelCanceledInvoiceResp>;
     decodePayReq: grpc.handleUnaryCall<lnd_rpc_pb.PayReqString, lnd_rpc_pb.PayReq>;
     listPayments: grpc.handleUnaryCall<lnd_rpc_pb.ListPaymentsRequest, lnd_rpc_pb.ListPaymentsResponse>;
     deletePayment: grpc.handleUnaryCall<lnd_rpc_pb.DeletePaymentRequest, lnd_rpc_pb.DeletePaymentResponse>;
@@ -870,6 +881,9 @@ export interface ILightningClient {
     lookupInvoice(request: lnd_rpc_pb.PaymentHash, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     subscribeInvoices(request: lnd_rpc_pb.InvoiceSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
     subscribeInvoices(request: lnd_rpc_pb.InvoiceSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
+    deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
+    deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
+    deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
     decodePayReq(request: lnd_rpc_pb.PayReqString, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;
     decodePayReq(request: lnd_rpc_pb.PayReqString, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;
     decodePayReq(request: lnd_rpc_pb.PayReqString, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;
@@ -1066,6 +1080,9 @@ export class LightningClient extends grpc.Client implements ILightningClient {
     public lookupInvoice(request: lnd_rpc_pb.PaymentHash, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.Invoice) => void): grpc.ClientUnaryCall;
     public subscribeInvoices(request: lnd_rpc_pb.InvoiceSubscription, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
     public subscribeInvoices(request: lnd_rpc_pb.InvoiceSubscription, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<lnd_rpc_pb.Invoice>;
+    public deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
+    public deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
+    public deleteCanceledInvoice(request: lnd_rpc_pb.DelCanceledInvoiceReq, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.DelCanceledInvoiceResp) => void): grpc.ClientUnaryCall;
     public decodePayReq(request: lnd_rpc_pb.PayReqString, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;
     public decodePayReq(request: lnd_rpc_pb.PayReqString, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;
     public decodePayReq(request: lnd_rpc_pb.PayReqString, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: lnd_rpc_pb.PayReq) => void): grpc.ClientUnaryCall;

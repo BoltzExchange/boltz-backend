@@ -1352,6 +1352,46 @@ export namespace DeleteAliasesResponse {
     }
 }
 
+export class FindBaseAliasRequest extends jspb.Message { 
+    getAlias(): number;
+    setAlias(value: number): FindBaseAliasRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FindBaseAliasRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: FindBaseAliasRequest): FindBaseAliasRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FindBaseAliasRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FindBaseAliasRequest;
+    static deserializeBinaryFromReader(message: FindBaseAliasRequest, reader: jspb.BinaryReader): FindBaseAliasRequest;
+}
+
+export namespace FindBaseAliasRequest {
+    export type AsObject = {
+        alias: number,
+    }
+}
+
+export class FindBaseAliasResponse extends jspb.Message { 
+    getBase(): number;
+    setBase(value: number): FindBaseAliasResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): FindBaseAliasResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: FindBaseAliasResponse): FindBaseAliasResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: FindBaseAliasResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FindBaseAliasResponse;
+    static deserializeBinaryFromReader(message: FindBaseAliasResponse, reader: jspb.BinaryReader): FindBaseAliasResponse;
+}
+
+export namespace FindBaseAliasResponse {
+    export type AsObject = {
+        base: number,
+    }
+}
+
 export enum FailureDetail {
     UNKNOWN = 0,
     NO_DETAIL = 1,

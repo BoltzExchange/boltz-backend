@@ -27,6 +27,10 @@ export const createInvoice = (
         tagName: 'payment_hash',
       },
       {
+        data: getHexString(randomBytes(32)),
+        tagName: 'payment_secret',
+      },
+      {
         data: expiry || 3600,
         tagName: 'expire_time',
       },

@@ -8,11 +8,9 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install git make gcc libc-dev
 
-RUN git clone https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com/lightningnetwork/lnd
+RUN git clone --depth 1 --branch v${VERSION} https://github.com/lightningnetwork/lnd.git $GOPATH/src/github.com/lightningnetwork/lnd
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
-
-RUN git checkout v${VERSION}
 
 RUN go mod vendor
 

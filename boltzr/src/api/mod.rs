@@ -1,5 +1,5 @@
 use crate::api::errors::{error_middleware, logging_middleware};
-use crate::api::rescue::{swap_rescue, swap_restore};
+use crate::api::rescue::{swap_rescue, swap_restore, swap_restore_index};
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
 #[cfg(feature = "metrics")]
@@ -134,6 +134,7 @@ where
             // Swap rescue
             .route("/v2/swap/rescue", post(swap_rescue::<S, M>))
             .route("/v2/swap/restore", post(swap_restore::<S, M>))
+            .route("/v2/swap/restore/index", post(swap_restore_index::<S, M>))
             // Lightning
             .route(
                 "/v2/lightning/{currency}/node/{node}",

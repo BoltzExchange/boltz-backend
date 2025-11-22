@@ -123,7 +123,7 @@ impl PubkeyIterator for KeyVecIterator {
     }
 
     fn gap_limit(&self) -> u32 {
-        DEFAULT_GAP_LIMIT
+        self.max_keys()
     }
 
     fn derive_keys(
@@ -132,6 +132,10 @@ impl PubkeyIterator for KeyVecIterator {
         start: u32,
         end: u32,
     ) -> Result<Vec<String>> {
+        if start >= self.max_keys() {
+            return Ok(vec![]);
+        }
+
         let mut result = Vec::new();
 
         // Add some buffer to avoid keys not being found because of the gap limit
@@ -168,7 +172,7 @@ impl PubkeyIterator for SingleKeyIterator {
     }
 
     fn gap_limit(&self) -> u32 {
-        DEFAULT_GAP_LIMIT
+        self.max_keys()
     }
 
     fn derive_keys(
@@ -535,7 +539,7 @@ mod tests {
             let keys = test_keys();
             let iterator = KeyVecIterator::new(keys);
 
-            assert_eq!(iterator.gap_limit(), DEFAULT_GAP_LIMIT);
+            assert_eq!(iterator.gap_limit(), iterator.max_keys());
         }
 
         #[test]
@@ -744,6 +748,18 @@ mod tests {
             assert_eq!(result[0], TEST_PUBKEYS[4].to_lowercase());
             assert_eq!(key_map.get(&result[0]), Some(&4));
         }
+
+        #[test]
+        fn test_derive_keys_start_out_of_bounds() {
+            let keys = test_keys();
+            let iterator = KeyVecIterator::new(keys);
+            let mut key_map = HashMap::new();
+
+            // Should not panic when start is beyond the available keys
+            let result = iterator.derive_keys(&mut key_map, 10, 15).unwrap();
+            assert_eq!(result.len(), 0);
+            assert_eq!(key_map.len(), 0);
+        }
     }
 
     mod single_key_iterator {
@@ -783,7 +799,7 @@ mod tests {
             let pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
             let iterator = SingleKeyIterator::new(pubkey);
 
-            assert_eq!(iterator.gap_limit(), DEFAULT_GAP_LIMIT);
+            assert_eq!(iterator.gap_limit(), iterator.max_keys());
         }
 
         #[test]

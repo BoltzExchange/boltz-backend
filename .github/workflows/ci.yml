@@ -43,18 +43,6 @@ jobs:
       - name: Start regtest
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
-      - name: Build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            hold/target
-          key:
-            ${{ runner.os }}-ci-${{ matrix.rust-version }}-${{
-            hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-ci-${{ matrix.rust-version }}-
-
       - name: Compile
         run: npm run compile
 
@@ -113,18 +101,6 @@ jobs:
 
       - name: Start regtest
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
-
-      - name: Build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            hold/target
-          key:
-            ${{ runner.os }}-cargo-${{ matrix.rust-version }}-${{
-            hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.rust-version }}-
 
       - name: Compile
         run: cargo build

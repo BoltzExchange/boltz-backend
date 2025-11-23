@@ -49,6 +49,7 @@ import CoopSignerBase, {
 import AmountTrigger from './triggers/AmountTrigger';
 import ExpiryTrigger from './triggers/ExpiryTrigger';
 import IntervalTrigger from './triggers/IntervalTrigger';
+import ScheduledAmountTrigger from './triggers/ScheduledAmountTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
@@ -119,6 +120,14 @@ class DeferredClaimer extends CoopSignerBase<{
         this.config.batchClaimInterval,
         async () => {
           await this.sweep();
+        },
+      ),
+      new ScheduledAmountTrigger(
+        this.logger,
+        this.config.scheduleAmountTrigger,
+        this.pendingSweepsValues,
+        async (symbol: string) => {
+          await this.sweepSymbol(symbol);
         },
       ),
     ];

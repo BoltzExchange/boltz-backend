@@ -1,6 +1,7 @@
 import type { Job } from 'node-schedule';
 import { scheduleJob } from 'node-schedule';
 import type Logger from '../../../Logger';
+import { formatError } from '../../../Utils';
 import SweepTrigger from './SweepTrigger';
 
 class IntervalTrigger extends SweepTrigger {
@@ -17,7 +18,13 @@ class IntervalTrigger extends SweepTrigger {
 
     this.batchClaimSchedule = scheduleJob(this.interval, async () => {
       this.logger.verbose('Batch claim interval triggered');
-      await callback();
+      try {
+        await callback();
+      } catch (error) {
+        this.logger.error(
+          `Error in batch claim interval callback: ${formatError(error)}`,
+        );
+      }
     });
   }
 

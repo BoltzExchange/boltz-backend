@@ -43,6 +43,8 @@ class AmountTrigger extends SweepTrigger {
     );
     return toSweep >= this.sweepAmountTrigger;
   };
+
+  public close = () => {};
 }
 
 export default AmountTrigger;

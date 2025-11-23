@@ -30,6 +30,8 @@ class ExpiryTrigger extends SweepTrigger {
     return minutesLeft <= this.expiryTolerance;
   };
 
+  public close = () => {};
+
   private getBlockHeight = async (chainCurrency: string) => {
     const currency = this.currencies.get(chainCurrency);
     if (!currency) {

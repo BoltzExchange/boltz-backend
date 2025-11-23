@@ -6,6 +6,8 @@ abstract class SweepTrigger {
     chainCurrency: string,
     swap: Swap | ChainSwapInfo,
   ): Promise<boolean>;
+
+  public abstract close(): void;
 }
 
 export default SweepTrigger;

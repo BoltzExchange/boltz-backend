@@ -1,6 +1,4 @@
 import AsyncLock from 'async-lock';
-import type { Job } from 'node-schedule';
-import { scheduleJob } from 'node-schedule';
 import type { SwapConfig } from '../../Config';
 import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
 import { calculateTransactionFee, constructClaimTransaction } from '../../Core';
@@ -50,6 +48,7 @@ import CoopSignerBase, {
 } from './CoopSignerBase';
 import AmountTrigger from './triggers/AmountTrigger';
 import ExpiryTrigger from './triggers/ExpiryTrigger';
+import IntervalTrigger from './triggers/IntervalTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
@@ -88,7 +87,6 @@ class DeferredClaimer extends CoopSignerBase<{
   >();
   private readonly sweepTriggers: SweepTrigger[];
 
-  private batchClaimSchedule?: Job;
   private disableCooperative = false;
 
   constructor(
@@ -116,6 +114,13 @@ class DeferredClaimer extends CoopSignerBase<{
         this.pendingSweepsValues,
         this.config.sweepAmountTrigger,
       ),
+      new IntervalTrigger(
+        this.logger,
+        this.config.batchClaimInterval,
+        async () => {
+          await this.sweep();
+        },
+      ),
     ];
   }
 
@@ -128,7 +133,7 @@ class DeferredClaimer extends CoopSignerBase<{
       `Using deferred claims for: ${this.config.deferredClaimSymbols.join(', ')}`,
     );
     this.logger.verbose(
-      `Batch claim interval: ${this.config.batchClaimInterval} with expiry tolerance of ${this.config.expiryTolerance} minutes`,
+      `Expiry tolerance: ${this.config.expiryTolerance} minutes`,
     );
 
     try {
@@ -136,18 +141,12 @@ class DeferredClaimer extends CoopSignerBase<{
     } catch (e) {
       this.logger.error(`Could not sweep leftovers: ${formatError(e)}`);
     }
-
-    this.batchClaimSchedule = scheduleJob(
-      this.config.batchClaimInterval,
-      async () => {
-        await this.sweep();
-      },
-    );
   };
 
   public close = () => {
-    this.batchClaimSchedule?.cancel();
-    this.batchClaimSchedule = undefined;
+    for (const trigger of this.sweepTriggers) {
+      trigger.close();
+    }
   };
 
   public pendingSweeps = () => {

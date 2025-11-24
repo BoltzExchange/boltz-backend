@@ -4,7 +4,7 @@ members = ["boltz-core", "boltzr", "boltzr-cli"]
 exclude = ["hold"]
 
 [workspace.package]
-version = "3.11.0"
+version = "3.12.0"
 license = "AGPL-3"
 authors = ["michael1011"]
 edition = "2024"

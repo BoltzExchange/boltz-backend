@@ -182,6 +182,11 @@ type SwapConfig = {
   cltvDelta: number;
   sweepAmountTrigger?: number;
 
+  scheduleAmountTrigger?: {
+    interval: string;
+    threshold: number;
+  };
+
   minSwapSizeMultipliers?: MinSwapSizeMultipliersConfig;
 
   overpayment?: OverPaymentConfig;

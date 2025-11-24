@@ -186,6 +186,8 @@ describe('UtxoNursery', () => {
       ] as ClnPendingPaymentTracker
     ).stop();
 
+    swapManager.deferredClaimer.close();
+
     sidecar.disconnect();
     await Sidecar.stop();
 

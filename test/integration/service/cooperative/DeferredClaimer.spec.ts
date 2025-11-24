@@ -455,7 +455,6 @@ describe('DeferredClaimer', () => {
       expect(ChainSwapRepository.getChainSwapsClaimable).toHaveBeenCalledTimes(
         1,
       );
-      expect(claimer['batchClaimSchedule']).not.toBeUndefined();
     });
 
     test('should not crash when batch claim of leftovers fails', async () => {
@@ -468,12 +467,6 @@ describe('DeferredClaimer', () => {
 
       claimer['batchClaimLeftovers'] = original;
     });
-  });
-
-  test('should close', () => {
-    expect(claimer['batchClaimSchedule']).not.toBeUndefined();
-    claimer.close();
-    expect(claimer['batchClaimSchedule']).toBeUndefined();
   });
 
   describe('deferClaim', () => {

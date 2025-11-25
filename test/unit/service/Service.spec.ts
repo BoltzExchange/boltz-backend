@@ -676,6 +676,7 @@ jest.mock('../../../lib/db/repositories/ReverseRoutingHintRepository');
 
 jest.mock('../../../lib/service/BalanceCheck', () => {
   return jest.fn().mockImplementation(() => ({
+    init: jest.fn(),
     checkBalance: jest.fn().mockImplementation(async () => {}),
   }));
 });

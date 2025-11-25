@@ -9,15 +9,17 @@ jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('BalanceCheck', () => {
   const wallet = new CoreWalletProvider(Logger.disabledLogger, bitcoinClient);
-  const balanceCheck = new BalanceCheck({
+  const balanceCheck = new BalanceCheck(Logger.disabledLogger, {
     wallets: new Map<string, any>([['BTC', wallet]]),
   } as unknown as WalletManager);
 
   beforeAll(async () => {
     await bitcoinClient.connect();
+    await balanceCheck.init();
   });
 
   afterAll(() => {
+    balanceCheck.destroy();
     bitcoinClient.disconnect();
   });
 

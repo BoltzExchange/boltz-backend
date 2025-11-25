@@ -153,7 +153,7 @@ class Service {
 
   private prepayMinerFee: boolean;
 
-  private balanceCheck: BalanceCheck;
+  private readonly balanceCheck: BalanceCheck;
   private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
 
@@ -210,7 +210,7 @@ class Service {
       this.rateProvider,
     );
 
-    this.balanceCheck = new BalanceCheck(this.walletManager);
+    this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -292,6 +292,7 @@ class Service {
 
     await this.nodeInfo.init();
     await this.lockupTransactionTracker.init();
+    await this.balanceCheck.init();
   };
 
   public convertToPairAndSide = (

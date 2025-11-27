@@ -1,8 +1,18 @@
 # 🪄 Magic Routing Hints
 
+::: warning
+
+**Advanced Feature**: MRH is an advanced feature that does not have the exact
+same guarantees as a standard Boltz swap. While it provides cost savings and
+slightly faster settlement, swap clients should be aware of the additional
+responsibilities to recognize and verify MRH payments.
+
+:::
+
 This page describes the mechanism that encodes a BIP21 URI into the routing
-hints section of an invoice, mainly for Boltz-powered wallets like Aqua to pay
-each other directly without a Boltz swap.
+hints section of an invoice, mainly for Boltz-powered wallets like
+[Aqua](https://aqua.net/) to pay each other directly without involving a Boltz
+swap and to avoid bloated, hard-to-scan BIP21 QR codes.
 
 ## Basics
 
@@ -15,7 +25,7 @@ For instance, instead of:
 
 - Chaining a Bitcoin -> Lightning Submarine Swap with a Lightning -> Liquid
   Reverse Swap, swap clients can instead use a Bitcoin -> Liquid Chain Swap
-- Chaining a Liquid -> Lightning swaps with a Lightning -> Liquid swap, swap
+- Chaining a Liquid -> Lightning swap with a Lightning -> Liquid swap, swap
   clients can directly send a Liquid transaction to the receiver
 
 The only data that the receiver and sender share in these scenarios is the
@@ -42,11 +52,23 @@ additional steps that the receiver must take:
   the magic routing hint with the specific channel id and the claim public key
   in the node public key field.
 
+### Wallet Requirements
+
+- Use a **separate wallet** dedicated for swaps to avoid accidental address
+  reuse, which can cause MRH payments to be falsely marked as settled
+- Use a custom derivation path if you plan to let your users export the wallet
+  for use elsewhere
+
 It is the client's responsibility to handle payments to magic routing hint
 addresses. To help clients detect these transactions as quickly as possible, we
 emit [a WebSocket event](api-v2#magic-routing-hints) when we observe a
 transaction in the mempool to the MRH address for a swap the client is
 subscribed to.
+
+Boltz emits a `transaction.direct` status update for MRH transactions related to
+a specific swap. While these status updates are provided for convenience, swap
+clients should **not** use these as the sole source of truth and always
+independently verify transactions onchain before marking a swap as settled.
 
 ## Steps For The Sender
 
@@ -62,7 +84,7 @@ routing hint is found, then:
 - Extract the address from the BIP21, hash the address, and verify the signature
   returned in the API call against the public key in the magic routing hint.
 - Verify the amount of the BIP21 before paying to it. On Liquid, the asset id
-  should be verified, too.
+  must be verified, too.
 
 <figure><img src="./assets/mrh.svg" alt=""><figcaption><p>Sequence Diagram for Receiver and Sender MRH flows</p></figcaption></figure>
 

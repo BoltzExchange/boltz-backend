@@ -15,6 +15,7 @@ pub struct ApiError {
     pub error: String,
 }
 
+#[derive(Debug)]
 pub struct AxumError(StatusCode, anyhow::Error);
 
 impl AxumError {

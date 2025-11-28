@@ -1,11 +1,13 @@
 use crate::chain::types::Type;
 use crate::chain::utils::{Outpoint, Transaction};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_core::Network;
 use elements::ZeroConfToolConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::{broadcast, oneshot};
 
 pub mod bumper;
@@ -62,6 +64,7 @@ pub trait Client: BaseClient {
     /// Returns the end height of the rescan
     async fn rescan(
         &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
         start_height: u64,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,

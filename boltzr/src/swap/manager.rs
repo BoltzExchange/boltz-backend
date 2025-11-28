@@ -6,6 +6,7 @@ use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
+use crate::db::helpers::chain_tip::{ChainTipHelper, ChainTipHelperDatabase};
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
@@ -175,6 +176,8 @@ impl SwapManager for Manager {
         &self,
         options: Option<Vec<RescanChainOptions>>,
     ) -> Result<Vec<RescanChainResult>> {
+        let chain_tip_repo = Arc::new(ChainTipHelperDatabase::new(self.pool.clone()));
+
         let clients = match options {
             Some(options) => {
                 let mut clients = Vec::new();
@@ -197,8 +200,34 @@ impl SwapManager for Manager {
 
                 clients
             }
-            // TODO: rescan all chains including mempool starting from the last known height
-            None => return Ok(Vec::new()),
+            None => {
+                let chain_tips = chain_tip_repo.get_all()?;
+
+                self.currencies
+                    .iter()
+                    .filter_map(|(symbol, currency)| {
+                        let client = match currency.chain.clone() {
+                            Some(client) => client,
+                            None => return None,
+                        };
+
+                        let start_height = chain_tips
+                            .iter()
+                            .find(|chaintip| chaintip.symbol == *symbol)
+                            .map(|chaintip| chaintip.height)
+                            .unwrap_or(0) as u64;
+
+                        Some((
+                            RescanChainOptions {
+                                symbol: symbol.clone(),
+                                start_height,
+                                include_mempool: true,
+                            },
+                            client,
+                        ))
+                    })
+                    .collect()
+            }
         };
 
         info!(
@@ -234,7 +263,10 @@ impl SwapManager for Manager {
 
                 (
                     client.symbol(),
-                    match client.rescan(option.start_height, inputs, outputs).await {
+                    match client
+                        .rescan(chain_tip_repo.clone(), option.start_height, inputs, outputs)
+                        .await
+                    {
                         Ok(end_height) => {
                             if option.include_mempool {
                                 if let Err(err) = client.scan_mempool(inputs, outputs).await {

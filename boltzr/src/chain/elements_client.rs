@@ -4,6 +4,7 @@ use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{BlockchainInfo, NetworkInfo, RawTransactionVerbose, Type};
 use crate::chain::utils::{Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -120,12 +121,18 @@ impl Client for ElementsClient {
 
     async fn rescan(
         &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
         start_height: u64,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
     ) -> anyhow::Result<u64> {
         self.wallet_client()
-            .rescan(start_height, relevant_inputs, relevant_outputs)
+            .rescan(
+                chain_tip_repo,
+                start_height,
+                relevant_inputs,
+                relevant_outputs,
+            )
             .await
     }
 

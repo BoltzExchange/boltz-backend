@@ -24,6 +24,8 @@ pub struct ZmqClient {
     pub tx_sender: Sender<Transaction>,
 }
 
+// TODO: block receiver
+
 impl ZmqClient {
     pub fn new(client_type: Type, network: Network, config: Config) -> ZmqClient {
         let (tx_sender, _) = broadcast::channel::<Transaction>(ZMQ_TX_CHANNEL_SIZE);

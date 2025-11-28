@@ -8,10 +8,12 @@ use crate::chain::types::{
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
@@ -196,6 +198,7 @@ impl Client for ChainClient {
 
     async fn rescan(
         &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
         start_height: u64,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
@@ -321,9 +324,9 @@ impl Client for ChainClient {
             };
 
             debug!(
-                "Rescanning block {} of {} chain with {} transactions",
-                height,
+                "Rescanning {} block {} chain with {} transactions",
                 self.client.symbol,
+                height,
                 block.transactions.len()
             );
 
@@ -334,6 +337,7 @@ impl Client for ChainClient {
             }
         }
 
+        chain_tip_repo.set_height(&self.symbol(), end_height as i32)?;
         info!(
             "Rescanned {} chain from height {} to {} and found {} relevant transactions",
             self.client.symbol, start_height, end_height, relevant_tx_count
@@ -424,7 +428,7 @@ impl Client for ChainClient {
         }
         drop(tx);
 
-        let mut relevant_txs = Vec::new();
+        let mut relevant_tx_count: u64 = 0;
 
         let mut i = 0;
         loop {
@@ -434,7 +438,7 @@ impl Client for ChainClient {
             };
             let tx = Transaction::parse_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
-                relevant_txs.push(tx);
+                relevant_tx_count += 1;
             }
 
             i += 1;
@@ -451,11 +455,10 @@ impl Client for ChainClient {
             mempool_size, self.client.symbol
         );
 
-        if !relevant_txs.is_empty() {
+        if relevant_tx_count > 0 {
             info!(
                 "Found {} relevant transactions in mempool of {} chain",
-                relevant_txs.len(),
-                self.client.symbol
+                relevant_tx_count, self.client.symbol
             );
         }
 

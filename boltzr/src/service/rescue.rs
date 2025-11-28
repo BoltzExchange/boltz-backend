@@ -1,3 +1,4 @@
+use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
@@ -390,6 +391,7 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
 }
 
 pub struct SwapRescue {
+    cache: Cache,
     currencies: Currencies,
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
@@ -398,12 +400,14 @@ pub struct SwapRescue {
 
 impl SwapRescue {
     pub fn new(
+        cache: Cache,
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
         currencies: Currencies,
     ) -> SwapRescue {
         Self {
+            cache,
             currencies,
             swap_helper,
             chain_swap_helper,
@@ -412,13 +416,14 @@ impl SwapRescue {
     }
 
     #[instrument(name = "SwapRescue::rescue", skip_all)]
-    pub fn rescue(&self, iterator: Box<dyn PubkeyIterator>) -> Result<Vec<RescuableSwap>> {
+    pub fn rescue(&self, iterator: Box<dyn PubkeyIterator + Send>) -> Result<Vec<RescuableSwap>> {
         debug!("Scanning for rescuable swaps for {}", iterator.identifier());
 
         let mut rescuable = self.scan_swaps(
             iterator,
             vec![SwapType::Submarine, SwapType::Chain],
             Self::process_rescuable_swaps,
+            None,
         )?;
 
         rescuable.sort_by(|a, b| {
@@ -431,7 +436,7 @@ impl SwapRescue {
     }
 
     #[instrument(name = "SwapRescue::restore", skip_all)]
-    pub fn restore(&self, iterator: Box<dyn PubkeyIterator>) -> Result<Vec<RestorableSwap>> {
+    pub fn restore(&self, iterator: Box<dyn PubkeyIterator + Send>) -> Result<Vec<RestorableSwap>> {
         debug!(
             "Scanning for restorable swaps for {}",
             iterator.identifier()
@@ -441,6 +446,7 @@ impl SwapRescue {
             iterator,
             vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
             Self::process_restorable_swaps,
+            None,
         )?;
 
         restorable.sort_by(|a, b| {
@@ -458,17 +464,28 @@ impl SwapRescue {
         Ok(restorable)
     }
 
+    /// Returns the highest key index for the given iterator.
+    /// If no swaps are found, returns -1.
     #[instrument(name = "SwapRescue::index", skip_all)]
-    pub fn index(&self, iterator: Box<dyn PubkeyIterator>) -> Result<i64> {
+    pub async fn index(&self, iterator: Box<dyn PubkeyIterator + Send>) -> Result<i64> {
+        let identifier = iterator.identifier();
+        debug!("Scanning for highest key index for {}", identifier);
+
+        let cache_key = Self::cache_key_index(&identifier);
+        let start_index = self.cache.get::<u32>(cache_key.0, cache_key.1).await?;
         debug!(
-            "Scanning for highest key index for {}",
-            iterator.identifier()
+            "Starting index for {} is {}",
+            identifier,
+            start_index.unwrap_or(0)
         );
 
         let restorable = self.scan_swaps(
             iterator,
             vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
             Self::process_restorable_swaps,
+            // Bump the start index by 1 to avoid scanning the same key index again
+            // Which could cause the other key of the chain swap not to be there
+            start_index.map(|i| i + 1),
         )?;
 
         let highest_index = restorable
@@ -486,7 +503,24 @@ impl SwapRescue {
             })
             .max();
 
-        Ok(highest_index.map(|i| i as i64).unwrap_or(-1))
+        if let Some(highest_index) = highest_index {
+            self.cache
+                .set::<u32>(
+                    cache_key.0,
+                    cache_key.1,
+                    &highest_index,
+                    Some(60 * 60 * 24 * 30), // 1 month; no harm in caching for a while
+                )
+                .await?;
+        }
+
+        Ok(match highest_index {
+            Some(index) => index as i64,
+            None => match start_index {
+                Some(index) => index as i64,
+                None => -1,
+            },
+        })
     }
 
     fn scan_swaps<R, F>(
@@ -494,6 +528,7 @@ impl SwapRescue {
         iterator: Box<dyn PubkeyIterator>,
         swap_types: Vec<SwapType>,
         process: F,
+        start_index: Option<u32>,
     ) -> Result<Vec<R>>
     where
         R: Identifiable,
@@ -525,7 +560,7 @@ impl SwapRescue {
             return Ok(vec![]);
         }
 
-        for from in (0..).step_by(gap_limit as usize) {
+        for from in (start_index.unwrap_or(0)..).step_by(gap_limit as usize) {
             let to = from + gap_limit;
 
             trace!(
@@ -848,11 +883,16 @@ impl SwapRescue {
             )
             .ok_or_else(|| anyhow!("no key mapping for {}", id))?)
     }
+
+    fn cache_key_index(identifier: &str) -> (&'static str, &str) {
+        ("rescue:index", identifier)
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::cache::MemCache;
     use crate::currencies::Currency;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
@@ -996,6 +1036,7 @@ mod test {
             .times(1);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(MockReverseSwapHelper::new()),
@@ -1162,6 +1203,7 @@ mod test {
             .times(1);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1362,6 +1404,7 @@ mod test {
         }
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1555,6 +1598,7 @@ mod test {
             .times(1);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1574,6 +1618,7 @@ mod test {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let index = rescue
             .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
             .unwrap();
 
         assert_eq!(index, -1);
@@ -1610,6 +1655,7 @@ mod test {
             .times(2);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1629,6 +1675,7 @@ mod test {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let index = rescue
             .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
             .unwrap();
 
         assert_eq!(index, 0);
@@ -1662,6 +1709,7 @@ mod test {
         }
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1697,6 +1745,7 @@ mod test {
         .unwrap();
         let index = rescue
             .index(Box::new(SingleKeyIterator::new(pubkey)))
+            .await
             .unwrap();
 
         assert_eq!(index, 0);
@@ -1770,6 +1819,7 @@ mod test {
             .times(2);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1802,6 +1852,7 @@ mod test {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let index = rescue
             .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
             .unwrap();
 
         assert_eq!(index, 11);
@@ -1857,6 +1908,7 @@ mod test {
             .times(1);
 
         let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
@@ -1889,8 +1941,157 @@ mod test {
         let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
         let index = rescue
             .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
             .unwrap();
 
         assert_eq!(index, 11);
+    }
+
+    #[tokio::test]
+    async fn test_index_caching() {
+        let tree = get_test_tree();
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+
+        let mut swap1 = get_test_swap(tree.clone());
+        swap1.id = "swap1".to_string();
+        swap1.keyIndex = Some(5);
+
+        let mut swap2 = get_test_swap(tree.clone());
+        swap2.id = "swap2".to_string();
+        swap2.keyIndex = Some(10);
+        swap2.refundPublicKey =
+            Some("02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b".to_string());
+
+        let mut swap_helper = MockSwapHelper::new();
+        {
+            let swap1 = swap1.clone();
+            swap_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap1.clone()]))
+                .times(1);
+        }
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        {
+            let swap2 = swap2.clone();
+            swap_helper
+                .expect_get_all_nullable()
+                .returning(move |_| Ok(vec![swap2.clone()]))
+                .times(1);
+        }
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(4);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(4);
+
+        let cache = Cache::Memory(MemCache::new());
+        let rescue = SwapRescue::new(
+            cache.clone(),
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([(
+                crate::chain::elements_client::SYMBOL.to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(get_liquid_wallet()),
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            )])),
+        );
+
+        let index1 = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
+            .unwrap();
+        assert_eq!(index1, 0);
+
+        let identifier = XpubIterator::new(xpub, None, None).unwrap().identifier();
+        let cache_key = SwapRescue::cache_key_index(&identifier);
+        let cached_value = cache.get::<u32>(cache_key.0, cache_key.1).await.unwrap();
+        assert_eq!(cached_value, Some(0));
+
+        let index2 = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
+            .unwrap();
+        assert_eq!(index2, 11);
+
+        let cached_value: Option<u32> = cache.get(cache_key.0, cache_key.1).await.unwrap();
+        assert_eq!(cached_value, Some(11));
+    }
+
+    #[tokio::test]
+    async fn test_index_returns_cached_value_when_no_new_swaps() {
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        chain_helper
+            .expect_get_by_data_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let cache = Cache::Memory(MemCache::new());
+        let xpub = Xpub::from_str("xpub661MyMwAqRbcGXPykvqCkK3sspTv2iwWTYpY9gBewku5Noj96ov1EqnKMDzGN9yPsncpRoUymJ7zpJ7HQiEtEC9Af2n3DmVu36TSV4oaiym").unwrap();
+        let identifier = XpubIterator::new(xpub, None, None).unwrap().identifier();
+
+        let cache_value = 42;
+        let cache_key = SwapRescue::cache_key_index(&identifier);
+        cache
+            .set::<u32>(cache_key.0, cache_key.1, &cache_value, None)
+            .await
+            .unwrap();
+
+        let rescue = SwapRescue::new(
+            cache,
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([(
+                crate::chain::elements_client::SYMBOL.to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: Some(get_liquid_wallet()),
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            )])),
+        );
+
+        let index = rescue
+            .index(Box::new(XpubIterator::new(xpub, None, None).unwrap()))
+            .await
+            .unwrap();
+        assert_eq!(index, cache_value as i64);
     }
 }

@@ -44,6 +44,7 @@ impl Service {
     ) -> Self {
         Self {
             swap_rescue: SwapRescue::new(
+                cache.clone(),
                 swap_helper,
                 chain_swap_helper,
                 reverse_swap_helper,
@@ -168,6 +169,7 @@ pub mod test {
 
             Self {
                 swap_rescue: SwapRescue::new(
+                    Cache::Memory(MemCache::new()),
                     Arc::new(swap_helper),
                     Arc::new(chain_swap_helper),
                     Arc::new(reverse_swap_helper),

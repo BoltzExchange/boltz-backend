@@ -59,13 +59,22 @@ pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;
     fn network(&self) -> Network;
 
+    /// Returns the end height of the rescan
+    async fn rescan(
+        &self,
+        start_height: u64,
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+    ) -> Result<u64>;
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
-    ) -> Result<Vec<Transaction>>;
+    ) -> Result<()>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+    async fn blockchain_info(&self) -> Result<types::BlockchainInfo>;
 
     /// Fee estimation in sat/vbyte
     async fn estimate_fee(&self) -> Result<f64>;

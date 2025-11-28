@@ -20,6 +20,11 @@ pub enum Transaction {
     Elements(elements::Transaction),
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct Block {
+    pub transactions: Vec<Transaction>,
+}
+
 pub fn encode_address(
     address_type: Type,
     script_pubkey: Vec<u8>,
@@ -159,6 +164,37 @@ impl Transaction {
                 .filter(|o| !o.script_pubkey.is_empty())
                 .map(|o| o.script_pubkey.to_bytes())
                 .collect(),
+        }
+    }
+}
+
+impl Block {
+    pub fn parse_hex(block_type: &Type, block: &str) -> anyhow::Result<Block> {
+        Self::parse(block_type, &hex::decode(block)?)
+    }
+
+    pub fn parse(block_type: &Type, block: &[u8]) -> anyhow::Result<Block> {
+        match block_type {
+            Type::Bitcoin => {
+                let block: bitcoin::Block = bitcoin::consensus::deserialize(block)?;
+                Ok(Block {
+                    transactions: block
+                        .txdata
+                        .into_iter()
+                        .map(|tx| Transaction::Bitcoin(tx))
+                        .collect(),
+                })
+            }
+            Type::Elements => {
+                let block: elements::Block = elements::encode::deserialize(block)?;
+                Ok(Block {
+                    transactions: block
+                        .txdata
+                        .into_iter()
+                        .map(|tx| Transaction::Elements(tx))
+                        .collect(),
+                })
+            }
         }
     }
 }

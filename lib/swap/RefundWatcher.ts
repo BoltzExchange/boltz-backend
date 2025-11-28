@@ -1,6 +1,6 @@
 import AsyncLock from 'async-lock';
 import type Logger from '../Logger';
-import { formatError, getHexBuffer, reverseBuffer } from '../Utils';
+import { formatError } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type RefundTransaction from '../db/models/RefundTransaction';
@@ -74,15 +74,6 @@ class RefundWatcher extends TypedEventEmitter<{
     this.logger.debug(
       `Refund transaction of ${swapTypeToPrettyString(swap.type)} swap ${swap.id} confirmed: ${tx.id}`,
     );
-
-    if (
-      refundCurrency.type === CurrencyType.BitcoinLike ||
-      refundCurrency.type === CurrencyType.Liquid
-    ) {
-      refundCurrency.chainClient?.removeInputFilter(
-        reverseBuffer(getHexBuffer(swap.serverLockupTransactionId!)),
-      );
-    }
 
     await RefundTransactionRepository.setStatus(
       swap.id,

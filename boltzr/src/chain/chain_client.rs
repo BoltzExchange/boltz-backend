@@ -2,13 +2,14 @@ use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, Type,
-    ZmqNotification,
+    BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate,
+    Type, ZmqNotification,
 };
-use crate::chain::utils::{Outpoint, Transaction};
+use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
 use crate::wallet::Network;
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::HashSet;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
@@ -17,7 +18,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
 const MAX_WORKERS: usize = 16;
-const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
+const BATCH_REQUEST_SIZE: usize = 64;
+const CHANNEL_BUFFER_SIZE: usize = 1_024;
+
 const BTC_KVB_SAT_VBYTE_FACTOR: u64 = 100_000;
 
 const CACHE_TTL_SECS: u64 = 60 * 60 * 24;
@@ -189,11 +192,161 @@ impl Client for ChainClient {
         self.network
     }
 
+    // TODO: push relevant txs of rescans out via tx receiver
+
+    async fn rescan(
+        &self,
+        start_height: u64,
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+    ) -> anyhow::Result<u64> {
+        info!(
+            "Rescanning {} chain from height {}",
+            self.client.symbol, start_height
+        );
+
+        let end_height = match self.blockchain_info().await {
+            Ok(info) => info.blocks,
+            Err(err) => {
+                return Err(anyhow!("failed to get blockchain info: {}", err));
+            }
+        };
+
+        if start_height > end_height {
+            return Err(anyhow!("start height is greater than end height"));
+        }
+
+        let self_cp = self.clone();
+        let (tx_blockhash, mut rx_blockhash) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
+        tokio::spawn(async move {
+            for height in (start_height..=end_height).step_by(BATCH_REQUEST_SIZE) {
+                let heights = (height
+                    ..=std::cmp::min(height + BATCH_REQUEST_SIZE as u64 - 1, end_height))
+                    .collect::<Vec<_>>();
+
+                let block_hashes = match self_cp
+                    .client
+                    .request_batch::<String>(
+                        "getblockhash",
+                        &heights
+                            .iter()
+                            .map(|height| vec![RpcParam::Int(*height as i64)])
+                            .collect::<Vec<_>>(),
+                    )
+                    .await
+                {
+                    Ok(block_hashes) => block_hashes,
+                    Err(err) => {
+                        error!("Failed to get block hashes: {}", err);
+                        break;
+                    }
+                };
+
+                let result = heights
+                    .into_iter()
+                    .zip(block_hashes)
+                    .filter_map(|(height, block_hash_result)| match block_hash_result {
+                        Ok(hash) => Some((height, hash)),
+                        Err(err) => {
+                            error!("Failed to get block hash for height {}: {}", height, err);
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if let Err(err) = tx_blockhash.send(result).await {
+                    error!("Failed to send block hashes to channel: {}", err);
+                    break;
+                }
+            }
+        });
+
+        let self_cp = self.clone();
+        let (tx_block, mut rx_block) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
+        tokio::spawn(async move {
+            loop {
+                let blockhashes = match rx_blockhash.recv().await {
+                    Some(blockhashes) => blockhashes,
+                    None => break,
+                };
+
+                let blocks = match self_cp
+                    .client
+                    .request_batch::<String>(
+                        "getblock",
+                        &blockhashes
+                            .iter()
+                            .map(|(_, hash)| vec![RpcParam::Str(hash), RpcParam::Int(0)])
+                            .collect::<Vec<_>>(),
+                    )
+                    .await
+                {
+                    Ok(blocks) => blocks,
+                    Err(err) => {
+                        error!("Failed to get blocks: {}", err);
+                        break;
+                    }
+                };
+
+                for ((height, _), block) in blockhashes.into_iter().zip(blocks) {
+                    match block {
+                        Ok(block) => {
+                            if let Err(err) = tx_block.send((height, block)).await {
+                                error!("Failed to send block to channel: {}", err);
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            error!("Failed to get block: {}", err);
+                        }
+                    }
+                }
+            }
+        });
+
+        let mut relevant_tx_count: u64 = 0;
+
+        loop {
+            let (height, block) = match rx_block.recv().await {
+                Some(block) => block,
+                None => break,
+            };
+
+            let block = match Block::parse_hex(&self_cp.client_type, &block) {
+                Ok(block) => block,
+                Err(err) => {
+                    error!("Failed to parse block {}: {}", height, err);
+                    continue;
+                }
+            };
+
+            debug!(
+                "Rescanning block {} of {} chain with {} transactions",
+                height,
+                self.client.symbol,
+                block.transactions.len()
+            );
+
+            for tx in block.transactions {
+                if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
+                    relevant_tx_count += 1;
+                }
+            }
+        }
+
+        info!(
+            "Rescanned {} chain from height {} to {} and found {} relevant transactions",
+            self.client.symbol, start_height, end_height, relevant_tx_count
+        );
+
+        Ok(end_height)
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
-    ) -> anyhow::Result<Vec<Transaction>> {
+    ) -> anyhow::Result<()> {
         info!("Scanning mempool of {} chain", self.client.symbol);
 
         let mempool = self
@@ -204,10 +357,10 @@ impl Client for ChainClient {
 
         if mempool_size == 0 {
             debug!("Mempool of {} chain is empty", self.client.symbol);
-            return Ok(Vec::default());
+            return Ok(());
         }
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel(1_024);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         let fetcher_threads = std::cmp::min(num_cpus::get() / 2, MAX_WORKERS);
         debug!(
@@ -220,7 +373,7 @@ impl Client for ChainClient {
             let chunk = chunk.to_vec();
 
             tokio::spawn(async move {
-                let tx_chunks = chunk.chunks(MEMPOOL_FETCH_CHUNK_SIZE);
+                let tx_chunks = chunk.chunks(BATCH_REQUEST_SIZE);
                 for tx_ids in tx_chunks {
                     let txs_hex = match self_cp
                         .client
@@ -306,11 +459,15 @@ impl Client for ChainClient {
             );
         }
 
-        Ok(relevant_txs)
+        Ok(())
     }
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.client.request("getnetworkinfo", None).await
+    }
+
+    async fn blockchain_info(&self) -> anyhow::Result<BlockchainInfo> {
+        self.client.request("getblockchaininfo", None).await
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {

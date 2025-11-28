@@ -8,18 +8,32 @@ use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
+use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::SwapType;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
+use crate::swap::utxo_nursery::UtxoNursery;
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use futures_util::future::try_join_all;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
+
+pub struct RescanChainOptions {
+    pub symbol: String,
+    pub start_height: u64,
+    pub include_mempool: bool,
+}
+
+pub struct RescanChainResult {
+    pub symbol: String,
+    pub start_height: u64,
+    pub end_height: u64,
+}
 
 #[async_trait]
 pub trait SwapManager {
@@ -34,10 +48,10 @@ pub trait SwapManager {
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
 
-    async fn scan_mempool(
+    async fn rescan_chains(
         &self,
-        symbols: Option<Vec<String>>,
-    ) -> Result<HashMap<String, Vec<Transaction>>>;
+        options: Option<Vec<RescanChainOptions>>,
+    ) -> Result<Vec<RescanChainResult>>;
 }
 
 #[derive(Clone)]
@@ -101,6 +115,12 @@ impl Manager {
             self.reverse_swap_repo.clone(),
             self.update_tx.clone(),
         );
+        let nursery = UtxoNursery::new(
+            self.cancellation_token.clone(),
+            Arc::new(ScriptPubKeyHelperDatabase::new(self.pool.clone())),
+            self.currencies.clone(),
+        );
+
         let currencies = self.currencies.clone();
 
         try_join_all([
@@ -112,6 +132,9 @@ impl Manager {
             }),
             tokio::spawn(async move {
                 watcher.start(&currencies).await;
+            }),
+            tokio::spawn(async move {
+                nursery.start().await;
             }),
         ])
         .await
@@ -148,40 +171,49 @@ impl SwapManager for Manager {
         self.update_tx.subscribe()
     }
 
-    async fn scan_mempool(
+    async fn rescan_chains(
         &self,
-        symbols: Option<Vec<String>>,
-    ) -> Result<HashMap<String, Vec<Transaction>>> {
-        let chain_clients = match symbols {
-            Some(symbols) => {
+        options: Option<Vec<RescanChainOptions>>,
+    ) -> Result<Vec<RescanChainResult>> {
+        let clients = match options {
+            Some(options) => {
                 let mut clients = Vec::new();
-                for symbol in symbols {
-                    match self.currencies.get(&symbol) {
+                for option in options {
+                    match self.currencies.get(&option.symbol) {
                         Some(cur) => match cur.chain.clone() {
                             Some(client) => {
-                                clients.push(client);
+                                clients.push((option, client));
                             }
-                            None => return Err(anyhow!("no chain client for currency {}", symbol)),
+                            None => {
+                                return Err(anyhow!(
+                                    "no chain client for currency {}",
+                                    option.symbol
+                                ));
+                            }
                         },
-                        None => return Err(anyhow!("no currency for {}", symbol)),
+                        None => return Err(anyhow!("no currency for {}", option.symbol)),
                     }
                 }
 
                 clients
             }
-            None => self
-                .currencies
-                .values()
-                .filter_map(|cur| cur.chain.clone())
-                .collect(),
+            // TODO: rescan all chains including mempool starting from the last known height
+            None => return Ok(Vec::new()),
         };
 
         info!(
-            "Rescanning mempool of chains: {:?}",
-            chain_clients
+            "Rescanning chains: {}",
+            clients
                 .iter()
-                .map(|client| client.symbol())
+                .map(|(option, _)| {
+                    let mut symbol = option.symbol.clone();
+                    if option.include_mempool {
+                        symbol.push_str(" (with mempool)");
+                    }
+                    symbol
+                })
                 .collect::<Vec<String>>()
+                .join(", ")
         );
 
         let filters = get_input_output_filters(
@@ -190,34 +222,52 @@ impl SwapManager for Manager {
             &self.reverse_swap_repo,
             &self.chain_swap_repo,
         )?;
-        let results = futures::future::join_all(chain_clients.iter().map(|client| async {
-            let (inputs, outputs) = match filters.get(&client.symbol()) {
-                Some(filters) => filters,
-                // No need to actually scan when there is nothing to scan for
-                None => {
-                    debug!(
-                        "Not rescanning mempool of {} because the filters are empty",
-                        client.symbol()
-                    );
-                    return (client.symbol(), Ok(Vec::default()));
-                }
-            };
+        let scan_results =
+            futures::future::join_all(clients.iter().map(|(option, client)| async {
+                let (inputs, outputs) = match filters.get(&client.symbol()) {
+                    Some(filters) => filters,
+                    None => {
+                        debug!("Filters for {} are empty", client.symbol());
+                        &(HashSet::new(), HashSet::new())
+                    }
+                };
 
-            (client.symbol(), client.scan_mempool(inputs, outputs).await)
-        }))
-        .await;
+                (
+                    client.symbol(),
+                    match client.rescan(option.start_height, inputs, outputs).await {
+                        Ok(end_height) => {
+                            if option.include_mempool {
+                                if let Err(err) = client.scan_mempool(inputs, outputs).await {
+                                    return (
+                                        client.symbol(),
+                                        Err(anyhow!("failed to scan mempool: {}", err)),
+                                    );
+                                }
+                            }
 
-        let mut transactions = HashMap::new();
-        for (symbol, result) in results {
+                            Ok(RescanChainResult {
+                                symbol: client.symbol(),
+                                start_height: option.start_height,
+                                end_height,
+                            })
+                        }
+                        Err(err) => Err(err),
+                    },
+                )
+            }))
+            .await;
+
+        let mut res = Vec::new();
+        for (symbol, result) in scan_results {
             match result {
-                Ok(txs) => {
-                    transactions.insert(symbol, txs);
+                Ok(result) => {
+                    res.push(result);
                 }
-                Err(err) => return Err(anyhow!("mempool rescan of {} failed: {}", symbol, err)),
+                Err(err) => return Err(anyhow!("rescan of {} failed: {}", symbol, err)),
             }
         }
 
-        Ok(transactions)
+        Ok(res)
     }
 }
 

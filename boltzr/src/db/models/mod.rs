@@ -16,6 +16,7 @@ mod offer;
 mod referral;
 mod refund_transaction;
 mod reverse_swap;
+mod script_pubkey;
 mod swap;
 mod web_hook;
 
@@ -25,6 +26,7 @@ pub use offer::*;
 pub use referral::*;
 pub use refund_transaction::*;
 pub use reverse_swap::*;
+pub use script_pubkey::*;
 pub use swap::*;
 pub use web_hook::*;
 

@@ -72,6 +72,11 @@ pub struct NetworkInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct BlockchainInfo {
+    pub blocks: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SmartFeeEstimate {
     pub feerate: f64,
 }

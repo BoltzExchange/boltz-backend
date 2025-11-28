@@ -3,14 +3,13 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
-use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
     Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
     DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
     GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
-    LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
+    LogLevel, RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
     SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
     SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
     StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
@@ -20,7 +19,7 @@ use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
 use crate::service::Service;
-use crate::swap::manager::SwapManager;
+use crate::swap::manager::{RescanChainOptions, SwapManager};
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
 use alloy::primitives::{Address, FixedBytes};
@@ -39,7 +38,7 @@ use tokio::sync::{Mutex, mpsc};
 use tonic::codegen::tokio_stream::Stream;
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tonic::{Code, Request, Response, Status, Streaming};
-use tracing::{debug, error, instrument, trace};
+use tracing::{debug, error, info, instrument, trace};
 
 pub mod boltzr {
     tonic::include_proto!("boltzr");
@@ -632,37 +631,40 @@ where
         }
     }
 
-    #[instrument(name = "grpc::scan_mempool", skip_all)]
-    async fn scan_mempool(
+    #[instrument(name = "grpc::rescan_chains", skip_all)]
+    async fn rescan_chains(
         &self,
-        request: Request<ScanMempoolRequest>,
-    ) -> Result<Response<ScanMempoolResponse>, Status> {
-        let params = request.into_inner();
-        let res = match self
-            .manager
-            .scan_mempool(if params.symbols.is_empty() {
-                None
-            } else {
-                Some(params.symbols)
-            })
-            .await
-        {
-            Ok(transactions) => transactions,
+        request: Request<RescanChainsRequest>,
+    ) -> Result<Response<RescanChainsResponse>, Status> {
+        let chains = request.into_inner().chains;
+
+        let options = match chains.is_empty() {
+            true => None,
+            false => Some(
+                chains
+                    .into_iter()
+                    .map(|chain| RescanChainOptions {
+                        symbol: chain.symbol,
+                        start_height: chain.start_height,
+                        include_mempool: chain.include_mempool.unwrap_or(true),
+                    })
+                    .collect(),
+            ),
+        };
+        let res = match self.manager.rescan_chains(options).await {
+            Ok(res) => res,
             Err(err) => return Err(Status::new(Code::Internal, err.to_string())),
         };
 
-        let mut transaction_serialized = HashMap::new();
-        for (symbol, transactions) in res {
-            transaction_serialized.insert(
-                symbol,
-                Transactions {
-                    raw: transactions.iter().map(|tx| tx.serialize()).collect(),
-                },
-            );
-        }
-
-        Ok(Response::new(ScanMempoolResponse {
-            transactions: transaction_serialized,
+        Ok(Response::new(RescanChainsResponse {
+            results: res
+                .into_iter()
+                .map(|result| boltzr::rescan_chains_response::Result {
+                    symbol: result.symbol,
+                    start_height: result.start_height,
+                    end_height: result.end_height,
+                })
+                .collect(),
         }))
     }
 }

@@ -23,7 +23,7 @@ service BoltzR {
 
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
-  rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
+  rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
 }
 
 message GetInfoRequest {}
@@ -229,14 +229,23 @@ message IsMarkedResponse {
   bool is_marked = 1;
 }
 
-message ScanMempoolRequest {
-  repeated string symbols = 1;
-}
-
-message ScanMempoolResponse {
-  message Transactions {
-    repeated bytes raw = 1;
+message RescanChainsRequest {
+  message ChainRescan {
+    string symbol = 1;
+    uint64 start_height = 2;
+    optional bool include_mempool = 3;
   }
 
-  map<string, Transactions> transactions = 1;
+  // If none are provided, all chains will be rescanned
+  repeated ChainRescan chains = 1;
+}
+
+message RescanChainsResponse {
+  message Result {
+    string symbol = 1;
+    uint64 start_height = 2;
+    uint64 end_height = 3;
+  }
+
+  repeated Result results = 1;
 }

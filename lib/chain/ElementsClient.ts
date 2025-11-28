@@ -5,7 +5,6 @@ import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
 import type { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
 import { liquidSymbol } from '../consts/LiquidTypes';
-import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, IChainClient } from './ChainClient';
 import ChainClient from './ChainClient';
 
@@ -33,12 +32,11 @@ class ElementsClient
 
   constructor(
     logger: Logger,
-    sidecar: Sidecar,
     network: string,
     config: ChainConfig,
     public readonly isLowball = false,
   ) {
-    super(logger, sidecar, network, config, ElementsClient.symbol);
+    super(logger, network, config, ElementsClient.symbol);
     this.feeFloor = ElementsClient.feeFloor;
     this.currencyType = CurrencyType.Liquid;
   }

@@ -9,6 +9,7 @@ pub mod preimage_hash_triggers;
 pub mod referral;
 pub mod refund_transaction;
 pub mod reverse_swap;
+pub mod script_pubkey;
 pub mod swap;
 pub mod swap_update_trigger;
 pub mod web_hook;

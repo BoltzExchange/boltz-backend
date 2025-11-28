@@ -20,7 +20,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     signEvmRefund: IBoltzRService_ISignEvmRefund;
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     isMarked: IBoltzRService_IIsMarked;
-    scanMempool: IBoltzRService_IScanMempool;
+    rescanChains: IBoltzRService_IRescanChains;
 }
 
 interface IBoltzRService_IGetInfo extends grpc.MethodDefinition<boltzr_pb.GetInfoRequest, boltzr_pb.GetInfoResponse> {
@@ -131,14 +131,14 @@ interface IBoltzRService_IIsMarked extends grpc.MethodDefinition<boltzr_pb.IsMar
     responseSerialize: grpc.serialize<boltzr_pb.IsMarkedResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.IsMarkedResponse>;
 }
-interface IBoltzRService_IScanMempool extends grpc.MethodDefinition<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse> {
-    path: "/boltzr.BoltzR/ScanMempool";
+interface IBoltzRService_IRescanChains extends grpc.MethodDefinition<boltzr_pb.RescanChainsRequest, boltzr_pb.RescanChainsResponse> {
+    path: "/boltzr.BoltzR/RescanChains";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<boltzr_pb.ScanMempoolRequest>;
-    requestDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolRequest>;
-    responseSerialize: grpc.serialize<boltzr_pb.ScanMempoolResponse>;
-    responseDeserialize: grpc.deserialize<boltzr_pb.ScanMempoolResponse>;
+    requestSerialize: grpc.serialize<boltzr_pb.RescanChainsRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.RescanChainsRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.RescanChainsResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.RescanChainsResponse>;
 }
 
 export const BoltzRService: IBoltzRService;
@@ -156,7 +156,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     signEvmRefund: grpc.handleUnaryCall<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse>;
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
-    scanMempool: grpc.handleUnaryCall<boltzr_pb.ScanMempoolRequest, boltzr_pb.ScanMempoolResponse>;
+    rescanChains: grpc.handleUnaryCall<boltzr_pb.RescanChainsRequest, boltzr_pb.RescanChainsResponse>;
 }
 
 export interface IBoltzRClient {
@@ -194,9 +194,9 @@ export interface IBoltzRClient {
     isMarked(request: boltzr_pb.IsMarkedRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
-    scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    rescanChains(request: boltzr_pb.RescanChainsRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class BoltzRClient extends grpc.Client implements IBoltzRClient {
@@ -234,7 +234,7 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public isMarked(request: boltzr_pb.IsMarkedRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     public isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
     public isMarked(request: boltzr_pb.IsMarkedRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.IsMarkedResponse) => void): grpc.ClientUnaryCall;
-    public scanMempool(request: boltzr_pb.ScanMempoolRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
-    public scanMempool(request: boltzr_pb.ScanMempoolRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ScanMempoolResponse) => void): grpc.ClientUnaryCall;
+    public rescanChains(request: boltzr_pb.RescanChainsRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    public rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    public rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
 }

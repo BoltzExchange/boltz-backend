@@ -1178,11 +1178,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout!}`,
       );
 
-      chainClient.addInputFilter(transaction!.getHash());
-
-      // For the "transaction.confirmed" event of the lockup transaction
-      chainClient.addOutputFilter(wallet.decodeAddress(lockupAddress));
-
       this.emit('coins.sent', {
         transaction: transaction!,
         swap: await WrappedSwapRepository.setServerLockupTransaction(

@@ -997,71 +997,104 @@ export namespace IsMarkedResponse {
     }
 }
 
-export class ScanMempoolRequest extends jspb.Message { 
-    clearSymbolsList(): void;
-    getSymbolsList(): Array<string>;
-    setSymbolsList(value: Array<string>): ScanMempoolRequest;
-    addSymbols(value: string, index?: number): string;
+export class RescanChainsRequest extends jspb.Message { 
+    clearChainsList(): void;
+    getChainsList(): Array<RescanChainsRequest.ChainRescan>;
+    setChainsList(value: Array<RescanChainsRequest.ChainRescan>): RescanChainsRequest;
+    addChains(value?: RescanChainsRequest.ChainRescan, index?: number): RescanChainsRequest.ChainRescan;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ScanMempoolRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ScanMempoolRequest): ScanMempoolRequest.AsObject;
+    toObject(includeInstance?: boolean): RescanChainsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RescanChainsRequest): RescanChainsRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ScanMempoolRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ScanMempoolRequest;
-    static deserializeBinaryFromReader(message: ScanMempoolRequest, reader: jspb.BinaryReader): ScanMempoolRequest;
+    static serializeBinaryToWriter(message: RescanChainsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RescanChainsRequest;
+    static deserializeBinaryFromReader(message: RescanChainsRequest, reader: jspb.BinaryReader): RescanChainsRequest;
 }
 
-export namespace ScanMempoolRequest {
+export namespace RescanChainsRequest {
     export type AsObject = {
-        symbolsList: Array<string>,
-    }
-}
-
-export class ScanMempoolResponse extends jspb.Message { 
-
-    getTransactionsMap(): jspb.Map<string, ScanMempoolResponse.Transactions>;
-    clearTransactionsMap(): void;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ScanMempoolResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ScanMempoolResponse): ScanMempoolResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ScanMempoolResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ScanMempoolResponse;
-    static deserializeBinaryFromReader(message: ScanMempoolResponse, reader: jspb.BinaryReader): ScanMempoolResponse;
-}
-
-export namespace ScanMempoolResponse {
-    export type AsObject = {
-
-        transactionsMap: Array<[string, ScanMempoolResponse.Transactions.AsObject]>,
+        chainsList: Array<RescanChainsRequest.ChainRescan.AsObject>,
     }
 
 
-    export class Transactions extends jspb.Message { 
-        clearRawList(): void;
-        getRawList(): Array<Uint8Array | string>;
-        getRawList_asU8(): Array<Uint8Array>;
-        getRawList_asB64(): Array<string>;
-        setRawList(value: Array<Uint8Array | string>): Transactions;
-        addRaw(value: Uint8Array | string, index?: number): Uint8Array | string;
+    export class ChainRescan extends jspb.Message { 
+        getSymbol(): string;
+        setSymbol(value: string): ChainRescan;
+        getStartHeight(): number;
+        setStartHeight(value: number): ChainRescan;
+
+        hasIncludeMempool(): boolean;
+        clearIncludeMempool(): void;
+        getIncludeMempool(): boolean | undefined;
+        setIncludeMempool(value: boolean): ChainRescan;
 
         serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): Transactions.AsObject;
-        static toObject(includeInstance: boolean, msg: Transactions): Transactions.AsObject;
+        toObject(includeInstance?: boolean): ChainRescan.AsObject;
+        static toObject(includeInstance: boolean, msg: ChainRescan): ChainRescan.AsObject;
         static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
         static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: Transactions, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): Transactions;
-        static deserializeBinaryFromReader(message: Transactions, reader: jspb.BinaryReader): Transactions;
+        static serializeBinaryToWriter(message: ChainRescan, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): ChainRescan;
+        static deserializeBinaryFromReader(message: ChainRescan, reader: jspb.BinaryReader): ChainRescan;
     }
 
-    export namespace Transactions {
+    export namespace ChainRescan {
         export type AsObject = {
-            rawList: Array<Uint8Array | string>,
+            symbol: string,
+            startHeight: number,
+            includeMempool?: boolean,
+        }
+    }
+
+}
+
+export class RescanChainsResponse extends jspb.Message { 
+    clearResultsList(): void;
+    getResultsList(): Array<RescanChainsResponse.Result>;
+    setResultsList(value: Array<RescanChainsResponse.Result>): RescanChainsResponse;
+    addResults(value?: RescanChainsResponse.Result, index?: number): RescanChainsResponse.Result;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RescanChainsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RescanChainsResponse): RescanChainsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RescanChainsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RescanChainsResponse;
+    static deserializeBinaryFromReader(message: RescanChainsResponse, reader: jspb.BinaryReader): RescanChainsResponse;
+}
+
+export namespace RescanChainsResponse {
+    export type AsObject = {
+        resultsList: Array<RescanChainsResponse.Result.AsObject>,
+    }
+
+
+    export class Result extends jspb.Message { 
+        getSymbol(): string;
+        setSymbol(value: string): Result;
+        getStartHeight(): number;
+        setStartHeight(value: number): Result;
+        getEndHeight(): number;
+        setEndHeight(value: number): Result;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Result.AsObject;
+        static toObject(includeInstance: boolean, msg: Result): Result.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Result, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Result;
+        static deserializeBinaryFromReader(message: Result, reader: jspb.BinaryReader): Result;
+    }
+
+    export namespace Result {
+        export type AsObject = {
+            symbol: string,
+            startHeight: number,
+            endHeight: number,
         }
     }
 

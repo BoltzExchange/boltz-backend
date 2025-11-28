@@ -9,13 +9,7 @@ import type { ConfigType } from '../Config';
 import type Logger from '../Logger';
 import { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
-import {
-  formatError,
-  getChainCurrency,
-  getVersion,
-  splitPairId,
-  stringify,
-} from '../Utils';
+import { formatError, getVersion, stringify } from '../Utils';
 import type SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -29,6 +23,12 @@ import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
 
 type Update = { id: string; status: SwapUpdate };
+
+type RescanChainRequest = {
+  symbol: string;
+  startHeight: number;
+  includeMempool?: boolean;
+};
 
 type SidecarConfig = {
   path?: string;
@@ -507,25 +507,6 @@ class Sidecar extends BaseClient<
           return;
         }
 
-        const { base, quote } = splitPairId(swap.pair);
-        const chainCurrency = getChainCurrency(
-          base,
-          quote,
-          swap.orderSide,
-          false,
-        );
-
-        const currency =
-          this.eventHandler.nursery.currencies.get(chainCurrency);
-
-        if (currency !== undefined && currency.chainClient !== undefined) {
-          const wallet =
-            this.eventHandler.nursery.walletManager.wallets.get(chainCurrency)!;
-          currency.chainClient.removeOutputFilter(
-            wallet.decodeAddress(swap.lockupAddress),
-          );
-        }
-
         this.eventHandler.nursery.emit(
           SwapUpdateEvent.InvoiceFailedToPay,
           swap,
@@ -541,26 +522,26 @@ class Sidecar extends BaseClient<
     }
   };
 
-  public rescanMempool = async (symbols?: string[]) => {
-    const req = new sidecarrpc.ScanMempoolRequest();
-    if (symbols !== undefined) {
-      req.setSymbolsList(symbols);
+  /**
+   * Rescans one or more chains. If none are specified, all chains will be rescanned
+   * @param requests - The chains to rescan
+   */
+  public rescanChains = async (requests?: RescanChainRequest[]) => {
+    const req = new sidecarrpc.RescanChainsRequest();
+    for (const request of requests ?? []) {
+      const subReq = new sidecarrpc.RescanChainsRequest.ChainRescan();
+      subReq.setSymbol(request.symbol);
+      subReq.setStartHeight(request.startHeight);
+      if (request.includeMempool) {
+        subReq.setIncludeMempool(request.includeMempool);
+      }
+      req.addChains(subReq);
     }
 
-    const res = await this.unaryNodeCall<
-      sidecarrpc.ScanMempoolRequest,
-      sidecarrpc.ScanMempoolResponse.AsObject
-    >('scanMempool', req);
-
-    for (const [symbol, transactions] of res.transactionsMap) {
-      this.emit('transactions', {
-        symbol,
-        confirmed: false,
-        transactions: (transactions.rawList as string[]).map((tx) =>
-          Buffer.from(tx, 'base64'),
-        ),
-      });
-    }
+    return await this.unaryNodeCall<
+      sidecarrpc.RescanChainsRequest,
+      sidecarrpc.RescanChainsResponse.AsObject
+    >('rescanChains', req);
   };
 
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {

@@ -6,7 +6,6 @@ import { allSettledFirst } from '../PromiseUtils';
 import { formatError } from '../Utils';
 import { CurrencyType } from '../consts/Enums';
 import type { MempoolAcceptResult, UnspentUtxo } from '../consts/Types';
-import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, ChainClientEvents } from './ChainClient';
 import type { IElementsClient, LiquidAddressType } from './ElementsClient';
 import ElementsClient from './ElementsClient';
@@ -23,22 +22,15 @@ class ElementsWrapper
 
   private readonly clients: ElementsClient[] = [];
 
-  constructor(
-    logger: Logger,
-    sidecar: Sidecar,
-    network: string,
-    config: LiquidChainConfig,
-  ) {
+  constructor(logger: Logger, network: string, config: LiquidChainConfig) {
     super(logger, ElementsClient.symbol);
 
-    this.clients.push(
-      new ElementsClient(this.logger, sidecar, network, config, false),
-    );
+    this.clients.push(new ElementsClient(this.logger, network, config, false));
 
     if (config.lowball !== undefined) {
       this.logger.info(`Using lowball for ${this.clients[0].serviceName()}`);
       this.clients.push(
-        new ElementsClient(this.logger, sidecar, network, config.lowball, true),
+        new ElementsClient(this.logger, network, config.lowball, true),
       );
     }
 
@@ -122,24 +114,8 @@ class ElementsWrapper
 
   public disconnect = () => this.clients.forEach((c) => c.disconnect());
 
-  public rescanChain = (startHeight: number) =>
-    // Only rescan with the public client to avoid duplicate events
-    this.publicClient().rescanChain(startHeight);
-
   public checkTransaction = (transactionId: string) =>
     allSettledFirst(this.clients.map((c) => c.checkTransaction(transactionId)));
-
-  public addInputFilter = (inputHash: Buffer) =>
-    this.clients.forEach((c) => c.addInputFilter(inputHash));
-
-  public addOutputFilter = (outputScript: Buffer) =>
-    this.clients.forEach((c) => c.addOutputFilter(outputScript));
-
-  public removeOutputFilter = (outputScript: Buffer) =>
-    this.clients.forEach((c) => c.removeOutputFilter(outputScript));
-
-  public removeInputFilter = (inputHash: Buffer) =>
-    this.clients.forEach((c) => c.removeInputFilter(inputHash));
 
   public getBlockchainInfo = () =>
     this.annotateLowballInfo((c) => c.getBlockchainInfo());

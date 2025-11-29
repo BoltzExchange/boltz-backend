@@ -14,6 +14,7 @@ use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::SwapType;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
+use crate::swap::tx_check::TxChecker;
 use crate::swap::utxo_nursery::UtxoNursery;
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
@@ -121,8 +122,12 @@ impl Manager {
         let nursery = UtxoNursery::new(
             self.cancellation_token.clone(),
             self.currencies.clone(),
+            TxChecker::new(
+                Arc::new(ScriptPubKeyHelperDatabase::new(self.pool.clone())),
+                Arc::new(ChainSwapHelperDatabase::new(self.pool.clone())),
+                Arc::new(ReverseSwapHelperDatabase::new(self.pool.clone())),
+            ),
             Arc::new(ChainTipHelperDatabase::new(self.pool.clone())),
-            Arc::new(ScriptPubKeyHelperDatabase::new(self.pool.clone())),
         );
 
         let currencies = self.currencies.clone();

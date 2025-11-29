@@ -584,7 +584,7 @@ class Sidecar extends BaseClient<
       'data',
       async (block: sidecarrpc.BlockAddedResponse) => {
         const hash = Buffer.from(block.getHash_asU8());
-        this.logger.warn(
+        this.logger.debug(
           `Got ${block.getSymbol()} block ${block.getHeight()} (${getHexString(hash)}) from sidecar`,
         );
 

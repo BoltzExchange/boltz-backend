@@ -30,6 +30,7 @@ pub enum BlockHeader {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
+    // In Arc so that we can clone the block without copying all the transactions every time
     pub transactions: Arc<Vec<Transaction>>,
 }
 

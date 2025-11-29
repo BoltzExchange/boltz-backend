@@ -9,34 +9,47 @@ use crate::{
         helpers::{chain_tip::ChainTipHelper, script_pubkey::ScriptPubKeyHelper},
         models::SomeSwap,
     },
+    swap::tx_check::TxChecker,
 };
 use anyhow::Result;
 use futures::future::try_join_all;
 use std::sync::Arc;
-use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::broadcast::{self, error::RecvError};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
+
+const CHANNEL_CAPACITY: usize = 512;
+
+#[derive(Debug, Clone)]
+pub struct RelevantTx {
+    pub symbol: String,
+    pub tx: Transaction,
+    pub confirmed: bool,
+    pub swaps: Vec<String>,
+}
 
 #[derive(Clone)]
 pub struct UtxoNursery {
     cancellation_token: CancellationToken,
     currencies: Currencies,
+    tx_checker: TxChecker,
     chain_tip_helper: Arc<dyn ChainTipHelper + Send + Sync>,
-    script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
+    relevant_txs: broadcast::Sender<RelevantTx>,
 }
 
 impl UtxoNursery {
     pub fn new(
         cancellation_token: CancellationToken,
         currencies: Currencies,
+        tx_checker: TxChecker,
         chain_tip_helper: Arc<dyn ChainTipHelper + Send + Sync>,
-        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
     ) -> Self {
         Self {
             cancellation_token,
             currencies,
+            tx_checker,
             chain_tip_helper,
-            script_pubkey_helper,
+            relevant_txs: broadcast::channel(CHANNEL_CAPACITY).0,
         }
     }
 
@@ -105,6 +118,24 @@ impl UtxoNursery {
         }
     }
 
+    async fn check_tx(&self, symbol: &str, tx: Transaction, confirmed: bool) -> Result<()> {
+        let relvant_swaps = self.tx_checker.check(symbol, &tx)?;
+        if let Some(swaps) = relvant_swaps {
+            if self.relevant_txs.receiver_count() == 0 {
+                return Ok(());
+            }
+
+            self.relevant_txs.send(RelevantTx {
+                symbol: symbol.to_string(),
+                tx,
+                confirmed,
+                swaps,
+            })?;
+        }
+
+        Ok(())
+    }
+
     async fn check_block(&self, symbol: &str, height: u64, block: Block) -> Result<()> {
         debug!(
             "Adding {} block {}: {}",
@@ -113,18 +144,6 @@ impl UtxoNursery {
             alloy::hex::encode(block.block_hash())
         );
         self.chain_tip_helper.set_height(symbol, height as i32)?;
-
-        Ok(())
-    }
-
-    async fn check_tx(&self, symbol: &str, tx: Transaction, confirmed: bool) -> Result<()> {
-        println!("checking tx");
-        // TODO: also check for inputs being spent
-        let script_pubkeys = self
-            .script_pubkey_helper
-            .get_by_scripts(symbol, &tx.output_script_pubkeys())?;
-
-        println!("script_pubkeys: {:?}", script_pubkeys);
 
         Ok(())
     }

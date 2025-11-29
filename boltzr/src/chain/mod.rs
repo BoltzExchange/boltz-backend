@@ -1,5 +1,5 @@
 use crate::chain::types::Type;
-use crate::chain::utils::{Outpoint, Transaction};
+use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::db::helpers::chain_tip::ChainTipHelper;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -92,4 +92,5 @@ pub trait Client: BaseClient {
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
     fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;
+    fn block_receiver(&self) -> broadcast::Receiver<(u64, Block)>;
 }

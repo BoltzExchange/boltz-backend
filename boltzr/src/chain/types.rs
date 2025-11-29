@@ -93,6 +93,11 @@ pub struct RawTransactionVerbose {
     pub confirmations: Option<u64>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct BlockInfo {
+    pub height: u64,
+}
+
 impl RawTransactionVerbose {
     pub fn is_confirmed(&self) -> bool {
         match self.confirmations {

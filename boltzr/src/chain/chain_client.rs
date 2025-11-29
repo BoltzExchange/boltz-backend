@@ -2,11 +2,11 @@ use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate,
-    Type, ZmqNotification,
+    BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
+    SmartFeeEstimate, Type, ZmqNotification,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
-use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
+use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
 use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
@@ -40,6 +40,7 @@ pub struct ChainClient {
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transaction, bool)>,
+    block_sender: Sender<(u64, Block)>,
 }
 
 impl PartialEq for ChainClient {
@@ -70,12 +71,16 @@ impl ChainClient {
                 .map(|url| MempoolSpace::new(cancellation_token.clone(), symbol.clone(), url)),
             zmq_client: ZmqClient::new(client_type, network, config),
             tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
+            block_sender: channel(ZMQ_BLOCK_CHANNEL_SIZE).0,
         };
 
         {
             let mut tx_receiver = client.zmq_client.tx_sender.subscribe();
             let tx_sender = client.tx_sender.clone();
+
+            let symbol = symbol.clone();
             let client = client.clone();
+            let cancellation_token = cancellation_token.clone();
 
             tokio::spawn(async move {
                 loop {
@@ -111,21 +116,57 @@ impl ChainClient {
             });
         }
 
+        {
+            let mut block_receiver = client.zmq_client.block_sender.subscribe();
+            let block_sender = client.block_sender.clone();
+
+            let client = client.clone();
+
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        block = block_receiver.recv() => {
+                            match block {
+                                Ok(block) => {
+                                    if block_sender.receiver_count() == 0 {
+                                        continue;
+                                    }
+
+                                    let block_hash = alloy::hex::encode(block.block_hash());
+                                    let block_info = match client.get_block_info(&block_hash).await {
+                                        Ok(block_info) => block_info,
+                                        Err(e) => {
+                                            error!("Failed to get {} block {}: {}", symbol, block_hash, e);
+                                            continue;
+                                        }
+                                    };
+
+                                    if let Err(e) = block_sender.send((block_info.height, block)) {
+                                        error!("Failed to forward {} block: {}", symbol, e);
+                                    }
+                                }
+                                Err(RecvError::Closed) => break,
+                                Err(RecvError::Lagged(skipped)) => {
+                                    warn!("{} block stream lagged behind by {} messages", symbol, skipped);
+                                }
+                            }
+                        },
+                        _ = cancellation_token.cancelled() => break,
+                    }
+                }
+            });
+        }
+
         Ok(client)
     }
 
-    fn is_relevant_tx(
-        relevant_inputs: &HashSet<Outpoint>,
-        relevant_outputs: &HashSet<Vec<u8>>,
-        tx: &Transaction,
-    ) -> bool {
-        tx.input_outpoints()
-            .iter()
-            .any(|input| relevant_inputs.contains(input))
-            || tx
-                .output_script_pubkeys()
-                .iter()
-                .any(|output| relevant_outputs.contains(output))
+    async fn get_block_info(&self, block_hash: &str) -> anyhow::Result<BlockInfo> {
+        self.client
+            .request::<BlockInfo>(
+                "getblock",
+                Some(&[RpcParam::Str(block_hash), RpcParam::Int(1)]),
+            )
+            .await
     }
 
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
@@ -150,6 +191,20 @@ impl ChainClient {
 
     fn cache_key_raw_tx<'a>(&self, tx_id: &'a str) -> (String, &'a str) {
         (format!("{CACHE_KEY_RAW_TX}:{}", self.symbol()), tx_id)
+    }
+
+    fn is_relevant_tx(
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+        tx: &Transaction,
+    ) -> bool {
+        tx.input_outpoints()
+            .iter()
+            .any(|input| relevant_inputs.contains(input))
+            || tx
+                .output_script_pubkeys()
+                .iter()
+                .any(|output| relevant_outputs.contains(output))
     }
 }
 
@@ -193,8 +248,6 @@ impl Client for ChainClient {
     fn network(&self) -> Network {
         self.network
     }
-
-    // TODO: push relevant txs of rescans out via tx receiver
 
     async fn rescan(
         &self,
@@ -333,6 +386,10 @@ impl Client for ChainClient {
             for tx in block.transactions {
                 if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
                     relevant_tx_count += 1;
+                    if let Err(err) = self.tx_sender.send((tx, true)) {
+                        error!("Failed to send relevant transaction to channel: {}", err);
+                        break;
+                    }
                 }
             }
         }
@@ -439,6 +496,13 @@ impl Client for ChainClient {
             let tx = Transaction::parse_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
                 relevant_tx_count += 1;
+                if let Err(err) = self.tx_sender.send((tx, false)) {
+                    error!(
+                        "Failed to send relevant mempool transaction to channel: {}",
+                        err
+                    );
+                    break;
+                }
             }
 
             i += 1;
@@ -541,6 +605,10 @@ impl Client for ChainClient {
 
     fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
         self.tx_sender.subscribe()
+    }
+
+    fn block_receiver(&self) -> Receiver<(u64, Block)> {
+        self.block_sender.subscribe()
     }
 }
 

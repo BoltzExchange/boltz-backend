@@ -2,7 +2,7 @@ use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{BlockchainInfo, NetworkInfo, RawTransactionVerbose, Type};
-use crate::chain::utils::{Outpoint, Transaction};
+use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig};
 use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
@@ -195,6 +195,10 @@ impl Client for ElementsClient {
 
     fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
         self.wallet_client().tx_receiver()
+    }
+
+    fn block_receiver(&self) -> Receiver<(u64, Block)> {
+        self.wallet_client().block_receiver()
     }
 }
 

@@ -1,5 +1,8 @@
 use crate::{
-    chain::{Client, utils::Transaction},
+    chain::{
+        Client,
+        utils::{Block, Transaction},
+    },
     currencies::{Currencies, Currency},
     db::{Pool, helpers::script_pubkey::ScriptPubKeyHelper, models::SomeSwap},
 };
@@ -16,6 +19,8 @@ pub struct UtxoNursery {
     currencies: Currencies,
     script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
 }
+
+// TODO: emit block height to nodejs
 
 impl UtxoNursery {
     pub fn new(
@@ -56,6 +61,8 @@ impl UtxoNursery {
 
     async fn listen(self, chain_client: Arc<dyn Client + Send + Sync>) {
         let symbol = chain_client.symbol();
+
+        let mut block_receiver = chain_client.block_receiver();
         let mut tx_receiver = chain_client.tx_receiver();
 
         loop {
@@ -73,6 +80,19 @@ impl UtxoNursery {
                         }
                     }
                 },
+                block = block_receiver.recv() => {
+                    match block {
+                        Ok((height, block)) => {
+                            if let Err(e) = self.check_block(&symbol, height, block).await {
+                                error!("UTXO nursery failed to process {} block: {}", symbol, e);
+                            }
+                        }
+                        Err(RecvError::Closed) => break,
+                        Err(RecvError::Lagged(skipped)) => {
+                            tracing::warn!("UTXO nursery {} block stream lagged behind by {} messages", symbol, skipped);
+                        }
+                    }
+                },
                 _ = self.cancellation_token.cancelled() => {
                     break;
                 }
@@ -80,7 +100,13 @@ impl UtxoNursery {
         }
     }
 
+    async fn check_block(&self, symbol: &str, height: u64, block: Block) -> Result<()> {
+        println!("checking block {}", height);
+        Ok(())
+    }
+
     async fn check_tx(&self, symbol: &str, tx: Transaction, confirmed: bool) -> Result<()> {
+        println!("checking tx");
         // TODO: also check for inputs being spent
         let script_pubkeys = self
             .script_pubkey_helper

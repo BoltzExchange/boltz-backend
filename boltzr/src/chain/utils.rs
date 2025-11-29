@@ -2,6 +2,7 @@ use crate::chain::Client;
 use crate::{chain::types::Type, wallet::Network};
 use alloy::hex;
 use bitcoin::ScriptBuf;
+use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
@@ -21,7 +22,14 @@ pub enum Transaction {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub enum BlockHeader {
+    Bitcoin(bitcoin::block::Header),
+    Elements(elements::BlockHeader),
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct Block {
+    pub header: BlockHeader,
     pub transactions: Vec<Transaction>,
 }
 
@@ -178,6 +186,7 @@ impl Block {
             Type::Bitcoin => {
                 let block: bitcoin::Block = bitcoin::consensus::deserialize(block)?;
                 Ok(Block {
+                    header: BlockHeader::Bitcoin(block.header),
                     transactions: block
                         .txdata
                         .into_iter()
@@ -188,6 +197,7 @@ impl Block {
             Type::Elements => {
                 let block: elements::Block = elements::encode::deserialize(block)?;
                 Ok(Block {
+                    header: BlockHeader::Elements(block.header),
                     transactions: block
                         .txdata
                         .into_iter()
@@ -196,6 +206,15 @@ impl Block {
                 })
             }
         }
+    }
+
+    pub fn block_hash(&self) -> [u8; 32] {
+        let mut hash = match &self.header {
+            BlockHeader::Bitcoin(header) => header.block_hash().to_raw_hash().to_byte_array(),
+            BlockHeader::Elements(header) => header.block_hash().to_raw_hash().to_byte_array(),
+        };
+        hash.reverse();
+        hash
     }
 }
 

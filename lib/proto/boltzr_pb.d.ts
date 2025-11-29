@@ -1100,6 +1100,51 @@ export namespace RescanChainsResponse {
 
 }
 
+export class BlockAddedRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BlockAddedRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: BlockAddedRequest): BlockAddedRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BlockAddedRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BlockAddedRequest;
+    static deserializeBinaryFromReader(message: BlockAddedRequest, reader: jspb.BinaryReader): BlockAddedRequest;
+}
+
+export namespace BlockAddedRequest {
+    export type AsObject = {
+    }
+}
+
+export class BlockAddedResponse extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): BlockAddedResponse;
+    getHeight(): number;
+    setHeight(value: number): BlockAddedResponse;
+    getHash(): Uint8Array | string;
+    getHash_asU8(): Uint8Array;
+    getHash_asB64(): string;
+    setHash(value: Uint8Array | string): BlockAddedResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BlockAddedResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: BlockAddedResponse): BlockAddedResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BlockAddedResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BlockAddedResponse;
+    static deserializeBinaryFromReader(message: BlockAddedResponse, reader: jspb.BinaryReader): BlockAddedResponse;
+}
+
+export namespace BlockAddedResponse {
+    export type AsObject = {
+        symbol: string,
+        height: number,
+        hash: Uint8Array | string,
+    }
+}
+
 export enum LogLevel {
     ERROR = 0,
     WARN = 1,

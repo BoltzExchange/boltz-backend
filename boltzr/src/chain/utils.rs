@@ -30,7 +30,7 @@ pub enum BlockHeader {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
-    pub transactions: Vec<Transaction>,
+    pub transactions: Arc<Vec<Transaction>>,
 }
 
 pub fn encode_address(
@@ -187,22 +187,26 @@ impl Block {
                 let block: bitcoin::Block = bitcoin::consensus::deserialize(block)?;
                 Ok(Block {
                     header: BlockHeader::Bitcoin(block.header),
-                    transactions: block
-                        .txdata
-                        .into_iter()
-                        .map(|tx| Transaction::Bitcoin(tx))
-                        .collect(),
+                    transactions: Arc::new(
+                        block
+                            .txdata
+                            .into_iter()
+                            .map(|tx| Transaction::Bitcoin(tx))
+                            .collect(),
+                    ),
                 })
             }
             Type::Elements => {
                 let block: elements::Block = elements::encode::deserialize(block)?;
                 Ok(Block {
                     header: BlockHeader::Elements(block.header),
-                    transactions: block
-                        .txdata
-                        .into_iter()
-                        .map(|tx| Transaction::Elements(tx))
-                        .collect(),
+                    transactions: Arc::new(
+                        block
+                            .txdata
+                            .into_iter()
+                            .map(|tx| Transaction::Elements(tx))
+                            .collect(),
+                    ),
                 })
             }
         }

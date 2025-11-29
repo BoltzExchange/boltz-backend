@@ -383,10 +383,10 @@ impl Client for ChainClient {
                 block.transactions.len()
             );
 
-            for tx in block.transactions {
-                if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
+            for tx in block.transactions.iter() {
+                if Self::is_relevant_tx(relevant_inputs, relevant_outputs, tx) {
                     relevant_tx_count += 1;
-                    if let Err(err) = self.tx_sender.send((tx, true)) {
+                    if let Err(err) = self.tx_sender.send((tx.clone(), true)) {
                         error!("Failed to send relevant transaction to channel: {}", err);
                         break;
                     }

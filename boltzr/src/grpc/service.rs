@@ -6,14 +6,15 @@ use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
-    Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
-    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
-    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
-    LogLevel, RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    BlockAddedRequest, BlockAddedResponse, Bolt11Invoice, Bolt12Invoice, Bolt12Offer,
+    CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
+    DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest, GetInfoResponse, GetMessagesRequest,
+    GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel, RescanChainsRequest,
+    RescanChainsResponse, SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest,
+    SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest,
+    SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse, bolt11_invoice,
+    bolt12_invoice, decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -165,7 +166,6 @@ where
     type GetMessagesStream =
         Pin<Box<dyn Stream<Item = Result<GetMessagesResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::get_messages", skip_all)]
     async fn get_messages(
         &self,
         _: Request<GetMessagesRequest>,
@@ -199,7 +199,6 @@ where
 
     type SwapUpdateStream = Pin<Box<dyn Stream<Item = Result<SwapUpdateResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::swap_update", skip_all)]
     async fn swap_update(
         &self,
         request: Request<Streaming<SwapUpdateRequest>>,
@@ -247,7 +246,6 @@ where
     type SendSwapUpdateStream =
         Pin<Box<dyn Stream<Item = Result<SendSwapUpdateResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::send_swap_update", skip_all)]
     async fn send_swap_update(
         &self,
         _: Request<SendSwapUpdateRequest>,
@@ -666,6 +664,47 @@ where
                 })
                 .collect(),
         }))
+    }
+
+    type BlockAddedStream = Pin<Box<dyn Stream<Item = Result<BlockAddedResponse, Status>> + Send>>;
+
+    async fn block_added(
+        &self,
+        _: Request<BlockAddedRequest>,
+    ) -> Result<Response<Self::BlockAddedStream>, Status> {
+        let (tx, rx) = mpsc::channel(128);
+
+        let chain_clients = self
+            .manager
+            .get_currencies()
+            .iter()
+            .filter_map(|(_, currency)| match currency.chain.clone() {
+                Some(client) => Some(client),
+                None => None,
+            });
+
+        for client in chain_clients {
+            let tx = tx.clone();
+            let symbol = client.symbol();
+            let mut block_rx = client.block_receiver();
+
+            tokio::spawn(async move {
+                while let Ok((height, block)) = block_rx.recv().await {
+                    if let Err(err) = tx
+                        .send(Ok(BlockAddedResponse {
+                            symbol: symbol.clone(),
+                            height,
+                            hash: block.block_hash().to_vec(),
+                        }))
+                        .await
+                    {
+                        debug!("block_added stream closed: {}", err);
+                    }
+                }
+            });
+        }
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }
 

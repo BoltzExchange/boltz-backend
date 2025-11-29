@@ -24,6 +24,8 @@ service BoltzR {
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
+
+  rpc BlockAdded (BlockAddedRequest) returns (stream BlockAddedResponse);
 }
 
 message GetInfoRequest {}
@@ -248,4 +250,12 @@ message RescanChainsResponse {
   }
 
   repeated Result results = 1;
+}
+
+
+message BlockAddedRequest {}
+message BlockAddedResponse {
+  string symbol = 1;
+  uint64 height = 2;
+  bytes hash = 3;
 }

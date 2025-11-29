@@ -4,7 +4,11 @@ use crate::{
         utils::{Block, Transaction},
     },
     currencies::{Currencies, Currency},
-    db::{Pool, helpers::script_pubkey::ScriptPubKeyHelper, models::SomeSwap},
+    db::{
+        Pool,
+        helpers::{chain_tip::ChainTipHelper, script_pubkey::ScriptPubKeyHelper},
+        models::SomeSwap,
+    },
 };
 use anyhow::Result;
 use futures::future::try_join_all;
@@ -17,20 +21,21 @@ use tracing::{debug, error};
 pub struct UtxoNursery {
     cancellation_token: CancellationToken,
     currencies: Currencies,
+    chain_tip_helper: Arc<dyn ChainTipHelper + Send + Sync>,
     script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
 }
-
-// TODO: emit block height to nodejs
 
 impl UtxoNursery {
     pub fn new(
         cancellation_token: CancellationToken,
-        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
         currencies: Currencies,
+        chain_tip_helper: Arc<dyn ChainTipHelper + Send + Sync>,
+        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Send + Sync>,
     ) -> Self {
         Self {
             cancellation_token,
             currencies,
+            chain_tip_helper,
             script_pubkey_helper,
         }
     }
@@ -101,7 +106,14 @@ impl UtxoNursery {
     }
 
     async fn check_block(&self, symbol: &str, height: u64, block: Block) -> Result<()> {
-        println!("checking block {}", height);
+        debug!(
+            "Adding {} block {}: {}",
+            symbol,
+            height,
+            alloy::hex::encode(block.block_hash())
+        );
+        self.chain_tip_helper.set_height(symbol, height as i32)?;
+
         Ok(())
     }
 

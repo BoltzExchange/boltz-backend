@@ -9,7 +9,7 @@ import type { ConfigType } from '../Config';
 import type Logger from '../Logger';
 import { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
-import { formatError, getVersion, stringify } from '../Utils';
+import { formatError, getHexString, getVersion, stringify } from '../Utils';
 import type SwapInfos from '../api/SwapInfos';
 import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -17,7 +17,6 @@ import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/boltzr_pb';
-import { SendSwapUpdateRequest } from '../proto/boltzr_pb';
 import type { SwapUpdate } from '../service/EventHandler';
 import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
@@ -50,6 +49,11 @@ class Sidecar extends BaseClient<
       confirmed: boolean;
       transactions: Buffer[];
     };
+    block: {
+      symbol: string;
+      height: number;
+      hash: Buffer;
+    };
   }
 > {
   public static readonly symbol = 'Boltz';
@@ -74,6 +78,7 @@ class Sidecar extends BaseClient<
     sidecarrpc.SwapUpdateResponse
   >;
   private subscribeSendSwapUpdatesCall?: ClientReadableStream<sidecarrpc.SendSwapUpdateRequest>;
+  private subscribeBlockAddedCall?: ClientReadableStream<sidecarrpc.BlockAddedRequest>;
 
   constructor(
     logger: Logger,
@@ -442,7 +447,7 @@ class Sidecar extends BaseClient<
     }
 
     this.subscribeSendSwapUpdatesCall = this.client!.sendSwapUpdate(
-      new SendSwapUpdateRequest(),
+      new sidecarrpc.SendSwapUpdateRequest(),
       this.clientMeta,
     );
 
@@ -565,6 +570,47 @@ class Sidecar extends BaseClient<
     }
   };
 
+  public subscribeBlockAdded = () => {
+    if (this.subscribeBlockAddedCall !== undefined) {
+      this.subscribeBlockAddedCall.cancel();
+    }
+
+    this.subscribeBlockAddedCall = this.client!.blockAdded(
+      new sidecarrpc.BlockAddedRequest(),
+      this.clientMeta,
+    );
+
+    this.subscribeBlockAddedCall.on(
+      'data',
+      async (block: sidecarrpc.BlockAddedResponse) => {
+        const hash = Buffer.from(block.getHash_asU8());
+        this.logger.warn(
+          `Got ${block.getSymbol()} block ${block.getHeight()} (${getHexString(hash)}) from sidecar`,
+        );
+
+        this.emit('block', {
+          height: block.getHeight(),
+          symbol: block.getSymbol(),
+          hash,
+        });
+      },
+    );
+
+    this.subscribeBlockAddedCall.on('error', (err) => {
+      this.logger.warn(
+        `Block added streaming call threw error: ${formatError(err)}`,
+      );
+      this.subscribeBlockAddedCall = undefined;
+    });
+
+    this.subscribeBlockAddedCall.on('end', () => {
+      if (this.subscribeBlockAddedCall !== undefined) {
+        this.subscribeBlockAddedCall.cancel();
+        this.subscribeBlockAddedCall = undefined;
+      }
+    });
+  };
+
   private tryConnect = async (withSubscriptions: boolean = true) => {
     const certPath =
       this.config.grpc.certificates ||
@@ -585,6 +631,7 @@ class Sidecar extends BaseClient<
       if (withSubscriptions) {
         this.subscribeSwapUpdates();
         this.subscribeSendSwapUpdates();
+        this.subscribeBlockAdded();
       }
 
       this.setClientStatus(ClientStatus.Connected);

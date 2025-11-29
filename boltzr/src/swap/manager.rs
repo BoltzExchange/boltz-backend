@@ -18,6 +18,7 @@ use crate::swap::utxo_nursery::UtxoNursery;
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use futures_util::future::try_join_all;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -40,6 +41,7 @@ pub struct RescanChainResult {
 pub trait SwapManager {
     fn get_network(&self) -> crate::wallet::Network;
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
+    fn get_currencies(&self) -> &Currencies;
     fn get_timeouts(
         &self,
         receiving: &str,
@@ -118,8 +120,9 @@ impl Manager {
         );
         let nursery = UtxoNursery::new(
             self.cancellation_token.clone(),
-            Arc::new(ScriptPubKeyHelperDatabase::new(self.pool.clone())),
             self.currencies.clone(),
+            Arc::new(ChainTipHelperDatabase::new(self.pool.clone())),
+            Arc::new(ScriptPubKeyHelperDatabase::new(self.pool.clone())),
         );
 
         let currencies = self.currencies.clone();
@@ -151,6 +154,10 @@ impl SwapManager for Manager {
 
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
+    }
+
+    fn get_currencies(&self) -> &Currencies {
+        &self.currencies
     }
 
     fn get_timeouts(
@@ -203,19 +210,33 @@ impl SwapManager for Manager {
             None => {
                 let chain_tips = chain_tip_repo.get_all()?;
 
-                self.currencies
-                    .iter()
-                    .filter_map(|(symbol, currency)| {
+                futures::stream::iter(self.currencies.iter())
+                    .filter_map(async |(symbol, currency)| {
                         let client = match currency.chain.clone() {
                             Some(client) => client,
                             None => return None,
                         };
 
-                        let start_height = chain_tips
+                        let start_height = match chain_tips
                             .iter()
                             .find(|chaintip| chaintip.symbol == *symbol)
                             .map(|chaintip| chaintip.height)
-                            .unwrap_or(0) as u64;
+                        {
+                            Some(height) => height as u64,
+                            // Get the latest block height if no chain tip is found in the database
+                            // Else we would rescan from genesis on first startup
+                            None => match client.blockchain_info().await {
+                                Ok(info) => info.blocks,
+                                Err(err) => {
+                                    tracing::error!(
+                                        "Failed to get blockchain info for {}: {}",
+                                        symbol,
+                                        err
+                                    );
+                                    0
+                                }
+                            },
+                        };
 
                         Some((
                             RescanChainOptions {
@@ -227,6 +248,7 @@ impl SwapManager for Manager {
                         ))
                     })
                     .collect()
+                    .await
             }
         };
 

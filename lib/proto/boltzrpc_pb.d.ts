@@ -116,8 +116,6 @@ export class ChainInfo extends jspb.Message {
     setVersion(value: number): ChainInfo;
     getBlocks(): number;
     setBlocks(value: number): ChainInfo;
-    getScannedBlocks(): number;
-    setScannedBlocks(value: number): ChainInfo;
     getConnections(): number;
     setConnections(value: number): ChainInfo;
     getError(): string;
@@ -137,7 +135,6 @@ export namespace ChainInfo {
     export type AsObject = {
         version: number,
         blocks: number,
-        scannedBlocks: number,
         connections: number,
         error: string,
     }

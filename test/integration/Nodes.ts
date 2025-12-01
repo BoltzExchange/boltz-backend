@@ -7,11 +7,15 @@ import LndClient from '../../lib/lightning/LndClient';
 import ClnClient from '../../lib/lightning/cln/ClnClient';
 import type Sidecar from '../../lib/sidecar/Sidecar';
 
+const mockSidecar = {
+  on: jest.fn(),
+} as unknown as Sidecar;
+
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
 
 export const bitcoinClient = new ChainClient(
   Logger.disabledLogger,
-  {} as unknown as Sidecar,
+  mockSidecar,
   'bitcoinRegtest',
   {
     host,
@@ -32,7 +36,7 @@ export const elementsConfig = {
 };
 export const elementsClient = new ElementsClient(
   Logger.disabledLogger,
-  {} as unknown as Sidecar,
+  mockSidecar,
   'liquidRegtest',
   elementsConfig,
 );

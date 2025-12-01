@@ -25,7 +25,7 @@ import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTracker
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import type TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
-import Sidecar from '../../../lib/sidecar/Sidecar';
+import Sidecar, { TransactionStatus } from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
@@ -46,6 +46,19 @@ import {
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
 RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue(null);
+
+const emitTransaction = (
+  symbol: string,
+  transaction: Transaction | LiquidTransaction,
+  status: TransactionStatus = TransactionStatus.ZeroConfSafe,
+) => {
+  sidecar.emit('transaction', {
+    symbol,
+    transaction,
+    status,
+    swapIds: [],
+  });
+};
 
 describe('UtxoNursery', () => {
   let db: Database;
@@ -96,6 +109,7 @@ describe('UtxoNursery', () => {
     } as any,
     new Map<string, Currency>(currencies.map((cur) => [cur.symbol, cur])),
     {} as any,
+    sidecar,
   );
 
   const transactionHook = {
@@ -104,7 +118,7 @@ describe('UtxoNursery', () => {
 
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
-    { on: jest.fn() } as any,
+    sidecar,
     walletManager,
     lockupTracker,
     transactionHook,
@@ -256,13 +270,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await bitcoinClient.sendToAddress(
+      const txId = await bitcoinClient.sendToAddress(
         created.lockupDetails.lockupAddress,
         actualAmount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(txId),
+      );
+      emitTransaction(bitcoinClient.symbol, tx);
 
       await emitPromise;
     });
@@ -282,19 +301,26 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await bitcoinClient.sendToAddress(
+      const txId = await bitcoinClient.sendToAddress(
         created.lockupDetails.lockupAddress,
         actualAmount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(txId),
+      );
+      emitTransaction(bitcoinClient.symbol, tx);
 
       await emitPromise;
     });
 
     test('should fail when input address is blocked', async () => {
       const { created } = await createChainSwap();
+
+      transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
 
       const emitPromise = new Promise<void>((resolve) => {
         nursery.once('chainSwap.lockup.failed', ({ swap, reason }) => {
@@ -304,27 +330,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      bitcoinClient['zmqClient'].relevantOutputs.clear();
-
-      const transaction = parseTransaction<Transaction>(
-        CurrencyType.BitcoinLike,
-        await bitcoinClient.getRawTransaction(
-          await bitcoinClient.sendToAddress(
-            created.lockupDetails.lockupAddress,
-            created.lockupDetails.amount,
-            undefined,
-            false,
-            '',
-          ),
-        ),
+      const txId = await bitcoinClient.sendToAddress(
+        created.lockupDetails.lockupAddress,
+        created.lockupDetails.amount,
+        undefined,
+        false,
+        '',
       );
-
-      transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
-
-      bitcoinClient.emit('transaction', {
-        transaction,
-        confirmed: true,
-      });
+      const tx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(txId),
+      );
+      emitTransaction(bitcoinClient.symbol, tx);
 
       await emitPromise;
     });
@@ -345,13 +362,18 @@ describe('UtxoNursery', () => {
         );
       });
 
-      await bitcoinClient.sendToAddress(
+      const txId = await bitcoinClient.sendToAddress(
         created.lockupDetails.lockupAddress,
         created.lockupDetails.amount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(txId),
+      );
+      emitTransaction(bitcoinClient.symbol, tx);
 
       await emitPromise;
     });
@@ -367,13 +389,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await bitcoinClient.sendToAddress(
+      const txId = await bitcoinClient.sendToAddress(
         created.lockupDetails.lockupAddress,
         created.lockupDetails.amount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<Transaction>(
+        CurrencyType.BitcoinLike,
+        await bitcoinClient.getRawTransaction(txId),
+      );
+      emitTransaction(bitcoinClient.symbol, tx);
 
       await emitPromise;
     });
@@ -440,13 +467,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await elementsClient.sendToAddress(
+      const txId = await elementsClient.sendToAddress(
         created.address,
         actualAmount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+      emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
     });
@@ -465,19 +497,26 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await elementsClient.sendToAddress(
+      const txId = await elementsClient.sendToAddress(
         created.address,
         actualAmount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+      emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
     });
 
     test('should fail when input address is blocked', async () => {
       const { created, expectedAmount } = await createSubmarine();
+
+      transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
 
       const emitPromise = new Promise<void>((resolve) => {
         nursery.once('swap.lockup.failed', ({ swap, reason }) => {
@@ -487,27 +526,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      elementsClient['zmqClient'].relevantOutputs.clear();
-
-      const transaction = parseTransaction<LiquidTransaction>(
-        CurrencyType.Liquid,
-        await elementsClient.getRawTransaction(
-          await elementsClient.sendToAddress(
-            created.address,
-            expectedAmount,
-            undefined,
-            false,
-            '',
-          ),
-        ),
+      const txId = await elementsClient.sendToAddress(
+        created.address,
+        expectedAmount,
+        undefined,
+        false,
+        '',
       );
-
-      transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
-
-      elementsClient.emit('transaction', {
-        transaction,
-        confirmed: true,
-      });
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+      emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
     });
@@ -525,13 +555,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await elementsClient.sendToAddress(
+      const txId = await elementsClient.sendToAddress(
         created.address,
         expectedAmount,
         undefined,
         false,
         '',
       );
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+      emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
     });
@@ -551,13 +586,18 @@ describe('UtxoNursery', () => {
         });
       });
 
-      await elementsClient.sendToAddress(
+      const txId = await elementsClient.sendToAddress(
         created.address,
         expectedAmount,
         2,
         false,
         '',
       );
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+      emitTransaction(elementsClient.symbol, tx);
 
       await emitPromise;
     });

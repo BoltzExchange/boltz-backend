@@ -11,20 +11,24 @@ use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 
 mod chain_swap;
+mod chain_tip;
 mod keys;
 mod offer;
 mod referral;
 mod refund_transaction;
 mod reverse_swap;
+mod script_pubkey;
 mod swap;
 mod web_hook;
 
 pub use chain_swap::*;
+pub use chain_tip::*;
 pub use keys::*;
 pub use offer::*;
 pub use referral::*;
 pub use refund_transaction::*;
 pub use reverse_swap::*;
+pub use script_pubkey::*;
 pub use swap::*;
 pub use web_hook::*;
 

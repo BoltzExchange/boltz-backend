@@ -3,24 +3,26 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
-use crate::grpc::service::boltzr::scan_mempool_response::Transactions;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
-    Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest, CreateWebHookResponse,
-    DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest,
-    GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse,
-    LogLevel, ScanMempoolRequest, ScanMempoolResponse, SendMessageRequest, SendMessageResponse,
+    Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest,
+    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
+    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
+    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
     SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
     SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
     StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
+    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
+    decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
 use crate::service::Service;
-use crate::swap::manager::SwapManager;
+use crate::swap::TxStatus;
+use crate::swap::manager::{RescanChainOptions, SwapManager};
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
 use alloy::primitives::{Address, FixedBytes};
@@ -30,7 +32,6 @@ use lightning::offers::offer::Amount;
 use lightning::util::ser::Writeable;
 use lightning_invoice::Bolt11InvoiceDescriptionRef;
 use std::cell::Cell;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -44,6 +45,8 @@ use tracing::{debug, error, instrument, trace};
 pub mod boltzr {
     tonic::include_proto!("boltzr");
 }
+
+const CHANNEL_BUFFER_SIZE: usize = 512;
 
 pub struct BoltzService<M, T> {
     log_reload_handler: ReloadHandler,
@@ -166,7 +169,6 @@ where
     type GetMessagesStream =
         Pin<Box<dyn Stream<Item = Result<GetMessagesResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::get_messages", skip_all)]
     async fn get_messages(
         &self,
         _: Request<GetMessagesRequest>,
@@ -182,7 +184,7 @@ where
         };
         let mut notification_rx = client.listen_to_messages();
 
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         tokio::spawn(async move {
             while let Ok(message) = notification_rx.recv().await {
                 match tx.send(Ok(GetMessagesResponse { message })).await {
@@ -200,13 +202,12 @@ where
 
     type SwapUpdateStream = Pin<Box<dyn Stream<Item = Result<SwapUpdateResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::swap_update", skip_all)]
     async fn swap_update(
         &self,
         request: Request<Streaming<SwapUpdateRequest>>,
     ) -> Result<Response<Self::SwapUpdateStream>, Status> {
         let mut in_stream = request.into_inner();
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         self.status_fetcher.set_sender(tx.clone()).await;
         let swap_status_update_tx = self.swap_status_update_tx.clone();
@@ -248,14 +249,13 @@ where
     type SendSwapUpdateStream =
         Pin<Box<dyn Stream<Item = Result<SendSwapUpdateResponse, Status>> + Send>>;
 
-    #[instrument(name = "grpc::send_swap_update", skip_all)]
     async fn send_swap_update(
         &self,
         _: Request<SendSwapUpdateRequest>,
     ) -> Result<Response<Self::SendSwapUpdateStream>, Status> {
         let mut update_rx = self.manager.listen_to_updates();
 
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         tokio::spawn(async move {
             while let Ok(update) = update_rx.recv().await {
                 if let Err(err) = tx
@@ -632,38 +632,115 @@ where
         }
     }
 
-    #[instrument(name = "grpc::scan_mempool", skip_all)]
-    async fn scan_mempool(
+    #[instrument(name = "grpc::rescan_chains", skip_all)]
+    async fn rescan_chains(
         &self,
-        request: Request<ScanMempoolRequest>,
-    ) -> Result<Response<ScanMempoolResponse>, Status> {
-        let params = request.into_inner();
-        let res = match self
-            .manager
-            .scan_mempool(if params.symbols.is_empty() {
-                None
-            } else {
-                Some(params.symbols)
-            })
-            .await
-        {
-            Ok(transactions) => transactions,
+        request: Request<RescanChainsRequest>,
+    ) -> Result<Response<RescanChainsResponse>, Status> {
+        let chains = request.into_inner().chains;
+
+        let options = match chains.is_empty() {
+            true => None,
+            false => Some(
+                chains
+                    .into_iter()
+                    .map(|chain| RescanChainOptions {
+                        symbol: chain.symbol,
+                        start_height: chain.start_height,
+                        include_mempool: chain.include_mempool.unwrap_or(true),
+                    })
+                    .collect(),
+            ),
+        };
+        let res = match self.manager.rescan_chains(options).await {
+            Ok(res) => res,
             Err(err) => return Err(Status::new(Code::Internal, err.to_string())),
         };
 
-        let mut transaction_serialized = HashMap::new();
-        for (symbol, transactions) in res {
-            transaction_serialized.insert(
-                symbol,
-                Transactions {
-                    raw: transactions.iter().map(|tx| tx.serialize()).collect(),
-                },
-            );
+        Ok(Response::new(RescanChainsResponse {
+            results: res
+                .into_iter()
+                .map(|result| boltzr::rescan_chains_response::Result {
+                    symbol: result.symbol,
+                    start_height: result.start_height,
+                    end_height: result.end_height,
+                })
+                .collect(),
+        }))
+    }
+
+    type BlockAddedStream = Pin<Box<dyn Stream<Item = Result<Block, Status>> + Send>>;
+
+    async fn block_added(
+        &self,
+        _: Request<BlockAddedRequest>,
+    ) -> Result<Response<Self::BlockAddedStream>, Status> {
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+
+        let chain_clients = self
+            .manager
+            .get_currencies()
+            .iter()
+            .filter_map(|(_, currency)| currency.chain.clone());
+
+        for client in chain_clients {
+            let tx = tx.clone();
+            let symbol = client.symbol();
+            let mut block_rx = client.block_receiver();
+
+            tokio::spawn(async move {
+                while let Ok((height, block)) = block_rx.recv().await {
+                    if let Err(err) = tx
+                        .send(Ok(Block {
+                            symbol: symbol.clone(),
+                            height,
+                            hash: block.block_hash().to_vec(),
+                        }))
+                        .await
+                    {
+                        debug!("block_added stream closed: {}", err);
+                        break;
+                    }
+                }
+            });
         }
 
-        Ok(Response::new(ScanMempoolResponse {
-            transactions: transaction_serialized,
-        }))
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
+    }
+
+    type TransactionFoundStream =
+        Pin<Box<dyn Stream<Item = Result<RelevantTransaction, Status>> + Send>>;
+
+    async fn transaction_found(
+        &self,
+        _: Request<RelevantTransactionRequest>,
+    ) -> Result<Response<Self::TransactionFoundStream>, Status> {
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+
+        let mut relevant_tx_rx = self.manager.relevant_tx_receiver();
+        tokio::spawn(async move {
+            while let Ok(relevant_tx) = relevant_tx_rx.recv().await {
+                if let Err(err) = tx
+                    .send(Ok(RelevantTransaction {
+                        symbol: relevant_tx.symbol,
+                        transaction: relevant_tx.tx.serialize(),
+                        status: (match relevant_tx.status {
+                            TxStatus::Confirmed => TransactionStatus::Confirmed,
+                            TxStatus::ZeroConfSafe => TransactionStatus::ZeroConfSafe,
+                            TxStatus::NotSafe => TransactionStatus::NotSafe,
+                        })
+                        .into(),
+                        swap_ids: relevant_tx.swaps,
+                    }))
+                    .await
+                {
+                    debug!("transaction_found stream closed: {}", err);
+                    break;
+                }
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }
 

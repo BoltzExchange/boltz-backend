@@ -1,3 +1,4 @@
+import EventEmitter from 'events';
 import Logger from '../../../lib/Logger';
 import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import type RefundTransaction from '../../../lib/db/models/RefundTransaction';
@@ -5,6 +6,7 @@ import { RefundStatus } from '../../../lib/db/models/RefundTransaction';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import RefundWatcher from '../../../lib/swap/RefundWatcher';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient } from '../Nodes';
@@ -18,7 +20,8 @@ RefundTransactionRepository.getPendingTransactions = jest
   .mockResolvedValue([]);
 
 describe('RefundWatcher', () => {
-  const watcher = new RefundWatcher(Logger.disabledLogger);
+  const mockSidecar = new EventEmitter() as any as Sidecar;
+  const watcher = new RefundWatcher(Logger.disabledLogger, mockSidecar);
   let setup: Awaited<ReturnType<typeof getSigner>>;
 
   beforeAll(async () => {
@@ -64,7 +67,7 @@ describe('RefundWatcher', () => {
         .mockResolvedValue([]);
     });
 
-    test('should add block listeners to currencies', async () => {
+    test('should check pending transactions on block events', async () => {
       const swapId = '1';
 
       const txId = await bitcoinClient.sendToAddress(
@@ -96,11 +99,17 @@ describe('RefundWatcher', () => {
         (resolve) => {
           watcher.on('refund.confirmed', (swap) => {
             resolve(swap);
+            watcher.removeAllListeners('refund.confirmed');
           });
         },
       );
 
       await bitcoinClient.generate(1);
+      mockSidecar.emit('block', {
+        symbol: 'BTC',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
 
       const swap = await emitPromise;
       expect(swap.id).toEqual(swapId);
@@ -149,6 +158,7 @@ describe('RefundWatcher', () => {
         (resolve) => {
           watcher.on('refund.confirmed', (swap) => {
             resolve(swap);
+            watcher.removeAllListeners('refund.confirmed');
           });
         },
       );

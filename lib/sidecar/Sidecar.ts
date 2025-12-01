@@ -6,29 +6,37 @@ import path from 'path';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type { ConfigType } from '../Config';
+import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
 import { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
-import {
-  formatError,
-  getChainCurrency,
-  getVersion,
-  splitPairId,
-  stringify,
-} from '../Utils';
+import { formatError, getHexString, getVersion, stringify } from '../Utils';
 import type SwapInfos from '../api/SwapInfos';
-import { ClientStatus, SwapUpdateEvent } from '../consts/Enums';
+import type { SomeTransaction } from '../chain/ChainClient';
+import ElementsClient from '../chain/ElementsClient';
+import { ClientStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
 import { BoltzRClient } from '../proto/boltzr_grpc_pb';
 import * as sidecarrpc from '../proto/boltzr_pb';
-import { SendSwapUpdateRequest } from '../proto/boltzr_pb';
 import type { SwapUpdate } from '../service/EventHandler';
 import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
 
+const enum TransactionStatus {
+  Confirmed,
+  ZeroConfSafe,
+  NotSafe,
+}
+
 type Update = { id: string; status: SwapUpdate };
+
+type RescanChainRequest = {
+  symbol: string;
+  startHeight: number;
+  includeMempool?: boolean;
+};
 
 type SidecarConfig = {
   path?: string;
@@ -45,10 +53,16 @@ type SidecarConfig = {
 
 class Sidecar extends BaseClient<
   BaseClientEvents & {
-    transactions: {
+    transaction: {
       symbol: string;
-      confirmed: boolean;
-      transactions: Buffer[];
+      transaction: SomeTransaction;
+      status: TransactionStatus;
+      swapIds: string[];
+    };
+    block: {
+      symbol: string;
+      height: number;
+      hash: Buffer;
     };
   }
 > {
@@ -74,6 +88,8 @@ class Sidecar extends BaseClient<
     sidecarrpc.SwapUpdateResponse
   >;
   private subscribeSendSwapUpdatesCall?: ClientReadableStream<sidecarrpc.SendSwapUpdateRequest>;
+  private subscribeBlockAddedCall?: ClientReadableStream<sidecarrpc.BlockAddedRequest>;
+  private subscribeRelevantTransactionCall?: ClientReadableStream<sidecarrpc.RelevantTransactionRequest>;
 
   constructor(
     logger: Logger,
@@ -155,6 +171,8 @@ class Sidecar extends BaseClient<
   public disconnect = (): void => {
     this.subscribeSwapUpdatesCall?.cancel();
     this.subscribeSendSwapUpdatesCall?.cancel();
+    this.subscribeBlockAddedCall?.cancel();
+    this.subscribeRelevantTransactionCall?.cancel();
 
     this.clearReconnectTimer();
 
@@ -442,7 +460,7 @@ class Sidecar extends BaseClient<
     }
 
     this.subscribeSendSwapUpdatesCall = this.client!.sendSwapUpdate(
-      new SendSwapUpdateRequest(),
+      new sidecarrpc.SendSwapUpdateRequest(),
       this.clientMeta,
     );
 
@@ -468,7 +486,7 @@ class Sidecar extends BaseClient<
       this.logger.warn(
         `Send swap updates streaming call threw error: ${formatError(err)}`,
       );
-      this.subscribeSwapUpdatesCall = undefined;
+      this.subscribeSendSwapUpdatesCall = undefined;
     });
 
     this.subscribeSendSwapUpdatesCall.on('end', () => {
@@ -507,25 +525,6 @@ class Sidecar extends BaseClient<
           return;
         }
 
-        const { base, quote } = splitPairId(swap.pair);
-        const chainCurrency = getChainCurrency(
-          base,
-          quote,
-          swap.orderSide,
-          false,
-        );
-
-        const currency =
-          this.eventHandler.nursery.currencies.get(chainCurrency);
-
-        if (currency !== undefined && currency.chainClient !== undefined) {
-          const wallet =
-            this.eventHandler.nursery.walletManager.wallets.get(chainCurrency)!;
-          currency.chainClient.removeOutputFilter(
-            wallet.decodeAddress(swap.lockupAddress),
-          );
-        }
-
         this.eventHandler.nursery.emit(
           SwapUpdateEvent.InvoiceFailedToPay,
           swap,
@@ -541,26 +540,26 @@ class Sidecar extends BaseClient<
     }
   };
 
-  public rescanMempool = async (symbols?: string[]) => {
-    const req = new sidecarrpc.ScanMempoolRequest();
-    if (symbols !== undefined) {
-      req.setSymbolsList(symbols);
+  /**
+   * Rescans one or more chains. If none are specified, all chains will be rescanned
+   * @param requests - The chains to rescan
+   */
+  public rescanChains = async (requests?: RescanChainRequest[]) => {
+    const req = new sidecarrpc.RescanChainsRequest();
+    for (const request of requests ?? []) {
+      const subReq = new sidecarrpc.RescanChainsRequest.ChainRescan();
+      subReq.setSymbol(request.symbol);
+      subReq.setStartHeight(request.startHeight);
+      if (request.includeMempool !== undefined) {
+        subReq.setIncludeMempool(request.includeMempool);
+      }
+      req.addChains(subReq);
     }
 
-    const res = await this.unaryNodeCall<
-      sidecarrpc.ScanMempoolRequest,
-      sidecarrpc.ScanMempoolResponse.AsObject
-    >('scanMempool', req);
-
-    for (const [symbol, transactions] of res.transactionsMap) {
-      this.emit('transactions', {
-        symbol,
-        confirmed: false,
-        transactions: (transactions.rawList as string[]).map((tx) =>
-          Buffer.from(tx, 'base64'),
-        ),
-      });
-    }
+    return await this.unaryNodeCall<
+      sidecarrpc.RescanChainsRequest,
+      sidecarrpc.RescanChainsResponse.AsObject
+    >('rescanChains', req);
   };
 
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
@@ -584,6 +583,107 @@ class Sidecar extends BaseClient<
     }
   };
 
+  public subscribeBlockAdded = () => {
+    if (this.subscribeBlockAddedCall !== undefined) {
+      this.subscribeBlockAddedCall.cancel();
+    }
+
+    this.subscribeBlockAddedCall = this.client!.blockAdded(
+      new sidecarrpc.BlockAddedRequest(),
+      this.clientMeta,
+    );
+
+    this.subscribeBlockAddedCall.on('data', async (block: sidecarrpc.Block) => {
+      const hash = Buffer.from(block.getHash_asU8());
+      this.logger.debug(
+        `Got ${block.getSymbol()} block ${block.getHeight()} (${getHexString(hash)}) from sidecar`,
+      );
+
+      this.emit('block', {
+        height: block.getHeight(),
+        symbol: block.getSymbol(),
+        hash,
+      });
+    });
+
+    this.subscribeBlockAddedCall.on('error', (err) => {
+      this.logger.warn(`Block added stream threw error: ${formatError(err)}`);
+      this.subscribeBlockAddedCall = undefined;
+    });
+
+    this.subscribeBlockAddedCall.on('end', () => {
+      if (this.subscribeBlockAddedCall !== undefined) {
+        this.subscribeBlockAddedCall.cancel();
+        this.subscribeBlockAddedCall = undefined;
+      }
+    });
+  };
+
+  public subscribeRelevantTransaction = () => {
+    if (this.subscribeRelevantTransactionCall !== undefined) {
+      this.subscribeRelevantTransactionCall.cancel();
+    }
+
+    this.subscribeRelevantTransactionCall = this.client!.transactionFound(
+      new sidecarrpc.RelevantTransactionRequest(),
+      this.clientMeta,
+    );
+
+    const parseStatus = (status: sidecarrpc.TransactionStatus) => {
+      switch (status) {
+        case sidecarrpc.TransactionStatus.TRANSACTION_STATUS_CONFIRMED:
+          return TransactionStatus.Confirmed;
+        case sidecarrpc.TransactionStatus.TRANSACTION_STATUS_ZERO_CONF_SAFE:
+          return TransactionStatus.ZeroConfSafe;
+        case sidecarrpc.TransactionStatus.TRANSACTION_STATUS_NOT_SAFE:
+          return TransactionStatus.NotSafe;
+      }
+    };
+
+    this.subscribeRelevantTransactionCall.on(
+      'data',
+      async (transaction: sidecarrpc.RelevantTransaction) => {
+        const currencyType =
+          transaction.getSymbol() === ElementsClient.symbol
+            ? CurrencyType.Liquid
+            : CurrencyType.BitcoinLike;
+
+        // Ignore unsafe 0-conf Liquid transaction
+        if (
+          currencyType === CurrencyType.Liquid &&
+          transaction.getStatus() ===
+            sidecarrpc.TransactionStatus.TRANSACTION_STATUS_NOT_SAFE
+        ) {
+          return;
+        }
+
+        this.emit('transaction', {
+          symbol: transaction.getSymbol(),
+          transaction: parseTransaction(
+            currencyType,
+            Buffer.from(transaction.getTransaction_asU8()),
+          ),
+          status: parseStatus(transaction.getStatus()),
+          swapIds: transaction.getSwapIdsList(),
+        });
+      },
+    );
+
+    this.subscribeRelevantTransactionCall.on('error', (err) => {
+      this.logger.warn(
+        `Relevant transaction stream threw error: ${formatError(err)}`,
+      );
+      this.subscribeRelevantTransactionCall = undefined;
+    });
+
+    this.subscribeRelevantTransactionCall.on('end', () => {
+      if (this.subscribeRelevantTransactionCall !== undefined) {
+        this.subscribeRelevantTransactionCall.cancel();
+        this.subscribeRelevantTransactionCall = undefined;
+      }
+    });
+  };
+
   private tryConnect = async (withSubscriptions: boolean = true) => {
     const certPath =
       this.config.grpc.certificates ||
@@ -604,6 +704,8 @@ class Sidecar extends BaseClient<
       if (withSubscriptions) {
         this.subscribeSwapUpdates();
         this.subscribeSendSwapUpdates();
+        this.subscribeBlockAdded();
+        this.subscribeRelevantTransaction();
       }
 
       this.setClientStatus(ClientStatus.Connected);
@@ -636,4 +738,4 @@ class Sidecar extends BaseClient<
 }
 
 export default Sidecar;
-export { SidecarConfig };
+export { SidecarConfig, TransactionStatus };

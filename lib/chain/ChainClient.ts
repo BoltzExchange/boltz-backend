@@ -1,9 +1,10 @@
 import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import type { ChainConfig } from '../Config';
 import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
-import { formatError, getHexString, isTxConfirmed } from '../Utils';
+import { formatError, isTxConfirmed } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
 import type TypedEventEmitter from '../consts/TypedEventEmitter';
 import type {
@@ -17,14 +18,12 @@ import type {
   UnspentUtxo,
   WalletTransaction,
 } from '../consts/Types';
-import ChainTipRepository from '../db/repositories/ChainTipRepository';
 import type Sidecar from '../sidecar/Sidecar';
 import MempoolSpace from './MempoolSpace';
 import Rebroadcaster from './Rebroadcaster';
-import Rescanner from './Rescanner';
 import RpcClient from './RpcClient';
-import type { SomeTransaction, ZmqNotification } from './ZmqClient';
-import ZmqClient, { filters } from './ZmqClient';
+
+type SomeTransaction = Transaction | LiquidTransaction;
 
 enum AddressType {
   Legacy = 'legacy',
@@ -33,14 +32,9 @@ enum AddressType {
   Taproot = 'bech32m',
 }
 
-type BlockChainInfoScanned = BlockchainInfo & {
-  scannedBlocks: number;
-};
-
 type ChainClientEvents<T extends SomeTransaction> = {
   'status.changed': ClientStatus;
-  block: number;
-  transaction: {
+  'transaction.checked': {
     transaction: T;
     confirmed: boolean;
   };
@@ -53,15 +47,9 @@ interface IChainClient<T extends SomeTransaction = SomeTransaction>
 
   connect(): Promise<void>;
 
-  rescanChain(startHeight: number): Promise<void>;
   checkTransaction(id: string): Promise<void>;
 
-  addInputFilter(inputHash: Buffer): void;
-  addOutputFilter(outputScript: Buffer): void;
-  removeOutputFilter(outputScript: Buffer): void;
-  removeInputFilter(inputHash: Buffer): void;
-
-  getBlockchainInfo(): Promise<BlockChainInfoScanned>;
+  getBlockchainInfo(): Promise<BlockchainInfo>;
   getNetworkInfo(): Promise<NetworkInfo>;
 
   sendRawTransaction(
@@ -98,7 +86,6 @@ class ChainClient<T extends SomeTransaction = Transaction>
   protected client: RpcClient;
   protected feeFloor = 2;
 
-  private readonly zmqClient: ZmqClient<T>;
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
 
@@ -113,26 +100,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
     this.client = new RpcClient(logger, symbol, this.config);
     this.isRegtest = network.toLowerCase().includes('regtest');
-    this.zmqClient = new ZmqClient(
-      symbol,
-      logger,
-      this.isRegtest,
-      this,
-      config.host,
-    );
-    this.rebroadcaster = new Rebroadcaster(this.logger, this);
-
-    const rescanner = new Rescanner(this.logger, this, sidecar);
-
-    this.zmqClient.on('reconnected', () => {
-      try {
-        rescanner.rescan();
-      } catch (error) {
-        this.logger.error(
-          `Error rescanning ${this.symbol} chain after ZMQ reconnect: ${formatError(error)}`,
-        );
-      }
-    });
+    this.rebroadcaster = new Rebroadcaster(this.logger, sidecar, this);
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(
@@ -143,69 +111,11 @@ class ChainClient<T extends SomeTransaction = Transaction>
     }
   }
 
-  public get scannedHeight(): number {
-    return this.zmqClient.blockHeight;
-  }
-
   public serviceName = (): string => {
     return ChainClient.serviceName;
   };
 
   public connect = async (): Promise<void> => {
-    let zmqNotifications: ZmqNotification[] = [];
-
-    if (
-      this.config.zmqpubrawtx !== undefined &&
-      (this.config.zmqpubrawblock !== undefined ||
-        this.config.zmqpubhashblock !== undefined)
-    ) {
-      this.logger.debug(
-        `Using configured ZMQ endpoints for ${this.symbol} client`,
-      );
-
-      if (this.config.zmqpubrawtx) {
-        zmqNotifications.push({
-          type: filters.rawTx,
-          address: this.config.zmqpubrawtx,
-        });
-      }
-
-      if (this.config.zmqpubrawblock) {
-        zmqNotifications.push({
-          type: filters.rawBlock,
-          address: this.config.zmqpubrawblock,
-        });
-      }
-
-      if (this.config.zmqpubhashblock) {
-        zmqNotifications.push({
-          type: filters.hashBlock,
-          address: this.config.zmqpubhashblock,
-        });
-      }
-    } else {
-      this.logger.debug(
-        `ZMQ endpoints for ${this.symbol} client not configured; fetching from RPC`,
-      );
-
-      // Dogecoin Core and Zcash don't support the 'getzmqnotifications' method *yet*
-      // Therefore, the hosts and ports for these chains have to be configured manually
-      try {
-        zmqNotifications = await this.getZmqNotifications();
-      } catch (error) {
-        if ((error as any).message === 'Method not found') {
-          this.logger.warn(
-            `${this.symbol} client does not support fetching ZMQ endpoints. Please set them in the config`,
-          );
-        }
-
-        throw error;
-      }
-    }
-
-    await this.zmqClient.init(this.currencyType, zmqNotifications);
-    await this.listenToZmq();
-
     if (this.mempoolSpace) {
       await this.mempoolSpace.init();
     }
@@ -213,8 +123,6 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
   public disconnect = (): void => {
     this.clearReconnectTimer();
-
-    this.zmqClient.close();
     this.setClientStatus(ClientStatus.Disconnected);
   };
 
@@ -223,13 +131,7 @@ class ChainClient<T extends SomeTransaction = Transaction>
   };
 
   public getBlockchainInfo = async () => {
-    const blockchainInfo =
-      await this.client.request<BlockchainInfo>('getblockchaininfo');
-
-    return {
-      ...blockchainInfo,
-      scannedBlocks: this.zmqClient.blockHeight,
-    };
+    return await this.client.request<BlockchainInfo>('getblockchaininfo');
   };
 
   public getBlock = (hash: string): Promise<Block> => {
@@ -244,43 +146,11 @@ class ChainClient<T extends SomeTransaction = Transaction>
     return this.client.request<string>('getblockhash', [height]);
   };
 
-  /**
-   * Add an output to the list of relevant ones
-   */
-  public addOutputFilter = (outputScript: Buffer): void => {
-    this.zmqClient.relevantOutputs.add(getHexString(outputScript));
-  };
-
-  /**
-   * Removes an output from the list of relevant ones
-   */
-  public removeOutputFilter = (outputScript: Buffer): void => {
-    this.zmqClient.relevantOutputs.delete(getHexString(outputScript));
-  };
-
-  /**
-   * Adds an input hash to the list of relevant ones
-   */
-  public addInputFilter = (inputHash: Buffer): void => {
-    this.zmqClient.relevantInputs.add(getHexString(inputHash));
-  };
-
-  /**
-   * Removes an input hash from the list of relevant ones
-   */
-  public removeInputFilter = (inputHash: Buffer): void => {
-    this.zmqClient.relevantInputs.delete(getHexString(inputHash));
-  };
-
-  public rescanChain = async (startHeight: number): Promise<void> => {
-    await this.zmqClient.rescanChain(startHeight);
-  };
-
   public checkTransaction = async (id: string): Promise<void> => {
     const rawTx = await this.getRawTransactionVerbose(id);
     const transaction = parseTransaction(this.currencyType, rawTx.hex) as T;
 
-    this.emit('transaction', {
+    this.emit('transaction.checked', {
       transaction,
       confirmed: isTxConfirmed(rawTx),
     });
@@ -430,28 +300,6 @@ class ChainClient<T extends SomeTransaction = Transaction>
     }
   };
 
-  private getZmqNotifications = (): Promise<ZmqNotification[]> => {
-    return this.client.request<ZmqNotification[]>('getzmqnotifications');
-  };
-
-  private listenToZmq = async (): Promise<void> => {
-    const { scannedBlocks } = await this.getBlockchainInfo();
-    const chainTip = await ChainTipRepository.findOrCreateTip(
-      this.symbol,
-      scannedBlocks,
-    );
-
-    this.zmqClient.on('block', async (height) => {
-      this.logger.silly(`Got new ${this.symbol} block: ${height}`);
-      await ChainTipRepository.updateTip(chainTip, height);
-      this.emit('block', height);
-    });
-
-    this.zmqClient.on('transaction', ({ transaction, confirmed }) => {
-      this.emit('transaction', { transaction, confirmed });
-    });
-  };
-
   private formatGetTransactionError = (id: string, error: any): string => {
     const formattedError = formatError(error);
     if (formattedError.includes('No such mempool or blockchain transaction')) {
@@ -463,4 +311,4 @@ class ChainClient<T extends SomeTransaction = Transaction>
 }
 
 export default ChainClient;
-export { AddressType, BlockChainInfoScanned, ChainClientEvents, IChainClient };
+export { AddressType, ChainClientEvents, IChainClient, SomeTransaction };

@@ -14,7 +14,7 @@ import {
 } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import type { SwapConfig } from '../Config';
 import {
   createMusig,
@@ -27,7 +27,6 @@ import {
   formatError,
   generateSwapId,
   getChainCurrency,
-  getHexBuffer,
   getHexString,
   getLightningCurrency,
   getPairId,
@@ -35,14 +34,12 @@ import {
   getScriptHashFunction,
   getSendingReceivingCurrency,
   getUnixTime,
-  reverseBuffer,
   splitPairId,
 } from '../Utils';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import {
   ChannelCreationType,
   CurrencyType,
-  FinalChainSwapEvents,
   OrderSide,
   SwapType,
   SwapUpdateEvent,
@@ -50,15 +47,16 @@ import {
   swapVersionToString,
 } from '../consts/Enums';
 import type { PairConfig } from '../consts/Types';
-import type { ChainSwapDataType } from '../db/models/ChainSwapData';
+import Database from '../db/Database';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { NodeType } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
-import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type { ChainSwapDataTypeInsert } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
+import ScriptPubKeyRepository from '../db/repositories/ScriptPubKeyRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
@@ -288,38 +286,12 @@ class SwapManager {
 
     await this.nursery.init(currencies);
 
-    const [pendingSwaps, pendingReverseSwaps, pendingChainSwaps] =
-      await Promise.all([
-        SwapRepository.getSwaps({
-          status: {
-            [Op.notIn]: [
-              SwapUpdateEvent.SwapExpired,
-              SwapUpdateEvent.InvoicePending,
-              SwapUpdateEvent.InvoiceFailedToPay,
-              SwapUpdateEvent.TransactionClaimed,
-            ],
-          },
-        }),
-        ReverseSwapRepository.getReverseSwaps({
-          status: {
-            [Op.notIn]: [
-              SwapUpdateEvent.SwapExpired,
-              SwapUpdateEvent.InvoiceSettled,
-              SwapUpdateEvent.TransactionFailed,
-              SwapUpdateEvent.TransactionRefunded,
-            ],
-          },
-        }),
-        ChainSwapRepository.getChainSwaps({
-          status: {
-            [Op.notIn]: FinalChainSwapEvents,
-          },
-        }),
-      ]);
-
-    await this.recreateFilters(pendingSwaps, false);
-    await this.recreateFilters(pendingReverseSwaps, true);
-    this.recreateChainSwapFilters(pendingChainSwaps);
+    const pendingReverseSwaps = await ReverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.in]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid],
+      },
+    });
+    await this.recreateInvoiceSubscriptions(pendingReverseSwaps);
 
     for (const currency of this.currencies.values()) {
       if (currency.clnClient === undefined) {
@@ -331,9 +303,7 @@ class SwapManager {
 
     await this.chainSwapSigner.init();
 
-    this.logger.info(
-      'Recreated input and output filters and invoice subscriptions',
-    );
+    this.logger.info('Recreated invoice subscriptions');
 
     this.routingHints = new RoutingHints(this.logger, currencies);
     await this.routingHints.start();
@@ -462,7 +432,6 @@ class SwapManager {
       }
 
       result.address = receivingCurrency.wallet.encodeAddress(outputScript);
-      receivingCurrency.chainClient!.addOutputFilter(outputScript);
 
       if (receivingCurrency.type === CurrencyType.Liquid) {
         result.blindingKey = getHexString(
@@ -472,26 +441,40 @@ class SwapManager {
         );
       }
 
-      await SwapRepository.addSwap({
-        id,
-        pair,
+      await Database.sequelize.transaction(
+        { isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE },
+        async (tx) => {
+          await SwapRepository.addSwap(
+            {
+              id,
+              pair,
 
-        keyIndex: index,
-        version: args.version,
-        orderSide: args.orderSide,
-        referral: args.referralId,
-        lockupAddress: result.address,
-        paymentTimeout: args.paymentTimeout,
-        status: SwapUpdateEvent.SwapCreated,
-        timeoutBlockHeight: result.timeoutBlockHeight,
-        createdRefundSignature: false,
-        preimageHash: getHexString(args.preimageHash),
-        refundPublicKey: getHexString(args.refundPublicKey!),
-        redeemScript:
-          args.version === SwapVersion.Legacy
-            ? result.redeemScript
-            : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
-      });
+              keyIndex: index,
+              version: args.version,
+              orderSide: args.orderSide,
+              referral: args.referralId,
+              lockupAddress: result.address!,
+              paymentTimeout: args.paymentTimeout,
+              status: SwapUpdateEvent.SwapCreated,
+              timeoutBlockHeight: result.timeoutBlockHeight!,
+              createdRefundSignature: false,
+              preimageHash: getHexString(args.preimageHash),
+              refundPublicKey: getHexString(args.refundPublicKey!),
+              redeemScript:
+                args.version === SwapVersion.Legacy
+                  ? result.redeemScript
+                  : JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree!)),
+            },
+            { transaction: tx },
+          );
+          await ScriptPubKeyRepository.add(
+            id,
+            receivingCurrency.symbol,
+            outputScript,
+            { transaction: tx },
+          );
+        },
+      );
     } else {
       result.address = await this.getLockupContractAddress(
         receivingCurrency.symbol,
@@ -1189,14 +1172,14 @@ class SwapManager {
       timeoutBlockDelta: number,
       theirPublicKey?: Buffer,
     ): Promise<{
-      dbData: ChainSwapDataType;
+      dbData: ChainSwapDataTypeInsert;
       serverKeys: string | undefined;
       blindingKey: string | undefined;
       claimAddress: string | undefined;
       refundAddress: string | undefined;
       tree: Types.SwapTree | Types.LiquidSwapTree | undefined;
     }> => {
-      const res: Partial<ChainSwapDataType> = {
+      const res: Partial<ChainSwapDataTypeInsert> = {
         swapId: id,
         expectedAmount: amount,
         symbol: currency.symbol,
@@ -1232,18 +1215,13 @@ class SwapManager {
 
         const musig = createMusig(keys, theirPublicKey!);
         const tweakedKey = tweakMusig(currency.type, musig, tree);
-        const outputScript = Scripts.p2trOutput(tweakedKey);
-
-        if (!isSending) {
-          currency.chainClient!.addOutputFilter(outputScript);
-        }
-
-        res.lockupAddress = currency.wallet.encodeAddress(outputScript);
+        res.scriptPubKey = Scripts.p2trOutput(tweakedKey);
+        res.lockupAddress = currency.wallet.encodeAddress(res.scriptPubKey);
 
         if (currency.type === CurrencyType.Liquid) {
           blindingKey = getHexString(
             (currency.wallet as WalletLiquid).deriveBlindingKeyFromScript(
-              outputScript,
+              res.scriptPubKey,
             ).privateKey!,
           );
         }
@@ -1274,7 +1252,7 @@ class SwapManager {
         blindingKey,
         claimAddress,
         refundAddress,
-        dbData: res as ChainSwapDataType,
+        dbData: res as ChainSwapDataTypeInsert,
       };
     };
 
@@ -1334,135 +1312,38 @@ class SwapManager {
     };
   };
 
-  // TODO: check current status of invoices or do the streams handle that already?
-  private recreateFilters = async (
-    swaps: Swap[] | ReverseSwap[],
-    isReverse: boolean,
-  ) => {
+  private recreateInvoiceSubscriptions = async (swaps: ReverseSwap[]) => {
     for (const swap of swaps) {
-      const { base, quote } = splitPairId(swap.pair);
-      const chainCurrency = getChainCurrency(
-        base,
-        quote,
-        swap.orderSide,
-        isReverse,
-      );
-      const lightningCurrency = getLightningCurrency(
-        base,
-        quote,
-        swap.orderSide,
-        isReverse,
-      );
-
       if (
-        (swap.status === SwapUpdateEvent.SwapCreated ||
-          swap.status === SwapUpdateEvent.MinerFeePaid) &&
-        isReverse
+        swap.status === SwapUpdateEvent.SwapCreated ||
+        swap.status === SwapUpdateEvent.MinerFeePaid
       ) {
-        const reverseSwap = swap as ReverseSwap;
+        const { base, quote } = splitPairId(swap.pair);
+        const lightningCurrency = getLightningCurrency(
+          base,
+          quote,
+          swap.orderSide,
+          true,
+        );
 
         const lightningClient = NodeSwitch.getReverseSwapNode(
           this.currencies.get(lightningCurrency)!,
-          reverseSwap,
+          swap,
         );
 
         if (
-          reverseSwap.node === NodeType.LND &&
-          reverseSwap.minerFeeInvoice &&
+          swap.node === NodeType.LND &&
+          swap.minerFeeInvoice &&
           swap.status !== SwapUpdateEvent.MinerFeePaid
         ) {
           const decoded = await this.sidecar.decodeInvoiceOrOffer(
-            reverseSwap.minerFeeInvoice,
+            swap.minerFeeInvoice,
           );
           lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
         }
 
-        const decoded = await this.sidecar.decodeInvoiceOrOffer(
-          reverseSwap.invoice,
-        );
+        const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice);
         lightningClient.subscribeSingleInvoice(decoded.paymentHash!);
-      } else if (
-        (swap.status === SwapUpdateEvent.TransactionMempool ||
-          swap.status === SwapUpdateEvent.TransactionConfirmed) &&
-        isReverse
-      ) {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
-
-        if (chainClient) {
-          const transactionId = reverseBuffer(
-            getHexBuffer((swap as ReverseSwap).transactionId!),
-          );
-          chainClient.addInputFilter(transactionId);
-
-          // To detect when the transaction confirms
-          if (swap.status === SwapUpdateEvent.TransactionMempool) {
-            const wallet = this.walletManager.wallets.get(chainCurrency)!;
-            chainClient.addOutputFilter(
-              wallet.decodeAddress(swap.lockupAddress),
-            );
-          }
-        }
-      } else {
-        const { chainClient } = this.currencies.get(chainCurrency)!;
-
-        if (chainClient) {
-          const wallet = this.walletManager.wallets.get(chainCurrency)!;
-          const outputScript = wallet.decodeAddress(swap.lockupAddress);
-
-          chainClient.addOutputFilter(outputScript);
-        }
-      }
-    }
-  };
-
-  private recreateChainSwapFilters = (swaps: ChainSwapInfo[]) => {
-    for (const swap of swaps) {
-      switch (swap.chainSwap.status) {
-        case SwapUpdateEvent.SwapCreated:
-        case SwapUpdateEvent.TransactionMempool: {
-          const { chainClient } = this.currencies.get(
-            swap.receivingData.symbol,
-          )!;
-          if (chainClient === undefined) {
-            continue;
-          }
-
-          const wallet = this.walletManager.wallets.get(
-            swap.receivingData.symbol,
-          )!;
-
-          chainClient.addOutputFilter(
-            wallet.decodeAddress(swap.receivingData.lockupAddress),
-          );
-          break;
-        }
-
-        case SwapUpdateEvent.TransactionServerMempool:
-        case SwapUpdateEvent.TransactionServerConfirmed: {
-          const { chainClient } = this.currencies.get(swap.sendingData.symbol)!;
-          if (chainClient === undefined) {
-            continue;
-          }
-
-          const wallet = this.walletManager.wallets.get(
-            swap.sendingData.symbol,
-          )!;
-
-          // To detect the confirmation
-          if (
-            swap.chainSwap.status === SwapUpdateEvent.TransactionServerMempool
-          ) {
-            chainClient.addOutputFilter(
-              wallet.decodeAddress(swap.sendingData.lockupAddress),
-            );
-          }
-
-          chainClient.addInputFilter(
-            reverseBuffer(getHexBuffer(swap.sendingData.transactionId!)),
-          );
-
-          break;
-        }
       }
     }
   };

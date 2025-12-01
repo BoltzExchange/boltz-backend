@@ -39,33 +39,11 @@ describe('Sidecar', () => {
       };
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
 
-      const chainClient = { removeOutputFilter: jest.fn() };
-      const wallet = {
-        decodeAddress: jest.fn().mockReturnValue('decoded'),
-      };
-
       eventHandler.nursery = {
         emit: jest.fn(),
-        currencies: new Map([
-          [
-            'BTC',
-            {
-              chainClient,
-            },
-          ],
-        ]),
-        walletManager: {
-          wallets: new Map([['BTC', wallet]]),
-        },
       };
 
       await sidecar['handleSentSwapUpdate'](update);
-
-      expect(wallet.decodeAddress).toHaveBeenCalledTimes(1);
-      expect(wallet.decodeAddress).toHaveBeenCalledWith(swap.lockupAddress);
-
-      expect(chainClient.removeOutputFilter).toHaveBeenCalledTimes(1);
-      expect(chainClient.removeOutputFilter).toHaveBeenCalledWith('decoded');
 
       expect(eventHandler.nursery.emit).toHaveBeenCalledTimes(1);
       expect(eventHandler.nursery.emit).toHaveBeenCalledWith(

@@ -208,6 +208,7 @@ class Service {
       config,
       this.currencies,
       this.rateProvider,
+      this.sidecar,
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
@@ -346,7 +347,6 @@ class Service {
           chain.setConnections(networkInfo.connections);
 
           chain.setBlocks(blockchainInfo.blocks);
-          chain.setScannedBlocks(blockchainInfo.scannedBlocks);
         } catch (error) {
           chain.setError(formatError(error));
         }
@@ -355,7 +355,6 @@ class Service {
           const blockNumber = await currency.provider.getBlockNumber();
 
           chain.setBlocks(blockNumber);
-          chain.setScannedBlocks(blockNumber);
         } catch (error) {
           chain.setError(formatError(error));
         }
@@ -443,11 +442,23 @@ class Service {
     let endHeight: number;
 
     if (currency.chainClient) {
-      endHeight = (await currency.chainClient.getBlockchainInfo()).blocks;
-      await currency.chainClient.rescanChain(startHeight);
+      const res = await this.sidecar.rescanChains([
+        {
+          symbol,
+          startHeight,
+          includeMempool,
+        },
+      ]);
+      const chainResult = res.resultsList.find(
+        (result) => result.symbol === symbol,
+      );
 
-      if (includeMempool) {
-        await this.sidecar.rescanMempool([symbol]);
+      if (chainResult !== undefined) {
+        endHeight = chainResult.endHeight;
+      } else {
+        throw new Error(
+          `could not find chain rescan result for symbol: ${symbol}`,
+        );
       }
     } else if (currency.provider) {
       const manager = this.walletManager.ethereumManagers.find((manager) =>

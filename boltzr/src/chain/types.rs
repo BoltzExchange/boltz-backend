@@ -72,6 +72,11 @@ pub struct NetworkInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct BlockchainInfo {
+    pub blocks: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct SmartFeeEstimate {
     pub feerate: f64,
 }
@@ -86,6 +91,11 @@ pub struct ZmqNotification {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawTransactionVerbose {
     pub confirmations: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BlockInfo {
+    pub height: u64,
 }
 
 impl RawTransactionVerbose {

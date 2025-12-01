@@ -22,6 +22,7 @@ import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import PendingLockupTransactionRepository from '../db/repositories/PendingLockupTransactionRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import type Sidecar from '../sidecar/Sidecar';
 import ErrorsSwap from '../swap/Errors';
 import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -42,6 +43,7 @@ class LockupTransactionTracker extends TypedEventEmitter<{
     config: ConfigType,
     currencies: Map<string, Currency>,
     private readonly rateProvider: RateProvider,
+    private readonly sidecar: Sidecar,
   ) {
     super();
 
@@ -164,7 +166,11 @@ class LockupTransactionTracker extends TypedEventEmitter<{
   };
 
   private listenToBlocks = (chainClient: IChainClient) => {
-    chainClient.on('block', async () => {
+    this.sidecar.on('block', async (block) => {
+      if (block.symbol !== chainClient.symbol) {
+        return;
+      }
+
       await this.lock.acquire(chainClient.symbol, () =>
         this.checkPendingLockupsForChain(chainClient),
       );

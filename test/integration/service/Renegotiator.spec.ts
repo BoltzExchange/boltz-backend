@@ -19,6 +19,7 @@ import Errors from '../../../lib/service/Errors';
 import Renegotiator from '../../../lib/service/Renegotiator';
 import type ChainSwapSigner from '../../../lib/service/cooperative/ChainSwapSigner';
 import type EipSigner from '../../../lib/service/cooperative/EipSigner';
+import { TransactionStatus } from '../../../lib/sidecar/Sidecar';
 import ErrorsSwap from '../../../lib/swap/Errors';
 import type EthereumNursery from '../../../lib/swap/EthereumNursery';
 import type SwapNursery from '../../../lib/swap/SwapNursery';
@@ -322,7 +323,9 @@ describe('Renegotiator', () => {
             Transaction.fromHex(
               await bitcoinClient.getRawTransaction(transactionId),
             ),
-            confirmed,
+            confirmed
+              ? TransactionStatus.Confirmed
+              : TransactionStatus.ZeroConfSafe,
           );
         },
       );

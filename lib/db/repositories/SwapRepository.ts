@@ -1,4 +1,4 @@
-import type { Order, WhereOptions } from 'sequelize';
+import type { CreateOptions, Order, WhereOptions } from 'sequelize';
 import { Op, Transaction } from 'sequelize';
 import { SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
@@ -49,8 +49,15 @@ class SwapRepository {
     });
   };
 
-  public static addSwap = (swap: SwapType): Promise<Swap> => {
-    return Database.sequelize.transaction(
+  public static addSwap = async (
+    swap: SwapType,
+    options?: CreateOptions<Swap>,
+  ): Promise<Swap> => {
+    if (options !== undefined) {
+      return await Swap.create(swap, options);
+    }
+
+    return await Database.sequelize.transaction(
       {
         isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
       },

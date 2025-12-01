@@ -23,6 +23,8 @@ pub enum SwapUpdate {
     TransactionZeroconfRejected,
     #[strum(serialize = "transaction.direct")]
     TransactionDirect,
+    #[strum(serialize = "transaction.refunded")]
+    TransactionRefunded,
 
     #[strum(serialize = "transaction.server.mempool")]
     TransactionServerMempool,

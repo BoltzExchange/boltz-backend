@@ -2,7 +2,7 @@ use crate::{
     chain::{
         Config,
         types::{Type, ZmqNotification},
-        utils::Transaction,
+        utils::{Block, Transaction},
     },
     wallet::Network,
 };
@@ -12,72 +12,134 @@ use tracing::{debug, error, info, warn};
 use zeromq::{Socket, SocketRecv, SubSocket, ZmqError, ZmqMessage};
 
 pub const ZMQ_TX_CHANNEL_SIZE: usize = 1024 * 16;
+pub const ZMQ_BLOCK_CHANNEL_SIZE: usize = 1024;
 
-const ZMQ_INACTIVITY_TIMEOUT_SECONDS: u64 = 300;
 const ZMQ_RECONNECT_DELAY_SECONDS: u64 = 1;
+
+const ZMQ_INACTIVITY_TIMEOUT_BLOCK_SECONDS: u64 = 60 * 60;
+const ZMQ_INACTIVITY_TIMEOUT_TRANSACTION_SECONDS: u64 = 5 * 60;
 
 #[derive(Debug, Clone)]
 pub struct ZmqClient {
     client_type: Type,
     network: Network,
     config: Config,
+
+    pub block_sender: Sender<Block>,
     pub tx_sender: Sender<Transaction>,
 }
 
 impl ZmqClient {
     pub fn new(client_type: Type, network: Network, config: Config) -> ZmqClient {
-        let (tx_sender, _) = broadcast::channel::<Transaction>(ZMQ_TX_CHANNEL_SIZE);
-
         ZmqClient {
             client_type,
             network,
             config,
-            tx_sender,
+            tx_sender: broadcast::channel::<Transaction>(ZMQ_TX_CHANNEL_SIZE).0,
+            block_sender: broadcast::channel::<Block>(ZMQ_BLOCK_CHANNEL_SIZE).0,
         }
     }
 
     pub async fn connect(&self, notifications: &[ZmqNotification]) -> anyhow::Result<()> {
+        self.subscribe_raw_tx(notifications).await?;
+        self.subscribe_raw_block(notifications).await?;
+
+        Ok(())
+    }
+
+    async fn subscribe_raw_tx(&self, notifications: &[ZmqNotification]) -> anyhow::Result<()> {
         let raw_tx = match Self::find_notification("pubrawtx", notifications) {
             Some(data) => data,
             None => return Err(anyhow::anyhow!("pubrawtx ZMQ missing")),
         };
 
-        // On regtest we don't need inactivity timeouts
-        let inactivity_timeout = if self.network != Network::Regtest {
-            Some(ZMQ_INACTIVITY_TIMEOUT_SECONDS)
-        } else {
-            None
-        };
-
         let tx_sender = self.tx_sender.clone();
         let client_type = self.client_type;
 
-        self.subscribe(raw_tx, "rawtx", inactivity_timeout, move |msg| {
-            // No need to send transactions if no one is listening
-            if tx_sender.receiver_count() == 0 {
-                return;
-            }
-
-            let tx_bytes = match msg.get(1) {
-                Some(tx_bytes) => tx_bytes,
-                None => {
-                    warn!("{client_type} ZMQ client received a malformed message");
+        self.subscribe(
+            raw_tx,
+            "rawtx",
+            if self.network != Network::Regtest {
+                Some(ZMQ_INACTIVITY_TIMEOUT_TRANSACTION_SECONDS)
+            } else {
+                None
+            },
+            move |msg| {
+                // No need to send transactions if no one is listening
+                if tx_sender.receiver_count() == 0 {
                     return;
                 }
-            };
 
-            let tx = match Transaction::parse(&client_type, tx_bytes) {
-                Ok(tx) => tx,
-                Err(e) => {
-                    warn!("{client_type} ZMQ client could not parse transaction: {e}");
+                let tx_bytes = match msg.get(1) {
+                    Some(tx_bytes) => tx_bytes,
+                    None => {
+                        warn!("{client_type} ZMQ client received a malformed message");
+                        return;
+                    }
+                };
+
+                let tx = match Transaction::parse(&client_type, tx_bytes) {
+                    Ok(tx) => tx,
+                    Err(e) => {
+                        warn!("{client_type} ZMQ client could not parse transaction: {e}");
+                        return;
+                    }
+                };
+
+                if let Err(e) = tx_sender.send(tx) {
+                    warn!("{client_type} ZMQ client could not send transaction to channel: {e}");
+                }
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn subscribe_raw_block(&self, notifications: &[ZmqNotification]) -> anyhow::Result<()> {
+        let raw_block = match Self::find_notification("pubrawblock", notifications) {
+            Some(data) => data,
+            None => return Err(anyhow::anyhow!("pubrawblock ZMQ missing")),
+        };
+
+        let block_sender = self.block_sender.clone();
+        let client_type = self.client_type;
+
+        self.subscribe(
+            raw_block,
+            "rawblock",
+            if self.network != Network::Regtest {
+                Some(ZMQ_INACTIVITY_TIMEOUT_BLOCK_SECONDS)
+            } else {
+                None
+            },
+            move |msg| {
+                // No need to send blocks if no one is listening
+                if block_sender.receiver_count() == 0 {
                     return;
                 }
-            };
 
-            if let Err(e) = tx_sender.send(tx) {
-                warn!("{client_type} ZMQ client could not send transaction to channel: {e}");
-            }
-        })
+                let block_bytes = match msg.get(1) {
+                    Some(block_bytes) => block_bytes,
+                    None => {
+                        warn!("{client_type} ZMQ client received a malformed message");
+                        return;
+                    }
+                };
+
+                let block = match Block::parse(&client_type, block_bytes) {
+                    Ok(block) => block,
+                    Err(e) => {
+                        warn!("{client_type} ZMQ client could not parse block: {e}");
+                        return;
+                    }
+                };
+
+                if let Err(e) = block_sender.send(block) {
+                    warn!("{client_type} ZMQ client could not send block to channel: {e}");
+                }
+            },
+        )
         .await?;
 
         Ok(())

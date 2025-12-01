@@ -18,6 +18,7 @@ import ReferralRepository from '../db/repositories/ReferralRepository';
 import type { ChainSwapMinerFees } from '../rates/FeeProvider';
 import FeeProvider from '../rates/FeeProvider';
 import type RateProvider from '../rates/RateProvider';
+import { TransactionStatus } from '../sidecar/Sidecar';
 import ErrorsSwap from '../swap/Errors';
 import type SwapNursery from '../swap/SwapNursery';
 import type { Currency } from '../wallet/WalletManager';
@@ -97,7 +98,10 @@ class Renegotiator {
             receivingCurrency.chainClient,
             this.walletManager.wallets.get(receivingCurrency.symbol)!,
             parseTransaction(receivingCurrency.type, txInfo.hex),
-            isTxConfirmed(txInfo),
+            isTxConfirmed(txInfo)
+              ? TransactionStatus.Confirmed
+              : // TODO: can we do 0-conf safe here or do we need to recheck?
+                TransactionStatus.ZeroConfSafe,
           );
         } else if (receivingCurrency.provider !== undefined) {
           const nursery = this.swapNursery.ethereumNurseries.find((nursery) =>

@@ -37,7 +37,7 @@ pub struct RestoreIndexResponse {
     pub index: i64,
 }
 
-impl TryFrom<RescueParams> for Box<dyn PubkeyIterator> {
+impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
     type Error = AxumError;
 
     fn try_from(params: RescueParams) -> Result<Self, Self::Error> {
@@ -109,7 +109,7 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let res = state.service.swap_rescue.index(params.try_into()?)?;
+    let res = state.service.swap_rescue.index(params.try_into()?).await?;
     Ok((StatusCode::OK, Json(RestoreIndexResponse { index: res })).into_response())
 }
 

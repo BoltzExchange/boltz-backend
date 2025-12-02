@@ -3,7 +3,8 @@ use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
     BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
-    SignRawTransactionResponse, SmartFeeEstimate, Type, UnspentOutput, ZmqNotification,
+    SignRawTransactionResponse, SmartFeeEstimate, SubmitPackageResponse, Type, UnspentOutput,
+    ZmqNotification,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -607,6 +608,25 @@ impl Client for ChainClient {
         self.client
             .request::<String>("sendrawtransaction", Some(&[RpcParam::Str(tx)]))
             .await
+    }
+
+    async fn submit_package(&self, txs: &[&str]) -> anyhow::Result<SubmitPackageResponse> {
+        if self.client_type != Type::Bitcoin {
+            return Err(anyhow::anyhow!(
+                "submit package is not supported for {} chain",
+                self.client.symbol
+            ));
+        }
+
+        let res = self
+            .client
+            .request::<SubmitPackageResponse>(
+                "submitpackage",
+                Some(&[RpcParam::Array(txs.to_vec())]),
+            )
+            .await?;
+
+        Ok(res)
     }
 
     async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {

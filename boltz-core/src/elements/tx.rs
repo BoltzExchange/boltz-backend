@@ -168,6 +168,11 @@ fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         script_sig = script_sig.push_slice(&PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "cooperative input spend cant be used for legacy outputs"
+                        ));
+                    }
                 };
 
                 tx.input[i].script_sig = script_sig

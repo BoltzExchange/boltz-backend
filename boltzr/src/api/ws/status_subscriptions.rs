@@ -1,12 +1,14 @@
-use crate::api::ws::{offer_subscriptions::ConnectionId, types::SwapStatus};
+use super::utils::send_with_timeout;
+use crate::api::ws::{
+    offer_subscriptions::ConnectionId,
+    types::{SwapStatus, UpdateSender},
+};
 use dashmap::DashMap;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 const SUBSCRIPTION_BUFFER: usize = 16;
-const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 type Subscriptions = (Vec<String>, mpsc::Sender<Vec<SwapStatus>>);
 
@@ -17,10 +19,7 @@ pub struct StatusSubscriptions {
 }
 
 impl StatusSubscriptions {
-    pub fn new(
-        cancellation_token: CancellationToken,
-        status_tx: broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
-    ) -> Self {
+    pub fn new(cancellation_token: CancellationToken, status_tx: UpdateSender<SwapStatus>) -> Self {
         let subscriptions = Self {
             swaps: Arc::new(DashMap::new()),
             subscriptions: Arc::new(DashMap::new()),
@@ -98,14 +97,14 @@ impl StatusSubscriptions {
             .map(|sender| (sender.1.clone(), Self::filter_swaps(&sender.0, &updates)));
 
         if let Some((tx, filtered)) = to_send {
-            tokio::spawn(Self::send_with_timeout(tx, filtered));
+            tokio::spawn(send_with_timeout(tx, filtered));
         }
     }
 
     fn forward_updates(
         &self,
         cancellation_token: CancellationToken,
-        status_tx: broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        status_tx: UpdateSender<SwapStatus>,
     ) {
         let mut status_tx = status_tx.subscribe();
 
@@ -135,7 +134,7 @@ impl StatusSubscriptions {
                     if let Some(sender) = subscriptions.get(&connection) {
                         let filtered = Self::filter_swaps(&sender.0, &updates);
                         let tx = sender.1.clone();
-                        tokio::spawn(Self::send_with_timeout(tx, filtered));
+                        tokio::spawn(send_with_timeout(tx, filtered));
                     }
                     continue;
                 }
@@ -152,7 +151,7 @@ impl StatusSubscriptions {
                     if let Some(sender) = subscriptions.get(&connection) {
                         let filtered = Self::filter_swaps(&sender.0, &updates);
                         let tx = sender.1.clone();
-                        tokio::spawn(Self::send_with_timeout(tx, filtered));
+                        tokio::spawn(send_with_timeout(tx, filtered));
                     }
                 }
             }
@@ -166,19 +165,6 @@ impl StatusSubscriptions {
             .cloned()
             .collect()
     }
-
-    async fn send_with_timeout(tx: mpsc::Sender<Vec<SwapStatus>>, updates: Vec<SwapStatus>) {
-        match tokio::time::timeout(SEND_TIMEOUT, tx.send(updates)).await {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                // We don't want to log this as an error, as it's expected to happen when a connection is closed
-                tracing::trace!("Error sending status update: {}", err);
-            }
-            Err(_) => {
-                tracing::warn!("Timeout sending status update");
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -186,10 +172,11 @@ mod tests {
     use super::*;
     use crate::api::ws::types::SwapStatusNoId;
     use std::time::Duration;
+    use tokio::sync::broadcast;
 
     type StatusSubscription = (
         StatusSubscriptions,
-        broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        UpdateSender<SwapStatus>,
         CancellationToken,
     );
 

@@ -102,6 +102,9 @@ pub trait Client: BaseClient {
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
 
+    /// Submit a package of raw transactions to the mempool (Bitcoin only)
+    async fn submit_package(&self, txs: &[&str]) -> Result<types::SubmitPackageResponse>;
+
     async fn list_unspent(&self, wallet: Option<&str>) -> Result<Vec<types::UnspentOutput>>;
     async fn get_new_address(
         &self,

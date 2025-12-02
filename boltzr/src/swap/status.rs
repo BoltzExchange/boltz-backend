@@ -54,6 +54,35 @@ pub fn serialize_swap_updates(
     status.iter().map(|status| status.to_string())
 }
 
+#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug)]
+pub enum FundingAddressStatus {
+    #[strum(serialize = "created")]
+    Created,
+    #[strum(serialize = "expired")]
+    Expired,
+    #[strum(serialize = "signature.required")]
+    SignatureRequired,
+    #[strum(serialize = "transaction.mempool")]
+    TransactionMempool,
+    #[strum(serialize = "transaction.confirmed")]
+    TransactionConfirmed,
+
+    // In case we cannot parse a string
+    Unknown,
+}
+
+impl Default for FundingAddressStatus {
+    fn default() -> Self {
+        FundingAddressStatus::Created
+    }
+}
+
+impl FundingAddressStatus {
+    pub fn parse(value: &str) -> Self {
+        FundingAddressStatus::try_from(value).unwrap_or(FundingAddressStatus::Unknown)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::swap::{SwapUpdate, serialize_swap_updates};

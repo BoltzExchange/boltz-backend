@@ -1,6 +1,6 @@
 use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{FundingAddressUpdate, SwapStatus};
 use crate::cache::Cache;
 use crate::chain::mrh_watcher::MrhWatcher;
 use crate::chain::types::Type;
@@ -8,12 +8,14 @@ use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
 use crate::db::helpers::chain_tip::{ChainTipHelper, ChainTipHelperDatabase};
+use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::AssetRescueConfig;
+use crate::swap::FundingAddressNursery;
 use crate::swap::asset_rescue::AssetRescue;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
@@ -78,6 +80,7 @@ pub struct Manager {
     network: crate::wallet::Network,
 
     update_tx: broadcast::Sender<SwapStatus>,
+    funding_address_update_tx: broadcast::Sender<FundingAddressUpdate>,
 
     currencies: Currencies,
     cancellation_token: CancellationToken,
@@ -103,6 +106,7 @@ impl Manager {
         pairs: &[PairConfig],
     ) -> Result<Self> {
         let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
+        let (funding_address_update_tx, _) = broadcast::channel::<FundingAddressUpdate>(128);
 
         let swap_repo = Arc::new(SwapHelperDatabase::new(pool.clone()));
         let chain_swap_repo = Arc::new(ChainSwapHelperDatabase::new(pool.clone()));
@@ -110,6 +114,7 @@ impl Manager {
         Ok(Manager {
             network,
             update_tx,
+            funding_address_update_tx,
             currencies: currencies.clone(),
             cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
@@ -160,6 +165,12 @@ impl Manager {
             self.update_tx.clone(),
         );
         let nursery = self.utxo_nursery.clone();
+        let relevant_tx_receiver = nursery.relevant_tx_receiver();
+        let funding_address_nursery = FundingAddressNursery::new(
+            Arc::new(FundingAddressHelperDatabase::new(self.pool.clone())),
+            self.funding_address_update_tx.clone(),
+            self.currencies.clone(),
+        );
 
         let currencies = self.currencies.clone();
 
@@ -175,6 +186,9 @@ impl Manager {
             }),
             tokio::spawn(async move {
                 nursery.start().await;
+            }),
+            tokio::spawn(async move {
+                funding_address_nursery.start(relevant_tx_receiver).await;
             }),
         ])
         .await
@@ -556,6 +570,7 @@ pub mod test {
         let manager = Manager {
             network: crate::wallet::Network::Regtest,
             update_tx: tokio::sync::broadcast::channel(100).0,
+            funding_address_update_tx: tokio::sync::broadcast::channel(100).0,
             cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
             currencies: currencies.clone(),

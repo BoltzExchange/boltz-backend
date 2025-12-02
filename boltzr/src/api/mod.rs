@@ -20,6 +20,7 @@ use crate::metrics::server::MetricsLayer;
 mod asset_rescue;
 mod bolt12;
 mod errors;
+mod funding_address;
 mod headers;
 mod lightning;
 mod quoter;
@@ -194,6 +195,17 @@ where
                 get(quoter::quote_output::<S, M>),
             )
             .route("/v2/quote/{currency}/encode", post(quoter::encode::<S, M>))
+            // Funding addresses
+            .route("/v2/funding", post(funding_address::create::<S, M>))
+            .route("/v2/funding/{id}", get(funding_address::get::<S, M>))
+            .route(
+                "/v2/funding/{id}/signature",
+                get(funding_address::get_signing_details::<S, M>),
+            )
+            .route(
+                "/v2/funding/{id}/signature",
+                post(funding_address::set_signature::<S, M>),
+            )
             // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))

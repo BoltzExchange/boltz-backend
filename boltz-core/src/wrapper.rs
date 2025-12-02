@@ -1,3 +1,4 @@
+use crate::utils::Type;
 use crate::{target_fee::FeeTarget, utils::Destination};
 use anyhow::Result;
 use bitcoin::{Address as BitcoinAddress, Transaction as BitcoinTransaction};
@@ -79,6 +80,19 @@ impl Transaction {
         match self {
             Transaction::Bitcoin(tx) => tx.serialize(),
             Transaction::Elements(tx) => tx.serialize(),
+        }
+    }
+
+    pub fn parse(transaction_type: &Type, transaction: &[u8]) -> anyhow::Result<Transaction> {
+        match transaction_type {
+            Type::Bitcoin => {
+                let tx = bitcoin::consensus::deserialize(transaction)?;
+                Ok(Transaction::Bitcoin(tx))
+            }
+            Type::Elements => {
+                let tx = elements::encode::deserialize(transaction)?;
+                Ok(Transaction::Elements(tx))
+            }
         }
     }
 }

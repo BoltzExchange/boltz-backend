@@ -18,7 +18,19 @@ use tracing::info;
 
 const TX_CHUNK_SIZE: usize = 512;
 
-type RelevantSwaps = HashMap<Transaction, Vec<String>>;
+#[derive(Hash, Eq, PartialEq, Debug, Clone, PartialOrd, Ord)]
+pub enum RelevantId {
+    Swap(String),
+    FundingAddress(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TxDetails {
+    Output(Vec<u8>),
+    Input(()),
+}
+
+type RelevantSwaps = HashMap<Transaction, Vec<(RelevantId, TxDetails)>>;
 
 #[derive(Clone)]
 pub struct TxChecker {
@@ -83,17 +95,28 @@ impl TxChecker {
                 };
 
                 for tx in txs {
+                    let entry = map.entry((**tx).clone()).or_default();
+
+                    let id = match (&pubkey.swap_id, &pubkey.funding_address_id) {
+                        (Some(swap_id), None) => RelevantId::Swap(swap_id.clone()),
+                        (None, Some(funding_address_id)) => {
+                            RelevantId::FundingAddress(funding_address_id.clone())
+                        }
+                        _ => {
+                            return Err(anyhow::anyhow!(
+                                "script pubkey must have exactly one of swap_id or funding_address_id"
+                            ));
+                        }
+                    };
+
                     info!(
-                        "Found {} output for Swap {} in {} transaction: {}",
+                        "Found {} output for {} in {} transaction: {}",
                         Self::format_tx_status(confirmed),
-                        pubkey.swap_id,
+                        Self::format_relevant_id(&id),
                         symbol,
                         tx.txid_hex()
                     );
-
-                    map.entry((**tx).clone())
-                        .or_default()
-                        .push(pubkey.swap_id.clone());
+                    entry.push((id, TxDetails::Output(pubkey.script_pubkey.clone())));
                 }
             }
         }
@@ -165,7 +188,9 @@ impl TxChecker {
                     tx.txid_hex()
                 );
 
-                map.entry((**tx).clone()).or_default().push(swap.id());
+                map.entry((**tx).clone())
+                    .or_default()
+                    .push((RelevantId::Swap(swap.id()), TxDetails::Input(())));
             }
         }
 
@@ -174,6 +199,15 @@ impl TxChecker {
 
     fn format_tx_status(confirmed: bool) -> String {
         format!("{}confirmed", if confirmed { "" } else { "un" })
+    }
+
+    fn format_relevant_id(id: &RelevantId) -> String {
+        match id {
+            RelevantId::Swap(swap_id) => format!("Swap {}", swap_id.clone()),
+            RelevantId::FundingAddress(funding_address_id) => {
+                format!("Funding Address {}", funding_address_id.clone())
+            }
+        }
     }
 }
 
@@ -201,6 +235,7 @@ mod test {
                 symbol: &str,
                 script_pubkeys: &[Vec<u8>],
             ) -> QueryResponse<Vec<ScriptPubKey>>;
+            fn add(&self, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
         }
     }
 
@@ -292,9 +327,10 @@ mod test {
             .times(1)
             .returning(move |_, _| {
                 Ok(vec![ScriptPubKey {
-                    swap_id: swap_id.to_string(),
+                    swap_id: Some(swap_id.to_string()),
                     symbol: "BTC".to_string(),
                     script_pubkey: first_output_script.clone(),
+                    funding_address_id: None,
                 }])
             });
 
@@ -319,7 +355,14 @@ mod test {
             .check("BTC", Transactions::Single(tx.clone()), true)
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
+        let first_output_script = tx.output_script_pubkeys()[0].clone();
+        assert_eq!(
+            result.get(&tx),
+            Some(&vec![(
+                RelevantId::Swap(swap_id.to_string()),
+                TxDetails::Output(first_output_script.clone())
+            )])
+        );
     }
 
     #[test]
@@ -371,7 +414,13 @@ mod test {
             .check("BTC", Transactions::Single(tx.clone()), false)
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
+        assert_eq!(
+            result.get(&tx),
+            Some(&vec![(
+                RelevantId::Swap(swap_id.to_string()),
+                TxDetails::Input(())
+            )])
+        );
     }
 
     #[test]
@@ -442,7 +491,13 @@ mod test {
             .check("BTC", Transactions::Single(tx.clone()), true)
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
+        assert_eq!(
+            result.get(&tx),
+            Some(&vec![(
+                RelevantId::Swap(swap_id.to_string()),
+                TxDetails::Input(())
+            )])
+        );
     }
 
     #[test]
@@ -464,14 +519,16 @@ mod test {
             .returning(move |_, _| {
                 Ok(vec![
                     ScriptPubKey {
-                        swap_id: swap_id_1.to_string(),
+                        swap_id: Some(swap_id_1.to_string()),
                         symbol: "BTC".to_string(),
                         script_pubkey: first_output.clone(),
+                        funding_address_id: None,
                     },
                     ScriptPubKey {
-                        swap_id: swap_id_2.to_string(),
+                        swap_id: Some(swap_id_2.to_string()),
                         symbol: "BTC".to_string(),
                         script_pubkey: second_output.clone(),
+                        funding_address_id: None,
                     },
                 ])
             });
@@ -499,8 +556,14 @@ mod test {
         assert_eq!(result.len(), 1);
         let swap_ids = result.get(&tx).unwrap();
         assert_eq!(swap_ids.len(), 2);
-        assert!(swap_ids.contains(&swap_id_1.to_string()));
-        assert!(swap_ids.contains(&swap_id_2.to_string()));
+        assert!(swap_ids.contains(&(
+            RelevantId::Swap(swap_id_1.to_string()),
+            TxDetails::Output(output_scripts[0].clone())
+        )));
+        assert!(swap_ids.contains(&(
+            RelevantId::Swap(swap_id_2.to_string()),
+            TxDetails::Output(output_scripts[1].clone())
+        )));
     }
 
     #[test]
@@ -529,12 +592,14 @@ mod test {
             .times(1)
             .returning(move |_, _| {
                 Ok(vec![ScriptPubKey {
-                    swap_id: swap_id_output.to_string(),
+                    swap_id: Some(swap_id_output.to_string()),
                     symbol: "BTC".to_string(),
                     script_pubkey: first_output_script.clone(),
+                    funding_address_id: None,
                 }])
             });
 
+        let first_output_script = tx.output_script_pubkeys()[0].clone();
         let input_txid_clone = input_txid.clone();
         reverse_swap_helper
             .expect_get_all_nullable()
@@ -590,17 +655,26 @@ mod test {
             .check("BTC", Transactions::Single(tx.clone()), true)
             .unwrap();
         assert_eq!(result.len(), 1);
-        let mut swap_ids = result.get(&tx).unwrap().clone();
-        swap_ids.sort();
+        let mut entries = result.get(&tx).unwrap().clone();
+        entries.sort();
 
         let mut expected = vec![
-            swap_id_output.to_string(),
-            swap_id_input_reverse.to_string(),
-            swap_id_input_chain.to_string(),
+            (
+                RelevantId::Swap(swap_id_output.to_string()),
+                TxDetails::Output(first_output_script.clone()),
+            ),
+            (
+                RelevantId::Swap(swap_id_input_reverse.to_string()),
+                TxDetails::Input(()),
+            ),
+            (
+                RelevantId::Swap(swap_id_input_chain.to_string()),
+                TxDetails::Input(()),
+            ),
         ];
         expected.sort();
 
-        assert_eq!(swap_ids, expected);
+        assert_eq!(entries, expected);
     }
 
     #[test]

@@ -44,6 +44,19 @@ pub struct Currency {
 
 pub type Currencies = Arc<HashMap<String, Currency>>;
 
+pub fn get_wallet(
+    currencies: &Currencies,
+    symbol: &str,
+) -> anyhow::Result<Arc<dyn Wallet + Send + Sync>> {
+    let wallet = currencies
+        .get(symbol)
+        .ok_or(anyhow::anyhow!("currency not found"))?
+        .wallet
+        .clone()
+        .ok_or(anyhow::anyhow!("wallet not found"))?;
+    Ok(wallet)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn connect_nodes<K: KeysHelper>(
     cancellation_token: CancellationToken,

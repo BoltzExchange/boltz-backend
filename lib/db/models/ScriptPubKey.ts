@@ -3,13 +3,15 @@ import { DataTypes, Model, type Sequelize } from 'sequelize';
 type ScriptPubKeyType = {
   symbol: string;
   script_pubkey: Buffer;
-  swap_id: string;
+  swap_id?: string;
+  funding_address_id?: string;
 };
 
 class ScriptPubKey extends Model implements ScriptPubKeyType {
   declare symbol: string;
   declare script_pubkey: Buffer;
-  declare swap_id: string;
+  declare swap_id?: string;
+  declare funding_address_id?: string;
 
   public static load = (sequelize: Sequelize): void => {
     ScriptPubKey.init(
@@ -26,7 +28,11 @@ class ScriptPubKey extends Model implements ScriptPubKeyType {
         },
         swap_id: {
           type: new DataTypes.STRING(255),
-          allowNull: false,
+          allowNull: true,
+        },
+        funding_address_id: {
+          type: new DataTypes.STRING(255),
+          allowNull: true,
         },
       },
       {

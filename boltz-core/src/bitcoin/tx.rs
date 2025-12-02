@@ -135,6 +135,11 @@ pub fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         script_sig.push_slice(PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "cooperative input spend cant be used for legacy outputs"
+                        ));
+                    }
                 };
 
                 script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
@@ -157,10 +162,14 @@ pub fn construct_raw<C: Signing + Verification>(
                 tx.input[i].witness = stubbed_cooperative_witness();
             }
             OutputType::Taproot(Some(uncooperative)) => {
-                let leaf = if let InputType::Claim(_) = input.input_type {
-                    &uncooperative.tree.claim_leaf
-                } else {
-                    &uncooperative.tree.refund_leaf
+                let leaf = match input.input_type {
+                    InputType::Claim(_) => &uncooperative.tree.claim_leaf,
+                    InputType::Refund(_) => &uncooperative.tree.refund_leaf,
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "cooperative input has to be spent from a key-path"
+                        ));
+                    }
                 };
 
                 let leaf_hash = leaf.leaf_hash()?;
@@ -231,6 +240,11 @@ pub fn construct_raw<C: Signing + Verification>(
                     }
                     InputType::Refund(_) => {
                         witness.push(PREIMAGE_DUMMY);
+                    }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "cooperative input has to be spent from a key-path"
+                        ));
                     }
                 };
 

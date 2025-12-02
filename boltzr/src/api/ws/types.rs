@@ -1,5 +1,16 @@
-use crate::grpc::service::boltzr::{SwapUpdate, swap_update};
+use crate::{
+    db::models::FundingAddress,
+    grpc::service::boltzr::{SwapUpdate, swap_update},
+};
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
+
+/// Type alias for broadcast senders that send updates with an optional connection ID filter.
+/// The `Option<u64>` is the connection ID - when `Some`, updates are only sent to that connection.
+pub type UpdateSender<T> = broadcast::Sender<(Option<u64>, Vec<T>)>;
+
+/// Type alias for broadcast receivers that receive updates with an optional connection ID filter.
+pub type UpdateReceiver<T> = broadcast::Receiver<(Option<u64>, Vec<T>)>;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct TransactionInfo {
@@ -47,6 +58,31 @@ pub struct SwapStatusNoId {
 
     #[serde(rename = "channel", skip_serializing_if = "Option::is_none")]
     pub channel_info: Option<ChannelInfo>,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
+pub struct FundingAddressUpdate {
+    pub id: String,
+    pub status: String,
+    #[serde(rename = "transaction", skip_serializing_if = "Option::is_none")]
+    pub transaction: Option<TransactionInfo>,
+    #[serde(rename = "swapId", skip_serializing_if = "Option::is_none")]
+    pub swap_id: Option<String>,
+}
+
+impl From<FundingAddress> for FundingAddressUpdate {
+    fn from(value: FundingAddress) -> Self {
+        FundingAddressUpdate {
+            id: value.id,
+            status: value.status,
+            transaction: value.lockup_transaction_id.map(|id| TransactionInfo {
+                id,
+                hex: None,
+                eta: None,
+            }),
+            swap_id: value.swap_id,
+        }
+    }
 }
 
 impl From<swap_update::TransactionInfo> for TransactionInfo {

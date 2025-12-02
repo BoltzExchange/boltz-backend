@@ -1,6 +1,6 @@
 use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, UpdateSender};
 use crate::cache::Cache;
 use crate::chain::mrh_watcher::MrhWatcher;
 use crate::chain::types::Type;
@@ -8,12 +8,14 @@ use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
 use crate::db::helpers::chain_tip::{ChainTipHelper, ChainTipHelperDatabase};
+use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::AssetRescueConfig;
+use crate::swap::FundingAddressNursery;
 use crate::swap::asset_rescue::AssetRescue;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
@@ -62,6 +64,7 @@ pub trait SwapManager {
     async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
+    fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
 
     async fn rescan_chains(
         &self,
@@ -78,6 +81,8 @@ pub struct Manager {
     network: crate::wallet::Network,
 
     update_tx: broadcast::Sender<SwapStatus>,
+    funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 
     currencies: Currencies,
     cancellation_token: CancellationToken,
@@ -101,8 +106,11 @@ impl Manager {
         pool: Pool,
         network: crate::wallet::Network,
         pairs: &[PairConfig],
+        swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Result<Self> {
         let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
+        let (funding_address_update_tx, _): (UpdateSender<FundingAddressUpdate>, _) =
+            broadcast::channel(128);
 
         let swap_repo = Arc::new(SwapHelperDatabase::new(pool.clone()));
         let chain_swap_repo = Arc::new(ChainSwapHelperDatabase::new(pool.clone()));
@@ -110,6 +118,8 @@ impl Manager {
         Ok(Manager {
             network,
             update_tx,
+            funding_address_update_tx,
+            swap_status_update_tx,
             currencies: currencies.clone(),
             cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
@@ -160,6 +170,15 @@ impl Manager {
             self.update_tx.clone(),
         );
         let nursery = self.utxo_nursery.clone();
+        let relevant_tx_receiver = nursery.relevant_tx_receiver();
+        let swap_status_rx = self.swap_status_update_tx.subscribe();
+        let funding_address_nursery = FundingAddressNursery::new(
+            Arc::new(FundingAddressHelperDatabase::new(self.pool.clone())),
+            self.funding_address_update_tx.clone(),
+            self.swap_repo.clone(),
+            self.chain_swap_repo.clone(),
+            self.currencies.clone(),
+        );
 
         let currencies = self.currencies.clone();
 
@@ -175,6 +194,11 @@ impl Manager {
             }),
             tokio::spawn(async move {
                 nursery.start().await;
+            }),
+            tokio::spawn(async move {
+                funding_address_nursery
+                    .start(relevant_tx_receiver, swap_status_rx)
+                    .await;
             }),
         ])
         .await
@@ -217,6 +241,10 @@ impl SwapManager for Manager {
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
         self.update_tx.subscribe()
+    }
+
+    fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate> {
+        self.funding_address_update_tx.clone()
     }
 
     #[instrument(name = "SwapManager::claim_batch", skip_all)]
@@ -526,6 +554,7 @@ pub mod test {
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
+            fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
             async fn rescan_chains(
                 &self,
                 options: Option<Vec<RescanChainOptions>>,
@@ -557,6 +586,8 @@ pub mod test {
         let manager = Manager {
             network: crate::wallet::Network::Regtest,
             update_tx: tokio::sync::broadcast::channel(100).0,
+            funding_address_update_tx: tokio::sync::broadcast::channel(100).0,
+            swap_status_update_tx: tokio::sync::broadcast::channel(100).0,
             cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
             currencies: currencies.clone(),

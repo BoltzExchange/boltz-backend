@@ -41,6 +41,14 @@ import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvi
 import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
 
 class CoopSigner extends CoopSignerBase<NonNullable<unknown>> {
   constructor(walletManager: WalletManager, swapOutputType: SwapOutputType) {
@@ -209,8 +217,7 @@ describe('CoopSignerBase', () => {
       const res = await signer['broadcastCooperativeTransaction'](
         toClaim.swap,
         btcCurrency,
-        toClaim.cooperative!.musig,
-        toClaim.cooperative!.transaction,
+        toClaim.cooperative!,
         Buffer.from(musig.getPublicNonce()),
         Buffer.from(musig.signPartial()),
       );
@@ -246,8 +253,7 @@ describe('CoopSignerBase', () => {
         signer['broadcastCooperativeTransaction'](
           toClaim.swap,
           btcCurrency,
-          toClaim.cooperative!.musig,
-          toClaim.cooperative!.transaction,
+          toClaim.cooperative!,
           Buffer.from(musig.getPublicNonce()),
           Buffer.from(musig.signPartial()),
         ),

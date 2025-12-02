@@ -99,3 +99,5 @@ test/integration/sidecar/sidecar
 docs/.vitepress/dist
 docs/.vitepress/cache
 docs/fetched
+
+boltzr/mnemonic

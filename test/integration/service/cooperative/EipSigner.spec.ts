@@ -30,6 +30,15 @@ jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
   getChainSwap: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
+
 describe('EipSigner', () => {
   const sidecar = {
     signEvmRefund: jest.fn().mockResolvedValue('0011'),

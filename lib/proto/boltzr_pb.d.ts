@@ -1268,6 +1268,10 @@ export class RelevantTransaction extends jspb.Message {
     getSwapIdsList(): Array<string>;
     setSwapIdsList(value: Array<string>): RelevantTransaction;
     addSwapIds(value: string, index?: number): string;
+    clearFundingAddressIdsList(): void;
+    getFundingAddressIdsList(): Array<string>;
+    setFundingAddressIdsList(value: Array<string>): RelevantTransaction;
+    addFundingAddressIds(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RelevantTransaction.AsObject;
@@ -1285,6 +1289,7 @@ export namespace RelevantTransaction {
         transaction: Uint8Array | string,
         status: TransactionStatus,
         swapIdsList: Array<string>,
+        fundingAddressIdsList: Array<string>,
     }
 }
 

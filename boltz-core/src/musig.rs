@@ -1,13 +1,14 @@
 use anyhow::{Result, anyhow};
 use secp256k1::musig::{
-    AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
-    Session, SessionSecretRand,
+    AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, SecretNonce, Session,
+    SessionSecretRand,
 };
 use secp256k1::rand::rngs::ThreadRng;
 use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, rand};
 use std::marker::PhantomData;
 
 pub use secp256k1::XOnlyPublicKey;
+pub use secp256k1::musig::PublicNonce;
 
 pub struct NoMessage;
 pub struct MissingNonce;

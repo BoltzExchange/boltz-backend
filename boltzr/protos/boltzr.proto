@@ -294,4 +294,5 @@ message RelevantTransaction {
   bytes transaction = 2;
   TransactionStatus status = 3;
   repeated string swap_ids = 4;
+  repeated string funding_address_ids = 5;
 }

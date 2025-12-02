@@ -10,6 +10,7 @@ pub mod built_info {
 }
 
 pub use drop_guard::{DropGuard, defer};
+use rand::Rng;
 pub use system::available_parallelism;
 pub use timeout_map::TimeoutMap;
 pub use units::mb_to_bytes;
@@ -30,6 +31,20 @@ pub fn get_version() -> String {
             ""
         }
     )
+}
+
+const ID_POSSIBILITIES: &str = "ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghkmnopqrstuvwxyz123456789";
+
+pub fn generate_id(length: Option<usize>) -> String {
+    let len = length.unwrap_or(12);
+    let mut rng = rand::thread_rng();
+
+    (0..len)
+        .map(|_| {
+            let idx = rng.gen_range(0..ID_POSSIBILITIES.len());
+            ID_POSSIBILITIES.chars().nth(idx).unwrap()
+        })
+        .collect()
 }
 
 #[cfg(any(feature = "loki", feature = "otel"))]
@@ -70,5 +85,14 @@ mod utils_test {
             "testnet".to_string()
         );
         assert_eq!(get_network(&None), "regtest".to_string());
+    }
+
+    #[test]
+    fn test_generate_id() {
+        let id = generate_id(None);
+        assert_eq!(id.len(), 12);
+
+        let id_20 = generate_id(Some(20));
+        assert_eq!(id_20.len(), 20);
     }
 }

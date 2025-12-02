@@ -126,9 +126,8 @@ message ClaimBatchRequest {
 }
 
 message ClaimBatchResponse {
-  bytes transaction = 1;
-  string transaction_id = 2;
-  uint64 fee = 3;
+  repeated string transaction_ids = 1;
+  map<string, uint64> fees_per_swap = 2;
 }
 
 message SignEvmRefundRequest {
@@ -297,4 +296,5 @@ message RelevantTransaction {
   bytes transaction = 2;
   TransactionStatus status = 3;
   repeated string swap_ids = 4;
+  repeated string funding_address_ids = 5;
 }

@@ -52,6 +52,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -309,6 +310,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               swap.orderSide,
               false,
             );
+
+            await this.checkFundingAddress(swap);
 
             const { chainClient } = this.currencies.get(chainSymbol)!;
             const wallet = this.walletManager.wallets.get(chainSymbol)!;
@@ -796,6 +799,39 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private checkFundingAddress = async (swap: Swap | ChainSwapInfo) => {
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress !== null && fundingAddress !== undefined) {
+      const chain = this.currencies.get(fundingAddress.symbol)!.chainClient!;
+
+      const response = await chain.testMempoolAccept([
+        getHexString(fundingAddress.presignedTx!),
+      ]);
+      if (fundingAddress.symbol === 'BTC') {
+        if (
+          response.some(
+            (r) => !r['reject-reason']?.includes('min relay fee not met'),
+          )
+        ) {
+          throw new Error(
+            `Presigned tx for funding address ${fundingAddress.id} is not valid: ${response.map((r) => r['reject-reason']).join(', ')}`,
+          );
+        }
+      } else {
+        if (
+          response.some(
+            (r) =>
+              r['reject-reason'] !== undefined && r['reject-reason'] !== '',
+          )
+        ) {
+          throw new Error(
+            `Presigned tx for funding address ${fundingAddress.id} is not valid: ${response.map((r) => r['reject-reason']).join(', ')}`,
+          );
+        }
+      }
+    }
+  };
+
   public attemptSettleSwap = async (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
@@ -803,6 +839,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage?: Buffer,
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
+
+    await this.checkFundingAddress(swap);
 
     if (swap.type === SwapType.Submarine) {
       payRes = await this.payInvoice(swap as Swap, outgoingChannelId);
@@ -1273,6 +1311,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           `Using prepay minerfee for lockup of Reverse Swap ${swap.id}: ${feePerVbyte} sat/vbyte`,
         );
       } else {
+        await this.checkFundingAddress(swap as ChainSwapInfo);
         feePerVbyte = await chainClient.estimateFee();
       }
 

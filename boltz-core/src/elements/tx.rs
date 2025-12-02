@@ -2,7 +2,7 @@ use crate::{
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     elements::InputDetail,
     target_fee::{FeeTarget, target_fee},
-    utils::{Destination, InputType, OutputType},
+    utils::{COOPERATIVE_INPUT_ERROR, Destination, InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::Witness;
@@ -167,6 +167,9 @@ fn construct_raw<C: Signing + Verification>(
                     }
                     InputType::Refund(_) => {
                         script_sig = script_sig.push_slice(&PREIMAGE_DUMMY);
+                    }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
                     }
                 };
 

@@ -56,6 +56,14 @@ import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWal
 import { bitcoinClient, elementsClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
 
 const mnemonic =
   'miracle tower paper teach stomach black exile discover paddle country around survey';

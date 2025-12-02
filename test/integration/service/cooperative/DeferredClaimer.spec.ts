@@ -165,7 +165,7 @@ describe('DeferredClaimer', () => {
     const preimage = randomBytes(32);
     swap.preimage = getHexString(preimage);
     swap.preimageHash = getHexString(crypto.sha256(preimage));
-    const claimKeys = btcWallet.getNewKeys();
+    const claimKeys = await btcWallet.getNewKeys();
     swap.keyIndex = claimKeys.index;
 
     const musig = createMusig(

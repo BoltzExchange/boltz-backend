@@ -213,7 +213,7 @@ describe('Core', () => {
 
   test('should construct legacy claim details', async () => {
     const preimage = randomBytes(32);
-    const claimKeys = wallet.getNewKeys();
+    const claimKeys = await wallet.getNewKeys();
     const refundKeys = ECPair.makeRandom();
 
     const redeemScript = swapScript(
@@ -264,7 +264,7 @@ describe('Core', () => {
 
   test('should construct Taproot claim details', async () => {
     const preimage = randomBytes(32);
-    const claimKeys = wallet.getNewKeys();
+    const claimKeys = await wallet.getNewKeys();
     const refundKeys = ECPair.makeRandom();
 
     const tree = swapTree(

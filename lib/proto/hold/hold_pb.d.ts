@@ -306,6 +306,11 @@ export class Htlc extends jspb.Message {
     getCreatedAt(): number;
     setCreatedAt(value: number): Htlc;
 
+    hasCltvExpiry(): boolean;
+    clearCltvExpiry(): void;
+    getCltvExpiry(): number | undefined;
+    setCltvExpiry(value: number): Htlc;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Htlc.AsObject;
     static toObject(includeInstance: boolean, msg: Htlc): Htlc.AsObject;
@@ -324,6 +329,7 @@ export namespace Htlc {
         channelId: number,
         msat: number,
         createdAt: number,
+        cltvExpiry?: number,
     }
 }
 

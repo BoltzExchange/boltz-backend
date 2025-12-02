@@ -30,6 +30,20 @@ impl Tapleaf {
             LeafVersion::from_consensus(self.version)?,
         ))
     }
+
+    pub fn get_pubkey(&self) -> Result<Option<XOnlyPublicKey>> {
+        for instr in self.output.instructions().flatten() {
+            if let Instruction::PushBytes(bytes) = instr {
+                if bytes.len() != 32 {
+                    continue;
+                }
+
+                return Ok(Some(XOnlyPublicKey::from_slice(bytes.as_bytes())?));
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 impl Tree {
@@ -48,31 +62,17 @@ impl Tree {
     }
 
     pub fn claim_pubkey(&self) -> Result<XOnlyPublicKey> {
-        match self.get_pubkey(&self.claim_leaf)? {
+        match self.claim_leaf.get_pubkey()? {
             Some(pubkey) => Ok(pubkey),
             None => Err(anyhow::anyhow!("claim leaf does not contain a public key")),
         }
     }
 
     pub fn refund_pubkey(&self) -> Result<XOnlyPublicKey> {
-        match self.get_pubkey(&self.refund_leaf)? {
+        match self.refund_leaf.get_pubkey()? {
             Some(pubkey) => Ok(pubkey),
             None => Err(anyhow::anyhow!("refund leaf does not contain a public key")),
         }
-    }
-
-    fn get_pubkey(&self, leaf: &Tapleaf) -> Result<Option<XOnlyPublicKey>> {
-        for instr in leaf.output.instructions().flatten() {
-            if let Instruction::PushBytes(bytes) = instr {
-                if bytes.len() != 32 {
-                    continue;
-                }
-
-                return Ok(Some(XOnlyPublicKey::from_slice(bytes.as_bytes())?));
-            }
-        }
-
-        Ok(None)
     }
 }
 

@@ -37,6 +37,11 @@ pub fn connect(config: Config) -> Result<Pool, Box<dyn Error + Send + Sync>> {
 
     info!("Connected to database");
 
+    Ok(pool)
+}
+
+#[instrument(name = "db::run_migrations", skip(pool))]
+pub fn run_migrations(pool: &Pool) -> Result<(), Box<dyn Error + Send + Sync>> {
     let migration_span = debug_span!("migrations");
     let _span = migration_span.enter();
     debug!("Running migrations");
@@ -44,6 +49,5 @@ pub fn connect(config: Config) -> Result<Pool, Box<dyn Error + Send + Sync>> {
     con.run_pending_migrations(MIGRATIONS)?;
 
     trace!("Ran migrations");
-
-    Ok(pool)
+    Ok(())
 }

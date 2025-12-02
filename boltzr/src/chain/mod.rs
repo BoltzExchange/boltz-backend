@@ -75,6 +75,7 @@ pub trait BaseClient {
     async fn connect(&mut self) -> Result<()>;
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;
@@ -105,6 +106,9 @@ pub trait Client: BaseClient {
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
+
+    /// Submit a package of raw transactions to the mempool (Bitcoin only)
+    async fn submit_package(&self, txs: &[&str]) -> Result<types::SubmitPackageResponse>;
 
     async fn list_unspent(&self, wallet: Option<&str>) -> Result<Vec<types::UnspentOutput>>;
     async fn get_new_address(

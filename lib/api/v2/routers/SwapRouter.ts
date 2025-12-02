@@ -726,6 +726,9 @@ class SwapRouter extends RouterBase {
      *         transactionHash:
      *           type: string
      *           description: Hash of the transaction that should be signed
+     *         fundingAddressId:
+     *           type: string
+     *           description: ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction.
      */
 
     /**
@@ -1515,6 +1518,9 @@ class SwapRouter extends RouterBase {
      *         transactionHash:
      *           type: string
      *           description: Transaction hash which should be signed, encoded as HEX
+     *         fundingAddressId:
+     *           type: string
+     *           description: ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction.
      */
 
     /**
@@ -2109,9 +2115,21 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
+     *     Restorable:
+     *       oneOf:
+     *         - $ref: '#/components/schemas/RestorableSwap'
+     *         - $ref: '#/components/schemas/RestorableFundingAddress'
+     *       discriminator:
+     *         propertyName: type
+     *         mapping:
+     *           submarine: '#/components/schemas/RestorableSwap'
+     *           reverse: '#/components/schemas/RestorableSwap'
+     *           chain: '#/components/schemas/RestorableSwap'
+     *           funding: '#/components/schemas/RestorableFundingAddress'
+     *
      *     RestorableSwap:
      *       type: object
-     *       required: ["id", "type", "status", "createdAt", "from", "to"]
+     *       required: ["id", "type", "status", "createdAt", "from", "to", "preimageHash"]
      *       properties:
      *         id:
      *           type: string
@@ -2119,13 +2137,13 @@ class SwapRouter extends RouterBase {
      *         type:
      *           type: string
      *           enum: ["submarine", "reverse", "chain"]
-     *           description: Type of the Swap
+     *           description: Swap type
      *         status:
      *           type: string
-     *           description: Status of the Swap
+     *           description: Status
      *         createdAt:
      *           type: number
-     *           description: UNIX timestamp of the creation of the Swap
+     *           description: UNIX timestamp of the creation
      *         from:
      *           type: string
      *           description: Asset the client is supposed to send
@@ -2139,6 +2157,71 @@ class SwapRouter extends RouterBase {
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
+     *
+     *     RestorableFundingAddress:
+     *       type: object
+     *       required: ["id", "type", "status", "createdAt", "chain", "tree", "keyIndex", "serverPublicKey", "timeoutBlockHeight"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID of the Funding Address
+     *         type:
+     *           type: string
+     *           enum: ["funding"]
+     *           description: Funding address entity type
+     *         status:
+     *           type: string
+     *           description: Status
+     *         createdAt:
+     *           type: number
+     *           description: UNIX timestamp of the creation
+     *         chain:
+     *           type: string
+     *           description: Chain of the funding address
+     *         tree:
+     *           $ref: '#/components/schemas/FundingAddressTree'
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the refund key used in the funding address
+     *         transaction:
+     *           $ref: '#/components/schemas/Transaction'
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the funding address refund path becomes spendable
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
+     *
+     *     FundingAddressTree:
+     *       type: object
+     *       required: ["refundLeaf"]
+     *       properties:
+     *         refundLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *
+     *     FundingAddressDetails:
+     *       type: object
+     *       required: ["tree", "keyIndex", "serverPublicKey", "timeoutBlockHeight"]
+     *       properties:
+     *         tree:
+     *           $ref: '#/components/schemas/FundingAddressTree'
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the refund key used in the funding address
+     *         transaction:
+     *           $ref: '#/components/schemas/Transaction'
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the funding address refund path becomes spendable
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      */
 
     /**
@@ -2170,7 +2253,7 @@ class SwapRouter extends RouterBase {
      * /swap/restore:
      *   post:
      *     tags: [Swap]
-     *     description: Restore swaps by searching with an XPUB, a single public key, or multiple public keys. Returns full swap details needed to resume, claim, or refund swaps when information was lost
+     *     description: Restore swaps and funding addresses by searching with an XPUB, a single public key, or multiple public keys. Returns details needed to resume, claim, or refund when information was lost
      *     requestBody:
      *       required: true
      *       content:
@@ -2179,13 +2262,13 @@ class SwapRouter extends RouterBase {
      *             $ref: '#/components/schemas/RescueRequest'
      *     responses:
      *       '200':
-     *         description: List of swaps that can be restored
+     *         description: List of restorable swaps and funding addresses
      *         content:
      *           application/json:
      *             schema:
      *               type: array
      *               items:
-     *                 $ref: '#/components/schemas/RestorableSwap'
+     *                 $ref: '#/components/schemas/Restorable'
      */
 
     /**
@@ -2642,6 +2725,7 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
       transactionHash: getHexString(details.transactionHash),
+      fundingAddressId: details.fundingAddressId,
     });
   };
 
@@ -2969,6 +3053,7 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
       transactionHash: getHexString(details.transactionHash),
+      fundingAddressId: details.fundingAddressId,
     });
   };
 

@@ -224,13 +224,12 @@ fn parse_transaction_id(id: &str) -> Result<Vec<u8>> {
 mod test {
     use crate::chain::utils::Outpoint;
     use crate::currencies::{Currencies, Currency};
-    use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::chain_swap::{
-        ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
-    };
+    use crate::db::helpers::chain_swap::ChainSwapHelper;
+    use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::ReverseSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
+    use crate::db::helpers::swap::SwapHelper;
+    use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
     use crate::swap::SwapUpdate;
     use crate::swap::filters::{
@@ -238,50 +237,9 @@ mod test {
     };
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use bip39::Mnemonic;
-    use mockall::mock;
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
-
-    mock! {
-        SwapHelper {}
-
-        impl Clone for SwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl SwapHelper for SwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
-            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
-            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
-                &self,
-                id: &str,
-                status: SwapUpdate,
-                failure_reason: Option<String>,
-            ) -> QueryResponse<usize>;
-        }
-    }
-
-    mock! {
-        ChainSwapHelper {}
-
-        impl Clone for ChainSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ChainSwapHelper for ChainSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
-            fn get_all(
-                &self,
-                condition: ChainSwapCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-            fn get_by_data_nullable(
-                &self,
-                condition: ChainSwapDataNullableCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-        }
-    }
 
     fn get_seed() -> [u8; 64] {
         Mnemonic::from_str("test test test test test test test test test test test junk")

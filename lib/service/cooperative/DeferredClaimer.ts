@@ -7,7 +7,6 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
-  getHexString,
   mapConcurrent,
   splitPairId,
 } from '../../Utils';
@@ -25,6 +24,7 @@ import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import CommitmentRepository from '../../db/repositories/CommitmentRepository';
+import FundingAddressRepository from '../../db/repositories/FundingAddressRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import type RateProvider from '../../rates/RateProvider';
 import type Sidecar from '../../sidecar/Sidecar';
@@ -93,14 +93,6 @@ class DeferredClaimer extends CoopSignerBase<{
   ) {
     super(logger, walletManager, swapOutputType);
 
-    for (const symbol of config.deferredClaimSymbols) {
-      this.swapsToClaim.set(symbol, new Map<string, SwapToClaimPreimage>());
-      this.chainSwapsToClaim.set(
-        symbol,
-        new Map<string, ChainSwapToClaimPreimage>(),
-      );
-    }
-
     this.sweepTriggers = [
       new ExpiryTrigger(this.currencies, this.config.expiryTolerance),
       new AmountTrigger(
@@ -137,6 +129,16 @@ class DeferredClaimer extends CoopSignerBase<{
     this.logger.verbose(
       `Expiry tolerance: ${this.config.expiryTolerance} minutes`,
     );
+
+    // We're not only initializing for the explicitly deferred symbols here
+    // since swaps with funding addresses will always be deferred.
+    for (const symbol of this.currencies.keys()) {
+      this.swapsToClaim.set(symbol, new Map<string, SwapToClaimPreimage>());
+      this.chainSwapsToClaim.set(
+        symbol,
+        new Map<string, ChainSwapToClaimPreimage>(),
+      );
+    }
 
     try {
       await this.batchClaimLeftovers();
@@ -210,7 +212,7 @@ class DeferredClaimer extends CoopSignerBase<{
   public sweep = async () => {
     const claimed = new Map<string, string[]>();
 
-    for (const symbol of this.config.deferredClaimSymbols) {
+    for (const symbol of this.currencies.keys()) {
       const ids = await this.sweepSymbol(symbol);
 
       if (ids.length > 0) {
@@ -241,8 +243,11 @@ class DeferredClaimer extends CoopSignerBase<{
         ? getChainCurrency(base, quote, swap.orderSide, false)
         : (swap as ChainSwapInfo).receivingData.symbol;
 
-    if (!(await this.shouldBeDeferred(chainCurrency, swap))) {
-      return false;
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress === null) {
+      if (!(await this.shouldBeDeferred(chainCurrency, swap))) {
+        return false;
+      }
     }
 
     this.logger.verbose(
@@ -295,6 +300,7 @@ class DeferredClaimer extends CoopSignerBase<{
     pubNonce: Buffer;
     publicKey: Buffer;
     transactionHash: Buffer;
+    fundingAddressId?: string;
   }> => {
     if (this.disableCooperative) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
@@ -342,8 +348,7 @@ class DeferredClaimer extends CoopSignerBase<{
         const { fee } = await this.broadcastCooperativeTransaction(
           swap,
           chainCurrency,
-          toClaim.cooperative!.musig,
-          toClaim.cooperative!.transaction,
+          toClaim.cooperative!,
           theirPubNonce,
           theirPartialSignature,
         );
@@ -449,22 +454,18 @@ class DeferredClaimer extends CoopSignerBase<{
     symbol: string,
     swaps: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[],
   ) => {
-    let transactionFee: number;
-    let claimTransactionId: string;
+    let transactionIds: string[];
+    let feesPerSwap: Map<string, number>;
 
     const currency = this.currencies.get(symbol)!;
 
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const res = await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
-        transactionFee = res.fee;
-        claimTransactionId = res.transactionId;
-
-        await currency!.chainClient!.sendRawTransaction(
-          getHexString(res.transaction),
-          true,
-        );
+        const { transactionIdsList, feesPerSwapMap } =
+          await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
+        transactionIds = transactionIdsList;
+        feesPerSwap = new Map(feesPerSwapMap);
         break;
       }
 
@@ -511,8 +512,11 @@ class DeferredClaimer extends CoopSignerBase<{
           }),
         );
 
-        claimTransactionId = tx.hash;
-        transactionFee = calculateEthereumTransactionFee(tx);
+        transactionIds = [tx.hash];
+        const ethFeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, ethFeePerSwap]));
 
         break;
       }
@@ -562,8 +566,11 @@ class DeferredClaimer extends CoopSignerBase<{
           }),
         );
 
-        claimTransactionId = tx.hash;
-        transactionFee = calculateEthereumTransactionFee(tx);
+        transactionIds = [tx.hash];
+        const erc20FeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, erc20FeePerSwap]));
 
         break;
       }
@@ -578,23 +585,23 @@ class DeferredClaimer extends CoopSignerBase<{
     this.logger.info(
       `Claimed ${symbol} of Swaps ${swaps
         .map((toClaim) => toClaim.swap.id)
-        .join(', ')} in: ${claimTransactionId}`,
+        .join(', ')} in: ${transactionIds.join(', ')}`,
     );
 
-    const transactionFeePerSwap = Math.ceil(transactionFee / swaps.length);
-
     for (const toClaim of swaps) {
+      const swapFee = feesPerSwap.get(toClaim.swap.id) ?? 0;
+
       let updatedSwap: Swap | ChainSwapInfo;
       if (toClaim.swap.type === SwapType.Submarine) {
         updatedSwap = await SwapRepository.setMinerFee(
           toClaim.swap as Swap,
-          transactionFeePerSwap,
+          swapFee,
         );
       } else {
         updatedSwap = await ChainSwapRepository.setClaimMinerFee(
           toClaim.swap as ChainSwapInfo,
           toClaim.preimage,
-          transactionFeePerSwap,
+          swapFee,
         );
       }
 

@@ -2,7 +2,7 @@ use crate::{
     bitcoin::InputDetail,
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
-    utils::{Destination, InputType, OutputType},
+    utils::{COOPERATIVE_INPUT_ERROR, Destination, InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::{
@@ -81,7 +81,9 @@ pub fn construct_raw<C: Signing + Verification>(
     };
 
     let mut tx = Transaction {
-        version: Version::TWO,
+        // Use V3 transactions to enable zero-fee presigned funding-address transactions
+        // that can be spent by a fee-paying child transaction via TRUC relay.
+        version: Version(3),
         lock_time: if let Some(lock_time) = inputs
             .iter()
             .filter_map(|input| match input.input_type {
@@ -135,6 +137,11 @@ pub fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         script_sig.push_slice(PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "legacy outputs cannot be spent cooperatively"
+                        ));
+                    }
                 };
 
                 script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
@@ -157,10 +164,14 @@ pub fn construct_raw<C: Signing + Verification>(
                 tx.input[i].witness = stubbed_cooperative_witness();
             }
             OutputType::Taproot(Some(uncooperative)) => {
-                let leaf = if let InputType::Claim(_) = input.input_type {
-                    &uncooperative.tree.claim_leaf
-                } else {
-                    &uncooperative.tree.refund_leaf
+                let leaf = match input.input_type {
+                    InputType::Claim(_) => &uncooperative.tree.claim_leaf,
+                    InputType::Refund(_) => &uncooperative.tree.refund_leaf,
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(
+                            "legacy outputs cannot be spent cooperatively"
+                        ));
+                    }
                 };
 
                 let leaf_hash = leaf.leaf_hash()?;
@@ -232,6 +243,9 @@ pub fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         witness.push(PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
+                    }
                 };
 
                 witness.push(witness_script.as_bytes());
@@ -294,12 +308,6 @@ mod tests {
     const FUNDING_AMOUNT: u64 = 100_000;
 
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
-        node.request::<serde_json::Value>(
-            "generatetoaddress",
-            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
-        )
-        .unwrap();
-
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
@@ -309,6 +317,12 @@ mod tests {
                 ]),
             )
             .unwrap();
+
+        node.request::<serde_json::Value>(
+            "generatetoaddress",
+            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
+        )
+        .unwrap();
 
         let tx = node
             .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&funding_tx)]))

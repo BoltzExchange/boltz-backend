@@ -1,5 +1,5 @@
-use crate::api::ws::status::SwapInfos;
-use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
+use crate::api::ws::status::{FundingAddressInfos, SwapInfos};
+use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, SwapStatusNoId};
 use crate::grpc::service::boltzr::SwapUpdateResponse;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -100,6 +100,20 @@ impl SwapInfos for StatusFetcher {
             }
         }
 
+        Ok(None)
+    }
+}
+
+#[async_trait]
+impl FundingAddressInfos for StatusFetcher {
+    async fn fetch_funding_address_info(
+        &self,
+        _connection: u64,
+        _ids: Vec<String>,
+    ) -> Result<Option<Vec<FundingAddressUpdate>>> {
+        // TODO: Implement fetching funding address status from database
+        // For now, return None to allow the subscription to complete
+        // Updates will be sent when they occur through the broadcast channel
         Ok(None)
     }
 }

@@ -165,11 +165,7 @@ class WalletManager {
               currency.network! as LiquidNetwork,
             );
 
-      wallet.initKeyProvider(
-        keyProviderInfo.derivationPath,
-        keyProviderInfo.highestUsedIndex,
-        this.masterNode,
-      );
+      wallet.initKeyProvider(keyProviderInfo.derivationPath, this.masterNode);
 
       this.wallets.set(currency.symbol, wallet);
     }

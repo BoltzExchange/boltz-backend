@@ -211,17 +211,14 @@ describe('WalletManager', () => {
       expect(wallet).not.toBeUndefined();
 
       const derivationPath = wallet!['derivationPath'];
-      const highestUsedIndex = wallet!['highestUsedIndex'];
 
       const keyProvider = await KeyRepository.getKeyProvider(currency.symbol);
 
       // Compare with values in the database
       expect(derivationPath).toEqual(keyProvider!.derivationPath);
-      expect(highestUsedIndex).toEqual(keyProvider!.highestUsedIndex);
 
       // Compare with expected values
       expect(derivationPath).toEqual(`m/0/${index}`);
-      expect(highestUsedIndex).toEqual(0);
 
       index += 1;
     }

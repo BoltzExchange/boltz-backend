@@ -16,7 +16,6 @@ class Wallet implements BalancerFetcher {
   public readonly symbol: string;
 
   private derivationPath?: string;
-  private highestUsedIndex?: number;
   private masterNode?: BIP32Interface;
 
   /**
@@ -41,11 +40,9 @@ class Wallet implements BalancerFetcher {
    */
   public initKeyProvider = (
     derivationPath: string,
-    highestUsedIndex: number,
     masterNode: BIP32Interface,
   ): void => {
     this.derivationPath = derivationPath;
-    this.highestUsedIndex = highestUsedIndex;
     this.masterNode = masterNode;
   };
 
@@ -73,20 +70,18 @@ class Wallet implements BalancerFetcher {
   /**
    * Gets a new pair of keys
    */
-  public getNewKeys = (): { keys: BIP32Interface; index: number } => {
-    if (this.highestUsedIndex === undefined) {
+  public getNewKeys = async (): Promise<{
+    keys: BIP32Interface;
+    index: number;
+  }> => {
+    const index = await KeyRepository.incrementHighestUsedIndex(this.symbol);
+    if (index === undefined) {
       throw Errors.NOT_SUPPORTED_BY_WALLET(this.symbol, 'getNewKeys');
     }
 
-    this.highestUsedIndex += 1;
-    KeyRepository.setHighestUsedIndex(
-      this.symbol,
-      this.highestUsedIndex,
-    ).then();
-
     return {
-      keys: this.getKeysByIndex(this.highestUsedIndex),
-      index: this.highestUsedIndex,
+      keys: this.getKeysByIndex(index),
+      index: index,
     };
   };
 

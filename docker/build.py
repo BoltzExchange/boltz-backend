@@ -32,7 +32,7 @@ UBUNTU_VERSION = BuildArgument(
 
 NODE_VERSION = BuildArgument(
     name="NODE_VERSION",
-    value="22-bookworm-slim",
+    value="24-bookworm-slim",
 )
 
 GOLANG_VERSION = BuildArgument(

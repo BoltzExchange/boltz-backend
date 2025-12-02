@@ -3,6 +3,7 @@ use diesel::pg::Pg;
 use diesel::sql_types::{Bool, Nullable};
 
 pub mod chain_swap;
+pub mod funding_address;
 pub mod keys;
 pub mod offer;
 pub mod preimage_hash_triggers;

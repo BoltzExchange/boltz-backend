@@ -39,6 +39,8 @@ class ChainSwap extends Model implements ChainSwapType {
   public preimageHash!: string;
   public preimage?: string;
 
+  public fundingAddressId?: string;
+
   public createdRefundSignature!: boolean;
 
   public createdAt!: Date;

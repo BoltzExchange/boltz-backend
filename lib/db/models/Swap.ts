@@ -85,6 +85,7 @@ class Swap extends Model implements SwapType {
   public lockupAddress!: string;
   public lockupTransactionId?: string;
   public lockupTransactionVout?: number;
+  public fundingAddressId?: string;
 
   public createdRefundSignature!: boolean;
 

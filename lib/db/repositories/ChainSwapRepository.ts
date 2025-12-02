@@ -108,6 +108,10 @@ class ChainSwapInfo {
 
     return undefined;
   }
+
+  get fundingAddressId() {
+    return this.chainSwap.fundingAddressId;
+  }
 }
 
 class ChainSwapRepository {

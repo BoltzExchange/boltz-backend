@@ -10,6 +10,7 @@ import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import ExtraFee from './models/ExtraFee';
+import FundingAddress from './models/FundingAddress';
 import KeyProvider from './models/KeyProvider';
 import LightningPayment from './models/LightningPayment';
 import MarkedSwap from './models/MarkedSwap';
@@ -107,6 +108,7 @@ class Database {
       Rebroadcast.sync(),
       DatabaseVersion.sync(),
       TransactionLabel.sync(),
+      FundingAddress.sync(),
       PendingEthereumTransaction.sync(),
     ]);
 
@@ -149,6 +151,7 @@ class Database {
     ReverseSwap.load(Database.sequelize);
     MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
+    FundingAddress.load(Database.sequelize);
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
     ReverseRoutingHint.load(Database.sequelize);

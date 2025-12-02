@@ -11,6 +11,7 @@ use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 
 mod chain_swap;
+mod funding_address;
 mod keys;
 mod offer;
 mod referral;
@@ -20,6 +21,7 @@ mod swap;
 mod web_hook;
 
 pub use chain_swap::*;
+pub use funding_address::*;
 pub use keys::*;
 pub use offer::*;
 pub use referral::*;

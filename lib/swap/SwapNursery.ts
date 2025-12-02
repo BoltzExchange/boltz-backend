@@ -2,6 +2,7 @@ import AsyncLock from 'async-lock';
 import type { Transaction } from 'bitcoinjs-lib';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import type { ContractTransactionResponse } from 'ethers';
+import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import type { OverPaymentConfig } from '../Config';
@@ -727,6 +728,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage?: Buffer,
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
+
+    if (swap.fundingAddressId !== undefined) {
+      const fundingAddress =
+        await FundingAddressRepository.getFundingAddressById(
+          swap.fundingAddressId,
+        );
+      if (fundingAddress === null) {
+        this.logger.error(`Funding address ${swap.fundingAddressId} not found`);
+        return;
+      }
+    }
 
     if (swap.type === SwapType.Submarine) {
       payRes = await this.payInvoice(swap as Swap, outgoingChannelId);

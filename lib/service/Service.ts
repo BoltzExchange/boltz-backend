@@ -2,6 +2,7 @@ import type { Transaction } from 'bitcoinjs-lib';
 import type { SwapTreeSerializer } from 'boltz-core';
 import { OutputType } from 'boltz-core';
 import type { Provider } from 'ethers';
+import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { Order } from 'sequelize';
 import { Op } from 'sequelize';
@@ -1102,6 +1103,8 @@ class Service {
 
     // Invoice, if available, to adjust the timeout block height
     invoice?: string;
+
+    fundingAddressId?: string;
   }): Promise<{
     id: string;
     address: string;
@@ -1520,6 +1523,7 @@ class Service {
     paymentTimeout?: number,
     webHook?: WebHookData,
     extraFees?: ExtraFees,
+    fundingAddressId?: string,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1582,6 +1586,14 @@ class Service {
           extraFees,
         );
 
+      if (fundingAddressId !== undefined) {
+        await this.swapManager.setSwapFundingAddress(
+          createdSwap,
+          fundingAddressId,
+          expectedAmount,
+        );
+      }
+
       return {
         bip21,
         acceptZeroConf,
@@ -1609,6 +1621,23 @@ class Service {
       await swap?.destroy();
 
       throw error;
+    }
+  };
+
+  public createSwapWithFundingAddress = async (args: {
+    pairId: string;
+    orderSide: string;
+    refundPublicKey: Buffer;
+    invoice: string;
+    pairHash?: string;
+    referralId?: string;
+    channel?: ChannelCreationInfo;
+  }) => {
+    const fundingAddress = await FundingAddressRepository.getFundingAddressById(
+      args.fundingAddressId,
+    );
+    if (!fundingAddress) {
+      throw Errors.FUNDING_ADDRESS_NOT_FOUND(args.fundingAddressId);
     }
   };
 

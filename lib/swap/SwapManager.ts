@@ -13,6 +13,7 @@ import {
   reverseSwapTree as reverseSwapTreeLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
+import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op } from 'sequelize';
 import type { SwapConfig } from '../Config';
@@ -378,6 +379,8 @@ class SwapManager {
 
     // Only required for UTXO based chains
     refundPublicKey?: Buffer;
+
+    fundingAddressId?: string;
   }): Promise<CreatedSwap> => {
     const { sendingCurrency, receivingCurrency } = this.getCurrencies(
       args.baseCurrency,
@@ -399,6 +402,16 @@ class SwapManager {
 
     if (args.referralId) {
       this.logger.silly(`Using referral ID ${args.referralId} for Swap ${id}`);
+    }
+
+    if (args.fundingAddressId !== undefined) {
+      const fundingAddress =
+        await FundingAddressRepository.getFundingAddressById(
+          args.fundingAddressId,
+        );
+      if (!fundingAddress) {
+        throw Errors.FUNDING_ADDRESS_NOT_FOUND(args.fundingAddressId);
+      }
     }
 
     const pair = getPairId({
@@ -764,6 +777,33 @@ class SwapManager {
       acceptZeroConf: swap.acceptZeroConf!,
       expectedAmount: swap.expectedAmount!,
     };
+  };
+
+  public setSwapFundingAddress = async (
+    swap: Swap,
+    fundingAddressId: string,
+    expectedAmount: number,
+  ) => {
+    const fundingAddress =
+      await FundingAddressRepository.getFundingAddressById(fundingAddressId);
+    if (!fundingAddress) {
+      throw Errors.FUNDING_ADDRESS_NOT_FOUND(fundingAddressId);
+    }
+
+    if (fundingAddress.lockupTransactionId === undefined) {
+      throw Errors.FUNDING_ADDRESS_NO_LOCKUP_TRANSACTION(fundingAddressId);
+    }
+
+    if (fundingAddress.swapId !== undefined) {
+      throw Errors.FUNDING_ADDRESS_USED(fundingAddressId, swap.id);
+    }
+
+    if (fundingAddress.lockupAmount !== expectedAmount) {
+      throw Errors.FUNDING_ADDRESS_AMOUNT_MISMATCH(
+        fundingAddressId,
+        expectedAmount,
+      );
+    }
   };
 
   /**

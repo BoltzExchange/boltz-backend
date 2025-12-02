@@ -1,8 +1,8 @@
 use anyhow::{Result, anyhow};
 use secp256k1::musig::{
-    AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
-    Session, SessionSecretRand,
+    AggregatedNonce, AggregatedSignature, KeyAggCache, SecretNonce, Session, SessionSecretRand,
 };
+pub use secp256k1::musig::{PartialSignature, PublicNonce};
 use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, XOnlyPublicKey, rand};
 
 pub struct Musig {
@@ -26,6 +26,14 @@ impl Musig {
 
     pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey> {
         Ok(PublicKey::from_slice(pub_key)?)
+    }
+
+    pub fn convert_scalar(scalar: &[u8]) -> Result<Scalar> {
+        Ok(Scalar::from_be_bytes(
+            scalar
+                .try_into()
+                .map_err(|_| anyhow!("scalar is not 32 bytes"))?,
+        )?)
     }
 
     pub fn new(key: Keypair, pub_keys: Vec<PublicKey>, msg: [u8; 32]) -> Result<Self> {
@@ -62,7 +70,7 @@ impl Musig {
         Ok(())
     }
 
-    pub fn generate_nonce<R: rand::Rng + ?Sized>(&mut self, rng: &mut R) -> PublicNonce {
+    fn generate_nonce_rng<R: rand::Rng + ?Sized>(&mut self, rng: &mut R) -> PublicNonce {
         let session_secrand = SessionSecretRand::from_rng(rng);
         let (secret, public) =
             self.aggcache
@@ -70,6 +78,14 @@ impl Musig {
         self.nonce = Some((secret, public));
 
         public
+    }
+
+    pub fn generate_nonce(&mut self) -> PublicNonce {
+        self.generate_nonce_rng(&mut rand::rng())
+    }
+
+    pub fn message(&self) -> [u8; 32] {
+        self.msg
     }
 
     pub fn aggregate_nonces(&mut self, mut nonces: Vec<(PublicKey, PublicNonce)>) -> Result<()> {
@@ -131,20 +147,19 @@ impl Musig {
         Ok(())
     }
 
-    pub fn partial_sign(&mut self) -> Result<()> {
+    pub fn partial_sign(&mut self) -> Result<PartialSignature> {
         if let Some((secnonce, _)) = self.nonce.take() {
             if let Some(session) = &self.session {
                 let partial_sig = session.partial_sign(secnonce, &self.key, &self.aggcache);
                 let our_index = self.our_index()?;
-                self.partial_sigs[our_index] = Some(partial_sig);
+                self.partial_sigs[our_index] = Some(partial_sig.clone());
+                Ok(partial_sig)
             } else {
                 anyhow::bail!("session is not initialized")
             }
         } else {
             anyhow::bail!("our nonce is not generated yet")
         }
-
-        Ok(())
     }
 
     pub fn partial_verify(&self, public_key: PublicKey, sig: PartialSignature) -> Result<bool> {
@@ -275,7 +290,7 @@ mod tests {
             musig.xonly_tweak_add(&Scalar::random()).unwrap();
         }
 
-        musig.generate_nonce(&mut rand::rng());
+        musig.generate_nonce();
         musig
             .aggregate_nonces(
                 counterparties

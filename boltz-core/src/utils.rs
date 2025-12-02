@@ -12,6 +12,8 @@ pub enum InputType {
     Claim([u8; 32]),
     /// Contains the locktime required for the refund
     Refund(u32),
+    /// For keypath spends which dont need additional information
+    Cooperative,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

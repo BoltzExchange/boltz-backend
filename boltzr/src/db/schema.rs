@@ -133,5 +133,24 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    #[allow(non_snake_case)]
+    funding_addresses (id) {
+        id -> Text,
+        symbol -> Text,
+        key_index -> Integer,
+        their_public_key -> Text,
+        timeout_block_height -> Integer,
+        lockup_transaction_id -> Nullable<Text>,
+        lockup_confirmed -> Bool,
+        lockup_amount -> Nullable<BigInt>,
+        lockup_transaction_vout -> Nullable<Integer>,
+        swap_id -> Nullable<Text>,
+        presigned_tx -> Nullable<Binary>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);

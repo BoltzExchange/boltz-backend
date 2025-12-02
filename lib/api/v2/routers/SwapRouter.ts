@@ -2177,6 +2177,7 @@ class SwapRouter extends RouterBase {
       extraFees,
       paymentTimeout,
       refundPublicKey,
+      fundingAddressId,
     } = validateRequest(req.body, [
       { name: 'to', type: 'string' },
       { name: 'from', type: 'string' },
@@ -2186,6 +2187,7 @@ class SwapRouter extends RouterBase {
       { name: 'extraFees', type: 'object', optional: true },
       { name: 'paymentTimeout', type: 'number', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
+      { name: 'fundingAddressId', type: 'string', optional: true },
     ]);
     const referralId = parseReferralId(req);
 

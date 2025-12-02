@@ -2,6 +2,7 @@ import type { Transaction } from 'bitcoinjs-lib';
 import type { SwapTreeSerializer } from 'boltz-core';
 import { OutputType } from 'boltz-core';
 import type { Provider } from 'ethers';
+import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { Order } from 'sequelize';
 import { Op } from 'sequelize';
@@ -1116,6 +1117,8 @@ class Service {
 
     // Invoice, if available, to adjust the timeout block height
     invoice?: string;
+
+    fundingAddressId?: string;
   }): Promise<{
     id: string;
     address: string;
@@ -1536,6 +1539,7 @@ class Service {
     paymentTimeout?: number,
     webHook?: WebHookData,
     extraFees?: ExtraFees,
+    fundingAddressId?: string,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1587,16 +1591,26 @@ class Service {
     });
 
     try {
+      const swap = await SwapRepository.getSwap({
+        id: createdSwap.id,
+      });
+
       const { bip21, acceptZeroConf, expectedAmount } =
         await this.setSwapInvoice(
-          (await SwapRepository.getSwap({
-            id: createdSwap.id,
-          }))!,
+          swap!,
           invoice,
           createdSwap.canBeRouted,
           pairHash,
           extraFees,
         );
+
+      if (fundingAddressId !== undefined) {
+        await this.swapManager.setSwapFundingAddress(
+          swap!,
+          fundingAddressId,
+          expectedAmount,
+        );
+      }
 
       return {
         bip21,
@@ -1623,6 +1637,10 @@ class Service {
         id: createdSwap.id,
       });
       await swap?.destroy();
+
+      if (fundingAddressId !== undefined) {
+        await FundingAddressRepository.setSwapId(fundingAddressId, null);
+      }
 
       throw error;
     }

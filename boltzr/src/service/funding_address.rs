@@ -1,0 +1,539 @@
+use crate::currencies::Currencies;
+use crate::db::helpers::funding_address::FundingAddressHelper;
+use crate::db::helpers::keys::KeysHelper;
+use crate::db::helpers::swap::SwapHelper;
+use crate::db::models::FundingAddress;
+use crate::service::funding_address_signer::{
+    CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
+};
+use crate::utils::generate_id;
+use anyhow::{Result, anyhow};
+use bitcoin::XOnlyPublicKey;
+use bitcoin::key::{Keypair, Secp256k1};
+use boltz_core::Address;
+use std::sync::Arc;
+use tracing::debug;
+
+pub struct FundingAddressService {
+    funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
+    keys_helper: Arc<dyn KeysHelper + Sync + Send>,
+    signer: FundingAddressSigner,
+    currencies: Currencies,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateFundingAddressRequest {
+    pub symbol: String,
+    pub refund_public_key: XOnlyPublicKey,
+    pub timeout_block_height: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateFundingAddressResponse {
+    pub id: String,
+    pub address: String,
+    pub timeout_block_height: u32,
+    pub boltz_public_key: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FundingAddressResponse {
+    pub id: String,
+    pub symbol: String,
+    pub address: String,
+    pub timeout_block_height: u32,
+    pub boltz_public_key: String,
+    pub lockup_transaction_id: Option<String>,
+    pub lockup_confirmed: bool,
+    pub swap_id: Option<String>,
+}
+
+impl FundingAddressService {
+    pub fn new(
+        funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
+        keys_helper: Arc<dyn KeysHelper + Sync + Send>,
+        swap_helper: Arc<dyn SwapHelper + Sync + Send>,
+        currencies: Currencies,
+    ) -> Self {
+        let signer = FundingAddressSigner::new(swap_helper, currencies.clone());
+        Self {
+            funding_address_helper,
+            keys_helper,
+            signer,
+            currencies,
+        }
+    }
+
+    /// Converts a FundingAddress database model to an API response by deriving
+    /// the address and public key from the stored data.
+    fn to_response(&self, funding_address: &FundingAddress) -> Result<FundingAddressResponse> {
+        let our_key_pair = self.key_pair(funding_address)?;
+        let script_pubkey = funding_address.script_pubkey(&our_key_pair)?;
+        let currency = self
+            .currencies
+            .get(&funding_address.symbol)
+            .ok_or(anyhow!("currency not found: {}", funding_address.symbol))?;
+        let address = Address::from_bitcoin_script(currency.network, &script_pubkey.to_bytes())?;
+
+        Ok(FundingAddressResponse {
+            id: funding_address.id.clone(),
+            symbol: funding_address.symbol.clone(),
+            address: address.to_string(),
+            timeout_block_height: funding_address.timeout_block_height as u32,
+            boltz_public_key: our_key_pair.public_key().to_string(),
+            lockup_transaction_id: funding_address.lockup_transaction_id.clone(),
+            lockup_confirmed: funding_address.lockup_confirmed,
+            swap_id: funding_address.swap_id.clone(),
+        })
+    }
+
+    fn key_pair(&self, funding_address: &FundingAddress) -> Result<Keypair> {
+        let secp = Secp256k1::new();
+
+        let wallet = self
+            .currencies
+            .get(&funding_address.symbol)
+            .ok_or(anyhow!("currency not found: {}", funding_address.symbol))?
+            .wallet
+            .as_ref()
+            .ok_or(anyhow!(
+                "no wallet for currency: {}",
+                funding_address.symbol
+            ))?;
+
+        let our_key_pair = wallet
+            .derive_keys(funding_address.key_index as u64)?
+            .to_keypair(&secp);
+        Ok(our_key_pair)
+    }
+
+    pub fn create(&self, request: CreateFundingAddressRequest) -> Result<FundingAddressResponse> {
+        debug!("Creating funding address for {}", request.symbol);
+
+        // Get and increment key index
+        let key_index = self
+            .keys_helper
+            .increment_highest_used_index(&request.symbol)? as u32;
+
+        debug!("Using key index {} for funding address", key_index);
+
+        let timeout_block_height = request.timeout_block_height.unwrap_or(0) as u32;
+        let id = generate_id(None);
+
+        let funding_address = FundingAddress {
+            id: id.clone(),
+            symbol: request.symbol.clone(),
+            key_index: key_index as i32,
+            their_public_key: request.refund_public_key.to_string(),
+            timeout_block_height: timeout_block_height as i32,
+            ..Default::default()
+        };
+
+        // Insert into database
+        self.funding_address_helper.insert(&funding_address)?;
+
+        debug!(
+            "Created funding address {} with key index {}",
+            id, key_index
+        );
+
+        self.to_response(&funding_address)
+    }
+
+    pub fn query_by_id(&self, id: &str) -> Result<FundingAddress> {
+        self.funding_address_helper
+            .get_by_id(id)?
+            .ok_or(anyhow!("funding address not found"))
+    }
+
+    pub fn get_by_id(&self, id: &str) -> Result<Option<FundingAddressResponse>> {
+        let funding_address = self.funding_address_helper.get_by_id(id)?;
+
+        match funding_address {
+            Some(fa) => Ok(Some(self.to_response(&fa)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_signing_details(&self, id: &str) -> Result<CooperativeDetails> {
+        let funding_address = self.query_by_id(id)?;
+        let key_pair = self.key_pair(&funding_address)?;
+        self.signer.get_signing_details(&funding_address, &key_pair)
+    }
+
+    pub fn set_signature(&self, request: SetSignatureRequest) -> Result<()> {
+        let funding_address = self.query_by_id(&request.id)?;
+        let signed_tx = self.signer.set_signature(&funding_address, &request)?;
+        self.funding_address_helper
+            .set_presigned_tx(&funding_address.id, Some(signed_tx.serialize().to_vec()))?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::currencies::Currency;
+    use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
+    use crate::db::helpers::keys::test::MockKeysHelper;
+    use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::wallet::{Elements, Network, Wallet};
+    use bitcoin::XOnlyPublicKey;
+    use std::collections::HashMap;
+    use std::str::FromStr;
+    use tokio;
+
+    const TEST_XONLY_PUBKEY: &str =
+        "e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
+    const TEST_SYMBOL: &str = "L-BTC";
+
+    fn get_liquid_wallet() -> Arc<dyn Wallet + Send + Sync> {
+        Arc::new(
+            Elements::new(
+                Network::Regtest,
+                &crate::wallet::test::get_seed(),
+                "m/0/1".to_string(),
+                Arc::new(crate::chain::elements_client::test::get_client().0),
+            )
+            .unwrap(),
+        )
+    }
+
+    fn get_currencies() -> Currencies {
+        Arc::new(HashMap::from([(
+            TEST_SYMBOL.to_string(),
+            Currency {
+                network: Network::Regtest,
+                wallet: Some(get_liquid_wallet()),
+                chain: None,
+                cln: None,
+                lnd: None,
+                evm_manager: None,
+            },
+        )]))
+    }
+
+    fn create_keys_helper(key_index: i32) -> MockKeysHelper {
+        let mut keys_helper = MockKeysHelper::new();
+        keys_helper
+            .expect_increment_highest_used_index()
+            .returning(move |_| Ok(key_index))
+            .times(1);
+        keys_helper
+    }
+
+    fn create_service(
+        funding_address_helper: MockFundingAddressHelper,
+        keys_helper: MockKeysHelper,
+        swap_helper: MockSwapHelper,
+        currencies: Option<Currencies>,
+    ) -> FundingAddressService {
+        FundingAddressService::new(
+            Arc::new(funding_address_helper),
+            Arc::new(keys_helper),
+            Arc::new(swap_helper),
+            currencies.unwrap_or_else(get_currencies),
+        )
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_success() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+        funding_address_helper
+            .expect_insert()
+            .returning(|_| Ok(1))
+            .times(1);
+
+        let service = create_service(
+            funding_address_helper,
+            create_keys_helper(10),
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_ok());
+
+        let response = result.unwrap();
+        assert!(!response.address.is_empty());
+        assert_eq!(response.timeout_block_height, 1000);
+        assert!(!response.boltz_public_key.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_default_timeout() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+        funding_address_helper
+            .expect_insert()
+            .returning(|_| Ok(1))
+            .times(1);
+
+        let service = create_service(
+            funding_address_helper,
+            create_keys_helper(5),
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: None,
+        };
+
+        let result = service.create(request);
+        assert!(result.is_ok());
+
+        let response = result.unwrap();
+        assert_eq!(response.timeout_block_height, 0);
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_currency_not_found() {
+        let funding_address_helper = MockFundingAddressHelper::new();
+        let keys_helper = MockKeysHelper::new();
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: "INVALID".to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("currency not found")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_no_wallet() {
+        let funding_address_helper = MockFundingAddressHelper::new();
+        let keys_helper = MockKeysHelper::new();
+
+        let currencies_without_wallet = Arc::new(HashMap::from([(
+            TEST_SYMBOL.to_string(),
+            Currency {
+                network: Network::Regtest,
+                wallet: None,
+                chain: None,
+                cln: None,
+                lnd: None,
+                evm_manager: None,
+            },
+        )]));
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            Some(currencies_without_wallet),
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("no wallet"));
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_insert_failure() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+        funding_address_helper
+            .expect_insert()
+            .returning(|_| Err(anyhow!("database error")))
+            .times(1);
+
+        let service = create_service(
+            funding_address_helper,
+            create_keys_helper(10),
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("database error"));
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_key_increment_failure() {
+        let funding_address_helper = MockFundingAddressHelper::new();
+
+        let mut keys_helper = MockKeysHelper::new();
+        keys_helper
+            .expect_increment_highest_used_index()
+            .returning(|_| Err(anyhow!("key increment error")))
+            .times(1);
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("key increment error")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_uses_correct_key_index() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+        let expected_key_index = 42;
+
+        funding_address_helper
+            .expect_insert()
+            .withf(move |fa: &FundingAddress| fa.key_index == expected_key_index)
+            .returning(|_| Ok(1))
+            .times(1);
+
+        let service = create_service(
+            funding_address_helper,
+            create_keys_helper(expected_key_index),
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let request = CreateFundingAddressRequest {
+            symbol: TEST_SYMBOL.to_string(),
+            refund_public_key: refund_pubkey,
+            timeout_block_height: Some(1000),
+        };
+
+        let result = service.create(request);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_success() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+        let test_id = "testid123456";
+
+        funding_address_helper
+            .expect_get_by_id()
+            .with(mockall::predicate::eq(test_id))
+            .returning(|id| {
+                Ok(Some(FundingAddress {
+                    id: id.to_string(),
+                    symbol: TEST_SYMBOL.to_string(),
+                    key_index: 10,
+                    their_public_key: TEST_XONLY_PUBKEY.to_string(),
+                    timeout_block_height: 1000,
+                    ..Default::default()
+                }))
+            })
+            .times(1);
+
+        let keys_helper = MockKeysHelper::new();
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let result = service.get_by_id(test_id);
+        assert!(result.is_ok());
+
+        let funding_address = result.unwrap();
+        assert!(funding_address.is_some());
+
+        let fa = funding_address.unwrap();
+        assert_eq!(fa.id, test_id);
+        assert_eq!(fa.symbol, TEST_SYMBOL);
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_not_found() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+
+        funding_address_helper
+            .expect_get_by_id()
+            .returning(|_| Ok(None))
+            .times(1);
+
+        let keys_helper = MockKeysHelper::new();
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let result = service.get_by_id("nonexistent");
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id_error() {
+        let mut funding_address_helper = MockFundingAddressHelper::new();
+
+        funding_address_helper
+            .expect_get_by_id()
+            .returning(|_| Err(anyhow!("database error")))
+            .times(1);
+
+        let keys_helper = MockKeysHelper::new();
+
+        let service = create_service(
+            funding_address_helper,
+            keys_helper,
+            MockSwapHelper::new(),
+            None,
+        );
+
+        let result = service.get_by_id("someid");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("database error"));
+    }
+}

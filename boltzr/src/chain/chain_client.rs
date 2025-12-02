@@ -624,6 +624,12 @@ impl Client for ChainClient {
             .await
     }
 
+    async fn get_block_hash(&self, height: u32) -> anyhow::Result<String> {
+        self.client
+            .request::<String>("getblockhash", Some(&[RpcParam::Int(height as i64)]))
+            .await
+    }
+
     fn zero_conf_safe(&self, _transaction: &Transaction) -> oneshot::Receiver<bool> {
         let (tx, rx) = oneshot::channel();
         tx.send(false).unwrap();

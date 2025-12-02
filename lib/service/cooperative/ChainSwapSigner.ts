@@ -345,8 +345,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     const { fee } = await this.broadcastCooperativeTransaction(
       swap,
       this.currencies.get(swap.receivingData.symbol)!,
-      claimDetails.musig,
-      claimDetails.transaction,
+      claimDetails,
       theirSignature.pubNonce,
       theirSignature.signature,
     );

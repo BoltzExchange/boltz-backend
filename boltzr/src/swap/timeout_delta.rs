@@ -171,7 +171,7 @@ impl TimeoutDeltaProvider {
         })
     }
 
-    fn calculate_blocks(symbol: &str, minutes: u64) -> Result<u64> {
+    pub fn calculate_blocks(symbol: &str, minutes: u64) -> Result<u64> {
         let minutes_per_block = Self::get_block_time(symbol)?;
         let blocks = (minutes as f64 / minutes_per_block).ceil() as u64;
         if blocks < 1 {

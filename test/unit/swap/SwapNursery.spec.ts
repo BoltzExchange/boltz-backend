@@ -26,6 +26,7 @@ jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 jest.mock('../../../lib/db/repositories/ChainSwapRepository');
 jest.mock('../../../lib/db/repositories/WrappedSwapRepository');
+jest.mock('../../../lib/db/repositories/FundingAddressRepository');
 
 // Mock all the classes that SwapNursery instantiates
 jest.mock('../../../lib/swap/hooks/TransactionHook', () =>

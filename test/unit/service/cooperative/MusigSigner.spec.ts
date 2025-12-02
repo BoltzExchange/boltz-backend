@@ -20,6 +20,15 @@ import type SwapNursery from '../../../../lib/swap/SwapNursery';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
+
 describe('MusigSigner', () => {
   const btcLndClient = { id: 'lnd-1' } as unknown as LndClient;
   const btcClnClient = { id: 'cln-1' } as unknown as ClnClient;

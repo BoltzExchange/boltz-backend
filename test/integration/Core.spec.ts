@@ -13,6 +13,7 @@ import {
   swapScript,
   swapTree,
 } from 'boltz-core';
+import type { SwapTree } from 'boltz-core/dist/lib/consts/Types';
 import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
 import { p2trOutput, p2wshOutput } from 'boltz-core/dist/lib/swap/Scripts';
 import { randomBytes } from 'crypto';
@@ -326,7 +327,7 @@ describe('Core', () => {
     expect(claimDetails.cooperative).toEqual(false);
     expect(claimDetails.internalKey).toEqual(musig.getAggregatedPublicKey());
     expect(
-      SwapTreeSerializer.serializeSwapTree(claimDetails.swapTree!),
+      SwapTreeSerializer.serializeSwapTree(claimDetails.swapTree! as SwapTree),
     ).toEqual(SwapTreeSerializer.serializeSwapTree(tree));
   });
 

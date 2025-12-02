@@ -1,8 +1,12 @@
+use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
+use crate::db::helpers::funding_address::FundingAddressHelper;
+use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::service::country_codes::CountryCodes;
+use crate::service::funding_address::{FundingAddressConfig, FundingAddressService};
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
@@ -13,6 +17,11 @@ use std::sync::Arc;
 use tracing::warn;
 
 mod country_codes;
+pub mod funding_address;
+pub mod funding_address_claimer;
+mod funding_address_signer;
+#[cfg(test)]
+mod funding_address_test_utils;
 mod lightning_info;
 mod pair_stats;
 mod prometheus;
@@ -20,6 +29,8 @@ mod pubkey_iterator;
 mod rescue;
 
 pub use country_codes::MarkingsConfig;
+pub use funding_address::*;
+pub use funding_address_signer::*;
 pub use pair_stats::HistoricalConfig;
 pub use pubkey_iterator::{
     KeyVecIterator, MAX_GAP_LIMIT, Pagination, PubkeyIterator, SingleKeyIterator, XpubIterator,
@@ -27,28 +38,45 @@ pub use pubkey_iterator::{
 
 pub struct Service {
     pub swap_rescue: SwapRescue,
+    pub funding_address: FundingAddressService,
     pub country_codes: CountryCodes,
     pub lightning_info: Box<dyn LightningInfo + Send + Sync>,
     pub pair_stats: Option<PairStatsFetcher>,
 }
 
 impl Service {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
         currencies: Currencies,
+        funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
+        keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
+        funding_address_config: Option<FundingAddressConfig>,
         cache: Cache,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
         Self {
             swap_rescue: SwapRescue::new(
                 cache.clone(),
-                swap_helper,
-                chain_swap_helper,
+                swap_helper.clone(),
+                chain_swap_helper.clone(),
                 reverse_swap_helper,
+                funding_address_helper.clone(),
                 currencies.clone(),
+            ),
+            funding_address: FundingAddressService::new(
+                funding_address_config,
+                funding_address_helper,
+                keys_helper,
+                swap_helper.clone(),
+                chain_swap_helper.clone(),
+                currencies.clone(),
+                cache.clone(),
+                funding_address_update_tx,
             ),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
@@ -79,80 +107,76 @@ impl Service {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapDataNullableCondition};
-    use crate::db::helpers::reverse_swap::{
-        ReverseSwapCondition, ReverseSwapHelper, ReverseSwapNullableCondition,
-    };
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
-    use crate::db::models::{ChainSwapInfo, ReverseRoutingHint, ReverseSwap, Swap};
+    use crate::currencies::{Currencies, Currency};
+    use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
+    use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
+    use crate::db::helpers::keys::KeysHelperDatabase;
+    use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
+    use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::prometheus::test::MockPrometheus;
-    use crate::swap::SwapUpdate;
+    use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use boltz_cache::{Cache, MemCache};
-    use mockall::mock;
     use std::collections::HashMap;
 
     pub use pair_stats::PairStats;
     pub use rescue::RescuableSwap;
 
-    mock! {
-        SwapHelper {}
+    pub async fn get_test_currencies() -> Currencies {
+        let btc_client = Arc::new(crate::chain::chain_client::test::get_client().await);
+        let lbtc_client = Arc::new(crate::chain::elements_client::test::get_client().0);
+        let lbtc_wallet = Some(Arc::new(
+            Elements::new(
+                Network::Regtest,
+                &crate::wallet::test::get_seed(),
+                "m/0/1".to_string(),
+                lbtc_client.clone(),
+            )
+            .unwrap(),
+        ) as Arc<dyn Wallet + Send + Sync>);
 
-        impl Clone for SwapHelper {
-            fn clone(&self) -> Self;
-        }
+        let btc_wallet = Some(Arc::new(
+            Bitcoin::new(
+                Network::Regtest,
+                &crate::wallet::test::get_seed(),
+                "m/0/0".to_string(),
+                btc_client.clone(),
+            )
+            .unwrap(),
+        ) as Arc<dyn Wallet + Send + Sync>);
 
-        impl SwapHelper for SwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
-            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
-            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
-                &self,
-                id: &str,
-                status: SwapUpdate,
-                failure_reason: Option<String>,
-            ) -> QueryResponse<usize>;
-        }
-    }
-
-    mock! {
-        ChainSwapHelper {}
-
-        impl Clone for ChainSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ChainSwapHelper for ChainSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
-            fn get_all(
-                &self,
-                condition: ChainSwapCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-            fn get_by_data_nullable(
-                &self,
-                condition: ChainSwapDataNullableCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-        }
-    }
-
-    mock! {
-        ReverseSwapHelper {}
-
-        impl Clone for ReverseSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ReverseSwapHelper for ReverseSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
-            fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
-            fn get_all_nullable(&self, condition: ReverseSwapNullableCondition) -> QueryResponse<Vec<ReverseSwap>>;
-            fn get_routing_hint(&self, id: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
-            fn get_routing_hints(&self, ids: Vec<Vec<u8>>) -> QueryResponse<Vec<ReverseRoutingHint>>;
-        }
+        Arc::new(HashMap::from([
+            (
+                "BTC".to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: btc_wallet,
+                    chain: Some(btc_client),
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            ),
+            (
+                "L-BTC".to_string(),
+                Currency {
+                    network: Network::Regtest,
+                    wallet: lbtc_wallet,
+                    chain: Some(lbtc_client),
+                    cln: None,
+                    lnd: None,
+                    evm_manager: None,
+                },
+            ),
+        ]))
     }
 
     impl Service {
-        pub fn new_mocked_prometheus(with_pair_stats: bool) -> Self {
+        pub fn new_mocked_with_funding_updates(
+            with_pair_stats: bool,
+            currencies: Option<Currencies>,
+            funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
+        ) -> Self {
             let mut swap_helper = MockSwapHelper::new();
             swap_helper
                 .expect_get_all_nullable()
@@ -168,17 +192,36 @@ pub mod test {
                 .expect_get_all_nullable()
                 .returning(|_| Ok(vec![]));
 
+            // Create a separate swap helper for funding address service
+            let mut funding_swap_helper = MockSwapHelper::new();
+            funding_swap_helper
+                .expect_get_by_id()
+                .returning(|_| Ok(Default::default()));
+
+            let pool = get_pool();
+            let currencies = currencies.unwrap_or_default();
             Self {
                 swap_rescue: SwapRescue::new(
                     Cache::Memory(MemCache::new()),
                     Arc::new(swap_helper),
                     Arc::new(chain_swap_helper),
                     Arc::new(reverse_swap_helper),
-                    Arc::new(HashMap::new()),
+                    Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
+                    currencies.clone(),
+                ),
+                funding_address: FundingAddressService::new(
+                    None,
+                    Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
+                    Arc::new(KeysHelperDatabase::new(pool.clone())),
+                    Arc::new(funding_swap_helper),
+                    Arc::new(MockChainSwapHelper::new()),
+                    currencies.clone(),
+                    Cache::Memory(MemCache::new()),
+                    funding_address_update_tx,
                 ),
                 lightning_info: Box::new(ClnLightningInfo::new(
                     Cache::Memory(MemCache::new()),
-                    Arc::new(HashMap::new()),
+                    currencies,
                 )),
                 country_codes: CountryCodes::new(None),
                 pair_stats: if with_pair_stats {
@@ -190,6 +233,20 @@ pub mod test {
                     None
                 },
             }
+        }
+
+        pub fn new_mocked(with_pair_stats: bool, currencies: Option<Currencies>) -> Self {
+            let (funding_address_update_tx, _) =
+                tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
+            Self::new_mocked_with_funding_updates(
+                with_pair_stats,
+                currencies,
+                funding_address_update_tx,
+            )
+        }
+
+        pub fn new_mocked_prometheus(with_pair_stats: bool) -> Self {
+            Self::new_mocked(with_pair_stats, None)
         }
     }
 }

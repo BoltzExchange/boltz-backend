@@ -25,12 +25,13 @@ impl Display for Type {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum RpcParam<'a> {
     Str(&'a str),
     Int(i64),
     Float(f64),
+    Array(Vec<&'a str>),
     Null,
 }
 
@@ -39,10 +40,11 @@ impl Serialize for RpcParam<'_> {
     where
         S: Serializer,
     {
-        match *self {
+        match self {
             RpcParam::Str(s) => serializer.serialize_str(s),
-            RpcParam::Int(num) => serializer.serialize_i64(num),
-            RpcParam::Float(num) => serializer.serialize_f64(num),
+            RpcParam::Int(num) => serializer.serialize_i64(*num),
+            RpcParam::Float(num) => serializer.serialize_f64(*num),
+            RpcParam::Array(arr) => arr.serialize(serializer),
             RpcParam::Null => serializer.serialize_none(),
         }
     }
@@ -127,4 +129,29 @@ pub struct UnspentOutput {
 pub struct SignRawTransactionResponse {
     pub hex: String,
     pub complete: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubmitPackageTxFees {
+    pub base: f64,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubmitPackageTxResult {
+    pub txid: String,
+    pub vsize: Option<u64>,
+    pub fees: Option<SubmitPackageTxFees>,
+    pub error: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubmitPackageResponse {
+    pub package_msg: String,
+    #[serde(rename = "tx-results")]
+    pub tx_results: std::collections::HashMap<String, SubmitPackageTxResult>,
+    #[serde(rename = "replaced-transactions")]
+    pub replaced_transactions: Option<Vec<String>>,
 }

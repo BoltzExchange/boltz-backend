@@ -168,6 +168,7 @@ fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         script_sig = script_sig.push_slice(&PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => todo!(),
                 };
 
                 tx.input[i].script_sig = script_sig

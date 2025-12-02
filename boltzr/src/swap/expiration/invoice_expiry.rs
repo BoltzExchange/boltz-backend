@@ -110,36 +110,15 @@ mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
     use crate::currencies::{Currencies, Currency};
-    use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
+    use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::models::Swap;
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};
     use bip39::Mnemonic;
-    use mockall::{mock, predicate};
+    use mockall::predicate;
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
-
-    mock! {
-        SwapHelper {}
-
-        impl Clone for SwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl SwapHelper for SwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
-            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
-            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
-                &self,
-                id: &str,
-                status: SwapUpdate,
-                failure_reason: Option<String>,
-            ) -> QueryResponse<usize>;
-        }
-    }
 
     async fn get_currencies() -> Currencies {
         let chain_client = Arc::new(crate::chain::chain_client::test::get_client().await);

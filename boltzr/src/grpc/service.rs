@@ -22,8 +22,8 @@ use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
 use crate::notifications::NotificationClient;
 use crate::service::Service;
-use crate::swap::TxStatus;
 use crate::swap::manager::{RescanChainOptions, SwapManager};
+use crate::swap::{RelevantId, TxStatus};
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
 use alloy::primitives::{Address, FixedBytes};
@@ -768,7 +768,24 @@ where
                             TxStatus::NotSafe => TransactionStatus::NotSafe,
                         })
                         .into(),
-                        swap_ids: relevant_tx.swaps,
+                        swap_ids: relevant_tx
+                            .entries
+                            .iter()
+                            .filter_map(|entry| match entry {
+                                (RelevantId::Swap(swap_id), _) => Some(swap_id.to_string()),
+                                _ => None,
+                            })
+                            .collect(),
+                        funding_address_ids: relevant_tx
+                            .entries
+                            .iter()
+                            .filter_map(|entry| match entry {
+                                (RelevantId::FundingAddress(funding_address_id), _) => {
+                                    Some(funding_address_id.to_string())
+                                }
+                                _ => None,
+                            })
+                            .collect(),
                     }))
                     .await
                 {
@@ -787,16 +804,14 @@ mod test {
     use crate::api::ws;
     use crate::cache::{Cache, MemCache};
     use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::chain_swap::{
-        ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
-    };
-    use crate::db::helpers::reverse_swap::{
-        ReverseSwapCondition, ReverseSwapHelper, ReverseSwapNullableCondition,
-    };
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
+    use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
+    use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
+    use crate::db::helpers::keys::test::MockKeysHelper;
+    use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
+    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
+    use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::helpers::web_hook::WebHookHelper;
-    use crate::db::models::ReverseRoutingHint;
-    use crate::db::models::{ChainSwapInfo, ReverseSwap, Swap, WebHook, WebHookState};
+    use crate::db::models::{WebHook, WebHookState};
     use crate::evm::RefundSigner;
     use crate::grpc::service::BoltzService;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
@@ -809,7 +824,6 @@ mod test {
     use crate::grpc::status_fetcher::StatusFetcher;
     use crate::notifications::commands::Commands;
     use crate::service::Service;
-    use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
@@ -822,62 +836,6 @@ mod test {
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
     use tonic::{Code, Request};
-
-    mock! {
-        SwapHelper {}
-
-        impl Clone for SwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl SwapHelper for SwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
-            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
-            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
-                &self,
-                id: &str,
-                status: SwapUpdate,
-                failure_reason: Option<String>,
-            ) -> QueryResponse<usize>;
-        }
-    }
-
-    mock! {
-        ChainSwapHelper {}
-
-        impl Clone for ChainSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ChainSwapHelper for ChainSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
-            fn get_all(
-                &self,
-                condition: ChainSwapCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-            fn get_by_data_nullable(
-                &self,
-                condition: ChainSwapDataNullableCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-        }
-    }
-
-    mock! {
-        ReverseSwapHelper {}
-
-        impl Clone for ReverseSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ReverseSwapHelper for ReverseSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap>;
-            fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>>;
-            fn get_all_nullable(&self, condition: ReverseSwapNullableCondition) -> QueryResponse<Vec<ReverseSwap>>;
-            fn get_routing_hint(&self, swap_id: &str) -> QueryResponse<Option<ReverseRoutingHint>>;
-            fn get_routing_hints(&self, script_pubkeys: Vec<Vec<u8>>) -> QueryResponse<Vec<ReverseRoutingHint>>;
-        }
-    }
 
     mock! {
         WebHookHelper {}
@@ -1206,6 +1164,9 @@ mod test {
                     Arc::new(MockChainSwapHelper::new()),
                     Arc::new(MockReverseSwapHelper::new()),
                     Arc::new(HashMap::new()),
+                    Arc::new(MockFundingAddressHelper::new()),
+                    Arc::new(MockScriptPubKeyHelper::new()),
+                    Arc::new(MockKeysHelper::new()),
                     None,
                     None,
                     Cache::Memory(MemCache::new()),

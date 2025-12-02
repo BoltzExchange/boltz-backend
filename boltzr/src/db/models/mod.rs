@@ -13,6 +13,7 @@ use strum_macros::{Display, EnumString};
 
 mod chain_swap;
 mod chain_tip;
+mod funding_address;
 mod keys;
 mod offer;
 mod referral;
@@ -24,6 +25,7 @@ mod web_hook;
 
 pub use chain_swap::*;
 pub use chain_tip::*;
+pub use funding_address::*;
 pub use keys::*;
 pub use offer::*;
 pub use referral::*;

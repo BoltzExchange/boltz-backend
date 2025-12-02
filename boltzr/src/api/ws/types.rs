@@ -1,4 +1,7 @@
-use crate::grpc::service::boltzr::{SwapUpdate, swap_update};
+use crate::{
+    db::models::FundingAddress,
+    grpc::service::boltzr::{SwapUpdate, swap_update},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -47,6 +50,31 @@ pub struct SwapStatusNoId {
 
     #[serde(rename = "channel", skip_serializing_if = "Option::is_none")]
     pub channel_info: Option<ChannelInfo>,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
+pub struct FundingAddressUpdate {
+    pub id: String,
+    pub status: String,
+    #[serde(rename = "transaction", skip_serializing_if = "Option::is_none")]
+    pub transaction: Option<TransactionInfo>,
+    #[serde(rename = "swapId", skip_serializing_if = "Option::is_none")]
+    pub swap_id: Option<String>,
+}
+
+impl From<FundingAddress> for FundingAddressUpdate {
+    fn from(value: FundingAddress) -> Self {
+        FundingAddressUpdate {
+            id: value.id,
+            status: value.status,
+            transaction: value.lockup_transaction_id.map(|id| TransactionInfo {
+                id,
+                hex: None,
+                eta: None,
+            }),
+            swap_id: value.swap_id,
+        }
+    }
 }
 
 impl From<swap_update::TransactionInfo> for TransactionInfo {

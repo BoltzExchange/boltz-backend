@@ -26,7 +26,9 @@ class KeyRepository {
   public static incrementHighestUsedIndex = async (
     symbol: string,
   ): Promise<number | undefined> => {
-    const results = await KeyProvider.sequelize!.query(
+    const results = await KeyProvider.sequelize!.query<{
+      highestUsedIndex: number;
+    }>(
       'UPDATE keys SET "highestUsedIndex" = "highestUsedIndex" + 1 WHERE symbol = $1 RETURNING "highestUsedIndex"',
       {
         bind: [symbol],
@@ -38,7 +40,7 @@ class KeyRepository {
       return undefined;
     }
 
-    return (results[0] as { highestUsedIndex: number }).highestUsedIndex;
+    return results[0].highestUsedIndex;
   };
 }
 

@@ -4,8 +4,20 @@ import { Networks, OutputType, Scripts } from 'boltz-core';
 import type { AddressInfo } from 'net';
 import { createServer } from 'net';
 import { ECPair } from '../lib/ECPairHelper';
+import Logger from '../lib/Logger';
 import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';
+import Database from '../lib/db/Database';
+
+export const getPostgresDatabase = () => {
+  return new Database(Logger.disabledLogger, undefined, {
+    host: 'localhost',
+    port: 5432,
+    database: 'boltz_test',
+    username: 'boltz',
+    password: 'boltz',
+  });
+};
 
 export const randomRange = (max: number): number => {
   return Math.floor(Math.random() * Math.floor(max));

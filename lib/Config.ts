@@ -46,10 +46,6 @@ type ChainConfig = {
 
   wallet?: string;
 
-  zmqpubrawtx?: string;
-  zmqpubrawblock?: string;
-  zmqpubhashblock?: string;
-
   // API endpoint of a MempoolSpace instance running on the chain of the configured client
   // Comma separated for multiple endpoints
   mempoolSpace?: string;

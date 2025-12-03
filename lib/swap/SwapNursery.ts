@@ -218,7 +218,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.refundWatcher = new RefundWatcher(this.logger);
+    this.refundWatcher = new RefundWatcher(this.logger, this.sidecar);
   }
 
   public init = async (currencies: Currency[]): Promise<void> => {
@@ -1177,11 +1177,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           wallet.symbol
         } for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout!}`,
       );
-
-      chainClient.addInputFilter(transaction!.getHash());
-
-      // For the "transaction.confirmed" event of the lockup transaction
-      chainClient.addOutputFilter(wallet.decodeAddress(lockupAddress));
 
       this.emit('coins.sent', {
         transaction: transaction!,

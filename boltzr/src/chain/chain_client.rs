@@ -2,22 +2,27 @@ use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
-    NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam, SmartFeeEstimate, Type,
-    ZmqNotification,
+    BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
+    SmartFeeEstimate, Type, ZmqNotification,
 };
-use crate::chain::utils::{Outpoint, Transaction};
-use crate::chain::zmq_client::{ZMQ_TX_CHANNEL_SIZE, ZmqClient};
+use crate::chain::utils::{Block, Outpoint, Transaction};
+use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
 use crate::chain::{BaseClient, Client, Config};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
 const MAX_WORKERS: usize = 16;
-const MEMPOOL_FETCH_CHUNK_SIZE: usize = 64;
+const BATCH_REQUEST_SIZE: usize = 64;
+const CHANNEL_BUFFER_SIZE: usize = 1_024;
+
 const BTC_KVB_SAT_VBYTE_FACTOR: u64 = 100_000;
 
 const CACHE_TTL_SECS: u64 = 60 * 60 * 24;
@@ -35,6 +40,7 @@ pub struct ChainClient {
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transaction, bool)>,
+    block_sender: Sender<(u64, Block)>,
 }
 
 impl PartialEq for ChainClient {
@@ -65,12 +71,16 @@ impl ChainClient {
                 .map(|url| MempoolSpace::new(cancellation_token.clone(), symbol.clone(), url)),
             zmq_client: ZmqClient::new(client_type, network, config),
             tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
+            block_sender: channel(ZMQ_BLOCK_CHANNEL_SIZE).0,
         };
 
         {
             let mut tx_receiver = client.zmq_client.tx_sender.subscribe();
             let tx_sender = client.tx_sender.clone();
+
+            let symbol = symbol.clone();
             let client = client.clone();
+            let cancellation_token = cancellation_token.clone();
 
             tokio::spawn(async move {
                 loop {
@@ -106,21 +116,57 @@ impl ChainClient {
             });
         }
 
+        {
+            let mut block_receiver = client.zmq_client.block_sender.subscribe();
+            let block_sender = client.block_sender.clone();
+
+            let client = client.clone();
+
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        block = block_receiver.recv() => {
+                            match block {
+                                Ok(block) => {
+                                    if block_sender.receiver_count() == 0 {
+                                        continue;
+                                    }
+
+                                    let block_hash = alloy::hex::encode(block.block_hash());
+                                    let block_info = match client.get_block_info(&block_hash).await {
+                                        Ok(block_info) => block_info,
+                                        Err(e) => {
+                                            error!("Failed to get {} block {}: {}", symbol, block_hash, e);
+                                            continue;
+                                        }
+                                    };
+
+                                    if let Err(e) = block_sender.send((block_info.height, block)) {
+                                        error!("Failed to forward {} block: {}", symbol, e);
+                                    }
+                                }
+                                Err(RecvError::Closed) => break,
+                                Err(RecvError::Lagged(skipped)) => {
+                                    warn!("{} block stream lagged behind by {} messages", symbol, skipped);
+                                }
+                            }
+                        },
+                        _ = cancellation_token.cancelled() => break,
+                    }
+                }
+            });
+        }
+
         Ok(client)
     }
 
-    fn is_relevant_tx(
-        relevant_inputs: &HashSet<Outpoint>,
-        relevant_outputs: &HashSet<Vec<u8>>,
-        tx: &Transaction,
-    ) -> bool {
-        tx.input_outpoints()
-            .iter()
-            .any(|input| relevant_inputs.contains(input))
-            || tx
-                .output_script_pubkeys()
-                .iter()
-                .any(|output| relevant_outputs.contains(output))
+    async fn get_block_info(&self, block_hash: &str) -> anyhow::Result<BlockInfo> {
+        self.client
+            .request::<BlockInfo>(
+                "getblock",
+                Some(&[RpcParam::Str(block_hash), RpcParam::Int(1)]),
+            )
+            .await
     }
 
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
@@ -145,6 +191,20 @@ impl ChainClient {
 
     fn cache_key_raw_tx<'a>(&self, tx_id: &'a str) -> (String, &'a str) {
         (format!("{CACHE_KEY_RAW_TX}:{}", self.symbol()), tx_id)
+    }
+
+    fn is_relevant_tx(
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+        tx: &Transaction,
+    ) -> bool {
+        tx.input_outpoints()
+            .iter()
+            .any(|input| relevant_inputs.contains(input))
+            || tx
+                .output_script_pubkeys()
+                .iter()
+                .any(|output| relevant_outputs.contains(output))
     }
 }
 
@@ -189,11 +249,165 @@ impl Client for ChainClient {
         self.network
     }
 
+    async fn rescan(
+        &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
+        start_height: u64,
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+    ) -> anyhow::Result<u64> {
+        info!(
+            "Rescanning {} chain from height {}",
+            self.client.symbol, start_height
+        );
+
+        let end_height = match self.blockchain_info().await {
+            Ok(info) => info.blocks,
+            Err(err) => {
+                return Err(anyhow!("failed to get blockchain info: {}", err));
+            }
+        };
+
+        if start_height > end_height {
+            return Err(anyhow!("start height is greater than end height"));
+        }
+
+        let self_cp = self.clone();
+        let (tx_blockhash, mut rx_blockhash) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
+        tokio::spawn(async move {
+            for height in (start_height..=end_height).step_by(BATCH_REQUEST_SIZE) {
+                let heights = (height
+                    ..=std::cmp::min(height + BATCH_REQUEST_SIZE as u64 - 1, end_height))
+                    .collect::<Vec<_>>();
+
+                let block_hashes = match self_cp
+                    .client
+                    .request_batch::<String>(
+                        "getblockhash",
+                        &heights
+                            .iter()
+                            .map(|height| vec![RpcParam::Int(*height as i64)])
+                            .collect::<Vec<_>>(),
+                    )
+                    .await
+                {
+                    Ok(block_hashes) => block_hashes,
+                    Err(err) => {
+                        error!("Failed to get block hashes: {}", err);
+                        break;
+                    }
+                };
+
+                let result = heights
+                    .into_iter()
+                    .zip(block_hashes)
+                    .filter_map(|(height, block_hash_result)| match block_hash_result {
+                        Ok(hash) => Some((height, hash)),
+                        Err(err) => {
+                            error!("Failed to get block hash for height {}: {}", height, err);
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if let Err(err) = tx_blockhash.send(result).await {
+                    error!("Failed to send block hashes to channel: {}", err);
+                    break;
+                }
+            }
+        });
+
+        let self_cp = self.clone();
+        let (tx_block, mut rx_block) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
+        tokio::spawn(async move {
+            loop {
+                let blockhashes = match rx_blockhash.recv().await {
+                    Some(blockhashes) => blockhashes,
+                    None => break,
+                };
+
+                let blocks = match self_cp
+                    .client
+                    .request_batch::<String>(
+                        "getblock",
+                        &blockhashes
+                            .iter()
+                            .map(|(_, hash)| vec![RpcParam::Str(hash), RpcParam::Int(0)])
+                            .collect::<Vec<_>>(),
+                    )
+                    .await
+                {
+                    Ok(blocks) => blocks,
+                    Err(err) => {
+                        error!("Failed to get blocks: {}", err);
+                        break;
+                    }
+                };
+
+                for ((height, _), block) in blockhashes.into_iter().zip(blocks) {
+                    match block {
+                        Ok(block) => {
+                            if let Err(err) = tx_block.send((height, block)).await {
+                                error!("Failed to send block to channel: {}", err);
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            error!("Failed to get block: {}", err);
+                        }
+                    }
+                }
+            }
+        });
+
+        let mut relevant_tx_count: u64 = 0;
+
+        loop {
+            let (height, block) = match rx_block.recv().await {
+                Some(block) => block,
+                None => break,
+            };
+
+            let block = match Block::parse_hex(&self_cp.client_type, &block) {
+                Ok(block) => block,
+                Err(err) => {
+                    error!("Failed to parse block {}: {}", height, err);
+                    continue;
+                }
+            };
+
+            debug!(
+                "Rescanning {} block {} chain with {} transactions",
+                self.client.symbol,
+                height,
+                block.transactions.len()
+            );
+
+            for tx in block.transactions.iter() {
+                if Self::is_relevant_tx(relevant_inputs, relevant_outputs, tx) {
+                    relevant_tx_count += 1;
+                    if let Err(err) = self.tx_sender.send((tx.clone(), true)) {
+                        error!("Failed to send relevant transaction to channel: {}", err);
+                        break;
+                    }
+                }
+            }
+        }
+
+        chain_tip_repo.set_height(&self.symbol(), end_height as i32)?;
+        info!(
+            "Rescanned {} chain from height {} to {} and found {} relevant transactions",
+            self.client.symbol, start_height, end_height, relevant_tx_count
+        );
+
+        Ok(end_height)
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
-    ) -> anyhow::Result<Vec<Transaction>> {
+    ) -> anyhow::Result<()> {
         info!("Scanning mempool of {} chain", self.client.symbol);
 
         let mempool = self
@@ -204,10 +418,10 @@ impl Client for ChainClient {
 
         if mempool_size == 0 {
             debug!("Mempool of {} chain is empty", self.client.symbol);
-            return Ok(Vec::default());
+            return Ok(());
         }
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel(1_024);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         let fetcher_threads = std::cmp::min(num_cpus::get() / 2, MAX_WORKERS);
         debug!(
@@ -220,7 +434,7 @@ impl Client for ChainClient {
             let chunk = chunk.to_vec();
 
             tokio::spawn(async move {
-                let tx_chunks = chunk.chunks(MEMPOOL_FETCH_CHUNK_SIZE);
+                let tx_chunks = chunk.chunks(BATCH_REQUEST_SIZE);
                 for tx_ids in tx_chunks {
                     let txs_hex = match self_cp
                         .client
@@ -271,7 +485,7 @@ impl Client for ChainClient {
         }
         drop(tx);
 
-        let mut relevant_txs = Vec::new();
+        let mut relevant_tx_count: u64 = 0;
 
         let mut i = 0;
         loop {
@@ -281,7 +495,14 @@ impl Client for ChainClient {
             };
             let tx = Transaction::parse_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
-                relevant_txs.push(tx);
+                relevant_tx_count += 1;
+                if let Err(err) = self.tx_sender.send((tx, false)) {
+                    error!(
+                        "Failed to send relevant mempool transaction to channel: {}",
+                        err
+                    );
+                    break;
+                }
             }
 
             i += 1;
@@ -298,19 +519,22 @@ impl Client for ChainClient {
             mempool_size, self.client.symbol
         );
 
-        if !relevant_txs.is_empty() {
+        if relevant_tx_count > 0 {
             info!(
                 "Found {} relevant transactions in mempool of {} chain",
-                relevant_txs.len(),
-                self.client.symbol
+                relevant_tx_count, self.client.symbol
             );
         }
 
-        Ok(relevant_txs)
+        Ok(())
     }
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.client.request("getnetworkinfo", None).await
+    }
+
+    async fn blockchain_info(&self) -> anyhow::Result<BlockchainInfo> {
+        self.client.request("getblockchaininfo", None).await
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
@@ -382,6 +606,10 @@ impl Client for ChainClient {
     fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
         self.tx_sender.subscribe()
     }
+
+    fn block_receiver(&self) -> Receiver<(u64, Block)> {
+        self.block_sender.subscribe()
+    }
 }
 
 #[cfg(test)]
@@ -392,12 +620,22 @@ pub mod test {
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
+    use mockall::mock;
     use rstest::rstest;
     use serde::Deserialize;
     use serial_test::serial;
     use std::collections::HashSet;
 
     const PORT: u16 = 18_443;
+
+    mock! {
+        ChainTipHelper {}
+
+        impl crate::db::helpers::chain_tip::ChainTipHelper for ChainTipHelper {
+            fn get_all(&self) -> crate::db::helpers::QueryResponse<Vec<crate::db::models::ChainTip>>;
+            fn set_height(&self, symbol: &str, height: i32) -> crate::db::helpers::QueryResponse<usize>;
+        }
+    }
 
     #[derive(Deserialize, Debug)]
     struct AddressInfo {
@@ -481,6 +719,14 @@ pub mod test {
             .unwrap()
     }
 
+    async fn get_block_count(client: &ChainClient) -> u64 {
+        client
+            .client
+            .request::<u64>("getblockcount", None)
+            .await
+            .unwrap()
+    }
+
     #[tokio::test]
     async fn test_chain_type() {
         let client = get_client().await;
@@ -513,11 +759,14 @@ pub mod test {
             .unwrap();
         assert!(mempool.is_empty());
 
-        let transactions = client
+        let mut tx_receiver = client.tx_receiver();
+
+        client
             .scan_mempool(&HashSet::new(), &HashSet::new())
             .await
             .unwrap();
-        assert_eq!(transactions.len(), 0);
+
+        assert!(tx_receiver.try_recv().is_err());
     }
 
     #[tokio::test]
@@ -529,9 +778,12 @@ pub mod test {
         let mut inputs = HashSet::new();
         inputs.insert(tx.input_outpoints()[0].clone());
 
-        let transactions = client.scan_mempool(&inputs, &HashSet::new()).await.unwrap();
-        assert_eq!(transactions.len(), 1);
-        assert_eq!(transactions[0], tx);
+        let mut tx_receiver = client.tx_receiver();
+
+        client.scan_mempool(&inputs, &HashSet::new()).await.unwrap();
+
+        let (received_tx, _) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx.txid_hex(), tx.txid_hex());
 
         generate_block(&client).await;
     }
@@ -545,12 +797,15 @@ pub mod test {
         let mut outputs = HashSet::new();
         outputs.insert(tx.output_script_pubkeys()[0].clone());
 
-        let transactions = client
+        let mut tx_receiver = client.tx_receiver();
+
+        client
             .scan_mempool(&HashSet::new(), &outputs)
             .await
             .unwrap();
-        assert_eq!(transactions.len(), 1);
-        assert_eq!(transactions[0], tx);
+
+        let (received_tx, _) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx.txid_hex(), tx.txid_hex());
 
         generate_block(&client).await;
     }
@@ -689,5 +944,203 @@ pub mod test {
         assert!(!received);
 
         generate_block(&client).await;
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn rescan_empty() {
+        let client = get_client().await;
+        let mut chain_tip_helper = MockChainTipHelper::new();
+
+        for _ in 0..3 {
+            generate_block(&client).await;
+        }
+
+        let end_height = get_block_count(&client).await;
+        let start_height = end_height - 2;
+
+        let symbol = client.symbol();
+        chain_tip_helper
+            .expect_set_height()
+            .withf(move |symbol_set: &str, height: &i32| {
+                symbol == symbol_set && *height == end_height as i32
+            })
+            .times(1)
+            .returning(|_, _| Ok(1));
+
+        let result = client
+            .rescan(
+                Arc::new(chain_tip_helper),
+                start_height,
+                &HashSet::new(),
+                &HashSet::new(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, end_height);
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn rescan_relevant_input() {
+        let client = get_client().await;
+        let mut chain_tip_helper = MockChainTipHelper::new();
+
+        let tx = send_transaction(&client).await;
+        generate_block(&client).await;
+
+        let end_height = get_block_count(&client).await;
+        let start_height = end_height;
+
+        let mut inputs = HashSet::new();
+        inputs.insert(tx.input_outpoints()[0].clone());
+
+        let mut tx_receiver = client.tx_receiver();
+
+        let symbol = client.symbol();
+        chain_tip_helper
+            .expect_set_height()
+            .withf(move |symbol_set: &str, height: &i32| {
+                symbol == symbol_set && *height == end_height as i32
+            })
+            .times(1)
+            .returning(|_, _| Ok(1));
+
+        let result = client
+            .rescan(
+                Arc::new(chain_tip_helper),
+                start_height,
+                &inputs,
+                &HashSet::new(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, end_height);
+
+        let (received_tx, confirmed) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx.txid_hex(), tx.txid_hex());
+        assert!(confirmed);
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn rescan_relevant_output() {
+        let client = get_client().await;
+        let mut chain_tip_helper = MockChainTipHelper::new();
+
+        let tx = send_transaction(&client).await;
+        generate_block(&client).await;
+
+        let end_height = get_block_count(&client).await;
+        let start_height = end_height;
+
+        let mut outputs = HashSet::new();
+        outputs.insert(tx.output_script_pubkeys()[0].clone());
+
+        let mut tx_receiver = client.tx_receiver();
+
+        let symbol = client.symbol();
+        chain_tip_helper
+            .expect_set_height()
+            .withf(move |symbol_set: &str, height: &i32| {
+                symbol == symbol_set && *height == end_height as i32
+            })
+            .times(1)
+            .returning(|_, _| Ok(1));
+
+        let result = client
+            .rescan(
+                Arc::new(chain_tip_helper),
+                start_height,
+                &HashSet::new(),
+                &outputs,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, end_height);
+
+        let (received_tx, confirmed) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx.txid_hex(), tx.txid_hex());
+        assert!(confirmed);
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn rescan_start_height_greater_than_end() {
+        let client = get_client().await;
+        let chain_tip_helper = MockChainTipHelper::new();
+
+        let end_height = get_block_count(&client).await;
+        let start_height = end_height + 10;
+
+        let result = client
+            .rescan(
+                Arc::new(chain_tip_helper),
+                start_height,
+                &HashSet::new(),
+                &HashSet::new(),
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "start height is greater than end height"
+        );
+    }
+
+    #[tokio::test]
+    #[serial(BTC)]
+    async fn rescan_multiple_blocks() {
+        let client = get_client().await;
+        let mut chain_tip_helper = MockChainTipHelper::new();
+
+        let start_height = get_block_count(&client).await + 1;
+
+        let tx1 = send_transaction(&client).await;
+        generate_block(&client).await;
+
+        let tx2 = send_transaction(&client).await;
+        generate_block(&client).await;
+
+        let end_height = get_block_count(&client).await;
+
+        let mut outputs = HashSet::new();
+        outputs.insert(tx1.output_script_pubkeys()[0].clone());
+        outputs.insert(tx2.output_script_pubkeys()[0].clone());
+
+        let mut tx_receiver = client.tx_receiver();
+
+        let symbol = client.symbol();
+        chain_tip_helper
+            .expect_set_height()
+            .withf(move |symbol_set: &str, height: &i32| {
+                symbol == symbol_set && *height == end_height as i32
+            })
+            .times(1)
+            .returning(|_, _| Ok(1));
+
+        let result = client
+            .rescan(
+                Arc::new(chain_tip_helper),
+                start_height,
+                &HashSet::new(),
+                &outputs,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, end_height);
+
+        let (received_tx1, confirmed1) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx1.txid_hex(), tx1.txid_hex());
+        assert!(confirmed1);
+
+        let (received_tx2, confirmed2) = tx_receiver.try_recv().unwrap();
+        assert_eq!(received_tx2.txid_hex(), tx2.txid_hex());
+        assert!(confirmed2);
     }
 }

@@ -66,10 +66,6 @@ class ElementsWrapper
 
     this.publicClient().on('status.changed', this.setClientStatus);
 
-    this.publicClient().on('block', (blockHeight) =>
-      this.emit('block', blockHeight),
-    );
-
     await this.zeroConfCheck.init();
 
     // If we have a lowball client, bubble up only confirmed transactions
@@ -77,20 +73,20 @@ class ElementsWrapper
     const hasLowball = this.lowballClient() !== undefined;
 
     this.publicClient().on(
-      'transaction',
+      'transaction.checked',
       async ({ transaction, confirmed }) => {
         if (hasLowball && !confirmed) {
           return;
         }
 
         if (confirmed) {
-          this.emit('transaction', { transaction, confirmed });
+          this.emit('transaction.checked', { transaction, confirmed });
           return;
         }
 
         try {
           if (await this.zeroConfCheck.checkTransaction(transaction)) {
-            this.emit('transaction', { transaction, confirmed });
+            this.emit('transaction.checked', { transaction, confirmed });
           }
         } catch (e) {
           this.logger.error(
@@ -101,7 +97,7 @@ class ElementsWrapper
     );
 
     this.lowballClient()?.on(
-      'transaction',
+      'transaction.checked',
       async ({ transaction, confirmed }) => {
         if (confirmed) {
           return;
@@ -109,7 +105,7 @@ class ElementsWrapper
 
         try {
           if (await this.zeroConfCheck.checkTransaction(transaction)) {
-            this.emit('transaction', { transaction, confirmed });
+            this.emit('transaction.checked', { transaction, confirmed });
           }
         } catch (e) {
           this.logger.error(
@@ -122,24 +118,8 @@ class ElementsWrapper
 
   public disconnect = () => this.clients.forEach((c) => c.disconnect());
 
-  public rescanChain = (startHeight: number) =>
-    // Only rescan with the public client to avoid duplicate events
-    this.publicClient().rescanChain(startHeight);
-
   public checkTransaction = (transactionId: string) =>
     allSettledFirst(this.clients.map((c) => c.checkTransaction(transactionId)));
-
-  public addInputFilter = (inputHash: Buffer) =>
-    this.clients.forEach((c) => c.addInputFilter(inputHash));
-
-  public addOutputFilter = (outputScript: Buffer) =>
-    this.clients.forEach((c) => c.addOutputFilter(outputScript));
-
-  public removeOutputFilter = (outputScript: Buffer) =>
-    this.clients.forEach((c) => c.removeOutputFilter(outputScript));
-
-  public removeInputFilter = (inputHash: Buffer) =>
-    this.clients.forEach((c) => c.removeInputFilter(inputHash));
 
   public getBlockchainInfo = () =>
     this.annotateLowballInfo((c) => c.getBlockchainInfo());

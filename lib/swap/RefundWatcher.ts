@@ -1,6 +1,6 @@
 import AsyncLock from 'async-lock';
 import type Logger from '../Logger';
-import { formatError, getHexBuffer, reverseBuffer } from '../Utils';
+import { formatError } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type RefundTransaction from '../db/models/RefundTransaction';
@@ -8,6 +8,7 @@ import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { type ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
+import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
 
 // TODO: check replacements
@@ -21,18 +22,19 @@ class RefundWatcher extends TypedEventEmitter<{
   private readonly requiredConfirmations = 1;
   private currencies!: Map<string, Currency>;
 
-  constructor(private readonly logger: Logger) {
+  constructor(
+    private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
+  ) {
     super();
   }
 
   public init = (currencies: Map<string, Currency>) => {
     this.currencies = currencies;
 
-    for (const { chainClient, provider } of this.currencies.values()) {
-      if (chainClient) {
-        chainClient.on('block', this.checkPendingTransactions);
-      }
+    this.sidecar.on('block', this.checkPendingTransactions);
 
+    for (const { provider } of this.currencies.values()) {
       if (provider) {
         provider.on('block', this.checkPendingTransactions);
       }
@@ -74,15 +76,6 @@ class RefundWatcher extends TypedEventEmitter<{
     this.logger.debug(
       `Refund transaction of ${swapTypeToPrettyString(swap.type)} swap ${swap.id} confirmed: ${tx.id}`,
     );
-
-    if (
-      refundCurrency.type === CurrencyType.BitcoinLike ||
-      refundCurrency.type === CurrencyType.Liquid
-    ) {
-      refundCurrency.chainClient?.removeInputFilter(
-        reverseBuffer(getHexBuffer(swap.serverLockupTransactionId!)),
-      );
-    }
 
     await RefundTransactionRepository.setStatus(
       swap.id,

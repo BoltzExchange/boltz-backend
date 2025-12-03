@@ -22,6 +22,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
+import { TransactionStatus } from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import UtxoNursery from '../../../lib/swap/UtxoNursery';
@@ -29,16 +30,23 @@ import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import Wallet from '../../../lib/wallet/Wallet';
 
-type blockCallback = (height: number) => void;
+type blockCallback = (block: {
+  symbol: string;
+  height: number;
+  hash: Buffer;
+}) => Promise<void>;
 
 let emitBlock: blockCallback;
 
-const mockOnChainClient = jest
+const mockOnSidecar = jest
   .fn()
   .mockImplementation((event: string, callback: any) => {
     switch (event) {
       case 'block':
         emitBlock = callback;
+        break;
+      case 'transaction':
+        // Transaction callback not used in current tests
         break;
     }
   });
@@ -65,9 +73,6 @@ const mockGetRawTransaction = jest
     }
   });
 
-const mockRemoveInputFilter = jest.fn().mockImplementation(() => {});
-const mockRemoveOutputFilter = jest.fn().mockImplementation(() => {});
-
 const sampleTransactions = {
   claim:
     '01000000000101f491d1fcf639154425857d813bed7a8164c1db22ec9e148e1dc610ddd54cbfac010000000000000000016b2620000000000016001453914945b40ec9c4ce2701a8cf4d22d97ee12eb103483045022100a6c0c4627368feccfa147adddb6992f4d8a392345af5eaf82c8a7781a9b6eec7022079d26ee7c4570069d107c19de6e17512b4fbe77ffc8af5d5ffb909bfec3b469801200c25a0d5b61ae3f3dc6889742aefddc5608ebc8bae6dfa96e1a1481c5db7d5ed6a8201208763a9147c7c86826b8b5729fb3a034eca9be10a55fccd11882102c2f4d7d446e9304926e3ee4b769fed20be7f94dcb61c635867d7f37c6e8c4f08677503abff09b1752103714b3407f4085db73462bd3a21c1e4f6516d7f32b076c96cca9275faabda719568ac00000000',
@@ -92,11 +97,8 @@ jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation((symbol) => ({
     symbol,
     currencyType: CurrencyType.BitcoinLike,
-    on: mockOnChainClient,
     estimateFee: mockEstimateFee,
     getRawTransaction: mockGetRawTransaction,
-    removeInputFilter: mockRemoveInputFilter,
-    removeOutputFilter: mockRemoveOutputFilter,
     getRawTransactionVerbose: mockGetRawTransactionVerbose,
   }));
 });
@@ -183,9 +185,13 @@ describe('UtxoNursery', () => {
     isAcceptable: jest.fn().mockResolvedValue(true),
   } as unknown as LockupTransactionTracker;
 
+  const mockSidecar = {
+    on: mockOnSidecar,
+  } as any;
+
   const nursery = new UtxoNursery(
     Logger.disabledLogger,
-    { on: jest.fn() } as any,
+    mockSidecar,
     {
       wallets: new Map<string, any>([['BTC', btcWallet]]),
     } as any,
@@ -232,9 +238,9 @@ describe('UtxoNursery', () => {
       } as any,
     ]);
 
-    expect(mockOnChainClient).toHaveBeenCalledTimes(2);
-    expect(mockOnChainClient).toHaveBeenCalledWith('block', expect.anything());
-    expect(mockOnChainClient).toHaveBeenCalledWith(
+    expect(mockOnSidecar).toHaveBeenCalledTimes(2);
+    expect(mockOnSidecar).toHaveBeenCalledWith('block', expect.anything());
+    expect(mockOnSidecar).toHaveBeenCalledWith(
       'transaction',
       expect.anything(),
     );
@@ -261,7 +267,12 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -291,11 +302,6 @@ describe('UtxoNursery', () => {
       0,
     );
 
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      transaction.outs[0].script,
-    );
-
     jest.clearAllMocks();
 
     // Should handle transactions that lockup less coins than expected
@@ -315,7 +321,12 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -323,17 +334,17 @@ describe('UtxoNursery', () => {
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
 
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      transaction.outs[0].script,
-    );
-
     jest.clearAllMocks();
 
     // Should ignore transactions that are not lockups of Swaps
     mockGetSwapResult = null;
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
@@ -371,7 +382,7 @@ describe('UtxoNursery', () => {
       },
     ];
 
-    await emitBlock(1);
+    await emitBlock({ symbol: 'BTC', height: 1, hash: Buffer.alloc(32) });
 
     expect(mockGetSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetSwaps).toHaveBeenCalledWith({
@@ -389,7 +400,7 @@ describe('UtxoNursery', () => {
       btcChainClient,
       new MockedWallet(),
       Transaction.fromHex(sampleTransactions.lockup),
-      true,
+      TransactionStatus.Confirmed,
     );
 
     mockGetSwapsResult = [];
@@ -400,7 +411,12 @@ describe('UtxoNursery', () => {
     const transaction = Transaction.fromHex(sampleTransactions.lockup);
     const address = encodeAddress(transaction.outs[0].script);
     const checkOutputs = nursery['checkOutputs'];
-    await checkOutputs(btcChainClient, btcWallet, transaction, true);
+    await checkOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockGetSwap).toHaveBeenCalledWith({
@@ -457,12 +473,16 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
     expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledTimes(1);
     expect(lockupTracker.zeroConfAccepted).toHaveBeenCalledWith('BTC');
     expect(lockupTracker.isAcceptable).toHaveBeenCalledTimes(1);
@@ -490,7 +510,12 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -513,14 +538,18 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
     jest.clearAllMocks();
 
@@ -543,14 +572,18 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, rbfTransaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      rbfTransaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
     jest.clearAllMocks();
 
@@ -569,7 +602,12 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -586,8 +624,6 @@ describe('UtxoNursery', () => {
       2,
       '62af53c6dcda51c4ebac3309b85ce2ca043a912f127250c51e19b1de82299730',
     );
-
-    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
   });
 
   test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {
@@ -618,7 +654,7 @@ describe('UtxoNursery', () => {
       btcChainClient,
       btcWallet,
       transaction,
-      false,
+      TransactionStatus.ZeroConfSafe,
     );
   });
 
@@ -655,7 +691,12 @@ describe('UtxoNursery', () => {
       eventEmitted = true;
     });
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.Confirmed,
+    );
 
     expect(eventEmitted).toEqual(true);
 
@@ -668,10 +709,6 @@ describe('UtxoNursery', () => {
       transaction.outs[0].value,
       true,
       0,
-    );
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      transaction.outs[0].script,
     );
     expect(mockGetKeysByIndex).toHaveBeenCalledTimes(1);
     expect(mockGetKeysByIndex).toHaveBeenCalledWith(mockGetSwapResult.keyIndex);
@@ -704,7 +741,12 @@ describe('UtxoNursery', () => {
     });
 
     transactionHook.hook = jest.fn().mockReturnValue(Action.Reject);
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
@@ -744,7 +786,12 @@ describe('UtxoNursery', () => {
 
     const logHoldingSpy = jest.spyOn(nursery as any, 'logHoldingTransaction');
 
-    await checkSwapOutputs(btcChainClient, btcWallet, transaction, false);
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
 
     expect(transactionHook.hook).toHaveBeenCalledTimes(1);
     expect(transactionHook.hook).toHaveBeenCalledWith(
@@ -763,8 +810,6 @@ describe('UtxoNursery', () => {
       transaction,
       expect.anything(),
     );
-
-    expect(mockRemoveOutputFilter).not.toHaveBeenCalled();
 
     logHoldingSpy.mockRestore();
     transactionHook.hook = jest.fn().mockReturnValue(true);
@@ -813,9 +858,6 @@ describe('UtxoNursery', () => {
       transactionId: transactionHashToId(transaction.ins[0].hash),
     });
 
-    expect(mockRemoveInputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveInputFilter).toHaveBeenCalledWith(transaction.ins[0].hash);
-
     jest.clearAllMocks();
 
     // Should ignore transactions that are refunds of a Reverse Swap
@@ -826,7 +868,6 @@ describe('UtxoNursery', () => {
     await checkReverseSwapsClaims(btcChainClient, transaction);
 
     expect(mockGetReverseSwap).not.toHaveBeenCalled();
-    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
 
     jest.clearAllMocks();
 
@@ -836,7 +877,6 @@ describe('UtxoNursery', () => {
     await checkReverseSwapsClaims(btcChainClient, transaction);
 
     expect(mockGetReverseSwap).not.toHaveBeenCalled();
-    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
   });
 
   test('should handle confirmed Reverse Swap lockups via block events', async () => {
@@ -883,7 +923,7 @@ describe('UtxoNursery', () => {
       eventsEmitted += 1;
     });
 
-    await emitBlock(1);
+    await emitBlock({ symbol: 'BTC', height: 1, hash: Buffer.alloc(32) });
 
     expect(eventsEmitted).toEqual(1);
 
@@ -900,16 +940,6 @@ describe('UtxoNursery', () => {
     expect(mockGetRawTransactionVerbose).toHaveBeenNthCalledWith(
       2,
       mockGetReverseSwapsResult[1].transactionId,
-    );
-
-    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockDecodeAddress).toHaveBeenCalledWith(
-      mockGetReverseSwapsResult[1].lockupAddress,
-    );
-
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      decodeAddress(mockGetReverseSwapsResult[1].lockupAddress),
     );
   });
 
@@ -937,22 +967,16 @@ describe('UtxoNursery', () => {
     });
 
     const emittedBlockHeight = 123321;
-    await emitBlock(emittedBlockHeight);
+    await emitBlock({
+      symbol: 'BTC',
+      height: emittedBlockHeight,
+      hash: Buffer.alloc(32),
+    });
 
     expect(eventEmitted).toEqual(true);
 
     expect(mockGetSwapsExpirable).toHaveBeenCalledTimes(1);
     expect(mockGetSwapsExpirable).toHaveBeenCalledWith(emittedBlockHeight);
-
-    expect(mockDecodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockDecodeAddress).toHaveBeenCalledWith(
-      mockGetSwapsExpirableResult[0].lockupAddress,
-    );
-
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      decodeAddress(mockGetSwapsExpirableResult[0].lockupAddress),
-    );
 
     mockGetSwapsExpirableResult = [];
   });
@@ -993,7 +1017,11 @@ describe('UtxoNursery', () => {
     });
 
     const emittedBlockHeight = 123321;
-    await emitBlock(emittedBlockHeight);
+    await emitBlock({
+      symbol: 'BTC',
+      height: emittedBlockHeight,
+      hash: Buffer.alloc(32),
+    });
 
     expect(eventsEmitted).toEqual(2);
 
@@ -1001,24 +1029,6 @@ describe('UtxoNursery', () => {
     expect(mockGetReverseSwapsExpirable).toHaveBeenCalledWith(
       emittedBlockHeight,
     );
-
-    expect(mockDecodeAddress).toHaveBeenCalledTimes(2);
-    expect(mockDecodeAddress).toHaveBeenCalledWith(
-      mockGetReverseSwapsExpirableResult[0].lockupAddress,
-    );
-    expect(mockDecodeAddress).toHaveBeenCalledWith(
-      mockGetReverseSwapsExpirableResult[1].lockupAddress,
-    );
-
-    expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(2);
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      decodeAddress(mockGetReverseSwapsExpirableResult[0].lockupAddress),
-    );
-    expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-      decodeAddress(mockGetReverseSwapsExpirableResult[1].lockupAddress),
-    );
-
-    expect(mockRemoveInputFilter).not.toHaveBeenCalled();
 
     mockGetReverseSwapsExpirableResult = [];
   });
@@ -1129,18 +1139,18 @@ describe('UtxoNursery', () => {
           eventEmitted = true;
         });
 
-        await checkSwapOutputs(btcChainClient, btcWallet, transaction, true);
+        await checkSwapOutputs(
+          btcChainClient,
+          btcWallet,
+          transaction,
+          TransactionStatus.Confirmed,
+        );
 
         expect(eventEmitted).toEqual(true);
 
         expect(mockGetSwap).toHaveBeenCalledTimes(1);
         expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
         expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-
-        expect(mockRemoveOutputFilter).toHaveBeenCalledTimes(1);
-        expect(mockRemoveOutputFilter).toHaveBeenCalledWith(
-          transaction.outs[0].script,
-        );
 
         getOutputValueSpy.mockRestore();
       },
@@ -1230,7 +1240,7 @@ describe('UtxoNursery', () => {
           btcChainClient,
           btcWallet,
           transaction,
-          true,
+          TransactionStatus.Confirmed,
         );
 
         expect(eventEmitted).toEqual(true);

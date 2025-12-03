@@ -45,8 +45,7 @@ import {
   getHexString,
   reverseBuffer,
 } from './Utils';
-import type { IChainClient } from './chain/ChainClient';
-import type { SomeTransaction } from './chain/ZmqClient';
+import type { IChainClient, SomeTransaction } from './chain/ChainClient';
 import {
   CurrencyType,
   SwapType,

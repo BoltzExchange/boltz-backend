@@ -1,23 +1,25 @@
+import EventEmitter from 'events';
 import Logger from '../../../lib/Logger';
 import type ChainClient from '../../../lib/chain/ChainClient';
 import Rebroadcaster from '../../../lib/chain/Rebroadcaster';
 import RebroadcastRepository from '../../../lib/db/repositories/RebroadcastRepository';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('Rebroadcaster', () => {
-  let emitBlock: () => void;
+  const mockSidecar = new EventEmitter() as any as Sidecar;
 
   const client = {
     symbol: 'BTC',
-    on: jest.fn().mockImplementation((event: string, cb: () => void) => {
-      if (event === 'block') {
-        emitBlock = cb;
-      }
-    }),
   } as any as ChainClient;
   let rebroadcaster: Rebroadcaster;
 
   beforeEach(() => {
-    rebroadcaster = new Rebroadcaster(Logger.disabledLogger, client);
+    mockSidecar.removeAllListeners();
+    rebroadcaster = new Rebroadcaster(
+      Logger.disabledLogger,
+      mockSidecar,
+      client,
+    );
 
     jest.clearAllMocks();
   });
@@ -33,22 +35,52 @@ describe('Rebroadcaster', () => {
 
   describe('constructor', () => {
     test('should rebroadcast when a new block is received', async () => {
-      rebroadcaster = new Rebroadcaster(Logger.disabledLogger, client);
+      rebroadcaster = new Rebroadcaster(
+        Logger.disabledLogger,
+        mockSidecar,
+        client,
+      );
       rebroadcaster['rebroadcast'] = jest.fn();
 
-      expect(client.on).toHaveBeenCalledTimes(1);
-      expect(client.on).toHaveBeenCalledWith('block', expect.any(Function));
-
-      emitBlock();
+      mockSidecar.emit('block', {
+        symbol: 'BTC',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
 
       expect(rebroadcaster['rebroadcast']).toHaveBeenCalledTimes(1);
     });
 
+    test('should not rebroadcast for other symbols', async () => {
+      rebroadcaster = new Rebroadcaster(
+        Logger.disabledLogger,
+        mockSidecar,
+        client,
+      );
+      rebroadcaster['rebroadcast'] = jest.fn();
+
+      mockSidecar.emit('block', {
+        symbol: 'ETH',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
+
+      expect(rebroadcaster['rebroadcast']).not.toHaveBeenCalled();
+    });
+
     test('should not error when rebroadcast on block failed', async () => {
-      rebroadcaster = new Rebroadcaster(Logger.disabledLogger, client);
+      rebroadcaster = new Rebroadcaster(
+        Logger.disabledLogger,
+        mockSidecar,
+        client,
+      );
       rebroadcaster['rebroadcast'] = jest.fn().mockRejectedValue('big crash');
 
-      emitBlock();
+      mockSidecar.emit('block', {
+        symbol: 'BTC',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
 
       expect(rebroadcaster['rebroadcast']).toHaveBeenCalledTimes(1);
     });

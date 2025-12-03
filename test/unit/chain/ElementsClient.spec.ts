@@ -13,7 +13,9 @@ describe('ElementsClient', () => {
     async ({ lowball, expected }) => {
       const client = new ElementsClient(
         Logger.disabledLogger,
-        {} as unknown as Sidecar,
+        {
+          on: jest.fn(),
+        } as unknown as Sidecar,
         'liquidRegtest',
         {
           host: '127.0.0.1',

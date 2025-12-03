@@ -1,5 +1,4 @@
-import Logger from '../../../../lib/Logger';
-import Database from '../../../../lib/db/Database';
+import type Database from '../../../../lib/db/Database';
 import KeyProvider from '../../../../lib/db/models/KeyProvider';
 import KeyRepository from '../../../../lib/db/repositories/KeyRepository';
 import { getPostgresDatabase } from '../../../Utils';
@@ -33,10 +32,10 @@ describe('KeyRepository', () => {
 
       const newIndex = await KeyRepository.incrementHighestUsedIndex(symbol);
 
-      expect(newIndex).toBe(1);
+      expect(newIndex).toEqual(1);
 
       const keyProvider = await KeyRepository.getKeyProvider(symbol);
-      expect(keyProvider?.highestUsedIndex).toBe(1);
+      expect(keyProvider?.highestUsedIndex).toEqual(1);
     });
 
     test('should increment multiple times correctly', async () => {
@@ -50,17 +49,16 @@ describe('KeyRepository', () => {
       });
 
       const index1 = await KeyRepository.incrementHighestUsedIndex(symbol);
-      expect(index1).toBe(6);
+      expect(index1).toEqual(6);
 
       const index2 = await KeyRepository.incrementHighestUsedIndex(symbol);
-      expect(index2).toBe(7);
+      expect(index2).toEqual(7);
 
       const index3 = await KeyRepository.incrementHighestUsedIndex(symbol);
-      expect(index3).toBe(8);
+      expect(index3).toEqual(8);
 
-      // Verify final state
       const keyProvider = await KeyRepository.getKeyProvider(symbol);
-      expect(keyProvider?.highestUsedIndex).toBe(8);
+      expect(keyProvider?.highestUsedIndex).toEqual(8);
     });
 
     test('should return undefined for non-existent key provider', async () => {
@@ -80,7 +78,6 @@ describe('KeyRepository', () => {
         highestUsedIndex: initialIndex,
       });
 
-      // Perform multiple increments concurrently
       const promises = Array(5)
         .fill(null)
         .map(() => KeyRepository.incrementHighestUsedIndex(symbol));
@@ -88,13 +85,11 @@ describe('KeyRepository', () => {
       const results = await Promise.all(promises);
 
       const uniqueResults = new Set(results);
-      expect(uniqueResults.size).toBe(5);
-      [1, 2, 3, 4, 5].forEach((index) => {
-        expect(results).toContain(index);
-      });
+      expect(uniqueResults.size).toEqual(5);
+      expect(results).toEqual(expect.arrayContaining([1, 2, 3, 4, 5]));
 
       const keyProvider = await KeyRepository.getKeyProvider(symbol);
-      expect(keyProvider?.highestUsedIndex).toBe(5);
+      expect(keyProvider?.highestUsedIndex).toEqual(5);
     });
 
     test('should not affect other key providers', async () => {
@@ -116,10 +111,10 @@ describe('KeyRepository', () => {
       await KeyRepository.incrementHighestUsedIndex(symbol1);
 
       const btcProvider = await KeyRepository.getKeyProvider(symbol1);
-      expect(btcProvider?.highestUsedIndex).toBe(11);
+      expect(btcProvider?.highestUsedIndex).toEqual(11);
 
       const ethProvider = await KeyRepository.getKeyProvider(symbol2);
-      expect(ethProvider?.highestUsedIndex).toBe(20);
+      expect(ethProvider?.highestUsedIndex).toEqual(20);
     });
   });
 });

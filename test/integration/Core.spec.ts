@@ -47,6 +47,7 @@ import { CurrencyType, SwapType, SwapVersion } from '../../lib/consts/Enums';
 import Database from '../../lib/db/Database';
 import type ChainSwapData from '../../lib/db/models/ChainSwapData';
 import type Swap from '../../lib/db/models/Swap';
+import KeyRepository from '../../lib/db/repositories/KeyRepository';
 import type SwapOutputType from '../../lib/swap/SwapOutputType';
 import Wallet from '../../lib/wallet/Wallet';
 import WalletLiquid from '../../lib/wallet/WalletLiquid';
@@ -54,6 +55,8 @@ import type { Currency } from '../../lib/wallet/WalletManager';
 import CoreWalletProvider from '../../lib/wallet/providers/CoreWalletProvider';
 import ElementsWalletProvider from '../../lib/wallet/providers/ElementsWalletProvider';
 import { bitcoinClient, elementsClient } from './Nodes';
+
+KeyRepository.incrementHighestUsedIndex = jest.fn().mockResolvedValue(0);
 
 describe('Core', () => {
   const bip32 = BIP32Factory(ecc);
@@ -70,7 +73,6 @@ describe('Core', () => {
     const initWallet = (w: Wallet) => {
       w.initKeyProvider(
         'm/0/0',
-        0,
         bip32.fromSeed(
           mnemonicToSeedSync(
             'miracle tower paper teach stomach black exile discover paddle country around survey',

@@ -36,7 +36,6 @@ import {
 import type Swap from '../../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
-import KeyRepository from '../../../../lib/db/repositories/KeyRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import type RateProvider from '../../../../lib/rates/RateProvider';
@@ -66,7 +65,7 @@ import {
 jest.mock('../../../../lib/db/repositories/ChannelCreationRepository');
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 jest.mock('../../../../lib/db/repositories/KeyRepository', () => ({
-  setHighestUsedIndex: jest.fn().mockResolvedValue(undefined),
+  incrementHighestUsedIndex: jest.fn().mockResolvedValue(21),
 }));
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwapsClaimable: jest.fn().mockResolvedValue([]),
@@ -348,12 +347,6 @@ describe('DeferredClaimer', () => {
       'm/0/0',
       bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),
     );
-
-    KeyRepository.addKeyProvider({
-      symbol: btcWallet.symbol,
-      derivationPath: 'm/0/0',
-      highestUsedIndex: 0,
-    });
 
     ethereumSetup = await getSigner();
     contracts = await getContracts(ethereumSetup.signer);

@@ -65,7 +65,7 @@ import {
 jest.mock('../../../../lib/db/repositories/ChannelCreationRepository');
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 jest.mock('../../../../lib/db/repositories/KeyRepository', () => ({
-  setHighestUsedIndex: jest.fn().mockResolvedValue(undefined),
+  incrementHighestUsedIndex: jest.fn().mockResolvedValue(21),
 }));
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwapsClaimable: jest.fn().mockResolvedValue([]),
@@ -165,7 +165,7 @@ describe('DeferredClaimer', () => {
     const preimage = randomBytes(32);
     swap.preimage = getHexString(preimage);
     swap.preimageHash = getHexString(crypto.sha256(preimage));
-    const claimKeys = btcWallet.getNewKeys();
+    const claimKeys = await btcWallet.getNewKeys();
     swap.keyIndex = claimKeys.index;
 
     const musig = createMusig(
@@ -345,7 +345,6 @@ describe('DeferredClaimer', () => {
   beforeAll(async () => {
     btcWallet.initKeyProvider(
       'm/0/0',
-      0,
       bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),
     );
 

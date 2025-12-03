@@ -106,16 +106,12 @@ describe('ChainSwapSigner', () => {
     ]);
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
-    btcWallet.initKeyProvider(
-      'm/0/0',
-      0,
-      bip32.fromSeed(mnemonicToSeedSync(mnemonic)),
-    );
-    liquidWallet.initKeyProvider(
-      'm/0/0',
-      0,
-      bip32.fromSeed(mnemonicToSeedSync(mnemonic)),
-    );
+    const initWallet = (w: Wallet) => {
+      w.initKeyProvider('m/0/0', bip32.fromSeed(mnemonicToSeedSync(mnemonic)));
+    };
+
+    initWallet(btcWallet);
+    initWallet(liquidWallet);
   });
 
   beforeEach(() => {

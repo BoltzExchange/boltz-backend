@@ -91,7 +91,7 @@ describe('Wallet', () => {
     network,
   );
 
-  wallet.initKeyProvider(derivationPath, highestUsedIndex, masterNode);
+  wallet.initKeyProvider(derivationPath, masterNode);
 
   const incrementIndex = () => {
     highestUsedIndex = highestUsedIndex + 1;
@@ -116,7 +116,7 @@ describe('Wallet', () => {
     networkLiquid.liquid,
   );
 
-  walletLiquid.initKeyProvider(derivationPath, highestUsedIndex, masterNode);
+  walletLiquid.initKeyProvider(derivationPath, masterNode);
 
   beforeAll(async () => {
     await database.init();
@@ -145,15 +145,12 @@ describe('Wallet', () => {
     );
   });
 
-  test('should get new keys', () => {
+  test('should get new keys', async () => {
     incrementIndex();
-
-    const { keys, index } = wallet.getNewKeys();
+    const { keys, index } = await wallet.getNewKeys();
 
     expect(keys.publicKey).toEqual(getKeysByIndex(highestUsedIndex).publicKey);
-    expect(index).toEqual(wallet['highestUsedIndex']);
-
-    expect(wallet['highestUsedIndex']).toEqual(highestUsedIndex);
+    expect(index).toEqual(highestUsedIndex);
   });
 
   test('should encode addresses', () => {

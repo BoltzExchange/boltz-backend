@@ -1,3 +1,4 @@
+import { QueryTypes } from 'sequelize';
 import type { KeyProviderType } from '../models/KeyProvider';
 import KeyProvider from '../models/KeyProvider';
 
@@ -22,20 +23,24 @@ class KeyRepository {
     return KeyProvider.create(wallet);
   };
 
-  public static setHighestUsedIndex = (
+  public static incrementHighestUsedIndex = async (
     symbol: string,
-    highestUsedIndex: number,
-  ): Promise<[number]> => {
-    return KeyProvider.update(
+  ): Promise<number | undefined> => {
+    const results = await KeyProvider.sequelize!.query<{
+      highestUsedIndex: number;
+    }>(
+      'UPDATE keys SET "highestUsedIndex" = "highestUsedIndex" + 1 WHERE symbol = $1 RETURNING "highestUsedIndex"',
       {
-        highestUsedIndex,
-      },
-      {
-        where: {
-          symbol,
-        },
+        bind: [symbol],
+        type: QueryTypes.SELECT, // has to be select for returning the new index
       },
     );
+
+    if (!results || results.length === 0) {
+      return undefined;
+    }
+
+    return results[0].highestUsedIndex;
   };
 }
 

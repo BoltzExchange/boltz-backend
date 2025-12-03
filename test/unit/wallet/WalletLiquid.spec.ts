@@ -27,7 +27,7 @@ describe('WalletLiquid', () => {
     slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
     Networks.liquidRegtest,
   );
-  wallet.initKeyProvider('', 0, {} as any);
+  wallet.initKeyProvider('', {} as any);
 
   const publicKey = getHexBuffer(
     '03f0081c29011d63e741e4bfe2465a9e1bb203852d239f541d92dc8d9e40bdb3e6',

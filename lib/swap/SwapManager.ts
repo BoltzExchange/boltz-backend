@@ -418,7 +418,7 @@ class SwapManager {
         await receivingCurrency.chainClient!.getBlockchainInfo();
       result.timeoutBlockHeight = blocks + args.timeoutBlockDelta;
 
-      const { keys, index } = receivingCurrency.wallet.getNewKeys();
+      const { keys, index } = await receivingCurrency.wallet.getNewKeys();
 
       let outputScript: Buffer;
       let tree: Types.SwapTree | undefined;
@@ -942,7 +942,7 @@ class SwapManager {
     };
 
     if (isBitcoinLike) {
-      const { keys, index } = sendingCurrency.wallet.getNewKeys();
+      const { keys, index } = await sendingCurrency.wallet.getNewKeys();
       const { blocks } = await sendingCurrency.chainClient!.getBlockchainInfo();
 
       result.timeoutBlockHeight = blocks + args.onchainTimeoutBlockDelta;
@@ -1211,7 +1211,7 @@ class SwapManager {
         currency.type === CurrencyType.BitcoinLike ||
         currency.type === CurrencyType.Liquid
       ) {
-        const { keys, index } = currency.wallet.getNewKeys();
+        const { keys, index } = await currency.wallet.getNewKeys();
         res.keyIndex = index;
         serverKeys = getHexString(keys.publicKey);
         res.theirPublicKey = getHexString(theirPublicKey!);

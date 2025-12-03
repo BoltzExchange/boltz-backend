@@ -129,7 +129,6 @@ describe('CoopSignerBase', () => {
 
     wallet.initKeyProvider(
       'm/0/0',
-      0,
       bip32.fromSeed(
         mnemonicToSeedSync(
           'miracle tower paper teach stomach black exile discover paddle country around survey',

@@ -39,6 +39,7 @@ import {
 } from '../../../../lib/consts/Enums';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
+import KeyRepository from '../../../../lib/db/repositories/KeyRepository';
 import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import Errors from '../../../../lib/service/Errors';
@@ -106,16 +107,17 @@ describe('ChainSwapSigner', () => {
     ]);
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
-    btcWallet.initKeyProvider(
-      'm/0/0',
-      0,
-      bip32.fromSeed(mnemonicToSeedSync(mnemonic)),
-    );
-    liquidWallet.initKeyProvider(
-      'm/0/0',
-      0,
-      bip32.fromSeed(mnemonicToSeedSync(mnemonic)),
-    );
+    const initWallet = (w: Wallet) => {
+      w.initKeyProvider('m/0/0', bip32.fromSeed(mnemonicToSeedSync(mnemonic)));
+      KeyRepository.addKeyProvider({
+        symbol: w.symbol,
+        derivationPath: 'm/0/0',
+        highestUsedIndex: 0,
+      });
+    };
+
+    initWallet(btcWallet);
+    initWallet(liquidWallet);
   });
 
   beforeEach(() => {

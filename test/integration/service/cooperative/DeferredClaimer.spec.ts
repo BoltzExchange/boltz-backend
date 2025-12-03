@@ -36,6 +36,7 @@ import {
 import type Swap from '../../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
+import KeyRepository from '../../../../lib/db/repositories/KeyRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
 import type RateProvider from '../../../../lib/rates/RateProvider';
@@ -345,9 +346,14 @@ describe('DeferredClaimer', () => {
   beforeAll(async () => {
     btcWallet.initKeyProvider(
       'm/0/0',
-      0,
       bip32.fromSeed(mnemonicToSeedSync(generateMnemonic())),
     );
+
+    KeyRepository.addKeyProvider({
+      symbol: btcWallet.symbol,
+      derivationPath: 'm/0/0',
+      highestUsedIndex: 0,
+    });
 
     ethereumSetup = await getSigner();
     contracts = await getContracts(ethereumSetup.signer);

@@ -75,7 +75,9 @@ impl ChainClient {
         };
 
         {
+            let mut block_receiver = client.zmq_client.block_sender.subscribe();
             let mut tx_receiver = client.zmq_client.tx_sender.subscribe();
+
             let tx_sender = client.tx_sender.clone();
 
             let symbol = symbol.clone();
@@ -100,13 +102,37 @@ impl ChainClient {
                                         }
                                     };
 
-                                    if let Err(e) = tx_sender.send((tx, tx_verbose.is_confirmed())) {
+                                    // Confirmed transactions are handled by the block stream
+                                    if tx_verbose.is_confirmed() {
+                                        continue;
+                                    }
+
+                                    if let Err(e) = tx_sender.send((tx, false)) {
                                         error!("Failed to forward {} transaction: {}", symbol, e);
                                     }
                                 }
                                 Err(RecvError::Closed) => break,
                                 Err(RecvError::Lagged(skipped)) => {
                                     warn!("{} transaction stream lagged behind by {} messages", symbol, skipped);
+                                }
+                            }
+                        },
+                        block = block_receiver.recv() => {
+                            match block {
+                                Ok(block) => {
+                                    if tx_sender.receiver_count() == 0 {
+                                        continue;
+                                    }
+
+                                    for tx in block.transactions.iter() {
+                                        if let Err(e) = tx_sender.send((tx.clone(), true)) {
+                                            error!("Failed to forward {} block transaction: {}", symbol, e);
+                                        }
+                                    }
+                                }
+                                Err(RecvError::Closed) => break,
+                                Err(RecvError::Lagged(skipped)) => {
+                                    warn!("{} block transaction stream lagged behind by {} messages", symbol, skipped);
                                 }
                             }
                         },
@@ -925,11 +951,13 @@ pub mod test {
         generate_block(&client).await;
 
         // Coinbase
-        let received_tx = tx_receiver.recv().await.unwrap();
-        assert!(received_tx.1);
+        let received_first = tx_receiver.recv().await.unwrap();
+        let received_second = tx_receiver.recv().await.unwrap();
 
-        let received_tx = tx_receiver.recv().await.unwrap();
-        assert_eq!(received_tx, (tx.clone(), true));
+        assert!(received_first.1);
+        assert!(received_second.1);
+
+        assert!(received_first.0 == tx || received_second.0 == tx);
     }
 
     #[tokio::test]

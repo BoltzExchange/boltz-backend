@@ -382,7 +382,14 @@ pub mod test {
                     client.listen().await;
                 });
             }
-            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            // Wait for the client to receive initial data
+            for _ in 0..50 {
+                if client.get_latest().is_ok() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
 
             let (height, fee) = client.get_latest().unwrap();
             assert!(height >= 903_535);
@@ -523,7 +530,13 @@ pub mod test {
                 MEMPOOL_API.to_string(),
             );
             mempool_space.connect().await.unwrap();
-            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            for _ in 0..50 {
+                if mempool_space.get_fees().is_some() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
 
             let fees = mempool_space.get_fees().unwrap();
             assert!(fees > 0.9);

@@ -944,20 +944,27 @@ pub mod test {
         let mut tx_receiver = client.tx_receiver();
 
         let tx = send_transaction(&client).await;
+        let tx_id = tx.txid_hex();
 
-        let received_tx = tx_receiver.recv().await.unwrap();
-        assert_eq!(received_tx, (tx.clone(), false));
+        loop {
+            let (received_tx, confirmed) = tx_receiver.recv().await.unwrap();
+            if received_tx.txid_hex() == tx_id {
+                assert!(!confirmed, "expected unconfirmed transaction");
+                break;
+            }
+        }
 
         generate_block(&client).await;
 
-        // Coinbase
-        let received_first = tx_receiver.recv().await.unwrap();
-        let received_second = tx_receiver.recv().await.unwrap();
+        loop {
+            let (received_tx, confirmed) = tx_receiver.recv().await.unwrap();
+            assert!(confirmed, "block transaction should be confirmed");
 
-        assert!(received_first.1);
-        assert!(received_second.1);
-
-        assert!(received_first.0 == tx || received_second.0 == tx);
+            if received_tx.txid_hex() == tx_id {
+                assert!(confirmed, "expected confirmed transaction");
+                break;
+            }
+        }
     }
 
     #[tokio::test]

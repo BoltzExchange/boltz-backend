@@ -635,7 +635,7 @@ class Sidecar extends BaseClient<
           return TransactionStatus.Confirmed;
         case sidecarrpc.TransactionStatus.TRANSACTION_STATUS_ZERO_CONF_SAFE:
           return TransactionStatus.ZeroConfSafe;
-        case sidecarrpc.TransactionStatus.TRANSACTION_STATUS_NOT_SAFE:
+        default:
           return TransactionStatus.NotSafe;
       }
     };
@@ -648,11 +648,12 @@ class Sidecar extends BaseClient<
             ? CurrencyType.Liquid
             : CurrencyType.BitcoinLike;
 
+        const status = parseStatus(transaction.getStatus());
+
         // Ignore unsafe 0-conf Liquid transaction
         if (
           currencyType === CurrencyType.Liquid &&
-          transaction.getStatus() ===
-            sidecarrpc.TransactionStatus.TRANSACTION_STATUS_NOT_SAFE
+          status === TransactionStatus.NotSafe
         ) {
           return;
         }
@@ -663,7 +664,7 @@ class Sidecar extends BaseClient<
             currencyType,
             Buffer.from(transaction.getTransaction_asU8()),
           ),
-          status: parseStatus(transaction.getStatus()),
+          status,
           swapIds: transaction.getSwapIdsList(),
         });
       },

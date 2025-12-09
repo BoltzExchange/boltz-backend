@@ -69,6 +69,7 @@ service Node {
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchBip353(Fetchbip353Request) returns (Fetchbip353Response) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
+	rpc CancelRecurringInvoice(CancelrecurringinvoiceRequest) returns (CancelrecurringinvoiceResponse) {}
 	rpc FundChannelCancel(FundchannelCancelRequest) returns (FundchannelCancelResponse) {}
 	rpc FundChannelComplete(FundchannelCompleteRequest) returns (FundchannelCompleteResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
@@ -139,11 +140,16 @@ service Node {
 	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
 	rpc AskReneUpdateChannel(AskreneupdatechannelRequest) returns (AskreneupdatechannelResponse) {}
 	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
+	rpc AskreneBiasNode(AskrenebiasnodeRequest) returns (AskrenebiasnodeResponse) {}
 	rpc AskReneListReservations(AskrenelistreservationsRequest) returns (AskrenelistreservationsResponse) {}
 	rpc InjectPaymentOnion(InjectpaymentonionRequest) returns (InjectpaymentonionResponse) {}
 	rpc InjectOnionMessage(InjectonionmessageRequest) returns (InjectonionmessageResponse) {}
 	rpc Xpay(XpayRequest) returns (XpayResponse) {}
 	rpc SignMessageWithKey(SignmessagewithkeyRequest) returns (SignmessagewithkeyResponse) {}
+	rpc ListChannelMoves(ListchannelmovesRequest) returns (ListchannelmovesResponse) {}
+	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
+	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
+	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -414,6 +420,7 @@ message AutocleanonceAutoclean {
 	optional AutocleanonceAutocleanFailedpays failedpays = 4;
 	optional AutocleanonceAutocleanPaidinvoices paidinvoices = 5;
 	optional AutocleanonceAutocleanExpiredinvoices expiredinvoices = 6;
+	optional AutocleanonceAutocleanNetworkevents networkevents = 7;
 }
 
 message AutocleanonceAutocleanSucceededforwards {
@@ -446,6 +453,11 @@ message AutocleanonceAutocleanExpiredinvoices {
 	uint64 uncleaned = 2;
 }
 
+message AutocleanonceAutocleanNetworkevents {
+	uint64 cleaned = 1;
+	uint64 uncleaned = 2;
+}
+
 message AutocleanstatusRequest {
 	optional AutocleanSubsystem subsystem = 1;
 }
@@ -461,6 +473,7 @@ message AutocleanstatusAutoclean {
 	optional AutocleanstatusAutocleanFailedpays failedpays = 4;
 	optional AutocleanstatusAutocleanPaidinvoices paidinvoices = 5;
 	optional AutocleanstatusAutocleanExpiredinvoices expiredinvoices = 6;
+	optional AutocleanstatusAutocleanNetworkevents networkevents = 7;
 }
 
 message AutocleanstatusAutocleanSucceededforwards {
@@ -494,6 +507,12 @@ message AutocleanstatusAutocleanPaidinvoices {
 }
 
 message AutocleanstatusAutocleanExpiredinvoices {
+	bool enabled = 1;
+	uint64 cleaned = 2;
+	optional uint64 age = 3;
+}
+
+message AutocleanstatusAutocleanNetworkevents {
 	bool enabled = 1;
 	uint64 cleaned = 2;
 	optional uint64 age = 3;
@@ -740,6 +759,7 @@ message ExposesecretRequest {
 message ExposesecretResponse {
 	string identifier = 1;
 	string codex32 = 2;
+	optional string mnemonic = 3;
 }
 
 message RecoverRequest {
@@ -1488,6 +1508,8 @@ message ListpeerchannelsChannelsFunding {
 	Amount remote_funds_msat = 3;
 	optional Amount fee_paid_msat = 4;
 	optional Amount fee_rcvd_msat = 5;
+	optional string psbt = 6;
+	optional bool withheld = 7;
 }
 
 message ListpeerchannelsChannelsAlias {
@@ -1553,6 +1575,8 @@ message ListclosedchannelsClosedchannels {
 	optional Amount last_commitment_fee_msat = 23;
 	ListclosedchannelsClosedchannelsCloseCause close_cause = 24;
 	optional uint64 last_stable_connection = 25;
+	optional string funding_psbt = 26;
+	optional bool funding_withheld = 27;
 }
 
 message ListclosedchannelsClosedchannelsAlias {
@@ -1974,6 +1998,19 @@ message FetchinvoiceNextPeriod {
 	uint64 paywindow_end = 5;
 }
 
+message CancelrecurringinvoiceRequest {
+	string offer = 1;
+	uint64 recurrence_counter = 2;
+	string recurrence_label = 3;
+	optional double recurrence_start = 4;
+	optional string payer_note = 5;
+	optional string bip353 = 6;
+}
+
+message CancelrecurringinvoiceResponse {
+	string bolt12 = 1;
+}
+
 message FundchannelCancelRequest {
 	bytes id = 1;
 }
@@ -1985,6 +2022,7 @@ message FundchannelCancelResponse {
 message FundchannelCompleteRequest {
 	bytes id = 1;
 	string psbt = 2;
+	optional bool withhold = 3;
 }
 
 message FundchannelCompleteResponse {
@@ -2423,7 +2461,8 @@ message OfferRequest {
 	optional string recurrence_paywindow = 9;
 	optional uint32 recurrence_limit = 10;
 	optional bool single_use = 11;
-	optional bool recurrence_start_any_period = 12;
+	optional bool proportional_amount = 13;
+	optional bool optional_recurrence = 14;
 }
 
 message OfferResponse {
@@ -2846,6 +2885,7 @@ message WaitRequest {
 		HTLCS = 3;
 		CHAINMOVES = 4;
 		CHANNELMOVES = 5;
+		NETWORKEVENTS = 6;
 	}
 	// Wait.indexname
 	enum WaitIndexname {
@@ -2867,6 +2907,7 @@ message WaitResponse {
 		HTLCS = 3;
 		CHAINMOVES = 4;
 		CHANNELMOVES = 5;
+		NETWORKEVENTS = 6;
 	}
 	WaitSubsystem subsystem = 1;
 	optional uint64 created = 2;
@@ -2879,6 +2920,7 @@ message WaitResponse {
 	optional WaitHtlcs htlcs = 9;
 	optional WaitChainmoves chainmoves = 10;
 	optional WaitChannelmoves channelmoves = 11;
+	optional WaitNetworkevents networkevents = 12;
 }
 
 message WaitForwards {
@@ -2924,35 +2966,12 @@ message WaitSendpays {
 }
 
 message WaitHtlcs {
-	// Wait.htlcs.state
-	enum WaitHtlcsState {
-		SENT_ADD_HTLC = 0;
-		SENT_ADD_COMMIT = 1;
-		RCVD_ADD_REVOCATION = 2;
-		RCVD_ADD_ACK_COMMIT = 3;
-		SENT_ADD_ACK_REVOCATION = 4;
-		RCVD_REMOVE_HTLC = 5;
-		RCVD_REMOVE_COMMIT = 6;
-		SENT_REMOVE_REVOCATION = 7;
-		SENT_REMOVE_ACK_COMMIT = 8;
-		RCVD_REMOVE_ACK_REVOCATION = 9;
-		RCVD_ADD_HTLC = 10;
-		RCVD_ADD_COMMIT = 11;
-		SENT_ADD_REVOCATION = 12;
-		SENT_ADD_ACK_COMMIT = 13;
-		RCVD_ADD_ACK_REVOCATION = 14;
-		SENT_REMOVE_HTLC = 15;
-		SENT_REMOVE_COMMIT = 16;
-		RCVD_REMOVE_REVOCATION = 17;
-		RCVD_REMOVE_ACK_COMMIT = 18;
-		SENT_REMOVE_ACK_REVOCATION = 19;
-	}
 	// Wait.htlcs.direction
 	enum WaitHtlcsDirection {
 		OUT = 0;
 		IN = 1;
 	}
-	optional WaitHtlcsState state = 1;
+	optional HtlcState state = 1;
 	optional uint64 htlc_id = 2;
 	optional string short_channel_id = 3;
 	optional uint32 cltv_expiry = 4;
@@ -2971,6 +2990,19 @@ message WaitChannelmoves {
 	string account = 1;
 	Amount credit_msat = 2;
 	Amount debit_msat = 3;
+}
+
+message WaitNetworkevents {
+	// Wait.networkevents.type
+	enum WaitNetworkeventsType {
+		CONNECT = 0;
+		CONNECT_FAIL = 1;
+		PING = 2;
+		DISCONNECT = 3;
+	}
+	optional uint64 created_index = 1;
+	optional WaitNetworkeventsType item_type = 2;
+	optional bytes peer_id = 3;
 }
 
 message WaitDetails {
@@ -3801,6 +3833,7 @@ message AskreneunreserveResponse {
 message AskreneunreservePath {
 	Amount amount_msat = 3;
 	optional string short_channel_id_dir = 4;
+	optional string layer = 5;
 }
 
 message AskrenelistlayersRequest {
@@ -3820,6 +3853,7 @@ message AskrenelistlayersLayers {
 	repeated string disabled_channels = 6;
 	repeated AskrenelistlayersLayersChannelUpdates channel_updates = 7;
 	repeated AskrenelistlayersLayersBiases biases = 8;
+	repeated AskrenelistlayersLayersNodeBiases node_biases = 9;
 }
 
 message AskrenelistlayersLayersCreatedChannels {
@@ -3850,6 +3884,15 @@ message AskrenelistlayersLayersBiases {
 	string short_channel_id_dir = 1;
 	sint64 bias = 2;
 	optional string description = 3;
+	optional uint64 timestamp = 4;
+}
+
+message AskrenelistlayersLayersNodeBiases {
+	bytes node = 1;
+	sint64 in_bias = 2;
+	sint64 out_bias = 3;
+	optional string description = 4;
+	uint64 timestamp = 5;
 }
 
 message AskrenecreatelayerRequest {
@@ -3870,6 +3913,7 @@ message AskrenecreatelayerLayers {
 	repeated AskrenecreatelayerLayersChannelUpdates channel_updates = 6;
 	repeated AskrenecreatelayerLayersConstraints constraints = 7;
 	repeated AskrenecreatelayerLayersBiases biases = 8;
+	repeated AskrenecreatelayerLayersNodeBiases node_biases = 9;
 }
 
 message AskrenecreatelayerLayersCreatedChannels {
@@ -3898,6 +3942,15 @@ message AskrenecreatelayerLayersBiases {
 	string short_channel_id_dir = 1;
 	sint64 bias = 2;
 	optional string description = 3;
+	optional uint64 timestamp = 4;
+}
+
+message AskrenecreatelayerLayersNodeBiases {
+	bytes node = 1;
+	sint64 in_bias = 2;
+	sint64 out_bias = 3;
+	optional string description = 4;
+	uint64 timestamp = 5;
 }
 
 message AskreneremovelayerRequest {
@@ -3917,6 +3970,7 @@ message AskrenereserveResponse {
 message AskrenereservePath {
 	Amount amount_msat = 3;
 	optional string short_channel_id_dir = 4;
+	optional string layer = 5;
 }
 
 message AskreneageRequest {
@@ -4034,6 +4088,29 @@ message AskrenebiaschannelBiases {
 	string short_channel_id_dir = 2;
 	sint64 bias = 3;
 	optional string description = 4;
+	optional uint64 timestamp = 5;
+}
+
+message AskrenebiasnodeRequest {
+	string layer = 1;
+	bytes node = 2;
+	string direction = 3;
+	sint64 bias = 4;
+	optional string description = 5;
+	optional bool relative = 6;
+}
+
+message AskrenebiasnodeResponse {
+	repeated AskrenebiasnodeNodeBiases node_biases = 1;
+}
+
+message AskrenebiasnodeNodeBiases {
+	string layer = 1;
+	bytes node = 2;
+	sint64 in_bias = 3;
+	sint64 out_bias = 4;
+	optional string description = 5;
+	uint64 timestamp = 6;
 }
 
 message AskrenelistreservationsRequest {
@@ -4106,6 +4183,126 @@ message SignmessagewithkeyResponse {
 	bytes pubkey = 2;
 	bytes signature = 3;
 	string base64 = 4;
+}
+
+message ListchannelmovesRequest {
+	// ListChannelMoves.index
+	enum ListchannelmovesIndex {
+		CREATED = 0;
+	}
+	optional ListchannelmovesIndex index = 1;
+	optional uint64 start = 2;
+	optional uint32 limit = 3;
+}
+
+message ListchannelmovesResponse {
+	repeated ListchannelmovesChannelmoves channelmoves = 1;
+}
+
+message ListchannelmovesChannelmoves {
+	// ListChannelMoves.channelmoves[].primary_tag
+	enum ListchannelmovesChannelmovesPrimaryTag {
+		INVOICE = 0;
+		ROUTED = 1;
+		PUSHED = 2;
+		LEASE_FEE = 3;
+		CHANNEL_PROPOSED = 4;
+		PENALTY_ADJ = 5;
+		JOURNAL_ENTRY = 6;
+	}
+	uint64 created_index = 1;
+	string account_id = 2;
+	Amount credit_msat = 3;
+	Amount debit_msat = 4;
+	uint64 timestamp = 5;
+	ListchannelmovesChannelmovesPrimaryTag primary_tag = 6;
+	optional bytes payment_hash = 7;
+	optional uint64 part_id = 8;
+	optional uint64 group_id = 9;
+	Amount fees_msat = 10;
+}
+
+message ListchainmovesRequest {
+	// ListChainMoves.index
+	enum ListchainmovesIndex {
+		CREATED = 0;
+	}
+	optional ListchainmovesIndex index = 1;
+	optional uint64 start = 2;
+	optional uint32 limit = 3;
+}
+
+message ListchainmovesResponse {
+	repeated ListchainmovesChainmoves chainmoves = 1;
+}
+
+message ListchainmovesChainmoves {
+	// ListChainMoves.chainmoves[].primary_tag
+	enum ListchainmovesChainmovesPrimaryTag {
+		DEPOSIT = 0;
+		WITHDRAWAL = 1;
+		PENALTY = 2;
+		CHANNEL_OPEN = 3;
+		CHANNEL_CLOSE = 4;
+		DELAYED_TO_US = 5;
+		HTLC_TX = 6;
+		HTLC_TIMEOUT = 7;
+		HTLC_FULFILL = 8;
+		TO_WALLET = 9;
+		ANCHOR = 10;
+		TO_THEM = 11;
+		PENALIZED = 12;
+		STOLEN = 13;
+		IGNORED = 14;
+		TO_MINER = 15;
+	}
+	uint64 created_index = 1;
+	string account_id = 2;
+	Amount credit_msat = 3;
+	Amount debit_msat = 4;
+	uint64 timestamp = 5;
+	ListchainmovesChainmovesPrimaryTag primary_tag = 6;
+	optional bytes peer_id = 8;
+	optional string originating_account = 9;
+	optional bytes spending_txid = 10;
+	Outpoint utxo = 11;
+	optional bytes payment_hash = 12;
+	Amount output_msat = 13;
+	optional uint32 output_count = 14;
+	uint32 blockheight = 15;
+	repeated string extra_tags = 16;
+}
+
+message ListnetworkeventsRequest {
+	// ListNetworkEvents.index
+	enum ListnetworkeventsIndex {
+		CREATED = 0;
+	}
+	optional string id = 1;
+	optional ListnetworkeventsIndex index = 2;
+	optional uint64 start = 3;
+	optional uint32 limit = 4;
+}
+
+message ListnetworkeventsResponse {
+	repeated ListnetworkeventsNetworkevents networkevents = 1;
+}
+
+message ListnetworkeventsNetworkevents {
+	uint64 created_index = 1;
+	uint64 timestamp = 2;
+	bytes peer_id = 3;
+	string item_type = 4;
+	optional string reason = 5;
+	optional uint64 duration_nsec = 6;
+	optional bool connect_attempted = 7;
+}
+
+message DelnetworkeventRequest {
+	uint64 created_index = 1;
+}
+
+message DelnetworkeventResponse {
 }
 
 message StreamBlockAddedRequest {
@@ -4191,5 +4388,5 @@ message ChannelStateChangedNotification {
 	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;
 	ChannelStateChangedCause cause = 7;
-	string message = 8;
+	optional string message = 8;
 }

@@ -14,6 +14,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
   git \
   gettext \
   libtool \
+  lowdown \
   python3 \
   autoconf \
   automake \

@@ -449,7 +449,7 @@ describe('Renegotiator', () => {
         const timelock = 21;
         const amount = 212_212n;
 
-        const transaction = await etherSwap.lock(
+        const transaction = await etherSwap['lock(bytes32,address,uint256)'](
           preimageHash,
           await signer.getAddress(),
           timelock,
@@ -517,7 +517,9 @@ describe('Renegotiator', () => {
         await (
           await token.approve(await erc20Swap.getAddress(), amount)
         ).wait(1);
-        const transaction = await erc20Swap.lock(
+        const transaction = await erc20Swap[
+          'lock(bytes32,uint256,address,address,uint256)'
+        ](
           preimageHash,
           amount,
           await token.getAddress(),

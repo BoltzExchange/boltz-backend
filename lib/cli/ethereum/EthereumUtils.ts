@@ -1,4 +1,4 @@
-import { ContractABIs } from 'boltz-core';
+import { ContractABIs } from 'boltz-core/dist/lib/ABIs';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';

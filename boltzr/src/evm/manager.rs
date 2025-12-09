@@ -193,7 +193,7 @@ mod test {
     async fn test_version_for_address() {
         let manager = new_manager().await;
 
-        let contract_version = 4;
+        let contract_version = 5;
         assert_eq!(
             manager
                 .version_for_address(&ETHER_SWAP_ADDRESS.parse().unwrap())
@@ -217,7 +217,7 @@ mod test {
         assert!(
             manager
                 .sign_cooperative_refund(
-                    4,
+                    5,
                     FixedBytes::<32>::default(),
                     crate::evm::utils::parse_wei("1").unwrap(),
                     None,

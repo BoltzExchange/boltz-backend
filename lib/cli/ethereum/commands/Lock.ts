@@ -51,7 +51,9 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
   if (argv.token) {
     await token.approve(await erc20Swap.getAddress(), amount);
 
-    transaction = await erc20Swap.lock(
+    transaction = await erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
       preimageHash,
       amount,
       await token.getAddress(),
@@ -59,7 +61,7 @@ export const handler = async (argv: Arguments<any>): Promise<void> => {
       argv.timelock,
     );
   } else {
-    transaction = await etherSwap.lock(
+    transaction = await etherSwap['lock(bytes32,address,uint256)'](
       preimageHash,
       boltzAddress,
       argv.timelock,

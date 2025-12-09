@@ -80,7 +80,7 @@
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.7",
     "bolt11": "^1.4.1",
-    "boltz-core": "^3.0.0",
+    "boltz-core": "^3.1.0",
     "colors": "^1.4.0",
     "ecpair": "^3.0.0",
     "ethers": "6.14.1",

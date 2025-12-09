@@ -70,6 +70,7 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     feerates: INodeService_IFeerates;
     fetchBip353: INodeService_IFetchBip353;
     fetchInvoice: INodeService_IFetchInvoice;
+    cancelRecurringInvoice: INodeService_ICancelRecurringInvoice;
     fundChannelCancel: INodeService_IFundChannelCancel;
     fundChannelComplete: INodeService_IFundChannelComplete;
     fundChannel: INodeService_IFundChannel;
@@ -140,11 +141,16 @@ interface INodeService extends grpc.ServiceDefinition<grpc.UntypedServiceImpleme
     askReneCreateChannel: INodeService_IAskReneCreateChannel;
     askReneUpdateChannel: INodeService_IAskReneUpdateChannel;
     askReneBiasChannel: INodeService_IAskReneBiasChannel;
+    askreneBiasNode: INodeService_IAskreneBiasNode;
     askReneListReservations: INodeService_IAskReneListReservations;
     injectPaymentOnion: INodeService_IInjectPaymentOnion;
     injectOnionMessage: INodeService_IInjectOnionMessage;
     xpay: INodeService_IXpay;
     signMessageWithKey: INodeService_ISignMessageWithKey;
+    listChannelMoves: INodeService_IListChannelMoves;
+    listChainMoves: INodeService_IListChainMoves;
+    listNetworkEvents: INodeService_IListNetworkEvents;
+    delNetworkEvent: INodeService_IDelNetworkEvent;
     subscribeBlockAdded: INodeService_ISubscribeBlockAdded;
     subscribeChannelOpenFailed: INodeService_ISubscribeChannelOpenFailed;
     subscribeChannelOpened: INodeService_ISubscribeChannelOpened;
@@ -701,6 +707,15 @@ interface INodeService_IFetchInvoice extends grpc.MethodDefinition<cln_node_pb.F
     requestDeserialize: grpc.deserialize<cln_node_pb.FetchinvoiceRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.FetchinvoiceResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.FetchinvoiceResponse>;
+}
+interface INodeService_ICancelRecurringInvoice extends grpc.MethodDefinition<cln_node_pb.CancelrecurringinvoiceRequest, cln_node_pb.CancelrecurringinvoiceResponse> {
+    path: "/cln.Node/CancelRecurringInvoice";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.CancelrecurringinvoiceRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.CancelrecurringinvoiceRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.CancelrecurringinvoiceResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.CancelrecurringinvoiceResponse>;
 }
 interface INodeService_IFundChannelCancel extends grpc.MethodDefinition<cln_node_pb.FundchannelCancelRequest, cln_node_pb.FundchannelCancelResponse> {
     path: "/cln.Node/FundChannelCancel";
@@ -1332,6 +1347,15 @@ interface INodeService_IAskReneBiasChannel extends grpc.MethodDefinition<cln_nod
     responseSerialize: grpc.serialize<cln_node_pb.AskrenebiaschannelResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.AskrenebiaschannelResponse>;
 }
+interface INodeService_IAskreneBiasNode extends grpc.MethodDefinition<cln_node_pb.AskrenebiasnodeRequest, cln_node_pb.AskrenebiasnodeResponse> {
+    path: "/cln.Node/AskreneBiasNode";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.AskrenebiasnodeRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.AskrenebiasnodeRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.AskrenebiasnodeResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.AskrenebiasnodeResponse>;
+}
 interface INodeService_IAskReneListReservations extends grpc.MethodDefinition<cln_node_pb.AskrenelistreservationsRequest, cln_node_pb.AskrenelistreservationsResponse> {
     path: "/cln.Node/AskReneListReservations";
     requestStream: false;
@@ -1376,6 +1400,42 @@ interface INodeService_ISignMessageWithKey extends grpc.MethodDefinition<cln_nod
     requestDeserialize: grpc.deserialize<cln_node_pb.SignmessagewithkeyRequest>;
     responseSerialize: grpc.serialize<cln_node_pb.SignmessagewithkeyResponse>;
     responseDeserialize: grpc.deserialize<cln_node_pb.SignmessagewithkeyResponse>;
+}
+interface INodeService_IListChannelMoves extends grpc.MethodDefinition<cln_node_pb.ListchannelmovesRequest, cln_node_pb.ListchannelmovesResponse> {
+    path: "/cln.Node/ListChannelMoves";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.ListchannelmovesRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.ListchannelmovesRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.ListchannelmovesResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.ListchannelmovesResponse>;
+}
+interface INodeService_IListChainMoves extends grpc.MethodDefinition<cln_node_pb.ListchainmovesRequest, cln_node_pb.ListchainmovesResponse> {
+    path: "/cln.Node/ListChainMoves";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.ListchainmovesRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.ListchainmovesRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.ListchainmovesResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.ListchainmovesResponse>;
+}
+interface INodeService_IListNetworkEvents extends grpc.MethodDefinition<cln_node_pb.ListnetworkeventsRequest, cln_node_pb.ListnetworkeventsResponse> {
+    path: "/cln.Node/ListNetworkEvents";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.ListnetworkeventsRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.ListnetworkeventsRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.ListnetworkeventsResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.ListnetworkeventsResponse>;
+}
+interface INodeService_IDelNetworkEvent extends grpc.MethodDefinition<cln_node_pb.DelnetworkeventRequest, cln_node_pb.DelnetworkeventResponse> {
+    path: "/cln.Node/DelNetworkEvent";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<cln_node_pb.DelnetworkeventRequest>;
+    requestDeserialize: grpc.deserialize<cln_node_pb.DelnetworkeventRequest>;
+    responseSerialize: grpc.serialize<cln_node_pb.DelnetworkeventResponse>;
+    responseDeserialize: grpc.deserialize<cln_node_pb.DelnetworkeventResponse>;
 }
 interface INodeService_ISubscribeBlockAdded extends grpc.MethodDefinition<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification> {
     path: "/cln.Node/SubscribeBlockAdded";
@@ -1496,6 +1556,7 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     feerates: grpc.handleUnaryCall<cln_node_pb.FeeratesRequest, cln_node_pb.FeeratesResponse>;
     fetchBip353: grpc.handleUnaryCall<cln_node_pb.Fetchbip353Request, cln_node_pb.Fetchbip353Response>;
     fetchInvoice: grpc.handleUnaryCall<cln_node_pb.FetchinvoiceRequest, cln_node_pb.FetchinvoiceResponse>;
+    cancelRecurringInvoice: grpc.handleUnaryCall<cln_node_pb.CancelrecurringinvoiceRequest, cln_node_pb.CancelrecurringinvoiceResponse>;
     fundChannelCancel: grpc.handleUnaryCall<cln_node_pb.FundchannelCancelRequest, cln_node_pb.FundchannelCancelResponse>;
     fundChannelComplete: grpc.handleUnaryCall<cln_node_pb.FundchannelCompleteRequest, cln_node_pb.FundchannelCompleteResponse>;
     fundChannel: grpc.handleUnaryCall<cln_node_pb.FundchannelRequest, cln_node_pb.FundchannelResponse>;
@@ -1566,11 +1627,16 @@ export interface INodeServer extends grpc.UntypedServiceImplementation {
     askReneCreateChannel: grpc.handleUnaryCall<cln_node_pb.AskrenecreatechannelRequest, cln_node_pb.AskrenecreatechannelResponse>;
     askReneUpdateChannel: grpc.handleUnaryCall<cln_node_pb.AskreneupdatechannelRequest, cln_node_pb.AskreneupdatechannelResponse>;
     askReneBiasChannel: grpc.handleUnaryCall<cln_node_pb.AskrenebiaschannelRequest, cln_node_pb.AskrenebiaschannelResponse>;
+    askreneBiasNode: grpc.handleUnaryCall<cln_node_pb.AskrenebiasnodeRequest, cln_node_pb.AskrenebiasnodeResponse>;
     askReneListReservations: grpc.handleUnaryCall<cln_node_pb.AskrenelistreservationsRequest, cln_node_pb.AskrenelistreservationsResponse>;
     injectPaymentOnion: grpc.handleUnaryCall<cln_node_pb.InjectpaymentonionRequest, cln_node_pb.InjectpaymentonionResponse>;
     injectOnionMessage: grpc.handleUnaryCall<cln_node_pb.InjectonionmessageRequest, cln_node_pb.InjectonionmessageResponse>;
     xpay: grpc.handleUnaryCall<cln_node_pb.XpayRequest, cln_node_pb.XpayResponse>;
     signMessageWithKey: grpc.handleUnaryCall<cln_node_pb.SignmessagewithkeyRequest, cln_node_pb.SignmessagewithkeyResponse>;
+    listChannelMoves: grpc.handleUnaryCall<cln_node_pb.ListchannelmovesRequest, cln_node_pb.ListchannelmovesResponse>;
+    listChainMoves: grpc.handleUnaryCall<cln_node_pb.ListchainmovesRequest, cln_node_pb.ListchainmovesResponse>;
+    listNetworkEvents: grpc.handleUnaryCall<cln_node_pb.ListnetworkeventsRequest, cln_node_pb.ListnetworkeventsResponse>;
+    delNetworkEvent: grpc.handleUnaryCall<cln_node_pb.DelnetworkeventRequest, cln_node_pb.DelnetworkeventResponse>;
     subscribeBlockAdded: grpc.handleServerStreamingCall<cln_node_pb.StreamBlockAddedRequest, cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenFailedRequest, cln_node_pb.ChannelOpenFailedNotification>;
     subscribeChannelOpened: grpc.handleServerStreamingCall<cln_node_pb.StreamChannelOpenedRequest, cln_node_pb.ChannelOpenedNotification>;
@@ -1763,6 +1829,9 @@ export interface INodeClient {
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
+    cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
+    cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
+    cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
     fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
     fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
     fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
@@ -1973,6 +2042,9 @@ export interface INodeClient {
     askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
     askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
     askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
+    askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
+    askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
     askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
     askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
     askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
@@ -1988,6 +2060,18 @@ export interface INodeClient {
     signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    listChainMoves(request: cln_node_pb.ListchainmovesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    listChainMoves(request: cln_node_pb.ListchainmovesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    listChainMoves(request: cln_node_pb.ListchainmovesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
+    delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
+    delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;
@@ -2187,6 +2271,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
     public fetchInvoice(request: cln_node_pb.FetchinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FetchinvoiceResponse) => void): grpc.ClientUnaryCall;
+    public cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
+    public cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
+    public cancelRecurringInvoice(request: cln_node_pb.CancelrecurringinvoiceRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.CancelrecurringinvoiceResponse) => void): grpc.ClientUnaryCall;
     public fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
     public fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
     public fundChannelCancel(request: cln_node_pb.FundchannelCancelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.FundchannelCancelResponse) => void): grpc.ClientUnaryCall;
@@ -2397,6 +2484,9 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
     public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
     public askReneBiasChannel(request: cln_node_pb.AskrenebiaschannelRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiaschannelResponse) => void): grpc.ClientUnaryCall;
+    public askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
+    public askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
+    public askreneBiasNode(request: cln_node_pb.AskrenebiasnodeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenebiasnodeResponse) => void): grpc.ClientUnaryCall;
     public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
     public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
     public askReneListReservations(request: cln_node_pb.AskrenelistreservationsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.AskrenelistreservationsResponse) => void): grpc.ClientUnaryCall;
@@ -2412,6 +2502,18 @@ export class NodeClient extends grpc.Client implements INodeClient {
     public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
     public signMessageWithKey(request: cln_node_pb.SignmessagewithkeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.SignmessagewithkeyResponse) => void): grpc.ClientUnaryCall;
+    public listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    public listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    public listChannelMoves(request: cln_node_pb.ListchannelmovesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchannelmovesResponse) => void): grpc.ClientUnaryCall;
+    public listChainMoves(request: cln_node_pb.ListchainmovesRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    public listChainMoves(request: cln_node_pb.ListchainmovesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    public listChainMoves(request: cln_node_pb.ListchainmovesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListchainmovesResponse) => void): grpc.ClientUnaryCall;
+    public listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    public listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    public listNetworkEvents(request: cln_node_pb.ListnetworkeventsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.ListnetworkeventsResponse) => void): grpc.ClientUnaryCall;
+    public delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
+    public delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
+    public delNetworkEvent(request: cln_node_pb.DelnetworkeventRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: cln_node_pb.DelnetworkeventResponse) => void): grpc.ClientUnaryCall;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeBlockAdded(request: cln_node_pb.StreamBlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.BlockAddedNotification>;
     public subscribeChannelOpenFailed(request: cln_node_pb.StreamChannelOpenFailedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<cln_node_pb.ChannelOpenFailedNotification>;

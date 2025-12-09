@@ -1,4 +1,5 @@
 use crate::chain::Client;
+use crate::chain::utils::Outpoint;
 use crate::swap::SwapUpdate;
 use crate::wallet::Wallet;
 use anyhow::Result;
@@ -133,6 +134,8 @@ pub trait SomeSwap {
 
     fn id(&self) -> String;
     fn status(&self) -> SwapUpdate;
+
+    fn sending_outpoint(&self) -> anyhow::Result<Option<Outpoint>>;
 
     fn refund_symbol(&self) -> anyhow::Result<String>;
     async fn refund_details(

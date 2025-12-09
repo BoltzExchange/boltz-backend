@@ -1,20 +1,21 @@
 use crate::{
     chain::{
-        Client,
+        Client, Transactions,
         utils::{Block, Transaction},
     },
     currencies::Currencies,
     db::helpers::chain_tip::ChainTipHelper,
     swap::tx_check::TxChecker,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures::future::try_join_all;
+use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use tokio::sync::broadcast::{self, error::RecvError};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
-const CHANNEL_CAPACITY: usize = 512;
+const CHANNEL_CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone)]
 pub enum TxStatus {
@@ -129,29 +130,58 @@ impl UtxoNursery {
         &self,
         symbol: &str,
         chain_client: &Arc<dyn Client + Send + Sync>,
-        tx: Transaction,
+        txs: Transactions,
         confirmed: bool,
     ) -> Result<()> {
-        let zero_conf_safe = tokio::spawn(chain_client.zero_conf_safe(&tx));
+        let mut relevant_swaps = self.tx_checker.check(symbol, txs, confirmed)?;
+        if self.relevant_txs.receiver_count() == 0 {
+            return Ok(());
+        }
 
-        let relevant_swaps = self.tx_checker.check(symbol, &tx, confirmed)?;
-        if let Some(swaps) = relevant_swaps {
-            if self.relevant_txs.receiver_count() == 0 {
-                return Ok(());
-            }
+        // Collect into Vec to maintain deterministic order
+        let tx_vec: Vec<_> = relevant_swaps.keys().cloned().collect();
 
-            self.relevant_txs.send(RelevantTx {
-                symbol: symbol.to_string(),
-                status: if confirmed {
+        let zero_conf_safe = stream::iter(tx_vec.iter().cloned())
+            .map(|tx| async move {
+                if confirmed {
                     TxStatus::Confirmed
-                } else if zero_conf_safe.await?? {
-                    TxStatus::ZeroConfSafe
                 } else {
-                    TxStatus::NotSafe
-                },
+                    match chain_client.zero_conf_safe(&tx).await {
+                        Ok(safe) => {
+                            if safe {
+                                TxStatus::ZeroConfSafe
+                            } else {
+                                TxStatus::NotSafe
+                            }
+                        }
+                        Err(e) => {
+                            error!(
+                                "0-conf safety check for {} transaction failed: {}",
+                                symbol, e
+                            );
+                            TxStatus::NotSafe
+                        }
+                    }
+                }
+            })
+            .buffered(16)
+            .collect::<Vec<_>>()
+            .await;
+
+        for (tx, status) in tx_vec.into_iter().zip(zero_conf_safe.into_iter()) {
+            let swap_ids = relevant_swaps.remove(&tx).context("swap ids not found")?;
+
+            if let Err(e) = self.relevant_txs.send(RelevantTx {
+                symbol: symbol.to_string(),
+                status,
                 tx,
-                swaps,
-            })?;
+                swaps: swap_ids,
+            }) {
+                error!(
+                    "UTXO nursery failed to send relevant {} transaction: {}",
+                    symbol, e
+                );
+            }
         }
 
         Ok(())

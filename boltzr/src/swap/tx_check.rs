@@ -1,5 +1,8 @@
 use crate::{
-    chain::utils::Transaction,
+    chain::{
+        Transactions,
+        utils::{Outpoint, Transaction},
+    },
     db::{
         helpers::{
             chain_swap::ChainSwapHelper, reverse_swap::ReverseSwapHelper,
@@ -10,8 +13,12 @@ use crate::{
 };
 use anyhow::Result;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::info;
+
+const TX_CHUNK_SIZE: usize = 512;
+
+type RelevantSwaps = HashMap<Transaction, Vec<String>>;
 
 #[derive(Clone)]
 pub struct TxChecker {
@@ -33,87 +40,136 @@ impl TxChecker {
         }
     }
 
-    pub fn check(
-        &self,
-        symbol: &str,
-        tx: &Transaction,
-        confirmed: bool,
-    ) -> Result<Option<Vec<String>>> {
-        let mut relevant = self.check_outputs(symbol, tx, confirmed)?;
-        relevant.append(&mut self.check_inputs(symbol, tx, confirmed)?);
-        relevant.sort();
-        relevant.dedup();
+    pub fn check(&self, symbol: &str, txs: Transactions, confirmed: bool) -> Result<RelevantSwaps> {
+        let tx_chunks = txs
+            .iter()
+            .collect::<Vec<_>>()
+            .chunks(TX_CHUNK_SIZE)
+            .map(|chunk| chunk.to_vec())
+            .collect::<Vec<_>>();
 
-        Ok(if relevant.is_empty() {
-            None
-        } else {
-            Some(relevant)
-        })
+        let mut result = HashMap::new();
+
+        self.check_outputs(symbol, confirmed, &tx_chunks, &mut result)?;
+        self.check_inputs(symbol, confirmed, &tx_chunks, &mut result)?;
+
+        Ok(result)
     }
 
     fn check_outputs(
         &self,
         symbol: &str,
-        tx: &Transaction,
         confirmed: bool,
-    ) -> Result<Vec<String>> {
-        let script_pubkeys = self
-            .script_pubkey_helper
-            .get_by_scripts(symbol, &tx.output_script_pubkeys())?;
+        txs: &[Vec<&Transaction>],
+        map: &mut RelevantSwaps,
+    ) -> Result<()> {
+        for tx_chunk in txs {
+            // Vec as value to support multiple transactions with the same script pubkey
+            let mut script_to_txs: HashMap<Vec<u8>, Vec<&Transaction>> = HashMap::new();
+            for tx in tx_chunk.iter() {
+                for script in tx.output_script_pubkeys() {
+                    script_to_txs.entry(script).or_default().push(*tx);
+                }
+            }
 
-        for script_pubkey in &script_pubkeys {
-            info!(
-                "Found {} output for Swap {} in {} transaction: {}",
-                Self::format_tx_status(confirmed),
-                script_pubkey.swap_id,
-                symbol,
-                tx.txid_hex()
-            );
+            let script_pubkeys = self
+                .script_pubkey_helper
+                .get_by_scripts(symbol, &script_to_txs.keys().cloned().collect::<Vec<_>>())?;
+
+            for pubkey in script_pubkeys {
+                let txs = match script_to_txs.get(&pubkey.script_pubkey) {
+                    Some(txs) => txs,
+                    None => continue,
+                };
+
+                for tx in txs {
+                    info!(
+                        "Found {} output for Swap {} in {} transaction: {}",
+                        Self::format_tx_status(confirmed),
+                        pubkey.swap_id,
+                        symbol,
+                        tx.txid_hex()
+                    );
+
+                    map.entry((**tx).clone())
+                        .or_default()
+                        .push(pubkey.swap_id.clone());
+                }
+            }
         }
 
-        Ok(script_pubkeys.into_iter().map(|spk| spk.swap_id).collect())
+        Ok(())
     }
 
-    fn check_inputs(&self, symbol: &str, tx: &Transaction, confirmed: bool) -> Result<Vec<String>> {
-        let outputs = tx
-            .input_outpoints()
-            .into_iter()
-            .map(|mut o| {
-                o.hash.reverse();
-                alloy::hex::encode(o.hash)
-            })
-            .collect::<Vec<_>>();
+    fn check_inputs(
+        &self,
+        symbol: &str,
+        confirmed: bool,
+        txs: &[Vec<&Transaction>],
+        map: &mut RelevantSwaps,
+    ) -> Result<()> {
+        for tx_chunk in txs {
+            let inputs_to_tx = tx_chunk
+                .iter()
+                .flat_map(|tx| tx.input_outpoints().into_iter().map(move |o| (o, *tx)))
+                .collect::<HashMap<Outpoint, &Transaction>>();
 
-        let reverse_swaps = self.reverse_swap_helper.get_all_nullable(Box::new(
-            crate::db::schema::reverseSwaps::dsl::transactionId.eq_any(outputs.clone()),
-        ))?;
-        let chain_swaps = self.chain_swap_helper.get_by_data_nullable(Box::new(
-            crate::db::schema::chainSwapData::dsl::symbol
-                .eq(symbol.to_string())
-                .and(crate::db::schema::chainSwapData::dsl::transactionId.eq_any(outputs)),
-        ))?;
-        let chain_swaps = chain_swaps
-            .into_iter()
-            .filter(|swap| swap.sending().symbol == symbol)
-            .collect::<Vec<_>>();
+            let input_ids = inputs_to_tx
+                .keys()
+                .cloned()
+                .map(|mut o| {
+                    o.hash.reverse();
+                    alloy::hex::encode(o.hash)
+                })
+                .collect::<Vec<_>>();
 
-        let relevant_swaps = reverse_swaps
-            .into_iter()
-            .map(|swap| swap.id)
-            .chain(chain_swaps.into_iter().map(|swap| swap.id()))
-            .collect::<Vec<_>>();
+            let reverse_swaps = self.reverse_swap_helper.get_all_nullable(Box::new(
+                crate::db::schema::reverseSwaps::dsl::transactionId.eq_any(input_ids.clone()),
+            ))?;
+            let chain_swaps = self.chain_swap_helper.get_by_data_nullable(Box::new(
+                crate::db::schema::chainSwapData::dsl::symbol
+                    .eq(symbol.to_string())
+                    .and(crate::db::schema::chainSwapData::dsl::transactionId.eq_any(input_ids)),
+            ))?;
+            let chain_swaps = chain_swaps
+                .into_iter()
+                .filter(|swap| swap.sending().symbol == symbol)
+                .collect::<Vec<_>>();
 
-        for swap in &relevant_swaps {
-            info!(
-                "Found {} spent input for Swap {} in {} transaction: {}",
-                Self::format_tx_status(confirmed),
-                swap,
-                symbol,
-                tx.txid_hex()
-            );
+            let relevant_swaps: Vec<Box<dyn SomeSwap>> = reverse_swaps
+                .into_iter()
+                .map(|swap| Box::new(swap) as Box<dyn SomeSwap>)
+                .chain(
+                    chain_swaps
+                        .into_iter()
+                        .map(|swap| Box::new(swap) as Box<dyn SomeSwap>),
+                )
+                .collect::<Vec<_>>();
+
+            for swap in relevant_swaps {
+                let outpoint = match swap.sending_outpoint() {
+                    Ok(Some(outpoint)) => outpoint,
+                    _ => continue,
+                };
+                let tx = match inputs_to_tx.get(&outpoint) {
+                    Some(tx) => tx,
+                    None => continue,
+                };
+
+                info!(
+                    "Found {} spent input for {} Swap {} in {} transaction: {}",
+                    Self::format_tx_status(confirmed),
+                    swap.kind(),
+                    swap.id(),
+                    symbol,
+                    tx.txid_hex()
+                );
+
+                map.entry((**tx).clone()).or_default().push(swap.id());
+            }
         }
 
-        Ok(relevant_swaps)
+        Ok(())
     }
 
     fn format_tx_status(confirmed: bool) -> String {
@@ -188,7 +244,13 @@ mod test {
         script_pubkey_helper
             .expect_get_by_scripts()
             .withf(move |symbol: &str, script_pubkeys: &[Vec<u8>]| {
-                symbol == symbol_check && script_pubkeys == expected_outputs.as_slice()
+                symbol == symbol_check && {
+                    let mut received = script_pubkeys.to_vec();
+                    let mut expected = expected_outputs.clone();
+                    received.sort();
+                    expected.sort();
+                    received == expected
+                }
             })
             .times(1)
             .returning(|_, _| Ok(vec![]));
@@ -209,8 +271,10 @@ mod test {
             Arc::new(reverse_swap_helper),
         );
 
-        let result = checker.check(symbol_check, &tx, false).unwrap();
-        assert!(result.is_none());
+        let result = checker
+            .check(symbol_check, Transactions::Single(tx), false)
+            .unwrap();
+        assert!(result.is_empty());
     }
 
     #[test]
@@ -218,6 +282,9 @@ mod test {
         let mut script_pubkey_helper = MockScriptPubKeyHelper::new();
         let mut reverse_swap_helper = MockReverseSwapHelper::new();
         let mut chain_swap_helper = MockChainSwapHelper::new();
+
+        let tx = get_tx();
+        let first_output_script = tx.output_script_pubkeys()[0].clone();
 
         let swap_id = "test_swap_123";
         script_pubkey_helper
@@ -227,7 +294,7 @@ mod test {
                 Ok(vec![ScriptPubKey {
                     swap_id: swap_id.to_string(),
                     symbol: "BTC".to_string(),
-                    script_pubkey: vec![1, 2, 3],
+                    script_pubkey: first_output_script.clone(),
                 }])
             });
 
@@ -248,8 +315,11 @@ mod test {
         );
 
         let tx = get_tx();
-        let result = checker.check("BTC", &tx, true).unwrap();
-        assert_eq!(result, Some(vec![swap_id.to_string()]));
+        let result = checker
+            .check("BTC", Transactions::Single(tx.clone()), true)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
     }
 
     #[test]
@@ -263,6 +333,15 @@ mod test {
             .times(1)
             .returning(|_, _| Ok(vec![]));
 
+        let tx = get_tx();
+        let input_outpoint = &tx.input_outpoints()[0];
+        let input_txid = {
+            let mut txid = input_outpoint.hash.clone();
+            txid.reverse();
+            alloy::hex::encode(txid)
+        };
+        let input_vout = input_outpoint.vout as i32;
+
         let swap_id = "reverse_swap_456";
         reverse_swap_helper
             .expect_get_all_nullable()
@@ -270,6 +349,8 @@ mod test {
             .returning(move |_| {
                 Ok(vec![ReverseSwap {
                     id: swap_id.to_string(),
+                    transactionId: Some(input_txid.clone()),
+                    transactionVout: Some(input_vout),
                     ..Default::default()
                 }])
             });
@@ -286,8 +367,11 @@ mod test {
         );
 
         let tx = get_tx();
-        let result = checker.check("BTC", &tx, false).unwrap();
-        assert_eq!(result, Some(vec![swap_id.to_string()]));
+        let result = checker
+            .check("BTC", Transactions::Single(tx.clone()), false)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
     }
 
     #[test]
@@ -306,6 +390,15 @@ mod test {
             .times(1)
             .returning(|_| Ok(vec![]));
 
+        let tx = get_tx();
+        let input_outpoint = &tx.input_outpoints()[0];
+        let input_txid = {
+            let mut txid = input_outpoint.hash.clone();
+            txid.reverse();
+            alloy::hex::encode(txid)
+        };
+        let input_vout = input_outpoint.vout as i32;
+
         let swap_id = "chain_swap_789";
         chain_swap_helper
             .expect_get_by_data_nullable()
@@ -322,6 +415,8 @@ mod test {
                     symbol: "BTC".to_string(),
                     timeoutBlockHeight: 100,
                     lockupAddress: "".to_string(),
+                    transactionId: Some(input_txid.clone()),
+                    transactionVout: Some(input_vout),
                     ..Default::default()
                 };
                 let receiving_data = ChainSwapData {
@@ -343,8 +438,11 @@ mod test {
         );
 
         let tx = get_tx();
-        let result = checker.check("BTC", &tx, true).unwrap();
-        assert_eq!(result, Some(vec![swap_id.to_string()]));
+        let result = checker
+            .check("BTC", Transactions::Single(tx.clone()), true)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&tx), Some(&vec![swap_id.to_string()]));
     }
 
     #[test]
@@ -353,22 +451,27 @@ mod test {
         let mut reverse_swap_helper = MockReverseSwapHelper::new();
         let mut chain_swap_helper = MockChainSwapHelper::new();
 
+        let tx = get_tx();
+        let output_scripts = tx.output_script_pubkeys();
+        let first_output = output_scripts[0].clone();
+        let second_output = output_scripts[1].clone();
+
         let swap_id_1 = "swap_1";
         let swap_id_2 = "swap_2";
         script_pubkey_helper
             .expect_get_by_scripts()
             .times(1)
-            .returning(|_, _| {
+            .returning(move |_, _| {
                 Ok(vec![
                     ScriptPubKey {
                         swap_id: swap_id_1.to_string(),
                         symbol: "BTC".to_string(),
-                        script_pubkey: vec![1, 2, 3],
+                        script_pubkey: first_output.clone(),
                     },
                     ScriptPubKey {
                         swap_id: swap_id_2.to_string(),
                         symbol: "BTC".to_string(),
-                        script_pubkey: vec![4, 5, 6],
+                        script_pubkey: second_output.clone(),
                     },
                 ])
             });
@@ -390,11 +493,14 @@ mod test {
         );
 
         let tx = get_tx();
-        let result = checker.check("BTC", &tx, false).unwrap();
-        assert_eq!(
-            result,
-            Some(vec![swap_id_1.to_string(), swap_id_2.to_string()])
-        );
+        let result = checker
+            .check("BTC", Transactions::Single(tx.clone()), false)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        let swap_ids = result.get(&tx).unwrap();
+        assert_eq!(swap_ids.len(), 2);
+        assert!(swap_ids.contains(&swap_id_1.to_string()));
+        assert!(swap_ids.contains(&swap_id_2.to_string()));
     }
 
     #[test]
@@ -403,6 +509,17 @@ mod test {
         let mut reverse_swap_helper = MockReverseSwapHelper::new();
         let mut chain_swap_helper = MockChainSwapHelper::new();
 
+        let tx = get_tx();
+        let first_output_script = tx.output_script_pubkeys()[0].clone();
+
+        let input_outpoint = &tx.input_outpoints()[0];
+        let input_txid = {
+            let mut txid = input_outpoint.hash.clone();
+            txid.reverse();
+            alloy::hex::encode(txid)
+        };
+        let input_vout = input_outpoint.vout as i32;
+
         let swap_id_output = "output_swap";
         let swap_id_input_reverse = "input_reverse_swap";
         let swap_id_input_chain = "input_chain_swap";
@@ -410,20 +527,23 @@ mod test {
         script_pubkey_helper
             .expect_get_by_scripts()
             .times(1)
-            .returning(|_, _| {
+            .returning(move |_, _| {
                 Ok(vec![ScriptPubKey {
                     swap_id: swap_id_output.to_string(),
                     symbol: "BTC".to_string(),
-                    script_pubkey: vec![1, 2, 3],
+                    script_pubkey: first_output_script.clone(),
                 }])
             });
 
+        let input_txid_clone = input_txid.clone();
         reverse_swap_helper
             .expect_get_all_nullable()
             .times(1)
-            .returning(|_| {
+            .returning(move |_| {
                 Ok(vec![ReverseSwap {
                     id: swap_id_input_reverse.to_string(),
+                    transactionId: Some(input_txid_clone.clone()),
+                    transactionVout: Some(input_vout),
                     ..Default::default()
                 }])
             });
@@ -443,6 +563,8 @@ mod test {
                     symbol: "BTC".to_string(),
                     timeoutBlockHeight: 100,
                     lockupAddress: "".to_string(),
+                    transactionId: Some(input_txid.clone()),
+                    transactionVout: Some(input_vout),
                     ..Default::default()
                 };
                 let receiving_data = ChainSwapData {
@@ -464,8 +586,12 @@ mod test {
         );
 
         let tx = get_tx();
-        let mut result = checker.check("BTC", &tx, true).unwrap().unwrap();
-        result.sort();
+        let result = checker
+            .check("BTC", Transactions::Single(tx.clone()), true)
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        let mut swap_ids = result.get(&tx).unwrap().clone();
+        swap_ids.sort();
 
         let mut expected = vec![
             swap_id_output.to_string(),
@@ -474,7 +600,7 @@ mod test {
         ];
         expected.sort();
 
-        assert_eq!(result, expected);
+        assert_eq!(swap_ids, expected);
     }
 
     #[test]

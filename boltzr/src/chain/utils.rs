@@ -15,7 +15,7 @@ pub struct Outpoint {
     pub vout: u32,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Transaction {
     Bitcoin(bitcoin::Transaction),
     Elements(elements::Transaction),

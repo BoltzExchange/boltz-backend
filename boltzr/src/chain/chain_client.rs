@@ -7,7 +7,7 @@ use crate::chain::types::{
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
-use crate::chain::{BaseClient, Client, Config};
+use crate::chain::{BaseClient, Client, Config, Transactions};
 use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use anyhow::anyhow;
@@ -39,7 +39,7 @@ pub struct ChainClient {
     client_type: Type,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
-    tx_sender: Sender<(Transaction, bool)>,
+    tx_sender: Sender<(Transactions, bool)>,
     block_sender: Sender<(u64, Block)>,
 }
 
@@ -107,7 +107,7 @@ impl ChainClient {
                                         continue;
                                     }
 
-                                    if let Err(e) = tx_sender.send((tx, false)) {
+                                    if let Err(e) = tx_sender.send((Transactions::Single(tx), false)) {
                                         error!("Failed to forward {} transaction: {}", symbol, e);
                                     }
                                 }
@@ -124,10 +124,8 @@ impl ChainClient {
                                         continue;
                                     }
 
-                                    for tx in block.transactions.iter() {
-                                        if let Err(e) = tx_sender.send((tx.clone(), true)) {
-                                            error!("Failed to forward {} block transaction: {}", symbol, e);
-                                        }
+                                    if let Err(e) = tx_sender.send((Transactions::Multiple(block.transactions), true)) {
+                                        error!("Failed to forward {} block transaction: {}", symbol, e);
                                     }
                                 }
                                 Err(RecvError::Closed) => break,
@@ -412,7 +410,10 @@ impl Client for ChainClient {
             for tx in block.transactions.iter() {
                 if Self::is_relevant_tx(relevant_inputs, relevant_outputs, tx) {
                     relevant_tx_count += 1;
-                    if let Err(err) = self.tx_sender.send((tx.clone(), true)) {
+                    if let Err(err) = self
+                        .tx_sender
+                        .send((Transactions::Single(tx.clone()), true))
+                    {
                         error!("Failed to send relevant transaction to channel: {}", err);
                         break;
                     }
@@ -522,7 +523,7 @@ impl Client for ChainClient {
             let tx = Transaction::parse_hex(&self.client_type, &tx_hex)?;
             if Self::is_relevant_tx(relevant_inputs, relevant_outputs, &tx) {
                 relevant_tx_count += 1;
-                if let Err(err) = self.tx_sender.send((tx, false)) {
+                if let Err(err) = self.tx_sender.send((Transactions::Single(tx), false)) {
                     error!(
                         "Failed to send relevant mempool transaction to channel: {}",
                         err
@@ -629,7 +630,7 @@ impl Client for ChainClient {
         rx
     }
 
-    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+    fn tx_receiver(&self) -> Receiver<(Transactions, bool)> {
         self.tx_sender.subscribe()
     }
 
@@ -809,6 +810,9 @@ pub mod test {
         client.scan_mempool(&inputs, &HashSet::new()).await.unwrap();
 
         let (received_tx, _) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx) = received_tx else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx.txid_hex(), tx.txid_hex());
 
         generate_block(&client).await;
@@ -831,6 +835,9 @@ pub mod test {
             .unwrap();
 
         let (received_tx, _) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx) = received_tx else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx.txid_hex(), tx.txid_hex());
 
         generate_block(&client).await;
@@ -948,6 +955,9 @@ pub mod test {
 
         loop {
             let (received_tx, confirmed) = tx_receiver.recv().await.unwrap();
+            let Transactions::Single(received_tx) = received_tx else {
+                continue;
+            };
             if received_tx.txid_hex() == tx_id {
                 assert!(!confirmed, "expected unconfirmed transaction");
                 break;
@@ -960,7 +970,18 @@ pub mod test {
             let (received_tx, confirmed) = tx_receiver.recv().await.unwrap();
             assert!(confirmed, "block transaction should be confirmed");
 
-            if received_tx.txid_hex() == tx_id {
+            let tx_id_received = match &received_tx {
+                Transactions::Single(tx) => tx.txid_hex(),
+                Transactions::Multiple(txs) => {
+                    if let Some(tx) = txs.iter().find(|t| t.txid_hex() == tx_id) {
+                        tx.txid_hex()
+                    } else {
+                        continue;
+                    }
+                }
+            };
+
+            if tx_id_received == tx_id {
                 assert!(confirmed, "expected confirmed transaction");
                 break;
             }
@@ -1055,6 +1076,9 @@ pub mod test {
         assert_eq!(result, end_height);
 
         let (received_tx, confirmed) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx) = received_tx else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx.txid_hex(), tx.txid_hex());
         assert!(confirmed);
     }
@@ -1098,6 +1122,9 @@ pub mod test {
         assert_eq!(result, end_height);
 
         let (received_tx, confirmed) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx) = received_tx else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx.txid_hex(), tx.txid_hex());
         assert!(confirmed);
     }
@@ -1171,10 +1198,16 @@ pub mod test {
         assert_eq!(result, end_height);
 
         let (received_tx1, confirmed1) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx1) = received_tx1 else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx1.txid_hex(), tx1.txid_hex());
         assert!(confirmed1);
 
         let (received_tx2, confirmed2) = tx_receiver.try_recv().unwrap();
+        let Transactions::Single(received_tx2) = received_tx2 else {
+            panic!("expected single transaction");
+        };
         assert_eq!(received_tx2.txid_hex(), tx2.txid_hex());
         assert!(confirmed2);
     }

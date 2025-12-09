@@ -7,9 +7,9 @@ use tokio::sync::broadcast::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
 use crate::api::ws::types::{SwapStatus, TransactionInfo};
-use crate::chain::Client;
 use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
+use crate::chain::{Client, Transactions};
 use crate::currencies::Currencies;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::swap::SwapUpdate as SwapUpdateStatus;
@@ -72,7 +72,7 @@ impl MrhWatcher {
     async fn process_transaction(
         &self,
         chain_client: &Arc<dyn Client + Send + Sync>,
-        tx: Transaction,
+        tx: &Transaction,
     ) -> anyhow::Result<()> {
         let output_scripts = tx.output_script_pubkeys();
 
@@ -110,7 +110,7 @@ impl MrhWatcher {
     async fn listen(
         &self,
         chain_client: &Arc<dyn Client + Send + Sync>,
-        mut stream: Receiver<(Transaction, bool)>,
+        mut stream: Receiver<(Transactions, bool)>,
     ) -> anyhow::Result<()> {
         loop {
             tokio::select! {
@@ -122,8 +122,10 @@ impl MrhWatcher {
                                 continue;
                             }
 
-                            if let Err(e) = self.process_transaction(chain_client, tx).await {
-                                tracing::error!("Failed to process {} MRH transaction: {}", chain_client.symbol(), e);
+                            for tx in tx.iter() {
+                                if let Err(e) = self.process_transaction(chain_client, tx).await {
+                                    tracing::error!("Failed to process {} MRH transaction: {}", chain_client.symbol(), e);
+                                }
                             }
                         }
                         Err(RecvError::Closed) => break,
@@ -190,7 +192,9 @@ mod test {
             watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
-        tx_sender.send((test_transaction.clone(), false)).unwrap();
+        tx_sender
+            .send((Transactions::Single(test_transaction.clone()), false))
+            .unwrap();
 
         let received_update = swap_status_update_rx.recv().await.unwrap();
 
@@ -249,7 +253,9 @@ mod test {
             watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
-        tx_sender.send((test_transaction.clone(), true)).unwrap();
+        tx_sender
+            .send((Transactions::Single(test_transaction.clone()), true))
+            .unwrap();
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         assert!(swap_status_update_rx.is_empty());
@@ -297,7 +303,9 @@ mod test {
             watcher.clone().listen(&client, tx_receiver).await.unwrap();
         });
 
-        tx_sender.send((test_transaction.clone(), false)).unwrap();
+        tx_sender
+            .send((Transactions::Single(test_transaction.clone()), false))
+            .unwrap();
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         assert!(swap_status_update_rx.is_empty());

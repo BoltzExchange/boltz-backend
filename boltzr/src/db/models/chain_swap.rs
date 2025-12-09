@@ -1,3 +1,4 @@
+use crate::chain::utils::Outpoint;
 use crate::chain::{Client, elements_client::SYMBOL as ELEMENTS_SYMBOL};
 use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
@@ -126,6 +127,22 @@ impl SomeSwap for ChainSwapInfo {
 
     fn status(&self) -> SwapUpdate {
         SwapUpdate::parse(self.swap.status.as_str())
+    }
+
+    fn sending_outpoint(&self) -> Result<Option<Outpoint>> {
+        if let Some(id) = &self.sending().transactionId
+            && let Some(vout) = self.sending().transactionVout
+        {
+            let mut hash = alloy::hex::decode(id)?;
+            hash.reverse();
+
+            Ok(Some(Outpoint {
+                hash,
+                vout: vout as u32,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     fn refund_symbol(&self) -> Result<String> {

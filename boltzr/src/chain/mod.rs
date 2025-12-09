@@ -21,6 +21,21 @@ pub mod types;
 pub mod utils;
 pub mod zmq_client;
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum Transactions {
+    Single(Transaction),
+    Multiple(Arc<Vec<Transaction>>),
+}
+
+impl Transactions {
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &Transaction> + '_ + Send + Sync> {
+        match self {
+            Transactions::Single(tx) => Box::new(std::iter::once(tx)),
+            Transactions::Multiple(transactions) => Box::new(transactions.iter()),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct Config {
     host: String,
@@ -91,6 +106,6 @@ pub trait Client: BaseClient {
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
-    fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;
+    fn tx_receiver(&self) -> broadcast::Receiver<(Transactions, bool)>;
     fn block_receiver(&self) -> broadcast::Receiver<(u64, Block)>;
 }

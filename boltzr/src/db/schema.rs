@@ -135,10 +135,10 @@ diesel::table! {
 
 diesel::table! {
     #[allow(non_snake_case)]
-    script_pubkeys(swap_id) {
-        swap_id -> Text,
+    script_pubkeys(symbol, script_pubkey) {
         symbol -> Text,
-        script_pubkey -> Binary
+        script_pubkey -> Binary,
+        swap_id -> Text,
     }
 }
 

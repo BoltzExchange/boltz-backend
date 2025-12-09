@@ -9,7 +9,7 @@ use crate::{
     },
 };
 use anyhow::Result;
-use diesel::ExpressionMethods;
+use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::sync::Arc;
 use tracing::info;
 
@@ -88,7 +88,9 @@ impl TxChecker {
             crate::db::schema::reverseSwaps::dsl::transactionId.eq_any(outputs.clone()),
         ))?;
         let chain_swaps = self.chain_swap_helper.get_by_data_nullable(Box::new(
-            crate::db::schema::chainSwapData::dsl::transactionId.eq_any(outputs),
+            crate::db::schema::chainSwapData::dsl::symbol
+                .eq(symbol.to_string())
+                .and(crate::db::schema::chainSwapData::dsl::transactionId.eq_any(outputs)),
         ))?;
         let chain_swaps = chain_swaps
             .into_iter()

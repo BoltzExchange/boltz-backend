@@ -1,24 +1,19 @@
 import { DataTypes, Model, type Sequelize } from 'sequelize';
 
 type ScriptPubKeyType = {
-  swap_id: string;
   symbol: string;
   script_pubkey: Buffer;
+  swap_id: string;
 };
 
 class ScriptPubKey extends Model implements ScriptPubKeyType {
-  public swap_id!: string;
   public symbol!: string;
   public script_pubkey!: Buffer;
+  public swap_id!: string;
 
   public static load = (sequelize: Sequelize): void => {
     ScriptPubKey.init(
       {
-        swap_id: {
-          type: new DataTypes.STRING(255),
-          primaryKey: true,
-          allowNull: false,
-        },
         symbol: {
           type: new DataTypes.STRING(255),
           primaryKey: true,
@@ -26,6 +21,11 @@ class ScriptPubKey extends Model implements ScriptPubKeyType {
         },
         script_pubkey: {
           type: new DataTypes.BLOB(),
+          primaryKey: true,
+          allowNull: false,
+        },
+        swap_id: {
+          type: new DataTypes.STRING(255),
           allowNull: false,
         },
       },

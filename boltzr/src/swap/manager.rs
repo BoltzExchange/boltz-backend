@@ -2,29 +2,47 @@ use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
 use crate::chain::mrh_watcher::MrhWatcher;
-use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
+use crate::db::helpers::chain_tip::{ChainTipHelper, ChainTipHelperDatabase};
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
+use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::SwapType;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
+use crate::swap::tx_check::TxChecker;
+use crate::swap::utxo_nursery::{RelevantTx, UtxoNursery};
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use futures_util::future::try_join_all;
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
+
+pub struct RescanChainOptions {
+    pub symbol: String,
+    pub start_height: u64,
+    pub include_mempool: bool,
+}
+
+pub struct RescanChainResult {
+    pub symbol: String,
+    pub start_height: u64,
+    pub end_height: u64,
+}
 
 #[async_trait]
 pub trait SwapManager {
     fn get_network(&self) -> crate::wallet::Network;
     fn get_currency(&self, symbol: &str) -> Option<Currency>;
+    fn get_currencies(&self) -> &Currencies;
     fn get_timeouts(
         &self,
         receiving: &str,
@@ -32,19 +50,21 @@ pub trait SwapManager {
         swap_type: SwapType,
     ) -> Result<(u64, u64)>;
 
-    fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
+    fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
 
-    async fn scan_mempool(
+    async fn rescan_chains(
         &self,
-        symbols: Option<Vec<String>>,
-    ) -> Result<HashMap<String, Vec<Transaction>>>;
+        options: Option<Vec<RescanChainOptions>>,
+    ) -> Result<Vec<RescanChainResult>>;
+
+    fn relevant_tx_receiver(&self) -> broadcast::Receiver<RelevantTx>;
 }
 
 #[derive(Clone)]
 pub struct Manager {
     network: crate::wallet::Network,
 
-    update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
+    update_tx: broadcast::Sender<SwapStatus>,
 
     currencies: Currencies,
     cancellation_token: CancellationToken,
@@ -54,6 +74,8 @@ pub struct Manager {
     chain_swap_repo: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_repo: Arc<dyn ReverseSwapHelper + Sync + Send>,
     timeout_delta_provider: Arc<TimeoutDeltaProvider>,
+
+    utxo_nursery: UtxoNursery,
 }
 
 impl Manager {
@@ -64,18 +86,28 @@ impl Manager {
         network: crate::wallet::Network,
         pairs: &[PairConfig],
     ) -> Result<Self> {
-        let (update_tx, _) = tokio::sync::broadcast::channel::<SwapStatus>(128);
+        let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
 
         Ok(Manager {
             network,
             update_tx,
-            currencies,
-            cancellation_token,
+            currencies: currencies.clone(),
+            cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
-            reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool)),
+            reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
             timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(pairs)?),
+            utxo_nursery: UtxoNursery::new(
+                cancellation_token,
+                currencies,
+                TxChecker::new(
+                    Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
+                    Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+                    Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
+                ),
+                Arc::new(ChainTipHelperDatabase::new(pool)),
+            ),
         })
     }
 
@@ -101,6 +133,8 @@ impl Manager {
             self.reverse_swap_repo.clone(),
             self.update_tx.clone(),
         );
+        let nursery = self.utxo_nursery.clone();
+
         let currencies = self.currencies.clone();
 
         try_join_all([
@@ -112,6 +146,9 @@ impl Manager {
             }),
             tokio::spawn(async move {
                 watcher.start(&currencies).await;
+            }),
+            tokio::spawn(async move {
+                nursery.start().await;
             }),
         ])
         .await
@@ -127,6 +164,10 @@ impl SwapManager for Manager {
 
     fn get_currency(&self, symbol: &str) -> Option<Currency> {
         self.currencies.get(symbol).cloned()
+    }
+
+    fn get_currencies(&self) -> &Currencies {
+        &self.currencies
     }
 
     fn get_timeouts(
@@ -148,40 +189,92 @@ impl SwapManager for Manager {
         self.update_tx.subscribe()
     }
 
-    async fn scan_mempool(
+    async fn rescan_chains(
         &self,
-        symbols: Option<Vec<String>>,
-    ) -> Result<HashMap<String, Vec<Transaction>>> {
-        let chain_clients = match symbols {
-            Some(symbols) => {
+        options: Option<Vec<RescanChainOptions>>,
+    ) -> Result<Vec<RescanChainResult>> {
+        let chain_tip_repo = Arc::new(ChainTipHelperDatabase::new(self.pool.clone()));
+
+        let clients = match options {
+            Some(options) => {
                 let mut clients = Vec::new();
-                for symbol in symbols {
-                    match self.currencies.get(&symbol) {
+                for option in options {
+                    match self.currencies.get(&option.symbol) {
                         Some(cur) => match cur.chain.clone() {
                             Some(client) => {
-                                clients.push(client);
+                                clients.push((option, client));
                             }
-                            None => return Err(anyhow!("no chain client for currency {}", symbol)),
+                            None => {
+                                return Err(anyhow!(
+                                    "no chain client for currency {}",
+                                    option.symbol
+                                ));
+                            }
                         },
-                        None => return Err(anyhow!("no currency for {}", symbol)),
+                        None => return Err(anyhow!("no currency for {}", option.symbol)),
                     }
                 }
 
                 clients
             }
-            None => self
-                .currencies
-                .values()
-                .filter_map(|cur| cur.chain.clone())
-                .collect(),
+            None => {
+                let chain_tips = chain_tip_repo.get_all()?;
+
+                futures::stream::iter(self.currencies.iter())
+                    .filter_map(async |(symbol, currency)| {
+                        let client = match currency.chain.clone() {
+                            Some(client) => client,
+                            None => return None,
+                        };
+
+                        let start_height = match chain_tips
+                            .iter()
+                            .find(|chaintip| chaintip.symbol == *symbol)
+                            .map(|chaintip| chaintip.height)
+                        {
+                            Some(height) => height as u64,
+                            // Get the latest block height if no chain tip is found in the database
+                            // Else we would rescan from genesis on first startup
+                            None => match client.blockchain_info().await {
+                                Ok(info) => info.blocks,
+                                Err(err) => {
+                                    tracing::error!(
+                                        "Failed to get blockchain info for {}: {}",
+                                        symbol,
+                                        err
+                                    );
+                                    0
+                                }
+                            },
+                        };
+
+                        Some((
+                            RescanChainOptions {
+                                symbol: symbol.clone(),
+                                start_height,
+                                include_mempool: true,
+                            },
+                            client,
+                        ))
+                    })
+                    .collect()
+                    .await
+            }
         };
 
         info!(
-            "Rescanning mempool of chains: {:?}",
-            chain_clients
+            "Rescanning chains: {}",
+            clients
                 .iter()
-                .map(|client| client.symbol())
+                .map(|(option, _)| {
+                    let mut symbol = option.symbol.clone();
+                    if option.include_mempool {
+                        symbol.push_str(" (with mempool)");
+                    }
+                    symbol
+                })
                 .collect::<Vec<String>>()
+                .join(", ")
         );
 
         let filters = get_input_output_filters(
@@ -190,34 +283,59 @@ impl SwapManager for Manager {
             &self.reverse_swap_repo,
             &self.chain_swap_repo,
         )?;
-        let results = futures::future::join_all(chain_clients.iter().map(|client| async {
-            let (inputs, outputs) = match filters.get(&client.symbol()) {
-                Some(filters) => filters,
-                // No need to actually scan when there is nothing to scan for
-                None => {
-                    debug!(
-                        "Not rescanning mempool of {} because the filters are empty",
-                        client.symbol()
-                    );
-                    return (client.symbol(), Ok(Vec::default()));
-                }
-            };
+        let scan_results =
+            futures::future::join_all(clients.iter().map(|(option, client)| async {
+                let (inputs, outputs) = match filters.get(&client.symbol()) {
+                    Some(filters) => filters,
+                    None => {
+                        debug!("Filters for {} are empty", client.symbol());
+                        &(HashSet::new(), HashSet::new())
+                    }
+                };
 
-            (client.symbol(), client.scan_mempool(inputs, outputs).await)
-        }))
-        .await;
+                (
+                    client.symbol(),
+                    match client
+                        .rescan(chain_tip_repo.clone(), option.start_height, inputs, outputs)
+                        .await
+                    {
+                        Ok(end_height) => {
+                            if option.include_mempool
+                                && let Err(err) = client.scan_mempool(inputs, outputs).await
+                            {
+                                return (
+                                    client.symbol(),
+                                    Err(anyhow!("failed to scan mempool: {}", err)),
+                                );
+                            }
 
-        let mut transactions = HashMap::new();
-        for (symbol, result) in results {
+                            Ok(RescanChainResult {
+                                symbol: client.symbol(),
+                                start_height: option.start_height,
+                                end_height,
+                            })
+                        }
+                        Err(err) => Err(err),
+                    },
+                )
+            }))
+            .await;
+
+        let mut res = Vec::new();
+        for (symbol, result) in scan_results {
             match result {
-                Ok(txs) => {
-                    transactions.insert(symbol, txs);
+                Ok(result) => {
+                    res.push(result);
                 }
-                Err(err) => return Err(anyhow!("mempool rescan of {} failed: {}", symbol, err)),
+                Err(err) => return Err(anyhow!("rescan of {} failed: {}", symbol, err)),
             }
         }
 
-        Ok(transactions)
+        Ok(res)
+    }
+
+    fn relevant_tx_receiver(&self) -> broadcast::Receiver<RelevantTx> {
+        self.utxo_nursery.relevant_tx_receiver()
     }
 }
 
@@ -225,12 +343,12 @@ impl SwapManager for Manager {
 pub mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
-    use crate::chain::utils::Transaction;
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::swap::timeout_delta::PairTimeoutBlockDelta;
     use anyhow::Result;
     use async_trait::async_trait;
     use mockall::mock;
+    use std::collections::HashMap;
 
     mock! {
         pub Manager {}
@@ -243,6 +361,7 @@ pub mod test {
         impl SwapManager for Manager {
             fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_currencies(&self) -> &Currencies;
             fn get_timeouts(
                 &self,
                 receiving: &str,
@@ -250,10 +369,11 @@ pub mod test {
                 swap_type: SwapType,
             ) -> Result<(u64, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
-            async fn scan_mempool(
+            async fn rescan_chains(
                 &self,
-                symbols: Option<Vec<String>>,
-            ) -> Result<HashMap<String, Vec<Transaction>>>;
+                options: Option<Vec<RescanChainOptions>>,
+            ) -> Result<Vec<RescanChainResult>>;
+            fn relevant_tx_receiver(&self) -> tokio::sync::broadcast::Receiver<RelevantTx>;
         }
     }
 
@@ -273,16 +393,29 @@ pub mod test {
         }];
 
         let timeout_provider = TimeoutDeltaProvider::new(&pairs).unwrap();
+        let pool = get_pool();
+        let currencies = Arc::new(HashMap::new());
+        let cancellation_token = CancellationToken::new();
         let manager = Manager {
             network: crate::wallet::Network::Regtest,
             update_tx: tokio::sync::broadcast::channel(100).0,
-            cancellation_token: CancellationToken::new(),
-            pool: get_pool(),
-            currencies: Arc::new(HashMap::new()),
-            swap_repo: Arc::new(SwapHelperDatabase::new(get_pool())),
-            chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(get_pool())),
-            reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(get_pool())),
+            cancellation_token: cancellation_token.clone(),
+            pool: pool.clone(),
+            currencies: currencies.clone(),
+            swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
+            chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+            reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
             timeout_delta_provider: Arc::new(timeout_provider),
+            utxo_nursery: UtxoNursery::new(
+                cancellation_token.clone(),
+                currencies.clone(),
+                TxChecker::new(
+                    Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
+                    Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+                    Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
+                ),
+                Arc::new(ChainTipHelperDatabase::new(pool)),
+            ),
         };
 
         let result = manager.get_timeouts("L-BTC", "BTC", SwapType::Reverse);

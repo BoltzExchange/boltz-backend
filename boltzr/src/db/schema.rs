@@ -133,5 +133,22 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    #[allow(non_snake_case)]
+    script_pubkeys(symbol, script_pubkey) {
+        symbol -> Text,
+        script_pubkey -> Binary,
+        swap_id -> Text,
+    }
+}
+
+diesel::table! {
+    #[allow(non_snake_case)]
+    chainTips(symbol) {
+        symbol -> Text,
+        height -> Integer,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);

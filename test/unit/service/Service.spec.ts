@@ -565,7 +565,6 @@ const mockGetNetworkInfo = jest.fn().mockResolvedValue({
 
 const blockchainInfo = {
   blocks: 123,
-  scannedBlocks: 321,
 };
 const mockGetBlockchainInfo = jest.fn().mockResolvedValue(blockchainInfo);
 
@@ -1046,44 +1045,6 @@ describe('Service', () => {
         {},
         [['createdAt', 'DESC']],
         limit,
-      );
-    });
-  });
-
-  describe('rescan', () => {
-    test('should rescan currencies with chain client', async () => {
-      const startHeight = 21;
-
-      await expect(service.rescan('BTC', startHeight)).resolves.toEqual(123);
-      expect(mockRescanChain).toHaveBeenCalledTimes(1);
-      expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
-    });
-
-    test('should rescan currencies with chain client including mempool', async () => {
-      const startHeight = 22;
-
-      await expect(service.rescan('BTC', startHeight, true)).resolves.toEqual(
-        123,
-      );
-
-      expect(mockRescanChain).toHaveBeenCalledTimes(1);
-      expect(mockRescanChain).toHaveBeenCalledWith(startHeight);
-      expect(sidecar.rescanMempool).toHaveBeenCalledTimes(1);
-      expect(sidecar.rescanMempool).toHaveBeenCalledWith(['BTC']);
-    });
-
-    test('should rescan currencies with provider', async () => {
-      const startHeight = 21;
-
-      await expect(service.rescan('ETH', startHeight)).resolves.toEqual(100);
-      expect(mockRescan).toHaveBeenCalledTimes(1);
-      expect(mockRescan).toHaveBeenCalledWith(startHeight);
-    });
-
-    test('should throw when rescanning currency that does not exist', async () => {
-      const symbol = 'no';
-      await expect(service.rescan(symbol, 123)).rejects.toEqual(
-        Errors.CURRENCY_NOT_FOUND(symbol),
       );
     });
   });

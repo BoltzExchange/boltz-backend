@@ -23,7 +23,10 @@ service BoltzR {
 
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
-  rpc ScanMempool (ScanMempoolRequest) returns (ScanMempoolResponse);
+  rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
+
+  rpc BlockAdded (BlockAddedRequest) returns (stream Block);
+  rpc TransactionFound (RelevantTransactionRequest) returns (stream RelevantTransaction);
 }
 
 message GetInfoRequest {}
@@ -229,14 +232,46 @@ message IsMarkedResponse {
   bool is_marked = 1;
 }
 
-message ScanMempoolRequest {
-  repeated string symbols = 1;
-}
-
-message ScanMempoolResponse {
-  message Transactions {
-    repeated bytes raw = 1;
+message RescanChainsRequest {
+  message ChainRescan {
+    string symbol = 1;
+    uint64 start_height = 2;
+    optional bool include_mempool = 3;
   }
 
-  map<string, Transactions> transactions = 1;
+  // If none are provided, all chains will be rescanned
+  repeated ChainRescan chains = 1;
+}
+
+message RescanChainsResponse {
+  message Result {
+    string symbol = 1;
+    uint64 start_height = 2;
+    uint64 end_height = 3;
+  }
+
+  repeated Result results = 1;
+}
+
+
+message BlockAddedRequest {}
+message Block {
+  string symbol = 1;
+  uint64 height = 2;
+  bytes hash = 3;
+}
+
+enum TransactionStatus {
+  TRANSACTION_STATUS_UNKNOWN = 0;
+  TRANSACTION_STATUS_CONFIRMED = 1;
+  TRANSACTION_STATUS_ZERO_CONF_SAFE = 2;
+  TRANSACTION_STATUS_NOT_SAFE = 3;
+}
+
+message RelevantTransactionRequest {}
+message RelevantTransaction {
+  string symbol = 1;
+  bytes transaction = 2;
+  TransactionStatus status = 3;
+  repeated string swap_ids = 4;
 }

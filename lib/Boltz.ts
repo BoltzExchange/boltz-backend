@@ -12,11 +12,11 @@ import Prometheus from './Prometheus';
 import { formatError, getVersion } from './Utils';
 import VersionCheck from './VersionCheck';
 import Api from './api/Api';
-import type { BlockChainInfoScanned, IChainClient } from './chain/ChainClient';
+import type { IChainClient } from './chain/ChainClient';
 import ChainClient from './chain/ChainClient';
 import ElementsWrapper from './chain/ElementsWrapper';
 import { CurrencyType } from './consts/Enums';
-import type { NetworkInfo } from './consts/Types';
+import type { BlockchainInfo, NetworkInfo } from './consts/Types';
 import Database from './db/Database';
 import Redis from './db/Redis';
 import type ChainTip from './db/models/ChainTip';
@@ -312,7 +312,7 @@ class Boltz {
         );
       };
 
-      const rescanPromises: Promise<void>[] = [];
+      const rescanPromises: Promise<unknown>[] = [];
 
       for (const chainTip of chainTips) {
         const ethereumManager = this.ethereumManagers.find(
@@ -324,28 +324,14 @@ class Boltz {
           rescanPromises.push(
             ethereumManager.contractEventHandler.rescan(chainTip.height),
           );
-        } else {
-          if (!this.currencies.has(chainTip.symbol)) {
-            this.logger.warn(
-              `Not rescanning ${chainTip.symbol} because no chain client was configured`,
-            );
-            continue;
-          }
-
-          const { chainClient } = this.currencies.get(chainTip.symbol)!;
-
-          if (chainClient) {
-            logRescan(chainTip);
-            rescanPromises.push(chainClient.rescanChain(chainTip.height));
-          }
         }
       }
 
+      rescanPromises.push(this.sidecar.rescanChains());
       await Promise.all(rescanPromises);
-      await this.sidecar.rescanMempool();
       this.logger.info('Finished rescanning');
 
-      await this.db.backFillMigrations(this.currencies);
+      await this.db.backFillMigrations(this.currencies, this.walletManager);
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);
@@ -360,8 +346,8 @@ class Boltz {
     const formatChainInfo = (
       networkInfo: (NetworkInfo & { lowball?: NetworkInfo }) | undefined,
       blockchainInfo:
-        | (BlockChainInfoScanned & {
-            lowball?: BlockChainInfoScanned;
+        | (BlockchainInfo & {
+            lowball?: BlockchainInfo;
           })
         | undefined,
     ) => {

@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import EventEmitter from 'events';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { generateId, getHexString } from '../../../lib/Utils';
@@ -12,6 +13,7 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/rates/Errors';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import type RateProvider from '../../../lib/rates/RateProvider';
+import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { wait } from '../../Utils';
 import { bitcoinClient, elementsClient } from '../Nodes';
 
@@ -20,6 +22,7 @@ const waitTime = 250;
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('LockupTransactionTracker', () => {
+  const mockSidecar = new EventEmitter() as any as Sidecar;
   const rateProvider = {
     setZeroConfAmount: jest.fn(),
   } as unknown as RateProvider;
@@ -47,11 +50,10 @@ describe('LockupTransactionTracker', () => {
 
   beforeEach(() => {
     if (tracker !== undefined) {
-      bitcoinClient.removeAllListeners();
-      elementsClient.removeAllListeners();
-
       tracker.removeAllListeners();
     }
+
+    mockSidecar.removeAllListeners();
 
     tracker = new LockupTransactionTracker(
       Logger.disabledLogger,
@@ -71,6 +73,7 @@ describe('LockupTransactionTracker', () => {
         ],
       ]),
       rateProvider,
+      mockSidecar,
     );
 
     jest.clearAllMocks();
@@ -320,6 +323,11 @@ describe('LockupTransactionTracker', () => {
         tracker['risk'].set(symbol, BigInt(amount));
 
         await client.generate(1);
+        mockSidecar.emit('block', {
+          symbol,
+          height: 1,
+          hash: Buffer.alloc(32),
+        });
         await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(0n);
@@ -383,6 +391,11 @@ describe('LockupTransactionTracker', () => {
         tracker['risk'].set(symbol, BigInt(amount));
 
         await client.generate(1);
+        mockSidecar.emit('block', {
+          symbol,
+          height: 1,
+          hash: Buffer.alloc(32),
+        });
         await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(0n);
@@ -439,7 +452,11 @@ describe('LockupTransactionTracker', () => {
 
         tracker['risk'].set(symbol, BigInt(amount));
 
-        client['emit']('block', 1);
+        mockSidecar.emit('block', {
+          symbol,
+          height: 1,
+          hash: Buffer.alloc(32),
+        });
         await wait(waitTime);
 
         expect(tracker['risk'].get(symbol)).toEqual(BigInt(amount));
@@ -476,6 +493,11 @@ describe('LockupTransactionTracker', () => {
       });
 
       await bitcoinClient.generate(1);
+      mockSidecar.emit('block', {
+        symbol: 'BTC',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
       await wait(waitTime);
 
       expect(tracker.zeroConfAccepted('BTC')).toEqual(false);
@@ -507,6 +529,11 @@ describe('LockupTransactionTracker', () => {
       ]);
 
       await bitcoinClient.generate(1);
+      mockSidecar.emit('block', {
+        symbol: 'BTC',
+        height: 1,
+        hash: Buffer.alloc(32),
+      });
       await wait(waitTime);
 
       expect(tracker.zeroConfAccepted('BTC')).toEqual(false);

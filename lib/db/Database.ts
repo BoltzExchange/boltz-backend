@@ -3,6 +3,7 @@ import Sequelize from 'sequelize';
 import type { PostgresConfig } from '../Config';
 import type Logger from '../Logger';
 import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import Migration from './Migration';
 import ChainSwap from './models/ChainSwap';
 import ChainSwapData from './models/ChainSwapData';
@@ -21,6 +22,7 @@ import Referral from './models/Referral';
 import RefundTransaction from './models/RefundTransaction';
 import ReverseRoutingHint from './models/ReverseRoutingHint';
 import ReverseSwap from './models/ReverseSwap';
+import ScriptPubKey from './models/ScriptPubKey';
 import Swap from './models/Swap';
 import TransactionLabel from './models/TransactionLabel';
 import TransactionLabelRepository from './repositories/TransactionLabelRepository';
@@ -119,6 +121,7 @@ class Database {
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
       RefundTransaction.sync(),
+      ScriptPubKey.sync(),
     ]);
   };
 
@@ -128,8 +131,13 @@ class Database {
 
   public backFillMigrations = async (
     currencies: Map<string, Currency>,
+    walletManager: WalletManager,
   ): Promise<void> => {
-    await this.migration.backFillMigrations(currencies);
+    await this.migration.backFillMigrations(
+      Database.sequelize,
+      currencies,
+      walletManager,
+    );
   };
 
   public close = (): Promise<void> => {
@@ -156,6 +164,7 @@ class Database {
     PendingEthereumTransaction.load(Database.sequelize);
     Rebroadcast.load(Database.sequelize);
     RefundTransaction.load(Database.sequelize);
+    ScriptPubKey.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

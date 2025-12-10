@@ -13,6 +13,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{trace, warn};
 
+// TODO: the filter creation more elegant
+
 pub type Filters = HashMap<String, (HashSet<Outpoint>, HashSet<Vec<u8>>)>;
 
 pub fn get_input_output_filters(
@@ -79,6 +81,7 @@ fn get_reverse_filters(
             .eq_any(serialize_swap_updates(&[
                 SwapUpdate::TransactionMempool,
                 SwapUpdate::TransactionConfirmed,
+                SwapUpdate::TransactionRefunded,
             ]))
             .and(crate::db::schema::reverseSwaps::dsl::transactionId.is_not_null()),
     ))?;
@@ -114,6 +117,7 @@ fn get_chain_filters(
             SwapUpdate::TransactionServerMempool,
             SwapUpdate::TransactionServerConfirmed,
             SwapUpdate::TransactionZeroconfRejected,
+            SwapUpdate::TransactionRefunded,
         ])),
     ))?;
 
@@ -140,7 +144,9 @@ fn get_chain_filters(
                     .or_insert((HashSet::new(), HashSet::new()));
                 outputs.insert(script);
             }
-            SwapUpdate::TransactionServerMempool | SwapUpdate::TransactionServerConfirmed => {
+            SwapUpdate::TransactionServerMempool
+            | SwapUpdate::TransactionServerConfirmed
+            | SwapUpdate::TransactionRefunded => {
                 let sending = swap.sending();
 
                 if let Some(id) = sending.transactionId.as_ref()

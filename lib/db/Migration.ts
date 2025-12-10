@@ -3,7 +3,7 @@ import type { RoutingInfo } from 'bolt11';
 import bolt11 from 'bolt11';
 import { detectSwap } from 'boltz-core';
 import { Transaction as EthersTransaction } from 'ethers';
-import type { Sequelize } from 'sequelize';
+import type { Sequelize, Transaction as SequelizeTransaction } from 'sequelize';
 import { DataTypes, Op, QueryTypes } from 'sequelize';
 import { getBlindingKey, toOutputScript } from '../../lib/Core';
 import ElementsClient from '../../lib/chain/ElementsClient';
@@ -19,6 +19,7 @@ import {
 } from '../Utils';
 import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
 import type { Currency } from '../wallet/WalletManager';
+import type WalletManager from '../wallet/WalletManager';
 import { Rsk } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
@@ -33,10 +34,13 @@ import Referral from './models/Referral';
 import RefundTransaction from './models/RefundTransaction';
 import ReverseSwap, { NodeType } from './models/ReverseSwap';
 import Swap from './models/Swap';
+import ChainSwapRepository from './repositories/ChainSwapRepository';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
 import LightningPaymentRepository from './repositories/LightningPaymentRepository';
 import PendingEthereumTransactionRepository from './repositories/PendingEthereumTransactionRepository';
 import RefundTransactionRepository from './repositories/RefundTransactionRepository';
+import ScriptPubKeyRepository from './repositories/ScriptPubKeyRepository';
+import SwapRepository from './repositories/SwapRepository';
 
 const coalesceInvoiceAmount = (
   decoded: bolt11.PaymentRequestObject,
@@ -130,7 +134,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 21;
+  private static latestSchemaVersion = 22;
 
   private toBackFill: number[] = [];
 
@@ -1010,12 +1014,22 @@ class Migration {
         break;
       }
 
+      case 21: {
+        this.toBackFill.push(21);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
   };
 
-  public backFillMigrations = async (currencies: Map<string, Currency>) => {
+  public backFillMigrations = async (
+    sequelize: Sequelize,
+    currencies: Map<string, Currency>,
+    walletManager: WalletManager,
+  ) => {
     for (const version of this.toBackFill) {
       this.logger.info(
         `Starting backfilling of migration of database schema version ${version}`,
@@ -1078,6 +1092,69 @@ class Migration {
               await payment.Swap.update({ preimage });
             },
           );
+          break;
+        }
+
+        case 21: {
+          await this.logProgress(
+            Swap.tableName,
+            1_000,
+            await SwapRepository.getSwaps({
+              pair: {
+                [Op.in]: ['BTC/BTC', 'L-BTC/BTC'],
+              },
+            }),
+            async (swap, tx) => {
+              const chainCurrency = swap.chainCurrency;
+              const wallet = walletManager.wallets.get(chainCurrency);
+              if (wallet === undefined) {
+                this.logger.warn(
+                  `Could not get wallet for ${chainCurrency} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+                );
+                return;
+              }
+
+              await ScriptPubKeyRepository.add(
+                swap.id,
+                chainCurrency,
+                wallet.decodeAddress(swap.lockupAddress),
+                { transaction: tx },
+              );
+            },
+            sequelize,
+          );
+
+          const relevantChains = ['BTC', 'L-BTC'];
+          await this.logProgress(
+            ChainSwap.tableName,
+            1_000,
+            await ChainSwapRepository.getChainSwaps(),
+            async (swap, tx) => {
+              if (!relevantChains.includes(swap.receivingData.symbol)) {
+                return;
+              }
+
+              const wallet = walletManager.wallets.get(
+                swap.receivingData.symbol,
+              );
+              if (wallet === undefined) {
+                this.logger.warn(
+                  `Could not get wallet for ${swap.receivingData.symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+                );
+                return;
+              }
+
+              await ScriptPubKeyRepository.add(
+                swap.id,
+                swap.receivingData.symbol,
+                wallet.decodeAddress(swap.receivingData.lockupAddress),
+                { transaction: tx },
+              );
+            },
+            sequelize,
+          );
+
+          break;
         }
       }
 
@@ -1129,16 +1206,28 @@ class Migration {
     name: string,
     logIncrement: number,
     entries: T[],
-    cb: (entry: T) => Promise<void>,
+    cb: (entry: T, tx?: SequelizeTransaction) => Promise<void>,
+    sequelize?: Sequelize,
   ) => {
     this.logger.debug(`Migrating ${entries.length} ${name}`);
 
-    for (const [index, entry] of entries.entries()) {
-      await cb(entry);
+    const tx = await sequelize?.transaction();
 
-      if (index !== 0 && index % logIncrement === 0) {
-        this.logger.debug(`Migrated ${index}/${entries.length} ${name}`);
+    try {
+      for (const [index, entry] of entries.entries()) {
+        await cb(entry, tx);
+
+        if (index !== 0 && index % logIncrement === 0) {
+          this.logger.debug(`Migrated ${index}/${entries.length} ${name}`);
+        }
       }
+
+      await tx?.commit();
+    } catch (error) {
+      this.logger.error(`Error migrating ${name}: ${formatError(error)}`);
+      await tx?.rollback();
+
+      throw error;
     }
   };
 }

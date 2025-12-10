@@ -17,6 +17,11 @@ import type { ChainSwapType } from '../models/ChainSwap';
 import ChainSwap from '../models/ChainSwap';
 import type { ChainSwapDataType } from '../models/ChainSwapData';
 import ChainSwapData from '../models/ChainSwapData';
+import ScriptPubKeyRepository from './ScriptPubKeyRepository';
+
+type ChainSwapDataTypeInsert = ChainSwapDataType & {
+  scriptPubKey?: Buffer;
+};
 
 class ChainSwapInfo {
   constructor(
@@ -220,8 +225,8 @@ class ChainSwapRepository {
 
   public static addChainSwap = (args: {
     chainSwap: ChainSwapType;
-    sendingData: ChainSwapDataType;
-    receivingData: ChainSwapDataType;
+    sendingData: ChainSwapDataTypeInsert;
+    receivingData: ChainSwapDataTypeInsert;
   }) =>
     Database.sequelize.transaction(
       {
@@ -234,6 +239,15 @@ class ChainSwapRepository {
           ChainSwapData.create(args.sendingData, { transaction }),
           ChainSwapData.create(args.receivingData, { transaction }),
         ]);
+
+        if (args.receivingData.scriptPubKey !== undefined) {
+          await ScriptPubKeyRepository.add(
+            args.chainSwap.id,
+            args.receivingData.symbol,
+            args.receivingData.scriptPubKey,
+            { transaction },
+          );
+        }
       },
     );
 
@@ -396,4 +410,4 @@ class ChainSwapRepository {
 }
 
 export default ChainSwapRepository;
-export { ChainSwapInfo };
+export { ChainSwapInfo, ChainSwapDataTypeInsert };

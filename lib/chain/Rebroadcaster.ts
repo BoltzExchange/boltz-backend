@@ -1,14 +1,20 @@
 import type Logger from '../Logger';
 import { formatError } from '../Utils';
 import RebroadcastRepository from '../db/repositories/RebroadcastRepository';
+import type Sidecar from '../sidecar/Sidecar';
 import type { IChainClient } from './ChainClient';
 
 class Rebroadcaster {
   constructor(
     private readonly logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly client: IChainClient,
   ) {
-    this.client.on('block', async () => {
+    this.sidecar.on('block', async (block) => {
+      if (block.symbol !== this.client.symbol) {
+        return;
+      }
+
       try {
         await this.rebroadcast();
       } catch (e) {

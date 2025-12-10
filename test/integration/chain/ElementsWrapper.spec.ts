@@ -1,4 +1,3 @@
-import { Transaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import { sleep } from '../../../lib/PromiseUtils';
 import ElementsWrapper from '../../../lib/chain/ElementsWrapper';
@@ -8,10 +7,14 @@ import { elementsConfig } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
+const mockSidecar = {
+  on: jest.fn(),
+} as unknown as Sidecar;
+
 describe('ElementsWrapper', () => {
   const wrapper = new ElementsWrapper(
     Logger.disabledLogger,
-    {} as unknown as Sidecar,
+    mockSidecar,
     'liquidRegtest',
     {
       ...elementsConfig,
@@ -63,7 +66,7 @@ describe('ElementsWrapper', () => {
     test('should construct with just public node', () => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
-        {} as unknown as Sidecar,
+        mockSidecar,
         'liquidRegtest',
         elementsConfig,
       );
@@ -103,124 +106,6 @@ describe('ElementsWrapper', () => {
       expect(status).toEqual(newStatus);
     });
     wrapper['publicClient']()['setClientStatus'](newStatus);
-  });
-
-  test('should emit on block', async () => {
-    const blockPromise = new Promise<void>((resolve) => {
-      wrapper.on('block', async (height) => {
-        expect(height).toEqual((await wrapper.getBlockchainInfo()).blocks);
-        resolve();
-      });
-    });
-
-    await wrapper['clients'][0].generate(1);
-    await blockPromise;
-  });
-
-  describe('transaction emitter', () => {
-    const testTx = 'i am a real tx' as unknown as Transaction;
-
-    test('should emit confirmed transactions from public client', async () => {
-      expect.assertions(2);
-
-      wrapper.on('transaction', ({ transaction, confirmed }) => {
-        expect(transaction).toEqual(testTx);
-        expect(confirmed).toEqual(true);
-      });
-
-      wrapper['publicClient']()['emit']('transaction', {
-        transaction: testTx,
-        confirmed: true,
-      });
-      wrapper['lowballClient']()!['emit']('transaction', {
-        transaction: testTx,
-        confirmed: true,
-      });
-    });
-
-    test('should emit unconfirmed transactions from lowball client', async () => {
-      expect.assertions(2);
-
-      const tx = Transaction.fromHex(
-        await wrapper.getRawTransaction(
-          await wrapper.sendToAddress(
-            await wrapper.getNewAddress(''),
-            100_000,
-            undefined,
-            undefined,
-            '',
-          ),
-        ),
-      );
-
-      wrapper.on('transaction', ({ transaction, confirmed }) => {
-        expect(transaction).toEqual(tx);
-        expect(confirmed).toEqual(false);
-      });
-
-      wrapper['publicClient']()['emit']('transaction', {
-        transaction: tx,
-        confirmed: false,
-      });
-      wrapper['lowballClient']()!['emit']('transaction', {
-        transaction: tx,
-        confirmed: false,
-      });
-
-      await sleep(wrapper['zeroConfCheckTime'] * 2);
-    });
-
-    test('should emit confirmed and unconfirmed transaction from public node if no lowball client is configured', async () => {
-      const oneWrapper = new ElementsWrapper(
-        Logger.disabledLogger,
-        {} as unknown as Sidecar,
-        'liquidRegtest',
-        elementsConfig,
-      );
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      oneWrapper['zeroConfCheck'] = {
-        name: 'stub',
-        checkTransaction: jest.fn().mockResolvedValue(true),
-        init: jest.fn().mockImplementation(() => Promise.resolve()),
-      };
-
-      await oneWrapper.connect();
-
-      expect.assertions(2);
-
-      oneWrapper.on('transaction', ({ transaction }) => {
-        expect(transaction).toEqual(testTx);
-      });
-
-      oneWrapper['publicClient']()['emit']('transaction', {
-        transaction: testTx,
-        confirmed: true,
-      });
-      oneWrapper['publicClient']()['emit']('transaction', {
-        transaction: testTx,
-        confirmed: false,
-      });
-
-      oneWrapper.disconnect();
-    });
-  });
-
-  test.each`
-    name
-    ${'rescanChain'}
-  `('should call $name only with public client', async ({ name }) => {
-    const mockFnPublic = jest.fn();
-    const mockFnLowball = jest.fn();
-    wrapper['publicClient']()[name] = mockFnPublic;
-    wrapper['lowballClient']()![name] = mockFnLowball;
-
-    const param = 123;
-    await wrapper[name](param);
-
-    expect(mockFnPublic).toHaveBeenCalledTimes(1);
-    expect(mockFnPublic).toHaveBeenCalledWith(param);
-    expect(mockFnLowball).not.toHaveBeenCalled();
   });
 
   test('should call checkTransaction with all clients', async () => {
@@ -290,27 +175,6 @@ describe('ElementsWrapper', () => {
 
   test.each`
     name
-    ${'addInputFilter'}
-    ${'addOutputFilter'}
-    ${'removeOutputFilter'}
-    ${'removeInputFilter'}
-  `('should call $name on both clients', ({ name }) => {
-    const mockFnPublic = jest.fn();
-    const mockFnLowball = jest.fn();
-    wrapper['publicClient']()[name] = mockFnPublic;
-    wrapper['lowballClient']()![name] = mockFnLowball;
-
-    const param = 'data';
-    wrapper[name](param);
-
-    expect(mockFnPublic).toHaveBeenCalledTimes(1);
-    expect(mockFnPublic).toHaveBeenCalledTimes(1);
-    expect(mockFnLowball).toHaveBeenCalledTimes(1);
-    expect(mockFnLowball).toHaveBeenCalledWith(param);
-  });
-
-  test.each`
-    name
     ${'getNetworkInfo'}
     ${'getBlockchainInfo'}
   `('should annotate lowball info for $name', async ({ name }) => {
@@ -332,7 +196,7 @@ describe('ElementsWrapper', () => {
     async ({ name }) => {
       const oneWrapper = new ElementsWrapper(
         Logger.disabledLogger,
-        {} as unknown as Sidecar,
+        mockSidecar,
         'liquidRegtest',
         elementsConfig,
       );

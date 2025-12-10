@@ -1,11 +1,13 @@
 use crate::chain::types::Type;
-use crate::chain::utils::{Outpoint, Transaction};
+use crate::chain::utils::{Block, Outpoint, Transaction};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_core::Network;
 use elements::ZeroConfToolConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::{broadcast, oneshot};
 
 pub mod bumper;
@@ -18,6 +20,21 @@ mod rpc_client;
 pub mod types;
 pub mod utils;
 pub mod zmq_client;
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Transactions {
+    Single(Transaction),
+    Multiple(Arc<Vec<Transaction>>),
+}
+
+impl Transactions {
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &Transaction> + '_ + Send + Sync> {
+        match self {
+            Transactions::Single(tx) => Box::new(std::iter::once(tx)),
+            Transactions::Multiple(transactions) => Box::new(transactions.iter()),
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct Config {
@@ -59,13 +76,23 @@ pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;
     fn network(&self) -> Network;
 
+    /// Returns the end height of the rescan
+    async fn rescan(
+        &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
+        start_height: u64,
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+    ) -> Result<u64>;
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
-    ) -> Result<Vec<Transaction>>;
+    ) -> Result<()>;
 
     async fn network_info(&self) -> Result<types::NetworkInfo>;
+    async fn blockchain_info(&self) -> Result<types::BlockchainInfo>;
 
     /// Fee estimation in sat/vbyte
     async fn estimate_fee(&self) -> Result<f64>;
@@ -79,5 +106,6 @@ pub trait Client: BaseClient {
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
-    fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;
+    fn tx_receiver(&self) -> broadcast::Receiver<(Transactions, bool)>;
+    fn block_receiver(&self) -> broadcast::Receiver<(u64, Block)>;
 }

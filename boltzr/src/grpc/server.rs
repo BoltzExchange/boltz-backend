@@ -190,8 +190,7 @@ where
 mod server_test {
     use crate::api::ws;
     use crate::api::ws::types::SwapStatus;
-    use crate::chain::utils::Transaction;
-    use crate::currencies::Currency;
+    use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
@@ -200,12 +199,12 @@ mod server_test {
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
-    use crate::swap::manager::SwapManager;
+    use crate::swap::RelevantTx;
+    use crate::swap::manager::{RescanChainOptions, RescanChainResult, SwapManager};
     use crate::tracing_setup::ReloadHandler;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use async_trait::async_trait;
     use mockall::{mock, predicate::*};
-    use std::collections::HashMap;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -259,6 +258,7 @@ mod server_test {
         impl SwapManager for Manager {
             fn get_network(&self) -> crate::wallet::Network;
             fn get_currency(&self, symbol: &str) -> Option<Currency>;
+            fn get_currencies(&self) -> &Currencies;
             fn get_timeouts(
                 &self,
                 receiving: &str,
@@ -266,10 +266,11 @@ mod server_test {
                 swap_type: crate::db::models::SwapType,
             ) -> anyhow::Result<(u64, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
-            async fn scan_mempool(
+            async fn rescan_chains(
                 &self,
-                symbols: Option<Vec<String>>,
-            ) -> anyhow::Result<HashMap<String, Vec<Transaction>>>;
+                options: Option<Vec<RescanChainOptions>>,
+            ) -> anyhow::Result<Vec<RescanChainResult>>;
+            fn relevant_tx_receiver(&self) -> tokio::sync::broadcast::Receiver<RelevantTx>;
         }
     }
 

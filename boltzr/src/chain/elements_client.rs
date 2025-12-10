@@ -1,9 +1,10 @@
 use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
-use crate::chain::types::{NetworkInfo, RawTransactionVerbose, Type};
-use crate::chain::utils::{Outpoint, Transaction};
-use crate::chain::{BaseClient, Client, LiquidConfig};
+use crate::chain::types::{BlockchainInfo, NetworkInfo, RawTransactionVerbose, Type};
+use crate::chain::utils::{Block, Outpoint, Transaction};
+use crate::chain::{BaseClient, Client, LiquidConfig, Transactions};
+use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -118,11 +119,28 @@ impl Client for ElementsClient {
         self.network
     }
 
+    async fn rescan(
+        &self,
+        chain_tip_repo: Arc<dyn ChainTipHelper + Send + Sync>,
+        start_height: u64,
+        relevant_inputs: &HashSet<Outpoint>,
+        relevant_outputs: &HashSet<Vec<u8>>,
+    ) -> anyhow::Result<u64> {
+        self.wallet_client()
+            .rescan(
+                chain_tip_repo,
+                start_height,
+                relevant_inputs,
+                relevant_outputs,
+            )
+            .await
+    }
+
     async fn scan_mempool(
         &self,
         relevant_inputs: &HashSet<Outpoint>,
         relevant_outputs: &HashSet<Vec<u8>>,
-    ) -> anyhow::Result<Vec<Transaction>> {
+    ) -> anyhow::Result<()> {
         self.wallet_client()
             .scan_mempool(relevant_inputs, relevant_outputs)
             .await
@@ -130,6 +148,10 @@ impl Client for ElementsClient {
 
     async fn network_info(&self) -> anyhow::Result<NetworkInfo> {
         self.wallet_client().network_info().await
+    }
+
+    async fn blockchain_info(&self) -> anyhow::Result<BlockchainInfo> {
+        self.wallet_client().blockchain_info().await
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
@@ -171,8 +193,12 @@ impl Client for ElementsClient {
         }
     }
 
-    fn tx_receiver(&self) -> Receiver<(Transaction, bool)> {
+    fn tx_receiver(&self) -> Receiver<(Transactions, bool)> {
         self.wallet_client().tx_receiver()
+    }
+
+    fn block_receiver(&self) -> Receiver<(u64, Block)> {
+        self.wallet_client().block_receiver()
     }
 }
 

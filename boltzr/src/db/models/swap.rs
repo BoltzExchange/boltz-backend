@@ -1,4 +1,5 @@
 use crate::chain::Client;
+use crate::chain::utils::Outpoint;
 use crate::db::models::{LightningSwap, SomeSwap, SwapType};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
@@ -45,6 +46,10 @@ impl SomeSwap for Swap {
 
     fn status(&self) -> SwapUpdate {
         SwapUpdate::parse(self.status.as_str())
+    }
+
+    fn sending_outpoint(&self) -> Result<Option<Outpoint>> {
+        Ok(None)
     }
 
     fn refund_symbol(&self) -> Result<String> {

@@ -175,10 +175,7 @@ where
             return Err(UrlError::MoreThanMaxLen.into());
         }
 
-        let url = match Url::parse(url) {
-            Ok(url) => url,
-            Err(err) => return Err(err.into()),
-        };
+        let url = Url::parse(url)?;
 
         if !allow_http && url.scheme() != "https" {
             return Err(UrlError::HttpsRequired.into());

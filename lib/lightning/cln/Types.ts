@@ -16,6 +16,8 @@ type ClnConfig = BaseConfig & {
   maxPaymentFeeRatio: number;
 
   hold: BaseConfig;
+
+  disableMpp?: boolean;
 };
 
 const createSsl = (

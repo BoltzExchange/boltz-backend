@@ -54,6 +54,7 @@ class ClnClient
   private static readonly paymentTimeout = 300;
 
   public readonly maxPaymentFeeRatio!: number;
+  private readonly disableMpp: boolean;
 
   private readonly nodeUri: string;
   private readonly holdUri: string;
@@ -78,6 +79,13 @@ class ClnClient
 
     this.maxPaymentFeeRatio =
       config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;
+    this.disableMpp = config.disableMpp ?? false;
+
+    if (this.disableMpp) {
+      this.logger.info(
+        `Multi-path payments disabled for ${ClnClient.serviceName}`,
+      );
+    }
 
     this.nodeCreds = createSsl(ClnClient.serviceName, symbol, config);
     this.holdCreds = createSsl(ClnClient.serviceNameHold, symbol, config.hold);
@@ -574,6 +582,9 @@ class ClnClient
 
     req.setInvstring(invoice);
     req.setRetryFor(ClnClient.paymentTimeout);
+    if (this.disableMpp) {
+      req.setLayersList(['auto.no_mpp_support']);
+    }
 
     const feeAmount = new primitivesrpc.Amount();
     feeAmount.setMsat(maxFee);

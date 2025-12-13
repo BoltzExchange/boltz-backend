@@ -19,6 +19,7 @@ import ChainClient from '../../../lib/chain/ChainClient';
 import {
   ChannelCreationType,
   CurrencyType,
+  FinalChainSwapEvents,
   OrderSide,
   SwapType,
   SwapUpdateEvent,
@@ -75,6 +76,11 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
 });
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
+
+let mockGetChainSwapsResult: any[] = [];
+const mockGetChainSwaps = jest.fn().mockImplementation(async () => {
+  return mockGetChainSwapsResult;
+});
 
 const mockSetNodePublicKey = jest.fn().mockResolvedValue(undefined);
 
@@ -441,7 +447,7 @@ describe('SwapManager', () => {
     ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
     ChannelCreationRepository.getChannelCreations = mockGetChannelCreations;
 
-    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwaps = mockGetChainSwaps;
 
     if (manager !== undefined && manager.routingHints !== undefined) {
       if (
@@ -526,12 +532,43 @@ describe('SwapManager', () => {
     const mockRecreateSubscriptions = jest.fn().mockImplementation();
     manager['recreateSubscriptions'] = mockRecreateSubscriptions;
 
+    const mockRecreateChainSwapSubscriptions = jest.fn().mockImplementation();
+    manager['recreateChainSwapSubscriptions'] =
+      mockRecreateChainSwapSubscriptions;
+
     mockGetReverseSwapsResult = [
       {
         pair: 'BTC/BTC',
       },
       {
         some: 'otherData',
+      },
+    ];
+
+    mockGetChainSwapsResult = [
+      {
+        chainSwap: {
+          id: 'chain1',
+          status: SwapUpdateEvent.SwapCreated,
+        },
+        sendingData: {
+          symbol: 'BTC',
+        },
+        receivingData: {
+          symbol: 'BTC',
+        },
+      },
+      {
+        chainSwap: {
+          id: 'chain2',
+          status: SwapUpdateEvent.TransactionMempool,
+        },
+        sendingData: {
+          symbol: 'LTC',
+        },
+        receivingData: {
+          symbol: 'BTC',
+        },
       },
     ];
 
@@ -554,10 +591,21 @@ describe('SwapManager', () => {
       },
     });
 
+    expect(mockGetChainSwaps).toHaveBeenCalledWith({
+      status: {
+        [Op.notIn]: FinalChainSwapEvents,
+      },
+    });
+
     expect(mockRecreateSubscriptions).toHaveBeenCalledTimes(2);
     expect(mockRecreateSubscriptions).toHaveBeenCalledWith([]);
     expect(mockRecreateSubscriptions).toHaveBeenCalledWith(
       mockGetReverseSwapsResult,
+    );
+
+    expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledTimes(1);
+    expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledWith(
+      mockGetChainSwapsResult,
     );
   });
 

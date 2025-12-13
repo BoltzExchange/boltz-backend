@@ -588,6 +588,38 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * components:
+     *   schemas:
+     *     ArkRefundRequest:
+     *       type: object
+     *       required: ["transaction", "checkpoint"]
+     *       properties:
+     *         transaction:
+     *           type: string
+     *           description: Partially signed Bitcoin transaction (PSBT) encoded as base64
+     *         checkpoint:
+     *           type: string
+     *           description: Ark checkpoint PSBT encoded as base64
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ArkRefundResponse:
+     *       type: object
+     *       required: ["transaction", "checkpoint"]
+     *       properties:
+     *         transaction:
+     *           type: string
+     *           description: Signed transaction PSBT encoded as base64
+     *         checkpoint:
+     *           type: string
+     *           description: Signed Ark checkpoint PSBT encoded as base64
+     */
+
+    /**
+     * @openapi
      * /swap/submarine/{id}/refund:
      *   post:
      *     description: Requests a partial signature for a cooperative Submarine Swap refund transaction
@@ -648,30 +680,14 @@ class SwapRouter extends RouterBase {
      *       content:
      *         application/json:
      *           schema:
-     *             type: object
-     *             required: ["transaction", "checkpoint"]
-     *             properties:
-     *               transaction:
-     *                 type: string
-     *                 description: Partially signed Bitcoin transaction (PSBT) encoded as base64
-     *               checkpoint:
-     *                 type: string
-     *                 description: Ark checkpoint PSBT encoded as base64
+     *             $ref: '#/components/schemas/ArkRefundRequest'
      *     responses:
      *       '200':
      *         description: The signed refund transaction
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               required: ["transaction", "checkpoint"]
-     *               properties:
-     *                 transaction:
-     *                   type: string
-     *                   description: Signed transaction PSBT encoded as base64
-     *                 checkpoint:
-     *                   type: string
-     *                   description: Signed Ark checkpoint PSBT encoded as base64
+     *               $ref: '#/components/schemas/ArkRefundResponse'
      *       '400':
      *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
      *         content:
@@ -679,13 +695,16 @@ class SwapRouter extends RouterBase {
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      *       '404':
-     *         description: When no Swap with the ID could be found
+     *         description: When no Submarine Swap with the ID could be found
      *         content:
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
      */
-    router.post('/submarine/:id/refund/ark', this.handleError(this.refundArk));
+    router.post(
+      '/submarine/:id/refund/ark',
+      this.handleError(this.refundArk(this.service.musigSigner)),
+    );
 
     /**
      * @openapi
@@ -1313,7 +1332,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainSwapData:
      *       type: object
-     *       required: ["swapTree", "timeoutBlockHeight", "amount"]
+     *       required: ["amount"]
      *       properties:
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -1326,6 +1345,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         amount:
      *           type: number
      *           description: Amount that is supposed to be locked in the onchain HTLC
@@ -1338,6 +1359,9 @@ class SwapRouter extends RouterBase {
      *         bip21:
      *           type: string
      *           description: BIP-21 for the UTXO onchain lockup of the user
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address with which the Chain Swap can be claimed
      */
 
     /**
@@ -1664,6 +1688,52 @@ class SwapRouter extends RouterBase {
       '/chain/:id/refund',
       this.handleError(
         this.signUtxoRefund(this.service.swapManager.chainSwapSigner),
+      ),
+    );
+
+    /**
+     * @openapi
+     * /swap/chain/{id}/refund/ark:
+     *   post:
+     *     description: Signs cooperative refund transactions for Ark Chain Swaps
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Chain Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ArkRefundRequest'
+     *     responses:
+     *       '200':
+     *         description: The signed refund transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ArkRefundResponse'
+     *       '400':
+     *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/chain/:id/refund/ark',
+      this.handleError(
+        this.refundArk(this.service.swapManager.chainSwapSigner),
       ),
     );
 
@@ -2841,27 +2911,32 @@ class SwapRouter extends RouterBase {
       });
     };
 
-  private refundArk = async (req: Request, res: Response) => {
-    const { id } = validateRequest(req.params, [
-      { name: 'id', type: 'string' },
-    ]);
+  private refundArk =
+    (signer: MusigSigner | ChainSwapSigner) =>
+    async (req: Request, res: Response) => {
+      const params = req.params
+        ? validateRequest(req.params, [
+            { name: 'id', type: 'string', optional: true },
+          ])
+        : {};
 
-    const { transaction, checkpoint } = validateRequest(req.body, [
-      { name: 'transaction', type: 'string' },
-      { name: 'checkpoint', type: 'string' },
-    ]);
+      const { id, transaction, checkpoint } = validateRequest(req.body, [
+        { name: 'id', type: 'string', optional: params.id !== undefined },
+        { name: 'transaction', type: 'string' },
+        { name: 'checkpoint', type: 'string' },
+      ]);
 
-    const signed = await this.service.musigSigner.signRefundArk(
-      id,
-      transaction,
-      checkpoint,
-    );
+      const signed = await signer.signRefundArk(
+        params.id || id,
+        transaction,
+        checkpoint,
+      );
 
-    successResponse(res, {
-      transaction: signed.transaction,
-      checkpoint: signed.checkpoint,
-    });
-  };
+      successResponse(res, {
+        transaction: signed.transaction,
+        checkpoint: signed.checkpoint,
+      });
+    };
 
   private refundEvm = async (req: Request, res: Response) => {
     const { id } = validateRequest(req.params, [

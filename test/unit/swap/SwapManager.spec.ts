@@ -431,6 +431,7 @@ describe('SwapManager', () => {
     SwapRepository.addSwap = mockAddSwap;
     SwapRepository.setInvoice = mockSetInvoice;
     SwapRepository.getSwapsClaimable = jest.fn().mockResolvedValue([]);
+    SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);
 
     ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
@@ -522,8 +523,8 @@ describe('SwapManager', () => {
   );
 
   test('should init', async () => {
-    const mockRecreateInvoiceSubscriptions = jest.fn().mockImplementation();
-    manager['recreateInvoiceSubscriptions'] = mockRecreateInvoiceSubscriptions;
+    const mockRecreateSubscriptions = jest.fn().mockImplementation();
+    manager['recreateSubscriptions'] = mockRecreateSubscriptions;
 
     mockGetReverseSwapsResult = [
       {
@@ -544,12 +545,18 @@ describe('SwapManager', () => {
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
       status: {
-        [Op.in]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.MinerFeePaid],
+        [Op.notIn]: [
+          SwapUpdateEvent.SwapExpired,
+          SwapUpdateEvent.InvoiceSettled,
+          SwapUpdateEvent.TransactionFailed,
+          SwapUpdateEvent.TransactionRefunded,
+        ],
       },
     });
 
-    expect(mockRecreateInvoiceSubscriptions).toHaveBeenCalledTimes(1);
-    expect(mockRecreateInvoiceSubscriptions).toHaveBeenCalledWith(
+    expect(mockRecreateSubscriptions).toHaveBeenCalledTimes(2);
+    expect(mockRecreateSubscriptions).toHaveBeenCalledWith([]);
+    expect(mockRecreateSubscriptions).toHaveBeenCalledWith(
       mockGetReverseSwapsResult,
     );
   });
@@ -1254,6 +1261,7 @@ describe('SwapManager', () => {
 
   test('should create Reverse Swaps', async () => {
     manager['recreateFilters'] = jest.fn().mockImplementation();
+    manager['recreateSubscriptions'] = jest.fn().mockImplementation();
     await manager.init([btcCurrency, ltcCurrency], []);
 
     const preimageHash = getHexBuffer(

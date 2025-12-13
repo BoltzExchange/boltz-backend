@@ -244,6 +244,10 @@ class Swap extends Model implements SwapType {
 
     return undefined;
   }
+
+  get theirRefundPublicKey() {
+    return this.refundPublicKey;
+  }
 }
 
 export default Swap;

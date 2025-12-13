@@ -72,7 +72,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
   declare fee: number;
   declare referral?: string;
 
-  declare minerFee: number;
+  declare minerFee?: number;
 
   declare pair: string;
   declare orderSide: number;
@@ -265,4 +265,4 @@ const nodeTypeToPrettyString = (type: NodeType) => {
 };
 
 export default ReverseSwap;
-export { ReverseSwapType, NodeType, nodeTypeToPrettyString };
+export { NodeType, nodeTypeToPrettyString, ReverseSwapType };

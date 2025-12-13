@@ -40,8 +40,9 @@ type ChainClientEvents<T extends SomeTransaction> = {
   };
 };
 
-interface IChainClient<T extends SomeTransaction = SomeTransaction>
-  extends TypedEventEmitter<ChainClientEvents<T>> {
+interface IChainClient<
+  T extends SomeTransaction = SomeTransaction,
+> extends TypedEventEmitter<ChainClientEvents<T>> {
   get symbol(): string;
   get currencyType(): CurrencyType;
 

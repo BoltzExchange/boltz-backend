@@ -3,6 +3,9 @@
   "version": "3.12.0",
   "description": "Backend of Boltz",
   "main": "dist/lib/Boltz.js",
+  "scarfSettings": {
+    "enabled": false
+  },
   "scripts": {
     "postinstall": "node parseGitCommit.js",
     "proto": "node protos.js",
@@ -18,7 +21,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 --concurrency auto .",
-    "prettier": "npx prettier '{lib,test}/**/*.ts' bin docs",
+    "prettier": "npx prettier '{lib,test}/**/*.ts' lib/api/static bin docs",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
     "regtest:start:ci": "cd regtest && COMPOSE_PROFILES=backend-dev ./start.sh && npm run regtest:db:setup && npm run regtest:solidity:deploy",
@@ -95,6 +98,7 @@
     "redis": "^5.10.0",
     "sequelize": "^6.37.7",
     "slip77": "^0.2.0",
+    "swagger-ui-dist": "^5.31.0",
     "tiny-secp256k1": "^2.2.4",
     "winston": "^3.18.3",
     "winston-loki": "^6.1.3",

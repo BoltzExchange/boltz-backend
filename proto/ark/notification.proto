@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package fulmine.v1;
+
+import "ark/types.proto";
+import "google/api/annotations.proto";
+
+// NotificationService is used to get notification about wallet events.
+// It offers 2 way of getting notified about events: with the help of grpc 
+// server-side stream or by subscribing webhooks invoked whenever an event 
+// occurs.
+service NotificationService {
+  //**************//
+  //   PUB-SUB    //
+  //**************//
+
+  // SubscribeForAddresses subscribes for notifications for given addresses
+  rpc SubscribeForAddresses(SubscribeForAddressesRequest) returns (SubscribeForAddressesResponse) {
+    option (google.api.http) = {
+      post: "/v1/subscribe"
+      body: "*"
+    };
+  };
+  // UnsubscribeForAddresses unsubscribes from notifications for given addresses
+  rpc UnsubscribeForAddresses(UnsubscribeForAddressesRequest) returns (UnsubscribeForAddressesResponse) {
+    option (google.api.http) = {
+      post: "/v1/unsubscribe" 
+      body: "*"
+    };
+  };
+  // GetVtxoNotifications streams notifications for subscribed addresses
+  rpc GetVtxoNotifications(GetVtxoNotificationsRequest) returns (stream GetVtxoNotificationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/notifications"
+    };
+  };
+
+  //**************//
+  //   STREAMS    //
+  //**************//
+
+  // Notifies about events related to wallet transactions.
+  rpc RoundNotifications(RoundNotificationsRequest) returns (stream RoundNotificationsResponse);
+
+  //***************//
+  //   WEBHOOKS    //
+  //***************//
+
+  // Adds a webhook registered for some kind of event.
+  rpc AddWebhook(AddWebhookRequest) returns(AddWebhookResponse);
+
+  // Removes some previously added webhook.
+  rpc RemoveWebhook(RemoveWebhookRequest) returns(RemoveWebhookResponse);
+
+  // Returns registered webhooks.
+  rpc ListWebhooks(ListWebhooksRequest) returns(ListWebhooksResponse);
+}
+
+message SubscribeForAddressesRequest {
+  repeated string addresses = 1;
+}
+message SubscribeForAddressesResponse {}
+
+message UnsubscribeForAddressesRequest {
+  repeated string addresses = 1;
+}
+message UnsubscribeForAddressesResponse {}
+
+message GetVtxoNotificationsRequest {}
+
+message GetVtxoNotificationsResponse {
+  Notification notification = 1;
+}
+
+message RoundNotificationsRequest{}
+message RoundNotificationsResponse{
+  RoundEventType event_type = 1;
+  string txhex = 2;
+  string txid = 3;
+  BlockDetails block_details = 4;
+}
+
+message AddWebhookRequest {
+  // The endpoint of the external service to reach.
+  string endpoint = 1;
+  // The event type for which the webhook should be registered.
+  WebhookEventType event_type = 2;
+  // The secret to use for signing a JWT token for an authenticated request
+  // to the external service.
+  string secret = 3;
+}
+message AddWebhookResponse {
+  // The id of the new webhook.
+  string id = 1;
+}
+
+message RemoveWebhookRequest {
+  // The id of the webhook to remove.
+  string id = 1;
+}
+message RemoveWebhookResponse {}
+
+message ListWebhooksRequest {
+  // The event type for which filtering the list of webhooks.
+  WebhookEventType event_type = 1;
+}
+message ListWebhooksResponse {
+  // The list of info about the webhooks registered for an action.
+  repeated WebhookInfo webhook_info = 1;
+}
+
+message WebhookInfo {
+  // The id of the webhook.
+  string id = 1;
+  // The endpoint of the external service to reach.
+  string endpoint = 2;
+  // Whether the outgoing requests are authenticated.
+  bool is_secured = 3;
+}

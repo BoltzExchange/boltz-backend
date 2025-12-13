@@ -4,6 +4,7 @@ import path from 'path';
 import type { Arguments } from 'yargs';
 import type { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
+import type { ArkConfig } from './chain/ArkClient';
 import type { ZeroConfToolConfig } from './chain/elements/ZeroConfTool';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
@@ -231,6 +232,7 @@ type ConfigType = {
   currencies: CurrencyConfig[];
 
   liquid?: BaseCurrencyConfig<LiquidChainConfig>;
+  ark?: ArkConfig;
 
   rsk?: RskConfig;
   ethereum: EthereumConfig;

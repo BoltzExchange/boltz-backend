@@ -1,4 +1,3 @@
-import { Transaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
 import { SwapTreeSerializer } from 'boltz-core';
 import type Logger from '../../Logger';
@@ -33,7 +32,11 @@ import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
-import { createPartialSignature, isPreimageValid } from './Utils';
+import {
+  checkArkTransaction,
+  createPartialSignature,
+  isPreimageValid,
+} from './Utils';
 
 type PartialSignature = {
   pubNonce: Buffer;
@@ -163,40 +166,12 @@ class MusigSigner {
     }
 
     await this.validateEligibility(swap);
-
-    const checkpointPsbt = Transaction.fromPSBT(
-      Buffer.from(checkpoint, 'base64'),
+    checkArkTransaction(
+      transaction,
+      checkpoint,
+      swap.lockupTransactionId,
+      swap.lockupTransactionVout,
     );
-    if (checkpointPsbt.inputsLength !== 1) {
-      throw new Error('checkpoint must have exactly one input');
-    }
-
-    {
-      const input = checkpointPsbt.getInput(0);
-      if (
-        input.txid === undefined ||
-        getHexString(Buffer.from(input.txid)) !== swap.lockupTransactionId ||
-        input.index !== swap.lockupTransactionVout
-      ) {
-        throw new Error('transaction is not for this swap');
-      }
-    }
-
-    {
-      const refundPsbt = Transaction.fromPSBT(
-        Buffer.from(transaction, 'base64'),
-      );
-      if (refundPsbt.inputsLength !== 1) {
-        throw new Error('transaction must have exactly one input');
-      }
-
-      if (
-        checkpointPsbt.id !==
-        Buffer.from(refundPsbt.getInput(0).txid || '').toString('hex')
-      ) {
-        throw new Error('transaction is not for this swap');
-      }
-    }
 
     this.logger.debug(
       `Creating partial signature for refund of ARK Swap ${swap.id}`,

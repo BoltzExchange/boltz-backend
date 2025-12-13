@@ -3,9 +3,17 @@ import type { ConfigType } from '../../../lib/Config';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
+import ArkClient from '../../../lib/chain/ArkClient';
+import ElementsClient from '../../../lib/chain/ElementsClient';
+import {
+  CurrencyType,
+  OrderSide,
+  SwapType,
+  SwapVersion,
+} from '../../../lib/consts/Enums';
 import type { PairConfig } from '../../../lib/consts/Types';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import type Swap from '../../../lib/db/models/Swap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import { msatToSat } from '../../../lib/lightning/ChannelUtils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
@@ -48,6 +56,21 @@ const currencies = [
       swapTaproot: 10080,
     },
   },
+  {
+    base: 'ETH',
+    quote: 'BTC',
+    timeoutDelta: 10,
+  },
+  {
+    base: 'USDT',
+    quote: 'BTC',
+    timeoutDelta: 10,
+  },
+  {
+    base: 'ARK',
+    quote: 'BTC',
+    timeoutDelta: 1000,
+  },
 ] as any as PairConfig[];
 
 describe('TimeoutDeltaProvider', () => {
@@ -60,6 +83,70 @@ describe('TimeoutDeltaProvider', () => {
   };
 
   const sidecar = {} as unknown as Sidecar;
+
+  const currenciesMap = new Map<string, Currency>([
+    [
+      'BTC',
+      {
+        symbol: 'BTC',
+        type: CurrencyType.BitcoinLike,
+        chainClient: {
+          getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: 100 }),
+        },
+      } as unknown as Currency,
+    ],
+    [
+      'LTC',
+      {
+        symbol: 'LTC',
+        type: CurrencyType.BitcoinLike,
+        chainClient: {
+          getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: 50 }),
+        },
+      } as unknown as Currency,
+    ],
+    [
+      ElementsClient.symbol,
+      {
+        symbol: ElementsClient.symbol,
+        type: CurrencyType.Liquid,
+        chainClient: {
+          getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: 200 }),
+        },
+      } as unknown as Currency,
+    ],
+    [
+      'ETH',
+      {
+        symbol: 'ETH',
+        type: CurrencyType.Ether,
+        provider: {
+          getBlockNumber: jest.fn().mockResolvedValue(1000),
+        },
+      } as unknown as Currency,
+    ],
+    [
+      'USDT',
+      {
+        symbol: 'USDT',
+        type: CurrencyType.ERC20,
+        provider: {
+          getBlockNumber: jest.fn().mockResolvedValue(1500),
+        },
+      } as unknown as Currency,
+    ],
+    [
+      ArkClient.symbol,
+      {
+        symbol: ArkClient.symbol,
+        type: CurrencyType.Ark,
+        arkNode: {
+          getBlockHeight: jest.fn().mockResolvedValue(500),
+          usesLocktimeSeconds: false,
+        },
+      } as unknown as Currency,
+    ],
+  ]);
 
   const deltaProvider = new TimeoutDeltaProvider(
     Logger.disabledLogger,
@@ -74,7 +161,7 @@ describe('TimeoutDeltaProvider', () => {
       currencies: [],
     } as unknown as ConfigType,
     sidecar,
-    new Map<string, Currency>(),
+    currenciesMap,
     new NodeSwitch(Logger.disabledLogger),
     {
       cltvDelta: 20,
@@ -137,6 +224,18 @@ describe('TimeoutDeltaProvider', () => {
       base: createDeltas(8),
       quote: createDeltas(2),
     });
+    expect(deltas.get('ETH/BTC')).toEqual({
+      base: createDeltas(50),
+      quote: createDeltas(1),
+    });
+    expect(deltas.get('USDT/BTC')).toEqual({
+      base: createDeltas(50),
+      quote: createDeltas(1),
+    });
+    expect(deltas.get('ARK/BTC')).toEqual({
+      base: createDeltas(100),
+      quote: createDeltas(100),
+    });
   });
 
   test('should not init if no timeout delta was provided', () => {
@@ -154,7 +253,7 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should set block times of tokens', () => {
-    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(8);
+    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(9);
     expect(TimeoutDeltaProvider.blockTimes.get('USDT')).toEqual(
       TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
     );
@@ -342,5 +441,54 @@ describe('TimeoutDeltaProvider', () => {
       preimageHash: getHexString(paymentHash),
     });
     expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith('invoice');
+  });
+
+  describe('getCltvLimit', () => {
+    test.each`
+      description                 | pair                              | orderSide         | timeoutBlockHeight | expectedLimit
+      ${'BitcoinLike currencies'} | ${'BTC/BTC'}                      | ${OrderSide.BUY}  | ${150}             | ${30}
+      ${'Liquid currencies'}      | ${`${ElementsClient.symbol}/BTC`} | ${OrderSide.SELL} | ${2_500}           | ${210}
+      ${'Ether currencies'}       | ${'ETH/BTC'}                      | ${OrderSide.SELL} | ${6_050}           | ${81}
+      ${'ERC20 currencies'}       | ${'USDT/BTC'}                     | ${OrderSide.SELL} | ${15_050}          | ${251}
+      ${'ARK with block heights'} | ${`${ArkClient.symbol}/BTC`}      | ${OrderSide.BUY}  | ${550}             | ${430}
+    `(
+      'should get CLTV limit for $description',
+      async ({ pair, orderSide, timeoutBlockHeight, expectedLimit }) => {
+        const swap = {
+          pair,
+          orderSide,
+          timeoutBlockHeight,
+        } as Swap;
+
+        await expect(deltaProvider.getCltvLimit(swap)).resolves.toEqual(
+          expectedLimit,
+        );
+      },
+    );
+
+    test('should get CLTV limit for ARK with timestamp-based locks', async () => {
+      const currentTimestamp = 1_000_000;
+
+      const arkCurrency = currenciesMap.get(ArkClient.symbol)!;
+
+      arkCurrency.arkNode = {
+        usesLocktimeSeconds: true,
+        getBlockHeight: jest.fn().mockResolvedValue(500),
+        getBlockTimestamp: jest.fn().mockResolvedValue(currentTimestamp),
+      } as any;
+
+      const swap = {
+        pair: `${ArkClient.symbol}/BTC`,
+        orderSide: OrderSide.SELL,
+        timeoutBlockHeight: currentTimestamp + 500 * 60,
+      } as Swap;
+
+      await expect(deltaProvider.getCltvLimit(swap)).resolves.toEqual(30);
+
+      arkCurrency.arkNode = {
+        getBlockHeight: jest.fn().mockResolvedValue(500),
+        usesLocktimeSeconds: false,
+      } as any;
+    });
   });
 });

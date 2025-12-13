@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import path from 'path';
+import { absolutePath as swaggerUiAbsolutePath } from 'swagger-ui-dist';
 import type Logger from '../Logger';
 import { getVersion, mapToObject, stringify } from '../Utils';
 import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
@@ -20,6 +21,23 @@ import {
   validateRequest,
 } from './Utils';
 
+const safePathJoin = (basePath: string, ...paths: string[]) => {
+  const base = path.resolve(basePath);
+  const joined = path.resolve(base, ...paths);
+
+  const relative = path.relative(base, joined);
+  const isOutsideBase =
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative);
+
+  if (isOutsideBase) {
+    throw new Error('invalid path');
+  }
+
+  return joined;
+};
+
 class Controller {
   constructor(
     private readonly logger: Logger,
@@ -29,8 +47,22 @@ class Controller {
 
   // Static files
   public serveFile = (fileName: string) => {
-    return (_: Request, res: Response): void => {
-      res.sendFile(path.join(__dirname, 'static', fileName));
+    return (req: Request, res: Response): void => {
+      try {
+        res.sendFile(safePathJoin(__dirname, 'static', fileName));
+      } catch (error) {
+        errorResponse(this.logger, req, res, error);
+      }
+    };
+  };
+
+  public serveSwaggerStaticFile = (fileName: string) => {
+    return (req: Request, res: Response): void => {
+      try {
+        res.sendFile(safePathJoin(swaggerUiAbsolutePath(), fileName));
+      } catch (error) {
+        errorResponse(this.logger, req, res, error);
+      }
     };
   };
 

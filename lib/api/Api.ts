@@ -81,6 +81,16 @@ class Api {
       .route('/swagger-spec.json')
       .get(controller.serveFile('swagger-spec.json'));
 
+    for (const file of [
+      'swagger-ui.css',
+      'swagger-ui-bundle.js',
+      'swagger-ui-standalone-preset.js',
+    ]) {
+      this.app
+        .route(`/swagger/${file}`)
+        .get(controller.serveSwaggerStaticFile(file));
+    }
+
     // GET requests
     this.app.route('/version').get(controller.version);
 

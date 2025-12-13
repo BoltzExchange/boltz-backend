@@ -5,23 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Boltz API" />
     <title>Boltz API</title>
+    <link rel="preload" href="/swagger/swagger-ui.css" as="style" />
+    <link rel="preload" href="/swagger/swagger-ui-bundle.js" as="script" />
     <link
-      rel="stylesheet"
-      href="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css"
+      rel="preload"
+      href="/swagger/swagger-ui-standalone-preset.js"
+      as="script"
     />
+    <link rel="preload" href="/swagger-spec.json" as="fetch" crossorigin />
+    <link rel="stylesheet" href="/swagger/swagger-ui.css" />
   </head>
   <body style="margin: 0">
     <div id="swagger-ui"></div>
-    <script
-      src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"
-      crossorigin
-    ></script>
-    <script
-      src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-standalone-preset.js"
-      crossorigin
-    ></script>
-    <script>
-      window.onload = () => {
+    <script src="/swagger/swagger-ui-bundle.js" defer></script>
+    <script src="/swagger/swagger-ui-standalone-preset.js" defer></script>
+    <script defer>
+      window.addEventListener('DOMContentLoaded', () => {
         window.ui = SwaggerUIBundle({
           url: '/swagger-spec.json',
           dom_id: '#swagger-ui',
@@ -29,7 +28,7 @@
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
           layout: 'StandaloneLayout',
         });
-      };
+      });
     </script>
   </body>
 </html>

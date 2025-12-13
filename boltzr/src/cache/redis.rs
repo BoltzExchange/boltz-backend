@@ -16,7 +16,7 @@ impl Redis {
         let client = Client::open(&*config.redis_endpoint)?;
 
         let cache = Self {
-            connection: client.get_multiplexed_tokio_connection().await?,
+            connection: client.get_multiplexed_async_connection().await?,
         };
         info!("Connected to Redis cache");
         Ok(cache)

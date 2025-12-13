@@ -6,10 +6,10 @@ type SwapType = {
 };
 
 class MarkedSwap extends Model implements SwapType {
-  public id!: string;
+  declare id: string;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     MarkedSwap.init(

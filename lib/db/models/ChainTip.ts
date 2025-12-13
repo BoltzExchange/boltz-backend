@@ -7,8 +7,8 @@ type ChainTipType = {
 };
 
 class ChainTip extends Model implements ChainTipType {
-  public symbol!: string;
-  public height!: number;
+  declare symbol: string;
+  declare height: number;
 
   public static load = (sequelize: Sequelize): void => {
     ChainTip.init(

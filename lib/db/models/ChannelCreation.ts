@@ -17,17 +17,17 @@ type ChannelCreationType = {
 };
 
 class ChannelCreation extends Model implements ChannelCreationType {
-  public swapId!: string;
+  declare swapId: string;
 
-  public status?: string;
+  declare status?: string;
 
-  public type!: string;
-  public private!: boolean;
-  public inboundLiquidity!: number;
+  declare type: string;
+  declare private: boolean;
+  declare inboundLiquidity: number;
 
-  public nodePublicKey?: string;
-  public fundingTransactionId?: string;
-  public fundingTransactionVout?: number;
+  declare nodePublicKey?: string;
+  declare fundingTransactionId?: string;
+  declare fundingTransactionVout?: number;
 
   public static load = (sequelize: Sequelize): void => {
     ChannelCreation.init(

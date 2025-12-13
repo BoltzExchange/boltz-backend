@@ -9,13 +9,13 @@ type ExtraFeeType = {
 };
 
 class ExtraFee extends Model implements ExtraFeeType {
-  public swapId!: string;
-  public id!: string;
-  public fee!: number;
-  public percentage!: number;
+  declare swapId: string;
+  declare id: string;
+  declare fee: number;
+  declare percentage: number;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     ExtraFee.init(

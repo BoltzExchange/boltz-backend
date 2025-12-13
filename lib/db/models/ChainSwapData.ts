@@ -26,28 +26,28 @@ type ChainSwapDataType = {
 };
 
 class ChainSwapData extends Model implements ChainSwapDataType {
-  public swapId!: string;
-  public symbol!: string;
+  declare swapId: string;
+  declare symbol: string;
 
-  public keyIndex?: number;
-  public lockupAddress!: string;
+  declare keyIndex?: number;
+  declare lockupAddress: string;
 
-  public timeoutBlockHeight!: number;
+  declare timeoutBlockHeight: number;
 
-  public theirPublicKey?: string;
-  public swapTree?: string;
+  declare theirPublicKey?: string;
+  declare swapTree?: string;
 
-  public claimAddress?: string;
+  declare claimAddress?: string;
 
-  public expectedAmount!: number;
-  public amount?: number;
-  public fee?: number;
+  declare expectedAmount: number;
+  declare amount?: number;
+  declare fee?: number;
 
-  public transactionId?: string;
-  public transactionVout?: number;
+  declare transactionId?: string;
+  declare transactionVout?: number;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     ChainSwapData.init(

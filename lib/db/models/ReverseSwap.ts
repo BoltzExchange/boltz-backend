@@ -58,49 +58,49 @@ type ReverseSwapType = {
 };
 
 class ReverseSwap extends Model implements ReverseSwapType {
-  public id!: string;
-  public version!: SwapVersion;
+  declare id: string;
+  declare version: SwapVersion;
 
-  public lockupAddress!: string;
+  declare lockupAddress: string;
 
-  public keyIndex?: number;
-  public claimPublicKey?: string;
-  public redeemScript?: string;
+  declare keyIndex?: number;
+  declare claimPublicKey?: string;
+  declare redeemScript?: string;
 
-  public claimAddress?: string;
+  declare claimAddress?: string;
 
-  public fee!: number;
-  public referral?: string;
+  declare fee: number;
+  declare referral?: string;
 
-  public minerFee!: number;
+  declare minerFee: number;
 
-  public pair!: string;
-  public orderSide!: number;
+  declare pair: string;
+  declare orderSide: number;
 
-  public status!: string;
-  public failureReason?: string;
+  declare status: string;
+  declare failureReason?: string;
 
-  public timeoutBlockHeight!: number;
+  declare timeoutBlockHeight: number;
 
-  public node!: NodeType;
+  declare node: NodeType;
 
-  public invoice!: string;
-  public invoiceAmount!: number;
+  declare invoice: string;
+  declare invoiceAmount: number;
 
-  public minerFeeInvoice?: string;
-  public minerFeeInvoicePreimage?: string;
+  declare minerFeeInvoice?: string;
+  declare minerFeeInvoicePreimage?: string;
 
-  public minerFeeOnchainAmount?: number;
+  declare minerFeeOnchainAmount?: number;
 
-  public preimageHash!: string;
-  public preimage?: string;
+  declare preimageHash: string;
+  declare preimage?: string;
 
-  public onchainAmount!: number;
-  public transactionId?: string;
-  public transactionVout?: number;
+  declare onchainAmount: number;
+  declare transactionId?: string;
+  declare transactionVout?: number;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     ReverseSwap.init(

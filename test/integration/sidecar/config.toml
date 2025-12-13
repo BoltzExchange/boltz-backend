@@ -23,16 +23,16 @@ symbol = "BTC"
 
 [currencies.cln]
 host = "127.0.0.1"
-port = 9291
+port = 9736
 
-rootCertPath = "./docker/regtest/data/cln/certs/ca.pem"
-privateKeyPath = "./docker/regtest/data/cln/certs/client-key.pem"
-certChainPath = "./docker/regtest/data/cln/certs/client.pem"
+rootCertPath = "./regtest/data/cln1/regtest/ca.pem"
+privateKeyPath = "./regtest/data/cln1/regtest/client-key.pem"
+certChainPath = "./regtest/data/cln1/regtest/client.pem"
 
 [currencies.cln.hold]
 host = "127.0.0.1"
 port = 9292
 
-rootCertPath = "./docker/regtest/data/cln/hold/ca.pem"
-privateKeyPath = "./docker/regtest/data/cln/hold/client-key.pem"
-certChainPath = "./docker/regtest/data/cln/hold/client.pem"
+rootCertPath = "./regtest/data/cln1/regtest/hold/ca.pem"
+privateKeyPath = "./regtest/data/cln1/regtest/hold/client-key.pem"
+certChainPath = "./regtest/data/cln1/regtest/hold/client.pem"

@@ -15,13 +15,13 @@ type ReverseRoutingHintsType = {
 };
 
 class ReverseRoutingHint extends Model {
-  public swapId!: string;
+  declare swapId: string;
 
-  public symbol!: string;
-  public scriptPubkey!: Buffer;
-  public blindingPubkey?: Buffer;
-  public params?: string;
-  public signature!: Buffer;
+  declare symbol: string;
+  declare scriptPubkey: Buffer;
+  declare blindingPubkey?: Buffer;
+  declare params?: string;
+  declare signature: Buffer;
 
   public address = (type: CurrencyType, network: Network) => {
     return fromOutputScript(

@@ -6,7 +6,7 @@ type DatabaseVersionType = {
 };
 
 class DatabaseVersion extends Model implements DatabaseVersionType {
-  public version!: number;
+  declare version: number;
 
   public static load = (sequelize: Sequelize): void => {
     DatabaseVersion.init(

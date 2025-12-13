@@ -36,6 +36,8 @@ import {
   swapExample,
 } from './ExampleSwaps';
 
+const commandWaitMs = 100;
+
 const getRandomNumber = () => Math.floor(Math.random() * 10000);
 
 type callback = (message: string) => void;
@@ -232,21 +234,21 @@ describe('CommandHandler', () => {
 
   test('should not respond to messages that are not commands', async () => {
     sendMessage('clearly not a command');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   test('should deal with commands that are not all lower case', async () => {
     sendMessage('hElP');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 
   test('should send help message', async () => {
     sendMessage('help');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -270,7 +272,7 @@ describe('CommandHandler', () => {
   test('should send help for single command', async () => {
     // Should just send the description for commands that have no additional arguments
     sendMessage('help getfees');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -279,7 +281,7 @@ describe('CommandHandler', () => {
 
     // Should send the description and the usage for commands that have arguments
     sendMessage('help help');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -291,7 +293,7 @@ describe('CommandHandler', () => {
     sendMessage('getfees');
 
     // Calculating the fees takes a little longer than the other commands
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenLastCalledWith(
@@ -305,7 +307,7 @@ describe('CommandHandler', () => {
     test('should get information about (reverse) swaps', async () => {
       // Submarine Swap
       sendMessage(`swapinfo ${swapExample.id}`);
-      await wait(50);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -316,7 +318,7 @@ describe('CommandHandler', () => {
 
       // Channel Creation Swap
       sendMessage(`swapinfo ${channelSwapExample.id}`);
-      await wait(50);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -333,7 +335,7 @@ describe('CommandHandler', () => {
 
       // Reverse Swap
       sendMessage(`swapinfo ${reverseSwapExample.id}`);
-      await wait(50);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(3);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -356,7 +358,7 @@ describe('CommandHandler', () => {
       const id = 'notFound';
       sendMessage(`swapinfo ${id}`);
 
-      await wait(50);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(5);
       expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
@@ -405,7 +407,7 @@ describe('CommandHandler', () => {
           .mockResolvedValue(mockChainSwaps);
 
         sendMessage(`swapinfo ${address}`);
-        await wait(50);
+        await wait(commandWaitMs);
 
         expect(ReverseSwapRepository.getReverseSwaps).toHaveBeenCalledWith({
           status: {
@@ -448,7 +450,7 @@ describe('CommandHandler', () => {
     const spy = jest.spyOn(Stats, 'generate');
 
     sendMessage('getstats');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(spy).toHaveBeenCalledTimes(1);
     const date = new Date();
@@ -464,13 +466,13 @@ describe('CommandHandler', () => {
     );
 
     sendMessage('getstats all');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(spy).toHaveBeenCalledTimes(3);
     expect(spy).toHaveBeenLastCalledWith(0, 0);
 
     sendMessage('getstats invalid');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(3);
     expect(mockSendMessage).toHaveBeenCalledWith('Invalid parameter: invalid');
@@ -489,7 +491,7 @@ describe('CommandHandler', () => {
 
     test('should list swaps', async () => {
       sendMessage('listswaps');
-      await wait(10);
+      await wait(commandWaitMs);
 
       expect(service.listSwaps).toHaveBeenCalledTimes(1);
       expect(service.listSwaps).toHaveBeenCalledWith(undefined, 100);
@@ -504,7 +506,7 @@ describe('CommandHandler', () => {
       const status = 'some.status';
 
       sendMessage(`listswaps ${status}`);
-      await wait(10);
+      await wait(commandWaitMs);
 
       expect(service.listSwaps).toHaveBeenCalledTimes(1);
       expect(service.listSwaps).toHaveBeenCalledWith(status, 100);
@@ -515,7 +517,7 @@ describe('CommandHandler', () => {
       const limit = 123;
 
       sendMessage(`listswaps ${status} ${limit}`);
-      await wait(10);
+      await wait(commandWaitMs);
 
       expect(service.listSwaps).toHaveBeenCalledTimes(1);
       expect(service.listSwaps).toHaveBeenCalledWith(status, limit);
@@ -526,7 +528,7 @@ describe('CommandHandler', () => {
       const limit = 'not a number';
 
       sendMessage(`listswaps ${status} ${limit}`);
-      await wait(10);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -537,7 +539,7 @@ describe('CommandHandler', () => {
 
   test('should get balances', async () => {
     sendMessage('getbalance');
-    await wait(5);
+    await wait(commandWaitMs);
 
     const wallet: Balances.WalletBalance = btcBalance
       .getWalletsMap()
@@ -560,7 +562,7 @@ describe('CommandHandler', () => {
 
   test('should get locked up funds', async () => {
     sendMessage('lockedfunds');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -579,7 +581,7 @@ describe('CommandHandler', () => {
     ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
 
     sendMessage('pendingswaps');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -592,7 +594,7 @@ describe('CommandHandler', () => {
 
   test('should get pending sweeps', async () => {
     sendMessage('pendingsweeps');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(
       service.swapManager.deferredClaimer.pendingSweeps,
@@ -611,7 +613,7 @@ describe('CommandHandler', () => {
 
   test('should get referral stats', async () => {
     sendMessage('getreferrals');
-    await wait(50);
+    await wait(commandWaitMs);
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -622,7 +624,7 @@ describe('CommandHandler', () => {
   describe('getaddress', () => {
     test('should get addresses', async () => {
       sendMessage('getaddress BTC test');
-      await wait(5);
+      await wait(commandWaitMs);
 
       expect(mockGetAddress).toHaveBeenCalledTimes(1);
       expect(mockGetAddress).toHaveBeenCalledWith('BTC', 'test');
@@ -633,7 +635,7 @@ describe('CommandHandler', () => {
 
     test('should send an error when no currency is specified', async () => {
       sendMessage('getaddress');
-      await wait(5);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -643,7 +645,7 @@ describe('CommandHandler', () => {
 
     test('should send an error when no label is specified', async () => {
       sendMessage('getaddress BTC');
-      await wait(5);
+      await wait(commandWaitMs);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -655,7 +657,7 @@ describe('CommandHandler', () => {
   describe('sweepswaps', () => {
     test('should sweep all symbols', async () => {
       sendMessage('sweepswaps');
-      await wait(5);
+      await wait(commandWaitMs);
 
       expect(service.swapManager.deferredClaimer.sweep).toHaveBeenCalledTimes(
         1,
@@ -674,7 +676,7 @@ describe('CommandHandler', () => {
       ${'l-btc'}
     `('should sweep specific symbol', async ({ symbol }) => {
       sendMessage(`sweepswaps ${symbol}`);
-      await wait(5);
+      await wait(commandWaitMs);
 
       expect(
         service.swapManager.deferredClaimer.sweepSymbol,
@@ -692,7 +694,7 @@ describe('CommandHandler', () => {
 
   test('should toggle reverse swaps', async () => {
     sendMessage('togglereverse');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(service.allowReverseSwaps).toBeFalsy();
 
@@ -700,7 +702,7 @@ describe('CommandHandler', () => {
     expect(mockSendMessage).toHaveBeenCalledWith('Disabled Reverse Swaps');
 
     sendMessage('togglereverse');
-    await wait(5);
+    await wait(commandWaitMs);
 
     expect(service.allowReverseSwaps).toBeTruthy();
 

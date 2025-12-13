@@ -2,8 +2,8 @@ import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
 
 class Rebroadcast extends Model {
-  public rawTransaction!: string;
-  public symbol!: string;
+  declare rawTransaction: string;
+  declare symbol: string;
 
   public static load = (sequelize: Sequelize) => {
     Rebroadcast.init(

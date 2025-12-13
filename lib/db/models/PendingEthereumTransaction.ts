@@ -12,10 +12,10 @@ class PendingEthereumTransaction
   extends Model
   implements PendingEthereumTransactionType
 {
-  public hash!: string;
-  public nonce!: number;
-  public etherAmount!: number;
-  public hex!: string;
+  declare hash: string;
+  declare nonce: number;
+  declare etherAmount: number;
+  declare hex: string;
 
   public static load = (sequelize: Sequelize): void => {
     PendingEthereumTransaction.init(

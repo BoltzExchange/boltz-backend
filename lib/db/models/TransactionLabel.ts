@@ -8,9 +8,9 @@ type TransactionLabelType = {
 };
 
 class TransactionLabel extends Model implements TransactionLabelType {
-  public id!: string;
-  public symbol!: string;
-  public label!: string;
+  declare id: string;
+  declare symbol: string;
+  declare label: string;
 
   public static load = (sequelize: Sequelize) => {
     TransactionLabel.init(

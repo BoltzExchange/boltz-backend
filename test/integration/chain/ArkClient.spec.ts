@@ -45,6 +45,17 @@ describe('ArkClient', () => {
     await expect(arkClient.connect(bitcoinClient)).resolves.toBe(true);
   });
 
+  test('should set pubkey after connecting', async () => {
+    await arkClient.connect(bitcoinClient);
+
+    expect(arkClient.pubkey).toBeDefined();
+    expect(Buffer.isBuffer(arkClient.pubkey)).toBe(true);
+    expect(arkClient.pubkey.length).toBeGreaterThan(0);
+
+    const info = await arkClient.getInfo();
+    expect(getHexBuffer(info.pubkey)).toEqual(arkClient.pubkey);
+  });
+
   test('should get block height', async () => {
     const blockHeight = await arkClient.getBlockHeight();
     expect(blockHeight).toBeGreaterThan(0);

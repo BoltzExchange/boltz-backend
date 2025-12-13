@@ -10,7 +10,7 @@ import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexString, stringify } from '../Utils';
+import { formatError, getHexBuffer, getHexString, stringify } from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
@@ -73,6 +73,7 @@ class ArkClient extends BaseClient<
 
   private static readonly opCsvMultiple = 512;
 
+  public pubkey!: Buffer;
   public subscription!: ArkSubscription;
 
   private chainClient?: IChainClient;
@@ -220,8 +221,9 @@ class ArkClient extends BaseClient<
     try {
       const info = await this.getInfo();
       this.logger.debug(
-        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.signerPubkey}`,
+        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.pubkey}`,
       );
+      this.pubkey = getHexBuffer(info.pubkey);
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
@@ -267,7 +269,8 @@ class ArkClient extends BaseClient<
     this.setClientStatus(ClientStatus.Disconnected);
 
     try {
-      await this.getInfo();
+      const info = await this.getInfo();
+      this.pubkey = getHexBuffer(info.pubkey);
 
       this.logger.info(
         `Reestablished connection to ${this.serviceName()} ${this.symbol}`,

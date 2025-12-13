@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        node-version: [20]
+        node-version: [24]
         rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}
@@ -84,7 +84,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        node-version: [20]
+        node-version: [24]
         rust-version: [stable]
 
     runs-on: ${{ matrix.platform }}

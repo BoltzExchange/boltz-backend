@@ -8,9 +8,9 @@ type PairType = {
 };
 
 class Pair extends Model implements PairType {
-  public id!: string;
-  public base!: string;
-  public quote!: string;
+  declare id: string;
+  declare base: string;
+  declare quote: string;
 
   public static load = (sequelize: Sequelize): void => {
     Pair.init(

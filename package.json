@@ -108,6 +108,9 @@
     "@boltz/bitcoin-ops": "^2.0.0",
     "@eslint/js": "^9.39.1",
     "@openzeppelin/contracts": "^5.4.0",
+    "@swc-contrib/mut-cjs-exports": "^14.0.1",
+    "@swc/core": "^1.15.4",
+    "@swc/jest": "^0.2.39",
     "@trivago/prettier-plugin-sort-imports": "^6.0.0",
     "@types/async-lock": "^1.4.2",
     "@types/express": "^5.0.5",
@@ -131,7 +134,6 @@
     "prettier": "^3.6.2",
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
-    "ts-jest": "^29.4.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.47.0",
     "vitepress": "^1.6.4"

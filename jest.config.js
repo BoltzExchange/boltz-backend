@@ -1,8 +1,17 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   modulePathIgnorePatterns: ['dist'],
   transform: {
-    '^.+\\.spec.ts?$': ['ts-jest'],
+    '^.+\\.[tj]s$': [
+      '@swc/jest',
+      {
+        jsc: {
+          experimental: {
+            plugins: [['@swc-contrib/mut-cjs-exports', {}]],
+          },
+        },
+      },
+    ],
   },
+  transformIgnorePatterns: ['<rootDir>/node_modules/(?!(@scure|micro-packed))'],
 };

@@ -52,44 +52,44 @@ type SwapType = {
 };
 
 class Swap extends Model implements SwapType {
-  public id!: string;
-  public version!: SwapVersion;
+  declare id: string;
+  declare version: SwapVersion;
 
-  public keyIndex?: number;
-  public refundPublicKey?: string;
-  public redeemScript?: string;
+  declare keyIndex?: number;
+  declare refundPublicKey?: string;
+  declare redeemScript?: string;
 
-  public fee?: number;
-  public referral?: string;
+  declare fee?: number;
+  declare referral?: string;
 
-  public routingFee?: number;
-  public minerFee?: number;
-  public paymentTimeout?: number;
+  declare routingFee?: number;
+  declare minerFee?: number;
+  declare paymentTimeout?: number;
 
-  public pair!: string;
-  public orderSide!: number;
+  declare pair: string;
+  declare orderSide: number;
 
-  public status!: string;
-  public failureReason?: string;
+  declare status: string;
+  declare failureReason?: string;
 
-  public preimageHash!: string;
-  public preimage?: string;
-  public invoice?: string;
-  public invoiceAmount?: number;
+  declare preimageHash: string;
+  declare preimage?: string;
+  declare invoice?: string;
+  declare invoiceAmount?: number;
 
-  public acceptZeroConf?: boolean;
-  public timeoutBlockHeight!: number;
-  public rate?: number;
-  public expectedAmount?: number;
-  public onchainAmount?: number;
-  public lockupAddress!: string;
-  public lockupTransactionId?: string;
-  public lockupTransactionVout?: number;
+  declare acceptZeroConf?: boolean;
+  declare timeoutBlockHeight: number;
+  declare rate?: number;
+  declare expectedAmount?: number;
+  declare onchainAmount?: number;
+  declare lockupAddress: string;
+  declare lockupTransactionId?: string;
+  declare lockupTransactionVout?: number;
 
-  public createdRefundSignature!: boolean;
+  declare createdRefundSignature: boolean;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     Swap.init(

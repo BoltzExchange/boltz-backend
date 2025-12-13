@@ -9,10 +9,10 @@ type KeyProviderType = {
 };
 
 class KeyProvider extends Model implements KeyProviderType {
-  public symbol!: string;
+  declare symbol: string;
 
-  public derivationPath!: string;
-  public highestUsedIndex!: number;
+  declare derivationPath: string;
+  declare highestUsedIndex: number;
 
   public static load = (sequelize: Sequelize): void => {
     KeyProvider.init(

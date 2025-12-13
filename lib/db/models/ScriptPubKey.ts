@@ -7,9 +7,9 @@ type ScriptPubKeyType = {
 };
 
 class ScriptPubKey extends Model implements ScriptPubKeyType {
-  public symbol!: string;
-  public script_pubkey!: Buffer;
-  public swap_id!: string;
+  declare symbol: string;
+  declare script_pubkey: Buffer;
+  declare swap_id: string;
 
   public static load = (sequelize: Sequelize): void => {
     ScriptPubKey.init(

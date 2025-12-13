@@ -10,8 +10,8 @@ class PendingLockupTransaction
   extends Model
   implements PendingLockupTransactionType
 {
-  public swapId!: string;
-  public chain!: string;
+  declare swapId: string;
+  declare chain: string;
 
   public static load = (sequelize: Sequelize) => {
     PendingLockupTransaction.init(

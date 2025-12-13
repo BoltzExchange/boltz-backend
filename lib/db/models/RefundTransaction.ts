@@ -15,11 +15,11 @@ type RefundTransactionType = {
 };
 
 class RefundTransaction extends Model implements RefundTransactionType {
-  public swapId!: string;
-  public symbol!: string;
-  public id!: string;
-  public vin!: number | null;
-  public status!: RefundStatus;
+  declare swapId: string;
+  declare symbol: string;
+  declare id: string;
+  declare vin: number | null;
+  declare status: RefundStatus;
 
   public static load = (sequelize: Sequelize): void => {
     RefundTransaction.init(

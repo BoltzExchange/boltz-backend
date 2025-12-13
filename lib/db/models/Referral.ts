@@ -51,15 +51,15 @@ type ReferralType = {
 };
 
 class Referral extends Model implements ReferralType {
-  public id!: string;
+  declare id: string;
 
-  public apiKey!: string;
-  public apiSecret!: string;
+  declare apiKey: string;
+  declare apiSecret: string;
 
-  public feeShare!: number;
-  public routingNode?: string;
+  declare feeShare: number;
+  declare routingNode?: string;
 
-  public config!: ReferralConfig | null;
+  declare config: ReferralConfig | null;
 
   public static load = (sequelize: Sequelize): void => {
     Referral.init(

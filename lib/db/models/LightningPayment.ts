@@ -19,14 +19,14 @@ type LightningPaymentType = {
 };
 
 class LightningPayment extends Model implements LightningPaymentType {
-  public preimageHash!: string;
-  public node!: NodeType;
-  public status!: LightningPaymentStatus;
-  public error?: string;
-  public retries!: number | null;
+  declare preimageHash: string;
+  declare node: NodeType;
+  declare status: LightningPaymentStatus;
+  declare error?: string;
+  declare retries: number | null;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize) => {
     LightningPayment.init(

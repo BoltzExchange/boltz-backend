@@ -23,26 +23,26 @@ type ChainSwapType = {
 };
 
 class ChainSwap extends Model implements ChainSwapType {
-  public id!: string;
+  declare id: string;
 
-  public fee!: number;
-  public referral?: string;
+  declare fee: number;
+  declare referral?: string;
 
-  public pair!: string;
-  public orderSide!: number;
+  declare pair: string;
+  declare orderSide: number;
 
-  public status!: string;
-  public failureReason?: string;
+  declare status: string;
+  declare failureReason?: string;
 
-  public acceptZeroConf!: boolean;
+  declare acceptZeroConf: boolean;
 
-  public preimageHash!: string;
-  public preimage?: string;
+  declare preimageHash: string;
+  declare preimage?: string;
 
-  public createdRefundSignature!: boolean;
+  declare createdRefundSignature: boolean;
 
-  public createdAt!: Date;
-  public updatedAt!: Date;
+  declare createdAt: Date;
+  declare updatedAt: Date;
 
   public static load = (sequelize: Sequelize): void => {
     ChainSwap.init(

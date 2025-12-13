@@ -3,7 +3,7 @@ use crate::wallet::keys::Keys;
 use crate::wallet::{Network, Wallet};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use bitcoin::bip32::Xpriv;
+use bitcoin::{bip32::Xpriv, secp256k1};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -45,6 +45,14 @@ impl Wallet for Bitcoin {
 
     fn derive_keys(&self, index: u64) -> Result<Xpriv> {
         self.keys.derive_key(index)
+    }
+
+    fn derive_pubkey(
+        &self,
+        secp: &secp256k1::Secp256k1<secp256k1::All>,
+        index: u64,
+    ) -> Result<secp256k1::PublicKey> {
+        Ok(self.derive_keys(index)?.private_key.public_key(secp))
     }
 
     fn derive_blinding_key(&self, _address: &str) -> Result<Vec<u8>> {
@@ -137,6 +145,38 @@ mod test {
             ),
             "034f9213a05b414189ea7edd4466cbce31ab052b03d6f9824e208287841a034bfc"
         );
+    }
+
+    #[tokio::test]
+    async fn test_derive_pubkey() {
+        let (seed, path) = get_seed();
+        let wallet =
+            Bitcoin::new(Network::Testnet, &seed, path, Arc::new(get_client().await)).unwrap();
+        let secp = Secp256k1::new();
+        let pubkey = wallet.derive_pubkey(&secp, 0).unwrap();
+        assert_eq!(
+            hex::encode(pubkey.serialize()),
+            "034f9213a05b414189ea7edd4466cbce31ab052b03d6f9824e208287841a034bfc"
+        );
+    }
+
+    #[tokio::test]
+    #[rstest]
+    #[case(
+        0,
+        "034f9213a05b414189ea7edd4466cbce31ab052b03d6f9824e208287841a034bfc"
+    )]
+    #[case(
+        1,
+        "03defe74e5f8393f9c48d9c9fb0bf49a883adac25269890bb1d2d7c41af619f2d5"
+    )]
+    async fn test_derive_pubkey_multiple_indices(#[case] index: u64, #[case] expected: &str) {
+        let (seed, path) = get_seed();
+        let wallet =
+            Bitcoin::new(Network::Testnet, &seed, path, Arc::new(get_client().await)).unwrap();
+        let secp = Secp256k1::new();
+        let pubkey = wallet.derive_pubkey(&secp, index).unwrap();
+        assert_eq!(hex::encode(pubkey.serialize()), expected);
     }
 
     #[tokio::test]

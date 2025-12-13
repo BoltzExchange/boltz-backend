@@ -1,4 +1,5 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
+import ArkClient from '../../../../lib/chain/ArkClient';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import type Referral from '../../../../lib/db/models/Referral';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
@@ -87,6 +88,7 @@ describe('RateProviderTaproot', () => {
       ],
       ['R-BTC', { provider: {} }],
       ['CASHU', {}],
+      [ArkClient.symbol, { arkNode: {} }],
     ]),
     mockedFeeProvider,
     {
@@ -763,6 +765,7 @@ describe('RateProviderTaproot', () => {
     ${'BTC'}   | ${true}
     ${'L-BTC'} | ${true}
     ${'R-BTC'} | ${true}
+    ${'ARK'}   | ${true}
     ${'CASHU'} | ${false}
   `(
     'should check if $currency can be used onchain',

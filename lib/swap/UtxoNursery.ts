@@ -457,8 +457,6 @@ class UtxoNursery extends TypedEventEmitter<{
       }
 
       await Promise.all([
-        this.checkUserLockupsInMempool(chainClient, wallet),
-
         this.checkServerLockupMempoolTransactions(chainClient, wallet),
 
         this.checkExpiredSwaps(chainClient, height),
@@ -468,97 +466,6 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
-  private checkUserLockupsInMempool = async (
-    chainClient: IChainClient,
-    wallet: Wallet,
-  ) => {
-    const checkSwapLockups = async () => {
-      const mempoolSwaps = await SwapRepository.getSwaps({
-        status: {
-          [Op.or]: [
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-          ],
-        },
-      });
-
-      for (const swap of mempoolSwaps) {
-        const { base, quote } = splitPairId(swap.pair);
-        const chainCurrency = getChainCurrency(
-          base,
-          quote,
-          swap.orderSide,
-          false,
-        );
-
-        if (chainCurrency !== chainClient.symbol) {
-          continue;
-        }
-
-        try {
-          const lockupTransaction = await chainClient.getRawTransactionVerbose(
-            swap.lockupTransactionId!,
-          );
-
-          if (isTxConfirmed(lockupTransaction)) {
-            await this.checkSwapTransaction(
-              swap,
-              chainClient,
-              wallet,
-              parseTransaction(wallet.type, lockupTransaction.hex),
-              TransactionStatus.Confirmed,
-            );
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e) {
-          this.logger.silly(
-            `Could not find lockup transaction of Swap ${swap.id}: ${swap.lockupTransactionId}`,
-          );
-        }
-      }
-    };
-
-    const checkChainSwapLockups = async () => {
-      const mempoolSwaps = await ChainSwapRepository.getChainSwaps({
-        status: {
-          symbol: chainClient.symbol,
-          [Op.or]: [
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-          ],
-        },
-      });
-
-      for (const swap of mempoolSwaps) {
-        try {
-          const lockupTransaction = await chainClient.getRawTransactionVerbose(
-            swap.receivingData.transactionId!,
-          );
-
-          if (isTxConfirmed(lockupTransaction)) {
-            await this.checkChainSwapTransaction(
-              swap,
-              chainClient,
-              wallet,
-              parseTransaction(wallet.type, lockupTransaction.hex),
-              TransactionStatus.Confirmed,
-            );
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e) {
-          this.logger.silly(
-            `Could not find lockup transaction of Chain Swap ${swap.chainSwap.id}: ${swap.receivingData.transactionId}`,
-          );
-        }
-      }
-    };
-
-    await this.lock.acquire(UtxoNursery.lockupLock, async () => {
-      await Promise.all([checkSwapLockups(), checkChainSwapLockups()]);
-    });
-  };
-
-  // This method is a fallback for "checkReverseSwapLockupsConfirmed" because that method sometimes misses transactions on mainnet for an unknown reason
   private checkServerLockupMempoolTransactions = async (
     chainClient: IChainClient,
     wallet: Wallet,

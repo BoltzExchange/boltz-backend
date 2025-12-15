@@ -483,21 +483,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "transaction",
-                  "checkpoint"
-                ],
-                "properties": {
-                  "transaction": {
-                    "type": "string",
-                    "description": "Partially signed Bitcoin transaction (PSBT) encoded as base64"
-                  },
-                  "checkpoint": {
-                    "type": "string",
-                    "description": "Ark checkpoint PSBT encoded as base64"
-                  }
-                }
+                "$ref": "#/components/schemas/ArkRefundRequest"
               }
             }
           }
@@ -508,21 +494,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "transaction",
-                    "checkpoint"
-                  ],
-                  "properties": {
-                    "transaction": {
-                      "type": "string",
-                      "description": "Signed transaction PSBT encoded as base64"
-                    },
-                    "checkpoint": {
-                      "type": "string",
-                      "description": "Signed Ark checkpoint PSBT encoded as base64"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ArkRefundResponse"
                 }
               }
             }
@@ -538,7 +510,7 @@
             }
           },
           "404": {
-            "description": "When no Swap with the ID could be found",
+            "description": "When no Submarine Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1216,6 +1188,67 @@
           },
           "400": {
             "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swap/chain/{id}/refund/ark": {
+      "post": {
+        "description": "Signs cooperative refund transactions for Ark Chain Swaps",
+        "tags": [
+          "Chain Swap"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the Chain Swap"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArkRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The signed refund transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArkRefundResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When no Chain Swap with the ID could be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -3729,6 +3762,40 @@
           }
         }
       },
+      "ArkRefundRequest": {
+        "type": "object",
+        "required": [
+          "transaction",
+          "checkpoint"
+        ],
+        "properties": {
+          "transaction": {
+            "type": "string",
+            "description": "Partially signed Bitcoin transaction (PSBT) encoded as base64"
+          },
+          "checkpoint": {
+            "type": "string",
+            "description": "Ark checkpoint PSBT encoded as base64"
+          }
+        }
+      },
+      "ArkRefundResponse": {
+        "type": "object",
+        "required": [
+          "transaction",
+          "checkpoint"
+        ],
+        "properties": {
+          "transaction": {
+            "type": "string",
+            "description": "Signed transaction PSBT encoded as base64"
+          },
+          "checkpoint": {
+            "type": "string",
+            "description": "Signed Ark checkpoint PSBT encoded as base64"
+          }
+        }
+      },
       "SubmarineClaimDetails": {
         "type": "object",
         "required": [
@@ -4154,8 +4221,6 @@
       "ChainSwapData": {
         "type": "object",
         "required": [
-          "swapTree",
-          "timeoutBlockHeight",
           "amount"
         ],
         "properties": {
@@ -4174,6 +4239,9 @@
             "type": "number",
             "description": "Timeout block height of the onchain HTLC"
           },
+          "timeoutBlockHeights": {
+            "$ref": "#/components/schemas/ArkTimeouts"
+          },
           "amount": {
             "type": "number",
             "description": "Amount that is supposed to be locked in the onchain HTLC"
@@ -4189,6 +4257,10 @@
           "bip21": {
             "type": "string",
             "description": "BIP-21 for the UTXO onchain lockup of the user"
+          },
+          "claimAddress": {
+            "type": "string",
+            "description": "EVM address with which the Chain Swap can be claimed"
           }
         }
       },

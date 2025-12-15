@@ -31,6 +31,7 @@ import {
 import { ECPair } from '../../../../lib/ECPairHelper';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
+import ArkClient from '../../../../lib/chain/ArkClient';
 import {
   CurrencyType,
   SwapType,
@@ -44,6 +45,7 @@ import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRe
 import Errors from '../../../../lib/service/Errors';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
+import * as Utils from '../../../../lib/service/cooperative/Utils';
 import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../../lib/wallet/WalletLiquid';
@@ -380,6 +382,191 @@ describe('ChainSwapSigner', () => {
         );
       },
     );
+  });
+
+  describe('signRefundArk', () => {
+    const arkCurrency = {
+      symbol: ArkClient.symbol,
+      type: CurrencyType.Ark,
+      arkNode: {
+        signTransaction: jest.fn(),
+      },
+    };
+
+    let signerWithArk: ChainSwapSigner;
+
+    beforeEach(() => {
+      signerWithArk = new ChainSwapSigner(
+        Logger.disabledLogger,
+        new Map<string, Currency>([
+          [btcCurrency.symbol, btcCurrency],
+          [liquidCurrency.symbol, liquidCurrency],
+          [arkCurrency.symbol, arkCurrency as unknown as Currency],
+        ]),
+        walletManager,
+        new SwapOutputType(OutputType.Bech32),
+      );
+    });
+
+    test.each([[null], [undefined]])(
+      'should throw when swap cannot be found (%s)',
+      async (swap) => {
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(swap);
+
+        const id = 'notFound';
+        await expect(
+          signerWithArk.signRefundArk(id, 'transaction', 'checkpoint'),
+        ).rejects.toEqual(Errors.SWAP_NOT_FOUND(id));
+
+        expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(1);
+        expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+          id,
+        });
+      },
+    );
+
+    test('should throw when currency is not Ark', async () => {
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        receivingData: {
+          symbol: 'BTC',
+        },
+      });
+
+      const id = 'notArk';
+      await expect(
+        signerWithArk.signRefundArk(id, 'transaction', 'checkpoint'),
+      ).rejects.toEqual(new Error('currency is not Ark'));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({ id });
+    });
+
+    test('should validate eligibility', async () => {
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        receivingData: {
+          symbol: 'ARK',
+        },
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.SwapCreated,
+      });
+
+      const id = 'eligible';
+      await expect(
+        signerWithArk.signRefundArk(id, 'transaction', 'checkpoint'),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.StatusNotEligible,
+        ),
+      );
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledTimes(1);
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({ id });
+    });
+
+    test('should throw when checkArkTransaction fails', async () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        pair: 'ARK/BTC',
+        receivingData: {
+          symbol: 'ARK',
+          transactionId: getHexString(txId),
+          transactionVout: vout,
+        },
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.TransactionLockupFailed,
+      });
+
+      const checkArkTransactionSpy = jest
+        .spyOn(Utils, 'checkArkTransaction')
+        .mockImplementation(() => {
+          throw new Error('transaction validation failed');
+        });
+
+      await expect(
+        signerWithArk.signRefundArk('eligible', 'transaction', 'checkpoint'),
+      ).rejects.toEqual(new Error('transaction validation failed'));
+
+      expect(checkArkTransactionSpy).toHaveBeenCalledTimes(1);
+      expect(checkArkTransactionSpy).toHaveBeenCalledWith(
+        'transaction',
+        'checkpoint',
+        getHexString(txId),
+        vout,
+      );
+
+      checkArkTransactionSpy.mockRestore();
+    });
+
+    test('should sign refunds', async () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+      const swapId = 'eligible';
+
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        id: swapId,
+        pair: 'ARK/BTC',
+        receivingData: {
+          symbol: 'ARK',
+          transactionId: getHexString(txId),
+          transactionVout: vout,
+        },
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.TransactionLockupFailed,
+      });
+
+      ChainSwapRepository.setRefundSignatureCreated = jest.fn();
+
+      const checkArkTransactionSpy = jest
+        .spyOn(Utils, 'checkArkTransaction')
+        .mockImplementation(() => {});
+
+      const signedRefundTx = 'signedRefundTx';
+      const signedCheckpoint = 'signedCheckpoint';
+      arkCurrency.arkNode!.signTransaction = jest
+        .fn()
+        .mockResolvedValueOnce(signedRefundTx)
+        .mockResolvedValueOnce(signedCheckpoint);
+
+      const inputRefundTx = 'transaction';
+      const inputCheckpoint = 'checkpoint';
+
+      await expect(
+        signerWithArk.signRefundArk(swapId, inputRefundTx, inputCheckpoint),
+      ).resolves.toEqual({
+        transaction: signedRefundTx,
+        checkpoint: signedCheckpoint,
+      });
+
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).toHaveBeenCalledWith(swapId);
+
+      expect(checkArkTransactionSpy).toHaveBeenCalledTimes(1);
+      expect(checkArkTransactionSpy).toHaveBeenCalledWith(
+        inputRefundTx,
+        inputCheckpoint,
+        getHexString(txId),
+        vout,
+      );
+
+      expect(arkCurrency.arkNode!.signTransaction).toHaveBeenCalledTimes(2);
+      expect(arkCurrency.arkNode!.signTransaction).toHaveBeenNthCalledWith(
+        1,
+        inputRefundTx,
+      );
+      expect(arkCurrency.arkNode!.signTransaction).toHaveBeenNthCalledWith(
+        2,
+        inputCheckpoint,
+      );
+
+      checkArkTransactionSpy.mockRestore();
+    });
   });
 
   describe('registerForClaim', () => {

@@ -8,6 +8,7 @@ import {
   SwapType,
   SwapUpdateEvent,
 } from '../../../lib/consts/Enums';
+import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import ArkNursery from '../../../lib/swap/ArkNursery';
@@ -42,8 +43,10 @@ describe('ArkNursery', () => {
 
       const swap = {
         id: 'rev',
+        lockupAddress: 'ark_address',
       };
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(swap);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
       jest.spyOn(nursery, 'emit');
 
@@ -65,10 +68,71 @@ describe('ArkNursery', () => {
         preimageHash:
           '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
       });
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        status: {
+          [Op.or]: [
+            SwapUpdateEvent.TransactionServerMempool,
+            SwapUpdateEvent.TransactionServerConfirmed,
+            SwapUpdateEvent.TransactionRefunded,
+          ],
+        },
+        preimageHash:
+          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
+      });
       expect(nursery.emit).toHaveBeenCalledWith('reverseSwap.claimed', {
         reverseSwap: swap,
         preimage: claimTxPreimage,
       });
+      expect(arkClient.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+    });
+
+    test('should check chain swap claims', async () => {
+      const arkClient = {
+        getTx: jest.fn().mockResolvedValue(claimTx),
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      };
+
+      const swap = {
+        id: 'chain',
+        sendingData: {
+          lockupAddress: 'ark_sending_address',
+        },
+      };
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(swap);
+
+      jest.spyOn(nursery, 'emit');
+
+      await nursery['checkClaims'](
+        arkClient as unknown as ArkClient,
+        {
+          spentBy: 'txid',
+        } as unknown as any,
+      );
+
+      expect(arkClient.getTx).toHaveBeenCalledWith('txid');
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        status: {
+          [Op.or]: [
+            SwapUpdateEvent.TransactionServerMempool,
+            SwapUpdateEvent.TransactionServerConfirmed,
+            SwapUpdateEvent.TransactionRefunded,
+          ],
+        },
+        preimageHash:
+          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
+      });
+      expect(nursery.emit).toHaveBeenCalledWith('chainSwap.claimed', {
+        swap,
+        preimage: claimTxPreimage,
+      });
+      expect(arkClient.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_sending_address',
+      );
     });
   });
 
@@ -139,7 +203,7 @@ describe('ArkNursery', () => {
     });
   });
 
-  describe('checkLockups', () => {
+  describe('checkSubmarineLockup', () => {
     const mockArkNode = {
       symbol: 'ARK',
       subscription: {
@@ -154,7 +218,7 @@ describe('ArkNursery', () => {
     test('should return early when no swap is found', async () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
 
-      await nursery['checkLockups'](mockArkNode, {
+      await nursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
         txId: 'txid',
         vout: 0,
@@ -186,7 +250,7 @@ describe('ArkNursery', () => {
         emittedEvent = data;
       });
 
-      await nursery['checkLockups'](mockArkNode, {
+      await nursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
         txId: 'txid',
         vout: 0,
@@ -223,7 +287,7 @@ describe('ArkNursery', () => {
         emittedEvent = data;
       });
 
-      await testNursery['checkLockups'](mockArkNode, {
+      await testNursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
         txId: 'txid',
         vout: 0,
@@ -263,7 +327,7 @@ describe('ArkNursery', () => {
         emittedEvent = data;
       });
 
-      await nursery['checkLockups'](mockArkNode, {
+      await nursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
         txId: 'txid',
         vout: 0,
@@ -308,7 +372,7 @@ describe('ArkNursery', () => {
         emittedEvent = data;
       });
 
-      await nursery['checkLockups'](mockArkNode, {
+      await nursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
         txId: 'txid',
         vout: 0,
@@ -321,7 +385,184 @@ describe('ArkNursery', () => {
     });
   });
 
-  describe('checkExpiredReverseSwaps', () => {
+  describe('checkChainSwapLockup', () => {
+    const mockArkNode = {
+      symbol: 'ARK',
+      subscription: {
+        unsubscribeAddress: jest.fn(),
+      },
+    } as unknown as ArkClient;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should return early when no swap is found', async () => {
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      await nursery['checkChainSwapLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 100000,
+      } as any);
+
+      expect(ChainSwapRepository.getChainSwapByData).toHaveBeenCalledWith(
+        {
+          lockupAddress: 'ark_address',
+        },
+        {
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.SwapCreated,
+              SwapUpdateEvent.TransactionMempool,
+              SwapUpdateEvent.TransactionLockupFailed,
+              SwapUpdateEvent.TransactionZeroConfRejected,
+              SwapUpdateEvent.TransactionConfirmed,
+            ],
+          },
+        },
+      );
+      expect(
+        mockArkNode.subscription.unsubscribeAddress,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should emit failure for insufficient amount', async () => {
+      const swap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        receivingData: {
+          symbol: mockArkNode.symbol,
+          expectedAmount: 100000,
+        },
+      };
+
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
+
+      let emittedEvent: any = null;
+      nursery.once('chainSwap.lockup.failed', (data) => {
+        emittedEvent = data;
+      });
+
+      await nursery['checkChainSwapLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 50000,
+      } as any);
+
+      expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.reason).toEqual(
+        Errors.INSUFFICIENT_AMOUNT(50000, 100000).message,
+      );
+    });
+
+    test('should emit failure for unacceptable overpayment', async () => {
+      const swap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        receivingData: {
+          symbol: mockArkNode.symbol,
+          expectedAmount: 100000,
+        },
+      };
+
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
+
+      const protector = new OverpaymentProtector(Logger.disabledLogger, {
+        exemptAmount: 1000,
+        maxPercentage: 1,
+      });
+      const testNursery = new ArkNursery(Logger.disabledLogger, protector);
+
+      let emittedEvent: any = null;
+      testNursery.once('chainSwap.lockup.failed', (data) => {
+        emittedEvent = data;
+      });
+
+      await testNursery['checkChainSwapLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 150000,
+      } as any);
+
+      expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.reason).toEqual(
+        Errors.OVERPAID_AMOUNT(150000, 100000).message,
+      );
+    });
+
+    test('should emit success for valid lockup', async () => {
+      const swap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        receivingData: {
+          symbol: mockArkNode.symbol,
+          expectedAmount: 100000,
+        },
+      };
+
+      const updatedSwap = {
+        ...swap,
+        receivingData: {
+          ...swap.receivingData,
+          lockupTransactionId: 'txid',
+          amount: 100000,
+        },
+      };
+
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
+
+      let emittedEvent: any = null;
+      nursery.once('chainSwap.lockup', (data) => {
+        emittedEvent = data;
+      });
+
+      await nursery['checkChainSwapLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 100000,
+      } as any);
+
+      expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        100000,
+        true,
+        0,
+      );
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+    });
+  });
+
+  describe('checkExpiredSwaps', () => {
     const mockArkNode = {
       symbol: 'ARK',
       subscription: {
@@ -336,6 +577,7 @@ describe('ArkNursery', () => {
     test('should emit expired event for Ark reverse swaps', async () => {
       const expiredSwap = {
         id: 'rev123',
+        type: SwapType.ReverseSubmarine,
         pair: 'ARK/BTC',
         orderSide: 0,
         lockupAddress: 'ark_address',
@@ -344,17 +586,24 @@ describe('ArkNursery', () => {
       ReverseSwapRepository.getReverseSwapsExpirable = jest
         .fn()
         .mockResolvedValue([expiredSwap]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
 
       let emittedSwap: any = null;
       nursery.once('reverseSwap.expired', (swap) => {
         emittedSwap = swap;
       });
 
-      await nursery['checkExpiredReverseSwaps'](mockArkNode, 1234567);
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
       expect(
         ReverseSwapRepository.getReverseSwapsExpirable,
       ).toHaveBeenCalledWith(1234567);
+      expect(ChainSwapRepository.getChainSwapsExpirable).toHaveBeenCalledWith(
+        ['ARK'],
+        1234567,
+      );
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_address',
       );
@@ -364,6 +613,7 @@ describe('ArkNursery', () => {
     test('should not emit for non-Ark reverse swaps', async () => {
       const expiredSwap = {
         id: 'rev123',
+        type: SwapType.ReverseSubmarine,
         pair: 'BTC/BTC',
         orderSide: 0,
         lockupAddress: 'btc_address',
@@ -372,13 +622,16 @@ describe('ArkNursery', () => {
       ReverseSwapRepository.getReverseSwapsExpirable = jest
         .fn()
         .mockResolvedValue([expiredSwap]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
 
       let emittedSwap: any = null;
       nursery.once('reverseSwap.expired', (swap) => {
         emittedSwap = swap;
       });
 
-      await nursery['checkExpiredReverseSwaps'](mockArkNode, 1234567);
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
       expect(
         mockArkNode.subscription.unsubscribeAddress,
@@ -390,18 +643,21 @@ describe('ArkNursery', () => {
       const expiredSwaps = [
         {
           id: 'rev1',
+          type: SwapType.ReverseSubmarine,
           pair: 'ARK/BTC',
           orderSide: 0,
           lockupAddress: 'ark_address1',
         },
         {
           id: 'rev2',
+          type: SwapType.ReverseSubmarine,
           pair: 'ARK/BTC',
           orderSide: 0,
           lockupAddress: 'ark_address2',
         },
         {
           id: 'rev3',
+          type: SwapType.ReverseSubmarine,
           pair: 'BTC/BTC',
           orderSide: 0,
           lockupAddress: 'btc_address',
@@ -411,13 +667,16 @@ describe('ArkNursery', () => {
       ReverseSwapRepository.getReverseSwapsExpirable = jest
         .fn()
         .mockResolvedValue(expiredSwaps);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
 
       const emittedSwaps: any[] = [];
       nursery.on('reverseSwap.expired', (swap) => {
         emittedSwaps.push(swap);
       });
 
-      await nursery['checkExpiredReverseSwaps'](mockArkNode, 1234567);
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledTimes(
         2,
@@ -437,17 +696,60 @@ describe('ArkNursery', () => {
       ReverseSwapRepository.getReverseSwapsExpirable = jest
         .fn()
         .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
 
-      await nursery['checkExpiredReverseSwaps'](mockArkNode, 1234567);
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
       expect(
         mockArkNode.subscription.unsubscribeAddress,
       ).not.toHaveBeenCalled();
     });
+
+    test('should emit expired event for Ark chain swaps', async () => {
+      const expiredSwap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        pair: 'ARK/BTC',
+        orderSide: 0,
+        sendingData: {
+          lockupAddress: 'ark_address',
+        },
+      };
+
+      ReverseSwapRepository.getReverseSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([expiredSwap]);
+
+      let emittedSwap: any = null;
+      nursery.once('chainSwap.expired', (swap) => {
+        emittedSwap = swap;
+      });
+
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
+
+      expect(ChainSwapRepository.getChainSwapsExpirable).toHaveBeenCalledWith(
+        ['ARK'],
+        1234567,
+      );
+      expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+      expect(emittedSwap).toEqual(expiredSwap);
+    });
   });
 
   describe('checkClaims - no swap found', () => {
     test('should continue when no reverse swap is found', async () => {
+      const isolatedNursery = new ArkNursery(
+        Logger.disabledLogger,
+        new OverpaymentProtector(Logger.disabledLogger),
+      );
+
       const arkClient = {
         getTx: jest.fn().mockResolvedValue(claimTx),
         subscription: {
@@ -456,10 +758,11 @@ describe('ArkNursery', () => {
       };
 
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 
-      jest.spyOn(nursery, 'emit');
+      jest.spyOn(isolatedNursery, 'emit');
 
-      await nursery['checkClaims'](
+      await isolatedNursery['checkClaims'](
         arkClient as unknown as ArkClient,
         {
           spentBy: 'txid',
@@ -468,7 +771,7 @@ describe('ArkNursery', () => {
 
       expect(arkClient.getTx).toHaveBeenCalledWith('txid');
       expect(arkClient.subscription.unsubscribeAddress).not.toHaveBeenCalled();
-      expect(nursery.emit).not.toHaveBeenCalled();
+      expect(isolatedNursery.emit).not.toHaveBeenCalled();
     });
   });
 });

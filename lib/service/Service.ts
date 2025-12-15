@@ -2228,6 +2228,7 @@ class Service {
     ];
 
     switch (sendingCurrency.type) {
+      case CurrencyType.Ark:
       case CurrencyType.Liquid:
       case CurrencyType.BitcoinLike:
         if (args.claimPublicKey === undefined) {
@@ -2248,6 +2249,7 @@ class Service {
     }
 
     if (
+      receivingCurrency.type === CurrencyType.Ark ||
       receivingCurrency.type === CurrencyType.Liquid ||
       receivingCurrency.type === CurrencyType.BitcoinLike
     ) {

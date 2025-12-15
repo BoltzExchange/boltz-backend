@@ -29,7 +29,11 @@ class Redis {
 
   public disconnect = () => {
     this.client.removeAllListeners();
-    this.client.destroy();
+    try {
+      this.client.destroy();
+    } catch (err) {
+      this.logger.warn(`Redis disconnect error: ${formatError(err)}`);
+    }
   };
 
   public hashLength = async (key: string): Promise<number> => {

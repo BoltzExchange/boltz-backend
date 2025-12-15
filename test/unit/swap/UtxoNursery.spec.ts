@@ -123,7 +123,8 @@ const mockGetKeysByIndex = jest
   .mockImplementation(() => mockGetKeysByIndexResult);
 
 jest.mock('../../../lib/wallet/Wallet', () => {
-  return jest.fn().mockImplementation(() => ({
+  return jest.fn().mockImplementation((symbol?: string) => ({
+    symbol: symbol || 'BTC',
     type: CurrencyType.BitcoinLike,
     decodeAddress: mockDecodeAddress,
     encodeAddress: mockEncodeAddress,
@@ -136,11 +137,6 @@ const MockedWallet = <jest.Mock<Wallet>>(<any>Wallet);
 let mockGetSwapResult: any = null;
 const mockGetSwap = jest.fn().mockImplementation(async () => {
   return mockGetSwapResult;
-});
-
-let mockGetSwapsResult: any[] = [];
-const mockGetSwaps = jest.fn().mockImplementation(async () => {
-  return mockGetSwapsResult;
 });
 
 let mockGetSwapsExpirableResult: any[] = [];
@@ -174,7 +170,7 @@ const mockSetStatus = jest.fn().mockImplementation(async (arg) => arg);
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
 describe('UtxoNursery', () => {
-  const btcWallet = new MockedWallet();
+  const btcWallet = new MockedWallet('BTC');
   const btcChainClient = new MockedChainClient('BTC');
 
   const transactionHook = {
@@ -210,7 +206,6 @@ describe('UtxoNursery', () => {
     jest.clearAllMocks();
 
     SwapRepository.getSwap = mockGetSwap;
-    SwapRepository.getSwaps = mockGetSwaps;
     SwapRepository.getSwapsExpirable = mockGetSwapsExpirable;
     SwapRepository.setLockupTransaction = mockSetLockupTransaction;
 
@@ -349,62 +344,6 @@ describe('UtxoNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).not.toHaveBeenCalled();
-  });
-
-  test('should handle confirmed Swap outputs via block events', async () => {
-    const realCheckSwapTransaction = nursery['checkSwapTransaction'];
-    const injectedCheckSwapTransaction = jest.fn().mockResolvedValue(undefined);
-
-    nursery['checkSwapTransaction'] = injectedCheckSwapTransaction;
-
-    mockGetRawTransactionVerboseResult = (txId: string) => {
-      const result: any = {
-        hex: sampleTransactions.lockup,
-      };
-
-      if (txId !== 'notConfirmed') {
-        result.confirmations = 1;
-      }
-
-      return result;
-    };
-
-    mockGetSwapsResult = [
-      {
-        pair: 'not/bitcoin',
-      },
-      {
-        pair: 'BTC/BTC',
-      },
-      {
-        pair: 'BTC/BTC',
-        lockupTransactionId: 'notConfirmed',
-      },
-    ];
-
-    await emitBlock({ symbol: 'BTC', height: 1, hash: Buffer.alloc(32) });
-
-    expect(mockGetSwaps).toHaveBeenCalledTimes(1);
-    expect(mockGetSwaps).toHaveBeenCalledWith({
-      status: {
-        [Op.or]: [
-          SwapUpdateEvent.TransactionMempool,
-          SwapUpdateEvent.TransactionZeroConfRejected,
-        ],
-      },
-    });
-
-    expect(injectedCheckSwapTransaction).toHaveBeenCalledTimes(1);
-    expect(injectedCheckSwapTransaction).toHaveBeenCalledWith(
-      mockGetSwapsResult[1],
-      btcChainClient,
-      new MockedWallet(),
-      Transaction.fromHex(sampleTransactions.lockup),
-      TransactionStatus.Confirmed,
-    );
-
-    mockGetSwapsResult = [];
-    nursery['checkSwapTransaction'] = realCheckSwapTransaction;
   });
 
   test('should check both swap types with correct status filters', async () => {

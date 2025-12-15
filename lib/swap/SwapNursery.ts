@@ -361,6 +361,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           }
 
           if (
+            swap.status === SwapUpdateEvent.TransactionClaimPending ||
             SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)
           ) {
             this.logger.debug(

@@ -9,7 +9,9 @@ Boltz Pro temporarily offers incentives, like 0% or even negative fees, to
 encourage users to conduct swaps that work in favor of our liquidity needs. It
 has much stricter limits, e.g. the available fee budget for routing on
 Lightning, or the time limit to fund swaps and is **not designed for regular
-payments**.
+payments**. Lightning payments may be queued and dispatched with a delay of
+several minutes, or not sent at all if liquidity conditions change and the swap
+is cancelled.
 
 ## Web Usage
 

@@ -9,6 +9,7 @@ import {
   splitPairId,
   stringify,
 } from '../Utils';
+import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import {
   OrderSide,
@@ -17,6 +18,7 @@ import {
   swapTypeToPrettyString,
 } from '../consts/Enums';
 import type { PairConfig } from '../consts/Types';
+import { NodeType } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
@@ -211,6 +213,7 @@ class TimeoutDeltaProvider {
   };
 
   public checkRoutability = async (
+    chainClient: IChainClient,
     lightningClient: LightningClient,
     decodedInvoice: DecodedInvoice,
     cltvLimit: number,
@@ -247,18 +250,27 @@ class TimeoutDeltaProvider {
         1,
       );
 
-      const routes = await lightningClient.queryRoutes(
-        getHexString(decodedInvoice.payee!),
-        amountToQuery,
-        cltvLimit,
-        decodedInvoice.minFinalCltv,
-        decodedInvoice.routingHints,
-      );
+      const [blockchainInfo, routes] = await Promise.all([
+        chainClient.getBlockchainInfo(),
+        lightningClient.queryRoutes(
+          getHexString(decodedInvoice.payee!),
+          amountToQuery,
+          cltvLimit,
+          decodedInvoice.minFinalCltv,
+          decodedInvoice.routingHints,
+        ),
+      ]);
 
-      return routes.reduce(
+      const result = routes.reduce(
         (highest, r) => (highest > r.ctlv ? highest : r.ctlv),
         TimeoutDeltaProvider.noRoutes,
       );
+
+      return lightningClient.type === NodeType.LND
+        ? // LND returns absolute numbers
+          Math.ceil(result - blockchainInfo.blocks)
+        : // CLN relative ones
+          result;
     } catch (error) {
       this.logger.debug(`Could not query routes: ${formatError(error)}`);
       return TimeoutDeltaProvider.noRoutes;
@@ -293,19 +305,17 @@ class TimeoutDeltaProvider {
         ? lightningTimeout.swapTaproot
         : lightningTimeout.swapMaximal;
 
-    const [routeTimeLock, chainInfo] = await Promise.all([
-      this.checkRoutability(lightningClient, decodedInvoice, lightningCltv),
-      currency.chainClient!.getBlockchainInfo(),
-    ]);
+    const routeDeltaRelative = await this.checkRoutability(
+      currency.chainClient!,
+      lightningClient,
+      decodedInvoice,
+      lightningCltv,
+    );
 
-    if (routeTimeLock === TimeoutDeltaProvider.noRoutes) {
+    if (routeDeltaRelative === TimeoutDeltaProvider.noRoutes) {
       return [chainTimeout.swapMaximal, false];
     }
 
-    const routeDeltaRelative =
-      lightningClient instanceof LndClient
-        ? routeTimeLock - chainInfo.blocks
-        : routeTimeLock;
     this.logger.debug(
       `CLTV needed to route: ${routeDeltaRelative} ${lightningCurrency} blocks`,
     );

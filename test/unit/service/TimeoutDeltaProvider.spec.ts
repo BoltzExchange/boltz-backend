@@ -6,6 +6,7 @@ import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { PairConfig } from '../../../lib/consts/Types';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import { msatToSat } from '../../../lib/lightning/ChannelUtils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
@@ -90,6 +91,35 @@ describe('TimeoutDeltaProvider', () => {
       swapTaproot: val,
     };
   };
+
+  const mockChainClient = {
+    getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: 100 }),
+  } as any;
+
+  const createMockLndClient = (queryRoutesResponse: any[] = []) =>
+    ({
+      type: NodeType.LND,
+      queryRoutes: jest.fn().mockResolvedValue(queryRoutesResponse),
+    }) as unknown as LndClient;
+
+  const createMockClnClient = (queryRoutesResponse: any[] = []) =>
+    ({
+      type: NodeType.CLN,
+      queryRoutes: jest.fn().mockResolvedValue(queryRoutesResponse),
+    }) as unknown as LndClient;
+
+  const createDecodedInvoice = (
+    overrides: Partial<DecodedInvoice> = {},
+  ): DecodedInvoice =>
+    ({
+      minFinalCltv: 80,
+      routingHints: [],
+      amountMsat: 10_000_000,
+      type: InvoiceType.Bolt11,
+      features: new Set<InvoiceFeature>(),
+      payee: ECPair.makeRandom().publicKey,
+      ...overrides,
+    }) as unknown as DecodedInvoice;
 
   beforeAll(() => {
     cleanup();
@@ -242,24 +272,12 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should detect invoice MPP support', async () => {
-    const mockQueryRoutes = jest.fn().mockResolvedValue({ routesList: [] });
-    const lnd = {
-      queryRoutes: mockQueryRoutes,
-    } as unknown as LndClient;
-
-    const dec = {
-      minFinalCltv: 80,
-      routingHints: [],
-      amountMsat: 10_000_000,
-      type: InvoiceType.Bolt11,
-      features: new Set<InvoiceFeature>(),
-      payee: ECPair.makeRandom().publicKey,
-    } as unknown as DecodedInvoice;
-
+    const lnd = createMockLndClient([]);
+    const dec = createDecodedInvoice();
     const cltvLimit = 123;
 
-    await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
-    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
+    await deltaProvider.checkRoutability(mockChainClient, lnd, dec, cltvLimit);
+    expect(lnd.queryRoutes).toHaveBeenNthCalledWith(
       1,
       getHexString(dec.payee!),
       msatToSat(dec.amountMsat),
@@ -268,42 +286,33 @@ describe('TimeoutDeltaProvider', () => {
       dec.routingHints,
     );
 
+    const lndWithMpp = createMockLndClient([]);
+    const decWithMpp = createDecodedInvoice({
+      features: new Set<InvoiceFeature>([InvoiceFeature.MPP]),
+    });
     await deltaProvider.checkRoutability(
-      lnd,
-      {
-        ...dec,
-        features: new Set<InvoiceFeature>([InvoiceFeature.MPP]),
-      } as unknown as DecodedInvoice,
+      mockChainClient,
+      lndWithMpp,
+      decWithMpp,
       cltvLimit,
     );
-    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
-      2,
-      getHexString(dec.payee!),
-      Math.ceil(msatToSat(dec.amountMsat) / LndClient.paymentMaxParts),
+    expect(lndWithMpp.queryRoutes).toHaveBeenNthCalledWith(
+      1,
+      getHexString(decWithMpp.payee!),
+      Math.ceil(msatToSat(decWithMpp.amountMsat) / LndClient.paymentMaxParts),
       cltvLimit,
-      dec.minFinalCltv,
-      dec.routingHints,
+      decWithMpp.minFinalCltv,
+      decWithMpp.routingHints,
     );
   });
 
   test('should have a floor of 1 sat for querying routes', async () => {
-    const mockQueryRoutes = jest.fn().mockResolvedValue({ routesList: [] });
-    const lnd = {
-      queryRoutes: mockQueryRoutes,
-    } as unknown as LndClient;
-
-    const dec: DecodedInvoice = {
-      amountMsat: 0,
-      minFinalCltv: 80,
-      routingHints: [],
-      payee: ECPair.makeRandom().publicKey,
-      features: new Set<InvoiceFeature>(),
-    } as unknown as DecodedInvoice;
-
+    const lnd = createMockLndClient([]);
+    const dec = createDecodedInvoice({ amountMsat: 0 });
     const cltvLimit = 210;
 
-    await deltaProvider.checkRoutability(lnd, dec, cltvLimit);
-    expect(mockQueryRoutes).toHaveBeenNthCalledWith(
+    await deltaProvider.checkRoutability(mockChainClient, lnd, dec, cltvLimit);
+    expect(lnd.queryRoutes).toHaveBeenNthCalledWith(
       1,
       getHexString(dec.payee!),
       1,
@@ -323,17 +332,19 @@ describe('TimeoutDeltaProvider', () => {
     } as unknown as DecodedInvoice);
 
     const cltvLimit = 123;
-
     const paymentHash = getHexBuffer(
       'f4fc9c57827914015ab7375d2542e87af9e0cb11e182059ab2d4974a053c38d6',
     );
+    const dec = createDecodedInvoice({
+      paymentHash,
+      minFinalCltv: 144,
+    });
+
     await expect(
       deltaProvider.checkRoutability(
+        mockChainClient,
         {} as unknown as LndClient,
-        {
-          paymentHash,
-          minFinalCltv: 144,
-        } as unknown as DecodedInvoice,
+        dec,
         cltvLimit,
       ),
     ).resolves.toEqual(160);
@@ -342,5 +353,99 @@ describe('TimeoutDeltaProvider', () => {
       preimageHash: getHexString(paymentHash),
     });
     expect(sidecar.decodeInvoiceOrOffer).toHaveBeenCalledWith('invoice');
+  });
+
+  test('should calculate CLTV for LND (absolute blocks)', async () => {
+    const currentBlocks = 800_000;
+    const routeCltv = 800_144;
+    const lnd = createMockLndClient([
+      { ctlv: routeCltv },
+      { ctlv: routeCltv - 10 },
+    ]);
+    const mockChain = {
+      getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: currentBlocks }),
+    } as any;
+    const dec = createDecodedInvoice();
+
+    const result = await deltaProvider.checkRoutability(
+      mockChain,
+      lnd,
+      dec,
+      200,
+    );
+
+    // LND returns absolute blocks, so it should subtract current block height
+    expect(result).toEqual(routeCltv - currentBlocks);
+  });
+
+  test('should calculate CLTV for CLN (relative blocks)', async () => {
+    const routeCltv = 144;
+    const cln = createMockClnClient([{ ctlv: routeCltv }, { ctlv: routeCltv }]);
+    const dec = createDecodedInvoice();
+
+    const result = await deltaProvider.checkRoutability(
+      mockChainClient,
+      cln,
+      dec,
+      200,
+    );
+
+    // CLN returns relative blocks, so it should return the value as is
+    expect(result).toEqual(routeCltv);
+  });
+
+  test('should return highest CLTV from multiple routes', async () => {
+    const lnd = createMockLndClient([
+      { ctlv: 800_100 },
+      { ctlv: 800_200 },
+      { ctlv: 800_150 },
+    ]);
+    const mockChain = {
+      getBlockchainInfo: jest.fn().mockResolvedValue({ blocks: 800_000 }),
+    } as any;
+    const dec = createDecodedInvoice();
+
+    const result = await deltaProvider.checkRoutability(
+      mockChain,
+      lnd,
+      dec,
+      250,
+    );
+
+    expect(result).toEqual(200);
+  });
+
+  test('should return noRoutes when routes query fails', async () => {
+    const mockQueryRoutes = jest
+      .fn()
+      .mockRejectedValue(new Error('No route found'));
+    const lnd = {
+      type: NodeType.LND,
+      queryRoutes: mockQueryRoutes,
+    } as unknown as LndClient;
+    const dec = createDecodedInvoice();
+
+    const result = await deltaProvider.checkRoutability(
+      mockChainClient,
+      lnd,
+      dec,
+      200,
+    );
+
+    expect(result).toEqual(TimeoutDeltaProvider.noRoutes);
+  });
+
+  test('should return noRoutes when no routes are available', async () => {
+    const cln = createMockClnClient([]);
+    const dec = createDecodedInvoice();
+
+    const result = await deltaProvider.checkRoutability(
+      mockChainClient,
+      cln,
+      dec,
+      200,
+    );
+
+    expect(result).toEqual(TimeoutDeltaProvider.noRoutes);
   });
 });

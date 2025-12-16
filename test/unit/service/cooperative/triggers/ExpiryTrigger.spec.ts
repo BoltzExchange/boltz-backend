@@ -89,6 +89,38 @@ describe('ExpiryTrigger', () => {
         },
       );
     });
+
+    test.each`
+      symbol                   | timeoutHeight | expected
+      ${'BTC'}                 | ${100}        | ${true}
+      ${'BTC'}                 | ${106}        | ${true}
+      ${'BTC'}                 | ${107}        | ${false}
+      ${ElementsClient.symbol} | ${121}        | ${true}
+      ${ElementsClient.symbol} | ${181}        | ${true}
+      ${ElementsClient.symbol} | ${182}        | ${false}
+      ${'RBTC'}                | ${1_021}      | ${true}
+      ${'RBTC'}                | ${1_141}      | ${true}
+      ${'RBTC'}                | ${1_542}      | ${false}
+    `(
+      'should check expiry for $symbol currency',
+      async ({ symbol, timeoutHeight, expected }) => {
+        await expect(
+          trigger.check(symbol, {
+            type: SwapType.Submarine,
+            timeoutBlockHeight: timeoutHeight,
+          } as any),
+        ).resolves.toEqual(expected);
+      },
+    );
+
+    test('should throw when checking expiry for unknown currency', async () => {
+      await expect(
+        trigger.check('UNKNOWN', {
+          type: SwapType.Submarine,
+          timeoutBlockHeight: 100,
+        } as any),
+      ).rejects.toThrow('currency UNKNOWN not found');
+    });
   });
 
   describe('getBlockHeight', () => {

@@ -16,7 +16,7 @@ static BLOCK_TIMES: LazyLock<HashMap<String, f64>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert("BTC".to_string(), 10.0);
     map.insert("LTC".to_string(), 2.5);
-    map.insert("RBTC".to_string(), 0.5);
+    map.insert("RBTC".to_string(), 25.0 / 60.0);
     map.insert("ETH".to_string(), 0.2);
     map.insert("L-BTC".to_string(), 1.0);
     map
@@ -284,8 +284,8 @@ mod tests {
     #[rstest]
     #[case("BTC", "L-BTC", 10, 100)]
     #[case("L-BTC", "BTC", 100, 10)]
-    #[case("BTC", "RBTC", 10, 200)]
-    #[case("RBTC", "BTC", 200, 10)]
+    #[case("BTC", "RBTC", 10, 240)]
+    #[case("RBTC", "BTC", 200, 9)]
     #[case("BTC", "BTC", 10, 10)]
     fn test_convert_blocks(
         #[case] from_symbol: &str,
@@ -356,7 +356,7 @@ mod tests {
     #[rstest]
     #[case("BTC", 6, 12, 3, 24, 18)]
     #[case("L-BTC", 60, 120, 30, 240, 180)]
-    #[case("RBTC", 120, 240, 60, 480, 360)]
+    #[case("RBTC", 144, 288, 72, 576, 432)]
     fn test_convert_to_blocks(
         #[case] symbol: &str,
         #[case] expected_chain: u64,
@@ -389,7 +389,7 @@ mod tests {
     #[case("BTC", 10, 1)]
     #[case("BTC", 210, 21)]
     #[case("L-BTC", 210, 210)]
-    #[case("RBTC", 210, 420)]
+    #[case("RBTC", 210, 504)]
     fn test_calculate_blocks(#[case] symbol: &str, #[case] minutes: u64, #[case] expected: u64) {
         assert_eq!(
             TimeoutDeltaProvider::calculate_blocks(symbol, minutes).unwrap(),
@@ -404,14 +404,14 @@ mod tests {
 
     #[rstest]
     #[rstest]
-    #[case("BTC", &10.0)]
-    #[case("L-BTC", &1.0)]
-    #[case("RBTC", &0.5)]
-    #[case("ETH", &0.2)]
-    fn test_get_block_time(#[case] symbol: &str, #[case] expected: &f64) {
+    #[case("BTC", 10.0)]
+    #[case("L-BTC", 1.0)]
+    #[case("RBTC", 25.0 / 60.0)]
+    #[case("ETH", 0.2)]
+    fn test_get_block_time(#[case] symbol: &str, #[case] expected: f64) {
         assert_eq!(
             TimeoutDeltaProvider::get_block_time(symbol).unwrap(),
-            expected
+            &expected
         );
     }
 

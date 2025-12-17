@@ -145,7 +145,7 @@ impl ClnLightningInfo {
                         match info.update_cache(&mut cln).await {
                             Ok(_) => {
                                 debug!(
-                                    "Updated {} lighting gossip in: {:?}",
+                                    "Updated {} lightning gossip in: {:?}",
                                     cln.symbol(),
                                     start.elapsed()
                                 );
@@ -168,7 +168,21 @@ impl ClnLightningInfo {
         info!("Updating {} lightning gossip", symbol);
 
         let node_infos = self.update_nodes(&symbol, cln).await?;
+        self.update_channels(symbol, cln, node_infos).await?;
 
+        Ok(())
+    }
+
+    #[instrument(
+        name = "ClnLightningInfo::update_channels",
+        skip(self, cln, node_infos)
+    )]
+    async fn update_channels(
+        &self,
+        symbol: String,
+        cln: &mut Cln,
+        node_infos: HashMap<String, Node>,
+    ) -> Result<()> {
         let mut channel_infos = HashMap::<String, ChannelInfo>::new();
         let mut channels_to_nodes = HashMap::<Vec<u8>, Vec<Channel>>::new();
 

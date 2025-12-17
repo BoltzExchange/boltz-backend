@@ -100,6 +100,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
     estimateFee: mockEstimateFee,
     getRawTransaction: mockGetRawTransaction,
     getRawTransactionVerbose: mockGetRawTransactionVerbose,
+    on: jest.fn(),
   }));
 });
 
@@ -240,6 +241,72 @@ describe('UtxoNursery', () => {
       expect.anything(),
     );
   });
+
+  test.each([
+    {
+      testName: 'confirmed transaction',
+      confirmed: true,
+      expectedStatus: TransactionStatus.Confirmed,
+    },
+    {
+      testName: 'unconfirmed transaction',
+      confirmed: false,
+      expectedStatus: TransactionStatus.NotSafe,
+    },
+  ])(
+    'should handle transaction.checked event from chainClient with $testName',
+    async ({ confirmed, expectedStatus }) => {
+      const chainClientWithEvents = {
+        ...btcChainClient,
+        on: jest.fn(),
+      };
+
+      let transactionCheckedCallback: any;
+      chainClientWithEvents.on.mockImplementation(
+        (event: string, callback: any) => {
+          if (event === 'transaction.checked') {
+            transactionCheckedCallback = callback;
+          }
+        },
+      );
+
+      nursery.bindCurrency([
+        {
+          symbol: 'BTC',
+          chainClient: chainClientWithEvents,
+        } as any,
+      ]);
+
+      expect(chainClientWithEvents.on).toHaveBeenCalledWith(
+        'transaction.checked',
+        expect.any(Function),
+      );
+
+      const checkSwapClaimsSpy = jest
+        .spyOn(nursery as any, 'checkSwapClaims')
+        .mockResolvedValue(undefined);
+      const checkOutputsSpy = jest
+        .spyOn(nursery as any, 'checkOutputs')
+        .mockResolvedValue(undefined);
+
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      await transactionCheckedCallback({ transaction, confirmed });
+
+      expect(checkSwapClaimsSpy).toHaveBeenCalledWith(
+        chainClientWithEvents,
+        transaction,
+      );
+      expect(checkOutputsSpy).toHaveBeenCalledWith(
+        chainClientWithEvents,
+        btcWallet,
+        transaction,
+        expectedStatus,
+      );
+
+      checkSwapClaimsSpy.mockRestore();
+      checkOutputsSpy.mockRestore();
+    },
+  );
 
   test('should handle confirmed Swap outputs via transaction events', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];

@@ -266,6 +266,16 @@ class UtxoNursery extends TypedEventEmitter<{
 
       await handleTransaction(transaction, status);
     });
+
+    chainClient.on(
+      'transaction.checked',
+      async ({ transaction, confirmed }) => {
+        await handleTransaction(
+          transaction,
+          confirmed ? TransactionStatus.Confirmed : TransactionStatus.NotSafe,
+        );
+      },
+    );
   };
 
   private checkOutputs = async (

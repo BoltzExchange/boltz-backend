@@ -14,12 +14,23 @@ use std::{
 pub const MAX_GAP_LIMIT: u32 = 150;
 
 const DEFAULT_GAP_LIMIT: u32 = 50;
+const DEFAULT_PAGE: u32 = 1;
+const DEFAULT_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
+
+#[derive(Clone, Copy)]
+pub struct Pagination {
+    pub page: u32,
+    pub limit: u32,
+}
 
 pub trait PubkeyIterator {
     fn identifier(&self) -> String;
     fn gap_limit(&self) -> u32;
     fn max_keys(&self) -> u32;
+    fn pagination(&self) -> Option<Pagination> {
+        None
+    }
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,
@@ -33,6 +44,7 @@ pub struct XpubIterator {
     xpub: Xpub,
     derivation_path: DerivationPath,
     gap_limit: u32,
+    pagination: Option<Pagination>,
 }
 
 pub struct KeyVecIterator {
@@ -56,7 +68,18 @@ impl XpubIterator {
                 &derivation_path.unwrap_or(DEFAULT_DERIVATION_PATH.to_string()),
             )?,
             gap_limit: gap_limit.unwrap_or(DEFAULT_GAP_LIMIT),
+            pagination: None,
         })
+    }
+
+    pub fn with_pagination(mut self, page: Option<u32>, limit: Option<u32>) -> Self {
+        if page.is_some() || limit.is_some() {
+            self.pagination = Some(Pagination {
+                page: page.unwrap_or(DEFAULT_PAGE),
+                limit: limit.unwrap_or(DEFAULT_LIMIT),
+            });
+        }
+        self
     }
 }
 
@@ -67,6 +90,10 @@ impl PubkeyIterator for XpubIterator {
 
     fn gap_limit(&self) -> u32 {
         self.gap_limit
+    }
+
+    fn pagination(&self) -> Option<Pagination> {
+        self.pagination
     }
 
     fn max_keys(&self) -> u32 {
@@ -174,7 +201,6 @@ impl PubkeyIterator for SingleKeyIterator {
     fn gap_limit(&self) -> u32 {
         self.max_keys()
     }
-
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,

@@ -6,7 +6,7 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{
     ChainSwapData, ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType,
 };
-use crate::service::pubkey_iterator::PubkeyIterator;
+use crate::service::pubkey_iterator::{Pagination, PubkeyIterator};
 use crate::wallet::Wallet;
 use alloy::hex;
 use anyhow::{Result, anyhow};
@@ -442,11 +442,14 @@ impl SwapRescue {
             iterator.identifier()
         );
 
-        let mut restorable = self.scan_swaps(
+        let pagination = iterator.pagination();
+
+        let mut restorable = self.scan_swaps_paginated(
             iterator,
             vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
             Self::process_restorable_swaps,
             None,
+            pagination,
         )?;
 
         restorable.sort_by(|a, b| {
@@ -461,6 +464,15 @@ impl SwapRescue {
                 .cmp(&get_key_index(b))
                 .then(a.created_at().cmp(&b.created_at()))
         });
+
+        if let Some(Pagination { page, limit }) = pagination {
+            let offset = page.saturating_sub(1).saturating_mul(limit) as usize;
+            let limit = limit as usize;
+            let start = offset.min(restorable.len());
+            let end = start.saturating_add(limit).min(restorable.len());
+            return Ok(restorable[start..end].to_vec());
+        }
+
         Ok(restorable)
     }
 
@@ -540,6 +552,27 @@ impl SwapRescue {
             Vec<ReverseSwap>,
         ) -> Result<Vec<R>>,
     {
+        self.scan_swaps_paginated(iterator, swap_types, process, start_index, None)
+    }
+
+    fn scan_swaps_paginated<R, F>(
+        &self,
+        iterator: Box<dyn PubkeyIterator>,
+        swap_types: Vec<SwapType>,
+        process: F,
+        start_index: Option<u32>,
+        pagination: Option<Pagination>,
+    ) -> Result<Vec<R>>
+    where
+        R: Identifiable,
+        F: Fn(
+            &Self,
+            &HashMap<String, u32>,
+            Vec<Swap>,
+            Vec<ChainSwapInfo>,
+            Vec<ReverseSwap>,
+        ) -> Result<Vec<R>>,
+    {
         macro_rules! log_scan_result {
             ($to:expr, $iterator:expr, $result:expr) => {
                 debug!(
@@ -559,6 +592,11 @@ impl SwapRescue {
             log_scan_result!(0, iterator, result);
             return Ok(vec![]);
         }
+
+        let target_count = match pagination {
+            Some(Pagination { page, limit }) => page.saturating_mul(limit),
+            None => u32::MAX,
+        };
 
         for from in (start_index.unwrap_or(0)..).step_by(gap_limit as usize) {
             let to = from + gap_limit;
@@ -617,6 +655,11 @@ impl SwapRescue {
             for swap in process(self, &keys_map, swaps, chain_swaps, reverse_swaps)? {
                 // The map deduplicates for us
                 result.insert(swap.id().to_string(), swap);
+            }
+
+            if result.len() >= target_count as usize {
+                log_scan_result!(to, iterator, result);
+                break;
             }
 
             if to >= iterator.max_keys() {

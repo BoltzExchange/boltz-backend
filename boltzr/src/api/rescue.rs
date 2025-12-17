@@ -21,6 +21,10 @@ pub enum RescueParams {
         derivation_path: Option<String>,
         #[serde(rename = "gapLimit")]
         gap_limit: Option<u32>,
+        #[serde(default)]
+        page: Option<u32>,
+        #[serde(default)]
+        limit: Option<u32>,
     },
     PublicKey {
         #[serde(rename = "publicKey")]
@@ -46,6 +50,8 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                 xpub,
                 derivation_path,
                 gap_limit,
+                page,
+                limit,
             } => {
                 if let Some(limit) = gap_limit {
                     if limit == 0 {
@@ -62,10 +68,29 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                     }
                 }
 
-                Ok(Box::new(
-                    XpubIterator::new(xpub.0, derivation_path, gap_limit)
-                        .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?,
-                ))
+                if let Some(limit_val) = limit {
+                    if limit_val < 1 {
+                        return Err(AxumError::new(
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            anyhow::anyhow!("pagination limit must be at least 1"),
+                        ))
+                    }
+                }
+
+                if let Some(page_val) = page {
+                    if page_val == 0 {
+                        return Err(AxumError::new(
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            anyhow::anyhow!("pagination page must be at least 1"),
+                        ))
+                    }
+                }
+
+                let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
+                    .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?
+                    .with_pagination(page, limit);
+
+                Ok(Box::new(iterator))
             }
             RescueParams::PublicKey { public_key } => {
                 Ok(Box::new(SingleKeyIterator::new(public_key.0)))
@@ -284,3 +309,4 @@ mod test {
         assert_eq!(error.error, "gapLimit must be at least 1");
     }
 }
+

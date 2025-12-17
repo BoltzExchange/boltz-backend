@@ -6,6 +6,7 @@ import ArkClient from '../../../lib/chain/ArkClient';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, bitcoinClient } from '../Nodes';
+import { createVHtlc } from './Utils';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
@@ -19,27 +20,6 @@ describe('ArkClient', () => {
     arkClient.disconnect();
     bitcoinClient.disconnect();
   });
-
-  const createVHtlc = async (
-    refundDelay: number = 20,
-    claimPublicKey?: Buffer,
-    refundPublicKey?: Buffer,
-  ) => {
-    const preimage = randomBytes(32);
-
-    const { vHtlc, timeouts } = await arkClient.createVHtlc(
-      crypto.sha256(preimage),
-      refundDelay,
-      claimPublicKey,
-      refundPublicKey,
-    );
-
-    return {
-      vHtlc,
-      timeouts,
-      preimage,
-    };
-  };
 
   test('should connect to the Ark node', async () => {
     await expect(arkClient.connect(bitcoinClient)).resolves.toBe(true);
@@ -105,6 +85,7 @@ describe('ArkClient', () => {
   test('should create vHTLCs', async () => {
     const refundDelay = 23;
     const { vHtlc, timeouts } = await createVHtlc(
+      arkClient,
       refundDelay,
       Buffer.from(ECPair.makeRandom().publicKey),
     );
@@ -127,6 +108,7 @@ describe('ArkClient', () => {
     const refundPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
 
     const { vHtlc, preimage } = await createVHtlc(
+      arkClient,
       undefined,
       undefined,
       refundPublicKey,
@@ -171,6 +153,7 @@ describe('ArkClient', () => {
     const claimPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
 
     const { vHtlc, preimage } = await createVHtlc(
+      arkClient,
       undefined,
       claimPublicKey,
       refundPublicKey,

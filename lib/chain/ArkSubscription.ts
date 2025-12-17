@@ -8,8 +8,6 @@ import * as notificationrpc from '../proto/ark/notification_pb';
 import * as arkrpc from '../proto/ark/service_pb';
 import ArkClient from './ArkClient';
 
-// TODO: write tests when the subscription performance on retest is fixed
-
 type SubscribedAddress = {
   address: string;
   vHtlcId: string;

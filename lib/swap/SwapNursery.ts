@@ -1016,8 +1016,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         break;
 
       case CurrencyType.Ark:
-        // TODO: chain swaps
-        await this.refundVtxo(chainCurrency, swap as ReverseSwap);
+        await this.refundVtxo(chainCurrency, swap);
         break;
 
       case CurrencyType.Ether:
@@ -1944,7 +1943,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
   };
 
-  private refundVtxo = async (chainCurrency: Currency, swap: ReverseSwap) => {
+  private refundVtxo = async (
+    chainCurrency: Currency,
+    swap: ReverseSwap | ChainSwapInfo,
+  ) => {
     const arkClient = chainCurrency.arkNode!;
     if (arkClient === undefined) {
       this.logger.error(`Ark node not found for ${chainCurrency.symbol}`);
@@ -1954,7 +1956,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     const txId = await arkClient.refundVHtlc(
       getHexBuffer(swap.preimageHash),
       arkClient.pubkey,
-      getHexBuffer(swap.claimPublicKey!),
+      getHexBuffer(
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).claimPublicKey!
+          : (swap as ChainSwapInfo).sendingData.theirPublicKey!,
+      ),
       TransactionLabelRepository.refundLabel(swap),
     );
 

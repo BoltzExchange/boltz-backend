@@ -113,6 +113,7 @@ impl Cln {
         })
     }
 
+    #[instrument(name = "Cln::fetch_invoice", skip_all)]
     pub async fn fetch_invoice(
         &mut self,
         offer: String,
@@ -181,6 +182,7 @@ impl Cln {
         Ok((invoice, magic_routing_hint))
     }
 
+    #[instrument(name = "Cln::list_nodes", skip_all)]
     pub async fn list_nodes(&mut self, id: Option<Vec<u8>>) -> anyhow::Result<Vec<ListnodesNodes>> {
         Ok(self
             .cln
@@ -191,6 +193,7 @@ impl Cln {
             .nodes)
     }
 
+    #[instrument(name = "Cln::list_channels", skip_all)]
     pub async fn list_channels(
         &mut self,
         destination: Option<Vec<u8>>,

@@ -345,7 +345,10 @@ fn blind_outputs<C: Signing>(
 
     match destination {
         Destination::Single(address) => {
-            let amount = input_sum - fee;
+            let amount = input_sum
+                .checked_sub(fee)
+                .ok_or(anyhow::anyhow!("fee is greater than input sum"))?;
+
             let (blinded, asset_bf, value_bf, output) = create_output(
                 secp,
                 unblinded,
@@ -1606,5 +1609,61 @@ mod tests {
         );
 
         assert_eq!(send_raw_transaction(&client, &tx), tx.txid());
+    }
+
+    #[test]
+    fn test_blind_outputs_fee_too_high() {
+        let secp = Secp256k1::new();
+        let address = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();
+
+        let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
+
+        let amount = 1000;
+        let unblinded = [UnblindedOutput::Explicit(ExplicitOutput {
+            asset: asset_id,
+            amount,
+        })];
+
+        let fee = amount + 1;
+        let result = blind_outputs(&secp, &unblinded, &Destination::Single(&address), fee);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "fee is greater than input sum"
+        );
+    }
+
+    #[test]
+    fn test_blind_outputs_output_sum_too_high() {
+        let secp = Secp256k1::new();
+        let change = Address::from_str("el1qqtc467jwn6epm0868exzkpw30w8snldp54k7s3fgv8wwg88va6sjlk4e0xu9syzwd69tru24xf36a5ansq0fu4h9fauf3sqgh").unwrap();
+        let dest = Address::from_str("el1qqtc467jwn6epm0868exzkpw30w8snldp54k7s3fgv8wwg88va6sjlk4e0xu9syzwd69tru24xf36a5ansq0fu4h9fauf3sqgh").unwrap();
+
+        let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
+
+        let amount = 1000;
+        let unblinded = [UnblindedOutput::Explicit(ExplicitOutput {
+            asset: asset_id,
+            amount,
+        })];
+
+        let fee = 100;
+        let outputs = [(&dest, amount - fee + 1)];
+        let result = blind_outputs(
+            &secp,
+            &unblinded,
+            &Destination::Multiple(Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            fee,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "output sum is greater than input sum"
+        );
     }
 }

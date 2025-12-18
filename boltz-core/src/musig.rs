@@ -3,7 +3,9 @@ use secp256k1::musig::{
     AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
     Session, SessionSecretRand,
 };
-use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, XOnlyPublicKey, rand};
+use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, rand};
+
+pub use secp256k1::XOnlyPublicKey;
 
 pub struct Musig {
     key: Keypair,

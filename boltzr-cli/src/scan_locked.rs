@@ -26,8 +26,8 @@ struct LockedFunds {
 pub async fn scan_locked_in_contract(
     rpc_url: &str,
     address: &str,
-    start_height: &u64,
-    scan_interval: &u64,
+    start_height: u64,
+    scan_interval: u64,
 ) -> Result<()> {
     let provider = ProviderBuilder::new()
         .network::<AnyNetwork>()
@@ -40,9 +40,9 @@ pub async fn scan_locked_in_contract(
 
     let mut locked_swaps = Vec::new();
 
-    let mut current_block = *start_height;
+    let mut current_block = start_height;
     while current_block < latest_block {
-        let to = std::cmp::min(current_block + *scan_interval, latest_block);
+        let to = std::cmp::min(current_block + scan_interval, latest_block);
 
         let logs = contract
             .Lockup_filter()

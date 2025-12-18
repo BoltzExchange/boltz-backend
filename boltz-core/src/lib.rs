@@ -4,6 +4,8 @@ pub mod address;
 pub mod bitcoin;
 #[cfg(feature = "elements")]
 pub mod elements;
+#[cfg(feature = "musig")]
+pub mod musig;
 #[cfg(all(feature = "bitcoin", feature = "elements"))]
 pub mod network;
 pub mod utils;
@@ -11,8 +13,6 @@ pub mod utils;
 pub mod wrapper;
 
 mod consts;
-#[cfg(feature = "musig")]
-mod musig;
 mod preimage_detector;
 mod target_fee;
 
@@ -28,3 +28,5 @@ pub use network::Network;
 pub use preimage_detector::detect_preimage;
 pub use target_fee::FeeTarget;
 pub use utils::Destination;
+#[cfg(all(feature = "bitcoin", feature = "elements"))]
+pub use wrapper::Transaction;

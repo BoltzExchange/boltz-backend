@@ -291,13 +291,7 @@ async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {
 
 fn parse_network(network: Option<String>) -> anyhow::Result<wallet::Network> {
     match network {
-        Some(network) => match network.to_lowercase().as_str() {
-            "mainnet" => Ok(wallet::Network::Mainnet),
-            "testnet" => Ok(wallet::Network::Testnet),
-            "signet" => Ok(wallet::Network::Signet),
-            "regtest" => Ok(wallet::Network::Regtest),
-            &_ => Err(anyhow::anyhow!("invalid network: {}", network)),
-        },
+        Some(network) => wallet::Network::try_from(network.as_str()),
         None => {
             warn!("Network not set; defaulting to regtest");
             Ok(wallet::Network::Regtest)
@@ -307,7 +301,7 @@ fn parse_network(network: Option<String>) -> anyhow::Result<wallet::Network> {
 
 #[cfg(test)]
 mod test {
-    use crate::currencies::parse_network;
+    use super::*;
     use crate::wallet::Network;
     use rstest::*;
 

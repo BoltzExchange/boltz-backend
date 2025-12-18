@@ -89,7 +89,7 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                             anyhow::anyhow!("startKey must be provided when endKey is provided"),
                         ));
                     }
-                    (None, None) => {},
+                    (None, None) => {}
                 }
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
@@ -315,4 +315,3 @@ mod test {
         assert_eq!(error.error, "gapLimit must be at least 1");
     }
 }
-

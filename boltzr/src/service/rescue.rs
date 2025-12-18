@@ -593,7 +593,9 @@ impl SwapRescue {
 
         debug!(
             "Starting scan from key index {} to {} for {}",
-            scan_start, scan_end, iterator.identifier()
+            scan_start,
+            scan_end,
+            iterator.identifier()
         );
 
         for from in (scan_start..scan_end).step_by(gap_limit as usize) {
@@ -645,7 +647,11 @@ impl SwapRescue {
                 }
             }
 
-            if pagination.is_none() && swaps.is_empty() && chain_swaps.is_empty() && reverse_swaps.is_empty() {
+            if pagination.is_none()
+                && swaps.is_empty()
+                && chain_swaps.is_empty()
+                && reverse_swaps.is_empty()
+            {
                 log_scan_result!(scan_start, to, iterator, result);
                 break;
             }

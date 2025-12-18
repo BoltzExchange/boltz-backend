@@ -1,4 +1,4 @@
-use boltz_core::Network;
+use alloy::primitives::{Address, FixedBytes, U256};
 use clap::ValueEnum;
 use std::str::FromStr;
 
@@ -10,6 +10,14 @@ pub struct HexBytes(pub Vec<u8>);
 pub enum SwapType {
     Submarine,
     Reverse,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Network {
+    Mainnet,
+    Testnet,
+    Signet,
+    Regtest,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -67,13 +75,39 @@ impl FromStr for AmountOrAll {
     }
 }
 
-pub fn parse_network(network: &str) -> Result<Network, String> {
-    Network::try_from(network).map_err(|e| e.to_string())
+impl TryFrom<Amount> for U256 {
+    type Error = anyhow::Error;
+
+    fn try_from(amount: Amount) -> Result<Self, Self::Error> {
+        U256::from(amount.0)
+            .checked_mul(U256::from(10_u128.pow(10)))
+            .ok_or(anyhow::anyhow!("amount overflow"))
+    }
+}
+
+impl From<&Network> for boltz_core::Network {
+    fn from(network: &Network) -> Self {
+        match network {
+            Network::Mainnet => boltz_core::Network::Mainnet,
+            Network::Testnet => boltz_core::Network::Testnet,
+            Network::Signet => boltz_core::Network::Signet,
+            Network::Regtest => boltz_core::Network::Regtest,
+        }
+    }
 }
 
 pub fn parse_hex(hex: &str) -> Result<HexBytes, String> {
     let bytes = alloy::hex::decode(hex).map_err(|e| format!("invalid hex: {e}"))?;
     Ok(HexBytes(bytes))
+}
+
+pub fn parse_hex_fixed_bytes(hex: &str) -> Result<FixedBytes<32>, String> {
+    let bytes = alloy::hex::decode(hex).map_err(|e| format!("invalid hex: {e}"))?;
+    FixedBytes::<32>::try_from(bytes.as_slice()).map_err(|e| format!("invalid hex: {e}"))
+}
+
+pub fn parse_alloy_address(address: &str) -> Result<Address, String> {
+    Address::from_str(address).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -122,17 +156,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case("mainnet", Network::Mainnet)]
-    #[case("testnet", Network::Testnet)]
-    #[case("signet", Network::Signet)]
-    #[case("regtest", Network::Regtest)]
-    fn test_parse_network_valid(#[case] input: &str, #[case] expected: Network) {
-        assert_eq!(parse_network(input).unwrap(), expected);
-    }
-
-    #[test]
-    fn test_parse_network_invalid() {
-        assert!(parse_network("invalid").is_err());
+    #[case(1, U256::from(10_000_000_000u128))]
+    #[case(100, U256::from(1_000_000_000_000u128))]
+    #[case(0, U256::from(0))]
+    fn test_amount_to_u256_conversion(#[case] satoshis: u64, #[case] expected: U256) {
+        let amount = Amount(satoshis);
+        let u256: U256 = amount.try_into().unwrap();
+        assert_eq!(u256, expected);
     }
 
     #[rstest]
@@ -150,5 +180,37 @@ mod tests {
     #[case("1")]
     fn test_parse_hex_invalid(#[case] input: &str) {
         assert!(parse_hex(input).is_err());
+    }
+
+    #[rstest]
+    #[case("0000000000000000000000000000000000000000000000000000000000000000", [0u8; 32])]
+    #[case("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", [0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef])]
+    fn test_parse_hex_fixed_bytes_valid(#[case] input: &str, #[case] expected: [u8; 32]) {
+        let bytes = parse_hex_fixed_bytes(input).unwrap();
+        assert_eq!(bytes, FixedBytes::from(expected));
+    }
+
+    #[rstest]
+    #[case("deadbeef")] // Too short
+    #[case("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")]
+    #[case("nothexdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")]
+    fn test_parse_hex_fixed_bytes_invalid(#[case] input: &str) {
+        assert!(parse_hex_fixed_bytes(input).is_err());
+    }
+
+    #[rstest]
+    #[case("0x0000000000000000000000000000000000000000")]
+    #[case("0xDeaDbeefdEAdbeEfdEAdbeefdEAdbeefdEAdbeEf")]
+    #[case("DeaDbeefdEAdbeEfdEAdbeefdEAdbeefdEAdbeEf")]
+    fn test_parse_alloy_address_valid(#[case] input: &str) {
+        assert!(parse_alloy_address(input).is_ok());
+    }
+
+    #[rstest]
+    #[case("0x00")] // Too short
+    #[case("0x000000000000000000000000000000000000000000")] // Too long
+    #[case("notanaddress")]
+    fn test_parse_alloy_address_invalid(#[case] input: &str) {
+        assert!(parse_alloy_address(input).is_err());
     }
 }

@@ -1,17 +1,16 @@
-use alloy::network::AnyNetwork;
-use alloy::primitives::{Address, FixedBytes, U256};
-use alloy::providers::{Provider, ProviderBuilder};
-use alloy::sol;
+use crate::evm::{
+    Keys,
+    utils::{EtherSwap, get_provider},
+};
+use alloy::{
+    primitives::{Address, FixedBytes, U256},
+    providers::Provider,
+    signers::local::PrivateKeySigner,
+    sol_types::SolValue,
+};
 use anyhow::Result;
 use indicatif::ProgressBar;
 use serde::Serialize;
-
-sol!(
-    #[allow(clippy::too_many_arguments)]
-    #[sol(rpc)]
-    EtherSwap,
-    "../node_modules/boltz-core/dist/out/EtherSwap.sol/EtherSwap.json"
-);
 
 #[derive(Serialize, Debug, Clone)]
 struct LockedFunds {
@@ -25,18 +24,16 @@ struct LockedFunds {
 
 pub async fn scan_locked_in_contract(
     rpc_url: &str,
-    address: &str,
+    address: Address,
     start_height: u64,
     scan_interval: u64,
 ) -> Result<()> {
-    let provider = ProviderBuilder::new()
-        .network::<AnyNetwork>()
-        .connect_http(rpc_url.parse()?);
-
+    // Random keys because we are just scanning the chain here
+    let (provider, _) = get_provider(rpc_url, Keys::Signer(PrivateKeySigner::random()))?;
     let latest_block = provider.get_block_number().await?;
     let pb = ProgressBar::new(latest_block - start_height);
 
-    let contract = EtherSwap::new(address.parse()?, provider);
+    let contract = EtherSwap::new(address, provider);
 
     let mut locked_swaps = Vec::new();
 
@@ -52,16 +49,14 @@ pub async fn scan_locked_in_contract(
             .await?;
 
         for (event, log) in logs {
-            let swap_hash = contract
-                .hashValues(
-                    event.preimageHash,
-                    event.amount,
-                    event.claimAddress,
-                    event.refundAddress,
-                    event.timelock,
-                )
-                .call()
-                .await?;
+            let params = (
+                event.preimageHash,
+                event.amount,
+                event.claimAddress,
+                event.refundAddress,
+                event.timelock,
+            );
+            let swap_hash = alloy::primitives::keccak256(SolValue::abi_encode(&params));
 
             if contract.swaps(swap_hash).call().await? {
                 locked_swaps.push(LockedFunds {

@@ -29,16 +29,8 @@ pub struct BoltzClient {
 impl BoltzClient {
     pub async fn new(host: &str, port: u16, certificates_path: Option<PathBuf>) -> Result<Self> {
         let channel = match certificates_path {
-            Some(mut certificates_path) => {
-                if certificates_path.starts_with("~") {
-                    let home = dirs::home_dir()
-                        .ok_or_else(|| anyhow::anyhow!("could not determine home directory"))?;
-                    certificates_path = home.join(
-                        certificates_path
-                            .strip_prefix("~")
-                            .map_err(|e| anyhow::anyhow!("failed to strip prefix: {}", e))?,
-                    );
-                }
+            Some(certificates_path) => {
+                let certificates_path = crate::utils::resolve_home(certificates_path)?;
 
                 let tls = ClientTlsConfig::new()
                     .domain_name("boltz")

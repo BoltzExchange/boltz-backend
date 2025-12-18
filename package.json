@@ -29,7 +29,7 @@
     "regtest:stop": "cd regtest && COMPOSE_PROFILES=backend-dev ./stop.sh && npm run docker:nginx:stop",
     "regtest:db:setup": "docker exec boltz-postgres sh -c \"sleep 5 && psql -U boltz -tc \\\"SELECT 1 FROM pg_database WHERE datname = 'boltz_test'\\\" | grep -q 1 || psql -U boltz -c \\\"CREATE DATABASE boltz_test\\\"\"",
     "regtest:solidity:deploy": "cd node_modules/boltz-core && cp -R ../@openzeppelin node_modules/ && npm run deploy:solidity",
-    "regtest:solidity:fund": "./bin/boltz-ethereum send 100000000000 && ./bin/boltz-ethereum send 1000000000 --token",
+    "regtest:solidity:fund": "./target/debug/boltzr-cli evm -p 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d send $(./target/debug/boltzr-cli evm address) 100.0",
     "docker:nginx": "docker run -d --rm --name boltz-nginx --network host -v ./docker/nginx.conf:/etc/nginx/conf.d/nginx.conf nginx:stable",
     "docker:nginx:stop": "docker stop boltz-nginx",
     "test:unit": "GRPC_NODE_VERBOSITY=NONE jest --testTimeout 10000 test/unit",

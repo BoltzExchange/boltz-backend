@@ -6,12 +6,12 @@ use boltz_core::{Network, Transaction, utils::InputType};
 pub fn refund_utxo(
     network: Network,
     timeout_block_height: u32,
-    private_key: Vec<u8>,
+    private_key: [u8; 32],
     swap_tree_or_redeem_script: &str,
     raw_transaction: Vec<u8>,
     destination_address: &str,
     fee_per_vbyte: f64,
-    blinding_key: Option<Vec<u8>>,
+    blinding_key: Option<[u8; 32]>,
 ) -> Result<Transaction> {
     construct_transaction(
         network,

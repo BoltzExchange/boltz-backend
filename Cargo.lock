@@ -1984,14 +1984,19 @@ dependencies = [
  "bitcoin_hashes 0.18.0",
  "boltz-core",
  "clap",
+ "dirs",
  "elements 0.26.1",
  "indicatif",
+ "prost 0.14.1",
  "rand 0.8.5",
  "reqwest",
  "rstest",
  "serde",
  "serde_json",
  "tokio",
+ "tonic 0.14.2",
+ "tonic-prost",
+ "tonic-prost-build",
 ]
 
 [[package]]

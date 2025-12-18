@@ -41,8 +41,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "bin": {
-    "boltzd": "./bin/boltzd",
-    "boltz-cli": "./bin/boltz-cli"
+    "boltzd": "./bin/boltzd"
   },
   "cross-os": {
     "postcompile": {

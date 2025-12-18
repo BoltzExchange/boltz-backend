@@ -1,16 +1,21 @@
-import type { ServiceError, sendUnaryData } from '@grpc/grpc-js';
+import {
+  type ServiceError,
+  credentials,
+  type sendUnaryData,
+} from '@grpc/grpc-js';
 import fs from 'fs';
 import { createServer } from 'net';
 import path from 'path';
 import Logger from '../../../lib/Logger';
-import { loadBoltzClient } from '../../../lib/cli/Command';
 import {
   CertificatePrefix,
   getCertificate,
 } from '../../../lib/grpc/Certificates';
 import GrpcServer from '../../../lib/grpc/GrpcServer';
 import type GrpcService from '../../../lib/grpc/GrpcService';
-import type { BoltzClient } from '../../../lib/proto/boltzrpc_grpc_pb';
+import { grpcOptions } from '../../../lib/lightning/GrpcUtils';
+import { createSsl } from '../../../lib/lightning/cln/Types';
+import { BoltzClient } from '../../../lib/proto/boltzrpc_grpc_pb';
 import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import { getPort } from '../../Utils';
 
@@ -28,6 +33,33 @@ const promisifyCall = <K, T>(
       }
     });
   });
+};
+
+const loadBoltzClient = (
+  host: string,
+  port: number,
+  certificates?: string,
+): BoltzClient => {
+  const address = `${host}:${port}`;
+
+  if (certificates !== undefined) {
+    const creds = createSsl('Boltz', 'gRPC', {
+      rootCertPath: path.join(certificates, `${CertificatePrefix.CA}.pem`),
+      certChainPath: path.join(certificates, `${CertificatePrefix.Client}.pem`),
+      privateKeyPath: path.join(
+        certificates,
+        `${CertificatePrefix.Client}-key.pem`,
+      ),
+    });
+
+    return new BoltzClient(
+      address,
+      creds,
+      grpcOptions(GrpcServer.certificateSubject),
+    );
+  } else {
+    return new BoltzClient(address, credentials.createInsecure());
+  }
 };
 
 describe('GrpcServer', () => {
@@ -73,14 +105,7 @@ describe('GrpcServer', () => {
     );
     await server.listen();
 
-    const client = loadBoltzClient({
-      rpc: {
-        port,
-        host: '127.0.0.1',
-        certificates: certsDir,
-        'disable-ssl': true,
-      },
-    });
+    const client = loadBoltzClient('127.0.0.1', port);
 
     expect(
       (
@@ -109,14 +134,7 @@ describe('GrpcServer', () => {
     );
     await server.listen();
 
-    const client = loadBoltzClient({
-      rpc: {
-        port,
-        host: '127.0.0.1',
-        'disable-ssl': false,
-        certificates: certsDir,
-      },
-    });
+    const client = loadBoltzClient('127.0.0.1', port, certsDir);
 
     expect(
       (
@@ -196,14 +214,7 @@ describe('GrpcServer', () => {
       caCert,
     );
 
-    const client = loadBoltzClient({
-      rpc: {
-        port,
-        host: '127.0.0.1',
-        'disable-ssl': false,
-        certificates: certsDir,
-      },
-    });
+    const client = loadBoltzClient('127.0.0.1', port, certsDir);
 
     await expect(
       promisifyCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse>(

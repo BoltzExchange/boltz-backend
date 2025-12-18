@@ -176,7 +176,10 @@ class GrpcService {
       const { apiKey, apiSecret } = await this.service.addReferral({
         id,
         feeShare,
-        routingNode: routingNode === '' ? undefined : routingNode,
+        routingNode:
+          routingNode !== undefined && routingNode !== ''
+            ? routingNode
+            : undefined,
       });
 
       const response = new boltzrpc.AddReferralResponse();

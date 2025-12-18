@@ -199,7 +199,7 @@ message SendCoinsResponse {
 message AddReferralRequest {
   string id = 1;
   uint32 fee_share = 2;
-  string routing_node = 3;
+  optional string routing_node = 3;
 }
 message AddReferralResponse {
   string api_key = 1;

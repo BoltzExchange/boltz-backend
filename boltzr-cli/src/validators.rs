@@ -13,11 +13,6 @@ pub fn url_valid(url: &str) -> Result<String, String> {
     Ok(url.to_string())
 }
 
-pub fn hex_valid(hex: &str) -> Result<String, String> {
-    let _ = alloy::hex::decode(hex).map_err(|e| format!("invalid hex: {e}"))?;
-    Ok(hex.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,35 +75,5 @@ mod tests {
     fn test_url_valid_with_invalid_urls(#[case] url: &str) {
         let result = url_valid(url);
         assert!(result.is_err(), "Expected invalid URL: {url}");
-    }
-
-    #[rstest]
-    #[case("0x")]
-    #[case("0x00")]
-    #[case("0x1234567890abcdef")]
-    #[case("0xABCDEF1234567890")]
-    #[case("0xdeadbeef")]
-    #[case("0x0123456789abcdefABCDEF")]
-    #[case("1234567890abcdef")]
-    #[case("ABCDEF1234567890")]
-    #[case("deadbeef")]
-    fn test_hex_valid_with_valid_hex(#[case] hex: &str) {
-        let result = hex_valid(hex);
-        assert!(result.is_ok(), "Expected valid hex: {hex}");
-    }
-
-    #[rstest]
-    #[case("0xG")]
-    #[case("0x123G")]
-    #[case("xyz")]
-    #[case("0xHello")]
-    #[case("123G456")]
-    #[case("0xABCDEFGH")]
-    #[case("not_hex_at_all")]
-    #[case("0x 123")]
-    #[case("0x123 456")]
-    fn test_hex_valid_with_invalid_hex(#[case] hex: &str) {
-        let result = hex_valid(hex);
-        assert!(result.is_err(), "Expected invalid hex: {hex}");
     }
 }

@@ -46,7 +46,9 @@ pub fn construct_raw<C: Signing + Verification>(
 
     let output = match destination {
         Destination::Single(address) => vec![TxOut {
-            value: input_sum - fee,
+            value: input_sum
+                .checked_sub(fee)
+                .ok_or(anyhow::anyhow!("fee is greater than input sum"))?,
             script_pubkey: address.script_pubkey(),
         }],
         Destination::Multiple(outputs) => {
@@ -1125,5 +1127,82 @@ mod tests {
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
+    }
+
+    #[test]
+    fn test_construct_raw_fee_too_high() {
+        let secp = Secp256k1::new();
+        let address =
+            Address::from_str("bcrt1p70dqezlrn37f043fmc6m45uzflaqe6678q9ludu8ryr9s5rsn0gs3qh0vd")
+                .unwrap()
+                .assume_checked();
+
+        let amount = Amount::from_sat(1000);
+
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+        let input = InputDetail {
+            input_type: InputType::Claim([0; 32]),
+            output_type: OutputType::Legacy(ScriptBuf::new()),
+            outpoint: OutPoint::null(),
+            tx_out: TxOut {
+                value: amount,
+                script_pubkey: ScriptBuf::new(),
+            },
+            keys,
+        };
+
+        let fee = Amount::from_sat(amount.to_sat() + 1);
+        let result = construct_raw(&secp, &[&input], &Destination::Single(&address), fee);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "fee is greater than input sum"
+        );
+    }
+
+    #[test]
+    fn test_construct_raw_output_sum_too_high() {
+        let secp = Secp256k1::new();
+        let change =
+            Address::from_str("bcrt1p70dqezlrn37f043fmc6m45uzflaqe6678q9ludu8ryr9s5rsn0gs3qh0vd")
+                .unwrap()
+                .assume_checked();
+        let dest =
+            Address::from_str("bcrt1ptpycrkuwevk69j9kjnsyynk562mlafc08zh5q69seftaxr6r692sprm2p2")
+                .unwrap()
+                .assume_checked();
+
+        let amount = Amount::from_sat(1000);
+
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+        let input = InputDetail {
+            input_type: InputType::Claim([0; 32]),
+            output_type: OutputType::Legacy(ScriptBuf::new()),
+            outpoint: OutPoint::null(),
+            tx_out: TxOut {
+                value: amount,
+                script_pubkey: ScriptBuf::new(),
+            },
+            keys,
+        };
+
+        let fee = Amount::from_sat(100);
+        let outputs = [(&dest, amount.to_sat() - fee.to_sat() + 1)];
+        let result = construct_raw(
+            &secp,
+            &[&input],
+            &Destination::Multiple(Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            fee,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "output sum is greater than input sum"
+        );
     }
 }

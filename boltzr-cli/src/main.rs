@@ -1,10 +1,19 @@
+use ::serde::Serialize;
 use anyhow::Result;
+use boltz_core::Network;
 use clap::{Parser, Subcommand};
 use rand::Rng;
 
+mod parsers;
 mod scan_locked;
 mod serde;
+mod tx;
 mod validators;
+
+#[derive(Serialize)]
+struct Transaction {
+    transaction: String,
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -16,10 +25,36 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Hash the input with SHA256")]
-    HashSha256 {
-        #[arg(value_parser = validators::hex_valid)]
-        input: String,
+    #[command(about = "Claims a HTLC UTXO")]
+    Claim {
+        #[arg(value_parser = parsers::parse_network)]
+        network: Network,
+        #[arg(value_parser = parsers::parse_hex)]
+        preimage: parsers::HexBytes,
+        #[arg(value_parser = parsers::parse_hex)]
+        private_key: parsers::HexBytes,
+        swap_tree_or_redeem_script: String,
+        #[arg(value_parser = parsers::parse_hex)]
+        raw_transaction: parsers::HexBytes,
+        destination_address: String,
+        fee_per_vbyte: f64,
+        #[arg(short, long, value_parser = parsers::parse_hex)]
+        blinding_key: Option<parsers::HexBytes>,
+    },
+    #[command(about = "Refunds a HTLC UTXO")]
+    Refund {
+        #[arg(value_parser = parsers::parse_network)]
+        network: Network,
+        timeout_block_height: u32,
+        #[arg(value_parser = parsers::parse_hex)]
+        private_key: parsers::HexBytes,
+        swap_tree_or_redeem_script: String,
+        #[arg(value_parser = parsers::parse_hex)]
+        raw_transaction: parsers::HexBytes,
+        destination_address: String,
+        fee_per_vbyte: f64,
+        #[arg(short, long, value_parser = parsers::parse_hex)]
+        blinding_key: Option<parsers::HexBytes>,
     },
     #[command(about = "Scan for funds locked in a swap contract")]
     LockedInContract {
@@ -35,6 +70,11 @@ enum Commands {
     NewKeys,
     #[command(about = "Generate a new preimage")]
     NewPreimage,
+    #[command(about = "Hash the input with SHA256")]
+    HashSha256 {
+        #[arg(value_parser = parsers::parse_hex)]
+        input: parsers::HexBytes,
+    },
 }
 
 #[tokio::main]
@@ -48,10 +88,60 @@ async fn main() {
 }
 
 async fn run_command(cli: Cli) -> Result<()> {
-    match &cli.command {
-        Commands::HashSha256 { input } => {
-            let hash = bitcoin_hashes::Sha256::hash(&alloy::hex::decode(input)?);
-            println!("{}", alloy::hex::encode(hash));
+    match cli.command {
+        Commands::Claim {
+            network,
+            preimage,
+            private_key,
+            swap_tree_or_redeem_script,
+            raw_transaction,
+            destination_address,
+            fee_per_vbyte,
+            blinding_key,
+        } => {
+            let claim_tx = tx::claim_utxo(
+                network,
+                preimage.0,
+                private_key.0,
+                &swap_tree_or_redeem_script,
+                raw_transaction.0,
+                &destination_address,
+                fee_per_vbyte,
+                blinding_key.map(|key| key.0),
+            )?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&Transaction {
+                    transaction: alloy::hex::encode(claim_tx.serialize()),
+                })?
+            );
+        }
+        Commands::Refund {
+            network,
+            timeout_block_height,
+            private_key,
+            swap_tree_or_redeem_script,
+            raw_transaction,
+            destination_address,
+            fee_per_vbyte,
+            blinding_key,
+        } => {
+            let refund_tx = tx::refund_utxo(
+                network,
+                timeout_block_height,
+                private_key.0,
+                &swap_tree_or_redeem_script,
+                raw_transaction.0,
+                &destination_address,
+                fee_per_vbyte,
+                blinding_key.map(|key| key.0),
+            )?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&Transaction {
+                    transaction: alloy::hex::encode(refund_tx.serialize()),
+                })?
+            );
         }
         Commands::LockedInContract {
             address,
@@ -59,7 +149,7 @@ async fn run_command(cli: Cli) -> Result<()> {
             rpc_url,
             scan_interval,
         } => {
-            scan_locked::scan_locked_in_contract(rpc_url, address, start_height, scan_interval)
+            scan_locked::scan_locked_in_contract(&rpc_url, &address, start_height, scan_interval)
                 .await?;
         }
         Commands::NewKeys => {
@@ -86,6 +176,10 @@ async fn run_command(cli: Cli) -> Result<()> {
                     "hash": alloy::hex::encode(hash),
                 }))?
             );
+        }
+        Commands::HashSha256 { input } => {
+            let hash = bitcoin_hashes::Sha256::hash(&input.0);
+            println!("{}", alloy::hex::encode(hash));
         }
     }
 

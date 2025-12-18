@@ -21,10 +21,10 @@ pub enum RescueParams {
         derivation_path: Option<String>,
         #[serde(rename = "gapLimit")]
         gap_limit: Option<u32>,
-        #[serde(default)]
-        page: Option<u32>,
-        #[serde(default)]
-        limit: Option<u32>,
+        #[serde(rename = "startKey", default)]
+        start_key: Option<u32>,
+        #[serde(rename = "endKey", default)]
+        end_key: Option<u32>,
     },
     PublicKey {
         #[serde(rename = "publicKey")]
@@ -50,8 +50,8 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                 xpub,
                 derivation_path,
                 gap_limit,
-                page,
-                limit,
+                start_key,
+                end_key,
             } => {
                 if let Some(limit) = gap_limit {
                     if limit == 0 {
@@ -68,27 +68,33 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                     }
                 }
 
-                if let Some(limit_val) = limit {
-                    if limit_val < 1 {
+                match (start_key, end_key) {
+                    (Some(start), Some(end)) => {
+                        if end < start {
+                            return Err(AxumError::new(
+                                StatusCode::UNPROCESSABLE_ENTITY,
+                                anyhow::anyhow!("endKey ({}) must be >= startKey ({})", end, start),
+                            ));
+                        }
+                    }
+                    (Some(_), None) => {
                         return Err(AxumError::new(
                             StatusCode::UNPROCESSABLE_ENTITY,
-                            anyhow::anyhow!("pagination limit must be at least 1"),
-                        ))
+                            anyhow::anyhow!("endKey must be provided when startKey is provided"),
+                        ));
                     }
-                }
-
-                if let Some(page_val) = page {
-                    if page_val == 0 {
+                    (None, Some(_)) => {
                         return Err(AxumError::new(
                             StatusCode::UNPROCESSABLE_ENTITY,
-                            anyhow::anyhow!("pagination page must be at least 1"),
-                        ))
+                            anyhow::anyhow!("startKey must be provided when endKey is provided"),
+                        ));
                     }
+                    (None, None) => {},
                 }
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
                     .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?
-                    .with_pagination(page, limit);
+                    .with_pagination(start_key, end_key);
 
                 Ok(Box::new(iterator))
             }

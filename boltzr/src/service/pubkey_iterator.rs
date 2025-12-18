@@ -14,14 +14,12 @@ use std::{
 pub const MAX_GAP_LIMIT: u32 = 150;
 
 const DEFAULT_GAP_LIMIT: u32 = 50;
-const DEFAULT_PAGE: u32 = 1;
-const DEFAULT_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
 
 #[derive(Clone, Copy)]
 pub struct Pagination {
-    pub page: u32,
-    pub limit: u32,
+    pub start_key: u32,
+    pub end_key: u32,
 }
 
 pub trait PubkeyIterator {
@@ -72,11 +70,11 @@ impl XpubIterator {
         })
     }
 
-    pub fn with_pagination(mut self, page: Option<u32>, limit: Option<u32>) -> Self {
-        if page.is_some() || limit.is_some() {
+    pub fn with_pagination(mut self, start_key: Option<u32>, end_key: Option<u32>) -> Self {
+        if let (Some(start), Some(end)) = (start_key, end_key) {
             self.pagination = Some(Pagination {
-                page: page.unwrap_or(DEFAULT_PAGE),
-                limit: limit.unwrap_or(DEFAULT_LIMIT),
+                start_key: start,
+                end_key: end,
             });
         }
         self

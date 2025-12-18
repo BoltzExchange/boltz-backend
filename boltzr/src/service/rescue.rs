@@ -465,14 +465,6 @@ impl SwapRescue {
                 .then(a.created_at().cmp(&b.created_at()))
         });
 
-        if let Some(Pagination { page, limit }) = pagination {
-            let offset = page.saturating_sub(1).saturating_mul(limit) as usize;
-            let limit = limit as usize;
-            let start = offset.min(restorable.len());
-            let end = start.saturating_add(limit).min(restorable.len());
-            return Ok(restorable[start..end].to_vec());
-        }
-
         Ok(restorable)
     }
 
@@ -574,9 +566,10 @@ impl SwapRescue {
         ) -> Result<Vec<R>>,
     {
         macro_rules! log_scan_result {
-            ($to:expr, $iterator:expr, $result:expr) => {
+            ($from:expr, $to:expr, $iterator:expr, $result:expr) => {
                 debug!(
-                    "Scanned {} keys for swaps for {} and found {}",
+                    "Scanned keys {} to {} for {} and found {} swaps",
+                    $from,
                     $to,
                     $iterator.identifier(),
                     $result.len(),
@@ -589,17 +582,22 @@ impl SwapRescue {
 
         let gap_limit = std::cmp::min(iterator.gap_limit(), iterator.max_keys());
         if gap_limit == 0 {
-            log_scan_result!(0, iterator, result);
+            log_scan_result!(0, 0, iterator, result);
             return Ok(vec![]);
         }
 
-        let target_count = match pagination {
-            Some(Pagination { page, limit }) => page.saturating_mul(limit),
-            None => u32::MAX,
+        let (scan_start, scan_end) = match pagination {
+            Some(Pagination { start_key, end_key }) => (start_key, end_key),
+            None => (start_index.unwrap_or(0), iterator.max_keys()),
         };
 
-        for from in (start_index.unwrap_or(0)..).step_by(gap_limit as usize) {
-            let to = from + gap_limit;
+        debug!(
+            "Starting scan from key index {} to {} for {}",
+            scan_start, scan_end, iterator.identifier()
+        );
+
+        for from in (scan_start..scan_end).step_by(gap_limit as usize) {
+            let to = std::cmp::min(from + gap_limit, scan_end);
 
             trace!(
                 "Scanning for swaps from key index {} to {} for {}",
@@ -647,8 +645,8 @@ impl SwapRescue {
                 }
             }
 
-            if swaps.is_empty() && chain_swaps.is_empty() && reverse_swaps.is_empty() {
-                log_scan_result!(to, iterator, result);
+            if pagination.is_none() && swaps.is_empty() && chain_swaps.is_empty() && reverse_swaps.is_empty() {
+                log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
 
@@ -657,13 +655,13 @@ impl SwapRescue {
                 result.insert(swap.id().to_string(), swap);
             }
 
-            if result.len() >= target_count as usize {
-                log_scan_result!(to, iterator, result);
+            if to >= scan_end {
+                log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
 
             if to >= iterator.max_keys() {
-                log_scan_result!(to, iterator, result);
+                log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
         }

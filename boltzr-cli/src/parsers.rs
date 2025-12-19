@@ -110,6 +110,14 @@ pub fn parse_alloy_address(address: &str) -> Result<Address, String> {
     Address::from_str(address).map_err(|e| e.to_string())
 }
 
+pub fn parse_json_object(json: &str) -> Result<serde_json::Value, String> {
+    let value = serde_json::from_str(json).map_err(|e| format!("invalid json: {e}"))?;
+    match value {
+        serde_json::Value::Object(_) => Ok(value),
+        _ => Err("json is not an object".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,5 +220,41 @@ mod tests {
     #[case("notanaddress")]
     fn test_parse_alloy_address_invalid(#[case] input: &str) {
         assert!(parse_alloy_address(input).is_err());
+    }
+
+    #[rstest]
+    #[case(r#"{}"#)]
+    #[case(r#"{"key": "value"}"#)]
+    #[case(r#"{"number": 42}"#)]
+    #[case(r#"{"nested": {"obj": true}}"#)]
+    #[case(r#"{"array": [1, 2, 3], "string": "test"}"#)]
+    fn test_parse_json_object_valid(#[case] input: &str) {
+        let result = parse_json_object(input);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_object());
+    }
+
+    #[rstest]
+    #[case(r#"[]"#, "json is not an object")]
+    #[case(r#"[1, 2, 3]"#, "json is not an object")]
+    #[case(r#""string""#, "json is not an object")]
+    #[case(r#"42"#, "json is not an object")]
+    #[case(r#"true"#, "json is not an object")]
+    #[case(r#"null"#, "json is not an object")]
+    fn test_parse_json_object_wrong_type(#[case] input: &str, #[case] expected_err: &str) {
+        let result = parse_json_object(input);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), expected_err);
+    }
+
+    #[rstest]
+    #[case("not json")]
+    #[case("{invalid}")]
+    #[case(r#"{"unclosed": "#)]
+    #[case(r#"{"key": }"#)]
+    fn test_parse_json_object_invalid_json(#[case] input: &str) {
+        let result = parse_json_object(input);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().starts_with("invalid json:"));
     }
 }

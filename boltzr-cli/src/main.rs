@@ -31,6 +31,12 @@ struct UnblindedOutput {
     script: String,
 }
 
+#[derive(Serialize)]
+struct Referral {
+    id: String,
+    config: Option<serde_json::Value>,
+}
+
 #[derive(Clone, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -265,6 +271,12 @@ enum ReferralCommands {
         fee_share: u32,
         routing_node: Option<String>,
     },
+    #[command(about = "Sets the configuration of a referral")]
+    SetConfig {
+        id: String,
+        #[arg(value_parser = parsers::parse_json_object)]
+        config: Option<serde_json::Value>,
+    },
     #[command(about = "Gets referral information")]
     Get { id: Option<String> },
 }
@@ -281,9 +293,9 @@ enum SwapCommands {
     #[command(about = "Gets the pending sweeps")]
     PendingSweeps {},
     #[command(about = "Sets the status of a swap")]
-    SetSwapStatus { id: String, status: String },
+    SetStatus { id: String, status: String },
     #[command(about = "Sweeps all deferred swap claims")]
-    SweepSwaps { symbol: Option<String> },
+    Sweep { symbol: Option<String> },
 }
 
 #[tokio::main]
@@ -567,12 +579,37 @@ async fn run_command(cli: Cli) -> Result<()> {
                     .await?;
                 print_pretty(&response)?;
             }
+            ReferralCommands::SetConfig { id, config } => {
+                let response = get_grpc_client(&cli)
+                    .await?
+                    .set_referral(
+                        id.to_string(),
+                        config.as_ref().map(serde_json::to_string).transpose()?,
+                    )
+                    .await?;
+                print_pretty(&response)?;
+            }
             ReferralCommands::Get { id } => {
                 let response = get_grpc_client(&cli)
                     .await?
                     .get_referrals(id.clone())
                     .await?;
-                print_pretty(&response.referral)?;
+                print_pretty(
+                    &response
+                        .referral
+                        .into_iter()
+                        .map(|r| -> Result<Referral> {
+                            Ok(Referral {
+                                id: r.id,
+                                config: r
+                                    .config
+                                    .as_deref()
+                                    .map(serde_json::from_str)
+                                    .transpose()?,
+                            })
+                        })
+                        .collect::<Result<Vec<Referral>>>()?,
+                )?;
             }
         },
         Commands::Swap { ref command } => match command {
@@ -597,14 +634,14 @@ async fn run_command(cli: Cli) -> Result<()> {
                 let response = get_grpc_client(&cli).await?.get_pending_sweeps().await?;
                 print_pretty(&response.pending_sweeps)?;
             }
-            SwapCommands::SetSwapStatus { id, status } => {
+            SwapCommands::SetStatus { id, status } => {
                 let response = get_grpc_client(&cli)
                     .await?
                     .set_swap_status(id.to_string(), status.to_string())
                     .await?;
                 print_pretty(&response)?;
             }
-            SwapCommands::SweepSwaps { symbol } => {
+            SwapCommands::Sweep { symbol } => {
                 let response = get_grpc_client(&cli)
                     .await?
                     .sweep_swaps(symbol.clone())

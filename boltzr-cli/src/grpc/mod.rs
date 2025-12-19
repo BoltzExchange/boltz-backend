@@ -191,6 +191,18 @@ impl BoltzClient {
         Ok(response.into_inner())
     }
 
+    pub async fn set_referral(
+        &mut self,
+        id: String,
+        config: Option<String>,
+    ) -> Result<boltz_rpc::SetReferralResponse> {
+        let response = self
+            .client
+            .set_referral(boltz_rpc::SetReferralRequest { id, config })
+            .await?;
+        Ok(response.into_inner())
+    }
+
     pub async fn get_referrals(
         &mut self,
         id: Option<String>,

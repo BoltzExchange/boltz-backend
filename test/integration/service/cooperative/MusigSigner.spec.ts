@@ -66,6 +66,11 @@ describe('MusigSigner', () => {
     type: CurrencyType.BitcoinLike,
   } as unknown as Currency;
 
+  const arkCurrency = {
+    type: CurrencyType.Ark,
+    arkNode: {},
+  } as unknown as Currency;
+
   const btcWallet = {} as Wallet;
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
@@ -97,6 +102,7 @@ describe('MusigSigner', () => {
       Logger.disabledLogger,
       new Map<string, any>([
         ['BTC', btcCurrency],
+        ['Ark', arkCurrency],
         ['noChainClient', {}],
       ]),
       walletManager,

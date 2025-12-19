@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
 import Logger from '../../../lib/Logger';
+import ArkClient from '../../../lib/chain/ArkClient';
 import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
 import type RefundTransaction from '../../../lib/db/models/RefundTransaction';
 import { RefundStatus } from '../../../lib/db/models/RefundTransaction';
@@ -45,6 +46,13 @@ describe('RefundWatcher', () => {
             symbol: 'RBTC',
             type: CurrencyType.Ether,
             provider: setup.provider,
+          } as unknown as Currency,
+        ],
+        [
+          ArkClient.symbol,
+          {
+            symbol: ArkClient.symbol,
+            type: CurrencyType.Ark,
           } as unknown as Currency,
         ],
       ]),
@@ -220,6 +228,12 @@ describe('RefundWatcher', () => {
       await expect(
         getConfirmations(watcher['currencies'].get('RBTC')!, tx.hash),
       ).resolves.toEqual(1);
+    });
+
+    test('should always return required confirmations + 1 for ARK', async () => {
+      await expect(
+        getConfirmations(watcher['currencies'].get(ArkClient.symbol)!, 'txId'),
+      ).resolves.toEqual(2);
     });
   });
 });

@@ -1,3 +1,4 @@
+import ArkClient from '../../../../../lib/chain/ArkClient';
 import ElementsClient from '../../../../../lib/chain/ElementsClient';
 import {
   CurrencyType,
@@ -49,6 +50,12 @@ describe('ExpiryTrigger', () => {
         provider: {
           getBlockNumber: async () => 1_022,
         },
+      },
+    ],
+    [
+      ArkClient.symbol,
+      {
+        type: CurrencyType.Ark,
       },
     ],
   ]);
@@ -113,6 +120,15 @@ describe('ExpiryTrigger', () => {
       },
     );
 
+    test('should throw when checking expiry for ARK currency', async () => {
+      await expect(
+        trigger.check(ArkClient.symbol, {
+          type: SwapType.Submarine,
+          timeoutBlockHeight: 100,
+        } as any),
+      ).rejects.toThrow('Ark has no block height');
+    });
+
     test('should throw when checking expiry for unknown currency', async () => {
       await expect(
         trigger.check('UNKNOWN', {
@@ -149,6 +165,12 @@ describe('ExpiryTrigger', () => {
         expect(blockHeight).toEqual(height);
       },
     );
+
+    test('should throw an error if the currency is Ark', async () => {
+      await expect(trigger['getBlockHeight'](ArkClient.symbol)).rejects.toThrow(
+        'Ark has no block height',
+      );
+    });
 
     test('should throw an error if the currency is not found', async () => {
       await expect(trigger['getBlockHeight']('DOGE')).rejects.toThrow(

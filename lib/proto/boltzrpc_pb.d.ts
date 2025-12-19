@@ -628,7 +628,10 @@ export class AddReferralRequest extends jspb.Message {
     setId(value: string): AddReferralRequest;
     getFeeShare(): number;
     setFeeShare(value: number): AddReferralRequest;
-    getRoutingNode(): string;
+
+    hasRoutingNode(): boolean;
+    clearRoutingNode(): void;
+    getRoutingNode(): string | undefined;
     setRoutingNode(value: string): AddReferralRequest;
 
     serializeBinary(): Uint8Array;
@@ -645,7 +648,7 @@ export namespace AddReferralRequest {
     export type AsObject = {
         id: string,
         feeShare: number,
-        routingNode: string,
+        routingNode?: string,
     }
 }
 

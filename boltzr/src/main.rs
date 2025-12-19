@@ -51,7 +51,7 @@ struct Args {
 
     /// Log level of the application
     /// Possible values: error, warn, info, debug, trace
-    #[arg(short, long, default_value_t = String::from("debug"))]
+    #[arg(short, long, default_value = "debug")]
     log_level: String,
 }
 

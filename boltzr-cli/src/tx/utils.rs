@@ -62,12 +62,12 @@ macro_rules! find_matching_output_taproot {
 pub fn construct_transaction(
     network: Network,
     input_type: InputType,
-    private_key: Vec<u8>,
+    private_key: [u8; 32],
     swap_tree_or_redeem_script: &str,
     raw_transaction: Vec<u8>,
     destination_address: &str,
     fee_per_vbyte: f64,
-    blinding_key: Option<Vec<u8>>,
+    blinding_key: Option<[u8; 32]>,
 ) -> Result<Transaction> {
     let address = parse_address(destination_address)?;
 
@@ -150,7 +150,7 @@ pub fn parse_elements_keypair<C: bitcoin::secp256k1::Signing>(
 
 pub fn parse_blinding_key<C: elements::secp256k1_zkp::Signing>(
     secp: &elements::secp256k1_zkp::Secp256k1<C>,
-    blinding_key: Option<Vec<u8>>,
+    blinding_key: Option<[u8; 32]>,
 ) -> Result<Option<elements::secp256k1_zkp::Keypair>> {
     blinding_key
         .map(|key| {

@@ -212,8 +212,8 @@ alias lightning-cli-sim='docker exec -it regtest lightning-cli'
 export PATH="$boltzDir/bin:$PATH"
 ```
 
-## boltz-cli
+## boltzr-cli
 
-The `boltz-cli` tool allows you to interact with a running backend over gRPC. It
-can be useful for backend development and to perform maintenance tasks. It is
+The `boltzr-cli` tool allows you to interact with a running backend over gRPC.
+It can be useful for backend development and to perform maintenance tasks. It is
 available on the `bin` folder after compiling the backend.

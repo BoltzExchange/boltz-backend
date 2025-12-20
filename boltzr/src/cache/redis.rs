@@ -133,14 +133,16 @@ mod test {
             .await
             .unwrap();
 
-        let ttl: u64 = redis::cmd("FIELDTTL")
+        let ttl: Vec<i64> = redis::cmd("HEXPIRETIME")
             .arg(key)
+            .arg("FIELDS")
+            .arg(1)
             .arg(field)
             .query_async(&mut cache.connection.clone())
             .await
             .unwrap();
 
-        assert!(ttl >= 18446744073709551610);
+        assert_eq!(ttl[0], -1);
     }
 
     #[tokio::test]
@@ -154,7 +156,12 @@ mod test {
         let key = "test";
         let field = "ttl";
 
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
         let ttl_set = 21;
+
         cache
             .set(
                 key,
@@ -167,13 +174,17 @@ mod test {
             .await
             .unwrap();
 
-        let ttl: u64 = redis::cmd("FIELDTTL")
+        let ttl: Vec<i64> = redis::cmd("HEXPIRETIME")
             .arg(key)
+            .arg("FIELDS")
+            .arg(1)
             .arg(field)
             .query_async(&mut cache.connection.clone())
             .await
             .unwrap();
+        let ttl_delta = (ttl[0] - now) as u64;
 
-        assert!(ttl >= ttl_set - 1 && ttl <= ttl_set);
+        assert!(ttl_delta >= ttl_set - 1);
+        assert!(ttl_delta <= ttl_set + 1);
     }
 }

@@ -164,16 +164,25 @@ def build_images(
     no_latest: bool,
     branch: str,
     buildx: bool,
+    local: bool = False,
     platform: str = "",
 ) -> None:
     """Build one or more images."""
-    change_working_directory()
+    if local and set(to_build) != {"boltz"}:
+        print_error("--local only supports building 'boltz'")
+        sys.exit(1)
+
+    if not local:
+        change_working_directory()
 
     for image in to_build:
         build_details = get_build_details(image)
         tag = build_details.tag
 
-        if branch in ["master", "main"]:
+        if local:
+            tag = "latest"
+            branch = "local"
+        elif branch in ["master", "main"]:
             tag = "latest"
         elif branch != "":
             tag = branch
@@ -181,12 +190,15 @@ def build_images(
         build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
         build_args.append(f"VERSION={tag if tag != 'latest' else branch}")
 
+        if local:
+            build_args.append("SOURCE=local")
+
         # Add the prefix "--build-arg " to every entry and
         # join the array to a string
         args = " ".join(["--build-arg " + entry for entry in build_args])
 
         name = f"{organisation}/{image}"
-        dockerfile = f"{image}/Dockerfile"
+        dockerfile = f"docker/{image}/Dockerfile" if local else f"{image}/Dockerfile"
 
         if buildx:
             extra_tag = "" if no_latest else f"--tag {name}:latest"
@@ -247,6 +259,7 @@ if __name__ == "__main__":
     BUILD_PARSER.add_argument("images", type=str, nargs="*")
     BUILD_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILD_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
+    BUILD_PARSER.add_argument("--local", dest="local", action="store_true", help="Build from local source instead of cloning from git")
     BUILD_PARSER.add_argument("--branch", default="", help="Branch to build")
     BUILD_PARSER.add_argument(
         "--organisation",
@@ -283,6 +296,7 @@ if __name__ == "__main__":
             ARGS.no_latest,
             ARGS.branch,
             False,
+            ARGS.local,
         )
     elif ARGS.command == "buildx":
         build_images(
@@ -292,5 +306,6 @@ if __name__ == "__main__":
             ARGS.no_latest,
             ARGS.branch,
             True,
+            False,
             ARGS.platform,
         )

@@ -1,6 +1,8 @@
 ARG NODE_VERSION
+ARG VERSION
+ARG SOURCE=remote
 
-FROM node:${NODE_VERSION} AS builder
+FROM node:${NODE_VERSION} AS base
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install \
@@ -29,8 +31,14 @@ RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg -
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+FROM base AS source-remote
 ARG VERSION
-RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION}
+RUN git clone https://github.com/BoltzExchange/boltz-backend.git -b ${VERSION} /boltz-backend
+
+FROM base AS source-local
+COPY . /boltz-backend
+
+FROM source-${SOURCE} AS builder
 WORKDIR /boltz-backend
 RUN git submodule update --init
 

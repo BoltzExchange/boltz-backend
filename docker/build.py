@@ -180,7 +180,6 @@ def build_images(
         tag = build_details.tag
 
         if local:
-            tag = "latest"
             branch = "local"
         elif branch in ["master", "main"]:
             tag = "latest"

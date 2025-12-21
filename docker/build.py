@@ -270,6 +270,7 @@ if __name__ == "__main__":
     BUILDX_PARSER.add_argument("images", type=str, nargs="*")
     BUILDX_PARSER.add_argument("--no-cache", dest="no_cache", action="store_true")
     BUILDX_PARSER.add_argument("--no-latest", dest="no_latest", action="store_true")
+    BUILDX_PARSER.add_argument("--local", dest="local", action="store_true", help="Build from local source instead of cloning from git")
     BUILDX_PARSER.add_argument("--branch", default="", help="Branch to build")
     BUILDX_PARSER.add_argument(
         "--platform",
@@ -306,6 +307,6 @@ if __name__ == "__main__":
             ARGS.no_latest,
             ARGS.branch,
             True,
-            False,
+            ARGS.local,
             ARGS.platform,
         )

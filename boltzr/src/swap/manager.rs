@@ -261,7 +261,7 @@ impl SwapManager for Manager {
             .boxed()
             // Elements inputs need to fetch chain data to prepare the input and
             // we don't want to overwhelm the node
-            .buffered(15)
+            .buffered(16)
             .try_collect::<Vec<_>>()
             .await?;
 

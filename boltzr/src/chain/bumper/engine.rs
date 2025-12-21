@@ -119,7 +119,7 @@ impl Bumper {
             .raw_transaction(&pending_tx.transaction_id)
             .await?;
         let tx = Transaction::parse_hex(&self.chain_client.chain_type(), &tx)?;
-        let fee_sat_vbyte = tx.calculate_fee(&self.chain_client).await?;
+        let fee_sat_vbyte = tx.calculate_fee(&self.chain_client).await? as f64 / tx.vsize() as f64;
 
         if !Self::should_bump(fee_sat_vbyte, fee_target) {
             debug!(

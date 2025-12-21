@@ -6,6 +6,7 @@ use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
+use futures_util::{StreamExt, TryStreamExt};
 use lightning::util::ser::Writeable;
 use std::sync::Arc;
 
@@ -90,37 +91,51 @@ impl Transaction {
         }
     }
 
-    /// Calculate the fee of the transaction in sat/vbyte
+    pub fn vsize(&self) -> u64 {
+        let size = match self {
+            Transaction::Bitcoin(tx) => tx.vsize(),
+            Transaction::Elements(tx) => tx.discount_vsize(),
+        };
+
+        size as u64
+    }
+
+    /// Calculates the fee the transaction is paying
     pub async fn calculate_fee(
         &self,
         client: &Arc<dyn Client + Send + Sync>,
-    ) -> anyhow::Result<f64> {
+    ) -> anyhow::Result<u64> {
         match self {
             Transaction::Bitcoin(tx) => {
-                let output_sum = tx.output.iter().map(|o| o.value.to_sat()).sum::<u64>();
+                let input_sum = futures::stream::iter(&tx.input)
+                    .map(|input| {
+                        let client = client.clone();
 
-                let mut input_sum = 0;
-                for input in tx.input.iter() {
-                    let input_tx = client
-                        .raw_transaction(&input.previous_output.txid.to_hex())
-                        .await?;
-                    let input_tx: bitcoin::Transaction =
-                        bitcoin::consensus::deserialize(&alloy::hex::decode(input_tx)?)?;
+                        async move {
+                            let input_tx = client
+                                .raw_transaction(&input.previous_output.txid.to_hex())
+                                .await?;
+                            let input_tx: bitcoin::Transaction =
+                                bitcoin::consensus::deserialize(&alloy::hex::decode(input_tx)?)?;
 
-                    if input.previous_output.vout as usize >= input_tx.output.len() {
-                        return Err(anyhow::anyhow!(
-                            "input vout {} is out of bounds for tx {}",
-                            input.previous_output.vout,
-                            input.previous_output.txid
-                        ));
-                    }
+                            match input_tx.output.get(input.previous_output.vout as usize) {
+                                Some(output) => Ok(output.value.to_sat()),
+                                None => Err(anyhow::anyhow!(
+                                    "input vout {} is out of bounds for tx {}",
+                                    input.previous_output.vout,
+                                    input.previous_output.txid
+                                )),
+                            }
+                        }
+                    })
+                    .boxed()
+                    .buffer_unordered(16)
+                    .try_fold(0, |acc, amount| async move { Ok(acc + amount) })
+                    .await?;
 
-                    input_sum += input_tx.output[input.previous_output.vout as usize]
-                        .value
-                        .to_sat();
-                }
-
-                Ok((input_sum - output_sum) as f64 / tx.vsize() as f64)
+                Ok(input_sum
+                    .checked_sub(tx.output.iter().map(|o| o.value.to_sat()).sum::<u64>())
+                    .ok_or(anyhow::anyhow!("input sum is less than output sum"))?)
             }
             Transaction::Elements(tx) => {
                 let fee = tx
@@ -134,7 +149,7 @@ impl Transaction {
                     .explicit()
                     .ok_or(anyhow::anyhow!("fee output has no explicit value"))?;
 
-                Ok(fee as f64 / tx.discount_vsize() as f64)
+                Ok(fee)
             }
         }
     }
@@ -298,6 +313,18 @@ mod test {
         assert!(matches!(tx, Transaction::Elements(_)));
     }
 
+    #[test]
+    fn test_vsize() {
+        let tx = Transaction::parse_hex(&Type::Bitcoin, BITCOIN_TX_HEX).unwrap();
+        assert_eq!(tx.vsize(), 165);
+    }
+
+    #[test]
+    fn test_vsize_elements() {
+        let tx = Transaction::parse_hex(&Type::Elements, ELEMENTS_TX_HEX).unwrap();
+        assert_eq!(tx.vsize(), 257);
+    }
+
     #[tokio::test]
     #[serial(BTC)]
     async fn calculate_fee_bitcoin() {
@@ -307,7 +334,7 @@ mod test {
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
         let fee = tx.calculate_fee(&client).await.unwrap();
-        assert_eq!(fee, 1.0);
+        assert_eq!(fee, tx.vsize());
     }
 
     #[tokio::test]
@@ -317,7 +344,7 @@ mod test {
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
         let fee = tx.calculate_fee(&client).await.unwrap();
-        assert_eq!(fee, 0.09727626459143969);
+        assert_eq!(fee, 25);
     }
 
     #[test]

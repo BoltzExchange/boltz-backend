@@ -17,6 +17,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     startWebHookRetries: IBoltzRService_IStartWebHookRetries;
     createWebHook: IBoltzRService_ICreateWebHook;
     sendWebHook: IBoltzRService_ISendWebHook;
+    claimBatch: IBoltzRService_IClaimBatch;
     signEvmRefund: IBoltzRService_ISignEvmRefund;
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     isMarked: IBoltzRService_IIsMarked;
@@ -106,6 +107,15 @@ interface IBoltzRService_ISendWebHook extends grpc.MethodDefinition<boltzr_pb.Se
     responseSerialize: grpc.serialize<boltzr_pb.SendWebHookResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.SendWebHookResponse>;
 }
+interface IBoltzRService_IClaimBatch extends grpc.MethodDefinition<boltzr_pb.ClaimBatchRequest, boltzr_pb.ClaimBatchResponse> {
+    path: "/boltzr.BoltzR/ClaimBatch";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.ClaimBatchRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.ClaimBatchRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.ClaimBatchResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.ClaimBatchResponse>;
+}
 interface IBoltzRService_ISignEvmRefund extends grpc.MethodDefinition<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse> {
     path: "/boltzr.BoltzR/SignEvmRefund";
     requestStream: false;
@@ -173,6 +183,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     startWebHookRetries: grpc.handleUnaryCall<boltzr_pb.StartWebHookRetriesRequest, boltzr_pb.StartWebHookRetriesResponse>;
     createWebHook: grpc.handleUnaryCall<boltzr_pb.CreateWebHookRequest, boltzr_pb.CreateWebHookResponse>;
     sendWebHook: grpc.handleUnaryCall<boltzr_pb.SendWebHookRequest, boltzr_pb.SendWebHookResponse>;
+    claimBatch: grpc.handleUnaryCall<boltzr_pb.ClaimBatchRequest, boltzr_pb.ClaimBatchResponse>;
     signEvmRefund: grpc.handleUnaryCall<boltzr_pb.SignEvmRefundRequest, boltzr_pb.SignEvmRefundResponse>;
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
@@ -207,6 +218,9 @@ export interface IBoltzRClient {
     sendWebHook(request: boltzr_pb.SendWebHookRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
     sendWebHook(request: boltzr_pb.SendWebHookRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
     sendWebHook(request: boltzr_pb.SendWebHookRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
+    claimBatch(request: boltzr_pb.ClaimBatchRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
+    claimBatch(request: boltzr_pb.ClaimBatchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
+    claimBatch(request: boltzr_pb.ClaimBatchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
@@ -251,6 +265,9 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public sendWebHook(request: boltzr_pb.SendWebHookRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
     public sendWebHook(request: boltzr_pb.SendWebHookRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
     public sendWebHook(request: boltzr_pb.SendWebHookRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SendWebHookResponse) => void): grpc.ClientUnaryCall;
+    public claimBatch(request: boltzr_pb.ClaimBatchRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
+    public claimBatch(request: boltzr_pb.ClaimBatchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
+    public claimBatch(request: boltzr_pb.ClaimBatchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.ClaimBatchResponse) => void): grpc.ClientUnaryCall;
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;
     public signEvmRefund(request: boltzr_pb.SignEvmRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.SignEvmRefundResponse) => void): grpc.ClientUnaryCall;

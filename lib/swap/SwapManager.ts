@@ -202,6 +202,7 @@ class SwapManager {
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
+      this.sidecar,
       this.currencies,
       this.rateProvider,
       this.walletManager,

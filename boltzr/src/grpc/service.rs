@@ -6,15 +6,15 @@ use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
-    Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CreateWebHookRequest,
-    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
-    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
-    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
+    Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, ClaimBatchRequest,
+    ClaimBatchResponse, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
+    DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest, GetInfoResponse, GetMessagesRequest,
+    GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel, RelevantTransaction,
+    RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse, SendMessageRequest,
+    SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest,
+    SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest,
+    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate,
+    SwapUpdateRequest, SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
     decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
@@ -374,6 +374,24 @@ where
         {
             Ok(res) => Ok(Response::new(SendWebHookResponse {
                 ok: res != crate::webhook::caller::CallResult::Failed,
+            })),
+            Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::claim_batch", skip_all)]
+    async fn claim_batch(
+        &self,
+        request: Request<ClaimBatchRequest>,
+    ) -> Result<Response<ClaimBatchResponse>, Status> {
+        let swaps = request.into_inner().swap_ids;
+        if swaps.is_empty() {
+            return Err(Status::new(Code::InvalidArgument, "no swaps to claim"));
+        }
+
+        match self.manager.claim_batch(swaps).await {
+            Ok(tx) => Ok(Response::new(ClaimBatchResponse {
+                transaction: tx.serialize(),
             })),
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }

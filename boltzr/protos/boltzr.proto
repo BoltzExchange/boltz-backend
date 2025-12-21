@@ -17,6 +17,7 @@ service BoltzR {
   rpc CreateWebHook (CreateWebHookRequest) returns (CreateWebHookResponse);
   rpc SendWebHook (SendWebHookRequest) returns (SendWebHookResponse);
 
+  rpc ClaimBatch (ClaimBatchRequest) returns (ClaimBatchResponse);
   rpc SignEvmRefund (SignEvmRefundRequest) returns (SignEvmRefundResponse);
 
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
@@ -122,6 +123,15 @@ message SendWebHookRequest {
 
 message SendWebHookResponse {
   bool ok = 1;
+}
+
+message ClaimBatchRequest {
+  // The claimable chain of all swaps has to be the same
+  repeated string swap_ids = 1;
+}
+
+message ClaimBatchResponse {
+  bytes transaction = 1;
 }
 
 message SignEvmRefundRequest {

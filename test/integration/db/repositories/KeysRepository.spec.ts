@@ -16,6 +16,7 @@ describe('KeyRepository', () => {
   });
 
   afterAll(async () => {
+    await KeyProvider.truncate();
     await database.close();
   });
 

@@ -286,6 +286,20 @@ class Sidecar extends BaseClient<
     >('createWebHook', req);
   };
 
+  public claimBatch = async (swapIds: string[]) => {
+    const req = new sidecarrpc.ClaimBatchRequest();
+    req.setSwapIdsList(swapIds);
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.ClaimBatchRequest,
+      sidecarrpc.ClaimBatchResponse
+    >('claimBatch', req, false);
+
+    return {
+      transaction: Buffer.from(res.getTransaction_asU8()),
+    };
+  };
+
   public signEvmRefund = async (
     contractAddress: string,
     preimageHash: Buffer,

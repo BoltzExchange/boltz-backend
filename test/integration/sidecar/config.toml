@@ -1,7 +1,7 @@
 [postgres]
 host = "127.0.0.1"
 port = 5432
-database = "boltz"
+database = "boltz_test"
 username = "boltz"
 password = "boltz"
 
@@ -20,6 +20,12 @@ port = 10_003
 
 [[currencies]]
 symbol = "BTC"
+
+[currencies.chain]
+host = "127.0.0.1"
+port = 18_443
+cookie = "./regtest/data/bitcoind/regtest/.cookie"
+wallet = "regtest"
 
 [currencies.cln]
 host = "127.0.0.1"

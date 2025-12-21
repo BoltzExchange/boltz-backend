@@ -17,6 +17,10 @@ pub trait Wallet {
     fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>>;
 
     async fn get_address(&self, label: &str) -> Result<String>;
+
+    fn label_batch_claim(&self, ids: &[&str]) -> String {
+        format!("Batch claim of Swaps {}", ids.join(", "))
+    }
 }
 
 #[cfg(test)]

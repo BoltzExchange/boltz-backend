@@ -33,6 +33,23 @@ pub use script_pubkey::*;
 pub use swap::*;
 pub use web_hook::*;
 
+macro_rules! aggregate_musig_key {
+    ($keys:expr, $refund_pub_key:expr) => {
+        Musig::new(
+            Musig::convert_keypair($keys.secret_key().secret_bytes())?,
+            vec![
+                Musig::convert_pub_key(&$keys.public_key().serialize())?,
+                Musig::convert_pub_key(&alloy::hex::decode($refund_pub_key)?)?,
+            ],
+            [0; 32],
+        )?
+        .agg_pk()
+        .serialize()
+    };
+}
+
+pub(crate) use aggregate_musig_key;
+
 #[derive(EnumString, Display, PartialEq, Clone, Copy, Debug)]
 pub enum SwapType {
     #[strum(serialize = "Submarine")]
@@ -135,9 +152,16 @@ pub trait SomeSwap {
     fn id(&self) -> String;
     fn status(&self) -> SwapUpdate;
 
-    fn sending_outpoint(&self) -> anyhow::Result<Option<Outpoint>>;
+    fn sending_outpoint(&self) -> Result<Option<Outpoint>>;
 
-    fn refund_symbol(&self) -> anyhow::Result<String>;
+    fn claim_symbol(&self) -> Result<String>;
+    async fn claim_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail>;
+
+    fn refund_symbol(&self) -> Result<String>;
     async fn refund_details(
         &self,
         wallet: &Arc<dyn Wallet + Send + Sync>,
@@ -146,8 +170,8 @@ pub trait SomeSwap {
 }
 
 pub trait LightningSwap {
-    fn chain_symbol(&self) -> anyhow::Result<String>;
-    fn lightning_symbol(&self) -> anyhow::Result<String>;
+    fn chain_symbol(&self) -> Result<String>;
+    fn lightning_symbol(&self) -> Result<String>;
 }
 
 #[cfg(test)]

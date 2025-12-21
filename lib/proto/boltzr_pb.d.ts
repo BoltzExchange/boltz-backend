@@ -517,6 +517,50 @@ export namespace SendWebHookResponse {
     }
 }
 
+export class ClaimBatchRequest extends jspb.Message { 
+    clearSwapIdsList(): void;
+    getSwapIdsList(): Array<string>;
+    setSwapIdsList(value: Array<string>): ClaimBatchRequest;
+    addSwapIds(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ClaimBatchRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ClaimBatchRequest): ClaimBatchRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ClaimBatchRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ClaimBatchRequest;
+    static deserializeBinaryFromReader(message: ClaimBatchRequest, reader: jspb.BinaryReader): ClaimBatchRequest;
+}
+
+export namespace ClaimBatchRequest {
+    export type AsObject = {
+        swapIdsList: Array<string>,
+    }
+}
+
+export class ClaimBatchResponse extends jspb.Message { 
+    getTransaction(): Uint8Array | string;
+    getTransaction_asU8(): Uint8Array;
+    getTransaction_asB64(): string;
+    setTransaction(value: Uint8Array | string): ClaimBatchResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ClaimBatchResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ClaimBatchResponse): ClaimBatchResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ClaimBatchResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ClaimBatchResponse;
+    static deserializeBinaryFromReader(message: ClaimBatchResponse, reader: jspb.BinaryReader): ClaimBatchResponse;
+}
+
+export namespace ClaimBatchResponse {
+    export type AsObject = {
+        transaction: Uint8Array | string,
+    }
+}
+
 export class SignEvmRefundRequest extends jspb.Message { 
     getPreimageHash(): Uint8Array | string;
     getPreimageHash_asU8(): Uint8Array;

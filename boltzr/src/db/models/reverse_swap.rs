@@ -1,6 +1,6 @@
 use crate::chain::utils::Outpoint;
 use crate::chain::{Client, elements_client::SYMBOL as ELEMENTS_SYMBOL};
-use crate::db::models::{LightningSwap, SomeSwap, SwapType, SwapVersion};
+use crate::db::models::{LightningSwap, SomeSwap, SwapType, SwapVersion, aggregate_musig_key};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
 use crate::wallet::Wallet;
@@ -80,6 +80,18 @@ impl SomeSwap for ReverseSwap {
         }
     }
 
+    fn claim_symbol(&self) -> Result<String> {
+        self.lightning_symbol()
+    }
+
+    async fn claim_details(
+        &self,
+        _: &Arc<dyn Wallet + Send + Sync>,
+        _: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail> {
+        Err(anyhow::anyhow!("reverse swaps cannot be claimed onchain"))
+    }
+
     fn refund_symbol(&self) -> Result<String> {
         self.chain_symbol()
     }
@@ -97,7 +109,7 @@ impl SomeSwap for ReverseSwap {
 
             let output_type = match SwapVersion::try_from(self.version)? {
                 SwapVersion::Legacy => {
-                    OutputType::Compatibility(bitcoin::ScriptBuf::from_bytes(alloy::hex::decode(
+                    OutputType::SegwitV0(bitcoin::ScriptBuf::from_bytes(alloy::hex::decode(
                         self.redeemScript
                             .clone()
                             .context("redeem script not found")?,
@@ -108,22 +120,12 @@ impl SomeSwap for ReverseSwap {
                         tree: serde_json::from_str(
                             &self.redeemScript.clone().context("swap tree not found")?,
                         )?,
-                        internal_key: bitcoin::XOnlyPublicKey::from_slice(
-                            &Musig::new(
-                                Musig::convert_keypair(keys.secret_key().secret_bytes())?,
-                                vec![
-                                    Musig::convert_pub_key(&keys.public_key().serialize())?,
-                                    Musig::convert_pub_key(&alloy::hex::decode(
-                                        self.claimPublicKey
-                                            .clone()
-                                            .context("refund public key not found")?,
-                                    )?)?,
-                                ],
-                                [0; 32],
-                            )?
-                            .agg_pk()
-                            .serialize(),
-                        )?,
+                        internal_key: bitcoin::XOnlyPublicKey::from_slice(&aggregate_musig_key!(
+                            keys,
+                            self.claimPublicKey
+                                .clone()
+                                .context("claim public key not found")?
+                        ))?,
                     }))
                 }
             };
@@ -165,7 +167,7 @@ impl SomeSwap for ReverseSwap {
             )?;
 
             let output_type = match SwapVersion::try_from(self.version)? {
-                SwapVersion::Legacy => OutputType::Compatibility(
+                SwapVersion::Legacy => OutputType::SegwitV0(
                     elements::Script::from_hex(
                         &self
                             .redeemScript
@@ -180,20 +182,12 @@ impl SomeSwap for ReverseSwap {
                             &self.redeemScript.clone().context("swap tree not found")?,
                         )?,
                         internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
-                            &Musig::new(
-                                Musig::convert_keypair(keys.secret_key().secret_bytes())?,
-                                vec![
-                                    Musig::convert_pub_key(&keys.public_key().serialize())?,
-                                    Musig::convert_pub_key(&alloy::hex::decode(
-                                        self.claimPublicKey
-                                            .clone()
-                                            .context("refund public key not found")?,
-                                    )?)?,
-                                ],
-                                [0; 32],
-                            )?
-                            .agg_pk()
-                            .serialize(),
+                            &aggregate_musig_key!(
+                                keys,
+                                self.claimPublicKey
+                                    .clone()
+                                    .context("claim public key not found")?
+                            ),
                         )?,
                     }))
                 }

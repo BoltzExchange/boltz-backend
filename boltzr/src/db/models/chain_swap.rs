@@ -1,6 +1,6 @@
 use crate::chain::utils::Outpoint;
 use crate::chain::{Client, elements_client::SYMBOL as ELEMENTS_SYMBOL};
-use crate::db::models::{SomeSwap, SwapType};
+use crate::db::models::{SomeSwap, SwapType, aggregate_musig_key};
 use crate::swap::SwapUpdate;
 use crate::utils::pair::{OrderSide, split_pair};
 use crate::wallet::Wallet;
@@ -22,6 +22,7 @@ pub struct ChainSwap {
     pub pair: String,
     pub orderSide: i32,
     pub status: String,
+    pub preimage: Option<String>,
     pub preimageHash: String,
     pub createdAt: chrono::NaiveDateTime,
 }
@@ -145,6 +146,25 @@ impl SomeSwap for ChainSwapInfo {
         }
     }
 
+    fn claim_symbol(&self) -> Result<String> {
+        Ok(self.receiving().symbol.clone())
+    }
+
+    async fn claim_details(
+        &self,
+        wallet: &Arc<dyn Wallet + Send + Sync>,
+        client: &Arc<dyn Client + Send + Sync>,
+    ) -> Result<InputDetail> {
+        let receiving = self.receiving();
+        let input_type = InputType::Claim(
+            alloy::hex::decode(self.swap.preimage.as_ref().context("preimage not found")?)?
+                .as_slice()
+                .try_into()?,
+        );
+
+        create_input_detail(input_type, receiving, wallet, client).await
+    }
+
     fn refund_symbol(&self) -> Result<String> {
         Ok(self.sending().symbol.clone())
     }
@@ -157,107 +177,91 @@ impl SomeSwap for ChainSwapInfo {
         let sending = self.sending();
         let input_type = InputType::Refund(sending.timeoutBlockHeight as u32);
 
-        let keys = wallet.derive_keys(sending.keyIndex.context("key index not found")? as u64)?;
-        let key_pair = keys.to_keypair(&bitcoin::secp256k1::Secp256k1::new());
-        let internal_key = Musig::new(
-            Musig::convert_keypair(key_pair.secret_key().secret_bytes())?,
-            vec![
-                Musig::convert_pub_key(&key_pair.public_key().serialize())?,
-                Musig::convert_pub_key(&alloy::hex::decode(
-                    sending
-                        .theirPublicKey
-                        .clone()
-                        .context("their public key not found")?,
-                )?)?,
-            ],
-            [0; 32],
-        )?
-        .agg_pk()
-        .serialize();
+        create_input_detail(input_type, sending, wallet, client).await
+    }
+}
 
-        if sending.symbol != ELEMENTS_SYMBOL {
-            let output_type =
-                OutputType::Taproot(Some(boltz_core::bitcoin::UncooperativeDetails {
-                    tree: serde_json::from_str(
-                        sending.swapTree.as_ref().context("swap tree not found")?,
-                    )?,
-                    internal_key: bitcoin::XOnlyPublicKey::from_slice(&internal_key)?,
-                }));
+async fn create_input_detail(
+    input_type: InputType,
+    data: &ChainSwapData,
+    wallet: &Arc<dyn Wallet + Send + Sync>,
+    client: &Arc<dyn Client + Send + Sync>,
+) -> Result<InputDetail> {
+    let keys = wallet.derive_keys(data.keyIndex.context("key index not found")? as u64)?;
+    let key_pair = keys.to_keypair(&bitcoin::secp256k1::Secp256k1::new());
+    let internal_key = aggregate_musig_key!(
+        key_pair,
+        data.theirPublicKey
+            .clone()
+            .context("their public key not found")?
+    );
 
-            Ok(InputDetail::Bitcoin(Box::new(BitcoinInputDetail {
-                keys: key_pair,
-                output_type,
-                input_type,
-                outpoint: bitcoin::OutPoint::new(
-                    sending
-                        .transactionId
-                        .clone()
-                        .context("lockup transaction id not found")?
-                        .parse()?,
-                    sending
-                        .transactionVout
-                        .context("lockup transaction vout not found")? as u32,
-                ),
-                tx_out: bitcoin::TxOut {
-                    script_pubkey: wallet.decode_address(&sending.lockupAddress)?.into(),
-                    value: bitcoin::Amount::from_sat(
-                        sending.amount.context("amount not found")? as u64
-                    ),
-                },
-            })))
-        } else {
-            let secp = elements::secp256k1_zkp::Secp256k1::new();
-            let keys = elements::secp256k1_zkp::Keypair::from_seckey_slice(
+    if data.symbol != ELEMENTS_SYMBOL {
+        let output_type = OutputType::Taproot(Some(boltz_core::bitcoin::UncooperativeDetails {
+            tree: serde_json::from_str(data.swapTree.as_ref().context("swap tree not found")?)?,
+            internal_key: bitcoin::XOnlyPublicKey::from_slice(&internal_key)?,
+        }));
+
+        Ok(InputDetail::Bitcoin(Box::new(BitcoinInputDetail {
+            keys: key_pair,
+            output_type,
+            input_type,
+            outpoint: bitcoin::OutPoint::new(
+                data.transactionId
+                    .clone()
+                    .context("lockup transaction id not found")?
+                    .parse()?,
+                data.transactionVout
+                    .context("lockup transaction vout not found")? as u32,
+            ),
+            tx_out: bitcoin::TxOut {
+                script_pubkey: wallet.decode_address(&data.lockupAddress)?.into(),
+                value: bitcoin::Amount::from_sat(data.amount.context("amount not found")? as u64),
+            },
+        })))
+    } else {
+        let secp = elements::secp256k1_zkp::Secp256k1::new();
+        let keys =
+            elements::secp256k1_zkp::Keypair::from_seckey_slice(&secp, &keys.to_priv().to_bytes())?;
+
+        let tx_id = data
+            .transactionId
+            .clone()
+            .context("lockup transaction id not found")?;
+        let tx_vout = data
+            .transactionVout
+            .context("lockup transaction vout not found")? as u32;
+
+        let lockup_tx: elements::Transaction = elements::encode::deserialize(&alloy::hex::decode(
+            &client.raw_transaction(&tx_id).await?,
+        )?)?;
+
+        let output_type = OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
+            tree: serde_json::from_str(data.swapTree.as_ref().context("swap tree not found")?)?,
+            internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(&internal_key)?,
+        }));
+
+        Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
+            keys,
+            output_type,
+            input_type,
+            outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
+            blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
                 &secp,
-                &keys.to_priv().to_bytes(),
-            )?;
-
-            let tx_id = sending
-                .transactionId
-                .clone()
-                .context("lockup transaction id not found")?;
-            let tx_vout = sending
-                .transactionVout
-                .context("lockup transaction vout not found")? as u32;
-
-            let lockup_tx: elements::Transaction = elements::encode::deserialize(
-                &alloy::hex::decode(&client.raw_transaction(&tx_id).await?)?,
-            )?;
-
-            let output_type =
-                OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
-                    tree: serde_json::from_str(
-                        sending.swapTree.as_ref().context("swap tree not found")?,
-                    )?,
-                    internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
-                        &internal_key,
-                    )?,
-                }));
-
-            Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
-                keys,
-                output_type,
-                input_type,
-                outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
-                blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
-                    &secp,
-                    &wallet.derive_blinding_key(&sending.lockupAddress)?,
-                )?),
-                tx_out: lockup_tx
-                    .output
-                    .get(tx_vout as usize)
-                    .context("output not found")?
-                    .clone(),
-            })))
-        }
+                &wallet.derive_blinding_key(&data.lockupAddress)?,
+            )?),
+            tx_out: lockup_tx
+                .output
+                .get(tx_vout as usize)
+                .context("output not found")?
+                .clone(),
+        })))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, SomeSwap, SwapType};
-    use crate::swap::SwapUpdate;
-    use crate::utils::pair::OrderSide;
+    use super::*;
     use rstest::*;
 
     #[rstest]
@@ -331,8 +335,34 @@ mod test {
         );
     }
 
+    #[test]
+    fn test_claim_symbol() {
+        let (swap, data) = create_swap(None);
+        assert_eq!(
+            ChainSwapInfo::new(swap.clone(), data)
+                .unwrap()
+                .claim_symbol()
+                .unwrap(),
+            "BTC"
+        );
+    }
+
+    #[test]
+    fn test_refund_symbol() {
+        let (swap, data) = create_swap(None);
+        assert_eq!(
+            ChainSwapInfo::new(swap.clone(), data)
+                .unwrap()
+                .refund_symbol()
+                .unwrap(),
+            "L-BTC"
+        );
+    }
+
     fn create_swap(order_side: Option<OrderSide>) -> (ChainSwap, Vec<ChainSwapData>) {
         let id = "chain id";
+
+        let swap_tree = r#"{"claimLeaf":{"version":196,"output":"a914c7e956bafda11bc819b85508122afa1d3c4a81d58820c4b06805b2103b001673228719c7605d12072d2eaee379b7403f4cd81c2202fbac"},"refundLeaf":{"version":196,"output":"207553af4cf0f17f4c73904e6f11dbc92b69fd758a0f5f87645ab0f936cf9f5517ad02f827b1"}}"#.to_string();
 
         (
             ChainSwap {
@@ -340,23 +370,48 @@ mod test {
                 pair: "L-BTC/BTC".to_string(),
                 status: "swap.created".to_string(),
                 orderSide: order_side.unwrap_or(OrderSide::Buy) as i32,
+                preimage: Some(
+                    "9225ebb9155d90092f4c63766a8db50164c9db646c7e8d8d49ce73b20616e79d".to_string(),
+                ),
+                preimageHash: "a027b02074f921404491aea955e4b873ad12555fbc02435abb9979ec3fd7cc0e"
+                    .to_string(),
                 ..Default::default()
             },
             vec![
                 ChainSwapData {
-                    transactionId: None,
-                    transactionVout: None,
                     swapId: id.to_string(),
                     symbol: "BTC".to_string(),
-                    lockupAddress: "bc1".to_string(),
+                    keyIndex: Some(21),
+                    theirPublicKey: Some(
+                        "0220c58a6c0d1f0608af704659b11570bff82bb6fcb6991bd91bcb4ca3b60be0a3"
+                            .to_string(),
+                    ),
+                    swapTree: Some(swap_tree.clone()),
+                    transactionId: Some(
+                        "dfe86c4a61742b9b0bcd769794d33ea00d1505948b18a3333aa280ebc0f7f78e"
+                            .to_string(),
+                    ),
+                    transactionVout: Some(0),
+                    lockupAddress:
+                        "bcrt1p7xunxpgmulz9v5trnhwhewe7erk0sthhc5dweklmh9u6dpc7puzqmyt4l6"
+                            .to_string(),
+                    amount: Some(21_212),
                     ..Default::default()
                 },
                 ChainSwapData {
-                    transactionId: None,
-                    transactionVout: None,
                     swapId: id.to_string(),
                     symbol: "L-BTC".to_string(),
-                    lockupAddress: "lq1".to_string(),
+                    keyIndex: Some(21),
+                    theirPublicKey: Some(
+                        "0220c58a6c0d1f0608af704659b11570bff82bb6fcb6991bd91bcb4ca3b60be0a3"
+                            .to_string(),
+                    ),
+                    swapTree: Some(swap_tree),
+                    lockupAddress:
+                        "el1qq0kh7665vuxew983efx5emduzvn0shl8rscds8qe7vj2jq4jdmj575whl4zfmapjxqnsy5wm2adzd7jxzne6ul9vvcgvghqrt"
+                            .to_string(),
+                    amount: Some(21_212),
+                    timeoutBlockHeight: 42_210,
                     ..Default::default()
                 },
             ],

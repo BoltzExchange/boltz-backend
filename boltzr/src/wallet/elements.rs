@@ -80,28 +80,21 @@ impl Wallet for Elements {
 mod test {
     use super::*;
     use crate::chain::elements_client::test::get_client;
+    use crate::wallet::keys::test::get_seed;
     use alloy::hex;
-    use bip39::Mnemonic;
     use bitcoin::key::Secp256k1;
     use rstest::*;
-    use std::str::FromStr;
 
-    fn get_seed() -> ([u8; 64], String) {
-        (
-            Mnemonic::from_str("test test test test test test test test test test test junk")
-                .unwrap()
-                .to_seed(""),
-            "m/0/1".to_string(),
-        )
-    }
+    const PATH: &str = "m/0/1";
 
     #[rstest]
     #[case::mainnet(Network::Mainnet, elements::AddressParams::LIQUID)]
     #[case::testnet(Network::Testnet, elements::AddressParams::LIQUID_TESTNET)]
     #[case::regtest(Network::Regtest, elements::AddressParams::ELEMENTS)]
     fn test_new(#[case] network: Network, #[case] expected: elements::AddressParams) {
-        let (seed, path) = get_seed();
-        let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
+        let seed = get_seed();
+        let wallet =
+            Elements::new(network, &seed, PATH.to_string(), Arc::new(get_client().0)).unwrap();
         assert_eq!(wallet.network, expected);
     }
 
@@ -133,38 +126,54 @@ mod test {
     )]
     #[case::regtest_legacy_unconfidential(Network::Regtest, "2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe")]
     fn test_decode_address(#[case] network: Network, #[case] address: &str) {
-        let (seed, path) = get_seed();
-        let wallet = Elements::new(network, &seed, path, Arc::new(get_client().0)).unwrap();
+        let seed = get_seed();
+        let wallet =
+            Elements::new(network, &seed, PATH.to_string(), Arc::new(get_client().0)).unwrap();
         assert!(wallet.decode_address(address).is_ok());
     }
 
     #[test]
     fn test_decode_address_invalid() {
-        let (seed, path) = get_seed();
-        let result = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
-            .unwrap()
-            .decode_address("invalid");
+        let seed = get_seed();
+        let result = Elements::new(
+            Network::Regtest,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().0),
+        )
+        .unwrap()
+        .decode_address("invalid");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "base58 error: decode");
     }
 
     #[test]
     fn test_decode_address_invalid_network() {
-        let (seed, path) = get_seed();
-        let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
-            .unwrap()
-            .decode_address("2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe");
+        let seed = get_seed();
+        let result = Elements::new(
+            Network::Testnet,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().0),
+        )
+        .unwrap()
+        .decode_address("2dfnSPrvvTtUmDnW6AdnyeoMYkuNiMRgxQe");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "invalid network");
     }
 
     #[test]
     fn test_derive_keys() {
-        let (seed, path) = get_seed();
-        let result = Elements::new(Network::Testnet, &seed, path, Arc::new(get_client().0))
-            .unwrap()
-            .derive_keys(0)
-            .unwrap();
+        let seed = get_seed();
+        let result = Elements::new(
+            Network::Testnet,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().0),
+        )
+        .unwrap()
+        .derive_keys(0)
+        .unwrap();
         assert_eq!(
             hex::encode(
                 result
@@ -178,8 +187,8 @@ mod test {
 
     #[test]
     fn test_derive_blinding_key() {
-        let (seed, path) = get_seed();
-        let key = Elements::new(Network::Regtest, &seed, path, Arc::new(get_client().0))
+        let seed = get_seed();
+        let key = Elements::new(Network::Regtest, &seed, PATH.to_string(), Arc::new(get_client().0))
             .unwrap()
             .derive_blinding_key("el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq")
             .unwrap();

@@ -204,6 +204,40 @@ mod test {
             .unwrap()
     }
 
+    async fn make_restore_request_with_pagination(
+        endpoint: &str,
+        xpub: &str,
+        start_index: Option<u32>,
+        limit: Option<u32>,
+    ) -> axum::response::Response {
+        let mut body = serde_json::json!({
+            "xpub": xpub
+        });
+
+        if start_index.is_some() || limit.is_some() {
+            let mut pagination_obj = serde_json::json!({});
+            if let Some(start) = start_index {
+                pagination_obj["startIndex"] = serde_json::Value::Number(start.into());
+            }
+            if let Some(lim) = limit {
+                pagination_obj["limit"] = serde_json::Value::Number(lim.into());
+            }
+            body["pagination"] = pagination_obj;
+        }
+
+        setup_router()
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri(endpoint)
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
     async fn assert_successful_response(res: axum::response::Response) {
         assert_eq!(res.status(), StatusCode::OK);
         let body = res.into_body().collect().await.unwrap().to_bytes();
@@ -297,5 +331,40 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error = serde_json::from_slice::<ApiError>(&body).unwrap();
         assert_eq!(error.error, "gapLimit must be at least 1");
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_with_valid_pagination() {
+        let res =
+            make_restore_request_with_pagination("/v2/swap/restore", VALID_XPUB, Some(0), Some(10))
+                .await;
+        assert_successful_response(res).await;
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_with_start_index_only() {
+        let res =
+            make_restore_request_with_pagination("/v2/swap/restore", VALID_XPUB, Some(0), None)
+                .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_with_limit_only() {
+        let res =
+            make_restore_request_with_pagination("/v2/swap/restore", VALID_XPUB, None, Some(10))
+                .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_with_pagination_limit_zero() {
+        let res =
+            make_restore_request_with_pagination("/v2/swap/restore", VALID_XPUB, Some(0), Some(0))
+                .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert_eq!(error.error, "limit must be at least 1");
     }
 }

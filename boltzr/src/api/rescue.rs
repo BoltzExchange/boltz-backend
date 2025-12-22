@@ -75,10 +75,7 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
                     .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?
-                    .with_pagination(
-                        pagination.map(|p| p.start_index),
-                        pagination.map(|p| p.limit),
-                    );
+                    .with_pagination(pagination);
 
                 Ok(Box::new(iterator))
             }

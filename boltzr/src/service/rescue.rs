@@ -588,11 +588,11 @@ impl SwapRescue {
 
         let (scan_start, scan_end) = match pagination {
             Some(Pagination {
-                start_index: pag_start,
+                start_index: page_start,
                 limit,
             }) => {
-                let end = pag_start.saturating_add(limit);
-                (pag_start, end)
+                let end = page_start.saturating_add(limit);
+                (page_start, end)
             }
             _ => (start_index.unwrap_or(0), iterator.max_keys()),
         };

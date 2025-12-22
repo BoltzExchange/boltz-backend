@@ -72,10 +72,8 @@ impl XpubIterator {
         })
     }
 
-    pub fn with_pagination(mut self, start_index: Option<u32>, limit: Option<u32>) -> Self {
-        if let (Some(start_index), Some(limit)) = (start_index, limit) {
-            self.pagination = Some(Pagination { start_index, limit });
-        }
+    pub fn with_pagination(mut self, pagination: Option<Pagination>) -> Self {
+        self.pagination = pagination;
         self
     }
 }

@@ -64,13 +64,13 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                     }
                 }
 
-                if let Some(pagination_params) = &pagination {
-                    if pagination_params.limit == 0 {
-                        return Err(AxumError::new(
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            anyhow::anyhow!("limit must be at least 1"),
-                        ));
-                    }
+                if let Some(pagination_params) = &pagination
+                    && pagination_params.limit == 0
+                {
+                    return Err(AxumError::new(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        anyhow::anyhow!("limit must be at least 1"),
+                    ));
                 }
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)

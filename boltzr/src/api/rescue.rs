@@ -2,7 +2,7 @@ use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::service::{
-    KeyVecIterator, MAX_GAP_LIMIT, PubkeyIterator, SingleKeyIterator, XpubIterator,
+    KeyVecIterator, MAX_GAP_LIMIT, Pagination, PubkeyIterator, SingleKeyIterator, XpubIterator,
 };
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize};
@@ -21,10 +21,7 @@ pub enum RescueParams {
         derivation_path: Option<String>,
         #[serde(rename = "gapLimit")]
         gap_limit: Option<u32>,
-        #[serde(rename = "startKey", default)]
-        start_key: Option<u32>,
-        #[serde(rename = "endKey", default)]
-        end_key: Option<u32>,
+        pagination: Option<Pagination>,
     },
     PublicKey {
         #[serde(rename = "publicKey")]
@@ -50,8 +47,7 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                 xpub,
                 derivation_path,
                 gap_limit,
-                start_key,
-                end_key,
+                pagination,
             } => {
                 if let Some(limit) = gap_limit {
                     if limit == 0 {
@@ -68,33 +64,21 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                     }
                 }
 
-                match (start_key, end_key) {
-                    (Some(start), Some(end)) => {
-                        if end < start {
-                            return Err(AxumError::new(
-                                StatusCode::UNPROCESSABLE_ENTITY,
-                                anyhow::anyhow!("endKey ({}) must be >= startKey ({})", end, start),
-                            ));
-                        }
-                    }
-                    (Some(_), None) => {
+                if let Some(pagination_params) = &pagination {
+                    if pagination_params.limit == 0 {
                         return Err(AxumError::new(
                             StatusCode::UNPROCESSABLE_ENTITY,
-                            anyhow::anyhow!("endKey must be provided when startKey is provided"),
+                            anyhow::anyhow!("limit must be at least 1"),
                         ));
                     }
-                    (None, Some(_)) => {
-                        return Err(AxumError::new(
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            anyhow::anyhow!("startKey must be provided when endKey is provided"),
-                        ));
-                    }
-                    (None, None) => {}
                 }
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
                     .map_err(|e| AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e))?
-                    .with_pagination(start_key, end_key);
+                    .with_pagination(
+                        pagination.map(|p| p.start_index),
+                        pagination.map(|p| p.limit),
+                    );
 
                 Ok(Box::new(iterator))
             }

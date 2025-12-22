@@ -1782,6 +1782,14 @@ class SwapRouter extends RouterBase {
      *               description: Maximum number of consecutive unused keys to scan before stopping. Must be between 1 and 150. Defaults to 50
      *               minimum: 1
      *               maximum: 150
+     *             startIndex:
+     *               type: number
+     *               description: Starting key derivation index for pagination. Must be provided together with limit
+     *               minimum: 0
+     *             limit:
+     *               type: number
+     *               description: Number of keys to scan from startIndex. Must be provided together with startIndex. Must be at least 1
+     *               minimum: 1
      *         - type: object
      *           required: ["publicKey"]
      *           properties:

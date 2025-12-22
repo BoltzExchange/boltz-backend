@@ -5,6 +5,7 @@ use bitcoin::{
     bip32::{ChildNumber, DerivationPath, Xpub},
     secp256k1::{Secp256k1, VerifyOnly},
 };
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
@@ -16,10 +17,11 @@ pub const MAX_GAP_LIMIT: u32 = 150;
 const DEFAULT_GAP_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
 pub struct Pagination {
-    pub start_key: u32,
-    pub end_key: u32,
+    #[serde(rename = "startIndex")]
+    pub start_index: u32,
+    pub limit: u32,
 }
 
 pub trait PubkeyIterator {
@@ -70,12 +72,9 @@ impl XpubIterator {
         })
     }
 
-    pub fn with_pagination(mut self, start_key: Option<u32>, end_key: Option<u32>) -> Self {
-        if let (Some(start), Some(end)) = (start_key, end_key) {
-            self.pagination = Some(Pagination {
-                start_key: start,
-                end_key: end,
-            });
+    pub fn with_pagination(mut self, start_index: Option<u32>, limit: Option<u32>) -> Self {
+        if let (Some(start_index), Some(limit)) = (start_index, limit) {
+            self.pagination = Some(Pagination { start_index, limit });
         }
         self
     }

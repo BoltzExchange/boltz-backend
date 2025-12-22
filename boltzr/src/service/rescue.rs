@@ -587,8 +587,14 @@ impl SwapRescue {
         }
 
         let (scan_start, scan_end) = match pagination {
-            Some(Pagination { start_key, end_key }) => (start_key, end_key),
-            None => (start_index.unwrap_or(0), iterator.max_keys()),
+            Some(Pagination {
+                start_index: pag_start,
+                limit,
+            }) => {
+                let end = pag_start.saturating_add(limit);
+                (pag_start, end)
+            }
+            _ => (start_index.unwrap_or(0), iterator.max_keys()),
         };
 
         debug!(
@@ -661,16 +667,13 @@ impl SwapRescue {
                 result.insert(swap.id().to_string(), swap);
             }
 
-            if to >= scan_end {
-                log_scan_result!(scan_start, to, iterator, result);
-                break;
-            }
-
             if to >= iterator.max_keys() {
                 log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
         }
+
+        log_scan_result!(scan_start, scan_end, iterator, result);
 
         Ok(result.into_values().collect())
     }

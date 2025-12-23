@@ -2,6 +2,7 @@ use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
 use crate::chain::mrh_watcher::MrhWatcher;
+use crate::chain::types::Type;
 use crate::currencies::{Currencies, Currency};
 use crate::db::Pool;
 use crate::db::helpers::chain_swap::{ChainSwapHelper, ChainSwapHelperDatabase};
@@ -10,7 +11,7 @@ use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
-use crate::db::models::SwapType;
+use crate::db::models::{SomeSwap, SwapType};
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
 use crate::swap::tx_check::TxChecker;
@@ -18,13 +19,16 @@ use crate::swap::utxo_nursery::{RelevantTx, UtxoNursery};
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use futures_util::StreamExt;
+use boltz_core::wrapper::InputDetail;
+use boltz_core::wrapper::Transaction;
+use diesel::ExpressionMethods;
 use futures_util::future::try_join_all;
+use futures_util::{StreamExt, TryStreamExt};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info};
+use tracing::{debug, info, instrument};
 
 pub struct RescanChainOptions {
     pub symbol: String,
@@ -49,6 +53,8 @@ pub trait SwapManager {
         sending: &str,
         swap_type: SwapType,
     ) -> Result<(u64, u64)>;
+
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
 
@@ -187,6 +193,124 @@ impl SwapManager for Manager {
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
         self.update_tx.subscribe()
+    }
+
+    #[instrument(name = "SwapManager::claim_batch", skip_all)]
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)> {
+        info!("Batch claiming swaps: {}", swap_ids.join(", "));
+
+        let submarines = self.swap_repo.get_all(Box::new(
+            crate::db::schema::swaps::dsl::id.eq_any(swap_ids.clone()),
+        ))?;
+        let chain_swaps = self.chain_swap_repo.get_all(Box::new(
+            crate::db::schema::chainSwaps::dsl::id.eq_any(swap_ids.clone()),
+        ))?;
+
+        let mut swaps: Vec<Box<dyn SomeSwap + Send>> =
+            Vec::with_capacity(submarines.len() + chain_swaps.len());
+        swaps.extend(
+            submarines
+                .into_iter()
+                .map(|s| Box::new(s) as Box<dyn SomeSwap + Send>),
+        );
+        swaps.extend(
+            chain_swaps
+                .into_iter()
+                .map(|s| Box::new(s) as Box<dyn SomeSwap + Send>),
+        );
+
+        {
+            let found_ids: HashSet<String> = swaps.iter().map(|s| s.id()).collect();
+            let missing_ids: Vec<_> = swap_ids
+                .iter()
+                .filter(|id| !found_ids.contains(*id))
+                .cloned()
+                .collect();
+
+            if !missing_ids.is_empty() {
+                return Err(anyhow!("swaps were not found: {}", missing_ids.join(", ")));
+            }
+        }
+
+        let claim_symbol = swaps
+            .first()
+            .ok_or_else(|| anyhow!("no swaps provided"))?
+            .claim_symbol()?;
+
+        if swaps
+            .iter()
+            .any(|swap| swap.claim_symbol().map_or(true, |s| s != claim_symbol))
+        {
+            return Err(anyhow!("all swaps must have the same claim symbol"));
+        }
+
+        let currency = self
+            .get_currency(&claim_symbol)
+            .ok_or_else(|| anyhow!("currency not found"))?;
+        let client = currency
+            .chain
+            .ok_or_else(|| anyhow!("chain client not found"))?;
+        let wallet = currency.wallet.ok_or_else(|| anyhow!("wallet not found"))?;
+
+        let inputs: Vec<InputDetail> = futures::stream::iter(swaps)
+            .map(|swap| {
+                let wallet = wallet.clone();
+                let client = client.clone();
+                async move { swap.claim_details(&wallet, &client).await }
+            })
+            .boxed()
+            // Elements inputs need to fetch chain data to prepare the input and
+            // we don't want to overwhelm the node
+            .buffered(16)
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        let fee = client.estimate_fee().await?;
+        let address =
+            boltz_core::Address::try_from(
+                wallet
+                    .get_address(&wallet.label_batch_claim(
+                        &swap_ids.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
+                    ))
+                    .await?
+                    .as_str(),
+            )?;
+
+        match client.chain_type() {
+            Type::Bitcoin => {
+                let inputs = inputs
+                    .into_iter()
+                    .map(|input| input.try_into())
+                    .collect::<Result<Vec<boltz_core::bitcoin::InputDetail>>>()?;
+                let inputs = inputs.iter().collect::<Vec<_>>();
+
+                let params =
+                    boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
+                        inputs: &inputs,
+                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        fee: fee.into(),
+                    });
+
+                boltz_core::wrapper::construct_tx(&params)
+            }
+            Type::Elements => {
+                let inputs = inputs
+                    .into_iter()
+                    .map(|input| input.try_into())
+                    .collect::<Result<Vec<boltz_core::elements::InputDetail>>>()?;
+                let inputs = inputs.iter().collect::<Vec<_>>();
+
+                let params =
+                    boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {
+                        genesis_hash: client.network().liquid_genesis_hash()?,
+                        inputs: &inputs,
+                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        fee: fee.into(),
+                    });
+
+                boltz_core::wrapper::construct_tx(&params)
+            }
+        }
     }
 
     async fn rescan_chains(
@@ -368,6 +492,7 @@ pub mod test {
                 sending: &str,
                 swap_type: SwapType,
             ) -> Result<(u64, u64)>;
+            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(
                 &self,

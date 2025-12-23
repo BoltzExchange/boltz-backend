@@ -86,7 +86,7 @@ pub fn construct_tx<C: Signing + Verification>(
     inputs: &[&InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
-) -> Result<Transaction> {
+) -> Result<(Transaction, u64)> {
     let unblinded = unblind_outputs(secp, inputs)?;
     if !unblinded
         .iter()
@@ -972,7 +972,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let mut tx = construct_tx(
+        let (mut tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1055,7 +1055,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1115,7 +1115,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1150,7 +1150,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1200,7 +1200,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1235,7 +1235,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1285,7 +1285,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1320,7 +1320,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1370,7 +1370,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 100;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             &[&input],
@@ -1425,7 +1425,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 4.0;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             inputs.iter().collect::<Vec<_>>().as_slice(),
@@ -1483,7 +1483,7 @@ mod tests {
         let destination = get_destination(&client, blind_output);
 
         let fee = 4.0;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             inputs.iter().collect::<Vec<_>>().as_slice(),
@@ -1533,7 +1533,7 @@ mod tests {
         ];
 
         let fee = 500;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
             inputs.iter().collect::<Vec<_>>().as_slice(),

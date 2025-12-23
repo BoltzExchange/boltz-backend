@@ -35,6 +35,7 @@ diesel::table! {
         orderSide -> Integer,
         status -> Text,
         failureReason -> Nullable<Text>,
+        preimage -> Nullable<Text>,
         preimageHash -> Text,
         invoice -> Nullable<Text>,
         keyIndex -> Nullable<Integer>,
@@ -92,6 +93,7 @@ diesel::table! {
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
+        preimage -> Nullable<Text>,
         preimageHash -> Text,
         createdAt -> Timestamptz,
     }

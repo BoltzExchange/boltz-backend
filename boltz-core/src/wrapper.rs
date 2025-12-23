@@ -83,26 +83,24 @@ impl Transaction {
     }
 }
 
-pub fn construct_tx(params: &Params) -> Result<Transaction> {
+pub fn construct_tx(params: &Params) -> Result<(Transaction, u64)> {
     match params {
         Params::Bitcoin(params) => {
             let secp = bitcoin::secp256k1::Secp256k1::new();
-            Ok(Transaction::Bitcoin(crate::bitcoin::construct_tx(
-                &secp,
-                params.inputs,
-                params.destination,
-                params.fee,
-            )?))
+            let (tx, fee) =
+                crate::bitcoin::construct_tx(&secp, params.inputs, params.destination, params.fee)?;
+            Ok((Transaction::Bitcoin(tx), fee))
         }
         Params::Elements(params) => {
             let secp = elements::secp256k1_zkp::Secp256k1::new();
-            Ok(Transaction::Elements(crate::elements::construct_tx(
+            let (tx, fee) = crate::elements::construct_tx(
                 &secp,
                 params.genesis_hash,
                 params.inputs,
                 params.destination,
                 params.fee,
-            )?))
+            )?;
+            Ok((Transaction::Elements(tx), fee))
         }
     }
 }

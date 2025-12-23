@@ -989,6 +989,7 @@ mod test {
             pair: "L-BTC/BTC".to_string(),
             orderSide: 1,
             status: "transaction.failed".to_string(),
+            preimage: Some("preimage".to_string()),
             preimageHash: "966ea2be5351178cf96b1ae2b5b41e57bcc3d42ebcb3ef5e3bb2647641d34414"
                 .to_string(),
             createdAt: chrono::NaiveDateTime::from_str("2025-01-01T23:57:21").unwrap(),

@@ -3,6 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
+pub use boltz_rpc::PendingSweep;
+
 mod boltzr {
     tonic::include_proto!("boltzr");
 }

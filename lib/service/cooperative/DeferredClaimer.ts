@@ -1,7 +1,5 @@
 import AsyncLock from 'async-lock';
 import type { SwapConfig } from '../../Config';
-import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
-import { calculateTransactionFee, constructClaimTransaction } from '../../Core';
 import type Logger from '../../Logger';
 import {
   arrayToChunks,
@@ -9,10 +7,9 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
+  getHexString,
   splitPairId,
 } from '../../Utils';
-import ElementsClient from '../../chain/ElementsClient';
-import DefaultMap from '../../consts/DefaultMap';
 import {
   CurrencyType,
   SwapType,
@@ -31,8 +28,8 @@ import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
-import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import type RateProvider from '../../rates/RateProvider';
+import type Sidecar from '../../sidecar/Sidecar';
 import type SwapOutputType from '../../swap/SwapOutputType';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
@@ -51,6 +48,8 @@ import ExpiryTrigger from './triggers/ExpiryTrigger';
 import IntervalTrigger from './triggers/IntervalTrigger';
 import ScheduledAmountTrigger from './triggers/ScheduledAmountTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
+
+const MAX_BATCH_CLAIM_CHUNK = 250;
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
   preimage: Buffer;
@@ -72,11 +71,6 @@ class DeferredClaimer extends CoopSignerBase<{
   private static readonly batchClaimLock = 'batchClaim';
   private static readonly swapsToClaimLock = 'swapsToClaim';
 
-  private static readonly maxBatchClaimChunk = new DefaultMap(
-    () => 100,
-    [[ElementsClient.symbol, 15]],
-  );
-
   private readonly lock = new AsyncLock();
   private readonly swapsToClaim = new Map<
     string,
@@ -92,6 +86,7 @@ class DeferredClaimer extends CoopSignerBase<{
 
   constructor(
     logger: Logger,
+    private readonly sidecar: Sidecar,
     private readonly currencies: Map<string, Currency>,
     private readonly rateProvider: RateProvider,
     walletManager: WalletManager,
@@ -414,7 +409,7 @@ class DeferredClaimer extends CoopSignerBase<{
 
     for (const toClaimChunk of arrayToChunks(
       swapsToClaim,
-      DeferredClaimer.maxBatchClaimChunk.get(symbol),
+      MAX_BATCH_CLAIM_CHUNK,
     )) {
       try {
         claimed = claimed.concat(
@@ -468,38 +463,14 @@ class DeferredClaimer extends CoopSignerBase<{
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const wallet = this.walletManager.wallets.get(symbol)!;
-        const chainClient = currency!.chainClient!;
+        const res = await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
+        transactionFee = res.fee;
+        claimTransactionId = res.transactionId;
 
-        const claimDetails = (await Promise.all(
-          swaps.map((swap) =>
-            this.constructClaimDetails(
-              chainClient,
-              wallet,
-              swap.swap,
-              swap.preimage,
-            ),
-          ),
-        )) as ClaimDetails[] | LiquidClaimDetails[];
-
-        const claimTransaction = constructClaimTransaction(
-          wallet,
-          claimDetails,
-          await wallet.getAddress(
-            TransactionLabelRepository.claimBatchLabel(
-              swaps.map((s) => s.swap.id),
-            ),
-          ),
-          await chainClient.estimateFee(),
+        await currency!.chainClient!.sendRawTransaction(
+          getHexString(res.transaction),
+          true,
         );
-
-        claimTransactionId = claimTransaction.getId();
-        transactionFee = await calculateTransactionFee(
-          chainClient,
-          claimTransaction,
-        );
-
-        await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
         break;
       }
 

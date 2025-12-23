@@ -37,6 +37,12 @@ struct Referral {
     config: Option<serde_json::Value>,
 }
 
+#[derive(Serialize)]
+struct PendingSweepSymbol {
+    sum: u64,
+    sweeps: Vec<grpc::PendingSweep>,
+}
+
 #[derive(Clone, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -632,7 +638,25 @@ async fn run_command(cli: Cli) -> Result<()> {
             }
             SwapCommands::PendingSweeps {} => {
                 let response = get_grpc_client(&cli).await?.get_pending_sweeps().await?;
-                print_pretty(&response.pending_sweeps)?;
+                print_pretty(
+                    &response
+                        .pending_sweeps
+                        .into_iter()
+                        .map(|(symbol, sweeps)| {
+                            (
+                                symbol,
+                                PendingSweepSymbol {
+                                    sum: sweeps
+                                        .pending_sweeps
+                                        .iter()
+                                        .map(|sweep| sweep.onchain_amount)
+                                        .sum(),
+                                    sweeps: sweeps.pending_sweeps,
+                                },
+                            )
+                        })
+                        .collect::<std::collections::HashMap<String, PendingSweepSymbol>>(),
+                )?;
             }
             SwapCommands::SetStatus { id, status } => {
                 let response = get_grpc_client(&cli)

@@ -60,20 +60,12 @@ impl Wallet for Bitcoin {
 mod test {
     use super::*;
     use crate::chain::chain_client::test::get_client;
+    use crate::wallet::keys::test::get_seed;
     use alloy::hex;
-    use bip39::Mnemonic;
     use bitcoin::secp256k1::Secp256k1;
     use rstest::*;
-    use std::str::FromStr;
 
-    fn get_seed() -> ([u8; 64], String) {
-        (
-            Mnemonic::from_str("test test test test test test test test test test test junk")
-                .unwrap()
-                .to_seed(""),
-            "m/0/0".to_string(),
-        )
-    }
+    const PATH: &str = "m/0/0";
 
     #[tokio::test]
     #[rstest]
@@ -81,8 +73,14 @@ mod test {
     #[case::testnet(Network::Testnet, bitcoin::Network::Testnet)]
     #[case::regtest(Network::Regtest, bitcoin::Network::Regtest)]
     async fn test_new(#[case] network: Network, #[case] expected: bitcoin::Network) {
-        let (seed, path) = get_seed();
-        let wallet = Bitcoin::new(network, &seed, path, Arc::new(get_client().await)).unwrap();
+        let seed = get_seed();
+        let wallet = Bitcoin::new(
+            network,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap();
         assert_eq!(wallet.network, expected);
     }
 
@@ -96,38 +94,59 @@ mod test {
     #[case::regtest_nested(Network::Regtest, "2N68eeJDUkhB2anQg6NkmNJJAZYZb9k3qjn")]
     #[case::regtest_legacy(Network::Regtest, "mwc8xtF856a1wGKNPd6cf1DLkSmc7NtcNb")]
     async fn test_decode_address(#[case] network: Network, #[case] address: &str) {
-        let (seed, path) = get_seed();
-        let wallet = Bitcoin::new(network, &seed, path, Arc::new(get_client().await)).unwrap();
+        let seed = get_seed();
+        let wallet = Bitcoin::new(
+            network,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap();
         assert!(wallet.decode_address(address).is_ok());
     }
 
     #[tokio::test]
     async fn test_decode_address_invalid() {
-        let (seed, path) = get_seed();
-        let result = Bitcoin::new(Network::Regtest, &seed, path, Arc::new(get_client().await))
-            .unwrap()
-            .decode_address("invalid");
+        let seed = get_seed();
+        let result = Bitcoin::new(
+            Network::Regtest,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap()
+        .decode_address("invalid");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "base58 error");
     }
 
     #[tokio::test]
     async fn test_decode_address_invalid_network() {
-        let (seed, path) = get_seed();
-        let result = Bitcoin::new(Network::Testnet, &seed, path, Arc::new(get_client().await))
-            .unwrap()
-            .decode_address("bcrt1pvz6uhg0r5pthsa7d99udl3xct8q03e497cnuj0hn88fl3ph72tns65hlem");
+        let seed = get_seed();
+        let result = Bitcoin::new(
+            Network::Testnet,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap()
+        .decode_address("bcrt1pvz6uhg0r5pthsa7d99udl3xct8q03e497cnuj0hn88fl3ph72tns65hlem");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "invalid network");
     }
 
     #[tokio::test]
     async fn test_derive_keys() {
-        let (seed, path) = get_seed();
-        let result = Bitcoin::new(Network::Testnet, &seed, path, Arc::new(get_client().await))
-            .unwrap()
-            .derive_keys(0)
-            .unwrap();
+        let seed = get_seed();
+        let result = Bitcoin::new(
+            Network::Testnet,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap()
+        .derive_keys(0)
+        .unwrap();
         assert_eq!(
             hex::encode(
                 result
@@ -141,12 +160,17 @@ mod test {
 
     #[tokio::test]
     async fn test_derive_blinding_key() {
-        let (seed, path) = get_seed();
-        let err = Bitcoin::new(Network::Testnet, &seed, path, Arc::new(get_client().await))
-            .unwrap()
-            .derive_blinding_key("")
-            .err()
-            .unwrap();
+        let seed = get_seed();
+        let err = Bitcoin::new(
+            Network::Testnet,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().await),
+        )
+        .unwrap()
+        .derive_blinding_key("")
+        .err()
+        .unwrap();
         assert_eq!(err.to_string(), "not implemented for bitcoin");
     }
 }

@@ -27,7 +27,7 @@ pub fn construct_tx<C: Signing + Verification>(
     inputs: &[&InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
-) -> Result<Transaction> {
+) -> Result<(Transaction, u64)> {
     target_fee(fee, |fee| {
         construct_raw(secp, inputs, destination, Amount::from_sat(fee))
     })
@@ -554,7 +554,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let mut tx = construct_tx(
+        let (mut tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -621,7 +621,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -673,7 +673,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -709,12 +709,12 @@ mod tests {
 
         let destination = get_destination(&node);
 
-        let fee = 3.0;
-        let mut tx = construct_tx(
+        let fee_rate = 3.0;
+        let (mut tx, fee) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
-            FeeTarget::Relative(fee),
+            FeeTarget::Relative(fee_rate),
         )
         .unwrap();
 
@@ -748,7 +748,7 @@ mod tests {
 
         assert_eq!(
             tx.output[0].value,
-            input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
+            input.tx_out.value - Amount::from_sat(fee)
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
@@ -777,12 +777,12 @@ mod tests {
 
         let destination = get_destination(&node);
 
-        let fee = 3.0;
-        let tx = construct_tx(
+        let fee_rate = 3.0;
+        let (tx, fee) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
-            FeeTarget::Relative(fee),
+            FeeTarget::Relative(fee_rate),
         )
         .unwrap();
 
@@ -799,7 +799,7 @@ mod tests {
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
         assert_eq!(
             tx.output[0].value,
-            input.tx_out.value - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + 1))
+            input.tx_out.value - Amount::from_sat(fee)
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
@@ -819,7 +819,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -860,7 +860,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -892,7 +892,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -933,7 +933,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -965,7 +965,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -1006,7 +1006,7 @@ mod tests {
         let destination = get_destination(&node);
 
         let fee = 1_000;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             &[&input],
             &Destination::Single(&destination),
@@ -1055,12 +1055,12 @@ mod tests {
 
         let destination = get_destination(&node);
 
-        let fee = 4.0;
-        let tx = construct_tx(
+        let fee_rate = 4.0;
+        let (tx, fee) = construct_tx(
             &secp,
             inputs.iter().collect::<Vec<_>>().as_slice(),
             &Destination::Single(&destination),
-            FeeTarget::Relative(fee),
+            FeeTarget::Relative(fee_rate),
         )
         .unwrap();
 
@@ -1068,8 +1068,7 @@ mod tests {
         assert_eq!(tx.output[0].script_pubkey, destination.script_pubkey());
         assert_eq!(
             tx.output[0].value,
-            inputs.iter().map(|i| i.tx_out.value).sum::<Amount>()
-                - Amount::from_sat(fee as u64 * (tx.vsize() as u64 + inputs.len() as u64))
+            inputs.iter().map(|i| i.tx_out.value).sum::<Amount>() - Amount::from_sat(fee)
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
@@ -1098,7 +1097,7 @@ mod tests {
         ];
 
         let fee = 500;
-        let tx = construct_tx(
+        let (tx, _) = construct_tx(
             &secp,
             inputs.iter().collect::<Vec<_>>().as_slice(),
             &Destination::Multiple(Outputs {

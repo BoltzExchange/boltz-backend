@@ -24,6 +24,9 @@ tonic = { workspace = true }
 tonic-prost = { workspace = true }
 prost = { workspace = true }
 dirs = { workspace = true }
+hmac = "0.12.1"
+sha2 = "0.10.9"
+inquire = { version = "0.9.1", default-features = false, features = ["crossterm"] }
 
 [dev-dependencies]
 rstest = { workspace = true }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use inquire::Password;
 use std::path::PathBuf;
 
 pub fn resolve_home(path: PathBuf) -> Result<PathBuf> {
@@ -13,4 +14,8 @@ pub fn resolve_home(path: PathBuf) -> Result<PathBuf> {
         }
         false => path,
     })
+}
+
+pub fn prompt_secret(prompt: &str) -> Result<String> {
+    Ok(Password::new(prompt).without_confirmation().prompt()?)
 }

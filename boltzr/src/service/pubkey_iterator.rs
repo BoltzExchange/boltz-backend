@@ -5,6 +5,7 @@ use bitcoin::{
     bip32::{ChildNumber, DerivationPath, Xpub},
     secp256k1::{Secp256k1, VerifyOnly},
 };
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
@@ -16,10 +17,20 @@ pub const MAX_GAP_LIMIT: u32 = 150;
 const DEFAULT_GAP_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
 
+#[derive(Clone, Copy, Deserialize)]
+pub struct Pagination {
+    #[serde(rename = "startIndex")]
+    pub start_index: u32,
+    pub limit: u32,
+}
+
 pub trait PubkeyIterator {
     fn identifier(&self) -> String;
     fn gap_limit(&self) -> u32;
     fn max_keys(&self) -> u32;
+    fn pagination(&self) -> Option<Pagination> {
+        None
+    }
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,
@@ -33,6 +44,7 @@ pub struct XpubIterator {
     xpub: Xpub,
     derivation_path: DerivationPath,
     gap_limit: u32,
+    pagination: Option<Pagination>,
 }
 
 pub struct KeyVecIterator {
@@ -41,6 +53,18 @@ pub struct KeyVecIterator {
 
 pub struct SingleKeyIterator {
     key: PublicKey,
+}
+
+impl Pagination {
+    pub fn start(&self) -> u32 {
+        self.start_index
+    }
+
+    pub fn end(&self) -> Result<u32> {
+        self.start_index
+            .checked_add(self.limit)
+            .ok_or(anyhow::anyhow!("pagination range overflow"))
+    }
 }
 
 impl XpubIterator {
@@ -56,7 +80,13 @@ impl XpubIterator {
                 &derivation_path.unwrap_or(DEFAULT_DERIVATION_PATH.to_string()),
             )?,
             gap_limit: gap_limit.unwrap_or(DEFAULT_GAP_LIMIT),
+            pagination: None,
         })
+    }
+
+    pub fn with_pagination(mut self, pagination: Option<Pagination>) -> Self {
+        self.pagination = pagination;
+        self
     }
 }
 
@@ -67,6 +97,10 @@ impl PubkeyIterator for XpubIterator {
 
     fn gap_limit(&self) -> u32 {
         self.gap_limit
+    }
+
+    fn pagination(&self) -> Option<Pagination> {
+        self.pagination
     }
 
     fn max_keys(&self) -> u32 {
@@ -174,7 +208,6 @@ impl PubkeyIterator for SingleKeyIterator {
     fn gap_limit(&self) -> u32 {
         self.max_keys()
     }
-
     fn derive_keys(
         &self,
         keys: &mut HashMap<String, u32>,
@@ -194,6 +227,22 @@ mod tests {
 
     const TEST_XPUB: &str = "xpub6AHA9hZDN11k2ijHMeS5QqHx2KP9aMBRhTDqANMnwVtdyw2TDYRmF8PjpvwUFcL1Et8Hj59S3gTSMcUQ5gAqTz3Wd8EsMTmF3DChhqPQBnU";
     const TEST_PUBKEY: &str = "03e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
+
+    #[test]
+    fn test_pagination() {
+        let pagination = Pagination {
+            start_index: 10,
+            limit: 20,
+        };
+        assert_eq!(pagination.start(), 10);
+        assert_eq!(pagination.end().unwrap(), 30);
+
+        let overflow = Pagination {
+            start_index: u32::MAX,
+            limit: 1,
+        };
+        assert!(overflow.end().is_err());
+    }
 
     mod xpub_iterator {
         use super::*;

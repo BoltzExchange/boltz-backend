@@ -6,7 +6,7 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{
     ChainSwapData, ChainSwapInfo, LightningSwap, ReverseSwap, SomeSwap, Swap, SwapType,
 };
-use crate::service::pubkey_iterator::PubkeyIterator;
+use crate::service::pubkey_iterator::{Pagination, PubkeyIterator};
 use crate::wallet::Wallet;
 use alloy::hex;
 use anyhow::{Result, anyhow};
@@ -442,11 +442,14 @@ impl SwapRescue {
             iterator.identifier()
         );
 
-        let mut restorable = self.scan_swaps(
+        let pagination = iterator.pagination();
+
+        let mut restorable = self.scan_swaps_paginated(
             iterator,
             vec![SwapType::Submarine, SwapType::Chain, SwapType::Reverse],
             Self::process_restorable_swaps,
             None,
+            pagination,
         )?;
 
         restorable.sort_by(|a, b| {
@@ -461,6 +464,7 @@ impl SwapRescue {
                 .cmp(&get_key_index(b))
                 .then(a.created_at().cmp(&b.created_at()))
         });
+
         Ok(restorable)
     }
 
@@ -540,10 +544,32 @@ impl SwapRescue {
             Vec<ReverseSwap>,
         ) -> Result<Vec<R>>,
     {
+        self.scan_swaps_paginated(iterator, swap_types, process, start_index, None)
+    }
+
+    fn scan_swaps_paginated<R, F>(
+        &self,
+        iterator: Box<dyn PubkeyIterator>,
+        swap_types: Vec<SwapType>,
+        process: F,
+        start_index: Option<u32>,
+        pagination: Option<Pagination>,
+    ) -> Result<Vec<R>>
+    where
+        R: Identifiable,
+        F: Fn(
+            &Self,
+            &HashMap<String, u32>,
+            Vec<Swap>,
+            Vec<ChainSwapInfo>,
+            Vec<ReverseSwap>,
+        ) -> Result<Vec<R>>,
+    {
         macro_rules! log_scan_result {
-            ($to:expr, $iterator:expr, $result:expr) => {
+            ($from:expr, $to:expr, $iterator:expr, $result:expr) => {
                 debug!(
-                    "Scanned {} keys for swaps for {} and found {}",
+                    "Scanned keys {} to {} for {} and found {} swaps",
+                    $from,
                     $to,
                     $iterator.identifier(),
                     $result.len(),
@@ -556,12 +582,24 @@ impl SwapRescue {
 
         let gap_limit = std::cmp::min(iterator.gap_limit(), iterator.max_keys());
         if gap_limit == 0 {
-            log_scan_result!(0, iterator, result);
+            log_scan_result!(0, 0, iterator, result);
             return Ok(vec![]);
         }
 
-        for from in (start_index.unwrap_or(0)..).step_by(gap_limit as usize) {
-            let to = from + gap_limit;
+        let (scan_start, scan_end) = match pagination {
+            Some(page) => (page.start(), page.end()?),
+            _ => (start_index.unwrap_or(0), iterator.max_keys()),
+        };
+
+        debug!(
+            "Starting scan from key index {} to {} for {}",
+            scan_start,
+            scan_end,
+            iterator.identifier()
+        );
+
+        for from in (scan_start..scan_end).step_by(gap_limit as usize) {
+            let to = std::cmp::min(from + gap_limit, scan_end);
 
             trace!(
                 "Scanning for swaps from key index {} to {} for {}",
@@ -609,8 +647,12 @@ impl SwapRescue {
                 }
             }
 
-            if swaps.is_empty() && chain_swaps.is_empty() && reverse_swaps.is_empty() {
-                log_scan_result!(to, iterator, result);
+            if pagination.is_none()
+                && swaps.is_empty()
+                && chain_swaps.is_empty()
+                && reverse_swaps.is_empty()
+            {
+                log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
 
@@ -620,10 +662,12 @@ impl SwapRescue {
             }
 
             if to >= iterator.max_keys() {
-                log_scan_result!(to, iterator, result);
+                log_scan_result!(scan_start, to, iterator, result);
                 break;
             }
         }
+
+        log_scan_result!(scan_start, scan_end, iterator, result);
 
         Ok(result.into_values().collect())
     }

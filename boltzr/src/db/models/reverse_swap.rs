@@ -6,7 +6,6 @@ use crate::utils::pair::{OrderSide, split_pair};
 use crate::wallet::Wallet;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use boltz_core::Musig;
 use boltz_core::utils::{InputType, OutputType};
 use boltz_core::wrapper::{BitcoinInputDetail, ElementsInputDetail, InputDetail};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable, Selectable};

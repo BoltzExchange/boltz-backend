@@ -297,6 +297,8 @@ class Sidecar extends BaseClient<
 
     return {
       transaction: Buffer.from(res.getTransaction_asU8()),
+      transactionId: res.getTransactionId(),
+      fee: res.getFee(),
     };
   };
 

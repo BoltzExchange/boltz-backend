@@ -54,7 +54,7 @@ pub trait SwapManager {
         swap_type: SwapType,
     ) -> Result<(u64, u64)>;
 
-    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<Transaction>;
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
 
@@ -196,7 +196,7 @@ impl SwapManager for Manager {
     }
 
     #[instrument(name = "SwapManager::claim_batch", skip_all)]
-    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<Transaction> {
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)> {
         info!("Batch claiming swaps: {}", swap_ids.join(", "));
 
         let submarines = self.swap_repo.get_all(Box::new(
@@ -492,7 +492,7 @@ pub mod test {
                 sending: &str,
                 swap_type: SwapType,
             ) -> Result<(u64, u64)>;
-            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<boltz_core::wrapper::Transaction>;
+            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(
                 &self,

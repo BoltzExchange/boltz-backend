@@ -22,9 +22,9 @@ impl From<f64> for FeeTarget {
 pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
     fee_target: FeeTarget,
     construct_tx: C,
-) -> Result<T> {
+) -> Result<(T, u64)> {
     match fee_target {
-        FeeTarget::Absolute(fee) => construct_tx(fee),
+        FeeTarget::Absolute(fee) => Ok((construct_tx(fee)?, fee)),
         FeeTarget::Relative(fee_rate) => {
             if !fee_rate.is_finite() || fee_rate < 0.0 {
                 anyhow::bail!("invalid fee rate");
@@ -32,7 +32,8 @@ pub fn target_fee<T: Transaction, C: Fn(u64) -> Result<T>>(
 
             let tx = construct_tx(1)?;
             // Add an extra vbyte per input to account for potential variance
-            construct_tx(((tx.vsize() + tx.input_len()) as f64 * fee_rate).ceil() as u64)
+            let fee = ((tx.vsize() + tx.input_len()) as f64 * fee_rate).ceil() as u64;
+            Ok((construct_tx(fee)?, fee))
         }
     }
 }
@@ -89,10 +90,11 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, target_fee_value);
         assert_eq!(tx.vsize(), mock_vsize);
         assert_eq!(tx.input_len(), mock_input_count);
+        assert_eq!(fee, target_fee_value);
     }
 
     #[test]
@@ -108,10 +110,11 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
         assert_eq!(tx.vsize(), mock_vsize);
         assert_eq!(tx.input_len(), mock_input_count);
+        assert_eq!(fee, expected_fee);
     }
 
     #[test]
@@ -128,8 +131,9 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
+        assert_eq!(fee, expected_fee);
     }
 
     #[test]
@@ -146,8 +150,9 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
+        assert_eq!(fee, expected_fee);
     }
 
     #[test]
@@ -161,8 +166,9 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, 0);
+        assert_eq!(fee, 0);
     }
 
     #[test]
@@ -189,8 +195,9 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
+        assert_eq!(fee, expected_fee);
     }
 
     #[test]
@@ -207,8 +214,9 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let tx = result.unwrap();
+        let (tx, fee) = result.unwrap();
         assert_eq!(tx.fee, expected_fee);
+        assert_eq!(fee, expected_fee);
     }
 
     #[test]

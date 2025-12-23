@@ -544,6 +544,10 @@ export class ClaimBatchResponse extends jspb.Message {
     getTransaction_asU8(): Uint8Array;
     getTransaction_asB64(): string;
     setTransaction(value: Uint8Array | string): ClaimBatchResponse;
+    getTransactionId(): string;
+    setTransactionId(value: string): ClaimBatchResponse;
+    getFee(): number;
+    setFee(value: number): ClaimBatchResponse;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClaimBatchResponse.AsObject;
@@ -558,6 +562,8 @@ export class ClaimBatchResponse extends jspb.Message {
 export namespace ClaimBatchResponse {
     export type AsObject = {
         transaction: Uint8Array | string,
+        transactionId: string,
+        fee: number,
     }
 }
 

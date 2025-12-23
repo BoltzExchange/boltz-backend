@@ -1,6 +1,5 @@
 import AsyncLock from 'async-lock';
 import type { SwapConfig } from '../../Config';
-import { calculateTransactionFee, parseTransaction } from '../../Core';
 import type Logger from '../../Logger';
 import {
   arrayToChunks,
@@ -8,6 +7,7 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
+  getHexString,
   splitPairId,
 } from '../../Utils';
 import {
@@ -464,14 +464,13 @@ class DeferredClaimer extends CoopSignerBase<{
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
         const res = await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
-        const tx = parseTransaction(currency.type, res.transaction);
-        transactionFee = await calculateTransactionFee(
-          currency.chainClient!,
-          tx,
-        );
-        claimTransactionId = tx.getId();
+        transactionFee = res.fee;
+        claimTransactionId = res.transactionId;
 
-        await currency!.chainClient!.sendRawTransaction(tx.toHex(), true);
+        await currency!.chainClient!.sendRawTransaction(
+          getHexString(res.transaction),
+          true,
+        );
         break;
       }
 

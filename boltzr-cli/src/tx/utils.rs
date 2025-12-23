@@ -115,7 +115,7 @@ pub fn construct_transaction(
         }
     };
 
-    construct_tx(&params)
+    Ok(construct_tx(&params)?.0)
 }
 
 pub fn parse_transaction(transaction: Vec<u8>) -> Result<Transaction> {

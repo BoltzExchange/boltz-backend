@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use rand::Rng;
 use std::path::PathBuf;
 
+mod api;
 mod evm;
 mod grpc;
 mod parsers;
@@ -41,6 +42,12 @@ struct Referral {
 struct PendingSweepSymbol {
     sum: u64,
     sweeps: Vec<grpc::PendingSweep>,
+}
+
+#[derive(Serialize)]
+struct ReferralStats {
+    id: String,
+    stats: serde_json::Value,
 }
 
 #[derive(Clone, Parser)]
@@ -285,6 +292,11 @@ enum ReferralCommands {
     },
     #[command(about = "Gets referral information")]
     Get { id: Option<String> },
+    #[command(about = "Fetches referral statistics via API keys")]
+    FetchStats {
+        #[arg(value_parser = validators::url_valid, default_value = "https://api.boltz.exchange")]
+        endpoint: String,
+    },
 }
 
 #[derive(Clone, Subcommand)]
@@ -616,6 +628,16 @@ async fn run_command(cli: Cli) -> Result<()> {
                         })
                         .collect::<Result<Vec<Referral>>>()?,
                 )?;
+            }
+            ReferralCommands::FetchStats { endpoint } => {
+                let api_key = utils::prompt_secret("API key:")?;
+                let api_secret = utils::prompt_secret("API secret:")?;
+
+                let client = api::Client::new(endpoint.to_string(), api_key, api_secret);
+
+                let (id, stats) = tokio::try_join!(client.referral_id(), client.referral_stats())?;
+
+                print_pretty(&ReferralStats { id, stats })?;
             }
         },
         Commands::Swap { ref command } => match command {

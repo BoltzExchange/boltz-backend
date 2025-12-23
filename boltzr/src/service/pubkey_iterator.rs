@@ -55,6 +55,18 @@ pub struct SingleKeyIterator {
     key: PublicKey,
 }
 
+impl Pagination {
+    pub fn start(&self) -> u32 {
+        self.start_index
+    }
+
+    pub fn end(&self) -> Result<u32> {
+        self.start_index
+            .checked_add(self.limit)
+            .ok_or(anyhow::anyhow!("pagination range overflow"))
+    }
+}
+
 impl XpubIterator {
     pub fn new(
         xpub: Xpub,
@@ -215,6 +227,22 @@ mod tests {
 
     const TEST_XPUB: &str = "xpub6AHA9hZDN11k2ijHMeS5QqHx2KP9aMBRhTDqANMnwVtdyw2TDYRmF8PjpvwUFcL1Et8Hj59S3gTSMcUQ5gAqTz3Wd8EsMTmF3DChhqPQBnU";
     const TEST_PUBKEY: &str = "03e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
+
+    #[test]
+    fn test_pagination() {
+        let pagination = Pagination {
+            start_index: 10,
+            limit: 20,
+        };
+        assert_eq!(pagination.start(), 10);
+        assert_eq!(pagination.end().unwrap(), 30);
+
+        let overflow = Pagination {
+            start_index: u32::MAX,
+            limit: 1,
+        };
+        assert!(overflow.end().is_err());
+    }
 
     mod xpub_iterator {
         use super::*;

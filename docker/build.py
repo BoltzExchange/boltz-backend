@@ -166,6 +166,7 @@ def build_images(
     buildx: bool,
     local: bool = False,
     platform: str = "",
+    tag_override: str = "",
 ) -> None:
     """Build one or more images."""
     if local and set(to_build) != {"boltz"}:
@@ -188,6 +189,10 @@ def build_images(
 
         build_args = [f"{arg.name}={arg.value}" for arg in build_details.arguments]
         build_args.append(f"VERSION={tag if tag != 'latest' else branch}")
+
+        # Override tag after setting VERSION build arg
+        if tag_override:
+            tag = tag_override
 
         if local:
             build_args.append("SOURCE=local")
@@ -266,6 +271,11 @@ if __name__ == "__main__":
     )
     BUILD_PARSER.add_argument("--branch", default="", help="Branch to build")
     BUILD_PARSER.add_argument(
+        "--tag",
+        default="",
+        help="Override the image tag",
+    )
+    BUILD_PARSER.add_argument(
         "--organisation",
         default="boltz",
         help="The organisation to use for the image names",
@@ -281,6 +291,11 @@ if __name__ == "__main__":
         help="Build from local source instead of cloning from git",
     )
     BUILDX_PARSER.add_argument("--branch", default="", help="Branch to build")
+    BUILDX_PARSER.add_argument(
+        "--tag",
+        default="",
+        help="Override the image tag",
+    )
     BUILDX_PARSER.add_argument(
         "--platform",
         default="linux/amd64,linux/arm64",
@@ -307,6 +322,8 @@ if __name__ == "__main__":
             ARGS.branch,
             False,
             ARGS.local,
+            "",
+            ARGS.tag,
         )
     elif ARGS.command == "buildx":
         build_images(
@@ -318,4 +335,5 @@ if __name__ == "__main__":
             True,
             ARGS.local,
             ARGS.platform,
+            ARGS.tag,
         )

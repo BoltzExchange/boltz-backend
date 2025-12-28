@@ -68,6 +68,9 @@ jobs:
       - name: Compile
         run: npm run compile
 
+      - name: Type check tests
+        run: npm run compile:typescript:test
+
       - name: Prettier
         run: npm run prettier:check
 

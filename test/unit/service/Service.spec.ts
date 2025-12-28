@@ -48,6 +48,7 @@ import { satToMsat } from '../../../lib/lightning/ChannelUtils';
 import LightningErrors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import RoutingFee from '../../../lib/lightning/RoutingFee';
 import type { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
 import FeeProvider, { type SwapFees } from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
@@ -809,6 +810,7 @@ describe('Service', () => {
     {
       cltvDelta: 20,
     },
+    new RoutingFee(Logger.disabledLogger),
   );
 
   // Inject a mocked SwapManager

@@ -3,6 +3,7 @@ import Logger from '../../../lib/Logger';
 import { OrderSide, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { PairConfig } from '../../../lib/consts/Types';
 import type Swap from '../../../lib/db/models/Swap';
+import RoutingFee from '../../../lib/lightning/RoutingFee';
 import Errors from '../../../lib/rates/Errors';
 import RateProvider from '../../../lib/rates/RateProvider';
 import type WalletManager from '../../../lib/wallet/WalletManager';
@@ -72,6 +73,7 @@ describe('RateProvider', () => {
       ],
     ]),
     {} as WalletManager,
+    new RoutingFee(Logger.disabledLogger),
     jest.fn(),
   );
 

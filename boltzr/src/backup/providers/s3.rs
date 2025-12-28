@@ -10,6 +10,7 @@ use tracing::{debug, instrument};
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Config {
     pub bucket: String,
+    pub region: Option<String>,
 
     pub endpoint: String,
     pub port: Option<u16>,
@@ -57,7 +58,7 @@ impl S3 {
             config.bucket.as_str(),
             Region::Custom {
                 endpoint,
-                region: "".to_string(),
+                region: config.region.clone().unwrap_or_default(),
             },
             creds,
         )?

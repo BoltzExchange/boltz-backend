@@ -5,6 +5,7 @@ import Logger from '../../../lib/Logger';
 import { getHexString, getUnixTime } from '../../../lib/Utils';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import RoutingFee from '../../../lib/lightning/RoutingFee';
 import {
   LightningClient,
   LightningService,
@@ -35,6 +36,7 @@ describe('LndClient', () => {
 
   afterAll(async () => {
     await Sidecar.stop();
+    sidecar.disconnect();
 
     await bitcoinClient.generate(1);
 
@@ -157,7 +159,6 @@ describe('LndClient', () => {
 
     const serverHost = '127.0.0.1';
     const serverPort = await getPort();
-    const maxPaymentFeeRatio = 0.03;
 
     const bindPort = await new Promise((resolve) => {
       server.bindAsync(
@@ -177,13 +178,18 @@ describe('LndClient', () => {
     expect(bindPort).toEqual(serverPort);
 
     // Connect to the mocked LND gRPC server
-    const lndClient = new LndClient(Logger.disabledLogger, 'MOCK', {
-      host: serverHost,
-      port: serverPort,
-      certpath: `${lndDataPath(1)}/tls.cert`,
-      macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
-      maxPaymentFeeRatio: maxPaymentFeeRatio,
-    });
+    const lndClient = new LndClient(
+      Logger.disabledLogger,
+      'MOCK',
+      {
+        host: serverHost,
+        port: serverPort,
+        certpath: `${lndDataPath(1)}/tls.cert`,
+        macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
+      },
+      sidecar,
+      new RoutingFee(Logger.disabledLogger),
+    );
     await lndClient.connect(false);
 
     // This call will fetch "randomDataLength" of data

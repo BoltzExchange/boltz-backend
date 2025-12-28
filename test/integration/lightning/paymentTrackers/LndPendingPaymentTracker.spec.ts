@@ -9,9 +9,11 @@ import LightningPaymentRepository from '../../../../lib/db/repositories/Lightnin
 import LndClient from '../../../../lib/lightning/LndClient';
 import LndPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/LndPendingPaymentTracker';
 import { PaymentFailureReason } from '../../../../lib/proto/lnd/rpc_pb';
+import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { wait } from '../../../Utils';
 import { createInvoice } from '../../../unit/swap/InvoiceUtils';
 import { bitcoinLndClient, bitcoinLndClient2 } from '../../Nodes';
+import { sidecar, startSidecar } from '../../sidecar/Utils';
 
 jest.mock('../../../../lib/db/repositories/LightningPaymentRepository', () => ({
   setStatus: jest.fn(),
@@ -32,14 +34,24 @@ describe('LndPendingPaymentTracker', () => {
     await Promise.all([
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
+      startSidecar(),
     ]);
+
+    await sidecar.connect(
+      { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+      {} as any,
+      false,
+    );
   });
 
   beforeEach(() => {
     jest.resetAllMocks();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    sidecar.disconnect();
+    await Sidecar.stop();
+
     bitcoinLndClient.disconnect();
     bitcoinLndClient2.disconnect();
   });

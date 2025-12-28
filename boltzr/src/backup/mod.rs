@@ -227,14 +227,23 @@ impl Backup {
             .stdout(Stdio::piped())
             .spawn()?;
 
-        let pipe: Stdio = dump_cmd.stdout.take().unwrap().try_into()?;
+        let pipe: Stdio = dump_cmd
+            .stdout
+            .take()
+            .ok_or(anyhow::anyhow!("failed to take stdout"))?
+            .try_into()?;
 
         let mut data_cmd = tokio::process::Command::new("zstd")
             .stdin(pipe)
             .stdout(Stdio::piped())
             .spawn()?;
 
-        Ok(BufReader::new(data_cmd.stdout.take().unwrap()))
+        Ok(BufReader::new(
+            data_cmd
+                .stdout
+                .take()
+                .ok_or(anyhow::anyhow!("failed to take stdout"))?,
+        ))
     }
 
     fn format_date() -> String {

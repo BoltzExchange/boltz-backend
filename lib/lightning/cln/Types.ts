@@ -13,8 +13,6 @@ type BaseConfig = {
 };
 
 type ClnConfig = BaseConfig & {
-  maxPaymentFeeRatio: number;
-
   hold: BaseConfig;
 
   disableMpp?: boolean;

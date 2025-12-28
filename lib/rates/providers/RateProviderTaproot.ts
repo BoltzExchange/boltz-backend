@@ -21,6 +21,7 @@ import type {
   SubmarinePairConfig,
 } from '../../consts/Types';
 import type Referral from '../../db/models/Referral';
+import type RoutingFee from '../../lightning/RoutingFee';
 import Errors from '../../service/Errors';
 import NodeSwitch from '../../swap/NodeSwitch';
 import type { Currency } from '../../wallet/WalletManager';
@@ -97,6 +98,7 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
     minSwapSizeMultipliers: MinSwapSizeMultipliers,
     private readonly pairConfigs: Map<string, PairConfig>,
     private readonly zeroConfAmounts: Map<string, number>,
+    private readonly routingFee: RoutingFee,
   ) {
     super(currencies, feeProvider, minSwapSizeMultipliers);
   }
@@ -585,13 +587,9 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
                 (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
                   roundToDecimals(maxRoutingFeeOverride * 100, 4);
               } else {
-                const currency = this.currencies.get(to);
-
                 (result as SubmarinePairTypeTaproot).fees.maximalRoutingFee =
                   roundToDecimals(
-                    (currency?.lndClient?.maxPaymentFeeRatio ||
-                      currency?.clnClient?.maxPaymentFeeRatio ||
-                      0) * 100,
+                    this.routingFee.defaultPaymentFeeRatio * 100,
                     4,
                   );
               }

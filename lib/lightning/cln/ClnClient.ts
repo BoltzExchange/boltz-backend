@@ -11,6 +11,7 @@ import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
 import * as primitivesrpc from '../../proto/cln/primitives_pb';
 import { HoldClient } from '../../proto/hold/hold_grpc_pb';
 import * as holdrpc from '../../proto/hold/hold_pb';
+import type Sidecar from '../../sidecar/Sidecar';
 import type { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
 import Errors from '../Errors';
@@ -28,12 +29,8 @@ import type {
   Route,
   RoutingHintsProvider,
 } from '../LightningClient';
-import {
-  HtlcState,
-  InvoiceFeature,
-  InvoiceState,
-  calculatePaymentFee,
-} from '../LightningClient';
+import { HtlcState, InvoiceFeature, InvoiceState } from '../LightningClient';
+import type RoutingFee from '../RoutingFee';
 import { getRoute } from './Router';
 import { ClnConfig, createSsl } from './Types';
 
@@ -50,10 +47,8 @@ class ClnClient
   public static readonly paymentPendingError = 'payment already pending';
   public static readonly paymentAllAttemptsFailed = 'all attempts failed';
 
-  private static readonly paymentMinFee = 121;
-  private static readonly paymentTimeout = 300;
+  private static readonly paymentTimeout = 30;
 
-  public readonly maxPaymentFeeRatio!: number;
   private readonly disableMpp: boolean;
 
   private readonly nodeUri: string;
@@ -74,11 +69,11 @@ class ClnClient
     logger: Logger,
     public readonly symbol: string,
     config: ClnConfig,
+    private readonly sidecar: Sidecar,
+    private readonly routingFee: RoutingFee,
   ) {
     super(logger, symbol);
 
-    this.maxPaymentFeeRatio =
-      config.maxPaymentFeeRatio > 0 ? config.maxPaymentFeeRatio : 0.01;
     this.disableMpp = config.disableMpp ?? false;
 
     if (this.disableMpp) {
@@ -569,14 +564,7 @@ class ClnClient
       }
     }
 
-    const decoded = await this.decodeInvoice(invoice);
-    const maxFee = satToMsat(
-      calculatePaymentFee(
-        satToMsat(decoded.value),
-        maxPaymentFeeRatio || this.maxPaymentFeeRatio,
-        ClnClient.paymentMinFee,
-      ),
-    );
+    const decoded = await this.sidecar.decodeInvoiceOrOffer(invoice);
 
     const req = new noderpc.XpayRequest();
 
@@ -587,7 +575,9 @@ class ClnClient
     }
 
     const feeAmount = new primitivesrpc.Amount();
-    feeAmount.setMsat(maxFee);
+    feeAmount.setMsat(
+      this.routingFee.calculateFee(decoded, maxPaymentFeeRatio),
+    );
     req.setMaxfee(feeAmount);
 
     if (cltvDelta) {
@@ -601,7 +591,7 @@ class ClnClient
       >('xpay', req, false);
 
       const fee =
-        BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.valueMsat);
+        BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.amountMsat);
 
       return {
         feeMsat: Number(fee),

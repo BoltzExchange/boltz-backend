@@ -4,8 +4,10 @@ import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
 import Redis from '../../lib/db/Redis';
 import LndClient from '../../lib/lightning/LndClient';
+import RoutingFee from '../../lib/lightning/RoutingFee';
 import ClnClient from '../../lib/lightning/cln/ClnClient';
 import type Sidecar from '../../lib/sidecar/Sidecar';
+import { sidecar } from './sidecar/Utils';
 
 const mockSidecar = {
   on: jest.fn(),
@@ -44,42 +46,57 @@ export const elementsClient = new ElementsClient(
 export const lndDataPath = (number: number) =>
   `${resolve(__dirname, '..', '..')}/regtest/data/lnd${number}`;
 
-export const bitcoinLndClient = new LndClient(Logger.disabledLogger, 'BTC', {
-  host,
-  port: 10009,
-  certpath: `${lndDataPath(1)}/tls.cert`,
-  macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
-  maxPaymentFeeRatio: 0.01,
-});
+export const bitcoinLndClient = new LndClient(
+  Logger.disabledLogger,
+  'BTC',
+  {
+    host,
+    port: 10009,
+    certpath: `${lndDataPath(1)}/tls.cert`,
+    macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
+  },
+  sidecar,
+  new RoutingFee(Logger.disabledLogger),
+);
 
-export const bitcoinLndClient2 = new LndClient(Logger.disabledLogger, 'BTC', {
-  host,
-  port: 11009,
-  certpath: `${lndDataPath(2)}/tls.cert`,
-  macaroonpath: `${lndDataPath(2)}/data/chain/bitcoin/regtest/admin.macaroon`,
-  maxPaymentFeeRatio: 0.01,
-});
+export const bitcoinLndClient2 = new LndClient(
+  Logger.disabledLogger,
+  'BTC',
+  {
+    host,
+    port: 11009,
+    certpath: `${lndDataPath(2)}/tls.cert`,
+    macaroonpath: `${lndDataPath(2)}/data/chain/bitcoin/regtest/admin.macaroon`,
+  },
+  sidecar,
+  new RoutingFee(Logger.disabledLogger),
+);
 
 export const clnDataPath = (number: number) =>
   `${resolve(__dirname, '..', '..')}/regtest/data/cln${number}/regtest`;
 
 export const clnHoldPath = (number: number) => `${clnDataPath(number)}/hold`;
 
-export const clnClient = new ClnClient(Logger.disabledLogger, 'BTC', {
-  host: host,
-  port: 9736,
-  maxPaymentFeeRatio: 0.01,
-  rootCertPath: `${clnDataPath(1)}/ca.pem`,
-  privateKeyPath: `${clnDataPath(1)}/client-key.pem`,
-  certChainPath: `${clnDataPath(1)}/client.pem`,
-  hold: {
+export const clnClient = new ClnClient(
+  Logger.disabledLogger,
+  'BTC',
+  {
     host: host,
-    port: 9292,
-    rootCertPath: `${clnHoldPath(1)}/ca.pem`,
-    privateKeyPath: `${clnHoldPath(1)}/client-key.pem`,
-    certChainPath: `${clnHoldPath(1)}/client.pem`,
+    port: 9736,
+    rootCertPath: `${clnDataPath(1)}/ca.pem`,
+    privateKeyPath: `${clnDataPath(1)}/client-key.pem`,
+    certChainPath: `${clnDataPath(1)}/client.pem`,
+    hold: {
+      host: host,
+      port: 9292,
+      rootCertPath: `${clnHoldPath(1)}/ca.pem`,
+      privateKeyPath: `${clnHoldPath(1)}/client-key.pem`,
+      certChainPath: `${clnHoldPath(1)}/client.pem`,
+    },
   },
-});
+  sidecar,
+  new RoutingFee(Logger.disabledLogger),
+);
 
 export const waitForClnChainSync = () =>
   new Promise<void>((resolve) => {

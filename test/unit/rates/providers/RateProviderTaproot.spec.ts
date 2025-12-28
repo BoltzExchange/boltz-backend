@@ -1,6 +1,7 @@
 import { getPairId, hashString } from '../../../../lib/Utils';
 import { OrderSide, SwapType } from '../../../../lib/consts/Enums';
 import type Referral from '../../../../lib/db/models/Referral';
+import type RoutingFee from '../../../../lib/lightning/RoutingFee';
 import FeeProvider from '../../../../lib/rates/FeeProvider';
 import RateProviderTaproot from '../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../lib/service/Errors';
@@ -68,15 +69,17 @@ describe('RateProviderTaproot', () => {
     },
   ];
 
+  const mockedRoutingFee = {
+    defaultPaymentFeeRatio: 0.021,
+  } as any as RoutingFee;
+
   const provider = new RateProviderTaproot(
     new Map<string, any>([
       [
         'BTC',
         {
           chainClient: {},
-          lndClient: {
-            maxPaymentFeeRatio: 0.021,
-          },
+          lndClient: {},
         },
       ],
       [
@@ -99,6 +102,7 @@ describe('RateProviderTaproot', () => {
       ['BTC', 0],
       ['L-BTC', 100_000],
     ]),
+    mockedRoutingFee,
   );
 
   beforeEach(() => {

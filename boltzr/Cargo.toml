@@ -28,7 +28,7 @@ otel = [
 ]
 
 [dependencies]
-axum = "0.8.7"
+axum = "0.8.8"
 bitcoin_hashes = { workspace = true }
 clap = { workspace = true }
 crossbeam-channel = "0.5.15"
@@ -105,8 +105,8 @@ flate2 = "1.1.5"
 pyroscope = { version = "0.5.8", optional = true }
 pyroscope_pprofrs = { version = "0.2.10", optional = true }
 csv = "1.4.0"
-axum-extra = { version = "0.12.2", features = ["typed-header"] }
-redis = { version = "1.0.1", features = ["tokio-comp", "r2d2"] }
+axum-extra = { version = "0.12.5", features = ["typed-header"] }
+redis = { version = "1.0.2", features = ["tokio-comp", "r2d2"] }
 bytes = "1.11.0"
 elements-miniscript = "0.4.0"
 rand = { workspace = true }

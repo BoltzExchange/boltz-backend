@@ -64,6 +64,7 @@ import LightningErrors from '../lightning/Errors';
 import type { HopHint } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
 import type LndClient from '../lightning/LndClient';
+import type RoutingFee from '../lightning/RoutingFee';
 import type ClnClient from '../lightning/cln/ClnClient';
 import type NotificationClient from '../notifications/NotificationClient';
 import {
@@ -169,6 +170,7 @@ class Service {
     public currencies: Map<string, Currency>,
     public readonly sidecar: Sidecar,
     public readonly swapConfig: Pick<SwapConfig, 'cltvDelta'>,
+    public readonly routingFee: RoutingFee,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -194,6 +196,7 @@ class Service {
       config.swap.minSwapSizeMultipliers,
       currencies,
       this.walletManager,
+      this.routingFee,
       this.getFeeEstimation,
     );
 

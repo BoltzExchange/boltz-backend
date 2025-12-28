@@ -7,8 +7,10 @@ import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayme
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
 import ClnPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
+import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { createInvoice } from '../../../unit/swap/InvoiceUtils';
 import { bitcoinLndClient, clnClient } from '../../Nodes';
+import { sidecar, startSidecar } from '../../sidecar/Utils';
 
 jest.mock('../../../../lib/db/repositories/LightningPaymentRepository', () => ({
   setStatus: jest.fn(),
@@ -26,7 +28,17 @@ describe('ClnPendingPaymentTracker', () => {
   };
 
   beforeAll(async () => {
-    await Promise.all([clnClient.connect(), bitcoinLndClient.connect(false)]);
+    await Promise.all([
+      clnClient.connect(),
+      bitcoinLndClient.connect(false),
+      startSidecar(),
+    ]);
+
+    await sidecar.connect(
+      { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+      {} as any,
+      false,
+    );
   });
 
   beforeEach(async () => {
@@ -35,6 +47,9 @@ describe('ClnPendingPaymentTracker', () => {
 
   afterAll(async () => {
     tracker.stop();
+
+    sidecar.disconnect();
+    await Sidecar.stop();
 
     clnClient.disconnect();
     bitcoinLndClient.disconnect();

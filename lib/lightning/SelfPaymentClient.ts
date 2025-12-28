@@ -52,7 +52,6 @@ class SelfPaymentClient
   private readonly lock = new AsyncLock();
 
   public type: NodeType = NodeType.SelfPayment;
-  public maxPaymentFeeRatio: number = 0;
 
   constructor(
     logger: Logger,

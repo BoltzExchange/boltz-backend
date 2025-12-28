@@ -3,7 +3,6 @@ import type { ClientStatus } from '../consts/Enums';
 import type { NodeType } from '../db/models/ReverseSwap';
 import type * as lndrpc from '../proto/lnd/rpc_pb';
 import type { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
-import { msatToSat } from './ChannelUtils';
 
 enum InvoiceState {
   Open,
@@ -104,8 +103,6 @@ interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
   symbol: string;
   type: NodeType;
 
-  readonly maxPaymentFeeRatio: number;
-
   isConnected(): boolean;
 
   setClientStatus(status: ClientStatus): void;
@@ -170,12 +167,6 @@ interface RoutingHintsProvider {
   routingHints(nodeId: string): Promise<HopHint[][]>;
 }
 
-const calculatePaymentFee = (
-  amountMsat: number,
-  maxRatio: number,
-  minFee: number,
-): number => Math.ceil(Math.max(msatToSat(amountMsat) * maxRatio, minFee));
-
 export {
   Htlc,
   Route,
@@ -190,6 +181,5 @@ export {
   DecodedInvoice,
   LightningClient,
   PaymentResponse,
-  calculatePaymentFee,
   RoutingHintsProvider,
 };

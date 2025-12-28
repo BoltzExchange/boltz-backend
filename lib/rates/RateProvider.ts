@@ -19,6 +19,7 @@ import {
 import type { PairConfig } from '../consts/Types';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type RoutingFee from '../lightning/RoutingFee';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
@@ -65,6 +66,7 @@ class RateProvider {
     minSwapSizeMultipliersConfig: MinSwapSizeMultipliersConfig | undefined,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
+    private readonly routingFee: RoutingFee,
     getFeeEstimation: (symbol: string) => Promise<Map<string, number>>,
   ) {
     this.feeProvider = new FeeProvider(
@@ -94,6 +96,7 @@ class RateProvider {
         minSwapSizeMultipliers,
         this.pairConfigs,
         this.zeroConfAmounts,
+        this.routingFee,
       ),
       [SwapVersion.Legacy]: new RateProviderLegacy(
         this.currencies,

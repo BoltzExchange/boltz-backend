@@ -12,8 +12,9 @@ import { RouterClient } from '../proto/lnd/router_grpc_pb';
 import * as routerrpc from '../proto/lnd/router_pb';
 import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
 import * as lndrpc from '../proto/lnd/rpc_pb';
+import type Sidecar from '../sidecar/Sidecar';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
-import { satToMsat } from './ChannelUtils';
+import { msatToSat } from './ChannelUtils';
 import Errors from './Errors';
 import { grpcOptions, unaryCall } from './GrpcUtils';
 import type {
@@ -28,12 +29,8 @@ import type {
   PaymentResponse,
   Route,
 } from './LightningClient';
-import {
-  HtlcState,
-  InvoiceFeature,
-  InvoiceState,
-  calculatePaymentFee,
-} from './LightningClient';
+import { HtlcState, InvoiceFeature, InvoiceState } from './LightningClient';
+import type RoutingFee from './RoutingFee';
 
 /**
  * The configurable options for the LND client
@@ -43,7 +40,6 @@ type LndConfig = {
   port: number;
   certpath: string;
   macaroonpath: string;
-  maxPaymentFeeRatio: number;
   sslTargetNameOverride?: string;
 };
 
@@ -53,13 +49,10 @@ type LndConfig = {
 class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public static readonly serviceName = 'LND';
 
-  public static readonly paymentMinFee = 121;
-  public static readonly paymentMaxParts = 5;
+  public static readonly paymentMaxParts = 6;
 
   private static readonly paymentTimeout = 300;
   private static readonly paymentTimePreference = 0.9;
-
-  public readonly maxPaymentFeeRatio!: number;
 
   private readonly uri!: string;
   private readonly credentials!: ChannelCredentials;
@@ -80,13 +73,12 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     logger: Logger,
     public readonly symbol: string,
     private readonly config: LndConfig,
+    private readonly sidecar: Sidecar,
+    private readonly routingFee: RoutingFee,
   ) {
     super(logger, symbol);
 
-    const { host, port, certpath, macaroonpath, maxPaymentFeeRatio } = config;
-
-    this.maxPaymentFeeRatio =
-      maxPaymentFeeRatio > 0 ? maxPaymentFeeRatio : 0.01;
+    const { host, port, certpath, macaroonpath } = config;
 
     if (fs.existsSync(certpath)) {
       this.uri = `${host}:${port}`;
@@ -425,7 +417,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     maxPaymentFeeRatio?: number,
     timePreference?: number,
   ): Promise<PaymentResponse> => {
-    const decoded = await this.decodeInvoice(invoice);
+    const decoded = await this.sidecar.decodeInvoiceOrOffer(invoice);
 
     return new Promise<PaymentResponse>((resolve, reject) => {
       const request = new routerrpc.SendPaymentRequest();
@@ -434,11 +426,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       request.setTimeoutSeconds(LndClient.paymentTimeout);
       request.setTimePref(timePreference || LndClient.paymentTimePreference);
       request.setFeeLimitSat(
-        calculatePaymentFee(
-          satToMsat(decoded.value),
-          maxPaymentFeeRatio || this.maxPaymentFeeRatio,
-          LndClient.paymentMinFee,
-        ),
+        msatToSat(this.routingFee.calculateFee(decoded, maxPaymentFeeRatio)),
       );
 
       request.setPaymentRequest(invoice);

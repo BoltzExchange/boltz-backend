@@ -25,6 +25,7 @@ import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
 import type { LightningClient } from './lightning/LightningClient';
 import LndClient from './lightning/LndClient';
+import RoutingFee from './lightning/RoutingFee';
 import ClnClient from './lightning/cln/ClnClient';
 import EmailNotifier from './notifications/EmailNotifier';
 import NotificationClient from './notifications/NotificationClient';
@@ -60,6 +61,7 @@ class Boltz {
   private readonly ethereumManagers: EthereumManager[];
 
   private readonly sidecar: Sidecar;
+  private readonly routingFee: RoutingFee;
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
@@ -151,6 +153,7 @@ class Boltz {
       this.config.sidecar,
       this.config.datadir,
     );
+    this.routingFee = new RoutingFee(this.logger, this.config.routing);
 
     this.currencies = this.parseCurrencies();
 
@@ -179,6 +182,7 @@ class Boltz {
         this.currencies,
         this.sidecar,
         this.config.swap,
+        this.routingFee,
       );
 
       if (notificationClient !== undefined) {
@@ -441,11 +445,23 @@ class Boltz {
           network: Networks[currency.network],
           lndClient:
             currency.lnd !== undefined
-              ? new LndClient(this.logger, currency.symbol, currency.lnd)
+              ? new LndClient(
+                  this.logger,
+                  currency.symbol,
+                  currency.lnd,
+                  this.sidecar,
+                  this.routingFee,
+                )
               : undefined,
           clnClient:
             currency.cln !== undefined
-              ? new ClnClient(this.logger, currency.symbol, currency.cln)
+              ? new ClnClient(
+                  this.logger,
+                  currency.symbol,
+                  currency.cln,
+                  this.sidecar,
+                  this.routingFee,
+                )
               : undefined,
           limits: {
             ...currency,

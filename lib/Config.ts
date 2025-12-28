@@ -10,6 +10,7 @@ import Errors from './consts/Errors';
 import type { PairConfig } from './consts/Types';
 import type { RedisConfig } from './db/Redis';
 import type { LndConfig } from './lightning/LndClient';
+import type { Config as RoutingFeeConfig } from './lightning/RoutingFee';
 import type { ClnConfig } from './lightning/cln/Types';
 import type { SidecarConfig } from './sidecar/Sidecar';
 import type { NodeSwitchConfig } from './swap/NodeSwitch';
@@ -219,6 +220,7 @@ type ConfigType = {
   swapwitnessaddress: boolean;
 
   swap: SwapConfig;
+  routing: RoutingFeeConfig;
 
   api: ApiConfig;
   grpc: GrpcConfig;
@@ -285,6 +287,8 @@ class Config {
         expiryTolerance: 120,
         cltvDelta: 20,
       },
+
+      routing: {},
 
       api: {
         host: '127.0.0.1',
@@ -370,7 +374,6 @@ class Config {
               Network.Testnet,
               'admin.macaroon',
             ),
-            maxPaymentFeeRatio: 0.03,
           },
         },
         {
@@ -405,7 +408,6 @@ class Config {
               Network.Testnet,
               'admin.macaroon',
             ),
-            maxPaymentFeeRatio: 0.03,
           },
         },
       ],

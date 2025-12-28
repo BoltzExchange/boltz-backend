@@ -38,6 +38,7 @@ import Errors from '../../../../lib/service/Errors';
 import MusigSigner, {
   RefundRejectionReason,
 } from '../../../../lib/service/cooperative/MusigSigner';
+import Sidecar from '../../../../lib/sidecar/Sidecar';
 import type SwapNursery from '../../../../lib/swap/SwapNursery';
 import type Wallet from '../../../../lib/wallet/Wallet';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
@@ -49,6 +50,7 @@ import {
   bitcoinLndClient2,
   clnClient,
 } from '../../Nodes';
+import { sidecar, startSidecar } from '../../sidecar/Utils';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 jest.mock('../../../../lib/db/repositories/ReverseSwapRepository');
@@ -85,7 +87,14 @@ describe('MusigSigner', () => {
       clnClient.connect(),
       bitcoinLndClient.connect(true),
       bitcoinLndClient2.connect(true),
+      startSidecar(),
     ]);
+
+    await sidecar.connect(
+      { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+      {} as any,
+      false,
+    );
 
     await bitcoinClient.generate(1);
   });
@@ -104,7 +113,10 @@ describe('MusigSigner', () => {
     );
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    sidecar.disconnect();
+    await Sidecar.stop();
+
     bitcoinClient.disconnect();
     clnClient.disconnect();
     bitcoinLndClient.disconnect();

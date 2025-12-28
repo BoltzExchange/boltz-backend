@@ -21,7 +21,7 @@
     "start": "node bin/boltzd",
     "dev": "npm run compile && npm run start",
     "lint": "eslint --max-warnings 0 --concurrency auto .",
-    "prettier": "npx prettier '{lib,test}/**/*.ts' lib/api/static bin docs",
+    "prettier": "npx prettier '{lib,test}/**/*.ts' lib/api/static bin docs .github",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
     "regtest:start:ci": "cd regtest && COMPOSE_PROFILES=backend-dev ./start.sh && npm run regtest:db:setup && npm run regtest:solidity:deploy",

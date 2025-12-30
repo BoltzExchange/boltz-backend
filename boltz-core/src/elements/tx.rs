@@ -95,8 +95,16 @@ pub fn construct_tx<C: Signing + Verification>(
         return Err(anyhow::anyhow!("all inputs must have the same asset"));
     }
 
-    target_fee(fee, |fee| {
-        construct_raw(secp, genesis_hash, inputs, &unblinded, destination, fee)
+    target_fee(fee, |fee, is_fee_estimation| {
+        construct_raw(
+            secp,
+            genesis_hash,
+            inputs,
+            &unblinded,
+            destination,
+            fee,
+            is_fee_estimation,
+        )
     })
 }
 
@@ -109,6 +117,7 @@ fn construct_raw<C: Signing + Verification>(
     unblinded: &[UnblindedOutput],
     destination: &Destination<&Address>,
     fee: u64,
+    is_fee_estimation: bool,
 ) -> Result<Transaction> {
     let mut tx = Transaction {
         version: 2,
@@ -132,7 +141,7 @@ fn construct_raw<C: Signing + Verification>(
                 ..Default::default()
             })
             .collect(),
-        output: blind_outputs(secp, unblinded, destination, fee)?,
+        output: blind_outputs(secp, unblinded, destination, fee, is_fee_estimation)?,
     };
 
     let prevouts = inputs
@@ -294,6 +303,7 @@ fn blind_outputs<C: Signing>(
     unblinded: &[UnblindedOutput],
     destination: &Destination<&Address>,
     fee: u64,
+    is_fee_estimation: bool,
 ) -> Result<Vec<TxOut>> {
     let mut input_sum = unblinded.iter().map(|input| input.amount()).sum::<u64>();
 
@@ -331,6 +341,7 @@ fn blind_outputs<C: Signing>(
             &stub_script,
             blinding_pubkey,
             DUMMY_BLINDED_OUTPUT,
+            is_fee_estimation,
             None,
         )?;
 
@@ -356,6 +367,7 @@ fn blind_outputs<C: Signing>(
                 &address.script_pubkey(),
                 address.blinding_pubkey,
                 amount,
+                is_fee_estimation,
                 None,
             )?;
 
@@ -396,6 +408,7 @@ fn blind_outputs<C: Signing>(
                     &address.script_pubkey(),
                     address.blinding_pubkey,
                     *amount,
+                    is_fee_estimation,
                     None,
                 )?;
 
@@ -419,6 +432,7 @@ fn blind_outputs<C: Signing>(
                 &destination.change.script_pubkey(),
                 destination.change.blinding_pubkey,
                 sweep_amount,
+                is_fee_estimation,
                 None,
             )?;
 
@@ -450,6 +464,7 @@ fn blind_outputs<C: Signing>(
             &script,
             blinding_pubkey,
             amount,
+            is_fee_estimation,
             Some(
                 &outputs
                     .iter()
@@ -469,6 +484,7 @@ fn blind_outputs<C: Signing>(
         .collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_output<C: Signing>(
     secp: &Secp256k1<C>,
     unblinded: &[UnblindedOutput],
@@ -476,9 +492,12 @@ pub fn create_output<C: Signing>(
     script_pubkey: &Script,
     blinding_pubkey: Option<PublicKey>,
     amount: u64,
+    is_fee_estimation: bool,
     last_blinding_params: Option<&[(u64, AssetBlindingFactor, ValueBlindingFactor)]>,
 ) -> Result<(bool, AssetBlindingFactor, ValueBlindingFactor, TxOut)> {
-    if let Some(blinding_key) = blinding_pubkey {
+    // When we are just creating the transaction for the fee estimation,
+    // we can skip blinding because Discount CT gives the blinding a 100% discount
+    if !is_fee_estimation && let Some(blinding_key) = blinding_pubkey {
         let value_bf = match last_blinding_params {
             Some(params) => ValueBlindingFactor::last(
                 secp,
@@ -1644,7 +1663,13 @@ pub mod tests {
         })];
 
         let fee = amount + 1;
-        let result = blind_outputs(&secp, &unblinded, &Destination::Single(&address), fee);
+        let result = blind_outputs(
+            &secp,
+            &unblinded,
+            &Destination::Single(&address),
+            fee,
+            false,
+        );
 
         assert!(result.is_err());
         assert_eq!(
@@ -1677,6 +1702,7 @@ pub mod tests {
                 outputs: &outputs,
             }),
             fee,
+            false,
         );
 
         assert!(result.is_err());
@@ -1684,5 +1710,41 @@ pub mod tests {
             result.unwrap_err().to_string(),
             "output sum is greater than input sum"
         );
+    }
+
+    #[test]
+    fn test_create_output_fee_estimation() {
+        let secp = Secp256k1::new();
+        let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
+
+        let unblinded = [UnblindedOutput::Explicit(ExplicitOutput {
+            asset: asset_id,
+            amount: 1000,
+        })];
+
+        let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
+        let blinding_key = SecretKey::new(&mut rand::thread_rng()).public_key(&secp);
+        let script_pubkey = Builder::new().push_opcode(OP_RETURN).into_script();
+
+        let amount = 500;
+
+        // When is_fee_estimation is true, blinding should be skipped
+        let (blinded, asset_bf_out, value_bf_out, output) = create_output(
+            &secp,
+            &unblinded,
+            (asset_id, asset_bf),
+            &script_pubkey,
+            Some(blinding_key),
+            amount,
+            true,
+            None,
+        )
+        .unwrap();
+
+        assert!(!blinded);
+        assert_eq!(asset_bf_out, AssetBlindingFactor::zero());
+        assert_eq!(value_bf_out, ValueBlindingFactor::zero());
+        assert_eq!(output.value, Value::Explicit(amount));
+        assert_eq!(output.asset, Asset::Explicit(asset_id));
     }
 }

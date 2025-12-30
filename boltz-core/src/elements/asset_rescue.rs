@@ -66,8 +66,14 @@ pub fn construct_asset_rescue<C: Signing + Verification>(
         return Err(anyhow::anyhow!("LBTC input has different asset id"));
     }
 
-    let (mut tx, fee) = target_fee(fee, |fee| {
-        construct_raw(secp, &asset_unblinded, &lbtc_unblinded, fee)
+    let (mut tx, fee) = target_fee(fee, |fee, is_fee_estimation| {
+        construct_raw(
+            secp,
+            &asset_unblinded,
+            &lbtc_unblinded,
+            fee,
+            is_fee_estimation,
+        )
     })?;
 
     // Clear the stubs we use for fee estimation
@@ -84,6 +90,7 @@ fn construct_raw<C: Signing + Verification>(
     asset_pair: &UnblindedAssetPair,
     lbtc_pair: &UnblindedAssetPair,
     fee: u64,
+    is_fee_estimation: bool,
 ) -> Result<Transaction> {
     let mut tx = Transaction {
         version: 2,
@@ -96,7 +103,7 @@ fn construct_raw<C: Signing + Verification>(
                 ..Default::default()
             })
             .collect(),
-        output: blind_outputs(secp, asset_pair, lbtc_pair, fee)?,
+        output: blind_outputs(secp, asset_pair, lbtc_pair, fee, is_fee_estimation)?,
     };
 
     // Stub the input sizes for fee estimation
@@ -147,6 +154,7 @@ fn blind_outputs<C: Signing>(
     asset_pair: &UnblindedAssetPair,
     lbtc_pair: &UnblindedAssetPair,
     fee: u64,
+    is_fee_estimation: bool,
 ) -> Result<Vec<TxOut>> {
     let change = lbtc_pair
         .unblinded
@@ -172,6 +180,7 @@ fn blind_outputs<C: Signing>(
         &asset_pair.asset_pair.destination.script_pubkey(),
         asset_pair.asset_pair.destination.blinding_pubkey,
         asset_pair.unblinded.amount(),
+        is_fee_estimation,
         None,
     )?;
 
@@ -189,6 +198,7 @@ fn blind_outputs<C: Signing>(
         &lbtc_pair.asset_pair.destination.script_pubkey(),
         lbtc_pair.asset_pair.destination.blinding_pubkey,
         change,
+        is_fee_estimation,
         Some(&[
             (
                 asset_pair.unblinded.amount(),

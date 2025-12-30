@@ -102,7 +102,27 @@ pub trait Client: BaseClient {
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
 
-    async fn get_new_address(&self, label: &str, address_type: Option<&str>) -> Result<String>;
+    async fn list_unspent(&self, wallet: Option<&str>) -> Result<Vec<types::UnspentOutput>>;
+    async fn get_new_address(
+        &self,
+        wallet: Option<&str>,
+        label: &str,
+        address_type: Option<&str>,
+    ) -> Result<String>;
+    async fn dump_blinding_key(&self, wallet: Option<&str>, address: &str) -> Result<String>;
+    async fn sign_raw_transaction_with_wallet(
+        &self,
+        wallet: Option<&str>,
+        tx: &str,
+    ) -> Result<types::SignRawTransactionResponse>;
+
+    #[cfg(test)]
+    async fn request_wallet(
+        &self,
+        wallet: Option<&str>,
+        method: &str,
+        params: Option<&[types::RpcParam<'_>]>,
+    ) -> Result<serde_json::Value>;
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 

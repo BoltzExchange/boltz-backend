@@ -33,6 +33,9 @@ pub struct Config {
     pub api: crate::api::Config,
     pub ws: crate::ws::Config,
 
+    #[serde(rename = "assetRescue")]
+    pub asset_rescue: Option<crate::swap::AssetRescueConfig>,
+
     #[cfg(feature = "metrics")]
     pub metrics: Option<crate::metrics::server::Config>,
 }
@@ -312,6 +315,7 @@ providerEndpoint = "http://127.0.0.1:8545"
                     host: "0.0.0.0".to_string(),
                     port: 9004,
                 },
+                asset_rescue: None,
                 metrics: Some(crate::metrics::server::Config {
                     host: "127.0.0.1".to_string(),
                     port: 9093,

@@ -2052,6 +2052,159 @@ class SwapRouter extends RouterBase {
     /**
      * @openapi
      * tags:
+     *   name: Asset Rescue
+     *   description: Asset rescue related endpoints for recovering locked funds
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     AssetRescueSetupRequest:
+     *       type: object
+     *       required: ["swapId", "transactionId", "vout", "destination"]
+     *       properties:
+     *         swapId:
+     *           type: string
+     *           description: ID of the Swap to rescue
+     *         transactionId:
+     *           type: string
+     *           description: Transaction ID of the lockup transaction
+     *         vout:
+     *           type: number
+     *           description: Output index of the lockup transaction
+     *         destination:
+     *           type: string
+     *           description: Address to which the funds should be rescued
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     AssetRescueMusigData:
+     *       type: object
+     *       required: ["serverPublicKey", "pubNonce", "message"]
+     *       properties:
+     *         serverPublicKey:
+     *           type: string
+     *           description: Server's public key for musig signing
+     *         pubNonce:
+     *           type: string
+     *           description: Server's public nonce for musig signing
+     *         message:
+     *           type: string
+     *           description: Message to be signed
+     *
+     *     AssetRescueSetupResponse:
+     *       type: object
+     *       required: ["musig", "transaction"]
+     *       properties:
+     *         musig:
+     *           $ref: '#/components/schemas/AssetRescueMusigData'
+     *         transaction:
+     *           type: string
+     *           description: Partially signed transaction encoded as HEX
+     */
+
+    /**
+     * @openapi
+     * /asset/{currency}/rescue/setup:
+     *   post:
+     *     tags: [Asset Rescue]
+     *     description: Setup a cooperative asset rescue transaction for recovering locked funds. Only works for non L-BTC assets locked on Liquid.
+     *     parameters:
+     *       - in: path
+     *         name: currency
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Currency symbol (currently only L-BTC is supported)
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/AssetRescueSetupRequest'
+     *     responses:
+     *       '201':
+     *         description: Setup details for the asset rescue transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/AssetRescueSetupResponse'
+     *       '400':
+     *         description: Error that caused the setup to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     AssetRescueBroadcastRequest:
+     *       type: object
+     *       required: ["swapId", "pubNonce", "partialSignature"]
+     *       properties:
+     *         swapId:
+     *           type: string
+     *           description: ID of the Swap being rescued
+     *         pubNonce:
+     *           type: string
+     *           description: Client's public nonce for musig signing encoded as HEX
+     *         partialSignature:
+     *           type: string
+     *           description: Client's partial signature encoded as HEX
+     *
+     *     AssetRescueBroadcastResponse:
+     *       type: object
+     *       required: ["transactionId"]
+     *       properties:
+     *         transactionId:
+     *           type: string
+     *           description: Transaction ID of the broadcasted rescue transaction
+     */
+
+    /**
+     * @openapi
+     * /asset/{currency}/rescue/broadcast:
+     *   post:
+     *     tags: [Asset Rescue]
+     *     description: Broadcast a cooperative asset rescue transaction with the client's partial signature
+     *     parameters:
+     *       - in: path
+     *         name: currency
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: Currency symbol (currently only L-BTC is supported)
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/AssetRescueBroadcastRequest'
+     *     responses:
+     *       '200':
+     *         description: Transaction ID of the broadcasted rescue transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/AssetRescueBroadcastResponse'
+     *       '400':
+     *         description: Error that caused the broadcast to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+
+    /**
+     * @openapi
+     * tags:
      *   name: Historical Data
      *   description: Historical data related endpoints
      */

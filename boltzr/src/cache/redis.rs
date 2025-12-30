@@ -67,6 +67,14 @@ impl Redis {
         pipe.exec_async(&mut self.connection.clone()).await?;
         Ok(())
     }
+
+    pub async fn delete(&self, key: &str, field: &str) -> Result<()> {
+        Ok(redis::cmd("HDEL")
+            .arg(key)
+            .arg(field)
+            .exec_async(&mut self.connection.clone())
+            .await?)
+    }
 }
 
 #[cfg(test)]
@@ -186,5 +194,41 @@ mod test {
 
         assert!(ttl_delta >= ttl_set - 1);
         assert!(ttl_delta <= ttl_set + 1);
+    }
+
+    #[tokio::test]
+    async fn test_delete_existing_key() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_delete";
+        let field = "data";
+        let data = Data {
+            data: "to be deleted".to_string(),
+        };
+
+        cache.set(key, field, &data, None).await.unwrap();
+        assert_eq!(cache.get::<Data>(key, field).await.unwrap().unwrap(), data);
+
+        cache.delete(key, field).await.unwrap();
+        assert!(cache.get::<Data>(key, field).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_delete_non_existent_key() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "non_existent_delete";
+        let field = "field";
+
+        let result = cache.delete(key, field).await;
+        assert!(result.is_ok());
     }
 }

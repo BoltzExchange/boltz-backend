@@ -60,19 +60,15 @@ impl Wallet for Elements {
         self.keys.derive_key(index)
     }
 
-    fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>> {
-        let address = self.decode_address_inner(address)?;
-
+    fn derive_blinding_key(&self, script_pubkey: Vec<u8>) -> Result<Vec<u8>> {
         Ok(self
             .slip77
-            .blinding_private_key(&elements_miniscript::elements::Script::from(
-                address.script_pubkey().serialize(),
-            ))
+            .blinding_private_key(&elements_miniscript::elements::Script::from(script_pubkey))
             .encode())
     }
 
-    async fn get_address(&self, label: &str) -> Result<String> {
-        self.client.get_new_address(label, None).await
+    async fn get_address(&self, wallet: Option<&str>, label: &str) -> Result<String> {
+        self.client.get_new_address(wallet, label, None).await
     }
 }
 
@@ -188,9 +184,19 @@ mod test {
     #[test]
     fn test_derive_blinding_key() {
         let seed = get_seed();
-        let key = Elements::new(Network::Regtest, &seed, PATH.to_string(), Arc::new(get_client().0))
-            .unwrap()
-            .derive_blinding_key("el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq")
+
+        let wallet = Elements::new(
+            Network::Regtest,
+            &seed,
+            PATH.to_string(),
+            Arc::new(get_client().0),
+        )
+        .unwrap();
+        let key = wallet
+            .derive_blinding_key(
+                wallet.decode_address(
+                    "el1pqt0dzt0mh2gxxvrezmzqexg0n66rkmd5997wn255wmfpqdegd2qyh284rq5v4h2vtj0ey3399k8d8v8qwsphj3qt4cf9zj08h0zqhraf0qcqltm5nfxq"
+                ).unwrap())
             .unwrap();
         assert_eq!(
             hex::encode(key),

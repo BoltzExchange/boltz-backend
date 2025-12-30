@@ -14,9 +14,9 @@ pub use elements::*;
 pub trait Wallet {
     fn decode_address(&self, address: &str) -> Result<Vec<u8>>;
     fn derive_keys(&self, index: u64) -> Result<Xpriv>;
-    fn derive_blinding_key(&self, address: &str) -> Result<Vec<u8>>;
+    fn derive_blinding_key(&self, script_pubkey: Vec<u8>) -> Result<Vec<u8>>;
 
-    async fn get_address(&self, label: &str) -> Result<String>;
+    async fn get_address(&self, wallet: Option<&str>, label: &str) -> Result<String>;
 
     fn label_batch_claim(&self, ids: &[&str]) -> String {
         format!("Batch claim of Swaps {}", ids.join(", "))

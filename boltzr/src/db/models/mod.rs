@@ -35,13 +35,12 @@ pub use web_hook::*;
 
 macro_rules! aggregate_musig_key {
     ($keys:expr, $refund_pub_key:expr) => {
-        boltz_core::musig::Musig::new(
+        boltz_core::musig::Musig::setup(
             boltz_core::musig::Musig::convert_keypair($keys.secret_key().secret_bytes())?,
             vec![
                 boltz_core::musig::Musig::convert_pub_key(&$keys.public_key().serialize())?,
                 boltz_core::musig::Musig::convert_pub_key(&alloy::hex::decode($refund_pub_key)?)?,
             ],
-            [0; 32],
         )?
         .agg_pk()
         .serialize()

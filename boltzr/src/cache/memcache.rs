@@ -74,6 +74,12 @@ impl MemCache {
         Ok(())
     }
 
+    pub fn delete(&self, key: &str, field: &str) -> anyhow::Result<()> {
+        let key = Self::get_key(key, field);
+        self.map.remove(&key);
+        Ok(())
+    }
+
     fn get_key(key: &str, field: &str) -> String {
         format!("{key}:{field}")
     }
@@ -227,5 +233,31 @@ mod tests {
 
         let retrieved: Option<String> = cache.get(key, field).unwrap();
         assert_eq!(retrieved, Some(value_set));
+    }
+
+    #[test]
+    fn test_delete_existing_key() {
+        let cache = MemCache::new();
+        let key = "delete_key";
+        let field = "field";
+        let value = "delete_value".to_string();
+
+        cache.set(key, field, &value, None).unwrap();
+        let retrieved: Option<String> = cache.get(key, field).unwrap();
+        assert_eq!(retrieved, Some(value));
+
+        cache.delete(key, field).unwrap();
+        let retrieved_after_delete: Option<String> = cache.get(key, field).unwrap();
+        assert_eq!(retrieved_after_delete, None);
+    }
+
+    #[test]
+    fn test_delete_non_existent_key() {
+        let cache = MemCache::new();
+        let key = "non_existent_delete_key";
+        let field = "field";
+
+        let result = cache.delete(key, field);
+        assert!(result.is_ok());
     }
 }

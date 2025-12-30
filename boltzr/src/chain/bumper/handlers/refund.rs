@@ -124,11 +124,10 @@ where
             Some(address) => address,
             None => Address::try_from(
                 self.wallet
-                    .get_address(&format!(
-                        "Refund of {} swap {}",
-                        swap.kind(),
-                        pending.swap_id
-                    ))
+                    .get_address(
+                        None,
+                        &format!("Refund of {} swap {}", swap.kind(), pending.swap_id),
+                    )
                     .await?
                     .as_str(),
             )?,

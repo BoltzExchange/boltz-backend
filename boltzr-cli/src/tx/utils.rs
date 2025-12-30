@@ -338,12 +338,11 @@ fn generate_internal_keys(
             ]
         })
         .map(move |keys| {
-            Ok(Musig::new(
+            Ok(Musig::setup(
                 Musig::convert_keypair(privkey)?,
                 keys.iter()
                     .map(|key| Musig::convert_pub_key(key))
                     .collect::<Result<Vec<_>>>()?,
-                [0; 32],
             )?
             .agg_pk())
         })

@@ -1,7 +1,10 @@
 use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
-use crate::chain::types::{BlockchainInfo, NetworkInfo, RawTransactionVerbose, Type};
+use crate::chain::types::{
+    BlockchainInfo, NetworkInfo, RawTransactionVerbose, SignRawTransactionResponse, Type,
+    UnspentOutput,
+};
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig, Transactions};
 use crate::db::helpers::chain_tip::ChainTipHelper;
@@ -170,13 +173,54 @@ impl Client for ElementsClient {
         self.wallet_client().send_raw_transaction(tx).await
     }
 
+    async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {
+        self.wallet_client().list_unspent(wallet).await
+    }
+
     async fn get_new_address(
         &self,
+        wallet: Option<&str>,
         label: &str,
         address_type: Option<&str>,
     ) -> anyhow::Result<String> {
         self.wallet_client()
-            .get_new_address(label, Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE)))
+            .get_new_address(
+                wallet,
+                label,
+                Some(address_type.unwrap_or(DEFAULT_ADDRESS_TYPE)),
+            )
+            .await
+    }
+
+    async fn dump_blinding_key(
+        &self,
+        wallet: Option<&str>,
+        address: &str,
+    ) -> anyhow::Result<String> {
+        self.wallet_client()
+            .dump_blinding_key(wallet, address)
+            .await
+    }
+
+    async fn sign_raw_transaction_with_wallet(
+        &self,
+        wallet: Option<&str>,
+        tx: &str,
+    ) -> anyhow::Result<SignRawTransactionResponse> {
+        self.wallet_client()
+            .sign_raw_transaction_with_wallet(wallet, tx)
+            .await
+    }
+
+    #[cfg(test)]
+    async fn request_wallet(
+        &self,
+        wallet: Option<&str>,
+        method: &str,
+        params: Option<&[crate::chain::types::RpcParam<'_>]>,
+    ) -> anyhow::Result<serde_json::Value> {
+        self.wallet_client()
+            .request_wallet(wallet, method, params)
             .await
     }
 
@@ -259,13 +303,14 @@ pub mod test {
             .wallet_client()
             .client
             .request_wallet::<String>(
+                None,
                 "sendtoaddress",
                 Some(&[
                     RpcParam::Str(
                         &client
                             .wallet_client()
                             .client
-                            .request_wallet::<String>("getnewaddress", None)
+                            .request_wallet::<String>(None, "getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -292,6 +337,7 @@ pub mod test {
             .wallet_client()
             .client
             .request_wallet::<serde_json::Value>(
+                None,
                 "generatetoaddress",
                 Some(&[
                     RpcParam::Int(1),
@@ -299,7 +345,7 @@ pub mod test {
                         &client
                             .wallet_client()
                             .client
-                            .request_wallet::<String>("getnewaddress", None)
+                            .request_wallet::<String>(None, "getnewaddress", None)
                             .await
                             .unwrap(),
                     ),

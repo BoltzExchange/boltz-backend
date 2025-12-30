@@ -3,7 +3,7 @@ use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
     BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
-    SmartFeeEstimate, Type, ZmqNotification,
+    SignRawTransactionResponse, SmartFeeEstimate, Type, UnspentOutput, ZmqNotification,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -608,13 +608,21 @@ impl Client for ChainClient {
             .await
     }
 
+    async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {
+        self.client
+            .request_wallet::<Vec<UnspentOutput>>(wallet, "listunspent", None)
+            .await
+    }
+
     async fn get_new_address(
         &self,
+        wallet: Option<&str>,
         label: &str,
         address_type: Option<&str>,
     ) -> anyhow::Result<String> {
         self.client
             .request_wallet::<String>(
+                wallet,
                 "getnewaddress",
                 Some(&[
                     RpcParam::Str(label),
@@ -622,6 +630,47 @@ impl Client for ChainClient {
                 ]),
             )
             .await
+    }
+
+    async fn dump_blinding_key(
+        &self,
+        wallet: Option<&str>,
+        address: &str,
+    ) -> anyhow::Result<String> {
+        if self.client_type != Type::Elements {
+            return Err(anyhow::anyhow!(
+                "dump blinding key is not supported for {} chain",
+                self.client.symbol
+            ));
+        }
+
+        self.client
+            .request_wallet::<String>(wallet, "dumpblindingkey", Some(&[RpcParam::Str(address)]))
+            .await
+    }
+
+    async fn sign_raw_transaction_with_wallet(
+        &self,
+        wallet: Option<&str>,
+        tx: &str,
+    ) -> anyhow::Result<SignRawTransactionResponse> {
+        self.client
+            .request_wallet::<SignRawTransactionResponse>(
+                wallet,
+                "signrawtransactionwithwallet",
+                Some(&[RpcParam::Str(tx)]),
+            )
+            .await
+    }
+
+    #[cfg(test)]
+    async fn request_wallet(
+        &self,
+        wallet: Option<&str>,
+        method: &str,
+        params: Option<&[RpcParam<'_>]>,
+    ) -> anyhow::Result<serde_json::Value> {
+        self.client.request_wallet(wallet, method, params).await
     }
 
     fn zero_conf_safe(&self, _transaction: &Transaction) -> oneshot::Receiver<bool> {
@@ -692,13 +741,14 @@ pub mod test {
         client
             .client
             .request_wallet::<serde_json::Value>(
+                None,
                 "generatetoaddress",
                 Some(&[
                     RpcParam::Int(1),
                     RpcParam::Str(
                         &client
                             .client
-                            .request_wallet::<String>("getnewaddress", None)
+                            .request_wallet::<String>(None, "getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -712,12 +762,13 @@ pub mod test {
         let tx_id = client
             .client
             .request_wallet::<String>(
+                None,
                 "sendtoaddress",
                 Some(&[
                     RpcParam::Str(
                         &client
                             .client
-                            .request_wallet::<String>("getnewaddress", None)
+                            .request_wallet::<String>(None, "getnewaddress", None)
                             .await
                             .unwrap(),
                     ),
@@ -741,7 +792,7 @@ pub mod test {
     async fn get_address_info(client: &ChainClient, address: &str) -> AddressInfo {
         client
             .client
-            .request_wallet::<AddressInfo>("getaddressinfo", Some(&[RpcParam::Str(address)]))
+            .request_wallet::<AddressInfo>(None, "getaddressinfo", Some(&[RpcParam::Str(address)]))
             .await
             .unwrap()
     }
@@ -917,7 +968,7 @@ pub mod test {
         let client = get_client().await;
 
         let label = "some tx";
-        let address = client.get_new_address(label, None).await.unwrap();
+        let address = client.get_new_address(None, label, None).await.unwrap();
 
         let info = get_address_info(&client, &address).await;
         assert_eq!(info.labels, vec![label.to_string()]);
@@ -937,7 +988,7 @@ pub mod test {
         let client = get_client().await;
 
         let address = client
-            .get_new_address("", address_type.as_deref())
+            .get_new_address(None, "", address_type.as_deref())
             .await
             .unwrap();
         assert!(address.starts_with(expected_prefix));

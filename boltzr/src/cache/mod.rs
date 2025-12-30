@@ -40,4 +40,11 @@ impl Cache {
             Cache::Memory(memory) => memory.set(key, field, value, ttl),
         }
     }
+
+    pub async fn delete(&self, key: &str, field: &str) -> Result<()> {
+        match self {
+            Cache::Redis(redis) => redis.delete(key, field).await,
+            Cache::Memory(memory) => memory.delete(key, field),
+        }
+    }
 }

@@ -11,7 +11,7 @@ use elements::{
     SchnorrSighashType, Script, Sequence, Sighash, SurjectionInput, Transaction, TxIn, TxOut,
     TxOutSecrets, TxOutWitness,
     confidential::{Asset, AssetBlindingFactor, Nonce, Value, ValueBlindingFactor},
-    hashes::sha256,
+    hashes::{Hash, sha256},
     opcodes::all::{OP_PUSHBYTES_0, OP_RETURN},
     pset::serialize::Serialize,
     script::Builder,
@@ -28,26 +28,26 @@ const SIGHASH_TYPE_TAPROOT: SchnorrSighashType = SchnorrSighashType::Default;
 const DUMMY_BLINDED_OUTPUT: u64 = 1;
 
 #[derive(Debug, Copy, Clone)]
-struct ExplicitOutput {
-    asset: AssetId,
-    amount: u64,
+pub struct ExplicitOutput {
+    pub asset: AssetId,
+    pub amount: u64,
 }
 
 #[derive(Debug, Copy, Clone)]
-enum UnblindedOutput {
+pub enum UnblindedOutput {
     Unblinded(TxOutSecrets),
     Explicit(ExplicitOutput),
 }
 
 impl UnblindedOutput {
-    fn amount(&self) -> u64 {
+    pub fn amount(&self) -> u64 {
         match self {
             UnblindedOutput::Unblinded(sec) => sec.value,
             UnblindedOutput::Explicit(out) => out.amount,
         }
     }
 
-    fn asset(&self) -> AssetId {
+    pub fn asset(&self) -> AssetId {
         match self {
             UnblindedOutput::Unblinded(sec) => sec.asset,
             UnblindedOutput::Explicit(out) => out.asset,
@@ -168,7 +168,7 @@ fn construct_raw<C: Signing + Verification>(
             OutputType::Compatibility(witness_script) => {
                 let nested = Builder::new()
                     .push_opcode(OP_PUSHBYTES_0)
-                    .push_slice(sha256::Hash::const_hash(witness_script.as_bytes()).as_ref());
+                    .push_slice(sha256::Hash::hash(witness_script.as_bytes()).as_ref());
 
                 tx.input[i].script_sig = Builder::new()
                     .push_slice(nested.into_script().as_bytes())
@@ -260,18 +260,18 @@ fn unblind_outputs<C: Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
 ) -> Result<Vec<UnblindedOutput>> {
-    let mut secrets = Vec::with_capacity(inputs.len());
+    let mut unblinded = Vec::with_capacity(inputs.len());
 
     for (i, input) in inputs.iter().enumerate() {
         if input.tx_out.value.is_confidential() {
             if let Some(blinding_key) = input.blinding_key {
                 let sec = input.tx_out.unblind(secp, blinding_key.secret_key())?;
-                secrets.push(UnblindedOutput::Unblinded(sec));
+                unblinded.push(UnblindedOutput::Unblinded(sec));
             } else {
                 return Err(anyhow::anyhow!("input {i} has no blinding key"));
             }
         } else {
-            secrets.push(UnblindedOutput::Explicit(ExplicitOutput {
+            unblinded.push(UnblindedOutput::Explicit(ExplicitOutput {
                 asset: if let Some(asset_id) = input.tx_out.asset.explicit() {
                     asset_id
                 } else {
@@ -286,7 +286,7 @@ fn unblind_outputs<C: Verification>(
         }
     }
 
-    Ok(secrets)
+    Ok(unblinded)
 }
 
 fn blind_outputs<C: Signing>(
@@ -469,7 +469,7 @@ fn blind_outputs<C: Signing>(
         .collect())
 }
 
-fn create_output<C: Signing>(
+pub fn create_output<C: Signing>(
     secp: &Secp256k1<C>,
     unblinded: &[UnblindedOutput],
     asset: (AssetId, AssetBlindingFactor),
@@ -562,7 +562,7 @@ fn stubbed_cooperative_witness() -> Witness {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::{
         client::{RpcBlock, RpcClient, RpcParam},
@@ -581,7 +581,7 @@ mod tests {
     use serial_test::serial;
     use std::str::FromStr;
 
-    const FUNDING_AMOUNT: u64 = 100_000;
+    pub const FUNDING_AMOUNT: u64 = 100_000;
 
     // There is some variance in the proof sizes of Elements transactions
     fn assert_within_one_percent(actual: u64, expected: u64) {
@@ -601,13 +601,13 @@ mod tests {
         reverse_tree(preimage_hash, claim_key, refund_key, lock_time, None)
     }
 
-    fn mine_block(client: &RpcClient) {
+    pub fn mine_block(client: &RpcClient) {
         client
             .request::<serde_json::Value>(
                 "generatetoaddress",
                 Some(&[
                     RpcParam::Int(1),
-                    RpcParam::Str(&get_destination(client, true).to_string()),
+                    RpcParam::Str(&get_destination(client, true, None).to_string()),
                 ]),
             )
             .unwrap();
@@ -617,7 +617,7 @@ mod tests {
         client.request::<u32>("getblockcount", None).unwrap()
     }
 
-    fn get_genesis_hash(client: &RpcClient) -> BlockHash {
+    pub fn get_genesis_hash(client: &RpcClient) -> BlockHash {
         let block_hash = client
             .request::<String>("getblockhash", Some(&[RpcParam::Int(0)]))
             .unwrap();
@@ -628,13 +628,25 @@ mod tests {
         BlockHash::from_str(&block.hash).unwrap()
     }
 
-    fn fund_address(client: &RpcClient, address: &Address) -> (Transaction, usize) {
+    pub fn fund_address(
+        client: &RpcClient,
+        address: &Address,
+        asset: Option<&str>,
+    ) -> (Transaction, usize) {
         let tx = client
             .request::<String>(
                 "sendtoaddress",
                 Some(&[
                     RpcParam::Str(&address.to_string()),
                     RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::Null,
+                    RpcParam::StrOption(asset),
                 ]),
             )
             .unwrap();
@@ -654,13 +666,13 @@ mod tests {
         (tx, vout_index)
     }
 
-    fn address_blinding_key(client: &RpcClient, address: String) -> String {
+    pub fn address_blinding_key(client: &RpcClient, address: String) -> String {
         client
             .request::<String>("dumpblindingkey", Some(&[RpcParam::Str(&address)]))
             .unwrap()
     }
 
-    fn send_raw_transaction(client: &RpcClient, tx: &Transaction) -> Txid {
+    pub fn send_raw_transaction(client: &RpcClient, tx: &Transaction) -> Txid {
         let res = client
             .request::<String>(
                 "sendrawtransaction",
@@ -671,9 +683,16 @@ mod tests {
         Txid::from_str(&res).unwrap()
     }
 
-    fn get_destination(client: &RpcClient, blind: bool) -> Address {
-        let address =
-            Address::from_str(&client.request::<String>("getnewaddress", None).unwrap()).unwrap();
+    pub fn get_destination(client: &RpcClient, blind: bool, address_type: Option<&str>) -> Address {
+        let address = Address::from_str(
+            &client
+                .request::<String>(
+                    "getnewaddress",
+                    Some(&[RpcParam::Null, RpcParam::StrOption(address_type)]),
+                )
+                .unwrap(),
+        )
+        .unwrap();
 
         if blind {
             address
@@ -742,7 +761,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address);
+        let (funding_tx, vout_index) = fund_address(client, &address, None);
 
         (
             keys,
@@ -802,7 +821,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address);
+        let (funding_tx, vout_index) = fund_address(client, &address, None);
 
         (
             blinding_keys,
@@ -864,7 +883,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address);
+        let (funding_tx, vout_index) = fund_address(client, &address, None);
 
         (
             blinding_keys,
@@ -922,7 +941,7 @@ mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address);
+        let (funding_tx, vout_index) = fund_address(client, &address, None);
 
         (
             blinding_keys,
@@ -969,7 +988,7 @@ mod tests {
         let secp = Secp256k1::new();
         let (keys, _, tweak, input) = fund_taproot(&secp, &client, None, create_tree, blind_input);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (mut tx, _) = construct_tx(
@@ -1052,7 +1071,7 @@ mod tests {
             internal_key: keys.x_only_public_key().0,
         }));
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1112,7 +1131,7 @@ mod tests {
             internal_key: keys.x_only_public_key().0,
         }));
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1147,7 +1166,7 @@ mod tests {
         let secp = Secp256k1::new();
         let (_, input) = fund_segwit_v0(&secp, &client, None, create_script, blind_input);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1197,7 +1216,7 @@ mod tests {
             blind_input,
         );
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1232,7 +1251,7 @@ mod tests {
         let secp = Secp256k1::new();
         let (_, input) = fund_compatibility(&secp, &client, None, create_script, blind_input);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1282,7 +1301,7 @@ mod tests {
             blind_input,
         );
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1317,7 +1336,7 @@ mod tests {
         let secp = Secp256k1::new();
         let (_, input) = fund_legacy(&secp, &client, None, create_script, blind_input);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1367,7 +1386,7 @@ mod tests {
             blind_input,
         );
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 100;
         let (tx, _) = construct_tx(
@@ -1422,7 +1441,7 @@ mod tests {
         inputs.push(fund_legacy(&secp, &client, None, swap_script, blind_input).1);
         inputs.push(fund_legacy(&secp, &client, None, reverse_script, blind_input).1);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 4.0;
         let (tx, _) = construct_tx(
@@ -1480,7 +1499,7 @@ mod tests {
         inputs.push(fund_legacy(&secp, &client, None, swap_script, true).1);
         inputs.push(fund_legacy(&secp, &client, None, reverse_script, false).1);
 
-        let destination = get_destination(&client, blind_output);
+        let destination = get_destination(&client, blind_output, None);
 
         let fee = 4.0;
         let (tx, _) = construct_tx(
@@ -1526,10 +1545,10 @@ mod tests {
 
         inputs.push(fund_segwit_v0(&secp, &client, None, swap_script, blind_input).1);
 
-        let change = get_destination(&client, blind_output);
+        let change = get_destination(&client, blind_output, None);
         let outputs = [
-            (&get_destination(&client, blind_output), 21_000),
-            (&get_destination(&client, blind_output), 12_123),
+            (&get_destination(&client, blind_output, None), 21_000),
+            (&get_destination(&client, blind_output, None), 12_123),
         ];
 
         let fee = 500;

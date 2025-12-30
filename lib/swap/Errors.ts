@@ -162,7 +162,10 @@ export default {
     message: `funding address ${id} is already used for swap: ${swapId}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 34),
   }),
-  FUNDING_ADDRESS_AMOUNT_MISMATCH: (id: string, expectedAmount: number): Error => ({
+  FUNDING_ADDRESS_AMOUNT_MISMATCH: (
+    id: string,
+    expectedAmount: number,
+  ): Error => ({
     message: `funding address ${id} amount mismatch: expected ${expectedAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 35),
   }),

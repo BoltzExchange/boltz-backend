@@ -1,3 +1,5 @@
+import Transaction from 'sequelize';
+import Database from '../Database';
 import type { FundingAddressType } from '../models/FundingAddress';
 import FundingAddress from '../models/FundingAddress';
 
@@ -10,6 +12,14 @@ class FundingAddressRepository {
     });
   };
 
+  public static getBySwapId = (
+    swapId: string,
+  ): Promise<FundingAddress | null> => {
+    return FundingAddress.findOne({
+      where: { swapId },
+    });
+  };
+
   public static addFundingAddress = (
     fundingAddress: FundingAddressType,
   ): Promise<FundingAddress> => {
@@ -17,7 +27,20 @@ class FundingAddressRepository {
   };
 
   public static setSwapId = (id: string, swapId: string | null) => {
-    return FundingAddress.update({ swapId }, { where: { id } });
+    return Database.sequelize.transaction(
+      {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
+      },
+      async (transaction) => {
+        // The combination of SERIALIZABLE isolation level and adding swapId: null to the where clause
+        // ensures that the update will only succeed if the funding address is not already associated with a swap
+        // and no race condition can happen
+        return FundingAddress.update(
+          { swapId },
+          { where: { id, swapId: null }, transaction },
+        );
+      },
+    );
   };
 }
 

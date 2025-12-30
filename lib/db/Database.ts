@@ -110,7 +110,6 @@ class Database {
       Rebroadcast.sync(),
       DatabaseVersion.sync(),
       TransactionLabel.sync(),
-      FundingAddress.sync(),
       PendingEthereumTransaction.sync(),
     ]);
 

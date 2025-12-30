@@ -2,7 +2,6 @@ import AsyncLock from 'async-lock';
 import type { Transaction } from 'bitcoinjs-lib';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import type { ContractTransactionResponse } from 'ethers';
-import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import type { OverPaymentConfig } from '../Config';
@@ -55,6 +54,7 @@ import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -730,15 +730,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
 
-    if (swap.fundingAddressId !== undefined) {
-      const fundingAddress =
-        await FundingAddressRepository.getFundingAddressById(
-          swap.fundingAddressId,
-        );
-      if (fundingAddress === null) {
-        this.logger.error(`Funding address ${swap.fundingAddressId} not found`);
-        return;
-      }
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress !== null) {
+      // TODO: validate presigned tx
     }
 
     if (swap.type === SwapType.Submarine) {

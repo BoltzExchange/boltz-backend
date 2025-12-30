@@ -494,23 +494,6 @@ where
         }))
     }
 
-    #[instrument(name = "grpc::sweep_swaps", skip_all)]
-    async fn sweep_swaps(
-        &self,
-        request: Request<SweepSwapsRequest>,
-    ) -> Result<Response<SweepSwapsResponse>, Status> {
-        let params = request.into_inner();
-        /*
-        let res = self
-            .service
-            .funding_address_claimer
-            .sweep_swaps(params.symbol, params.swap_ids);
-        */
-        Ok(Response::new(SweepSwapsResponse {
-            claimed_swaps_ids: params.swap_ids,
-        }))
-    }
-
     #[instrument(name = "grpc::decode_invoice_or_offer", skip_all)]
     async fn decode_invoice_or_offer(
         &self,

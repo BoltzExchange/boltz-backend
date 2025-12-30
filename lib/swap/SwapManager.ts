@@ -13,7 +13,6 @@ import {
   reverseSwapTree as reverseSwapTreeLiquid,
 } from 'boltz-core/dist/lib/liquid';
 import { randomBytes } from 'crypto';
-import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { Op, Transaction } from 'sequelize';
 import type { SwapConfig } from '../Config';
@@ -55,6 +54,7 @@ import type Swap from '../db/models/Swap';
 import type { ChainSwapDataTypeInsert } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import ScriptPubKeyRepository from '../db/repositories/ScriptPubKeyRepository';

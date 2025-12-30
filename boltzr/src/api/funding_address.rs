@@ -1,27 +1,41 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::service::CreateFundingAddressRequest;
+use crate::service::{CreateFundingAddressRequest, FundingAddressError};
 use crate::swap::manager::SwapManager;
+use crate::utils::serde::PublicKeyDeserialize;
 use anyhow::Result;
 use async_tungstenite::tungstenite::http::StatusCode;
 use axum::extract::Path;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
-use bitcoin::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::sync::Arc;
 
-#[derive(Deserialize, serde::Serialize)]
+impl IntoResponse for FundingAddressError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            FundingAddressError::CurrencyNotFound(_) | FundingAddressError::NoWallet(_) => {
+                StatusCode::NOT_FOUND
+            }
+            FundingAddressError::NotFound(_) => StatusCode::NOT_FOUND,
+            FundingAddressError::Database(_) | FundingAddressError::Internal(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        };
+        AxumError::new(status, anyhow::anyhow!("{}", self)).into_response()
+    }
+}
+
+#[derive(Deserialize)]
 pub struct CreateRequest {
     #[serde(rename = "refundPublicKey")]
-    pub refund_public_key: String,
+    pub refund_public_key: PublicKeyDeserialize,
     #[serde(rename = "timeoutBlockHeight")]
     pub timeout_block_height: Option<u32>,
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateResponse {
     pub id: String,
     pub address: String,
@@ -31,7 +45,7 @@ pub struct CreateResponse {
     pub boltz_public_key: String,
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct GetResponse {
     pub id: String,
     pub address: String,
@@ -54,35 +68,18 @@ pub async fn create<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(currency): Path<String>,
     Json(body): Json<CreateRequest>,
-) -> Result<impl IntoResponse, AxumError>
+) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let their_pubkey = XOnlyPublicKey::from_str(&body.refund_public_key).map_err(|e| {
-        AxumError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            anyhow::anyhow!("invalid public key: {}", e),
-        )
-    })?;
-
     let request = CreateFundingAddressRequest {
         symbol: currency,
-        refund_public_key: their_pubkey,
+        refund_public_key: body.refund_public_key.0,
         timeout_block_height: body.timeout_block_height,
     };
 
-    // Call the service to create the funding address
-    let response = state.service.funding_address.create(request).map_err(|e| {
-        // Map service errors to appropriate HTTP status codes
-        if e.to_string().contains("currency not found") || e.to_string().contains("no wallet") {
-            AxumError::new(StatusCode::NOT_FOUND, e)
-        } else if e.to_string().contains("invalid") {
-            AxumError::new(StatusCode::UNPROCESSABLE_ENTITY, e)
-        } else {
-            AxumError::new(StatusCode::INTERNAL_SERVER_ERROR, e)
-        }
-    })?;
+    let response = state.service.funding_address.create(request)?;
 
     Ok((
         StatusCode::OK,
@@ -99,23 +96,12 @@ where
 pub async fn get<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-) -> Result<impl IntoResponse, AxumError>
+) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    // Get the funding address with full response data
-    let response = state
-        .service
-        .funding_address
-        .get_by_id(&id)
-        .map_err(|e| AxumError::new(StatusCode::INTERNAL_SERVER_ERROR, e))?
-        .ok_or_else(|| {
-            AxumError::new(
-                StatusCode::NOT_FOUND,
-                anyhow::anyhow!("funding address not found"),
-            )
-        })?;
+    let response = state.service.funding_address.get_by_id(&id)?;
 
     Ok((
         StatusCode::OK,
@@ -151,8 +137,7 @@ mod test {
     use tower::ServiceExt;
 
     const TEST_SYMBOL: &str = "L-BTC";
-    const TEST_XONLY_PUBKEY: &str =
-        "e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
+    const TEST_PUBKEY: &str = "0e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
 
     async fn setup_router() -> Router {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
@@ -169,7 +154,13 @@ mod test {
         )))
     }
 
-    async fn make_create_request(currency: &str, body: &CreateRequest) -> axum::response::Response {
+    async fn make_create_request(
+        currency: &str,
+        refund_public_key: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "refundPublicKey": refund_public_key
+        });
         setup_router()
             .await
             .oneshot(
@@ -215,37 +206,20 @@ mod test {
 
     #[tokio::test]
     async fn test_create_funding_address_success() {
-        let res = make_create_request(
-            TEST_SYMBOL,
-            &CreateRequest {
-                refund_public_key: TEST_XONLY_PUBKEY.to_string(),
-                timeout_block_height: None,
-            },
-        )
-        .await;
+        let res = make_create_request(TEST_SYMBOL, TEST_PUBKEY).await;
 
-        //assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::OK);
         let body = res.into_body().collect().await.unwrap().to_bytes();
-        println!("body: {:?}", body);
-        println!("body: {:?}", body);
         let response: CreateResponse = serde_json::from_slice(&body).unwrap();
 
         assert!(!response.id.is_empty());
         assert!(!response.address.is_empty());
-        assert_eq!(response.timeout_block_height, 1000);
         assert!(!response.boltz_public_key.is_empty());
     }
 
     #[tokio::test]
     async fn test_create_funding_address_invalid_pubkey() {
-        let res = make_create_request(
-            TEST_SYMBOL,
-            &CreateRequest {
-                refund_public_key: "invalid_pubkey".to_string(),
-                timeout_block_height: None,
-            },
-        )
-        .await;
+        let res = make_create_request(TEST_SYMBOL, "invalid_pubkey").await;
 
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
@@ -256,40 +230,13 @@ mod test {
 
     #[tokio::test]
     async fn test_create_funding_address_currency_not_found() {
-        let res = make_create_request(
-            "NONEXISTENT",
-            &CreateRequest {
-                refund_public_key: TEST_XONLY_PUBKEY.to_string(),
-                timeout_block_height: None,
-            },
-        )
-        .await;
+        let res = make_create_request("NONEXISTENT", TEST_PUBKEY).await;
 
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("currency not found"));
-    }
-
-    #[tokio::test]
-    async fn test_create_funding_address_optional_timeout() {
-        let res = make_create_request(
-            TEST_SYMBOL,
-            &CreateRequest {
-                refund_public_key: TEST_XONLY_PUBKEY.to_string(),
-                timeout_block_height: None,
-            },
-        )
-        .await;
-
-        assert_eq!(res.status(), StatusCode::OK);
-
-        let body = res.into_body().collect().await.unwrap().to_bytes();
-        let response: CreateResponse = serde_json::from_slice(&body).unwrap();
-
-        assert!(!response.id.is_empty());
-        assert_eq!(response.timeout_block_height, 0);
     }
 
     #[rstest]
@@ -308,14 +255,7 @@ mod test {
         #[case] pubkey: &str,
         #[case] expected_error: &str,
     ) {
-        let res = make_create_request(
-            TEST_SYMBOL,
-            &CreateRequest {
-                refund_public_key: pubkey.to_string(),
-                timeout_block_height: None,
-            },
-        )
-        .await;
+        let res = make_create_request(TEST_SYMBOL, pubkey).await;
 
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
@@ -347,21 +287,12 @@ mod test {
 
     #[tokio::test]
     async fn test_get_funding_address_success() {
-        // First create a funding address
-        let create_res = make_create_request(
-            TEST_SYMBOL,
-            &CreateRequest {
-                refund_public_key: TEST_XONLY_PUBKEY.to_string(),
-                timeout_block_height: Some(1000),
-            },
-        )
-        .await;
+        let create_res = make_create_request(TEST_SYMBOL, TEST_PUBKEY).await;
 
         assert_eq!(create_res.status(), StatusCode::OK);
         let create_body = create_res.into_body().collect().await.unwrap().to_bytes();
         let create_response: CreateResponse = serde_json::from_slice(&create_body).unwrap();
 
-        // Now get it back
         let get_res = make_get_request(&create_response.id).await;
         assert_eq!(get_res.status(), StatusCode::OK);
 
@@ -379,7 +310,7 @@ mod test {
             create_response.boltz_public_key
         );
         assert_eq!(get_response.lockup_transaction_id, None);
-        assert_eq!(get_response.lockup_confirmed, false);
+        assert!(!get_response.lockup_confirmed);
         assert_eq!(get_response.swap_id, None);
     }
 

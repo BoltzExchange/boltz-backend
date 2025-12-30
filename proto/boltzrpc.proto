@@ -206,17 +206,6 @@ message AddReferralResponse {
   string api_secret = 2;
 }
 
-message SweepSwapsRequest {
-  optional string symbol = 1;
-}
-message SweepSwapsResponse {
-  message ClaimedSwaps {
-    repeated string claimed_ids = 1;
-  }
-
-  map<string, ClaimedSwaps> claimed_symbols = 1;
-}
-
 message ListSwapsRequest {
   optional string status = 1;
   optional uint64 limit = 2;

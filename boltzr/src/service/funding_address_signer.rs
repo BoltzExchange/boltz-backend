@@ -70,7 +70,7 @@ impl FundingAddressSigner {
                 script_pubkey: funding_address.script_pubkey(key_pair)?,
                 value: Amount::from_sat(funding_address.lockup_amount.unwrap() as u64),
             }]),
-            bitcoin::TapSighashType::All,
+            bitcoin::TapSighashType::Default,
         )?;
 
         let msg = *hash.to_raw_hash().as_byte_array();
@@ -144,7 +144,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
     ) -> Result<Transaction> {
         let swap = self.swap_helper.get_by_id(
-            &funding_address
+            funding_address
                 .swap_id
                 .clone()
                 .ok_or(anyhow!("funding address not linked to a swap"))?,
@@ -152,11 +152,12 @@ impl FundingAddressSigner {
         // TODO: chain swaps
         let destination = Address::try_from(swap.lockupAddress.as_str())?;
 
-        construct_tx(&Params::Bitcoin(BitcoinParams {
+        let (tx, _) = construct_tx(&Params::Bitcoin(BitcoinParams {
             inputs: &[&self.input_detail(funding_address, key_pair)?.try_into()?],
             destination: &Destination::Single(&destination.try_into()?),
             fee: boltz_core::FeeTarget::Absolute(0),
-        }))
+        }))?;
+        Ok(tx)
     }
 
     pub fn input_detail(

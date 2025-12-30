@@ -15,11 +15,6 @@ use anyhow::Result;
 use std::sync::Arc;
 use tracing::warn;
 
-#[cfg(test)]
-use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
-#[cfg(test)]
-use crate::db::helpers::keys::KeysHelperDatabase;
-
 mod country_codes;
 mod funding_address;
 mod funding_address_claimer;
@@ -105,6 +100,8 @@ pub mod test {
     use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
+    use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
+    use crate::db::helpers::keys::KeysHelperDatabase;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::prometheus::test::MockPrometheus;

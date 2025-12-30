@@ -19,7 +19,6 @@ service BoltzR {
 
   rpc ClaimBatch (ClaimBatchRequest) returns (ClaimBatchResponse);
   rpc SignEvmRefund (SignEvmRefundRequest) returns (SignEvmRefundResponse);
-  rpc SweepSwaps(SweepSwapsRequest) returns (SweepSwapsResponse);
 
   rpc DecodeInvoiceOrOffer (DecodeInvoiceOrOfferRequest) returns (DecodeInvoiceOrOfferResponse);
 
@@ -29,13 +28,6 @@ service BoltzR {
 
   rpc BlockAdded (BlockAddedRequest) returns (stream Block);
   rpc TransactionFound (RelevantTransactionRequest) returns (stream RelevantTransaction);
-}
-
-message SweepSwapsRequest {
-  repeated string swap_ids = 1;
-}
-message SweepSwapsResponse {
-  repeated string claimed_swaps_ids = 1;
 }
 
 message GetInfoRequest {}

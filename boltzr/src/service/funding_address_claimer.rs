@@ -164,9 +164,7 @@ impl FundingAddressClaimer {
                 }
 
                 let client = self.chain(symbol)?;
-                let genesis_hash_str = client.get_block_hash(0).await?;
-                let genesis_hash = BlockHash::from_str(&genesis_hash_str)
-                    .map_err(|e| anyhow!("Failed to parse genesis hash: {}", e))?;
+                let genesis_hash = client.network().liquid_genesis_hash()?;
 
                 let elements_inputs: Vec<ElementsInputDetail> = swaps
                     .iter()

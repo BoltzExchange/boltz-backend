@@ -106,8 +106,6 @@ pub trait Client: BaseClient {
 
     fn zero_conf_safe(&self, transaction: &Transaction) -> oneshot::Receiver<bool>;
 
-    fn tx_receiver(&self) -> broadcast::Receiver<(Transaction, bool)>;
+    fn tx_receiver(&self) -> broadcast::Receiver<(Transactions, bool)>;
     fn block_receiver(&self) -> broadcast::Receiver<(u64, Block)>;
-
-    async fn get_block_hash(&self, height: u32) -> Result<String>;
 }

@@ -7,12 +7,42 @@ use crate::service::funding_address_signer::{
     CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
 };
 use crate::utils::generate_id;
-use anyhow::{Result, anyhow};
-use bitcoin::XOnlyPublicKey;
+use anyhow::Result;
+use bitcoin::PublicKey;
 use bitcoin::key::{Keypair, Secp256k1};
 use boltz_core::Address;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use tracing::debug;
+
+#[derive(Debug)]
+pub enum FundingAddressError {
+    CurrencyNotFound(String),
+    NoWallet(String),
+    NotFound(String),
+    Database(String),
+    Internal(String),
+}
+
+impl Display for FundingAddressError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FundingAddressError::CurrencyNotFound(symbol) => {
+                write!(f, "currency not found: {}", symbol)
+            }
+            FundingAddressError::NoWallet(symbol) => {
+                write!(f, "no wallet for currency: {}", symbol)
+            }
+            FundingAddressError::NotFound(id) => {
+                write!(f, "funding address not found: {}", id)
+            }
+            FundingAddressError::Database(msg) => write!(f, "database error: {}", msg),
+            FundingAddressError::Internal(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for FundingAddressError {}
 
 pub struct FundingAddressService {
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
@@ -24,7 +54,7 @@ pub struct FundingAddressService {
 #[derive(Debug, Clone)]
 pub struct CreateFundingAddressRequest {
     pub symbol: String,
-    pub refund_public_key: XOnlyPublicKey,
+    pub refund_public_key: PublicKey,
     pub timeout_block_height: Option<u32>,
 }
 
@@ -66,14 +96,19 @@ impl FundingAddressService {
 
     /// Converts a FundingAddress database model to an API response by deriving
     /// the address and public key from the stored data.
-    fn to_response(&self, funding_address: &FundingAddress) -> Result<FundingAddressResponse> {
+    fn to_response(
+        &self,
+        funding_address: &FundingAddress,
+    ) -> Result<FundingAddressResponse, FundingAddressError> {
         let our_key_pair = self.key_pair(funding_address)?;
-        let script_pubkey = funding_address.script_pubkey(&our_key_pair)?;
-        let currency = self
-            .currencies
-            .get(&funding_address.symbol)
-            .ok_or(anyhow!("currency not found: {}", funding_address.symbol))?;
-        let address = Address::from_bitcoin_script(currency.network, &script_pubkey.to_bytes())?;
+        let script_pubkey = funding_address
+            .script_pubkey(&our_key_pair)
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+        let currency = self.currencies.get(&funding_address.symbol).ok_or(
+            FundingAddressError::CurrencyNotFound(funding_address.symbol.clone()),
+        )?;
+        let address = Address::from_bitcoin_script(currency.network, &script_pubkey.to_bytes())
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
 
         Ok(FundingAddressResponse {
             id: funding_address.id.clone(),
@@ -87,33 +122,50 @@ impl FundingAddressService {
         })
     }
 
-    fn key_pair(&self, funding_address: &FundingAddress) -> Result<Keypair> {
+    fn key_pair(&self, funding_address: &FundingAddress) -> Result<Keypair, FundingAddressError> {
         let secp = Secp256k1::new();
 
-        let wallet = self
-            .currencies
-            .get(&funding_address.symbol)
-            .ok_or(anyhow!("currency not found: {}", funding_address.symbol))?
+        let currency = self.currencies.get(&funding_address.symbol).ok_or(
+            FundingAddressError::CurrencyNotFound(funding_address.symbol.clone()),
+        )?;
+
+        let wallet = currency
             .wallet
             .as_ref()
-            .ok_or(anyhow!(
-                "no wallet for currency: {}",
-                funding_address.symbol
+            .ok_or(FundingAddressError::NoWallet(
+                funding_address.symbol.clone(),
             ))?;
 
         let our_key_pair = wallet
-            .derive_keys(funding_address.key_index as u64)?
+            .derive_keys(funding_address.key_index as u64)
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?
             .to_keypair(&secp);
         Ok(our_key_pair)
     }
 
-    pub fn create(&self, request: CreateFundingAddressRequest) -> Result<FundingAddressResponse> {
+    pub fn create(
+        &self,
+        request: CreateFundingAddressRequest,
+    ) -> Result<FundingAddressResponse, FundingAddressError> {
         debug!("Creating funding address for {}", request.symbol);
 
+        // Validate currency exists and has a wallet before incrementing key index
+        let currency =
+            self.currencies
+                .get(&request.symbol)
+                .ok_or(FundingAddressError::CurrencyNotFound(
+                    request.symbol.clone(),
+                ))?;
+
+        if currency.wallet.is_none() {
+            return Err(FundingAddressError::NoWallet(request.symbol.clone()));
+        }
+
         // Get and increment key index
-        let key_index = self
-            .keys_helper
-            .increment_highest_used_index(&request.symbol)? as u32;
+        let key_index =
+            self.keys_helper
+                .increment_highest_used_index(&request.symbol)
+                .map_err(|e| FundingAddressError::Database(e.to_string()))? as u32;
 
         debug!("Using key index {} for funding address", key_index);
 
@@ -130,29 +182,25 @@ impl FundingAddressService {
         };
 
         // Insert into database
-        self.funding_address_helper.insert(&funding_address)?;
+        self.funding_address_helper
+            .insert(&funding_address)
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
 
-        debug!(
-            "Created funding address {} with key index {}",
-            id, key_index
-        );
+        debug!("Created funding address {}", id);
 
         self.to_response(&funding_address)
     }
 
-    pub fn query_by_id(&self, id: &str) -> Result<FundingAddress> {
+    fn query_by_id(&self, id: &str) -> Result<FundingAddress, FundingAddressError> {
         self.funding_address_helper
-            .get_by_id(id)?
-            .ok_or(anyhow!("funding address not found"))
+            .get_by_id(id)
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?
+            .ok_or(FundingAddressError::NotFound(id.to_string()))
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<FundingAddressResponse>> {
-        let funding_address = self.funding_address_helper.get_by_id(id)?;
-
-        match funding_address {
-            Some(fa) => Ok(Some(self.to_response(&fa)?)),
-            None => Ok(None),
-        }
+    pub fn get_by_id(&self, id: &str) -> Result<FundingAddressResponse, FundingAddressError> {
+        let funding_address = self.query_by_id(id)?;
+        self.to_response(&funding_address)
     }
 
     pub fn get_signing_details(&self, id: &str) -> Result<CooperativeDetails> {
@@ -178,13 +226,13 @@ mod test {
     use crate::db::helpers::keys::test::MockKeysHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::wallet::{Elements, Network, Wallet};
-    use bitcoin::XOnlyPublicKey;
+    use anyhow::anyhow;
+    use bitcoin::PublicKey;
     use std::collections::HashMap;
     use std::str::FromStr;
     use tokio;
 
-    const TEST_XONLY_PUBKEY: &str =
-        "e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
+    const TEST_PUBKEY: &str = "0e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452";
     const TEST_SYMBOL: &str = "L-BTC";
 
     fn get_liquid_wallet() -> Arc<dyn Wallet + Send + Sync> {
@@ -251,7 +299,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -282,7 +330,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -308,7 +356,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: "INVALID".to_string(),
             refund_public_key: refund_pubkey,
@@ -349,7 +397,7 @@ mod test {
             Some(currencies_without_wallet),
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -376,7 +424,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -405,7 +453,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -440,7 +488,7 @@ mod test {
             None,
         );
 
-        let refund_pubkey = XOnlyPublicKey::from_str(TEST_XONLY_PUBKEY).unwrap();
+        let refund_pubkey = PublicKey::from_str(TEST_PUBKEY).unwrap();
         let request = CreateFundingAddressRequest {
             symbol: TEST_SYMBOL.to_string(),
             refund_public_key: refund_pubkey,
@@ -464,7 +512,7 @@ mod test {
                     id: id.to_string(),
                     symbol: TEST_SYMBOL.to_string(),
                     key_index: 10,
-                    their_public_key: TEST_XONLY_PUBKEY.to_string(),
+                    their_public_key: TEST_PUBKEY.to_string(),
                     timeout_block_height: 1000,
                     ..Default::default()
                 }))

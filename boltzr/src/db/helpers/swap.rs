@@ -18,7 +18,7 @@ pub trait SwapHelper {
         status: SwapUpdate,
         failure_reason: Option<String>,
     ) -> QueryResponse<usize>;
-    fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
+    fn get_by_id(&self, id: String) -> QueryResponse<Swap>;
 }
 
 #[derive(Clone, Debug)]
@@ -69,8 +69,8 @@ impl SwapHelper for SwapHelperDatabase {
         }
     }
 
-    fn get_by_id(&self, id: &str) -> QueryResponse<Swap> {
-        self.get_all(Box::new(swaps::dsl::id.eq(id.to_string())))?
+    fn get_by_id(&self, id: String) -> QueryResponse<Swap> {
+        self.get_all(Box::new(swaps::dsl::id.eq(id)))?
             .into_iter()
             .next()
             .ok_or(anyhow::anyhow!("swap not found"))
@@ -98,7 +98,7 @@ pub mod test {
                 status: SwapUpdate,
                 failure_reason: Option<String>,
             ) -> QueryResponse<usize>;
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
+            fn get_by_id(&self, id: String) -> QueryResponse<Swap>;
         }
     );
 }

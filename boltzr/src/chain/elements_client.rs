@@ -200,10 +200,6 @@ impl Client for ElementsClient {
     fn block_receiver(&self) -> Receiver<(u64, Block)> {
         self.wallet_client().block_receiver()
     }
-
-    async fn get_block_hash(&self, height: u32) -> anyhow::Result<String> {
-        self.wallet_client().get_block_hash(height).await
-    }
 }
 
 #[cfg(test)]

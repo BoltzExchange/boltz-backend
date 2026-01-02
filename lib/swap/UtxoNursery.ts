@@ -155,7 +155,7 @@ class UtxoNursery extends TypedEventEmitter<{
       swapOutput.vout,
     );
 
-    if (swap.receivingData.expectedAmount > outputValue) {
+    if (swap.receivingData.expectedAmount > outputValue || outputValue === 0) {
       let reason: string;
 
       if (outputValue === 0) {

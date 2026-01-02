@@ -247,7 +247,7 @@ async fn create_input_detail(
             outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
             blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
                 &secp,
-                &wallet.derive_blinding_key(&data.lockupAddress)?,
+                &wallet.derive_blinding_key(wallet.decode_address(&data.lockupAddress)?)?,
             )?),
             tx_out: lockup_tx
                 .output

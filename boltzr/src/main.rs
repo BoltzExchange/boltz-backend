@@ -205,7 +205,7 @@ async fn main() {
         currencies.clone(),
         config.marking,
         config.historical,
-        cache,
+        cache.clone(),
     ));
     {
         let service = service.clone();
@@ -271,7 +271,9 @@ async fn main() {
 
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
+        config.sidecar.asset_rescue,
         currencies,
+        cache.clone(),
         db_pool.clone(),
         network,
         &config.pairs.unwrap_or_default(),

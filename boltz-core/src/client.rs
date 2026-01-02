@@ -11,8 +11,10 @@ const REGTEST_HOST: &str = "127.0.0.1";
 #[allow(dead_code)]
 pub enum RpcParam<'a> {
     Str(&'a str),
+    StrOption(Option<&'a str>),
     Int(i64),
     Float(f64),
+    Null,
 }
 
 impl Serialize for RpcParam<'_> {
@@ -22,8 +24,13 @@ impl Serialize for RpcParam<'_> {
     {
         match *self {
             RpcParam::Str(s) => serializer.serialize_str(s),
+            RpcParam::StrOption(s) => match s {
+                Some(s) => serializer.serialize_str(s),
+                None => serializer.serialize_none(),
+            },
             RpcParam::Int(num) => serializer.serialize_i64(num),
             RpcParam::Float(num) => serializer.serialize_f64(num),
+            RpcParam::Null => serializer.serialize_none(),
         }
     }
 }

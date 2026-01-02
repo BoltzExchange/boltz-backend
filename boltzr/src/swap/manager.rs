@@ -1,6 +1,7 @@
 use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
+use crate::cache::Cache;
 use crate::chain::mrh_watcher::MrhWatcher;
 use crate::chain::types::Type;
 use crate::currencies::{Currencies, Currency};
@@ -12,6 +13,8 @@ use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatab
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::{SomeSwap, SwapType};
+use crate::swap::AssetRescueConfig;
+use crate::swap::asset_rescue::AssetRescue;
 use crate::swap::expiration::{CustomExpirationChecker, InvoiceExpirationChecker, Scheduler};
 use crate::swap::filters::get_input_output_filters;
 use crate::swap::tx_check::TxChecker;
@@ -54,6 +57,8 @@ pub trait SwapManager {
         swap_type: SwapType,
     ) -> Result<(u64, u64)>;
 
+    fn get_asset_rescue(&self) -> Arc<AssetRescue>;
+
     async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
@@ -82,17 +87,23 @@ pub struct Manager {
     timeout_delta_provider: Arc<TimeoutDeltaProvider>,
 
     utxo_nursery: UtxoNursery,
+    asset_rescue: Arc<AssetRescue>,
 }
 
 impl Manager {
     pub fn new(
         cancellation_token: CancellationToken,
+        asset_rescue_config: Option<AssetRescueConfig>,
         currencies: Currencies,
+        cache: Cache,
         pool: Pool,
         network: crate::wallet::Network,
         pairs: &[PairConfig],
     ) -> Result<Self> {
         let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
+
+        let swap_repo = Arc::new(SwapHelperDatabase::new(pool.clone()));
+        let chain_swap_repo = Arc::new(ChainSwapHelperDatabase::new(pool.clone()));
 
         Ok(Manager {
             network,
@@ -100,13 +111,13 @@ impl Manager {
             currencies: currencies.clone(),
             cancellation_token: cancellation_token.clone(),
             pool: pool.clone(),
-            swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
-            chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+            swap_repo: swap_repo.clone(),
+            chain_swap_repo: chain_swap_repo.clone(),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
             timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(pairs)?),
             utxo_nursery: UtxoNursery::new(
                 cancellation_token,
-                currencies,
+                currencies.clone(),
                 TxChecker::new(
                     Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
                     Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
@@ -114,6 +125,13 @@ impl Manager {
                 ),
                 Arc::new(ChainTipHelperDatabase::new(pool)),
             ),
+            asset_rescue: Arc::new(AssetRescue::new(
+                asset_rescue_config,
+                cache,
+                currencies,
+                swap_repo,
+                chain_swap_repo,
+            )),
         })
     }
 
@@ -191,6 +209,10 @@ impl SwapManager for Manager {
             .get_timeouts(&pair, order_side, swap_type)
     }
 
+    fn get_asset_rescue(&self) -> Arc<AssetRescue> {
+        self.asset_rescue.clone()
+    }
+
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
         self.update_tx.subscribe()
     }
@@ -266,15 +288,17 @@ impl SwapManager for Manager {
             .await?;
 
         let fee = client.estimate_fee().await?;
-        let address =
-            boltz_core::Address::try_from(
-                wallet
-                    .get_address(&wallet.label_batch_claim(
+        let address = boltz_core::Address::try_from(
+            wallet
+                .get_address(
+                    None,
+                    &wallet.label_batch_claim(
                         &swap_ids.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
-                    ))
-                    .await?
-                    .as_str(),
-            )?;
+                    ),
+                )
+                .await?
+                .as_str(),
+        )?;
 
         match client.chain_type() {
             Type::Bitcoin => {
@@ -467,8 +491,9 @@ impl SwapManager for Manager {
 pub mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
+    use crate::cache::MemCache;
     use crate::db::helpers::web_hook::test::get_pool;
-    use crate::swap::timeout_delta::PairTimeoutBlockDelta;
+    use crate::swap::{AssetRescue, timeout_delta::PairTimeoutBlockDelta};
     use anyhow::Result;
     use async_trait::async_trait;
     use mockall::mock;
@@ -493,6 +518,7 @@ pub mod test {
                 swap_type: SwapType,
             ) -> Result<(u64, u64)>;
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
+            fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(
                 &self,
@@ -502,9 +528,8 @@ pub mod test {
         }
     }
 
-    #[test]
-    fn test_get_timeouts() {
-        // Setup test data
+    #[tokio::test]
+    async fn test_get_timeouts() {
         let pairs = vec![PairConfig {
             base: "L-BTC".to_string(),
             quote: "BTC".to_string(),
@@ -539,8 +564,15 @@ pub mod test {
                     Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
                     Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
                 ),
-                Arc::new(ChainTipHelperDatabase::new(pool)),
+                Arc::new(ChainTipHelperDatabase::new(pool.clone())),
             ),
+            asset_rescue: Arc::new(AssetRescue::new(
+                None,
+                Cache::Memory(MemCache::new()),
+                currencies.clone(),
+                Arc::new(SwapHelperDatabase::new(pool.clone())),
+                Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+            )),
         };
 
         let result = manager.get_timeouts("L-BTC", "BTC", SwapType::Reverse);

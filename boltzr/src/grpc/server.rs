@@ -199,8 +199,8 @@ mod server_test {
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
-    use crate::swap::RelevantTx;
     use crate::swap::manager::{RescanChainOptions, RescanChainResult, SwapManager};
+    use crate::swap::{AssetRescue, RelevantTx};
     use crate::tracing_setup::ReloadHandler;
     use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use async_trait::async_trait;
@@ -265,6 +265,7 @@ mod server_test {
                 sending: &str,
                 swap_type: crate::db::models::SwapType,
             ) -> anyhow::Result<(u64, u64)>;
+            fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(

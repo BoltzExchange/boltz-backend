@@ -1,5 +1,6 @@
 use crate::service::MAX_GAP_LIMIT;
 use bitcoin::{PublicKey, bip32::Xpub};
+use elements::Address as ElementsAddress;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serializer};
 use std::fmt;
@@ -45,6 +46,37 @@ impl<'de> Deserialize<'de> for XpubDeserialize {
         }
 
         deserializer.deserialize_string(XpubDeserializeVisitor)
+    }
+}
+
+pub struct ElementsAddressDeserialize(pub ElementsAddress);
+
+impl<'de> Deserialize<'de> for ElementsAddressDeserialize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ElementsAddressDeserializeVisitor;
+
+        impl Visitor<'_> for ElementsAddressDeserializeVisitor {
+            type Value = ElementsAddressDeserialize;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a valid elements address")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match ElementsAddress::from_str(value) {
+                    Ok(address) => Ok(ElementsAddressDeserialize(address)),
+                    Err(err) => Err(E::custom(format!("invalid elements address: {err}"))),
+                }
+            }
+        }
+
+        deserializer.deserialize_string(ElementsAddressDeserializeVisitor)
     }
 }
 
@@ -355,6 +387,43 @@ mod tests {
                     .unwrap()
                     .to_string()
                     .contains("exceeds maximum length of 150")
+            );
+        }
+    }
+
+    mod elements_address {
+        use rstest::rstest;
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct ElementsAddressWrapper {
+            address: super::super::ElementsAddressDeserialize,
+        }
+
+        #[rstest]
+        #[case(
+            "el1qqgnspul65efe6rp7kr2yauqcxdxjduzuqu79q80uuvh4hh2lka0wtrq4m4tv56j0g6h3ywhss3gk93qa3c2l5tmuz0uku59ay"
+        )]
+        #[case("ert1q3s2a64k2df85dtcj8tcgg5tzcswcu906437qr9")]
+        #[case("Azpr1s54jX2BJccAztZEKTRm18KZhk2fR217ydifjRw84A9UPnT1VvFAiLTHsNdD8RawaB9u7whh1hMv")]
+        #[case("XTjsmjwhhzbtkYoCSaDTQydq8DuhyC6E87")]
+        fn test_deserialize_valid_address(#[case] address_str: &str) {
+            let json = format!(r#"{{"address":"{}"}}"#, address_str);
+            let wrapper: ElementsAddressWrapper = serde_json::from_str(&json).unwrap();
+            assert_eq!(wrapper.address.0.to_string(), address_str);
+        }
+
+        #[test]
+        fn test_deserialize_invalid_address() {
+            let json = r#"{"address":"not-a-valid-address"}"#;
+            let result: Result<ElementsAddressWrapper, _> = serde_json::from_str(json);
+            assert!(result.is_err());
+            assert!(
+                result
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("invalid elements address")
             );
         }
     }

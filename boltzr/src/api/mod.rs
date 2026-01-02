@@ -2,8 +2,6 @@ use crate::api::errors::{error_middleware, logging_middleware};
 use crate::api::rescue::{swap_rescue, swap_restore, swap_restore_index};
 use crate::api::sse::sse_handler;
 use crate::api::stats::get_stats;
-#[cfg(feature = "metrics")]
-use crate::metrics::server::MetricsLayer;
 use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use axum::routing::{delete, get, patch, post};
@@ -16,6 +14,10 @@ use tracing::{debug, info};
 use ws::status::SwapInfos;
 use ws::types::SwapStatus;
 
+#[cfg(feature = "metrics")]
+use crate::metrics::server::MetricsLayer;
+
+mod asset_rescue;
 mod bolt12;
 mod errors;
 mod headers;
@@ -135,6 +137,15 @@ where
             .route("/v2/swap/rescue", post(swap_rescue::<S, M>))
             .route("/v2/swap/restore", post(swap_restore::<S, M>))
             .route("/v2/swap/restore/index", post(swap_restore_index::<S, M>))
+            // Asset rescue
+            .route(
+                "/v2/asset/{currency}/rescue/setup",
+                post(asset_rescue::setup::<S, M>),
+            )
+            .route(
+                "/v2/asset/{currency}/rescue/broadcast",
+                post(asset_rescue::broadcast::<S, M>),
+            )
             // Lightning
             .route(
                 "/v2/lightning/{currency}/node/{node}",

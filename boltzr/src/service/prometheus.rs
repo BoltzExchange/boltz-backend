@@ -234,7 +234,8 @@ pub mod test {
     #[case("cpu", "10m", 1, 2)]
     #[case("ram", "1m", 21, 42)]
     #[case("network", "1h", 100, 250)]
-    fn test_get_cache_key(
+    #[tokio::test]
+    async fn test_get_cache_key(
         #[case] query: &str,
         #[case] step: &str,
         #[case] start: u64,
@@ -257,7 +258,8 @@ pub mod test {
     #[case("cpu", "10m", 1, 2)]
     #[case("ram", "1m", 21, 42)]
     #[case("network", "1h", 100, 250)]
-    fn test_get_cache_key_include_start_end_in_key(
+    #[tokio::test]
+    async fn test_get_cache_key_include_start_end_in_key(
         #[case] query: &str,
         #[case] step: &str,
         #[case] start: u64,

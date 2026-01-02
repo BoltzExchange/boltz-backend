@@ -910,7 +910,7 @@ impl SwapRescue {
 
         Ok(Some(hex::encode(
             wallet
-                .derive_blinding_key(address)
+                .derive_blinding_key(wallet.decode_address(address)?)
                 .map_err(|e| anyhow!("deriving blinding key failed for {}: {}", id, e))?,
         )))
     }

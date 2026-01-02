@@ -199,7 +199,7 @@ impl SomeSwap for ReverseSwap {
                 outpoint: elements::OutPoint::new(tx_id.parse()?, tx_vout),
                 blinding_key: Some(elements::secp256k1_zkp::Keypair::from_seckey_slice(
                     &secp,
-                    &wallet.derive_blinding_key(&self.lockupAddress)?,
+                    &wallet.derive_blinding_key(wallet.decode_address(&self.lockupAddress)?)?,
                 )?),
                 tx_out: lockup_tx
                     .output

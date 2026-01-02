@@ -2,6 +2,12 @@ pub struct DropGuard<F: FnOnce()> {
     cleanup: Option<F>,
 }
 
+impl<F: FnOnce()> std::fmt::Debug for DropGuard<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DropGuard").finish_non_exhaustive()
+    }
+}
+
 impl<F: FnOnce()> DropGuard<F> {
     pub fn new(f: F) -> DropGuard<F> {
         DropGuard { cleanup: Some(f) }

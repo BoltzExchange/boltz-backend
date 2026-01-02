@@ -28,7 +28,7 @@ pub fn construct_tx<C: Signing + Verification>(
     destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<(Transaction, u64)> {
-    target_fee(fee, |fee| {
+    target_fee(fee, |fee, _is_fee_estimation| {
         construct_raw(secp, inputs, destination, Amount::from_sat(fee))
     })
 }

@@ -3,78 +3,171 @@ use secp256k1::musig::{
     AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
     Session, SessionSecretRand,
 };
+use secp256k1::rand::rngs::ThreadRng;
 use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, rand};
+use std::marker::PhantomData;
 
 pub use secp256k1::XOnlyPublicKey;
 
-pub struct Musig {
+pub struct NoMessage;
+pub struct MissingNonce;
+pub struct NonceGenerated;
+pub struct NoncesAggregated;
+pub struct SessionInitialized;
+
+pub struct Unsigned;
+pub struct Signed;
+
+pub struct MusigBuilder<S, T> {
     key: Keypair,
+    msg: Option<[u8; 32]>,
     nonce: Option<(SecretNonce, PublicNonce)>,
 
-    msg: [u8; 32],
-
+    aggcache: KeyAggCache,
     pub_keys: Vec<PublicKey>,
     pub_nonces: Option<Vec<PublicNonce>>,
-    aggcache: KeyAggCache,
     aggnonce: Option<AggregatedNonce>,
     session: Option<Session>,
     partial_sigs: Vec<Option<PartialSignature>>,
+
+    _state: PhantomData<S>,
+    _signed: PhantomData<T>,
 }
 
-impl Musig {
-    pub fn convert_keypair(sk: [u8; 32]) -> Result<Keypair> {
-        Ok(Keypair::from_secret_key(&SecretKey::from_secret_bytes(sk)?))
-    }
-
-    pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey> {
-        Ok(PublicKey::from_slice(pub_key)?)
-    }
-
-    pub fn new(key: Keypair, pub_keys: Vec<PublicKey>, msg: [u8; 32]) -> Result<Self> {
-        let pub_key_refs: Vec<&PublicKey> = pub_keys.iter().collect();
-        let aggcache = KeyAggCache::new(&pub_key_refs);
-
-        let res = Self {
-            key,
-            nonce: None,
-            msg,
-            pub_nonces: None,
-            aggcache,
-            aggnonce: None,
-            session: None,
-            partial_sigs: vec![None; pub_keys.len()],
-            pub_keys,
-        };
-        // Make sure our key in the list of public keys
-        res.our_index()?;
-
-        Ok(res)
+impl<S, T> MusigBuilder<S, T> {
+    pub fn agg_pk(&self) -> XOnlyPublicKey {
+        self.aggcache.agg_pk()
     }
 
     pub fn num_participants(&self) -> usize {
         self.pub_keys.len()
     }
 
-    pub fn agg_pk(&self) -> XOnlyPublicKey {
-        self.aggcache.agg_pk()
+    fn our_index(&self) -> Result<usize> {
+        self.key_index(self.key.public_key())
     }
 
-    pub fn xonly_tweak_add(&mut self, tweak: &Scalar) -> Result<()> {
+    fn key_index(&self, public_key: PublicKey) -> Result<usize> {
+        self.pub_keys
+            .iter()
+            .position(|k| k == &public_key)
+            .ok_or_else(|| anyhow!("key not found in public keys"))
+    }
+}
+
+impl MusigBuilder<NoMessage, Unsigned> {
+    pub fn new(key: Keypair, pub_keys: Vec<PublicKey>) -> Result<Self> {
+        let our_pubkey = key.public_key();
+        if !pub_keys.contains(&our_pubkey) {
+            anyhow::bail!("our public key is not in the list of public keys");
+        }
+
+        let aggcache = KeyAggCache::new(&pub_keys.iter().collect::<Vec<_>>());
+
+        Ok(Self {
+            key,
+            msg: None,
+            nonce: None,
+            aggcache,
+            partial_sigs: vec![None; pub_keys.len()],
+            pub_keys,
+            pub_nonces: None,
+            aggnonce: None,
+            session: None,
+            _state: PhantomData::<NoMessage>,
+            _signed: PhantomData::<Unsigned>,
+        })
+    }
+
+    pub fn xonly_tweak_add(mut self, tweak: &Scalar) -> Result<Self> {
         self.aggcache.pubkey_xonly_tweak_add(tweak)?;
-        Ok(())
+        Ok(self)
     }
 
-    pub fn generate_nonce<R: rand::Rng + ?Sized>(&mut self, rng: &mut R) -> PublicNonce {
+    pub fn message(self, msg: [u8; 32]) -> MusigBuilder<MissingNonce, Unsigned> {
+        MusigBuilder {
+            key: self.key,
+            msg: Some(msg),
+            nonce: self.nonce,
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            pub_nonces: self.pub_nonces,
+            aggnonce: self.aggnonce,
+            session: self.session,
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<MissingNonce>,
+            _signed: PhantomData::<Unsigned>,
+        }
+    }
+}
+
+impl MusigBuilder<MissingNonce, Unsigned> {
+    pub fn generate_nonce<R: rand::Rng + ?Sized>(
+        self,
+        rng: &mut R,
+    ) -> MusigBuilder<NonceGenerated, Unsigned> {
         let session_secrand = SessionSecretRand::from_rng(rng);
-        let (secret, public) =
-            self.aggcache
-                .nonce_gen(session_secrand, self.key.public_key(), &self.msg, None);
-        self.nonce = Some((secret, public));
+        let (secret, public) = self.aggcache.nonce_gen(
+            session_secrand,
+            self.key.public_key(),
+            &self.msg.unwrap(),
+            None,
+        );
 
-        public
+        MusigBuilder {
+            key: self.key,
+            msg: self.msg,
+            nonce: Some((secret, public)),
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            pub_nonces: self.pub_nonces,
+            aggnonce: self.aggnonce,
+            session: self.session,
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<NonceGenerated>,
+            _signed: PhantomData::<Unsigned>,
+        }
     }
 
-    pub fn aggregate_nonces(&mut self, mut nonces: Vec<(PublicKey, PublicNonce)>) -> Result<()> {
+    /// Reusing the same nonce will lead to leaking the private key
+    pub fn dangerous_set_nonce(
+        self,
+        sec_nonce: &[u8],
+        pub_nonce: &[u8],
+    ) -> Result<MusigBuilder<NonceGenerated, Unsigned>> {
+        Ok(MusigBuilder {
+            key: self.key,
+            msg: self.msg,
+            nonce: Some((
+                SecretNonce::dangerous_from_bytes(sec_nonce.try_into()?),
+                Musig::convert_pub_nonce(pub_nonce)?,
+            )),
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            pub_nonces: self.pub_nonces,
+            aggnonce: self.aggnonce,
+            session: self.session,
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<NonceGenerated>,
+            _signed: PhantomData::<Unsigned>,
+        })
+    }
+}
+
+impl MusigBuilder<NonceGenerated, Unsigned> {
+    pub fn pub_nonce(&self) -> &PublicNonce {
+        self.nonce.as_ref().map(|(_, pubnonce)| pubnonce).unwrap()
+    }
+
+    /// Reusing the same nonce will lead to leaking the private key
+    pub fn dangerous_secnonce(self) -> SecretNonce {
+        self.nonce.unwrap().0
+    }
+
+    pub fn aggregate_nonces(
+        self,
+        mut nonces: Vec<(PublicKey, PublicNonce)>,
+    ) -> Result<MusigBuilder<NoncesAggregated, Unsigned>> {
         if !nonces.iter().any(|(pk, _)| pk == &self.key.public_key()) {
             if let Some((_, our_nonce)) = &self.nonce {
                 nonces.push((self.key.public_key(), *our_nonce));
@@ -87,7 +180,7 @@ impl Musig {
             anyhow::bail!("incorrect number of nonces")
         }
 
-        let mut ordered = Vec::new();
+        let mut ordered = Vec::with_capacity(self.num_participants());
 
         for key in &self.pub_keys {
             if let Some((_, nonce)) = nonces.iter().find(|(pk, _)| pk == key) {
@@ -97,12 +190,13 @@ impl Musig {
             }
         }
 
-        self.aggregate_nonces_ordered(ordered)?;
-
-        Ok(())
+        self.aggregate_nonces_ordered(ordered)
     }
 
-    pub fn aggregate_nonces_ordered(&mut self, nonces: Vec<PublicNonce>) -> Result<()> {
+    pub fn aggregate_nonces_ordered(
+        self,
+        nonces: Vec<PublicNonce>,
+    ) -> Result<MusigBuilder<NoncesAggregated, Unsigned>> {
         if nonces.len() != self.num_participants() {
             anyhow::bail!("incorrect number of nonces")
         }
@@ -115,95 +209,150 @@ impl Musig {
             anyhow::bail!("our nonce is not generated yet")
         }
 
-        let nonce_refs: Vec<&PublicNonce> = nonces.iter().collect();
-        self.aggnonce = Some(AggregatedNonce::new(&nonce_refs));
-
-        self.pub_nonces = Some(nonces);
-
-        Ok(())
+        Ok(MusigBuilder {
+            key: self.key,
+            msg: self.msg,
+            nonce: self.nonce,
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            aggnonce: Some(AggregatedNonce::new(&nonces.iter().collect::<Vec<_>>())),
+            pub_nonces: Some(nonces),
+            session: self.session,
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<NoncesAggregated>,
+            _signed: PhantomData::<Unsigned>,
+        })
     }
+}
 
-    pub fn initialize_session(&mut self) -> Result<()> {
-        if let Some(aggnonce) = &self.aggnonce {
-            self.session = Some(Session::new(&self.aggcache, *aggnonce, &self.msg));
-        } else {
-            anyhow::bail!("aggnonce is not generated yet")
-        }
+impl MusigBuilder<NoncesAggregated, Unsigned> {
+    pub fn initialize_session(self) -> Result<MusigBuilder<SessionInitialized, Unsigned>> {
+        let session = Session::new(&self.aggcache, self.aggnonce.unwrap(), &self.msg.unwrap());
 
-        Ok(())
+        Ok(MusigBuilder {
+            key: self.key,
+            msg: self.msg,
+            nonce: self.nonce,
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            pub_nonces: self.pub_nonces,
+            aggnonce: self.aggnonce,
+            session: Some(session),
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<SessionInitialized>,
+            _signed: PhantomData::<Unsigned>,
+        })
     }
+}
 
-    pub fn partial_sign(&mut self) -> Result<()> {
-        if let Some((secnonce, _)) = self.nonce.take() {
-            if let Some(session) = &self.session {
-                let partial_sig = session.partial_sign(secnonce, &self.key, &self.aggcache);
-                let our_index = self.our_index()?;
-                self.partial_sigs[our_index] = Some(partial_sig);
-            } else {
-                anyhow::bail!("session is not initialized")
-            }
-        } else {
-            anyhow::bail!("our nonce is not generated yet")
-        }
-
-        Ok(())
-    }
-
+impl<T> MusigBuilder<SessionInitialized, T> {
     pub fn partial_verify(&self, public_key: PublicKey, sig: PartialSignature) -> Result<bool> {
         let index = self.key_index(public_key)?;
-
-        if let Some(pub_nonces) = &self.pub_nonces {
-            let nonce = pub_nonces[index];
-
-            if let Some(session) = &self.session {
-                Ok(session.partial_verify(&self.aggcache, &sig, &nonce, public_key))
-            } else {
-                anyhow::bail!("session is not initialized")
-            }
-        } else {
-            anyhow::bail!("public nonces are not generated yet")
-        }
+        let nonce = self.pub_nonces.as_ref().unwrap()[index];
+        Ok(self
+            .session
+            .unwrap()
+            .partial_verify(&self.aggcache, &sig, &nonce, public_key))
     }
 
-    pub fn partial_add(&mut self, public_key: PublicKey, sig: PartialSignature) -> Result<()> {
+    pub fn partial_add(
+        mut self,
+        public_key: PublicKey,
+        sig: PartialSignature,
+    ) -> Result<MusigBuilder<SessionInitialized, T>> {
         if !self.partial_verify(public_key, sig)? {
             anyhow::bail!("partial signature is not valid")
         }
 
         let index = self.key_index(public_key)?;
         self.partial_sigs[index] = Some(sig);
-        Ok(())
+
+        Ok(self)
     }
+}
 
-    pub fn partial_aggregate(&mut self) -> Result<AggregatedSignature> {
-        if let Some(session) = &self.session {
-            let partial_sigs: Result<Vec<_>> = self
-                .partial_sigs
-                .iter()
-                .map(|s| {
-                    s.as_ref()
-                        .ok_or_else(|| anyhow!("partial signature is missing"))
-                })
-                .collect();
+impl MusigBuilder<SessionInitialized, Unsigned> {
+    pub fn partial_sign(mut self) -> Result<MusigBuilder<SessionInitialized, Signed>> {
+        let partial_sig = self.session.unwrap().partial_sign(
+            self.nonce.take().unwrap().0,
+            &self.key,
+            &self.aggcache,
+        );
+        let our_index = self.our_index()?;
+        self.partial_sigs[our_index] = Some(partial_sig);
 
-            match partial_sigs {
-                Ok(partial_sigs) => Ok(session.partial_sig_agg(&partial_sigs)),
-                Err(e) => Err(e),
-            }
-        } else {
-            anyhow::bail!("session is not initialized")
+        Ok(MusigBuilder {
+            key: self.key,
+            msg: self.msg,
+            nonce: None,
+            aggcache: self.aggcache,
+            pub_keys: self.pub_keys,
+            pub_nonces: self.pub_nonces,
+            aggnonce: self.aggnonce,
+            session: self.session,
+            partial_sigs: self.partial_sigs,
+            _state: PhantomData::<SessionInitialized>,
+            _signed: PhantomData::<Signed>,
+        })
+    }
+}
+
+impl<T> MusigBuilder<T, Signed> {
+    pub fn our_partial_signature(&self) -> PartialSignature {
+        self.partial_sigs[self.our_index().unwrap()].unwrap()
+    }
+}
+
+impl MusigBuilder<SessionInitialized, Signed> {
+    pub fn partial_aggregate(self) -> Result<AggregatedSignature> {
+        let partial_sigs: Result<Vec<_>> = self
+            .partial_sigs
+            .iter()
+            .map(|s| {
+                s.as_ref()
+                    .ok_or_else(|| anyhow!("partial signature is missing"))
+            })
+            .collect();
+
+        match partial_sigs {
+            Ok(partial_sigs) => Ok(self.session.unwrap().partial_sig_agg(&partial_sigs)),
+            Err(e) => Err(e),
         }
     }
+}
 
-    fn our_index(&self) -> Result<usize> {
-        self.key_index(self.key.public_key())
+pub struct Musig;
+
+impl Musig {
+    pub fn setup(
+        key: Keypair,
+        pub_keys: Vec<PublicKey>,
+    ) -> Result<MusigBuilder<NoMessage, Unsigned>> {
+        MusigBuilder::new(key, pub_keys)
     }
 
-    fn key_index(&self, public_key: PublicKey) -> Result<usize> {
-        self.pub_keys
-            .iter()
-            .position(|k| k == &public_key)
-            .ok_or_else(|| anyhow!("key not found in public keys"))
+    pub fn convert_keypair(sk: [u8; 32]) -> Result<Keypair> {
+        Ok(Keypair::from_secret_key(&SecretKey::from_secret_bytes(sk)?))
+    }
+
+    pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey> {
+        Ok(PublicKey::from_slice(pub_key)?)
+    }
+
+    pub fn convert_pub_nonce(pub_nonce: &[u8]) -> Result<PublicNonce> {
+        Ok(PublicNonce::from_byte_array(pub_nonce.try_into()?)?)
+    }
+
+    pub fn convert_scalar_be(scalar: &[u8]) -> Result<Scalar> {
+        Ok(Scalar::from_be_bytes(scalar.try_into()?)?)
+    }
+
+    pub fn convert_partial_signature(sig: &[u8]) -> Result<PartialSignature> {
+        Ok(PartialSignature::from_byte_array(sig.try_into()?)?)
+    }
+
+    pub fn rng() -> ThreadRng {
+        rand::rng()
     }
 }
 
@@ -221,11 +370,10 @@ mod tests {
             Keypair::new(&mut rand::rng()).public_key(),
             Keypair::new(&mut rand::rng()).public_key(),
         ];
-        let msg = [0u8; 32];
 
         assert_eq!(
-            Musig::new(key, pub_keys, msg).err().unwrap().to_string(),
-            "key not found in public keys"
+            Musig::setup(key, pub_keys).err().unwrap().to_string(),
+            "our public key is not in the list of public keys"
         );
     }
 
@@ -271,14 +419,14 @@ mod tests {
         let mut msg = [0u8; 32];
         rand::rng().fill(&mut msg);
 
-        let mut musig = Musig::new(key, pub_keys, msg).unwrap();
+        let mut musig = Musig::setup(key, pub_keys).unwrap();
 
         if tweak {
-            musig.xonly_tweak_add(&Scalar::random()).unwrap();
+            musig = musig.xonly_tweak_add(&Scalar::random()).unwrap();
         }
 
-        musig.generate_nonce(&mut rand::rng());
-        musig
+        let musig = musig.message(msg).generate_nonce(&mut rand::rng());
+        let musig = musig
             .aggregate_nonces(
                 counterparties
                     .iter()
@@ -287,8 +435,8 @@ mod tests {
                     .collect(),
             )
             .unwrap();
-        musig.initialize_session().unwrap();
-        musig.partial_sign().unwrap();
+        let musig = musig.initialize_session().unwrap();
+        let mut musig = musig.partial_sign().unwrap();
 
         for counterparty in counterparties.iter() {
             let (secnonce, _) = nonces.remove(0);
@@ -296,11 +444,11 @@ mod tests {
                 .session
                 .unwrap()
                 .partial_sign(secnonce, counterparty, &musig.aggcache);
-            musig.partial_add(counterparty.public_key(), sig).unwrap();
+            musig = musig.partial_add(counterparty.public_key(), sig).unwrap();
         }
 
-        let sig = musig.partial_aggregate().unwrap();
         let agg_pk = musig.agg_pk();
+        let sig = musig.partial_aggregate().unwrap();
 
         let sig = sig.verify(&agg_pk, &msg).unwrap();
         assert!(sig.verify(&msg, &agg_pk).is_ok());

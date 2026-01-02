@@ -10,6 +10,7 @@ pub type SwapCondition = BoxedCondition<swaps::table>;
 pub type SwapNullableCondition = BoxedNullableCondition<swaps::table>;
 
 pub trait SwapHelper {
+    fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
     fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
     fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
     fn update_status(
@@ -32,6 +33,14 @@ impl SwapHelperDatabase {
 }
 
 impl SwapHelper for SwapHelperDatabase {
+    fn get_by_id(&self, id: &str) -> QueryResponse<Swap> {
+        Ok(swaps::dsl::swaps
+            .select(Swap::as_select())
+            .filter(swaps::dsl::id.eq(id))
+            .limit(1)
+            .first(&mut self.pool.get()?)?)
+    }
+
     fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>> {
         Ok(swaps::dsl::swaps
             .select(Swap::as_select())
@@ -82,6 +91,7 @@ pub mod test {
         }
 
         impl SwapHelper for SwapHelper {
+            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
             fn update_status(

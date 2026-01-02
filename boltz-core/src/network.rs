@@ -48,6 +48,23 @@ impl Network {
             )),
         }
     }
+
+    pub fn liquid_asset_id(&self) -> Result<&'static str> {
+        match self {
+            Network::Mainnet => {
+                Ok("6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d")
+            }
+            Network::Testnet => {
+                Ok("144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49")
+            }
+            Network::Regtest => {
+                Ok("5ac9f65c0efcc4775e0baec4ec03abdde22473cd3cf33c0419ca290e0751b225")
+            }
+            Network::Signet => Err(anyhow::anyhow!(
+                "Signet is not supported for liquid asset id"
+            )),
+        }
+    }
 }
 
 impl TryFrom<&str> for Network {

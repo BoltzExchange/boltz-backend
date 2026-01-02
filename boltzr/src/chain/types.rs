@@ -31,6 +31,7 @@ pub enum RpcParam<'a> {
     Str(&'a str),
     Int(i64),
     Float(f64),
+    Null,
 }
 
 impl Serialize for RpcParam<'_> {
@@ -42,6 +43,7 @@ impl Serialize for RpcParam<'_> {
             RpcParam::Str(s) => serializer.serialize_str(s),
             RpcParam::Int(num) => serializer.serialize_i64(num),
             RpcParam::Float(num) => serializer.serialize_f64(num),
+            RpcParam::Null => serializer.serialize_none(),
         }
     }
 }
@@ -108,3 +110,20 @@ impl RawTransactionVerbose {
 }
 
 pub type RawMempool = Vec<String>;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UnspentOutput {
+    pub txid: String,
+    pub vout: u32,
+    pub address: String,
+    pub amount: f64,
+
+    /// Only set for Liquid
+    pub asset: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SignRawTransactionResponse {
+    pub hex: String,
+    pub complete: bool,
+}

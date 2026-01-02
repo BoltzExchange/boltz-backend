@@ -47,12 +47,12 @@ impl Wallet for Bitcoin {
         self.keys.derive_key(index)
     }
 
-    fn derive_blinding_key(&self, _address: &str) -> Result<Vec<u8>> {
+    fn derive_blinding_key(&self, _script_pubkey: Vec<u8>) -> Result<Vec<u8>> {
         Err(anyhow!("not implemented for bitcoin"))
     }
 
-    async fn get_address(&self, label: &str) -> Result<String> {
-        self.client.get_new_address(label, None).await
+    async fn get_address(&self, wallet: Option<&str>, label: &str) -> Result<String> {
+        self.client.get_new_address(wallet, label, None).await
     }
 }
 
@@ -168,7 +168,7 @@ mod test {
             Arc::new(get_client().await),
         )
         .unwrap()
-        .derive_blinding_key("")
+        .derive_blinding_key(vec![])
         .err()
         .unwrap();
         assert_eq!(err.to_string(), "not implemented for bitcoin");

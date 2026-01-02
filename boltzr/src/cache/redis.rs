@@ -67,6 +67,29 @@ impl Redis {
         pipe.exec_async(&mut self.connection.clone()).await?;
         Ok(())
     }
+
+    pub async fn take<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
+        let res: Vec<Option<String>> = redis::cmd("HGETDEL")
+            .arg(key)
+            .arg("FIELDS")
+            .arg(1)
+            .arg(field)
+            .query_async(&mut self.connection.clone())
+            .await?;
+
+        Ok(match res.into_iter().next().flatten() {
+            Some(res) => Some(serde_json::from_str(&res)?),
+            None => None,
+        })
+    }
+
+    pub async fn delete(&self, key: &str, field: &str) -> Result<()> {
+        Ok(redis::cmd("HDEL")
+            .arg(key)
+            .arg(field)
+            .exec_async(&mut self.connection.clone())
+            .await?)
+    }
 }
 
 #[cfg(test)]
@@ -186,5 +209,101 @@ mod test {
 
         assert!(ttl_delta >= ttl_set - 1);
         assert!(ttl_delta <= ttl_set + 1);
+    }
+
+    #[tokio::test]
+    async fn test_take_existing_field() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_take";
+        let field = "data";
+        let data = Data {
+            data: "take me away".to_string(),
+        };
+
+        cache.set(key, field, &data, None).await.unwrap();
+
+        let taken = cache.take::<Data>(key, field).await.unwrap();
+        assert_eq!(taken, Some(data));
+
+        assert!(cache.get::<Data>(key, field).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_take_non_existent_field() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "non_existent_take";
+        let field = "field";
+
+        let result = cache.take::<Data>(key, field).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_take_deletes_field() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_take_delete";
+        let field = "data";
+        let data = Data {
+            data: "should be deleted".to_string(),
+        };
+
+        cache.set(key, field, &data, None).await.unwrap();
+        assert!(cache.get::<Data>(key, field).await.unwrap().is_some());
+
+        cache.take::<Data>(key, field).await.unwrap();
+
+        let second_take = cache.take::<Data>(key, field).await.unwrap();
+        assert!(second_take.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_delete_existing_key() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_delete";
+        let field = "data";
+        let data = Data {
+            data: "to be deleted".to_string(),
+        };
+
+        cache.set(key, field, &data, None).await.unwrap();
+        assert_eq!(cache.get::<Data>(key, field).await.unwrap().unwrap(), data);
+
+        cache.delete(key, field).await.unwrap();
+        assert!(cache.get::<Data>(key, field).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_delete_non_existent_key() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "non_existent_delete";
+        let field = "field";
+
+        let result = cache.delete(key, field).await;
+        assert!(result.is_ok());
     }
 }

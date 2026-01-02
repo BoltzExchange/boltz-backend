@@ -1170,6 +1170,12 @@ describe('UtxoNursery', () => {
         expectedError: Errors.INCORRECT_ASSET_SENT(),
       },
       {
+        testName: 'INCORRECT_ASSET_SENT when outputValue is 0',
+        expectedAmount: 0,
+        outputValue: 0,
+        expectedError: Errors.INCORRECT_ASSET_SENT(),
+      },
+      {
         testName: 'INSUFFICIENT_AMOUNT when outputValue is less than expected',
         expectedAmount: 123,
         outputValue: 50,

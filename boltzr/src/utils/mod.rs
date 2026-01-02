@@ -7,7 +7,7 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-pub use drop_guard::defer;
+pub use drop_guard::{DropGuard, defer};
 pub use timeout_map::TimeoutMap;
 
 pub fn get_version() -> String {

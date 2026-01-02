@@ -41,6 +41,13 @@ impl Cache {
         }
     }
 
+    pub async fn take<V: DeserializeOwned>(&self, key: &str, field: &str) -> Result<Option<V>> {
+        match self {
+            Cache::Redis(redis) => redis.take(key, field).await,
+            Cache::Memory(memory) => memory.take(key, field),
+        }
+    }
+
     pub async fn delete(&self, key: &str, field: &str) -> Result<()> {
         match self {
             Cache::Redis(redis) => redis.delete(key, field).await,

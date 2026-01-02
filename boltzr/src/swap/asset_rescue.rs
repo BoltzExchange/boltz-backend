@@ -247,10 +247,9 @@ impl AssetRescue {
         pub_nonce: &[u8],
         partial_signature: &[u8],
     ) -> Result<String> {
-        let swap_cache_field = Self::cache_field_swap(swap_id);
         let pending_rescue = match self
             .cache
-            .get::<PendingRescue>(CACHE_KEY, &swap_cache_field)
+            .take::<PendingRescue>(CACHE_KEY, &Self::cache_field_swap(swap_id))
             .await?
         {
             Some(pending_rescue) => pending_rescue,
@@ -272,10 +271,6 @@ impl AssetRescue {
             )
             .await;
 
-        // Cleanup the cache regardless of the result
-        if let Err(e) = self.cache.delete(CACHE_KEY, &swap_cache_field).await {
-            tracing::warn!("Failed to delete swap cache: {e}");
-        }
         if let Err(e) = self
             .cache
             .delete(
@@ -706,7 +701,8 @@ mod tests {
     #[case("BTC", Some("bitcoin_wallet"))]
     #[case("ETH", None)]
     #[case("unknown", None)]
-    fn test_get_wallet_name(#[case] symbol: &str, #[case] expected: Option<&str>) {
+    #[tokio::test]
+    async fn test_get_wallet_name(#[case] symbol: &str, #[case] expected: Option<&str>) {
         let mut wallets = HashMap::new();
         wallets.insert("L-BTC".to_string(), "liquid_wallet".to_string());
         wallets.insert("BTC".to_string(), "bitcoin_wallet".to_string());
@@ -723,8 +719,8 @@ mod tests {
         assert_eq!(asset_rescue.get_wallet_name(symbol), expected);
     }
 
-    #[test]
-    fn test_get_node_currency_not_found() {
+    #[tokio::test]
+    async fn test_get_node_currency_not_found() {
         let asset_rescue = AssetRescue {
             utxo_mutex: tokio::sync::Mutex::new(()),
             cache: Cache::Memory(MemCache::new()),
@@ -741,8 +737,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_get_node_chain_not_found() {
+    #[tokio::test]
+    async fn test_get_node_chain_not_found() {
         let mut currencies_map = HashMap::new();
         currencies_map.insert(
             "L-BTC".to_string(),
@@ -771,8 +767,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_get_swap_from_swap_repo() {
+    #[tokio::test]
+    async fn test_get_swap_from_swap_repo() {
         let mut mock_swap_helper = MockSwapHelper::new();
         mock_swap_helper
             .expect_get_by_id()
@@ -814,8 +810,8 @@ mod tests {
         assert_eq!(symbol, "L-BTC");
     }
 
-    #[test]
-    fn test_get_swap_from_swap_repo_legacy() {
+    #[tokio::test]
+    async fn test_get_swap_from_swap_repo_legacy() {
         let mut mock_swap_helper = MockSwapHelper::new();
         mock_swap_helper
             .expect_get_by_id()
@@ -853,8 +849,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_get_swap_from_chain_swap_repo() {
+    #[tokio::test]
+    async fn test_get_swap_from_chain_swap_repo() {
         use crate::db::models::{ChainSwap, ChainSwapData};
 
         let mut mock_swap_helper = MockSwapHelper::new();
@@ -918,8 +914,8 @@ mod tests {
         assert_eq!(symbol, "L-BTC");
     }
 
-    #[test]
-    fn test_get_swap_not_found() {
+    #[tokio::test]
+    async fn test_get_swap_not_found() {
         let mut mock_swap_helper = MockSwapHelper::new();
         mock_swap_helper
             .expect_get_by_id()

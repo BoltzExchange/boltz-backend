@@ -528,9 +528,8 @@ pub mod test {
         }
     }
 
-    #[test]
-    fn test_get_timeouts() {
-        // Setup test data
+    #[tokio::test]
+    async fn test_get_timeouts() {
         let pairs = vec![PairConfig {
             base: "L-BTC".to_string(),
             quote: "BTC".to_string(),

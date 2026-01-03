@@ -288,21 +288,29 @@ class SelfPaymentClient
         preimage: getHexBuffer(reverseSwap.preimage),
       };
     } else if (reverseSwap.status === SwapUpdateEvent.TransactionRefunded) {
+      // When we sent a lockup transaction, we want the refund to be final before
+      // allowing cooperative refunds for the submarine swap
       const refundTx = await RefundTransactionRepository.getTransactionForSwap(
         reverseSwap.id,
       );
       if (refundTx !== null && refundTx !== undefined && refundTx.isFinal) {
-        this.logger.debug(
-          `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed`,
-        );
-        throw new Error('incorrect payment details');
+        this.failSelfPayment(swap);
       }
+    } else if (reverseSwap.status === SwapUpdateEvent.TransactionFailed) {
+      this.failSelfPayment(swap);
     }
 
     return {
       result,
       isSelf: true,
     };
+  };
+
+  private failSelfPayment = (swap: Swap) => {
+    this.logger.debug(
+      `Self payment for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} failed`,
+    );
+    throw new Error('incorrect payment details');
   };
 
   private lookupSwapsForPreimageHash = async (

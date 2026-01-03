@@ -12,8 +12,10 @@ import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapReposi
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
+import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
@@ -23,6 +25,7 @@ let mockGetChainSwapResult: any = null;
 jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 jest.mock('../../../lib/db/repositories/ChainSwapRepository');
+jest.mock('../../../lib/db/repositories/WrappedSwapRepository');
 
 // Mock all the classes that SwapNursery instantiates
 jest.mock('../../../lib/swap/hooks/TransactionHook', () =>
@@ -841,6 +844,175 @@ describe('SwapNursery', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPayInvoice).toHaveBeenCalled();
+    });
+  });
+
+  describe('handleSwapSendFailed', () => {
+    let mockReverseSwap: ReverseSwap;
+
+    beforeEach(async () => {
+      mockReverseSwap = {
+        id: 'swap',
+        node: NodeType.LND,
+        expectedAmount: 110000,
+        onchainAmount: 100000,
+        type: SwapType.ReverseSubmarine,
+        status: SwapUpdateEvent.SwapCreated,
+      } as ReverseSwap;
+
+      WrappedSwapRepository.setStatus = jest
+        .fn()
+        .mockResolvedValue(mockReverseSwap);
+
+      await swapNursery.init([mockCurrency]);
+    });
+
+    test('should successfully cancel invoices when no error occurs', async () => {
+      LightningNursery.cancelReverseInvoices
+        .mockReset()
+        .mockResolvedValueOnce(undefined);
+
+      const sendError = new Error('Failed to send transaction');
+
+      await (swapNursery as any).handleSwapSendFailed(
+        mockReverseSwap,
+        'BTC',
+        sendError,
+        mockLightningClient,
+      );
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        mockLightningClient,
+        mockReverseSwap,
+        false,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Failed to lockup ${mockReverseSwap.onchainAmount} BTC`,
+        ),
+      );
+
+      expect(WrappedSwapRepository.setStatus).toHaveBeenCalledWith(
+        mockReverseSwap,
+        SwapUpdateEvent.TransactionFailed,
+        Errors.COINS_COULD_NOT_BE_SENT().message,
+      );
+    });
+
+    test('should handle errors when canceling invoices', async () => {
+      const mockError = new Error('unable to locate invoice');
+      LightningNursery.cancelReverseInvoices
+        .mockReset()
+        .mockRejectedValueOnce(mockError);
+
+      const sendError = new Error('Failed to send transaction');
+
+      await (swapNursery as any).handleSwapSendFailed(
+        mockReverseSwap,
+        'BTC',
+        sendError,
+        mockLightningClient,
+      );
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        mockLightningClient,
+        mockReverseSwap,
+        false,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Could not cancel invoices of Reverse Swap ${mockReverseSwap.id}: ${mockError.message}`,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Failed to lockup ${mockReverseSwap.onchainAmount} BTC`,
+        ),
+      );
+
+      expect(WrappedSwapRepository.setStatus).toHaveBeenCalledWith(
+        mockReverseSwap,
+        SwapUpdateEvent.TransactionFailed,
+        Errors.COINS_COULD_NOT_BE_SENT().message,
+      );
+    });
+
+    test('should handle swap send failure without lightning client', async () => {
+      const sendError = new Error('Failed to send transaction');
+
+      await (swapNursery as any).handleSwapSendFailed(
+        mockReverseSwap,
+        'BTC',
+        sendError,
+        undefined,
+      );
+
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Failed to lockup ${mockReverseSwap.onchainAmount} BTC`,
+        ),
+      );
+
+      expect(WrappedSwapRepository.setStatus).toHaveBeenCalledWith(
+        mockReverseSwap,
+        SwapUpdateEvent.TransactionFailed,
+        Errors.COINS_COULD_NOT_BE_SENT().message,
+      );
+    });
+
+    test('should handle ChainSwap send failure', async () => {
+      const mockChainSwap = {
+        id: 'test-chain-swap',
+        type: SwapType.Chain,
+        sendingData: {
+          expectedAmount: 50000,
+        },
+      } as ChainSwapInfo;
+
+      const mockUpdatedChainSwap = {
+        ...mockChainSwap,
+        status: SwapUpdateEvent.TransactionFailed,
+        failureReason: 'Coins could not be sent',
+      } as ChainSwapInfo;
+
+      (WrappedSwapRepository.setStatus as jest.Mock).mockResolvedValueOnce(
+        mockUpdatedChainSwap,
+      );
+
+      LightningNursery.cancelReverseInvoices
+        .mockReset()
+        .mockResolvedValueOnce(undefined);
+
+      const sendError = new Error('Failed to send chain swap transaction');
+
+      await (swapNursery as any).handleSwapSendFailed(
+        mockChainSwap,
+        'BTC',
+        sendError,
+        mockLightningClient,
+      );
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        mockLightningClient,
+        mockChainSwap,
+        false,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Failed to lockup ${mockChainSwap.sendingData.expectedAmount} BTC`,
+        ),
+      );
+
+      expect(WrappedSwapRepository.setStatus).toHaveBeenCalledWith(
+        mockChainSwap,
+        SwapUpdateEvent.TransactionFailed,
+        Errors.COINS_COULD_NOT_BE_SENT().message,
+      );
     });
   });
 });

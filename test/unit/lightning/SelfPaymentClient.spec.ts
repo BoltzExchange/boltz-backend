@@ -556,8 +556,14 @@ describe('SelfPaymentClient', () => {
 
     test('should throw error when reverse swap is refunded', async () => {
       const reverseSwap = {
+        id: 'rev',
         status: SwapUpdateEvent.TransactionRefunded,
       } as unknown as ReverseSwap;
+
+      const swap = {
+        id: 'sub',
+        type: SwapType.Submarine,
+      } as unknown as Swap;
 
       RefundTransactionRepository.getTransactionForSwap = jest
         .fn()
@@ -565,9 +571,25 @@ describe('SelfPaymentClient', () => {
           isFinal: true,
         });
 
-      await expect(
-        client['getPreimage']({} as unknown as Swap, reverseSwap),
-      ).rejects.toThrow('incorrect payment details');
+      await expect(client['getPreimage'](swap, reverseSwap)).rejects.toThrow(
+        'incorrect payment details',
+      );
+    });
+
+    test('should throw error when reverse swap transaction failed', async () => {
+      const reverseSwap = {
+        id: 'rev',
+        status: SwapUpdateEvent.TransactionFailed,
+      } as unknown as ReverseSwap;
+
+      const swap = {
+        id: 'sub',
+        type: SwapType.Submarine,
+      } as unknown as Swap;
+
+      await expect(client['getPreimage'](swap, reverseSwap)).rejects.toThrow(
+        'incorrect payment details',
+      );
     });
   });
 

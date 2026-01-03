@@ -6,7 +6,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
-use crate::api::ws::types::{SwapStatus, TransactionInfo};
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId, TransactionInfo};
 use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
 use crate::chain::{Client, Transactions};
@@ -90,13 +90,15 @@ impl MrhWatcher {
 
                 let update = SwapStatus {
                     id: routing_hint.swapId.clone(),
-                    status: SwapUpdateStatus::TransactionDirect.to_string(),
-                    transaction: Some(TransactionInfo {
-                        id: tx.txid_hex(),
-                        hex: Some(tx.serialize().to_lower_hex_string()),
-                        eta: None,
-                    }),
-                    ..Default::default()
+                    base: SwapStatusNoId {
+                        status: SwapUpdateStatus::TransactionDirect.to_string(),
+                        transaction: Some(TransactionInfo {
+                            id: tx.txid_hex(),
+                            hex: Some(tx.serialize().to_lower_hex_string()),
+                            eta: None,
+                        }),
+                        ..Default::default()
+                    },
                 };
 
                 if let Err(e) = swap_status_update_tx.send(update) {

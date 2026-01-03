@@ -92,6 +92,14 @@ impl MemCache {
         }
     }
 
+    pub fn get_multiple<V: DeserializeOwned>(
+        &self,
+        key: &str,
+        fields: &[&str],
+    ) -> anyhow::Result<Vec<Option<V>>> {
+        fields.iter().map(|field| self.get(key, field)).collect()
+    }
+
     pub fn set<V: Serialize + Sync>(
         &self,
         key: &str,

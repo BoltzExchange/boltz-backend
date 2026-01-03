@@ -1,4 +1,5 @@
 use crate::api::ws::types::SwapStatus;
+use crate::cache::Cache;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::RefundSigner;
 use crate::grpc::service::BoltzService;
@@ -77,6 +78,7 @@ where
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
+        cache: Cache,
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
@@ -97,7 +99,7 @@ where
             notification_client,
             swap_status_update_tx,
             web_hook_status_caller,
-            status_fetcher: StatusFetcher::new(),
+            status_fetcher: StatusFetcher::new(cache),
         }
     }
 

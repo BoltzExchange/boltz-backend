@@ -1,4 +1,4 @@
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::currencies::Currencies;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::LightningSwap;
@@ -93,12 +93,11 @@ impl ExpirationChecker for InvoiceExpirationChecker {
 
             self.update_tx.send(SwapStatus {
                 id: swap.id,
-                status: status.to_string(),
-                failure_reason: Some(failure_reason.to_string()),
-                transaction: None,
-                channel_info: None,
-                failure_details: None,
-                zero_conf_rejected: None,
+                base: SwapStatusNoId {
+                    status: status.to_string(),
+                    failure_reason: Some(failure_reason.to_string()),
+                    ..Default::default()
+                },
             })?;
         }
 

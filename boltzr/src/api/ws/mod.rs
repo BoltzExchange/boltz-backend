@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 mod offer_subscriptions;
 pub mod status;
+mod status_subscriptions;
 pub mod types;
 
 pub use offer_subscriptions::OfferSubscriptions;

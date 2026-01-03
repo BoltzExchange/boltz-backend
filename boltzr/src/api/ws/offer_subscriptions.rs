@@ -13,9 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 
+pub type ConnectionId = u64;
+
 type HookId = u64;
 type OfferId = u64;
-type ConnectionId = u64;
 
 const OFFER_SUBSCRIBE_MESSAGE: &str = "SUBSCRIBE";
 const INVOICE_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);

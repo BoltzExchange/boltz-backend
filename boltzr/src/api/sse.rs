@@ -42,7 +42,7 @@ where
     let mut rx = state.swap_status_update_tx.subscribe();
     state
         .swap_infos
-        .fetch_status_info(connection_id, std::slice::from_ref(&params.id))
+        .fetch_status_info(connection_id, vec![params.id.clone()])
         .await;
 
     Sse::new(try_stream! {

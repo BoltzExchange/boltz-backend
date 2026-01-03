@@ -1,26 +1,34 @@
-use crate::api::ws::status::SwapInfos;
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::grpc::service::boltzr::SwapUpdateResponse;
+use crate::{api::ws::status::SwapInfos, cache::Cache};
+use anyhow::Result;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cell::Cell;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::Sender;
 use tonic::Status;
 use tracing::{trace, warn};
 
+const CACHE_KEY_SWAP_UPDATE: &str = "swap:update";
+
 type StatusSender = Sender<Result<SwapUpdateResponse, Status>>;
 
 #[derive(Clone)]
 pub struct StatusFetcher {
+    cache: Cache,
+
     buffer: Arc<DashMap<u64, Vec<String>>>,
 
     sender: Arc<Mutex<Cell<Option<StatusSender>>>>,
 }
 
 impl StatusFetcher {
-    pub fn new() -> Self {
+    pub fn new(cache: Cache) -> Self {
         StatusFetcher {
+            cache,
             buffer: Arc::new(DashMap::new()),
             sender: Arc::new(Mutex::new(Cell::new(None))),
         }
@@ -46,17 +54,42 @@ impl StatusFetcher {
 
 #[async_trait]
 impl SwapInfos for StatusFetcher {
-    async fn fetch_status_info(&self, connection: u64, ids: &[String]) {
+    async fn fetch_status_info(
+        &self,
+        connection: u64,
+        ids: Vec<String>,
+    ) -> Result<Option<Vec<SwapStatus>>> {
+        let cache_entries = self
+            .cache
+            .get_multiple::<SwapStatusNoId>(
+                CACHE_KEY_SWAP_UPDATE,
+                &ids.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            )
+            .await
+            .map(|entries| entries.into_iter().collect::<Option<Vec<_>>>())?;
+
+        if let Some(cache_entries) = cache_entries {
+            return Ok(Some(
+                ids.into_iter()
+                    .zip(cache_entries)
+                    .map(|(id, entry)| SwapStatus {
+                        id: id,
+                        base: entry,
+                    })
+                    .collect(),
+            ));
+        }
+
         match self.sender.lock().await.get_mut() {
             Some(sender) => {
                 if let Err(err) = sender
                     .send(Ok(SwapUpdateResponse {
                         id: connection.to_string(),
-                        swap_ids: ids.to_vec(),
+                        swap_ids: ids,
                     }))
                     .await
                 {
-                    warn!("Could not fetch status of swaps {:?}: {}", ids, err);
+                    warn!("Could not fetch status of swaps: {}", err);
                 };
             }
             None => {
@@ -65,10 +98,12 @@ impl SwapInfos for StatusFetcher {
                     ids.len()
                 );
                 for id in ids {
-                    self.buffer.entry(connection).or_default().push(id.clone());
+                    self.buffer.entry(connection).or_default().push(id);
                 }
             }
         }
+
+        Ok(None)
     }
 }
 
@@ -97,7 +132,7 @@ mod test {
         let connection_id = 21;
         tokio::spawn(async move {
             fetcher_clone
-                .fetch_status_info(connection_id, &ids_clone)
+                .fetch_status_info(connection_id, ids_clone)
                 .await;
         });
 
@@ -127,7 +162,7 @@ mod test {
         let connection_id = 12;
         tokio::spawn(async move {
             fetcher_clone
-                .fetch_status_info(connection_id, &ids_clone)
+                .fetch_status_info(connection_id, ids_clone)
                 .await;
         });
 

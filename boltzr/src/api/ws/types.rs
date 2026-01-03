@@ -27,6 +27,12 @@ pub struct ChannelInfo {
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 pub struct SwapStatus {
     pub id: String,
+    #[serde(flatten)]
+    pub base: SwapStatusNoId,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
+pub struct SwapStatusNoId {
     pub status: String,
 
     #[serde(rename = "zeroConfRejected", skip_serializing_if = "Option::is_none")]
@@ -75,12 +81,14 @@ impl From<&SwapUpdate> for SwapStatus {
     fn from(value: &SwapUpdate) -> Self {
         SwapStatus {
             id: value.id.clone(),
-            status: value.status.clone(),
-            zero_conf_rejected: value.zero_conf_rejected,
-            transaction: value.transaction_info.clone().map(|info| info.into()),
-            failure_reason: value.failure_reason.clone(),
-            failure_details: value.failure_details.map(|details| details.into()),
-            channel_info: value.channel_info.clone().map(|info| info.into()),
+            base: SwapStatusNoId {
+                status: value.status.clone(),
+                zero_conf_rejected: value.zero_conf_rejected,
+                transaction: value.transaction_info.clone().map(|info| info.into()),
+                failure_reason: value.failure_reason.clone(),
+                failure_details: value.failure_details.map(|details| details.into()),
+                channel_info: value.channel_info.clone().map(|info| info.into()),
+            },
         }
     }
 }

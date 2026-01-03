@@ -118,7 +118,7 @@ boltz-core = { path = "../boltz-core" }
 bip39 = "2.2.2"
 tower-http = { version = "0.6.8", optional = true, features = ["trace"] }
 rustls = { version = "0.23.35", default-features = false, features = ["std"] }
-rustls-pemfile = "2.2.0"
+rustls-pki-types = { version = "1.13.2", features = ["std"] }
 hyper-util = "0.1.19"
 tower = { version = "0.5.2", features = ["util"] }
 hyper-rustls = { version = "0.27.7", default-features = false, features = [

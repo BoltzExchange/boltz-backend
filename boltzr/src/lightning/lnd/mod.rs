@@ -225,6 +225,7 @@ mod tls {
     use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
     use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
     use rustls::{DigitallySignedStruct, Error as TLSError, SignatureScheme};
+    use rustls_pki_types::pem::PemObject;
     use std::{
         path::{Path, PathBuf},
         sync::Arc,
@@ -248,12 +249,12 @@ mod tls {
             let contents = tokio::fs::read(&path)
                 .await
                 .map_err(|e| anyhow::anyhow!("failed to read certificate file: {}", e))?;
-            let cert_der_vec =
-                rustls_pemfile::certs(&mut &*contents).collect::<Result<Vec<_>, _>>()?;
-            let certs: Vec<Vec<u8>> = cert_der_vec
-                .into_iter()
-                .map(|cert_der| cert_der.to_vec())
-                .collect();
+
+            let mut certs: Vec<Vec<u8>> =
+                rustls_pki_types::CertificateDer::pem_reader_iter(&*contents)
+                    .map(|cert_der| cert_der.map(|cert| cert.to_vec()))
+                    .collect::<Result<Vec<_>, _>>()?;
+            certs.sort();
 
             let provider = CryptoProvider::get_default()
                 .ok_or_else(|| anyhow::anyhow!("must install default crypto provider"))?;
@@ -289,10 +290,7 @@ mod tls {
                 )));
             }
 
-            let mut our_certs = self.certs.clone();
-            our_certs.sort();
-
-            for (c, p) in our_certs.iter().zip(certs.iter()) {
+            for (c, p) in self.certs.iter().zip(certs.iter()) {
                 if *p != *c {
                     return Err(TLSError::General(
                         "server certificates do not match ours".to_string(),

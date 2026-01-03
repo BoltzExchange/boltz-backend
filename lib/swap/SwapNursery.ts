@@ -1494,11 +1494,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     lightningClient?: LightningClient,
   ) => {
     if (lightningClient !== undefined) {
-      await LightningNursery.cancelReverseInvoices(
-        lightningClient,
-        swap as ReverseSwap,
-        false,
-      );
+      try {
+        await LightningNursery.cancelReverseInvoices(
+          lightningClient,
+          swap as ReverseSwap,
+          false,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Could not cancel invoices of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
+        );
+      }
     }
 
     const onchainAmount =

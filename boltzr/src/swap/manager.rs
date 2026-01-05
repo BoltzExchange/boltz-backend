@@ -308,10 +308,12 @@ impl SwapManager for Manager {
                     .collect::<Result<Vec<boltz_core::bitcoin::InputDetail>>>()?;
                 let inputs = inputs.iter().collect::<Vec<_>>();
 
+                let address_converted: bitcoin::Address = address.try_into()?;
+                let destination = boltz_core::Destination::Single(&address_converted);
                 let params =
                     boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
                         inputs: &inputs,
-                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        destination: &destination,
                         fee: fee.into(),
                     });
 
@@ -324,11 +326,13 @@ impl SwapManager for Manager {
                     .collect::<Result<Vec<boltz_core::elements::InputDetail>>>()?;
                 let inputs = inputs.iter().collect::<Vec<_>>();
 
+                let address_converted: elements::Address = address.try_into()?;
+                let destination = boltz_core::Destination::Single(&address_converted);
                 let params =
                     boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {
                         genesis_hash: client.network().liquid_genesis_hash()?,
                         inputs: &inputs,
-                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        destination: &destination,
                         fee: fee.into(),
                     });
 

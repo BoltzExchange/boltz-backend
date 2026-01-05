@@ -71,7 +71,7 @@ pub fn construct_transaction(
 ) -> Result<Transaction> {
     let address = parse_address(destination_address)?;
 
-    let params = match parse_transaction(raw_transaction)? {
+    match parse_transaction(raw_transaction)? {
         Transaction::Bitcoin(tx) => {
             let secp = bitcoin::secp256k1::Secp256k1::new();
             let keys = parse_bitcoin_keypair(&secp, &private_key)?;
@@ -79,17 +79,23 @@ pub fn construct_transaction(
             let (output_type, vout) =
                 handle_output_type(&secp, swap_tree_or_redeem_script, &tx, &keys)?;
 
-            Params::Bitcoin(BitcoinParams {
-                inputs: &[&BitcoinInputDetail {
-                    input_type,
-                    output_type,
-                    outpoint: BitcoinOutPoint::new(tx.compute_txid(), vout),
-                    tx_out: tx.tx_out(vout as usize)?.clone(),
-                    keys,
-                }],
-                destination: &boltz_core::Destination::Single(&address.try_into()?),
+            let input_detail = BitcoinInputDetail {
+                input_type,
+                output_type,
+                outpoint: BitcoinOutPoint::new(tx.compute_txid(), vout),
+                tx_out: tx.tx_out(vout as usize)?.clone(),
+                keys,
+            };
+            let inputs = [&input_detail];
+            let address_converted: bitcoin::Address = address.try_into()?;
+            let destination = boltz_core::Destination::Single(&address_converted);
+            let params = Params::Bitcoin(BitcoinParams {
+                inputs: &inputs,
+                destination: &destination,
                 fee: fee_per_vbyte.into(),
-            })
+            });
+
+            Ok(construct_tx(&params)?.0)
         }
         Transaction::Elements(tx) => {
             let secp = elements::secp256k1_zkp::Secp256k1::new();
@@ -99,23 +105,27 @@ pub fn construct_transaction(
             let (output_type, vout) =
                 handle_output_type_elements(&secp, swap_tree_or_redeem_script, &tx, &keys)?;
 
-            Params::Elements(ElementsParams {
-                inputs: &[&ElementsInputDetail {
-                    input_type,
-                    output_type,
-                    outpoint: ElementsOutPoint::new(tx.txid(), vout),
-                    tx_out: tx.output[vout as usize].clone(),
-                    blinding_key,
-                    keys,
-                }],
-                destination: &boltz_core::Destination::Single(&address.try_into()?),
+            let input_detail = ElementsInputDetail {
+                input_type,
+                output_type,
+                outpoint: ElementsOutPoint::new(tx.txid(), vout),
+                tx_out: tx.output[vout as usize].clone(),
+                blinding_key,
+                keys,
+            };
+            let inputs = [&input_detail];
+            let address_converted: elements::Address = address.try_into()?;
+            let destination = boltz_core::Destination::Single(&address_converted);
+            let params = Params::Elements(ElementsParams {
+                inputs: &inputs,
+                destination: &destination,
                 fee: fee_per_vbyte.into(),
                 genesis_hash: network.liquid_genesis_hash()?,
-            })
-        }
-    };
+            });
 
-    Ok(construct_tx(&params)?.0)
+            Ok(construct_tx(&params)?.0)
+        }
+    }
 }
 
 pub fn parse_transaction(transaction: Vec<u8>) -> Result<Transaction> {

@@ -6,7 +6,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
-use crate::api::ws::types::{SwapStatus, TransactionInfo};
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId, TransactionInfo};
 use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
 use crate::chain::{Client, Transactions};
@@ -90,13 +90,15 @@ impl MrhWatcher {
 
                 let update = SwapStatus {
                     id: routing_hint.swapId.clone(),
-                    status: SwapUpdateStatus::TransactionDirect.to_string(),
-                    transaction: Some(TransactionInfo {
-                        id: tx.txid_hex(),
-                        hex: Some(tx.serialize().to_lower_hex_string()),
-                        eta: None,
-                    }),
-                    ..Default::default()
+                    base: SwapStatusNoId {
+                        status: SwapUpdateStatus::TransactionDirect.to_string(),
+                        transaction: Some(TransactionInfo {
+                            id: tx.txid_hex(),
+                            hex: Some(tx.serialize().to_lower_hex_string()),
+                            eta: None,
+                        }),
+                        ..Default::default()
+                    },
                 };
 
                 if let Err(e) = swap_status_update_tx.send(update) {
@@ -200,12 +202,12 @@ mod test {
 
         assert_eq!(received_update.id, "123");
         assert_eq!(
-            received_update.status,
+            received_update.base.status,
             SwapUpdateStatus::TransactionDirect.to_string()
         );
-        assert!(received_update.transaction.is_some());
+        assert!(received_update.base.transaction.is_some());
 
-        let transaction_info = received_update.transaction.unwrap();
+        let transaction_info = received_update.base.transaction.unwrap();
         assert_eq!(transaction_info.id, test_transaction.txid_hex());
         assert!(transaction_info.hex.is_some());
         assert_eq!(

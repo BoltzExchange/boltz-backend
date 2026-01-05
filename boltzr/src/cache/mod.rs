@@ -28,6 +28,17 @@ impl Cache {
         }
     }
 
+    pub async fn get_multiple<V: DeserializeOwned>(
+        &self,
+        key: &str,
+        fields: &[&str],
+    ) -> Result<Vec<Option<V>>> {
+        match self {
+            Cache::Redis(redis) => redis.get_multiple(key, fields).await,
+            Cache::Memory(memory) => memory.get_multiple(key, fields),
+        }
+    }
+
     pub async fn set<V: Serialize + Sync>(
         &self,
         key: &str,

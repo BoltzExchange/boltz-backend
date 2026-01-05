@@ -92,6 +92,14 @@ impl MemCache {
         }
     }
 
+    pub fn get_multiple<V: DeserializeOwned>(
+        &self,
+        key: &str,
+        fields: &[&str],
+    ) -> anyhow::Result<Vec<Option<V>>> {
+        fields.iter().map(|field| self.get(key, field)).collect()
+    }
+
     pub fn set<V: Serialize + Sync>(
         &self,
         key: &str,
@@ -191,6 +199,118 @@ mod tests {
 
         let retrieved: Option<String> = cache.get(key, field).unwrap();
         assert_eq!(retrieved, None);
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_all_exist() {
+        let cache = MemCache::new();
+        let key = "multi_key";
+        let fields = vec!["field1", "field2", "field3"];
+        let values = [
+            TestData {
+                id: 1,
+                name: "first".to_string(),
+            },
+            TestData {
+                id: 2,
+                name: "second".to_string(),
+            },
+            TestData {
+                id: 3,
+                name: "third".to_string(),
+            },
+        ];
+
+        for (field, value) in fields.iter().zip(values.iter()) {
+            cache.set(key, field, value, None).unwrap();
+        }
+
+        let retrieved: Vec<Option<TestData>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 3);
+        assert_eq!(retrieved[0], Some(values[0].clone()));
+        assert_eq!(retrieved[1], Some(values[1].clone()));
+        assert_eq!(retrieved[2], Some(values[2].clone()));
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_some_exist() {
+        let cache = MemCache::new();
+        let key = "multi_key_partial";
+        let fields = vec!["exists1", "missing", "exists2"];
+
+        let value1 = "first_value".to_string();
+        let value2 = "second_value".to_string();
+
+        cache.set(key, "exists1", &value1, None).unwrap();
+        cache.set(key, "exists2", &value2, None).unwrap();
+
+        let retrieved: Vec<Option<String>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 3);
+        assert_eq!(retrieved[0], Some(value1));
+        assert_eq!(retrieved[1], None);
+        assert_eq!(retrieved[2], Some(value2));
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_none_exist() {
+        let cache = MemCache::new();
+        let key = "multi_key_empty";
+        let fields = vec!["missing1", "missing2", "missing3"];
+
+        let retrieved: Vec<Option<String>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 3);
+        assert!(retrieved[0].is_none());
+        assert!(retrieved[1].is_none());
+        assert!(retrieved[2].is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_empty_fields() {
+        let cache = MemCache::new();
+        let key = "multi_key_no_fields";
+        let fields: Vec<&str> = vec![];
+
+        let retrieved: Vec<Option<String>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_with_expired() {
+        let cache = MemCache::new();
+        let key = "multi_key_ttl";
+        let fields = vec!["valid", "expired", "valid2"];
+
+        cache
+            .set(key, "valid", &"valid_value".to_string(), None)
+            .unwrap();
+        cache
+            .set(key, "expired", &"expired_value".to_string(), Some(1))
+            .unwrap();
+        cache
+            .set(key, "valid2", &"valid_value2".to_string(), None)
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+
+        let retrieved: Vec<Option<String>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 3);
+        assert_eq!(retrieved[0], Some("valid_value".to_string()));
+        assert_eq!(retrieved[1], None);
+        assert_eq!(retrieved[2], Some("valid_value2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_single_field() {
+        let cache = MemCache::new();
+        let key = "multi_key_single";
+        let fields = vec!["only_field"];
+        let value = "only_value".to_string();
+
+        cache.set(key, "only_field", &value, None).unwrap();
+
+        let retrieved: Vec<Option<String>> = cache.get_multiple(key, &fields).unwrap();
+        assert_eq!(retrieved.len(), 1);
+        assert_eq!(retrieved[0], Some(value));
     }
 
     #[tokio::test]

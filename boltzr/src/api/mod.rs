@@ -221,13 +221,18 @@ pub mod test {
 
     #[async_trait]
     impl SwapInfos for Fetcher {
-        async fn fetch_status_info(&self, _: u64, ids: &[String]) {
+        async fn fetch_status_info(
+            &self,
+            _: u64,
+            ids: Vec<String>,
+        ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
             let mut res = Vec::new();
             ids.iter().for_each(|id| {
                 res.push(SwapStatus::default(id.clone(), "swap.created".into()));
             });
 
             self.status_tx.send((None, res)).unwrap();
+            Ok(None)
         }
     }
 

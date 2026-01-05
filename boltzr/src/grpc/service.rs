@@ -262,18 +262,18 @@ where
                     .send(Ok(SendSwapUpdateResponse {
                         update: Some(SwapUpdate {
                             id: update.id,
-                            status: update.status,
-                            failure_reason: update.failure_reason,
-                            zero_conf_rejected: update.zero_conf_rejected,
-                            channel_info: update.channel_info.map(|info| ChannelInfo {
+                            status: update.base.status,
+                            failure_reason: update.base.failure_reason,
+                            zero_conf_rejected: update.base.zero_conf_rejected,
+                            channel_info: update.base.channel_info.map(|info| ChannelInfo {
                                 funding_transaction_id: info.funding_transaction_id,
                                 funding_transaction_vout: info.funding_transaction_vout,
                             }),
-                            failure_details: update.failure_details.map(|dt| FailureDetails {
+                            failure_details: update.base.failure_details.map(|dt| FailureDetails {
                                 actual: dt.actual,
                                 expected: dt.expected,
                             }),
-                            transaction_info: update.transaction.map(|tx| TransactionInfo {
+                            transaction_info: update.base.transaction.map(|tx| TransactionInfo {
                                 id: tx.id,
                                 hex: tx.hex,
                                 eta: tx.eta,
@@ -1193,7 +1193,7 @@ mod test {
                     Cache::Memory(MemCache::new()),
                 )),
                 Arc::new(make_mock_manager()),
-                StatusFetcher::new(),
+                StatusFetcher::new(Cache::Memory(MemCache::new())),
                 status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),
                 Arc::new(crate::webhook::status_caller::test::new_caller(

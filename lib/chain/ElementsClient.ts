@@ -38,6 +38,12 @@ class ElementsClient
     config: ChainConfig,
     public readonly isLowball = false,
   ) {
+    if (config.wallet) {
+      logger.debug(
+        `Using wallet "${config.wallet}" for ${ElementsClient.symbol} ${isLowball ? 'lowball' : 'public'} RPC`,
+      );
+    }
+
     super(logger, sidecar, network, config, ElementsClient.symbol);
     this.feeFloor = ElementsClient.feeFloor;
     this.currencyType = CurrencyType.Liquid;

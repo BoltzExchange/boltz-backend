@@ -17,6 +17,7 @@ import {
   getUnixTime,
 } from '../../../lib/Utils';
 import ApiErrors from '../../../lib/api/Errors';
+import ArkClient from '../../../lib/chain/ArkClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
   etherDecimals,
@@ -767,6 +768,17 @@ describe('Service', () => {
         provider: mockedProvider(),
       },
     ],
+    [
+      ArkClient.symbol,
+      {
+        symbol: ArkClient.symbol,
+        type: CurrencyType.Ark,
+        limits: {} as any,
+        arkNode: {
+          getBlockHeight: jest.fn().mockResolvedValue(0),
+        } as any,
+      },
+    ],
   ]);
 
   const sidecar = {
@@ -921,10 +933,10 @@ describe('Service', () => {
 
     expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
-    const [symbol, currency] = info.chainsMap[0] as [
-      string,
-      CurrencyInfo.AsObject,
-    ];
+    const btcEntry = info.chainsMap.find(([symbol]) => symbol === 'BTC');
+    expect(btcEntry).toBeDefined();
+
+    const [symbol, currency] = btcEntry as [string, CurrencyInfo.AsObject];
 
     expect(symbol).toEqual('BTC');
 
@@ -1195,6 +1207,16 @@ describe('Service', () => {
       await expect(
         service.calculateTransactionFee('ETH', txHash),
       ).rejects.toEqual(Errors.NO_TRANSACTION(txHash));
+    });
+
+    test('should return zero fees for Ark', async () => {
+      const txId = 'ark-transaction-id';
+      await expect(
+        service.calculateTransactionFee(ArkClient.symbol, txId),
+      ).resolves.toEqual({
+        absolute: 0,
+        satPerVbyte: 0,
+      });
     });
   });
 
@@ -1530,6 +1552,7 @@ describe('Service', () => {
         ['LTC', 123],
         ['ETH', 100],
         ['USDT', 100],
+        [ArkClient.symbol, 0],
       ]),
     );
   });
@@ -1557,6 +1580,7 @@ describe('Service', () => {
         ['L-BTC', 2],
         ['LTC', 2],
         ['ETH', Number(mockGetFeeDataResult.gasPrice / gweiDecimals)],
+        [ArkClient.symbol, 0],
       ]),
     );
 
@@ -2821,6 +2845,8 @@ describe('Service', () => {
     await expect(
       service.createReverseSwap({
         preimageHash,
+        orderSide: 'buy',
+        pairId: 'BTC/BTC',
       } as any),
     ).rejects.toEqual(Errors.SWAP_WITH_PREIMAGE_EXISTS());
 
@@ -2837,6 +2863,8 @@ describe('Service', () => {
     async (length) => {
       await expect(
         service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           preimageHash: randomBytes(length),
         } as any),
       ).rejects.toEqual(`invalid preimage hash length: ${length}`);
@@ -3132,6 +3160,8 @@ describe('Service', () => {
       await expect(
         service.createReverseSwap({
           invoice: 'lni',
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           preimageHash: randomBytes(32),
         } as any),
       ).rejects.toEqual(Errors.INVOICE_AND_PREIMAGE_HASH_SPECIFIED());
@@ -3144,15 +3174,20 @@ describe('Service', () => {
 
       await expect(
         service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
           invoice: 'not a bolt12 invoice',
         } as any),
       ).rejects.toEqual(Errors.INVOICE_NOT_BOLT12());
     });
 
     test('should throw if invoice and preimageHash are not specified', async () => {
-      await expect(service.createReverseSwap({} as any)).rejects.toEqual(
-        Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED(),
-      );
+      await expect(
+        service.createReverseSwap({
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
+        } as any),
+      ).rejects.toEqual(Errors.PREIMAGE_HASH_OR_INVOICE_MUST_BE_SPECIFIED());
     });
 
     test.each`
@@ -3168,6 +3203,8 @@ describe('Service', () => {
         service.createReverseSwap({
           ...params,
           invoice: 'lni',
+          orderSide: 'buy',
+          pairId: 'BTC/BTC',
         }),
       ).rejects.toEqual(Errors.BOLT12_INVOICE_AMOUNT_CONFLICT());
     });

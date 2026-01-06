@@ -94,6 +94,10 @@ describe('SwapRouter', () => {
         pubNonce: getHexBuffer('2111'),
         signature: getHexBuffer('2112'),
       }),
+      signRefundArk: jest.fn().mockResolvedValue({
+        transaction: 'signedPsbt',
+        checkpoint: 'signedCheckpoint',
+      }),
     },
 
     swapManager: {
@@ -116,6 +120,10 @@ describe('SwapRouter', () => {
         signClaim: jest.fn().mockResolvedValue({
           pubNonce: getHexBuffer('21'),
           signature: getHexBuffer('42'),
+        }),
+        signRefundArk: jest.fn().mockResolvedValue({
+          transaction: 'signedChainPsbt',
+          checkpoint: 'signedChainCheckpoint',
         }),
       },
 
@@ -247,13 +255,17 @@ describe('SwapRouter', () => {
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(12);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(14);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/submarine/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/submarine/:id/refund/ark',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -287,6 +299,10 @@ describe('SwapRouter', () => {
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/chain/:id/refund',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/chain/:id/refund/ark',
       expect.anything(),
     );
     expect(mockedRouter.post).toHaveBeenCalledWith(
@@ -889,6 +905,55 @@ describe('SwapRouter', () => {
       getHexBuffer(reqBody.pubNonce),
       getHexBuffer(reqBody.transaction),
       reqBody.index,
+    );
+  });
+
+  test.each`
+    error                                 | params              | body
+    ${'undefined parameter: id'}          | ${{}}               | ${{}}
+    ${'invalid parameter: id'}            | ${{ id: 123 }}      | ${{}}
+    ${'undefined parameter: transaction'} | ${{ id: 'someId' }} | ${{}}
+    ${'invalid parameter: transaction'}   | ${{ id: 'someId' }} | ${{ transaction: 123 }}
+    ${'undefined parameter: checkpoint'}  | ${{ id: 'someId' }} | ${{ transaction: 'psbt' }}
+    ${'invalid parameter: checkpoint'}    | ${{ id: 'someId' }} | ${{ transaction: 'psbt', checkpoint: 123 }}
+  `(
+    'should not refund submarine swaps with invalid parameters ($error)',
+    async ({ body, params, error }) => {
+      await expect(
+        swapRouter['refundArk'](service.musigSigner)(
+          mockRequest(body, undefined, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should refund ark submarine swaps', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const reqBody = {
+      transaction: 'psbt',
+      checkpoint: 'checkpointData',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundArk'](service.musigSigner)(
+      mockRequest(reqBody, {}, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      transaction: 'signedPsbt',
+      checkpoint: 'signedCheckpoint',
+    });
+
+    expect(service.musigSigner.signRefundArk).toHaveBeenCalledTimes(1);
+    expect(service.musigSigner.signRefundArk).toHaveBeenCalledWith(
+      reqParams.id,
+      reqBody.transaction,
+      reqBody.checkpoint,
     );
   });
 
@@ -2085,6 +2150,59 @@ describe('SwapRouter', () => {
         pubNonce: getHexBuffer(reqBody.signature.pubNonce),
         signature: getHexBuffer(reqBody.signature.partialSignature),
       },
+    );
+  });
+
+  test.each`
+    error                                 | params              | body
+    ${'undefined parameter: id'}          | ${{}}               | ${{}}
+    ${'invalid parameter: id'}            | ${{ id: 123 }}      | ${{}}
+    ${'undefined parameter: transaction'} | ${{ id: 'someId' }} | ${{}}
+    ${'invalid parameter: transaction'}   | ${{ id: 'someId' }} | ${{ transaction: 123 }}
+    ${'undefined parameter: checkpoint'}  | ${{ id: 'someId' }} | ${{ transaction: 'psbt' }}
+    ${'invalid parameter: checkpoint'}    | ${{ id: 'someId' }} | ${{ transaction: 'psbt', checkpoint: 123 }}
+  `(
+    'should not refund chain swaps with invalid parameters ($error)',
+    async ({ body, params, error }) => {
+      await expect(
+        swapRouter['refundArk'](service.swapManager.chainSwapSigner)(
+          mockRequest(body, undefined, params),
+          mockResponse(),
+        ),
+      ).rejects.toEqual(error);
+    },
+  );
+
+  test('should refund ark chain swaps', async () => {
+    const reqParams = {
+      id: 'someId',
+    };
+    const reqBody = {
+      transaction: 'chainPsbt',
+      checkpoint: 'chainCheckpointData',
+    };
+    const res = mockResponse();
+
+    await swapRouter['refundArk'](service.swapManager.chainSwapSigner)(
+      mockRequest(reqBody, {}, reqParams),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      transaction: 'signedChainPsbt',
+      checkpoint: 'signedChainCheckpoint',
+    });
+
+    expect(
+      service.swapManager.chainSwapSigner.signRefundArk,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      service.swapManager.chainSwapSigner.signRefundArk,
+    ).toHaveBeenCalledWith(
+      reqParams.id,
+      reqBody.transaction,
+      reqBody.checkpoint,
     );
   });
 

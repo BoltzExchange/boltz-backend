@@ -113,6 +113,10 @@ class ChainSwapInfo {
 
     return undefined;
   }
+
+  get theirRefundPublicKey() {
+    return this.receivingData.theirPublicKey;
+  }
 }
 
 class ChainSwapRepository {

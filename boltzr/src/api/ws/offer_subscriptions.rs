@@ -13,9 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 
+pub type ConnectionId = u64;
+
 type HookId = u64;
 type OfferId = u64;
-type ConnectionId = u64;
 
 const OFFER_SUBSCRIBE_MESSAGE: &str = "SUBSCRIBE";
 const INVOICE_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
@@ -56,7 +57,7 @@ impl OfferSubscriptions {
 
     pub fn connection_added(
         &self,
-        connection_id: u64,
+        connection_id: ConnectionId,
     ) -> mpsc::Receiver<InvoiceHook<types::False>> {
         let (tx, rx) = mpsc::channel(64);
         self.offer_subscriptions.entry(connection_id).insert(tx);
@@ -64,12 +65,12 @@ impl OfferSubscriptions {
         rx
     }
 
-    pub fn connection_dropped(&self, connection_id: u64) {
+    pub fn connection_dropped(&self, connection_id: ConnectionId) {
         self.offer_subscriptions.remove(&connection_id);
         self.all_offers.retain(|_, (_, id)| *id != connection_id);
     }
 
-    pub fn connection_id_known(&self, connection_id: u64) -> bool {
+    pub fn connection_id_known(&self, connection_id: ConnectionId) -> bool {
         self.offer_subscriptions.contains_key(&connection_id)
     }
 
@@ -90,7 +91,7 @@ impl OfferSubscriptions {
 
     pub fn received_invoice_response(
         &self,
-        hook_id: u64,
+        hook_id: HookId,
         res: std::result::Result<String, String>,
     ) {
         if let Some(hook) = self.pending_hooks.remove(&hook_id) {
@@ -104,7 +105,7 @@ impl OfferSubscriptions {
 
     pub fn offers_subscribe(
         &self,
-        connection_id: u64,
+        connection_id: ConnectionId,
         offers: &[InvoiceRequestParams],
     ) -> Result<()> {
         let secp = Secp256k1::verification_only();

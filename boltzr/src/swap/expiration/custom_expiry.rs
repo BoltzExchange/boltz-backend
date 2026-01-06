@@ -1,4 +1,4 @@
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::db::helpers::referral::ReferralHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{Referral, SwapType};
@@ -103,9 +103,11 @@ impl ExpirationChecker for CustomExpirationChecker {
 
             self.update_tx.send(SwapStatus {
                 id: swap.id,
-                status: status.to_string(),
-                failure_reason: Some(failure_reason.to_string()),
-                ..Default::default()
+                base: SwapStatusNoId {
+                    status: status.to_string(),
+                    failure_reason: Some(failure_reason.to_string()),
+                    ..Default::default()
+                },
             })?;
         }
 
@@ -260,9 +262,11 @@ mod test {
             emitted,
             SwapStatus {
                 id: swap_id.to_string(),
-                status: SwapUpdate::InvoiceFailedToPay.to_string(),
-                failure_reason: Some(FAILURE_REASON_CUSTOM_EXPIRATION.to_string()),
-                ..Default::default()
+                base: SwapStatusNoId {
+                    status: SwapUpdate::InvoiceFailedToPay.to_string(),
+                    failure_reason: Some(FAILURE_REASON_CUSTOM_EXPIRATION.to_string()),
+                    ..Default::default()
+                },
             }
         );
     }

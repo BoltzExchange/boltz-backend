@@ -1,5 +1,6 @@
 use crate::api::ws::Config;
-use crate::api::ws::offer_subscriptions::InvoiceRequestParams;
+use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
+use crate::api::ws::status_subscriptions::StatusSubscriptions;
 use crate::api::ws::types::SwapStatus;
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
@@ -8,8 +9,8 @@ use async_tungstenite::tungstenite::Message;
 use futures::StreamExt;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::error::Error;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::Instant;
@@ -25,18 +26,25 @@ const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
 
 #[async_trait]
 pub trait SwapInfos {
-    async fn fetch_status_info(&self, connection: u64, ids: &[String]);
+    async fn fetch_status_info(
+        &self,
+        connection: u64,
+        ids: Vec<String>,
+    ) -> anyhow::Result<Option<Vec<SwapStatus>>>;
 }
 
-struct WsConnectionGuard {
-    connection_id: u64,
-    offer_subscriptions: OfferSubscriptions,
+struct WsConnectionGuard<'a> {
+    connection_id: ConnectionId,
+    status_subscriptions: &'a Arc<StatusSubscriptions>,
+    offer_subscriptions: &'a Arc<OfferSubscriptions>,
 }
 
-impl Drop for WsConnectionGuard {
+impl Drop for WsConnectionGuard<'_> {
     fn drop(&mut self) {
-        trace!("Closing socket");
+        trace!("Closing socket {}", self.connection_id);
 
+        self.status_subscriptions
+            .connection_dropped(self.connection_id);
         self.offer_subscriptions
             .connection_dropped(self.connection_id);
 
@@ -155,9 +163,9 @@ pub struct Status<S> {
     address: String,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
 
-    offer_subscriptions: OfferSubscriptions,
+    status_subscriptions: Arc<StatusSubscriptions>,
+    offer_subscriptions: Arc<OfferSubscriptions>,
 }
 
 impl<S> Status<S>
@@ -172,11 +180,14 @@ where
         offer_subscriptions: OfferSubscriptions,
     ) -> Self {
         Status {
-            swap_infos,
-            cancellation_token,
-            swap_status_update_tx,
-            offer_subscriptions,
+            cancellation_token: cancellation_token.clone(),
             address: format!("{}:{}", config.host, config.port),
+            swap_infos,
+            status_subscriptions: Arc::new(StatusSubscriptions::new(
+                cancellation_token,
+                swap_status_update_tx,
+            )),
+            offer_subscriptions: Arc::new(offer_subscriptions),
         }
     }
 
@@ -233,8 +244,12 @@ where
 
         let _guard = WsConnectionGuard {
             connection_id,
-            offer_subscriptions: self.offer_subscriptions.clone(),
+            status_subscriptions: &self.status_subscriptions,
+            offer_subscriptions: &self.offer_subscriptions,
         };
+
+        let mut invoice_request_rx = self.offer_subscriptions.connection_added(connection_id);
+        let mut swap_status_update_rx = self.status_subscriptions.connection_added(connection_id);
 
         let mut ping_interval = tokio::time::interval(Duration::from_secs(PING_INTERVAL_SECS));
         let mut activity_check_interval =
@@ -242,11 +257,6 @@ where
         let mut last_activity = Instant::now();
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-
-        let mut subscribed_ids = HashSet::<String>::new();
-
-        let mut invoice_request_rx = self.offer_subscriptions.connection_added(connection_id);
-        let mut swap_status_update_rx = self.swap_status_update_tx.subscribe();
 
         loop {
             tokio::select! {
@@ -264,7 +274,7 @@ where
                             Message::Text(msg) => {
                                 last_activity = Instant::now();
 
-                                let res = match self.handle_message(connection_id, &mut subscribed_ids, msg.as_ref()).await {
+                                let res = match self.handle_message(connection_id, msg.as_ref()).await {
                                     Ok(res) => res.map(|res| serde_json::to_string(&res)),
                                     Err(res) => Some(serde_json::to_string(&res)),
                                 };
@@ -304,18 +314,7 @@ where
                 },
                 update = swap_status_update_rx.recv() => {
                     match update {
-                        Ok((id, updates)) => {
-                            if id.is_some_and(|id| id != connection_id) {
-                                continue;
-                            }
-
-                            let relevant_updates: Vec<SwapStatus> = updates.iter().filter(|entry| {
-                                subscribed_ids.contains(&entry.id)
-                            }).cloned().collect();
-                            if relevant_updates.is_empty() {
-                                continue;
-                            }
-
+                        Some(updates) => {
                             last_activity = Instant::now();
 
                             let timestamp = match Self::get_timestamp() {
@@ -329,7 +328,7 @@ where
                             let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
                                 timestamp,
                                 channel: SubscriptionChannel::SwapUpdate,
-                                args: relevant_updates,
+                                args: updates,
                             })) {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -342,8 +341,8 @@ where
                                 break;
                             }
                         },
-                        Err(err) => {
-                            error!("Listening to swap updates failed: {}", err);
+                        None => {
+                            error!("Swap update stream closed");
                             break;
                         },
                     }
@@ -407,8 +406,7 @@ where
 
     async fn handle_message(
         &self,
-        connection_id: u64,
-        subscribed_ids: &mut HashSet<String>,
+        connection_id: ConnectionId,
         msg: &[u8],
     ) -> Result<Option<WsResponse>, ErrorResponse> {
         let msg = match serde_json::from_slice::<WsRequest>(msg) {
@@ -433,13 +431,25 @@ where
         match msg {
             WsRequest::Subscribe(sub) => match sub {
                 SubscribeRequest::SwapUpdate { args } => {
-                    for id in &args {
-                        subscribed_ids.insert(id.clone());
-                    }
+                    self.status_subscriptions
+                        .subscription_added(connection_id, args.clone());
 
-                    self.swap_infos
-                        .fetch_status_info(connection_id, &args)
-                        .await;
+                    // Cache hits we directly inject back into the connection
+                    match self
+                        .swap_infos
+                        .fetch_status_info(connection_id, args.clone())
+                        .await
+                    {
+                        Ok(Some(updates)) => {
+                            self.status_subscriptions
+                                .inject_updates(connection_id, updates)
+                                .await;
+                        }
+                        Ok(None) => {}
+                        Err(err) => {
+                            tracing::warn!("Error fetching status info: {}", err);
+                        }
+                    }
 
                     Ok(Some(WsResponse::Subscribe(SubscribeResponse {
                         timestamp: match get_timestamp() {
@@ -498,13 +508,9 @@ where
             }
             WsRequest::Unsubscribe(unsub) => {
                 let leftover_subscriptions = match unsub.channel {
-                    SubscriptionChannel::SwapUpdate => {
-                        for id in &unsub.args {
-                            subscribed_ids.remove(id);
-                        }
-
-                        subscribed_ids.iter().cloned().collect()
-                    }
+                    SubscriptionChannel::SwapUpdate => self
+                        .status_subscriptions
+                        .subscription_removed(connection_id, unsub.args.clone()),
                     SubscriptionChannel::InvoiceRequest => {
                         match self
                             .offer_subscriptions
@@ -533,12 +539,14 @@ where
         }
     }
 
-    fn get_connection_id(&self) -> u64 {
+    fn get_connection_id(&self) -> ConnectionId {
         let mut rng = rand::thread_rng();
 
         loop {
             let id = rng.gen_range(0..=u64::MAX);
-            if !self.offer_subscriptions.connection_id_known(id) {
+            if !self.status_subscriptions.connection_known(id)
+                && !self.offer_subscriptions.connection_id_known(id)
+            {
                 return id;
             }
         }
@@ -557,7 +565,7 @@ mod status_test {
     use crate::api::ws::status::{
         ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
-    use crate::api::ws::types::SwapStatus;
+    use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
     use crate::api::ws::{Config, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
@@ -574,7 +582,11 @@ mod status_test {
 
     #[async_trait]
     impl SwapInfos for Fetcher {
-        async fn fetch_status_info(&self, _: u64, ids: &[String]) {
+        async fn fetch_status_info(
+            &self,
+            _: u64,
+            ids: Vec<String>,
+        ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
             let mut res = vec![SwapStatus::default(
                 "not relevant".into(),
                 "swap.created".into(),
@@ -584,6 +596,7 @@ mod status_test {
             });
 
             self.status_tx.send((None, res)).unwrap();
+            Ok(None)
         }
     }
 
@@ -591,12 +604,10 @@ mod status_test {
         pub fn default(id: String, status: String) -> Self {
             SwapStatus {
                 id,
-                status,
-                zero_conf_rejected: None,
-                transaction: None,
-                failure_reason: None,
-                failure_details: None,
-                channel_info: None,
+                base: SwapStatusNoId {
+                    status,
+                    ..Default::default()
+                },
             }
         }
     }
@@ -1031,6 +1042,285 @@ mod status_test {
 
         // One for the initial update and one for the update that was sent before the unsubscribe
         assert_eq!(update_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_with_updates() {
+        #[derive(Debug, Clone)]
+        struct CacheFetcher {
+            updates: Vec<SwapStatus>,
+        }
+
+        #[async_trait]
+        impl SwapInfos for CacheFetcher {
+            async fn fetch_status_info(
+                &self,
+                _: u64,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
+                Ok(Some(self.updates.clone()))
+            }
+        }
+
+        let port = 12_009;
+        let cancel = CancellationToken::new();
+        let (status_tx, _status_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+
+        let cached_updates = vec![
+            SwapStatus::default("cached1".into(), "swap.created".into()),
+            SwapStatus::default("cached2".into(), "invoice.set".into()),
+        ];
+
+        let status = Status::new(
+            cancel.clone(),
+            Config {
+                port,
+                host: "127.0.0.1".to_string(),
+            },
+            CacheFetcher {
+                updates: cached_updates.clone(),
+            },
+            status_tx.clone(),
+            OfferSubscriptions::new(crate::wallet::Network::Regtest),
+        );
+        tokio::spawn(async move {
+            status.start().await.unwrap();
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::text(
+                json!({
+                    "op": "subscribe",
+                    "channel": "swap.update",
+                    "args": vec!["cached1", "cached2"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        });
+
+        let mut received_subscribe = false;
+        let mut received_update = false;
+
+        loop {
+            let msg = match tokio::time::timeout(Duration::from_secs(2), rx.next()).await {
+                Ok(Some(Ok(msg))) => msg,
+                _ => break,
+            };
+
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+            match res {
+                WsResponse::Subscribe(res) => {
+                    assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
+                    assert_eq!(
+                        res.args,
+                        vec!["cached1".to_string(), "cached2".to_string(),]
+                    );
+                    received_subscribe = true;
+                }
+                WsResponse::Update(res) => {
+                    assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
+                    assert_eq!(res.args, cached_updates);
+                    received_update = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(received_subscribe);
+        assert!(received_update);
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_no_updates() {
+        #[derive(Debug, Clone)]
+        struct EmptyCacheFetcher;
+
+        #[async_trait]
+        impl SwapInfos for EmptyCacheFetcher {
+            async fn fetch_status_info(
+                &self,
+                _: u64,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
+                Ok(None)
+            }
+        }
+
+        let port = 12_010;
+        let cancel = CancellationToken::new();
+        let (status_tx, _status_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+
+        let status = Status::new(
+            cancel.clone(),
+            Config {
+                port,
+                host: "127.0.0.1".to_string(),
+            },
+            EmptyCacheFetcher,
+            status_tx.clone(),
+            OfferSubscriptions::new(crate::wallet::Network::Regtest),
+        );
+        tokio::spawn(async move {
+            status.start().await.unwrap();
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::text(
+                json!({
+                    "op": "subscribe",
+                    "channel": "swap.update",
+                    "args": vec!["test1"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        });
+
+        let mut received_subscribe = false;
+        let mut received_unexpected_update = false;
+
+        loop {
+            let msg = match tokio::time::timeout(Duration::from_millis(500), rx.next()).await {
+                Ok(Some(Ok(msg))) => msg,
+                _ => break,
+            };
+
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+            match res {
+                WsResponse::Subscribe(_) => {
+                    received_subscribe = true;
+                }
+                WsResponse::Update(_) => {
+                    received_unexpected_update = true;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(received_subscribe);
+        assert!(!received_unexpected_update);
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_fetch_error() {
+        #[derive(Debug, Clone)]
+        struct ErrorFetcher;
+
+        #[async_trait]
+        impl SwapInfos for ErrorFetcher {
+            async fn fetch_status_info(
+                &self,
+                _: u64,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
+                Err(anyhow::anyhow!("simulated fetch error"))
+            }
+        }
+
+        let port = 12_011;
+        let cancel = CancellationToken::new();
+        let (status_tx, _status_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+
+        let status = Status::new(
+            cancel.clone(),
+            Config {
+                port,
+                host: "127.0.0.1".to_string(),
+            },
+            ErrorFetcher,
+            status_tx.clone(),
+            OfferSubscriptions::new(crate::wallet::Network::Regtest),
+        );
+        tokio::spawn(async move {
+            status.start().await.unwrap();
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tokio::spawn(async move {
+            tx.send(Message::text(
+                json!({
+                    "op": "subscribe",
+                    "channel": "swap.update",
+                    "args": vec!["test1"],
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        });
+
+        let mut received_subscribe = false;
+        let mut received_unexpected_update = false;
+
+        loop {
+            let msg = match tokio::time::timeout(Duration::from_millis(500), rx.next()).await {
+                Ok(Some(Ok(msg))) => msg,
+                _ => break,
+            };
+
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+            match res {
+                WsResponse::Subscribe(_) => {
+                    received_subscribe = true;
+                }
+                WsResponse::Update(_) => {
+                    received_unexpected_update = true;
+                }
+                WsResponse::Error(_) => {
+                    // The error should be logged, not returned to client
+                    panic!("Should not receive error response");
+                }
+                _ => {}
+            }
+        }
+
+        assert!(received_subscribe);
+        assert!(!received_unexpected_update);
+
+        cancel.cancel();
     }
 
     async fn create_server(

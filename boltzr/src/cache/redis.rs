@@ -37,6 +37,29 @@ impl Redis {
         })
     }
 
+    pub async fn get_multiple<V: DeserializeOwned>(
+        &self,
+        key: &str,
+        fields: &[&str],
+    ) -> Result<Vec<Option<V>>> {
+        if fields.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let res: Vec<Option<String>> = redis::cmd("HMGET")
+            .arg(key)
+            .arg(fields)
+            .query_async(&mut self.connection.clone())
+            .await?;
+
+        res.into_iter()
+            .map(|opt_str| match opt_str {
+                Some(s) => Ok(Some(serde_json::from_str(&s)?)),
+                None => Ok(None),
+            })
+            .collect()
+    }
+
     pub async fn set<V: Serialize + Sync>(
         &self,
         key: &str,
@@ -131,6 +154,97 @@ mod test {
         .unwrap();
 
         assert!(cache.get::<Data>("empty", "field").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_all_exist() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_multiple";
+        let data1 = Data {
+            data: "first".to_string(),
+        };
+        let data2 = Data {
+            data: "second".to_string(),
+        };
+        let data3 = Data {
+            data: "third".to_string(),
+        };
+
+        cache.set(key, "field1", &data1, None).await.unwrap();
+        cache.set(key, "field2", &data2, None).await.unwrap();
+        cache.set(key, "field3", &data3, None).await.unwrap();
+
+        let results: Vec<Option<Data>> = cache
+            .get_multiple(key, &["field1", "field2", "field3"])
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0], Some(data1));
+        assert_eq!(results[1], Some(data2));
+        assert_eq!(results[2], Some(data3));
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_mixed() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let key = "test_multiple_mixed";
+        let data1 = Data {
+            data: "exists".to_string(),
+        };
+
+        cache.set(key, "exists", &data1, None).await.unwrap();
+
+        let results: Vec<Option<Data>> = cache
+            .get_multiple(key, &["exists", "missing1", "missing2"])
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0], Some(data1));
+        assert_eq!(results[1], None);
+        assert_eq!(results[2], None);
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_none_exist() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let results: Vec<Option<Data>> = cache
+            .get_multiple("nonexistent_key", &["field1", "field2"])
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0], None);
+        assert_eq!(results[1], None);
+    }
+
+    #[tokio::test]
+    async fn test_get_multiple_empty_fields() {
+        let cache = Redis::new(&CacheConfig {
+            redis_endpoint: REDIS_ENDPOINT.to_string(),
+        })
+        .await
+        .unwrap();
+
+        let results: Vec<Option<Data>> = cache.get_multiple("some_key", &[]).await.unwrap();
+
+        assert_eq!(results.len(), 0);
     }
 
     #[tokio::test]

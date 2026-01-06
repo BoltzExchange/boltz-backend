@@ -267,7 +267,7 @@ async fn main() {
     });
 
     let (swap_status_update_tx, _swap_status_update_rx) =
-        tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(128);
+        tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1024);
 
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
@@ -288,6 +288,7 @@ async fn main() {
     let mut grpc_server = grpc::server::Server::new(
         cancellation_token.clone(),
         config.sidecar.grpc,
+        cache,
         log_reload_handler,
         service.clone(),
         swap_manager.clone(),

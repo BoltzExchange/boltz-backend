@@ -513,7 +513,11 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
       return false;
     }
 
-    return cur.chainClient !== undefined || cur.provider !== undefined;
+    return (
+      cur.chainClient !== undefined ||
+      cur.provider !== undefined ||
+      cur.arkNode !== undefined
+    );
   };
 
   private deepCloneWithReferral = <

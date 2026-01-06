@@ -15,6 +15,7 @@ const CROSS_CHAIN_BUFFER_FACTOR: f64 = 0.25;
 static BLOCK_TIMES: LazyLock<HashMap<String, f64>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert("BTC".to_string(), 10.0);
+    map.insert("ARK".to_string(), 10.0);
     map.insert("LTC".to_string(), 2.5);
     map.insert("RBTC".to_string(), 25.0 / 60.0);
     map.insert("ETH".to_string(), 0.2);

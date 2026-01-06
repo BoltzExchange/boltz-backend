@@ -3,12 +3,14 @@ mod drop_guard;
 pub mod pair;
 pub mod serde;
 mod timeout_map;
+mod units;
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
 pub use drop_guard::{DropGuard, defer};
 pub use timeout_map::TimeoutMap;
+pub use units::mb_to_bytes;
 
 pub fn get_version() -> String {
     format!(

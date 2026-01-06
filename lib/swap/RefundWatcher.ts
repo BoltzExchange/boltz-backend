@@ -108,6 +108,11 @@ class RefundWatcher extends TypedEventEmitter<{
 
         return await receipt.confirmations();
       }
+
+      case CurrencyType.Ark: {
+        // We always consider Ark transactions as confirmed
+        return this.requiredConfirmations + 1;
+      }
     }
   };
 }

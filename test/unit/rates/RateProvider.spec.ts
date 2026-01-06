@@ -112,11 +112,14 @@ describe('RateProvider', () => {
   });
 
   test.each`
-    currency   | amount     | expected
-    ${'BTC'}   | ${1}       | ${false}
-    ${'L-BTC'} | ${99_999}  | ${true}
-    ${'L-BTC'} | ${100_000} | ${true}
-    ${'L-BTC'} | ${100_001} | ${false}
+    currency   | amount       | expected
+    ${'BTC'}   | ${1}         | ${false}
+    ${'L-BTC'} | ${99_999}    | ${true}
+    ${'L-BTC'} | ${100_000}   | ${true}
+    ${'L-BTC'} | ${100_001}   | ${false}
+    ${'ARK'}   | ${1}         | ${true}
+    ${'ARK'}   | ${100_000}   | ${true}
+    ${'ARK'}   | ${1_000_000} | ${true}
   `('should check if 0-conf is accepted', ({ currency, amount, expected }) => {
     expect(rateProvider.acceptZeroConf(currency, amount)).toEqual(expected);
   });

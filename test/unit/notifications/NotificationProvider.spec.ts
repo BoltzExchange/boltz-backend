@@ -283,7 +283,7 @@ describe('NotificationProvider', () => {
         `Lightning amount: ${satoshisToSatcomma(
           bolt11.decode(reverseSwap.invoice).satoshis!,
         )} LTC\n` +
-        `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee)} BTC` +
+        `Miner fees: ${satoshisToSatcomma(reverseSwap.minerFee!)} BTC` +
         NotificationProvider['trailingWhitespace'],
     );
 

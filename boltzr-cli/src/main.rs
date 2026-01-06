@@ -1,3 +1,4 @@
+use crate::ark::ArkClient;
 use ::serde::Serialize;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -5,6 +6,7 @@ use rand::Rng;
 use std::path::PathBuf;
 
 mod api;
+mod ark;
 mod evm;
 mod grpc;
 mod parsers;
@@ -88,6 +90,16 @@ enum Commands {
         #[arg(short, long, value_parser = parsers::parse_hex_fixed_bytes)]
         private_key: Option<alloy::primitives::FixedBytes<32>>,
     },
+    #[command(about = "ARK commands")]
+    Ark {
+        #[command(subcommand)]
+        command: ArkCommands,
+
+        #[arg(long, default_value = "127.0.0.1")]
+        fulmine_host: String,
+        #[arg(long, default_value_t = 7000)]
+        fulmine_port: u16,
+    },
     #[command(about = "Utility tools", alias = "t")]
     Tools {
         #[command(subcommand)]
@@ -139,6 +151,19 @@ enum DevCommands {
     HeapDump { path: Option<String> },
     #[command(about = "Sets the log level")]
     SetLogLevel { level: parsers::LogLevel },
+}
+
+#[derive(Clone, Subcommand)]
+enum ArkCommands {
+    #[command(about = "Claims a vHTLC")]
+    Claim {
+        #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
+        preimage: alloy::primitives::FixedBytes<32>,
+        #[arg(value_parser = parsers::parse_public_key)]
+        sender_pubkey: bitcoin::secp256k1::PublicKey,
+        #[arg(value_parser = parsers::parse_public_key)]
+        receiver_pubkey: bitcoin::secp256k1::PublicKey,
+    },
 }
 
 #[derive(Clone, Subcommand)]
@@ -454,6 +479,30 @@ async fn run_command(cli: Cli) -> Result<()> {
                 }
             }
         }
+        Commands::Ark {
+            fulmine_host,
+            fulmine_port,
+            ref command,
+        } => match command {
+            ArkCommands::Claim {
+                preimage,
+                sender_pubkey,
+                receiver_pubkey,
+            } => {
+                let mut client = ArkClient::new(&fulmine_host, fulmine_port).await?;
+                let response = client
+                    .claim_vhtlc(
+                        alloy::hex::encode(preimage.0),
+                        ArkClient::vhtlc_id(
+                            &ArkClient::hash_preimage(&preimage.0),
+                            &sender_pubkey.serialize(),
+                            &receiver_pubkey.serialize(),
+                        ),
+                    )
+                    .await?;
+                println!("{}", response);
+            }
+        },
         Commands::Tools { ref command } => match command {
             ToolsCommands::NewKeys => {
                 let secret_key = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());

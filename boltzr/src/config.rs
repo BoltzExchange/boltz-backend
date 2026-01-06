@@ -79,6 +79,7 @@ pub struct GlobalConfig {
     pub currencies: Option<Vec<CurrencyConfig>>,
     pub liquid: Option<LiquidConfig>,
     pub rsk: Option<crate::evm::Config>,
+    pub ark: Option<crate::ark::Config>,
 }
 
 pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {

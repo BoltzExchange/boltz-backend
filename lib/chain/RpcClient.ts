@@ -59,6 +59,7 @@ class RpcClient {
       attributes: {
         'rpc.method': method,
         params: params?.map((p) => (p ? p.toString() : 'undefined')),
+        walletRelated,
       },
     });
     const ctx = trace.setSpan(context.active(), span);

@@ -30,6 +30,11 @@ type Network = {
   chainId: bigint;
 };
 
+export type ContractAddresses = {
+  EtherSwap: string;
+  ERC20Swap: string;
+};
+
 class EthereumManager {
   public readonly provider: InjectedProvider;
   public readonly contractEventHandler = new ConsolidatedEventHandler();
@@ -223,11 +228,25 @@ class EthereumManager {
         chainId: Number(this.network.chainId),
         name: this.network.name,
       },
+      swapContracts: {
+        EtherSwap: await bestContracts.etherSwap.getAddress(),
+        ERC20Swap: await bestContracts.erc20Swap.getAddress(),
+      },
+      supportedContracts: new Map<number, ContractAddresses>(
+        await Promise.all(
+          this.contracts.map(
+            async (c) =>
+              [
+                Number(c.version),
+                {
+                  EtherSwap: await c.etherSwap.getAddress(),
+                  ERC20Swap: await c.erc20Swap.getAddress(),
+                },
+              ] satisfies [number, ContractAddresses],
+          ),
+        ),
+      ),
       tokens: this.tokenAddresses,
-      swapContracts: new Map<string, string>([
-        ['EtherSwap', await bestContracts.etherSwap.getAddress()],
-        ['ERC20Swap', await bestContracts.erc20Swap.getAddress()],
-      ]),
     };
   };
 

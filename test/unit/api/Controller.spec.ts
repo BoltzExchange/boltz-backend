@@ -67,9 +67,18 @@ const getContracts: Record<string, any> = {
     network: {
       some: 'networkData',
     },
-    swapContracts: new Map<string, string>([
-      ['EtherSwap', '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1'],
-      ['ERC20Swap', '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd'],
+    swapContracts: {
+      EtherSwap: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1',
+      ERC20Swap: '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd',
+    },
+    supportedContracts: new Map<number, any>([
+      [
+        3,
+        {
+          EtherSwap: '0x18A4374d714762FA7DE346E997f7e28Fb3744EC1',
+          ERC20Swap: '0xC685b2c4369D7bf9242DA54E9c391948079d83Cd',
+        },
+      ],
     ]),
     tokens: new Map<string, string>([
       ['USDT', '0xDf567Cd5d0cf3d90cE6E3E9F897e092f9ECE359a'],
@@ -284,7 +293,7 @@ describe('Controller', () => {
     expect(res.json).toHaveBeenCalledWith({
       ethereum: {
         network: getContracts.ethereum.network,
-        swapContracts: mapToObject(getContracts.ethereum.swapContracts),
+        swapContracts: getContracts.ethereum.swapContracts,
         tokens: mapToObject(getContracts.ethereum.tokens),
       },
     });
@@ -295,7 +304,19 @@ describe('Controller', () => {
       network: {
         chainId: 123,
       },
-      swapContracts: new Map<string, string>([['EtherSwap', '0x123']]),
+      swapContracts: {
+        EtherSwap: '0x123',
+        ERC20Swap: '0x456',
+      },
+      supportedContracts: new Map<number, any>([
+        [
+          3,
+          {
+            EtherSwap: '0x123',
+            ERC20Swap: '0x456',
+          },
+        ],
+      ]),
       tokens: new Map<string, string>(),
     };
 
@@ -308,12 +329,12 @@ describe('Controller', () => {
     expect(res.json).toHaveBeenCalledWith({
       ethereum: {
         network: getContracts.ethereum.network,
-        swapContracts: mapToObject(getContracts.ethereum.swapContracts),
+        swapContracts: getContracts.ethereum.swapContracts,
         tokens: mapToObject(getContracts.ethereum.tokens),
       },
       rsk: {
         network: getContracts.rsk.network,
-        swapContracts: mapToObject(getContracts.rsk.swapContracts),
+        swapContracts: getContracts.rsk.swapContracts,
         tokens: {},
       },
     });

@@ -70,6 +70,7 @@ pub fn construct_transaction(
     blinding_key: Option<[u8; 32]>,
 ) -> Result<Transaction> {
     let address = parse_address(destination_address)?;
+    let swap_tree_or_redeem_script = swap_tree_or_redeem_script.replace("\\\"", "\"");
 
     let params = match parse_transaction(raw_transaction)? {
         Transaction::Bitcoin(tx) => {
@@ -77,7 +78,7 @@ pub fn construct_transaction(
             let keys = parse_bitcoin_keypair(&secp, &private_key)?;
 
             let (output_type, vout) =
-                handle_output_type(&secp, swap_tree_or_redeem_script, &tx, &keys)?;
+                handle_output_type(&secp, &swap_tree_or_redeem_script, &tx, &keys)?;
 
             Params::Bitcoin(BitcoinParams {
                 inputs: &[&BitcoinInputDetail {
@@ -97,7 +98,7 @@ pub fn construct_transaction(
             let blinding_key = parse_blinding_key(&secp, blinding_key)?;
 
             let (output_type, vout) =
-                handle_output_type_elements(&secp, swap_tree_or_redeem_script, &tx, &keys)?;
+                handle_output_type_elements(&secp, &swap_tree_or_redeem_script, &tx, &keys)?;
 
             Params::Elements(ElementsParams {
                 inputs: &[&ElementsInputDetail {
@@ -171,11 +172,13 @@ pub fn handle_output_type<C: bitcoin::secp256k1::Verification>(
 )> {
     match serde_json::from_str::<BitcoinTree>(swap_tree_or_redeem_script) {
         Ok(tree) => {
-            let refund_pubkey = tree.refund_pubkey()?;
             let internal_keys = generate_internal_keys(
                 keypair.secret_bytes(),
                 keypair.public_key().serialize(),
-                refund_pubkey.serialize(),
+                [
+                    tree.refund_pubkey()?.serialize(),
+                    tree.claim_pubkey()?.serialize(),
+                ],
             );
 
             let tree_built = tree.build()?;
@@ -221,11 +224,13 @@ pub fn handle_output_type_elements<C: elements::secp256k1_zkp::Verification>(
 )> {
     match serde_json::from_str::<ElementsTree>(swap_tree_or_redeem_script) {
         Ok(tree) => {
-            let refund_pubkey = tree.refund_pubkey()?;
             let internal_keys = generate_internal_keys(
                 keypair.secret_bytes(),
                 keypair.public_key().serialize(),
-                refund_pubkey.serialize(),
+                [
+                    tree.refund_pubkey()?.serialize(),
+                    tree.claim_pubkey()?.serialize(),
+                ],
             );
 
             let tree_built = tree.build()?;
@@ -327,25 +332,27 @@ fn handle_legacy_output_elements(
 fn generate_internal_keys(
     privkey: [u8; 32],
     our_pubkey: [u8; 33],
-    their_pubkey: [u8; 32],
+    their_pubkeys: [[u8; 32]; 2],
 ) -> impl Iterator<Item = Result<boltz_core::musig::XOnlyPublicKey>> {
-    [0x02u8, 0x03u8]
-        .into_iter()
-        .flat_map(move |tie_breaker| {
-            [
-                [our_pubkey, prepend_tie_breaker(&their_pubkey, tie_breaker)],
-                [prepend_tie_breaker(&their_pubkey, tie_breaker), our_pubkey],
-            ]
-        })
-        .map(move |keys| {
-            Ok(Musig::setup(
-                Musig::convert_keypair(privkey)?,
-                keys.iter()
-                    .map(|key| Musig::convert_pub_key(key))
-                    .collect::<Result<Vec<_>>>()?,
-            )?
-            .agg_pk())
-        })
+    their_pubkeys.into_iter().flat_map(move |their_pubkey| {
+        [0x02u8, 0x03u8]
+            .into_iter()
+            .flat_map(move |tie_breaker| {
+                [
+                    [our_pubkey, prepend_tie_breaker(&their_pubkey, tie_breaker)],
+                    [prepend_tie_breaker(&their_pubkey, tie_breaker), our_pubkey],
+                ]
+            })
+            .map(move |keys| {
+                Ok(Musig::setup(
+                    Musig::convert_keypair(privkey)?,
+                    keys.iter()
+                        .map(|key| Musig::convert_pub_key(key))
+                        .collect::<Result<Vec<_>>>()?,
+                )?
+                .agg_pk())
+            })
+    })
 }
 
 fn prepend_tie_breaker(key: &[u8; 32], tie_breaker: u8) -> [u8; 33] {

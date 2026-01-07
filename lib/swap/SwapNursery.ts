@@ -565,7 +565,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.utxoNursery.on(
       'chainSwap.lockup.zeroconf.rejected',
       async ({ swap, transaction, reason }) => {
-        await this.lock.acquire(SwapNursery.swapLock, async () => {
+        await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
           this.logger.warn(
             `Rejected 0-conf lockup transaction (${transaction.getId()}:${
               swap.receivingData.transactionVout

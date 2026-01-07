@@ -33,10 +33,6 @@ specs.servers = [
     description: 'Mainnet',
   },
   {
-    url: 'https://api.testnet.boltz.exchange/v2',
-    description: 'Testnet',
-  },
-  {
     url: 'http://localhost:9006/v2',
     description: 'Regtest',
   },

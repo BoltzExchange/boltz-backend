@@ -28,8 +28,20 @@ describe('ChainRouter', () => {
             network: {
               chainId: 21,
             },
+            swapContracts: {
+              EtherSwap: '0xswap',
+              ERC20Swap: '0xerc20swap',
+            },
+            supportedContracts: new Map<number, any>([
+              [
+                3,
+                {
+                  EtherSwap: '0xswap',
+                  ERC20Swap: '0xerc20swap',
+                },
+              ],
+            ]),
             tokens: new Map<string, string>([['USDT', '0x123']]),
-            swapContracts: new Map<string, string>([['EtherSwap', '0xswap']]),
           }),
         },
       ],
@@ -65,8 +77,20 @@ describe('ChainRouter', () => {
         network: {
           chainId: 21,
         },
+        swapContracts: {
+          EtherSwap: '0xswap',
+          ERC20Swap: '0xerc20swap',
+        },
+        supportedContracts: new Map<number, any>([
+          [
+            3,
+            {
+              EtherSwap: '0xswap',
+              ERC20Swap: '0xerc20swap',
+            },
+          ],
+        ]),
         tokens: new Map<string, string>([['USDT', '0x123']]),
-        swapContracts: new Map<string, string>([['EtherSwap', '0xswap']]),
       },
     }),
   } as unknown as Service;
@@ -162,6 +186,13 @@ describe('ChainRouter', () => {
         },
         swapContracts: {
           EtherSwap: '0xswap',
+          ERC20Swap: '0xerc20swap',
+        },
+        supportedContracts: {
+          3: {
+            EtherSwap: '0xswap',
+            ERC20Swap: '0xerc20swap',
+          },
         },
         tokens: {
           USDT: '0x123',
@@ -276,6 +307,13 @@ describe('ChainRouter', () => {
       },
       swapContracts: {
         EtherSwap: '0xswap',
+        ERC20Swap: '0xerc20swap',
+      },
+      supportedContracts: {
+        3: {
+          EtherSwap: '0xswap',
+          ERC20Swap: '0xerc20swap',
+        },
       },
       tokens: {
         USDT: '0x123',

@@ -80,7 +80,7 @@ class ChainRouter extends RouterBase {
      *   schemas:
      *     Contracts:
      *       type: object
-     *       required: ["network", "swapContracts", "tokens"]
+     *       required: ["network", "swapContracts", "supportedContracts", "tokens"]
      *       properties:
      *         network:
      *           type: object
@@ -95,14 +95,28 @@ class ChainRouter extends RouterBase {
      *               description: Name of the chain if applicable
      *         swapContracts:
      *           type: object
-     *           description: Mapping of the names of swap contracts to their address
+     *           description: Addresses of the swap contracts for the current version
+     *           required: ["EtherSwap", "ERC20Swap"]
      *           properties:
      *             EtherSwap:
      *               type: string
      *               description: Address of the EtherSwap contract
      *             ERC20Swap:
      *               type: string
-     *               description: Address of the ERC20 contract
+     *               description: Address of the ERC20Swap contract
+     *         supportedContracts:
+     *           type: object
+     *           description: Mapping of contract version numbers to their swap contract addresses
+     *           additionalProperties:
+     *             type: object
+     *             required: ["EtherSwap", "ERC20Swap"]
+     *             properties:
+     *               EtherSwap:
+     *                 type: string
+     *                 description: Address of the EtherSwap contract for this version
+     *               ERC20Swap:
+     *                 type: string
+     *                 description: Address of the ERC20Swap contract for this version
      *         tokens:
      *           type: object
      *           description: Mapping of the symbol of tokens to their address
@@ -128,7 +142,7 @@ class ChainRouter extends RouterBase {
      *                 $ref: '#/components/schemas/Contracts'
      *             examples:
      *               json:
-     *                 value: '{"rsk":{"network":{"chainId":31337},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}}}'
+     *                 value: '{"rsk":{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}}'
      *       '400':
      *         description: Error that caused the request to fail
      *         content:
@@ -322,7 +336,7 @@ class ChainRouter extends RouterBase {
      *               $ref: '#/components/schemas/Contracts'
      *             examples:
      *               json:
-     *                 value: '{"network":{"chainId":31337},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}}'
+     *                 value: '{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}'
      *       '400':
      *         description: Error that caused the query for the transaction to fail
      *         content:
@@ -424,8 +438,9 @@ class ChainRouter extends RouterBase {
 
   private formatContracts = (contracts: NetworkContracts) => ({
     network: contracts.network,
+    swapContracts: contracts.swapContracts,
+    supportedContracts: mapToObject(contracts.supportedContracts),
     tokens: mapToObject(contracts.tokens),
-    swapContracts: mapToObject(contracts.swapContracts),
   });
 }
 

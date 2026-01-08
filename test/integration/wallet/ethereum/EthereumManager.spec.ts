@@ -109,6 +109,37 @@ describe('EthereumManager', () => {
     });
   });
 
+  test('should return swap contracts', async () => {
+    const details = await manager.getContractDetails();
+    const highestContracts = manager.highestContractsVersion();
+
+    expect(details.swapContracts).toEqual({
+      EtherSwap: await highestContracts.etherSwap.getAddress(),
+      ERC20Swap: await highestContracts.erc20Swap.getAddress(),
+    });
+  });
+
+  test('should return supported contracts as Map', async () => {
+    const details = await manager.getContractDetails();
+
+    expect(details.supportedContracts).toBeInstanceOf(Map);
+    expect(details.supportedContracts.size).toEqual(2);
+
+    expect(details.supportedContracts.has(1)).toBe(true);
+    expect(details.supportedContracts.get(1)).toEqual({
+      EtherSwap: await oldContracts.etherSwap.getAddress(),
+      ERC20Swap: await oldContracts.erc20Swap.getAddress(),
+    });
+
+    const highestContracts = manager.highestContractsVersion();
+    const highestVersion = Number(highestContracts.version);
+    expect(details.supportedContracts.has(highestVersion)).toBe(true);
+    expect(details.supportedContracts.get(highestVersion)).toEqual({
+      EtherSwap: await highestContracts.etherSwap.getAddress(),
+      ERC20Swap: await highestContracts.erc20Swap.getAddress(),
+    });
+  });
+
   test('should set token allowance on init', async () => {
     expect(
       await (

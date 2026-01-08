@@ -96,6 +96,7 @@ import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
+import type { ContractAddresses } from '../wallet/ethereum/EthereumManager';
 import BalanceCheck from './BalanceCheck';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
@@ -112,7 +113,8 @@ type NetworkContracts = {
     chainId: number;
     name?: string;
   };
-  swapContracts: Map<string, string>;
+  swapContracts: ContractAddresses;
+  supportedContracts: Map<number, ContractAddresses>;
   tokens: Map<string, string>;
 };
 

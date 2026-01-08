@@ -129,7 +129,7 @@ class Controller {
       for (const [network, networkContracts] of Object.entries(contracts)) {
         response[network] = {
           network: networkContracts.network,
-          swapContracts: mapToObject(networkContracts.swapContracts),
+          swapContracts: networkContracts.swapContracts,
           tokens: mapToObject(networkContracts.tokens),
         };
       }

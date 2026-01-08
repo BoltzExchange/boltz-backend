@@ -1,10 +1,12 @@
 use crate::api::ws::{offer_subscriptions::ConnectionId, types::SwapStatus};
 use dashmap::DashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 use tokio_util::sync::CancellationToken;
 
 const SUBSCRIPTION_BUFFER: usize = 16;
+const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 type Subscriptions = (Vec<String>, mpsc::Sender<Vec<SwapStatus>>);
 
@@ -90,10 +92,13 @@ impl StatusSubscriptions {
     }
 
     pub async fn inject_updates(&self, connection: ConnectionId, updates: Vec<SwapStatus>) {
-        if let Some(sender) = self.subscriptions.get(&connection)
-            && let Err(err) = sender.1.send(Self::filter_swaps(&sender.0, &updates)).await
-        {
-            tracing::error!("Error injecting status updates: {}", err);
+        let to_send = self
+            .subscriptions
+            .get(&connection)
+            .map(|sender| (sender.1.clone(), Self::filter_swaps(&sender.0, &updates)));
+
+        if let Some((tx, filtered)) = to_send {
+            tokio::spawn(Self::send_with_timeout(tx, filtered));
         }
     }
 
@@ -130,11 +135,7 @@ impl StatusSubscriptions {
                     if let Some(sender) = subscriptions.get(&connection) {
                         let filtered = Self::filter_swaps(&sender.0, &updates);
                         let tx = sender.1.clone();
-                        tokio::spawn(async move {
-                            if let Err(err) = tx.send(filtered).await {
-                                tracing::error!("Error sending status update: {}", err);
-                            }
-                        });
+                        tokio::spawn(Self::send_with_timeout(tx, filtered));
                     }
                     continue;
                 }
@@ -151,11 +152,7 @@ impl StatusSubscriptions {
                     if let Some(sender) = subscriptions.get(&connection) {
                         let filtered = Self::filter_swaps(&sender.0, &updates);
                         let tx = sender.1.clone();
-                        tokio::spawn(async move {
-                            if let Err(err) = tx.send(filtered).await {
-                                tracing::error!("Error sending status update: {}", err);
-                            }
-                        });
+                        tokio::spawn(Self::send_with_timeout(tx, filtered));
                     }
                 }
             }
@@ -168,6 +165,18 @@ impl StatusSubscriptions {
             .filter(|update| ids.contains(&update.id))
             .cloned()
             .collect()
+    }
+
+    async fn send_with_timeout(tx: mpsc::Sender<Vec<SwapStatus>>, updates: Vec<SwapStatus>) {
+        match tokio::time::timeout(SEND_TIMEOUT, tx.send(updates)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                tracing::error!("Error sending status update: {}", err);
+            }
+            Err(_) => {
+                tracing::warn!("Timeout sending status update");
+            }
+        }
     }
 }
 

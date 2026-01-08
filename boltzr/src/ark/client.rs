@@ -39,7 +39,7 @@ impl ArkClient {
     }
 
     pub fn pubkey(&self) -> Option<secp256k1::PublicKey> {
-        self.pubkey.read().map(|v| *v).ok().flatten()
+        self.pubkey.read().ok().and_then(|v| *v)
     }
 
     async fn get_info(&mut self) -> anyhow::Result<GetInfoResponse> {

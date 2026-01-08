@@ -70,7 +70,7 @@ describe('ArkNursery', () => {
       });
       expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
         status: {
-          [Op.or]: [
+          [Op.in]: [
             SwapUpdateEvent.TransactionServerMempool,
             SwapUpdateEvent.TransactionServerConfirmed,
             SwapUpdateEvent.TransactionRefunded,
@@ -117,7 +117,7 @@ describe('ArkNursery', () => {
       expect(arkClient.getTx).toHaveBeenCalledWith('txid');
       expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
         status: {
-          [Op.or]: [
+          [Op.in]: [
             SwapUpdateEvent.TransactionServerMempool,
             SwapUpdateEvent.TransactionServerConfirmed,
             SwapUpdateEvent.TransactionRefunded,
@@ -581,6 +581,7 @@ describe('ArkNursery', () => {
         pair: 'ARK/BTC',
         orderSide: 0,
         lockupAddress: 'ark_address',
+        chainCurrency: 'ARK',
       };
 
       ReverseSwapRepository.getReverseSwapsExpirable = jest
@@ -617,6 +618,7 @@ describe('ArkNursery', () => {
         pair: 'BTC/BTC',
         orderSide: 0,
         lockupAddress: 'btc_address',
+        chainCurrency: 'BTC',
       };
 
       ReverseSwapRepository.getReverseSwapsExpirable = jest
@@ -647,6 +649,7 @@ describe('ArkNursery', () => {
           pair: 'ARK/BTC',
           orderSide: 0,
           lockupAddress: 'ark_address1',
+          chainCurrency: 'ARK',
         },
         {
           id: 'rev2',
@@ -654,6 +657,7 @@ describe('ArkNursery', () => {
           pair: 'ARK/BTC',
           orderSide: 0,
           lockupAddress: 'ark_address2',
+          chainCurrency: 'ARK',
         },
         {
           id: 'rev3',
@@ -661,6 +665,7 @@ describe('ArkNursery', () => {
           pair: 'BTC/BTC',
           orderSide: 0,
           lockupAddress: 'btc_address',
+          chainCurrency: 'BTC',
         },
       ];
 
@@ -714,6 +719,7 @@ describe('ArkNursery', () => {
         pair: 'ARK/BTC',
         orderSide: 0,
         sendingData: {
+          symbol: 'ARK',
           lockupAddress: 'ark_address',
         },
       };

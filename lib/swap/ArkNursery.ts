@@ -2,7 +2,7 @@ import { RawWitness, type Transaction } from '@scure/btc-signer';
 import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
-import { getChainCurrency, getHexString, splitPairId } from '../Utils';
+import { getHexString } from '../Utils';
 import ArkClient, {
   type CreatedVHtlc,
   type SpentVHtlc,
@@ -88,9 +88,7 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private static isPreimage = (field: { type: number; key: Uint8Array }) => {
-    return Buffer.from([field.type, ...field.key]).includes(
-      ArkNursery.arkConditionPsbtKeyName,
-    );
+    return Buffer.from(field.key).equals(ArkNursery.arkConditionPsbtKeyName);
   };
 
   public init = (currencies: Currency[]) => {
@@ -272,7 +270,7 @@ class ArkNursery extends TypedEventEmitter<{
         }),
         ChainSwapRepository.getChainSwap({
           status: {
-            [Op.or]: [
+            [Op.in]: [
               SwapUpdateEvent.TransactionServerMempool,
               SwapUpdateEvent.TransactionServerConfirmed,
               SwapUpdateEvent.TransactionRefunded,
@@ -317,8 +315,10 @@ class ArkNursery extends TypedEventEmitter<{
     ]);
 
     for (const swap of [...reverseSwaps, ...chainSwaps]) {
-      const { base, quote } = splitPairId(swap.pair);
-      const chainCurrency = getChainCurrency(base, quote, swap.orderSide, true);
+      const chainCurrency =
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).chainCurrency
+          : (swap as ChainSwapInfo).sendingData.symbol;
 
       if (chainCurrency === node.symbol) {
         node.subscription.unsubscribeAddress(

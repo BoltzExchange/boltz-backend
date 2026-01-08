@@ -1,6 +1,7 @@
 use crate::backup::providers::BackupProvider;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::error;
 
@@ -53,11 +54,14 @@ impl BackupProvider for MultiProvider {
         "multi".to_string()
     }
 
-    async fn put(&self, path: &str, data: &[u8]) -> anyhow::Result<()> {
-        let results = futures::future::join_all(self.providers.iter().map(|provider| async move {
-            match provider.put(path, data).await {
-                Ok(_) => (provider.as_ref(), Ok(())),
-                Err(e) => (provider.as_ref(), Err(e)),
+    async fn put(&self, path: &str, data: Bytes) -> anyhow::Result<()> {
+        let results = futures::future::join_all(self.providers.iter().map(|provider| {
+            let data = data.clone();
+            async move {
+                match provider.put(path, data).await {
+                    Ok(_) => (provider.as_ref(), Ok(())),
+                    Err(e) => (provider.as_ref(), Err(e)),
+                }
             }
         }))
         .await;
@@ -140,18 +144,18 @@ mod tests {
     #[derive(Debug, Clone)]
     struct TestBackupProvider {
         should_fail: Arc<AtomicBool>,
-        stored_data: Arc<tokio::sync::Mutex<Vec<u8>>>,
+        stored_data: Arc<tokio::sync::Mutex<Bytes>>,
     }
 
     impl TestBackupProvider {
         fn new(should_fail: bool) -> Self {
             Self {
                 should_fail: Arc::new(AtomicBool::new(should_fail)),
-                stored_data: Arc::new(tokio::sync::Mutex::new(Vec::new())),
+                stored_data: Arc::new(tokio::sync::Mutex::new(Bytes::new())),
             }
         }
 
-        async fn get_stored_data(&self) -> Vec<u8> {
+        async fn get_stored_data(&self) -> Bytes {
             self.stored_data.lock().await.clone()
         }
     }
@@ -162,12 +166,12 @@ mod tests {
             "test".to_string()
         }
 
-        async fn put(&self, _path: &str, data: &[u8]) -> anyhow::Result<()> {
+        async fn put(&self, _path: &str, data: Bytes) -> anyhow::Result<()> {
             if self.should_fail.load(Ordering::SeqCst) {
                 Err(anyhow!("Test backup provider failure"))
             } else {
                 let mut stored = self.stored_data.lock().await;
-                *stored = data.to_vec();
+                *stored = data;
                 Ok(())
             }
         }
@@ -179,7 +183,7 @@ mod tests {
         ) -> anyhow::Result<()> {
             let mut data = Vec::new();
             tokio::io::copy(reader, &mut data).await?;
-            self.put(path, &data).await
+            self.put(path, Bytes::from(data)).await
         }
     }
 
@@ -227,9 +231,9 @@ mod tests {
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        let data = b"test-data";
+        let data = Bytes::from_static(b"test-data");
 
-        let result = multi_provider.put("test-path", data).await;
+        let result = multi_provider.put("test-path", data.clone()).await;
         assert!(result.is_ok());
 
         assert_eq!(prov1.get_stored_data().await, data);
@@ -245,9 +249,9 @@ mod tests {
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        let data = b"test-data";
+        let data = Bytes::from_static(b"test-data");
 
-        let result = multi_provider.put("test-path", data).await;
+        let result = multi_provider.put("test-path", data.clone()).await;
         assert!(result.is_ok());
 
         assert_eq!(prov1.get_stored_data().await, data);
@@ -263,7 +267,7 @@ mod tests {
             vec![Box::new(test_provider1), Box::new(test_provider2)];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        let data = b"test-data";
+        let data = Bytes::from_static(b"test-data");
 
         let result = multi_provider.put("test-path", data).await;
         assert!(result.is_err());
@@ -279,7 +283,7 @@ mod tests {
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        let data = b"test-stream-data";
+        let data = Bytes::from_static(b"test-stream-data");
         let mut reader = &data[..];
 
         let result = multi_provider.put_stream("test-path", &mut reader).await;
@@ -298,7 +302,7 @@ mod tests {
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        let data = b"test-stream-data";
+        let data = Bytes::from_static(b"test-stream-data");
         let mut reader = &data[..];
 
         let result = multi_provider.put_stream("test-path", &mut reader).await;

@@ -771,6 +771,7 @@ describe('Service', () => {
 
   const sidecar = {
     rescanMempool: jest.fn(),
+    checkTransaction: jest.fn().mockResolvedValue(undefined),
     createWebHook: jest.fn().mockImplementation(async () => {}),
     decodeInvoiceOrOffer: jest
       .fn()
@@ -1052,27 +1053,25 @@ describe('Service', () => {
   });
 
   describe('checkTransaction', () => {
-    const mockCheckTransaction = jest.fn().mockResolvedValue(undefined);
     const mockContractEventHandlerCheckTransaction = jest
       .fn()
       .mockResolvedValue(undefined);
 
     beforeEach(() => {
-      currencies.get('BTC')!.chainClient!.checkTransaction =
-        mockCheckTransaction;
+      sidecar.checkTransaction = jest.fn().mockResolvedValue(undefined);
       service.walletManager.ethereumManagers[0].contractEventHandler.checkTransaction =
         mockContractEventHandlerCheckTransaction;
     });
 
-    test('should check transaction on chain with chainClient', async () => {
+    test('should check transaction on chain via sidecar', async () => {
       const symbol = 'BTC';
       const txId =
         '02b1eda582decb797b19d8968f23f43de04d9cd343e83f7345a28ed91ceb7bb6';
 
       await service.checkTransaction(symbol, txId);
 
-      expect(mockCheckTransaction).toHaveBeenCalledTimes(1);
-      expect(mockCheckTransaction).toHaveBeenCalledWith(txId);
+      expect(sidecar.checkTransaction).toHaveBeenCalledTimes(1);
+      expect(sidecar.checkTransaction).toHaveBeenCalledWith(symbol, txId);
     });
 
     test('should check transaction on chain with provider', async () => {

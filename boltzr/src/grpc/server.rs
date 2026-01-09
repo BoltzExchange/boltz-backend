@@ -275,6 +275,7 @@ mod server_test {
                 &self,
                 options: Option<Vec<RescanChainOptions>>,
             ) -> anyhow::Result<Vec<RescanChainResult>>;
+            async fn check_transaction(&self, symbol: &str, tx_id: &str) -> anyhow::Result<()>;
             fn relevant_tx_receiver(&self) -> tokio::sync::broadcast::Receiver<RelevantTx>;
         }
     }

@@ -3,6 +3,106 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [3.12.1](https://github.com/BoltzExchange/boltz-backend/compare/v3.12.0..v3.12.1) - 2026-01-09
+
+### Bug Fixes
+
+- Redis client throwing on exit - ([1be61b6](https://github.com/BoltzExchange/boltz-backend/commit/1be61b6aa8bc63484254b919d5f8db8a13f3c6f3))
+- relative cltv delta for self payment (#1159) - ([6bc2381](https://github.com/BoltzExchange/boltz-backend/commit/6bc23811ab5d6d2d0eee0ab32e752ce91ab6dc75))
+- listen to checked transactions in nursery - ([d87b6e0](https://github.com/BoltzExchange/boltz-backend/commit/d87b6e004ce23e500b9d99b00890640da6b11b06))
+- handling of incorrect asset for 0-amount chain swaps (#1176) - ([93dd935](https://github.com/BoltzExchange/boltz-backend/commit/93dd935708628697f628f4674767424964aaa3bb))
+- handle self payment failed lockups (#1178) - ([677cb49](https://github.com/BoltzExchange/boltz-backend/commit/677cb49377fb6257e149ba0c45eaaf9baa12e65d))
+- refund from cli (#1183) - ([9cb2536](https://github.com/BoltzExchange/boltz-backend/commit/9cb25367fd3a2372b90d6c3607dcddd8007779e5))
+- chain swap lock (#1184) - ([8ff87d0](https://github.com/BoltzExchange/boltz-backend/commit/8ff87d099457274b24cd20107fbf6c01d2b0ba55))
+- WebSocket message injection deadlock (#1187) - ([de57b89](https://github.com/BoltzExchange/boltz-backend/commit/de57b89d15982f5fb5b1cb5b6d23b95213f74834))
+
+### Documentation
+
+- improve MRH and swap restore (#1142) - ([9c24357](https://github.com/BoltzExchange/boltz-backend/commit/9c2435746cd79deb1305739cfc70f970fa3581b8))
+- add about queued lightning payments (#1158) - ([5fe006f](https://github.com/BoltzExchange/boltz-backend/commit/5fe006f46082539cb2bfe069964224caae6c0f21))
+
+### Features
+
+- **(cln)** add cln.disableMpp config option (#1153) - ([955f4f4](https://github.com/BoltzExchange/boltz-backend/commit/955f4f443dfd750d8711da8c15fa284a50e8cbbf))
+- rescue index cache (#1143) - ([4a5a19e](https://github.com/BoltzExchange/boltz-backend/commit/4a5a19ed8027267bd9c096296bfbcc833eeaee05))
+- sync key index at database level (#1150) - ([12a6c2a](https://github.com/BoltzExchange/boltz-backend/commit/12a6c2a1b7e4d9dc1cc3ef6342933eabc4f4fc73))
+- add missing functionality from boltzr-cli (#1165) - ([22f9b52](https://github.com/BoltzExchange/boltz-backend/commit/22f9b52d5825321150420d2126a5b755e44aeef9))
+- pagination in restore endpoint (#1160) - ([f56c5bb](https://github.com/BoltzExchange/boltz-backend/commit/f56c5bb2c04eee0f91a267f8e10be68a8745f511))
+- fetch referral stats in CLI (#1169) - ([2edf306](https://github.com/BoltzExchange/boltz-backend/commit/2edf30684dfc31e88fb9d42e973d90c1c1728f18))
+- custom routing fee config for destination - ([c4d813d](https://github.com/BoltzExchange/boltz-backend/commit/c4d813d4eb479088198d5fbcb3cf5264fc488885))
+- allow custom s3 region - ([bafee13](https://github.com/BoltzExchange/boltz-backend/commit/bafee13c0d3f542beb77e5fa7d0d776fd892b40b))
+- sponsor refunds for refunds of liquid assets - ([b3beb5f](https://github.com/BoltzExchange/boltz-backend/commit/b3beb5f871bb468f0d410a5962cd1482efad89b9))
+- expose supported contracts in API - ([8b0247a](https://github.com/BoltzExchange/boltz-backend/commit/8b0247a540ea26f8908b9a754d75ef341993850c))
+
+### Miscellaneous Chores
+
+- bring back Rust build CI cache (#1134) - ([8f52a99](https://github.com/BoltzExchange/boltz-backend/commit/8f52a996ecc151e0767bdfde1bfd232adbb463cf))
+- bump body-parser from 2.2.0 to 2.2.1 (#1136) - ([3abfa51](https://github.com/BoltzExchange/boltz-backend/commit/3abfa51accd0667d7551c46d40a1ce16319975ff))
+- bump Elements to v23.3.1 (#1137) - ([40a3a89](https://github.com/BoltzExchange/boltz-backend/commit/40a3a89d1c7480b64063ef6df739e996eee1259e))
+- bump node-forge from 1.3.1 to 1.3.2 (#1139) - ([b73258d](https://github.com/BoltzExchange/boltz-backend/commit/b73258da8d4f7c22573e182828a7837097508c30))
+- bump express from 5.1.0 to 5.2.1 (#1145) - ([9001a81](https://github.com/BoltzExchange/boltz-backend/commit/9001a8169e4bf0b69020b0b620e0cf925f971160))
+- bump hold to v0.3.3 (#1146) - ([ee8e43e](https://github.com/BoltzExchange/boltz-backend/commit/ee8e43e5df26d4175864c46e3aa0e7d444485516))
+- bump nodemailer from 7.0.10 to 7.0.11 (#1147) - ([7398223](https://github.com/BoltzExchange/boltz-backend/commit/7398223210a2237647ff2c6494e07d9b8124be10))
+- bump mdast-util-to-hast from 13.2.0 to 13.2.1 (#1148) - ([11cea21](https://github.com/BoltzExchange/boltz-backend/commit/11cea21280d949a8cd92a1e895d547312c0bf1b3))
+- bump Node.js in Dockerfile to v24 (#1149) - ([99d03d7](https://github.com/BoltzExchange/boltz-backend/commit/99d03d7200fe3a114db893dc776cc94a2e2ef59b))
+- bump validator from 13.15.20 to 13.15.23 (#1151) - ([91107f8](https://github.com/BoltzExchange/boltz-backend/commit/91107f8a80691d9d692fe4891f6019dad794677b))
+- bump CLN to v25.12 (#1152) - ([3628a61](https://github.com/BoltzExchange/boltz-backend/commit/3628a61eb2c2870d81b84fabaa5336f44b660393))
+- update to contracts v5 - ([76b62bc](https://github.com/BoltzExchange/boltz-backend/commit/76b62bc98b61b79de39edc23a4243ac4d425a812))
+- make sidecar tests less flaky - ([a38c000](https://github.com/BoltzExchange/boltz-backend/commit/a38c00010116f2e5b25f9829bd25d18dbec21dbc))
+- bump swagger-ui to v5.31.0 - ([7da47fa](https://github.com/BoltzExchange/boltz-backend/commit/7da47fab4e3fbb532e395d9589894bb9e86573fb))
+- update dependencies - ([0e1a398](https://github.com/BoltzExchange/boltz-backend/commit/0e1a398ee8fa15e5776cf7b1172a2849458a8003))
+- bump version of GitHub Actions usages - ([f20f1e3](https://github.com/BoltzExchange/boltz-backend/commit/f20f1e332f78f77770202b866aa9b8df54459a59))
+- adjust RSK block times (#1157) - ([68b2505](https://github.com/BoltzExchange/boltz-backend/commit/68b250501ff21b65bcf3279fee4391419acb616e))
+- add instrumentation to lightning cache - ([8858408](https://github.com/BoltzExchange/boltz-backend/commit/88584083e24815732ab4652f99d43a64d46d6b5c))
+- bump dependencies - ([921abf0](https://github.com/BoltzExchange/boltz-backend/commit/921abf075b4564a50382b6e67365b38833eccf28))
+- use redis instead of dragonfly (#1166) - ([4d4e299](https://github.com/BoltzExchange/boltz-backend/commit/4d4e2994c8f6f3459bf7ce221cffe3f156c56475))
+- add local source build option (#1167) - ([de80138](https://github.com/BoltzExchange/boltz-backend/commit/de8013834b8d148b2bce103600cd6ac011591468))
+- build ARM64 Docker images in CI - ([ec56472](https://github.com/BoltzExchange/boltz-backend/commit/ec56472be3efcc7630098d742d42f0aaee906180))
+- check if swagger is up to date in CI - ([6f05d1b](https://github.com/BoltzExchange/boltz-backend/commit/6f05d1b303bd91396f47b7feb1c1124375ea9c57))
+- bump dependencies - ([1b570c4](https://github.com/BoltzExchange/boltz-backend/commit/1b570c4ba7e5d2cde31ecb97c36616653817840b))
+- bump qs from 6.14.0 to 6.14.1 (#1175) - ([9eb5266](https://github.com/BoltzExchange/boltz-backend/commit/9eb5266bd097a6a8ab5f6a8abd8a03edc20e40ab))
+- bump Bitcoin Core to v30.1 - ([5a9d576](https://github.com/BoltzExchange/boltz-backend/commit/5a9d5761664a87e238af924cbfc54eaec0e2c9de))
+- more logging for Elements wallet (#1182) - ([e65e6ef](https://github.com/BoltzExchange/boltz-backend/commit/e65e6efb9e97765ea78efbdeccc0ba541cdc37ad))
+- bump preact from 10.26.9 to 10.28.2 (#1186) - ([686aa92](https://github.com/BoltzExchange/boltz-backend/commit/686aa928fec0aa7277347419a5bd7cbcb3d4dd1f))
+- remove testnet from swagger - ([1931002](https://github.com/BoltzExchange/boltz-backend/commit/19310029e8d9ba955610a790cf35743676c9abfc))
+- bump @smithy/config-resolver from 4.1.5 to 4.4.5 (#1188) - ([b4c0d1c](https://github.com/BoltzExchange/boltz-backend/commit/b4c0d1c6efff828b3ab0682374863008df264c4a))
+
+### Performance
+
+- cache for balance checks (#1135) - ([f5be026](https://github.com/BoltzExchange/boltz-backend/commit/f5be02622e62a6219dd6621d00d4db136cc68562))
+- optimize liquid transaction blinding - ([1471066](https://github.com/BoltzExchange/boltz-backend/commit/1471066c5483a6db47785376aeefcebc3f280f81))
+- WebSocket queueing and status caching (#1179) - ([8b2757e](https://github.com/BoltzExchange/boltz-backend/commit/8b2757e55716aaa1b5c1978bb7cf290466293c99))
+
+### Refactoring
+
+- safer gRPC transaction status - ([7905864](https://github.com/BoltzExchange/boltz-backend/commit/7905864e39e969f03d07036e5bd194a839053f28))
+- confirmed transactions from block stream - ([805503d](https://github.com/BoltzExchange/boltz-backend/commit/805503d63faf3cbb3711b981025e16d5feabc42d))
+- script_pubkeys table primary key - ([28a2c2e](https://github.com/BoltzExchange/boltz-backend/commit/28a2c2ed384c10afe54b4bdbc8b64bc260ef1b1e))
+- batch checking txs in blocks - ([3d05d11](https://github.com/BoltzExchange/boltz-backend/commit/3d05d1144e6dbbd7052c2c76d17e55b4905df0fe))
+- self host swagger-ui - ([8c0aa1c](https://github.com/BoltzExchange/boltz-backend/commit/8c0aa1c1431425e28ecbfe7507284d726f7c5cbc))
+- use swc as test transpiler - ([9763001](https://github.com/BoltzExchange/boltz-backend/commit/9763001d18b33c298221210f64b4906ea1fcc308))
+- remove racy user lockup confirmation checks - ([e6f68aa](https://github.com/BoltzExchange/boltz-backend/commit/e6f68aaeee0e83a5ea768f78c80798e56a67a538))
+- move claim and refund commands to Rust (#1162) - ([56aec71](https://github.com/BoltzExchange/boltz-backend/commit/56aec71934e9a91cf6ba1029d0413cc070558ab4))
+- move rest of boltz-cli to Rust - ([e56b12e](https://github.com/BoltzExchange/boltz-backend/commit/e56b12ee1ddc4fff64f49a39ca01e4faa5d94775))
+- move boltz-ethereum cli to Rust - ([142a3de](https://github.com/BoltzExchange/boltz-backend/commit/142a3de4bdda8af5710a43b8970abe3e68e9f41e))
+- LND gRPC connector implementation - ([2e10c85](https://github.com/BoltzExchange/boltz-backend/commit/2e10c85fa33a508af6544f6d631ebdddc956c53d))
+- batch claim transactions in Rust - ([9ebf4b8](https://github.com/BoltzExchange/boltz-backend/commit/9ebf4b83c8a3c5926260dbc0fd9a8aa97812ec58))
+- transaction fee calculation logic - ([83884b3](https://github.com/BoltzExchange/boltz-backend/commit/83884b39c02fc73055ec59bc404b8a97e76e4b56))
+- return fee of constructed transactions - ([5324a10](https://github.com/BoltzExchange/boltz-backend/commit/5324a1008cd90a14117b0fe18ce8104aa5c25762))
+- optimize backup upload streaming - ([4894132](https://github.com/BoltzExchange/boltz-backend/commit/48941321b013f83863607011681caf9e0cd244d7))
+- take pending asset rescue from cache - ([4a086ec](https://github.com/BoltzExchange/boltz-backend/commit/4a086ecbdbe23c1ffc85e332f2e4286da9ba25ae))
+- use rustls_pki_types instead of rustls_pemfile - ([0d67200](https://github.com/BoltzExchange/boltz-backend/commit/0d67200723e45f388a606c831d64ea0dfd8ed926))
+- S3 multi part uploads (#1189) - ([435cc0a](https://github.com/BoltzExchange/boltz-backend/commit/435cc0a071b34136231f5999dfcfe1f8b1a20f41))
+
+### Tests
+
+- fix self-equality assertions in event handler - ([715f2de](https://github.com/BoltzExchange/boltz-backend/commit/715f2de12cdd5bb5a09a8ef1e97fe2d6de22b688))
+
+### Reactor
+
+- chain scan logic - ([df3e51d](https://github.com/BoltzExchange/boltz-backend/commit/df3e51d5aabdb43d86ca7e741971749039f27052))
+
+---
 ## [3.12.0](https://github.com/BoltzExchange/boltz-backend/compare/v3.11.0..v3.12.0) - 2025-11-24
 
 ### Bug Fixes
@@ -208,6 +308,7 @@ All notable changes to this project will be documented in this file. See [conven
 - bump dependencies - ([11d1418](https://github.com/BoltzExchange/boltz-backend/commit/11d1418383ae35a1a5e0a450a6c57a6f22273595))
 - remove Rust build cache from CI - ([a96a976](https://github.com/BoltzExchange/boltz-backend/commit/a96a97676573c3630bd5325e8e41ade445f8667c))
 - bump LND to v0.20.0-beta - ([018945c](https://github.com/BoltzExchange/boltz-backend/commit/018945c22b653ff9d8330b01c93383c61a4a9f0f))
+- bump version to v3.12.0 (#1133) - ([22f861f](https://github.com/BoltzExchange/boltz-backend/commit/22f861fbb70b18dfbec2ad380998a827266725d5))
 
 ### Refactoring
 

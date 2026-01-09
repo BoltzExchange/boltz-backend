@@ -68,6 +68,8 @@ pub trait SwapManager {
         options: Option<Vec<RescanChainOptions>>,
     ) -> Result<Vec<RescanChainResult>>;
 
+    async fn check_transaction(&self, symbol: &str, tx_id: &str) -> Result<()>;
+
     fn relevant_tx_receiver(&self) -> broadcast::Receiver<RelevantTx>;
 }
 
@@ -482,6 +484,10 @@ impl SwapManager for Manager {
         Ok(res)
     }
 
+    async fn check_transaction(&self, symbol: &str, tx_id: &str) -> Result<()> {
+        self.utxo_nursery.check_transaction(symbol, tx_id).await
+    }
+
     fn relevant_tx_receiver(&self) -> broadcast::Receiver<RelevantTx> {
         self.utxo_nursery.relevant_tx_receiver()
     }
@@ -524,6 +530,7 @@ pub mod test {
                 &self,
                 options: Option<Vec<RescanChainOptions>>,
             ) -> Result<Vec<RescanChainResult>>;
+            async fn check_transaction(&self, symbol: &str, tx_id: &str) -> Result<()>;
             fn relevant_tx_receiver(&self) -> tokio::sync::broadcast::Receiver<RelevantTx>;
         }
     }

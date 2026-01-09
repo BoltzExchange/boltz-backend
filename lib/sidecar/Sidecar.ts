@@ -38,6 +38,13 @@ type RescanChainRequest = {
   includeMempool?: boolean;
 };
 
+export type TransactionEvent = {
+  symbol: string;
+  transaction: SomeTransaction;
+  status: TransactionStatus;
+  swapIds: string[];
+};
+
 type SidecarConfig = {
   path?: string;
 
@@ -53,12 +60,7 @@ type SidecarConfig = {
 
 class Sidecar extends BaseClient<
   BaseClientEvents & {
-    transaction: {
-      symbol: string;
-      transaction: SomeTransaction;
-      status: TransactionStatus;
-      swapIds: string[];
-    };
+    transaction: TransactionEvent;
     block: {
       symbol: string;
       height: number;
@@ -576,6 +578,24 @@ class Sidecar extends BaseClient<
       sidecarrpc.RescanChainsRequest,
       sidecarrpc.RescanChainsResponse.AsObject
     >('rescanChains', req);
+  };
+
+  /**
+   * Check a specific transaction for relevance to swaps
+   * @param symbol - The currency symbol (e.g., 'BTC', 'L-BTC')
+   * @param txId - The transaction ID to check
+   */
+  public checkTransaction = async (symbol: string, txId: string) => {
+    this.logger.info(`Checking ${symbol} transaction via sidecar: ${txId}`);
+
+    const req = new sidecarrpc.CheckTransactionRequest();
+    req.setSymbol(symbol);
+    req.setId(txId);
+
+    await this.unaryNodeCall<
+      sidecarrpc.CheckTransactionRequest,
+      sidecarrpc.CheckTransactionResponse
+    >('checkTransaction', req);
   };
 
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {

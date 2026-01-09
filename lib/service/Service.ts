@@ -492,7 +492,8 @@ class Service {
     const currency = getCurrency(this.currencies, symbol);
 
     if (currency.chainClient) {
-      await currency.chainClient.checkTransaction(id);
+      // Transaction updates will come via the TransactionFound stream
+      await this.sidecar.checkTransaction(symbol, id);
     } else if (currency.provider) {
       const manager = this.walletManager.ethereumManagers.find((manager) =>
         manager.hasSymbol(symbol),

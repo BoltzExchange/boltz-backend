@@ -25,6 +25,7 @@ service BoltzR {
   rpc IsMarked (IsMarkedRequest) returns (IsMarkedResponse);
 
   rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
+  rpc CheckTransaction (CheckTransactionRequest) returns (CheckTransactionResponse);
 
   rpc BlockAdded (BlockAddedRequest) returns (stream Block);
   rpc TransactionFound (RelevantTransactionRequest) returns (stream RelevantTransaction);
@@ -265,6 +266,12 @@ message RescanChainsResponse {
   repeated Result results = 1;
 }
 
+
+message CheckTransactionRequest {
+  string symbol = 1;
+  string id = 2;
+}
+message CheckTransactionResponse {}
 
 message BlockAddedRequest {}
 message Block {

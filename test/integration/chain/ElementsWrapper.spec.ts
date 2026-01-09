@@ -24,14 +24,6 @@ describe('ElementsWrapper', () => {
 
   beforeAll(async () => {
     await wrapper.connect();
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    wrapper['zeroConfCheck'] = {
-      name: 'test',
-      checkTransaction: jest.fn().mockResolvedValue(true),
-      init: jest.fn().mockImplementation(() => Promise.resolve()),
-    };
   });
 
   beforeEach(() => {
@@ -106,21 +98,6 @@ describe('ElementsWrapper', () => {
       expect(status).toEqual(newStatus);
     });
     wrapper['publicClient']()['setClientStatus'](newStatus);
-  });
-
-  test('should call checkTransaction with all clients', async () => {
-    const mockFnPublic = jest.fn();
-    const mockFnLowball = jest.fn();
-    wrapper['publicClient']()['checkTransaction'] = mockFnPublic;
-    wrapper['lowballClient']()!['checkTransaction'] = mockFnLowball;
-
-    const transactionId = 'testTxId';
-    await wrapper.checkTransaction(transactionId);
-
-    expect(mockFnPublic).toHaveBeenCalledTimes(1);
-    expect(mockFnPublic).toHaveBeenCalledWith(transactionId);
-    expect(mockFnLowball).toHaveBeenCalledTimes(1);
-    expect(mockFnLowball).toHaveBeenCalledWith(transactionId);
   });
 
   describe('sendRawTransaction', () => {

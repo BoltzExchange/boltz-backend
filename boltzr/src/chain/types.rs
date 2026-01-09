@@ -92,6 +92,7 @@ pub struct ZmqNotification {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawTransactionVerbose {
+    pub hex: String,
     pub confirmations: Option<u64>,
 }
 

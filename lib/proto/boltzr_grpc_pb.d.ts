@@ -22,6 +22,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     decodeInvoiceOrOffer: IBoltzRService_IDecodeInvoiceOrOffer;
     isMarked: IBoltzRService_IIsMarked;
     rescanChains: IBoltzRService_IRescanChains;
+    checkTransaction: IBoltzRService_ICheckTransaction;
     blockAdded: IBoltzRService_IBlockAdded;
     transactionFound: IBoltzRService_ITransactionFound;
 }
@@ -152,6 +153,15 @@ interface IBoltzRService_IRescanChains extends grpc.MethodDefinition<boltzr_pb.R
     responseSerialize: grpc.serialize<boltzr_pb.RescanChainsResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.RescanChainsResponse>;
 }
+interface IBoltzRService_ICheckTransaction extends grpc.MethodDefinition<boltzr_pb.CheckTransactionRequest, boltzr_pb.CheckTransactionResponse> {
+    path: "/boltzr.BoltzR/CheckTransaction";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.CheckTransactionRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.CheckTransactionRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.CheckTransactionResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.CheckTransactionResponse>;
+}
 interface IBoltzRService_IBlockAdded extends grpc.MethodDefinition<boltzr_pb.BlockAddedRequest, boltzr_pb.Block> {
     path: "/boltzr.BoltzR/BlockAdded";
     requestStream: false;
@@ -188,6 +198,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     decodeInvoiceOrOffer: grpc.handleUnaryCall<boltzr_pb.DecodeInvoiceOrOfferRequest, boltzr_pb.DecodeInvoiceOrOfferResponse>;
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
     rescanChains: grpc.handleUnaryCall<boltzr_pb.RescanChainsRequest, boltzr_pb.RescanChainsResponse>;
+    checkTransaction: grpc.handleUnaryCall<boltzr_pb.CheckTransactionRequest, boltzr_pb.CheckTransactionResponse>;
     blockAdded: grpc.handleServerStreamingCall<boltzr_pb.BlockAddedRequest, boltzr_pb.Block>;
     transactionFound: grpc.handleServerStreamingCall<boltzr_pb.RelevantTransactionRequest, boltzr_pb.RelevantTransaction>;
 }
@@ -233,6 +244,9 @@ export interface IBoltzRClient {
     rescanChains(request: boltzr_pb.RescanChainsRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
     rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
     rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzr_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     blockAdded(request: boltzr_pb.BlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     blockAdded(request: boltzr_pb.BlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     transactionFound(request: boltzr_pb.RelevantTransactionRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.RelevantTransaction>;
@@ -280,6 +294,9 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public rescanChains(request: boltzr_pb.RescanChainsRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
     public rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
     public rescanChains(request: boltzr_pb.RescanChainsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.RescanChainsResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzr_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    public checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     public blockAdded(request: boltzr_pb.BlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     public blockAdded(request: boltzr_pb.BlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     public transactionFound(request: boltzr_pb.RelevantTransactionRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.RelevantTransaction>;

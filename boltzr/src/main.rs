@@ -79,6 +79,10 @@ async fn create_with_timeout<T, E: std::fmt::Display>(
 
 #[tokio::main]
 async fn main() {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to install default crypto provider");
+
     let args = Args::parse();
 
     let (config, log_reload_handler) = tracing::subscriber::with_default(

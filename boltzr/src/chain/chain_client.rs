@@ -400,7 +400,7 @@ impl Client for ChainClient {
                 }
             };
 
-            debug!(
+            trace!(
                 "Rescanning {} block {} chain with {} transactions",
                 self.client.symbol,
                 height,

@@ -2,6 +2,7 @@ use crate::backup::providers::BackupProvider;
 use crate::currencies::Currencies;
 use crate::lightning::lnd::Lnd;
 use alloy::hex;
+use bytes::Bytes;
 use chrono::{Datelike, Timelike, Utc};
 use dashmap::DashSet;
 use flate2::write::GzEncoder;
@@ -12,10 +13,9 @@ use std::process::Stdio;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::BufReader;
-use tokio::process::ChildStdout;
+use tokio::process::{Child, ChildStdout};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, instrument, trace};
+use tracing::{debug, error, info, instrument};
 
 mod providers;
 
@@ -131,10 +131,15 @@ impl Backup {
         info!("Uploading database backup");
 
         let path = format!("backend/database-{}.sql.zst", Self::format_date());
-        let mut stdout = self.database_backup_stream()?;
-        self.provider.put_stream(&path, &mut stdout).await?;
+        let (mut stdout, mut dump_proc) = self.database_backup_stream()?;
 
-        trace!("Uploaded database backup");
+        let result = self.provider.put_stream(&path, &mut stdout).await;
+
+        drop(stdout);
+        let _ = dump_proc.wait().await;
+
+        result?;
+        debug!("Uploaded database backup");
 
         Ok(())
     }
@@ -206,16 +211,19 @@ impl Backup {
                     symbol,
                     Self::format_date()
                 ),
-                &data,
+                Bytes::from(data),
             )
             .await?;
+
+        debug!("Uploaded LND {} channel backup", symbol);
 
         Ok(())
     }
 
-    fn database_backup_stream(&self) -> anyhow::Result<BufReader<ChildStdout>> {
+    fn database_backup_stream(&self) -> anyhow::Result<(ChildStdout, Child)> {
         let mut dump_cmd = tokio::process::Command::new("pg_dump")
             .env("PGPASSWORD", self.db_config.password.clone())
+            .arg("--compress=zstd:level=15")
             .arg("-U")
             .arg(self.db_config.username.clone())
             .arg("-h")
@@ -227,23 +235,12 @@ impl Backup {
             .stdout(Stdio::piped())
             .spawn()?;
 
-        let pipe: Stdio = dump_cmd
+        let stdout = dump_cmd
             .stdout
             .take()
-            .ok_or(anyhow::anyhow!("failed to take stdout"))?
-            .try_into()?;
+            .ok_or(anyhow::anyhow!("failed to take stdout"))?;
 
-        let mut data_cmd = tokio::process::Command::new("zstd")
-            .stdin(pipe)
-            .stdout(Stdio::piped())
-            .spawn()?;
-
-        Ok(BufReader::new(
-            data_cmd
-                .stdout
-                .take()
-                .ok_or(anyhow::anyhow!("failed to take stdout"))?,
-        ))
+        Ok((stdout, dump_cmd))
     }
 
     fn format_date() -> String {

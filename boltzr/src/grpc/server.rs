@@ -400,6 +400,10 @@ mod server_test {
         CancellationToken,
         JoinHandle<()>,
     ) {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
         let certs_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("test-certs-{port}"));
 
         let token = CancellationToken::new();

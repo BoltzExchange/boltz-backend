@@ -91,7 +91,7 @@ impl Cln {
                 .connect()
                 .await?;
         let cln = cln_rpc::node_client::NodeClient::new(channel)
-            .max_decoding_message_size(1024 * 1024 * 1024);
+            .max_decoding_message_size(utils::mb_to_bytes(1024));
 
         Ok(Self {
             symbol: symbol.to_string(),

@@ -117,10 +117,11 @@ class PaymentHandler {
       );
     }
 
+    const { base, quote } = splitPairId(swap.pair);
+
     const cltvLimit = await this.timeoutDeltaProvider.getCltvLimit(swap);
     const decoded = await this.sidecar.decodeInvoiceOrOffer(swap.invoice!);
 
-    const { base, quote } = splitPairId(swap.pair);
     const lightningSymbol = getLightningCurrency(
       base,
       quote,

@@ -1,4 +1,4 @@
-use crate::chain::BaseClient;
+use crate::{chain::BaseClient, utils::mb_to_bytes};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use lnd_rpc::{ChanBackupExportRequest, ChannelBackupSubscription, GetInfoRequest};
@@ -116,7 +116,8 @@ impl Lnd {
         let lnd = lnd_rpc::lightning_client::LightningClient::with_origin(
             intercepted,
             tonic::transport::Uri::from_str(&address)?,
-        );
+        )
+        .max_decoding_message_size(mb_to_bytes(1024));
 
         Ok(Lnd {
             cancellation_token,

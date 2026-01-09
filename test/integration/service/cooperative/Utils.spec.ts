@@ -1,13 +1,15 @@
+import { Transaction as ScureTransaction } from '@scure/btc-signer';
 import { Transaction } from 'bitcoinjs-lib';
 import type { Types } from 'boltz-core';
 import { Musig, TaprootUtils, swapTree } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import { hashForWitnessV1, setup, zkp } from '../../../../lib/Core';
 import { ECPair } from '../../../../lib/ECPairHelper';
-import { getHexBuffer } from '../../../../lib/Utils';
+import { getHexBuffer, getHexString } from '../../../../lib/Utils';
 import { CurrencyType } from '../../../../lib/consts/Enums';
 import Errors from '../../../../lib/service/Errors';
 import {
+  checkArkTransaction,
   createPartialSignature,
   isPreimageValid,
 } from '../../../../lib/service/cooperative/Utils';
@@ -139,4 +141,324 @@ describe('Utils', () => {
       ).rejects.toEqual(Errors.INVALID_VIN());
     },
   );
+
+  describe('checkArkTransaction', () => {
+    test('should throw when checkpoint has more than one input', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: Buffer.alloc(32),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      checkpoint.addInput({
+        txid: Buffer.alloc(32),
+        index: 1,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+      checkpoint['inputs'][1].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).toThrow('checkpoint must have exactly one input');
+    });
+
+    test('should throw when checkpoint input transaction id does not match lockup transaction id', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: randomBytes(32),
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).toThrow('transaction is not for this swap');
+    });
+
+    test('should throw when checkpoint input transaction vout does not match lockup transaction vout', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: txId,
+        index: vout - 2,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).toThrow('transaction is not for this swap');
+    });
+
+    test('should throw when refund transaction has more than one input', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: txId,
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 1,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+      refundTx['inputs'][1].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).toThrow('transaction must have exactly one input');
+    });
+
+    test('should throw when refund transaction input does not match checkpoint transaction id', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: txId,
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: randomBytes(32),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).toThrow('transaction is not for this swap');
+    });
+
+    test('should validate valid Ark transactions', () => {
+      const txId = randomBytes(32);
+      const vout = 21;
+
+      const checkpoint = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      checkpoint.addInput({
+        txid: txId,
+        index: vout,
+        witnessUtxo: {
+          amount: BigInt(10_001),
+          script: Buffer.alloc(32),
+        },
+      });
+
+      checkpoint.addOutput({
+        amount: BigInt(10_000),
+        script: Buffer.alloc(32),
+      });
+
+      checkpoint['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      const refundTx = new ScureTransaction({
+        allowUnknownOutputs: true,
+      });
+      refundTx.addInput({
+        txid: Buffer.from(checkpoint.id, 'hex'),
+        index: 0,
+        witnessUtxo: {
+          amount: BigInt(10_000),
+          script: Buffer.alloc(32),
+        },
+      });
+      refundTx.addOutput({
+        amount: BigInt(9_000),
+        script: Buffer.alloc(32),
+      });
+      refundTx['inputs'][0].finalScriptSig = Buffer.alloc(64);
+
+      expect(() =>
+        checkArkTransaction(
+          Buffer.from(refundTx.toPSBT(0)).toString('base64'),
+          Buffer.from(checkpoint.toPSBT(0)).toString('base64'),
+          getHexString(txId),
+          vout,
+        ),
+      ).not.toThrow();
+    });
+  });
 });

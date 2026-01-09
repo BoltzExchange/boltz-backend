@@ -16,6 +16,12 @@ type RawBlock = {
 };
 
 class FakedChainClient {
+  private static genesisBlock = {
+    height: 0,
+    hash: crypto.sha256(randomBytes(32)),
+    block: randomBytes(80),
+  };
+
   // Required for testing the compatibility rescan logic
   public disableGetBlockVerbose = false;
 
@@ -36,12 +42,6 @@ class FakedChainClient {
 
   private transactions = new Map<string, Transaction>();
   private mempoolTransactions = new Map<string, Transaction>();
-
-  private static genesisBlock = {
-    height: 0,
-    hash: crypto.sha256(randomBytes(32)),
-    block: randomBytes(80),
-  };
 
   public get bestBlockHeight(): number {
     return this.blockIndex.size - 1;
@@ -93,6 +93,7 @@ class FakedChainClient {
         height: block.height,
         tx: transactionIds || [],
         previousblockhash: previousBlockHash,
+        mediantime: Math.floor(Date.now() / 1000),
 
         nTx: 0,
         time: 0,
@@ -141,6 +142,7 @@ class FakedChainClient {
         tx: transactions,
         height: block.height,
         previousblockhash: previousBlockHash,
+        mediantime: Math.floor(Date.now() / 1000),
 
         nTx: 0,
         time: 0,

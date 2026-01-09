@@ -37,6 +37,26 @@ pub struct SwapTree {
     pub refund_leaf: TreeLeaf,
     #[serde(rename = "covenantClaimLeaf", skip_serializing_if = "Option::is_none")]
     pub covenant_claim_leaf: Option<TreeLeaf>,
+    #[serde(
+        rename = "refundWithoutBoltzLeaf",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub refund_without_boltz_leaf: Option<TreeLeaf>,
+    #[serde(
+        rename = "unilateralClaimLeaf",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unilateral_claim_leaf: Option<TreeLeaf>,
+    #[serde(
+        rename = "unilateralRefundLeaf",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unilateral_refund_leaf: Option<TreeLeaf>,
+    #[serde(
+        rename = "unilateralRefundWithoutBoltzLeaf",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unilateral_refund_without_boltz_leaf: Option<TreeLeaf>,
 }
 
 impl TryFrom<&str> for SwapTree {
@@ -747,7 +767,7 @@ impl SwapRescue {
         (
             &s,
             Self::lookup_from_keys(keys_map, &s.refundPublicKey, &s.id)?,
-            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_our_public_key(secp, &chain_symbol, &wallet, &s.id(), s.keyIndex)?,
             Self::derive_blinding_key(&wallet, &s.id, &chain_symbol, &s.lockupAddress)?,
         )
             .try_into()
@@ -764,7 +784,13 @@ impl SwapRescue {
         (
             &s,
             Self::lookup_from_keys(keys_map, &s.receiving().theirPublicKey, &s.id())?,
-            Self::derive_our_public_key(secp, &wallet, &s.id(), s.receiving().keyIndex)?,
+            Self::derive_our_public_key(
+                secp,
+                &s.receiving().symbol,
+                &wallet,
+                &s.id(),
+                s.receiving().keyIndex,
+            )?,
             Self::derive_blinding_key(
                 &wallet,
                 &s.id(),
@@ -787,7 +813,7 @@ impl SwapRescue {
         (
             &s,
             Self::lookup_from_keys(keys_map, &s.refundPublicKey, &s.id)?,
-            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_our_public_key(secp, &chain_symbol, &wallet, &s.id(), s.keyIndex)?,
             Self::derive_blinding_key(&wallet, &s.id, &chain_symbol, &s.lockupAddress)?,
         )
             .try_into()
@@ -811,6 +837,7 @@ impl SwapRescue {
                     Self::lookup_from_keys(keys_map, &s.sending().theirPublicKey, &s.id())?,
                     Self::derive_our_public_key(
                         secp,
+                        &s.sending().symbol,
                         &sending_wallet,
                         &s.id(),
                         s.sending().keyIndex,
@@ -840,6 +867,7 @@ impl SwapRescue {
                     Self::lookup_from_keys(keys_map, &s.receiving().theirPublicKey, &s.id())?,
                     Self::derive_our_public_key(
                         secp,
+                        &s.receiving().symbol,
                         &receiving_wallet,
                         &s.id(),
                         s.receiving().keyIndex,
@@ -868,7 +896,7 @@ impl SwapRescue {
         (
             &s,
             Self::lookup_from_keys(keys_map, &s.claimPublicKey, &s.id())?,
-            Self::derive_our_public_key(secp, &wallet, &s.id(), s.keyIndex)?,
+            Self::derive_our_public_key(secp, &chain_symbol, &wallet, &s.id(), s.keyIndex)?,
             Self::derive_blinding_key(&wallet, &s.id, &chain_symbol, &s.lockupAddress)?,
         )
             .try_into()
@@ -885,17 +913,29 @@ impl SwapRescue {
 
     fn derive_our_public_key(
         secp: &Secp256k1<secp256k1::All>,
+        symbol: &str,
         wallet: &Arc<dyn Wallet + Send + Sync>,
         id: &str,
         key_index: Option<i32>,
     ) -> Result<String> {
         Ok(hex::encode(
             wallet
-                .derive_keys(key_index.ok_or_else(|| anyhow!("no key index for {}", id))? as u64)?
-                .private_key
-                .public_key(secp)
+                .derive_pubkey(secp, Self::get_key_index(symbol, id, key_index)?.into())?
                 .serialize(),
         ))
+    }
+
+    fn get_key_index(symbol: &str, id: &str, key_index: Option<i32>) -> Result<u32> {
+        match key_index {
+            Some(index) => Ok(index as u32),
+            None => {
+                if symbol == crate::ark::SYMBOL {
+                    return Ok(0);
+                }
+
+                Err(anyhow!("no key index for {}", id))
+            }
+        }
     }
 
     fn derive_blinding_key(
@@ -1533,6 +1573,7 @@ mod test {
         assert_eq!(
             SwapRescue::derive_our_public_key(
                 &Secp256k1::default(),
+                "",
                 &get_liquid_wallet(),
                 "",
                 Some(0)
@@ -1548,6 +1589,7 @@ mod test {
         assert_eq!(
             SwapRescue::derive_our_public_key(
                 &Secp256k1::default(),
+                "",
                 &get_liquid_wallet(),
                 id,
                 None

@@ -93,7 +93,7 @@ class WrappedSwapRepository {
       return (swap as ReverseSwap).update({
         failureReason,
         status: SwapUpdateEvent.TransactionRefunded,
-        minerFee: (swap as ReverseSwap).minerFee + minerFee,
+        minerFee: ((swap as ReverseSwap).minerFee ?? 0) + minerFee,
       }) as Promise<T>;
     } else {
       const chainSwap = swap as ChainSwapInfo;

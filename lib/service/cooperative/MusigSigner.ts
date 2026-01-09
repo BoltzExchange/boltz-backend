@@ -9,10 +9,12 @@ import {
   splitPairId,
 } from '../../Utils';
 import {
+  CurrencyType,
   FailedSwapUpdateEvents,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import { RefundStatus } from '../../db/models/RefundTransaction';
@@ -30,7 +32,11 @@ import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
-import { createPartialSignature, isPreimageValid } from './Utils';
+import {
+  checkArkTransaction,
+  createPartialSignature,
+  isPreimageValid,
+} from './Utils';
 
 type PartialSignature = {
   pubNonce: Buffer;
@@ -61,9 +67,9 @@ class MusigSigner {
     private readonly nursery: SwapNursery,
   ) {}
 
-  public setDisableCooperative(disabled: boolean) {
+  public setDisableCooperative = (disabled: boolean) => {
     this.disableCooperative = disabled;
-  }
+  };
 
   public allowRefund = async (id: string) => {
     const swap = await SwapRepository.getSwap({ id });
@@ -136,6 +142,58 @@ class MusigSigner {
     await SwapRepository.setRefundSignatureCreated(swap.id);
 
     return sig;
+  };
+
+  public signRefundArk = async (
+    swapId: string,
+    transaction: string,
+    checkpoint: string,
+  ): Promise<{ transaction: string; checkpoint: string }> => {
+    const swap = await SwapRepository.getSwap({ id: swapId });
+    if (!swap) {
+      throw Errors.SWAP_NOT_FOUND(swapId);
+    }
+
+    if (this.disableCooperative) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        cooperativeSignaturesDisabledMessage,
+      );
+    }
+
+    const currency = this.currencies.get(swap.chainCurrency);
+    if (
+      currency === undefined ||
+      currency.type !== CurrencyType.Ark ||
+      currency.arkNode === undefined
+    ) {
+      throw new Error(
+        `currency is not ${currencyTypeToString(CurrencyType.Ark)}`,
+      );
+    }
+
+    await this.validateEligibility(swap);
+    checkArkTransaction(
+      transaction,
+      checkpoint,
+      swap.lockupTransactionId,
+      swap.lockupTransactionVout,
+    );
+
+    this.logger.debug(
+      `Creating partial signature for refund of ARK Swap ${swap.id}`,
+    );
+
+    await SwapRepository.setRefundSignatureCreated(swap.id);
+
+    const [transactionSigned, checkpointSigned] = await Promise.all([
+      currency.arkNode.signTransaction(transaction),
+      currency.arkNode.signTransaction(checkpoint),
+    ]);
+
+    return {
+      transaction: transactionSigned,
+      checkpoint: checkpointSigned,
+    };
   };
 
   public signReverseSwapClaim = (

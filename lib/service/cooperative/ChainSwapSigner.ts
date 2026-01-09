@@ -6,6 +6,7 @@ import { formatError, getHexBuffer, getHexString } from '../../Utils';
 import {
   CurrencyType,
   SwapUpdateEvent,
+  currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import type Swap from '../../db/models/Swap';
@@ -26,7 +27,11 @@ import CoopSignerBase, {
 } from './CoopSignerBase';
 import type { PartialSignature } from './MusigSigner';
 import MusigSigner from './MusigSigner';
-import { createPartialSignature, isPreimageValid } from './Utils';
+import {
+  checkArkTransaction,
+  createPartialSignature,
+  isPreimageValid,
+} from './Utils';
 
 type TheirSigningData = {
   pubNonce: Buffer;
@@ -59,9 +64,9 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     super(logger, walletManager, swapOutputType);
   }
 
-  public setDisableCooperative(disabled: boolean) {
+  public setDisableCooperative = (disabled: boolean) => {
     this.disableCooperative = disabled;
-  }
+  };
 
   public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
     this.lock.acquire(ChainSwapSigner.refundSignatureLock, cb);
@@ -138,6 +143,70 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
 
       return sig;
     });
+
+  public signRefundArk = async (
+    swapId: string,
+    transaction: string,
+    checkpoint: string,
+  ): Promise<{ transaction: string; checkpoint: string }> => {
+    return await this.refundSignatureLock(async () => {
+      const swap = await ChainSwapRepository.getChainSwap({ id: swapId });
+      if (!swap) {
+        throw Errors.SWAP_NOT_FOUND(swapId);
+      }
+
+      const currency = this.currencies.get(swap.receivingData.symbol);
+      if (
+        currency === undefined ||
+        currency.type !== CurrencyType.Ark ||
+        currency.arkNode === undefined
+      ) {
+        throw new Error(
+          `currency is not ${currencyTypeToString(CurrencyType.Ark)}`,
+        );
+      }
+
+      if (this.disableCooperative) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          cooperativeSignaturesDisabledMessage,
+        );
+      }
+
+      {
+        const rejectionReason =
+          await MusigSigner.refundNonEligibilityReason(swap);
+        if (rejectionReason !== undefined) {
+          this.logger.verbose(
+            `Not creating partial signature for refund of ${currencyTypeToString(CurrencyType.Ark)} ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+          );
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+        }
+      }
+
+      checkArkTransaction(
+        transaction,
+        checkpoint,
+        swap.receivingData.transactionId,
+        swap.receivingData.transactionVout,
+      );
+
+      this.logger.debug(
+        `Creating refund signature for ${currencyTypeToString(CurrencyType.Ark)} ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
+
+      const [transactionSigned, checkpointSigned] = await Promise.all([
+        currency.arkNode.signTransaction(transaction),
+        currency.arkNode.signTransaction(checkpoint),
+      ]);
+
+      await ChainSwapRepository.setRefundSignatureCreated(swap.id);
+
+      return {
+        transaction: transactionSigned,
+        checkpoint: checkpointSigned,
+      };
+    });
+  };
 
   public registerForClaim = async (swap: ChainSwapInfo) => {
     await this.lock.acquire(ChainSwapSigner.swapsToClaimLock, async () => {

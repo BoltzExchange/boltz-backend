@@ -1,3 +1,4 @@
+import { Transaction } from '@scure/btc-signer';
 import { crypto } from 'bitcoinjs-lib';
 import type { Types } from 'boltz-core';
 import {
@@ -48,4 +49,43 @@ export const createPartialSignature = async (
     signature: Buffer.from(musig.signPartial()),
     pubNonce: Buffer.from(musig.getPublicNonce()),
   };
+};
+
+export const checkArkTransaction = (
+  transaction: string,
+  checkpoint: string,
+  lockupTransactionId?: string,
+  lockupTransactionVout?: number,
+) => {
+  const checkpointPsbt = Transaction.fromPSBT(
+    Buffer.from(checkpoint, 'base64'),
+  );
+  if (checkpointPsbt.inputsLength !== 1) {
+    throw new Error('checkpoint must have exactly one input');
+  }
+
+  {
+    const input = checkpointPsbt.getInput(0);
+    if (
+      input.txid === undefined ||
+      getHexString(Buffer.from(input.txid)) !== lockupTransactionId ||
+      input.index !== lockupTransactionVout
+    ) {
+      throw new Error('transaction is not for this swap');
+    }
+  }
+
+  {
+    const refundPsbt = Transaction.fromPSBT(Buffer.from(transaction, 'base64'));
+    if (refundPsbt.inputsLength !== 1) {
+      throw new Error('transaction must have exactly one input');
+    }
+
+    if (
+      checkpointPsbt.id !==
+      Buffer.from(refundPsbt.getInput(0).txid || '').toString('hex')
+    ) {
+      throw new Error('transaction is not for this swap');
+    }
+  }
 };

@@ -301,7 +301,7 @@ where
 
         debug!("Retrying {} {} WebHook calls", to_retry.len(), self.name);
 
-        let num_workers = cmp::min(num_cpus::get(), to_retry.len());
+        let num_workers = cmp::min(crate::utils::available_parallelism(), to_retry.len());
         let (sender, receiver) = crossbeam_channel::unbounded();
 
         let self_cp = self.clone();

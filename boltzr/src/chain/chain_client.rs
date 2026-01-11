@@ -450,7 +450,8 @@ impl Client for ChainClient {
 
         let (tx, mut rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-        let fetcher_threads = std::cmp::min(num_cpus::get() / 2, MAX_WORKERS);
+        let fetcher_threads =
+            std::cmp::min(crate::utils::available_parallelism() / 2, MAX_WORKERS).max(1);
         debug!(
             "Scanning {} mempool transactions of {} chain with {} workers",
             mempool_size, self.client.symbol, fetcher_threads

@@ -2,12 +2,14 @@ pub mod bip21;
 mod drop_guard;
 pub mod pair;
 pub mod serde;
+mod system;
 mod timeout_map;
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
 pub use drop_guard::{DropGuard, defer};
+pub use system::available_parallelism;
 pub use timeout_map::TimeoutMap;
 
 pub fn get_version() -> String {

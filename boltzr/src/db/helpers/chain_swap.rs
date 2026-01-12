@@ -5,6 +5,7 @@ use crate::db::schema::{chainSwapData, chainSwaps};
 use diesel::{
     BelongingToDsl, ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl, SelectableHelper,
 };
+use tracing::instrument;
 
 pub type ChainSwapCondition = BoxedCondition<chainSwaps::dsl::chainSwaps>;
 
@@ -31,6 +32,11 @@ impl ChainSwapHelperDatabase {
 }
 
 impl ChainSwapHelper for ChainSwapHelperDatabase {
+    #[instrument(
+        name = "db::ChainSwapHelperDatabase::get_by_id",
+        skip_all,
+        fields(chain_swap_id = %id)
+    )]
     fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo> {
         self.get_all(Box::new(chainSwaps::dsl::id.eq(id.to_string())))?
             .into_iter()
@@ -38,6 +44,7 @@ impl ChainSwapHelper for ChainSwapHelperDatabase {
             .ok_or(anyhow::anyhow!("swap not found"))
     }
 
+    #[instrument(name = "db::ChainSwapHelperDatabase::get_all", skip_all)]
     fn get_all(&self, condition: ChainSwapCondition) -> QueryResponse<Vec<ChainSwapInfo>> {
         let chain_swaps = chainSwaps::dsl::chainSwaps
             .select(ChainSwap::as_select())
@@ -63,6 +70,7 @@ impl ChainSwapHelper for ChainSwapHelperDatabase {
         Ok(infos)
     }
 
+    #[instrument(name = "db::ChainSwapHelperDatabase::get_by_data_nullable", skip_all)]
     fn get_by_data_nullable(
         &self,
         condition: ChainSwapDataNullableCondition,

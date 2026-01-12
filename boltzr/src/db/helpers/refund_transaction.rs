@@ -4,6 +4,7 @@ use crate::db::models::RefundTransaction;
 use crate::db::schema::refund_transactions;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, update};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 pub type RefundTransactionCondition = BoxedCondition<refund_transactions::table>;
 
@@ -72,6 +73,7 @@ impl RefundTransactionHelperDatabase {
 }
 
 impl RefundTransactionHelper for RefundTransactionHelperDatabase {
+    #[instrument(name = "db::RefundTransactionHelperDatabase::get_all", skip_all)]
     fn get_all(
         &self,
         condition: RefundTransactionCondition,
@@ -82,6 +84,11 @@ impl RefundTransactionHelper for RefundTransactionHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::RefundTransactionHelperDatabase::update_transaction_id",
+        skip_all,
+        fields(swap_id = %swap_id, transaction_id = %transaction_id, vin = ?vin)
+    )]
     fn update_transaction_id(
         &self,
         swap_id: &str,

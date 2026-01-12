@@ -3,6 +3,7 @@ use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::Referral;
 use crate::db::schema::referrals;
 use diesel::{QueryDsl, RunQueryDsl, SelectableHelper};
+use tracing::instrument;
 
 pub type ReferralCondition = BoxedCondition<referrals::table>;
 
@@ -22,6 +23,7 @@ impl ReferralHelperDatabase {
 }
 
 impl ReferralHelper for ReferralHelperDatabase {
+    #[instrument(name = "db::ReferralHelperDatabase::get_all", skip_all)]
     fn get_all(&self, condition: ReferralCondition) -> QueryResponse<Vec<Referral>> {
         Ok(referrals::dsl::referrals
             .select(Referral::as_select())

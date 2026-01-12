@@ -4,6 +4,7 @@ use crate::db::models::{ReverseRoutingHint, ReverseSwap};
 use crate::db::schema::{reverseRoutingHints, reverseSwaps};
 use crate::swap::SwapUpdate;
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
+use tracing::instrument;
 
 pub type ReverseSwapCondition = BoxedCondition<reverseSwaps::table>;
 pub type ReverseSwapNullableCondition = BoxedNullableCondition<reverseSwaps::table>;
@@ -34,6 +35,11 @@ impl ReverseSwapHelperDatabase {
 }
 
 impl ReverseSwapHelper for ReverseSwapHelperDatabase {
+    #[instrument(
+        name = "db::ReverseSwapHelperDatabase::get_by_id",
+        skip_all,
+        fields(reverse_swap_id = %id)
+    )]
     fn get_by_id(&self, id: &str) -> QueryResponse<ReverseSwap> {
         Ok(reverseSwaps::dsl::reverseSwaps
             .select(ReverseSwap::as_select())
@@ -41,6 +47,7 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .first(&mut self.pool.get()?)?)
     }
 
+    #[instrument(name = "db::ReverseSwapHelperDatabase::get_all", skip_all)]
     fn get_all(&self, condition: ReverseSwapCondition) -> QueryResponse<Vec<ReverseSwap>> {
         Ok(reverseSwaps::dsl::reverseSwaps
             .select(ReverseSwap::as_select())
@@ -48,6 +55,7 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(name = "db::ReverseSwapHelperDatabase::get_all_nullable", skip_all)]
     fn get_all_nullable(
         &self,
         condition: ReverseSwapNullableCondition,
@@ -58,6 +66,11 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::ReverseSwapHelperDatabase::get_routing_hint",
+        skip_all,
+        fields(preimage_hash = %preimage_hash)
+    )]
     fn get_routing_hint(&self, preimage_hash: &str) -> QueryResponse<Option<ReverseRoutingHint>> {
         Ok(reverseRoutingHints::dsl::reverseRoutingHints
             .inner_join(reverseSwaps::dsl::reverseSwaps)
@@ -67,6 +80,11 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
             .optional()?)
     }
 
+    #[instrument(
+        name = "db::ReverseSwapHelperDatabase::get_routing_hints",
+        skip_all,
+        fields(script_pubkey_count = %script_pubkeys.len())
+    )]
     fn get_routing_hints(
         &self,
         script_pubkeys: Vec<Vec<u8>>,

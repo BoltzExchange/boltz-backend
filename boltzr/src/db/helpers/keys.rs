@@ -4,6 +4,7 @@ use crate::db::models::Keys;
 use crate::db::schema::keys;
 use anyhow::anyhow;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use tracing::instrument;
 
 pub trait KeysHelper {
     fn get_for_symbol(&self, symbol: &str) -> QueryResponse<Keys>;
@@ -21,6 +22,11 @@ impl KeysHelperDatabase {
 }
 
 impl KeysHelper for KeysHelperDatabase {
+    #[instrument(
+        name = "db::KeysHelperDatabase::get_for_symbol",
+        skip_all,
+        fields(symbol = %symbol)
+    )]
     fn get_for_symbol(&self, symbol: &str) -> QueryResponse<Keys> {
         let keys = keys::dsl::keys
             .select(Keys::as_select())

@@ -171,7 +171,8 @@ impl StatusSubscriptions {
         match tokio::time::timeout(SEND_TIMEOUT, tx.send(updates)).await {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
-                tracing::error!("Error sending status update: {}", err);
+                // We don't want to log this as an error, as it's expected to happen when a connection is closed
+                tracing::trace!("Error sending status update: {}", err);
             }
             Err(_) => {
                 tracing::warn!("Timeout sending status update");

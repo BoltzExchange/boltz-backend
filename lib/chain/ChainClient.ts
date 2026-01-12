@@ -2,9 +2,8 @@ import type { Transaction } from 'bitcoinjs-lib';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import type { ChainConfig } from '../Config';
-import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
-import { formatError, isTxConfirmed } from '../Utils';
+import { formatError } from '../Utils';
 import { ClientStatus, CurrencyType } from '../consts/Enums';
 import type TypedEventEmitter from '../consts/TypedEventEmitter';
 import type {
@@ -32,23 +31,15 @@ enum AddressType {
   Taproot = 'bech32m',
 }
 
-type ChainClientEvents<T extends SomeTransaction> = {
+type ChainClientEvents = {
   'status.changed': ClientStatus;
-  'transaction.checked': {
-    transaction: T;
-    confirmed: boolean;
-  };
 };
 
-interface IChainClient<
-  T extends SomeTransaction = SomeTransaction,
-> extends TypedEventEmitter<ChainClientEvents<T>> {
+interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   get symbol(): string;
   get currencyType(): CurrencyType;
 
   connect(): Promise<void>;
-
-  checkTransaction(id: string): Promise<void>;
 
   getBlockchainInfo(): Promise<BlockchainInfo>;
   getNetworkInfo(): Promise<NetworkInfo>;
@@ -74,10 +65,7 @@ interface IChainClient<
   ): Promise<string>;
 }
 
-class ChainClient<T extends SomeTransaction = Transaction>
-  extends BaseClient<ChainClientEvents<T>>
-  implements IChainClient<T>
-{
+class ChainClient extends BaseClient implements IChainClient {
   public static readonly serviceName = 'Core';
   public static readonly decimals = 100_000_000;
 
@@ -145,16 +133,6 @@ class ChainClient<T extends SomeTransaction = Transaction>
 
   public getBlockhash = (height: number): Promise<string> => {
     return this.client.request<string>('getblockhash', [height]);
-  };
-
-  public checkTransaction = async (id: string): Promise<void> => {
-    const rawTx = await this.getRawTransactionVerbose(id);
-    const transaction = parseTransaction(this.currencyType, rawTx.hex) as T;
-
-    this.emit('transaction.checked', {
-      transaction,
-      confirmed: isTxConfirmed(rawTx),
-    });
   };
 
   public sendRawTransaction = async (

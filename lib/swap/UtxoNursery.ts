@@ -20,7 +20,7 @@ import {
   transactionHashToId,
   transactionSignalsRbfExplicitly,
 } from '../Utils';
-import type { IChainClient, SomeTransaction } from '../chain/ChainClient';
+import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import ElementsWrapper from '../chain/ElementsWrapper';
 import {
@@ -250,32 +250,18 @@ class UtxoNursery extends TypedEventEmitter<{
   };
 
   private listenTransactions = (chainClient: IChainClient, wallet: Wallet) => {
-    const handleTransaction = (
-      transaction: SomeTransaction,
-      status: TransactionStatus,
-    ) =>
-      Promise.all([
-        this.checkSwapClaims(chainClient, transaction),
-        this.checkOutputs(chainClient, wallet, transaction, status),
-      ]);
-
-    this.sidecar.on('transaction', async ({ symbol, transaction, status }) => {
-      if (symbol !== chainClient.symbol) {
+    // Transaction updates come from the Rust sidecar via the TransactionFound stream
+    // Manual checkTransaction calls also go through the sidecar and emit via this stream
+    this.sidecar.on('transaction', async (event) => {
+      if (event.symbol !== chainClient.symbol) {
         return;
       }
 
-      await handleTransaction(transaction, status);
+      await Promise.all([
+        this.checkSwapClaims(chainClient, event.transaction),
+        this.checkOutputs(chainClient, wallet, event.transaction, event.status),
+      ]);
     });
-
-    chainClient.on(
-      'transaction.checked',
-      async ({ transaction, confirmed }) => {
-        await handleTransaction(
-          transaction,
-          confirmed ? TransactionStatus.Confirmed : TransactionStatus.NotSafe,
-        );
-      },
-    );
   };
 
   private checkOutputs = async (

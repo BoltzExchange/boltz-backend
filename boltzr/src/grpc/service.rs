@@ -6,15 +6,16 @@ use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
-    Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, ClaimBatchRequest,
-    ClaimBatchResponse, CreateWebHookRequest, CreateWebHookResponse, DecodeInvoiceOrOfferRequest,
-    DecodeInvoiceOrOfferResponse, Feature, GetInfoRequest, GetInfoResponse, GetMessagesRequest,
-    GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel, RelevantTransaction,
-    RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse, SendMessageRequest,
-    SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest,
-    SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest,
-    SignEvmRefundResponse, StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate,
-    SwapUpdateRequest, SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
+    Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
+    CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
+    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature,
+    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
+    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
+    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
+    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
+    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
+    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
+    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
     decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
@@ -687,6 +688,23 @@ where
                 })
                 .collect(),
         }))
+    }
+
+    #[instrument(name = "grpc::check_transaction", skip_all)]
+    async fn check_transaction(
+        &self,
+        request: Request<CheckTransactionRequest>,
+    ) -> Result<Response<CheckTransactionResponse>, Status> {
+        let params = request.into_inner();
+
+        match self
+            .manager
+            .check_transaction(&params.symbol, &params.id)
+            .await
+        {
+            Ok(_) => Ok(Response::new(CheckTransactionResponse {})),
+            Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+        }
     }
 
     type BlockAddedStream = Pin<Box<dyn Stream<Item = Result<Block, Status>> + Send>>;

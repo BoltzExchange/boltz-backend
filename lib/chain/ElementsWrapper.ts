@@ -1,4 +1,3 @@
-import type { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import type { LiquidChainConfig } from '../Config';
 import type Logger from '../Logger';
@@ -10,16 +9,12 @@ import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, ChainClientEvents } from './ChainClient';
 import type { IElementsClient, LiquidAddressType } from './ElementsClient';
 import ElementsClient from './ElementsClient';
-import TestMempoolAccept from './elements/TestMempoolAccept';
-import type { ZeroConfCheck } from './elements/ZeroConfCheck';
-import ZeroConfTool from './elements/ZeroConfTool';
 
 class ElementsWrapper
-  extends BaseClient<ChainClientEvents<Transaction>>
+  extends BaseClient<ChainClientEvents>
   implements IElementsClient
 {
   public readonly currencyType = CurrencyType.Liquid;
-  public readonly zeroConfCheck: ZeroConfCheck;
 
   private readonly clients: ElementsClient[] = [];
 
@@ -41,22 +36,6 @@ class ElementsWrapper
         new ElementsClient(this.logger, sidecar, network, config.lowball, true),
       );
     }
-
-    if (
-      config.zeroConfTool !== undefined &&
-      config.zeroConfTool.endpoint !== undefined
-    ) {
-      this.zeroConfCheck = new ZeroConfTool(this.logger, config.zeroConfTool);
-    } else {
-      this.zeroConfCheck = new TestMempoolAccept(
-        this.logger,
-        this.clients[0].isRegtest,
-        this.publicClient(),
-        config.zeroConfWaitTime,
-      );
-    }
-
-    this.logger.info(`Using 0-conf check: ${this.zeroConfCheck.name}`);
   }
 
   public serviceName = () => 'ElementsWrapper';
@@ -65,61 +44,9 @@ class ElementsWrapper
     await Promise.all(this.clients.map((c) => c.connect()));
 
     this.publicClient().on('status.changed', this.setClientStatus);
-
-    await this.zeroConfCheck.init();
-
-    // If we have a lowball client, bubble up only confirmed transactions
-    // of the public client
-    const hasLowball = this.lowballClient() !== undefined;
-
-    this.publicClient().on(
-      'transaction.checked',
-      async ({ transaction, confirmed }) => {
-        if (hasLowball && !confirmed) {
-          return;
-        }
-
-        if (confirmed) {
-          this.emit('transaction.checked', { transaction, confirmed });
-          return;
-        }
-
-        try {
-          if (await this.zeroConfCheck.checkTransaction(transaction)) {
-            this.emit('transaction.checked', { transaction, confirmed });
-          }
-        } catch (e) {
-          this.logger.error(
-            `${this.symbol} 0-conf transaction check failed: ${formatError(e)}`,
-          );
-        }
-      },
-    );
-
-    this.lowballClient()?.on(
-      'transaction.checked',
-      async ({ transaction, confirmed }) => {
-        if (confirmed) {
-          return;
-        }
-
-        try {
-          if (await this.zeroConfCheck.checkTransaction(transaction)) {
-            this.emit('transaction.checked', { transaction, confirmed });
-          }
-        } catch (e) {
-          this.logger.error(
-            `${this.symbol} 0-conf transaction check failed: ${formatError(e)}`,
-          );
-        }
-      },
-    );
   };
 
   public disconnect = () => this.clients.forEach((c) => c.disconnect());
-
-  public checkTransaction = (transactionId: string) =>
-    allSettledFirst(this.clients.map((c) => c.checkTransaction(transactionId)));
 
   public getBlockchainInfo = () =>
     this.annotateLowballInfo((c) => c.getBlockchainInfo());

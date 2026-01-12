@@ -4,7 +4,6 @@ import path from 'path';
 import type { Arguments } from 'yargs';
 import type { PrometheusConfig } from './Prometheus';
 import { deepMerge, getServiceDataDir, resolveHome } from './Utils';
-import type { ZeroConfToolConfig } from './chain/elements/ZeroConfTool';
 import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import type { PairConfig } from './consts/Types';
@@ -53,9 +52,6 @@ type ChainConfig = {
 };
 
 type LiquidChainConfig = ChainConfig & {
-  zeroConfTool?: ZeroConfToolConfig;
-  zeroConfWaitTime?: number;
-
   lowball?: ChainConfig;
 };
 

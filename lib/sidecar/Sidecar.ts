@@ -594,7 +594,7 @@ class Sidecar extends BaseClient<
 
     await this.unaryNodeCall<
       sidecarrpc.CheckTransactionRequest,
-      sidecarrpc.CheckTransactionResponse
+      sidecarrpc.CheckTransactionResponse.AsObject
     >('checkTransaction', req);
   };
 

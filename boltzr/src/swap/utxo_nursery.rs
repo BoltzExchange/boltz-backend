@@ -97,7 +97,7 @@ impl UtxoNursery {
             .context(format!("no chain client for {}", symbol))?;
 
         let raw_tx = chain_client.raw_transaction_verbose(tx_id).await?;
-        let confirmed = raw_tx.confirmations.unwrap_or(0) > 0;
+        let confirmed = raw_tx.is_confirmed();
         let tx = Transaction::parse_hex(&chain_client.chain_type(), &raw_tx.hex)?;
 
         debug!(

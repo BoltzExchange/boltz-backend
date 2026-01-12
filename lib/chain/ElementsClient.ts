@@ -13,7 +13,7 @@ enum LiquidAddressType {
   Blech32 = 'blech32',
 }
 
-interface IElementsClient extends IChainClient<Transaction> {
+interface IElementsClient extends IChainClient {
   getAddressInfo(address: string): Promise<AddressInfo>;
 
   getBalances(): Promise<LiquidBalances>;
@@ -24,10 +24,7 @@ interface IElementsClient extends IChainClient<Transaction> {
   dumpBlindingKey(address: string): Promise<string>;
 }
 
-class ElementsClient
-  extends ChainClient<Transaction>
-  implements IElementsClient
-{
+class ElementsClient extends ChainClient implements IElementsClient {
   public static readonly symbol = liquidSymbol;
   private static readonly feeFloor = 0.1;
 

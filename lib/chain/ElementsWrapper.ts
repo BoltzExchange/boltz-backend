@@ -1,4 +1,3 @@
-import type { Transaction } from 'liquidjs-lib';
 import BaseClient from '../BaseClient';
 import type { LiquidChainConfig } from '../Config';
 import type Logger from '../Logger';
@@ -12,7 +11,7 @@ import type { IElementsClient, LiquidAddressType } from './ElementsClient';
 import ElementsClient from './ElementsClient';
 
 class ElementsWrapper
-  extends BaseClient<ChainClientEvents<Transaction>>
+  extends BaseClient<ChainClientEvents>
   implements IElementsClient
 {
   public readonly currencyType = CurrencyType.Liquid;

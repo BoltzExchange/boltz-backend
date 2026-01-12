@@ -31,17 +31,11 @@ enum AddressType {
   Taproot = 'bech32m',
 }
 
-type ChainClientEvents<T extends SomeTransaction> = {
+type ChainClientEvents = {
   'status.changed': ClientStatus;
-  'transaction.checked': {
-    transaction: T;
-    confirmed: boolean;
-  };
 };
 
-interface IChainClient<
-  T extends SomeTransaction = SomeTransaction,
-> extends TypedEventEmitter<ChainClientEvents<T>> {
+interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   get symbol(): string;
   get currencyType(): CurrencyType;
 
@@ -71,10 +65,7 @@ interface IChainClient<
   ): Promise<string>;
 }
 
-class ChainClient<T extends SomeTransaction = Transaction>
-  extends BaseClient<ChainClientEvents<T>>
-  implements IChainClient<T>
-{
+class ChainClient extends BaseClient implements IChainClient {
   public static readonly serviceName = 'Core';
   public static readonly decimals = 100_000_000;
 

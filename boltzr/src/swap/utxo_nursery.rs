@@ -97,16 +97,20 @@ impl UtxoNursery {
             .context(format!("no chain client for {}", symbol))?;
 
         let raw_tx = chain_client.raw_transaction_verbose(tx_id).await?;
-        let confirmed = raw_tx.is_confirmed();
         let tx = Transaction::parse_hex(&chain_client.chain_type(), &raw_tx.hex)?;
 
         debug!(
-            "Checking {} transaction {}: confirmed={}",
-            symbol, tx_id, confirmed
+            confirmed = raw_tx.is_confirmed(),
+            "Checking {symbol} transaction: {tx_id}",
         );
 
-        self.check_tx(symbol, chain_client, Transactions::Single(tx), confirmed)
-            .await
+        self.check_tx(
+            symbol,
+            chain_client,
+            Transactions::Single(tx),
+            raw_tx.is_confirmed(),
+        )
+        .await
     }
 
     async fn listen(self, chain_client: Arc<dyn Client + Send + Sync>) {

@@ -586,8 +586,6 @@ class Sidecar extends BaseClient<
    * @param txId - The transaction ID to check
    */
   public checkTransaction = async (symbol: string, txId: string) => {
-    this.logger.info(`Checking ${symbol} transaction via sidecar: ${txId}`);
-
     const req = new sidecarrpc.CheckTransactionRequest();
     req.setSymbol(symbol);
     req.setId(txId);

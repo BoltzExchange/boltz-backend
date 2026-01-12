@@ -3,6 +3,7 @@ use crate::db::helpers::QueryResponse;
 use crate::db::models::ScriptPubKey;
 use crate::db::schema::script_pubkeys;
 use diesel::prelude::*;
+use tracing::instrument;
 
 pub trait ScriptPubKeyHelper {
     fn get_by_scripts(&self, symbol: &str, scripts: &[Vec<u8>])
@@ -21,6 +22,11 @@ impl ScriptPubKeyHelperDatabase {
 }
 
 impl ScriptPubKeyHelper for ScriptPubKeyHelperDatabase {
+    #[instrument(
+        name = "db::ScriptPubKeyHelperDatabase::get_by_scripts",
+        skip_all,
+        fields(symbol = %symbol, script_count = %scripts.len())
+    )]
     fn get_by_scripts(
         &self,
         symbol: &str,

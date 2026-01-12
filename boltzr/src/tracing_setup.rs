@@ -15,7 +15,7 @@ use opentelemetry_otlp::WithExportConfig;
 
 #[derive(Clone)]
 pub struct ReloadHandler {
-    handles: Vec<(Handle<EnvFilter, Registry>, bool)>,
+    handles: Vec<Handle<EnvFilter, Registry>>,
 }
 
 impl ReloadHandler {
@@ -27,21 +27,21 @@ impl ReloadHandler {
 
     pub fn modify(&self, level: &str) -> anyhow::Result<()> {
         info!("Setting log level to: {}", level);
-        for (handle, is_otel) in &self.handles {
-            handle.modify(|filter| *filter = env_filter(level.to_string(), *is_otel))?;
+        for handle in &self.handles {
+            handle.modify(|filter| *filter = env_filter(level.to_string()))?;
         }
 
         Ok(())
     }
 
-    fn add(&mut self, handle: Handle<EnvFilter, Registry>, is_otel: bool) {
-        self.handles.push((handle, is_otel));
+    fn add(&mut self, handle: Handle<EnvFilter, Registry>) {
+        self.handles.push(handle);
     }
 }
 
 macro_rules! stdout_tracing {
     ($level: expr) => {{
-        let (filter, reload) = get_filter($level, false);
+        let (filter, reload) = get_filter($level);
         let layer = fmt::layer()
             .compact()
             .with_file(true)
@@ -70,7 +70,7 @@ macro_rules! file_tracing {
             });
 
         debug!("Logging to file: {}", $file);
-        let (filter, reload) = get_filter($level, false);
+        let (filter, reload) = get_filter($level);
         let layer = fmt::layer().with_writer(file).with_filter(filter);
 
         (layer, reload)
@@ -87,11 +87,11 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
     let mut reloader = ReloadHandler::new();
 
     let (stdout_log, reload) = stdout_tracing!(log_level.clone());
-    reloader.add(reload, false);
+    reloader.add(reload);
 
     let log_file_path = config.sidecar.log_file.clone().unwrap();
     let (file_log, reload) = file_tracing!(log_level.clone(), log_file_path);
-    reloader.add(reload, false);
+    reloader.add(reload);
 
     let layers: Box<dyn Layer<_> + Send + Sync + 'static> = Box::new(stdout_log.and_then(file_log));
 
@@ -102,8 +102,8 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
             None
         });
         if let Some(tracer) = tracer {
-            let (filter, reload) = get_filter(log_level.clone(), true);
-            reloader.add(reload, true);
+            let (filter, reload) = get_filter(log_level.clone());
+            reloader.add(reload);
 
             Box::new(
                 layers.and_then(
@@ -124,8 +124,8 @@ pub fn setup_global_tracing(log_level: String, config: &GlobalConfig) -> ReloadH
             None
         });
         if let Some(loki_log) = loki_log {
-            let (filter, reload) = get_filter(log_level, false);
-            reloader.add(reload, false);
+            let (filter, reload) = get_filter(log_level);
+            reloader.add(reload);
 
             Box::new(layers.and_then(loki_log.with_filter(filter)))
         } else {
@@ -215,25 +215,11 @@ fn init_tracer(config: &GlobalConfig) -> anyhow::Result<Option<opentelemetry_sdk
     Ok(Some(tracer.tracer(built_info::PKG_NAME)))
 }
 
-fn get_filter<S>(
-    log_level: String,
-    is_otel: bool,
-) -> (reload::Layer<EnvFilter, S>, Handle<EnvFilter, S>) {
-    reload::Layer::<EnvFilter, S>::new(env_filter(log_level, is_otel))
+fn get_filter<S>(log_level: String) -> (reload::Layer<EnvFilter, S>, Handle<EnvFilter, S>) {
+    reload::Layer::<EnvFilter, S>::new(env_filter(log_level))
 }
 
-fn env_filter(log_level: String, is_otel: bool) -> EnvFilter {
-    EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        format!(
-            "{}={}{}",
-            built_info::PKG_NAME,
-            log_level,
-            if is_otel {
-                format!(",diesel_tracing::pg={log_level}")
-            } else {
-                "".to_string()
-            }
-        )
-        .into()
-    })
+fn env_filter(log_level: String) -> EnvFilter {
+    EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| format!("{}={}", built_info::PKG_NAME, log_level).into())
 }

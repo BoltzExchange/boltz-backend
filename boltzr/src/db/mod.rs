@@ -11,10 +11,6 @@ pub mod schema;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 
-#[cfg(feature = "otel")]
-type Connection = diesel_tracing::pg::InstrumentedPgConnection;
-
-#[cfg(not(feature = "otel"))]
 type Connection = diesel::PgConnection;
 
 pub type Pool = r2d2::Pool<ConnectionManager<Connection>>;

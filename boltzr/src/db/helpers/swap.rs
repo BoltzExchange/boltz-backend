@@ -5,6 +5,7 @@ use crate::db::schema::swaps;
 use crate::swap::SwapUpdate;
 use diesel::prelude::*;
 use diesel::{QueryDsl, RunQueryDsl, SelectableHelper, update};
+use tracing::instrument;
 
 pub type SwapCondition = BoxedCondition<swaps::table>;
 pub type SwapNullableCondition = BoxedNullableCondition<swaps::table>;
@@ -33,6 +34,7 @@ impl SwapHelperDatabase {
 }
 
 impl SwapHelper for SwapHelperDatabase {
+    #[instrument(name = "db::SwapHelperDatabase::get_by_id", skip_all, fields(swap_id = %id))]
     fn get_by_id(&self, id: &str) -> QueryResponse<Swap> {
         Ok(swaps::dsl::swaps
             .select(Swap::as_select())
@@ -41,6 +43,7 @@ impl SwapHelper for SwapHelperDatabase {
             .first(&mut self.pool.get()?)?)
     }
 
+    #[instrument(name = "db::SwapHelperDatabase::get_all", skip_all)]
     fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>> {
         Ok(swaps::dsl::swaps
             .select(Swap::as_select())
@@ -48,6 +51,7 @@ impl SwapHelper for SwapHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(name = "db::SwapHelperDatabase::get_all_nullable", skip_all)]
     fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>> {
         Ok(swaps::dsl::swaps
             .select(Swap::as_select())
@@ -55,6 +59,15 @@ impl SwapHelper for SwapHelperDatabase {
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::SwapHelperDatabase::update_status",
+        skip_all,
+        fields(
+            swap_id = %id,
+            status = %status.to_string(),
+            has_failure_reason = failure_reason.is_some()
+        )
+    )]
     fn update_status(
         &self,
         id: &str,

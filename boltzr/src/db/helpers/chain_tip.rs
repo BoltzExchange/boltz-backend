@@ -3,6 +3,7 @@ use crate::db::helpers::QueryResponse;
 use crate::db::models::ChainTip;
 use crate::db::schema::chainTips;
 use diesel::prelude::*;
+use tracing::instrument;
 
 pub trait ChainTipHelper {
     fn get_all(&self) -> QueryResponse<Vec<ChainTip>>;
@@ -21,12 +22,18 @@ impl ChainTipHelperDatabase {
 }
 
 impl ChainTipHelper for ChainTipHelperDatabase {
+    #[instrument(name = "db::ChainTipHelperDatabase::get_all", skip_all)]
     fn get_all(&self) -> QueryResponse<Vec<ChainTip>> {
         Ok(chainTips::dsl::chainTips
             .select(ChainTip::as_select())
             .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::ChainTipHelperDatabase::set_height",
+        skip_all,
+        fields(symbol = %symbol, height)
+    )]
     fn set_height(&self, symbol: &str, height: i32) -> QueryResponse<usize> {
         Ok(diesel::insert_into(chainTips::dsl::chainTips)
             .values(ChainTip {

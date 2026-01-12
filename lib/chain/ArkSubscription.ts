@@ -75,7 +75,13 @@ class ArkSubscription extends TypedEventEmitter<Events> {
           !this.isReconnecting &&
           !this.isRescanning
         ) {
-          await this.rescan();
+          try {
+            await this.rescan();
+          } catch (e) {
+            this.logger.error(
+              `Error rescanning ${this.client.serviceName()} ${this.client.symbol}: ${formatError(e)}`,
+            );
+          }
         }
       },
       ArkSubscription.rescanIntervalMinutes * 1_000 * 60,

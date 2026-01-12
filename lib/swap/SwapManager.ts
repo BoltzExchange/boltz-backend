@@ -517,12 +517,6 @@ class SwapManager {
         undefined,
         args.refundPublicKey!,
       );
-      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
-        {
-          address: vHtlc.vHtlc.address,
-          vHtlcId: vHtlc.vHtlc.id,
-        },
-      ]);
 
       result.claimPublicKey = getHexString(receivingCurrency.arkNode!.pubkey);
       result.address = vHtlc.vHtlc.address;
@@ -543,6 +537,13 @@ class SwapManager {
         refundPublicKey: getHexString(args.refundPublicKey!),
         redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
+
+      await receivingCurrency.arkNode!.subscription.subscribeAddresses([
+        {
+          address: vHtlc.vHtlc.address,
+          vHtlcId: vHtlc.vHtlc.id,
+        },
+      ]);
     } else {
       result.address = await this.getLockupContractAddress(
         receivingCurrency.symbol,
@@ -1145,12 +1146,6 @@ class SwapManager {
         args.claimPublicKey!,
         undefined,
       );
-      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
-        {
-          address: vHtlc.vHtlc.address,
-          vHtlcId: vHtlc.vHtlc.id,
-        },
-      ]);
 
       result.refundPublicKey = getHexString(sendingCurrency.arkNode!.pubkey);
       result.lockupAddress = vHtlc.vHtlc.address;
@@ -1178,6 +1173,13 @@ class SwapManager {
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
         redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
+
+      await sendingCurrency.arkNode!.subscription.subscribeAddresses([
+        {
+          address: vHtlc.vHtlc.address,
+          vHtlcId: vHtlc.vHtlc.id,
+        },
+      ]);
     } else {
       const blockNumber = await sendingCurrency.provider!.getBlockNumber();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;

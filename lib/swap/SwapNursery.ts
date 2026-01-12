@@ -1953,7 +1953,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     chainCurrency: Currency,
     swap: ReverseSwap | ChainSwapInfo,
   ) => {
-    const arkClient = chainCurrency.arkNode!;
+    const arkClient = chainCurrency.arkNode;
     if (arkClient === undefined) {
       this.logger.error(`Ark node not found for ${chainCurrency.symbol}`);
       return;

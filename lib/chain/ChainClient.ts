@@ -36,6 +36,7 @@ type ChainClientEvents = {
 };
 
 interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
+  get isRegtest(): boolean;
   get symbol(): string;
   get currencyType(): CurrencyType;
 
@@ -43,6 +44,9 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
 
   getBlockchainInfo(): Promise<BlockchainInfo>;
   getNetworkInfo(): Promise<NetworkInfo>;
+
+  getBlock(hash: string): Promise<Block>;
+  getBlockhash(height: number): Promise<string>;
 
   sendRawTransaction(
     transactionHex: string,

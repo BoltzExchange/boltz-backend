@@ -1,4 +1,5 @@
 use alloy::primitives::{Address, FixedBytes, U256};
+use bitcoin::secp256k1::PublicKey;
 use clap::ValueEnum;
 use std::str::FromStr;
 
@@ -108,6 +109,11 @@ pub fn parse_hex_fixed_bytes(hex: &str) -> Result<FixedBytes<32>, String> {
 
 pub fn parse_alloy_address(address: &str) -> Result<Address, String> {
     Address::from_str(address).map_err(|e| e.to_string())
+}
+
+pub fn parse_public_key(public_key: &str) -> Result<PublicKey, String> {
+    let bytes = alloy::hex::decode(public_key).map_err(|e| format!("invalid hex: {e}"))?;
+    PublicKey::from_slice(&bytes).map_err(|e| format!("invalid public key: {e}"))
 }
 
 pub fn parse_json_object(json: &str) -> Result<serde_json::Value, String> {
@@ -256,5 +262,45 @@ mod tests {
         let result = parse_json_object(input);
         assert!(result.is_err());
         assert!(result.unwrap_err().starts_with("invalid json:"));
+    }
+
+    #[rstest]
+    #[case("02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")]
+    #[case("03c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")]
+    #[case(
+        "04c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5e51e970159c23cc65c3a7be6b99315110809cd9acd992f1edc9bce55af301705"
+    )]
+    fn test_parse_public_key_valid(#[case] input: &str) {
+        let result = parse_public_key(input);
+        let pubkey = result.unwrap();
+        assert!(!pubkey.serialize().is_empty());
+    }
+
+    #[rstest]
+    #[case("nothex")]
+    #[case("0g1122")]
+    #[case("deadbeef")]
+    #[case("02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709e")]
+    #[case("02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee500")]
+    #[case("00c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")]
+    #[case("05c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")]
+    fn test_parse_public_key_invalid(#[case] input: &str) {
+        let result = parse_public_key(input);
+        assert!(result.is_err());
+    }
+
+    #[rstest]
+    #[case("", "invalid public key")]
+    #[case("xyz", "invalid hex")]
+    fn test_parse_public_key_error_messages(#[case] input: &str, #[case] expected_prefix: &str) {
+        let result = parse_public_key(input);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.starts_with(expected_prefix),
+            "Expected error to start with '{}', got: {}",
+            expected_prefix,
+            err
+        );
     }
 }

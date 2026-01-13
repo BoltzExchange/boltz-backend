@@ -105,12 +105,21 @@ describe('DeferredClaimer', () => {
   const claimer = new DeferredClaimer(
     Logger.disabledLogger,
     sidecar,
-    new Map<string, Currency>([['BTC', btcCurrency]]),
+    new Map<string, Currency>([
+      ['BTC', btcCurrency],
+      [
+        'ARK',
+        {
+          symbol: 'ARK',
+          type: CurrencyType.Ark,
+        } as unknown as Currency,
+      ],
+    ]),
     rateProvider,
     walletManager,
     new SwapOutputType(OutputType.Bech32),
     {
-      deferredClaimSymbols: ['BTC', 'RBTC', 'TRC', 'DOGE'],
+      deferredClaimSymbols: ['BTC', 'RBTC', 'TRC', 'DOGE', 'ARK'],
       expiryTolerance: 10,
       batchClaimInterval: '*/15 * * * *',
       cltvDelta: 20,
@@ -486,6 +495,8 @@ describe('DeferredClaimer', () => {
     jest.clearAllMocks();
     claimer['swapsToClaim'].get('BTC')?.clear();
     claimer['chainSwapsToClaim'].get('BTC')?.clear();
+    claimer['swapsToClaim'].get('ARK')?.clear();
+    claimer['chainSwapsToClaim'].get('ARK')?.clear();
   });
 
   afterAll(async () => {
@@ -719,6 +730,18 @@ describe('DeferredClaimer', () => {
         false,
       );
     });
+
+    test('should not defer claim transactions of ARK swaps', async () => {
+      const swap = {
+        pair: 'ARK/BTC',
+        type: SwapType.Submarine,
+        orderSide: OrderSide.SELL,
+        version: SwapVersion.Taproot,
+      } as Partial<Swap> as Swap;
+      const preimage = randomBytes(32);
+
+      await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(false);
+    });
   });
 
   test('should get ids of pending sweeps', async () => {
@@ -764,10 +787,11 @@ describe('DeferredClaimer', () => {
       const spy = jest.spyOn(claimer, 'sweepSymbol');
       await expect(claimer.sweep()).resolves.toEqual(new Map());
 
-      expect(spy).toHaveBeenCalledTimes(4);
+      expect(spy).toHaveBeenCalledTimes(5);
       expect(spy).toHaveBeenCalledWith('BTC');
       expect(spy).toHaveBeenCalledWith('RBTC');
       expect(spy).toHaveBeenCalledWith('DOGE');
+      expect(spy).toHaveBeenCalledWith('ARK');
     });
 
     test('should keep pending swaps in map when claim fails', async () => {
@@ -971,6 +995,31 @@ describe('DeferredClaimer', () => {
 
     test('should sweep currency that is not configured', async () => {
       await expect(claimer.sweepSymbol('notConfigured')).resolves.toEqual([]);
+    });
+
+    test('should throw when trying to sweep ARK currency', async () => {
+      const arkSwap = {
+        id: 'arkSwapId',
+        pair: 'ARK/BTC',
+        type: SwapType.Submarine,
+        orderSide: OrderSide.BUY,
+        version: SwapVersion.Taproot,
+      } as Partial<Swap> as Swap;
+      const preimage = randomBytes(32);
+
+      if (!claimer['swapsToClaim'].has('ARK')) {
+        claimer['swapsToClaim'].set('ARK', new Map());
+      }
+      claimer['swapsToClaim'].get('ARK')!.set(arkSwap.id, {
+        swap: arkSwap,
+        preimage,
+      });
+
+      await expect(claimer.sweepSymbol('ARK')).rejects.toThrow(
+        'batched claims not supported on Ark',
+      );
+
+      claimer['swapsToClaim'].get('ARK')!.clear();
     });
 
     test('should emit event and re-queue swaps on batch claim failure', async () => {

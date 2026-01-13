@@ -1,11 +1,12 @@
 use crate::backup::providers::BackupProvider;
+use crate::utils::mb_to_bytes;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::error;
 
-const STREAM_BUFFER_SIZE: usize = 16 * 1024 * 1024;
+const STREAM_BUFFER_SIZE: usize = mb_to_bytes(16);
 
 const NO_PROVIDERS_ERROR: &str = "no backup providers configured";
 const ALL_PROVIDERS_FAILED_ERROR: &str = "all backup providers failed";
@@ -341,7 +342,7 @@ mod tests {
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
         let multi_provider = MultiProvider::new(providers).await.unwrap();
 
-        const TOTAL_SIZE: usize = 32 * 1024 * 1024;
+        const TOTAL_SIZE: usize = mb_to_bytes(32);
         const PATTERN_SIZE: usize = 4096;
 
         let mut pattern = Vec::with_capacity(PATTERN_SIZE);

@@ -14,6 +14,7 @@ class ElementsWrapper
   extends BaseClient<ChainClientEvents>
   implements IElementsClient
 {
+  public readonly isRegtest: boolean;
   public readonly currencyType = CurrencyType.Liquid;
 
   private readonly clients: ElementsClient[] = [];
@@ -36,6 +37,8 @@ class ElementsWrapper
         new ElementsClient(this.logger, sidecar, network, config.lowball, true),
       );
     }
+
+    this.isRegtest = this.clients.every((c) => c.isRegtest);
   }
 
   public serviceName = () => 'ElementsWrapper';
@@ -53,6 +56,12 @@ class ElementsWrapper
 
   public getNetworkInfo = () =>
     this.annotateLowballInfo((c) => c.getNetworkInfo());
+
+  public getBlock = (hash: string) =>
+    this.annotateLowballInfo((c) => c.getBlock(hash));
+
+  public getBlockhash = (height: number) =>
+    this.publicClient().getBlockhash(height);
 
   public sendRawTransaction = (
     transactionHex: string,

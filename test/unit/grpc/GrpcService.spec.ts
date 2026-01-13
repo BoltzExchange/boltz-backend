@@ -1051,7 +1051,7 @@ describe('GrpcService', () => {
   });
 
   describe('invoicePaymentClnThreshold', () => {
-    test('should get invoice payment cln', async () => {
+    test('should set invoice payment cln thresholds', async () => {
       const mock = jest.fn();
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -1144,7 +1144,7 @@ describe('GrpcService', () => {
     const cb = jest.fn();
     const handler = jest.fn().mockResolvedValue(1);
 
-    await grpcService['handleCallback'](call, cb, handler);
+    await GrpcService['handleCallback'](call, cb, handler);
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(call);
@@ -1162,7 +1162,7 @@ describe('GrpcService', () => {
       throw rejection;
     });
 
-    await grpcService['handleCallback'](call, cb, handler);
+    await GrpcService['handleCallback'](call, cb, handler);
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(call);
@@ -1172,7 +1172,7 @@ describe('GrpcService', () => {
 
     rejection = 'some string';
 
-    await grpcService['handleCallback'](call, cb, handler);
+    await GrpcService['handleCallback'](call, cb, handler);
 
     expect(handler).toHaveBeenCalledTimes(2);
     expect(handler).toHaveBeenCalledWith(call);

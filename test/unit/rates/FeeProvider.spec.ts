@@ -383,8 +383,9 @@ describe('FeeProvider', () => {
     await feeProvider.updateMinerFees('LTC');
     await feeProvider.updateMinerFees('ETH');
     await feeProvider.updateMinerFees('USDT');
+    await feeProvider.updateMinerFees('ARK');
 
-    expect(feeProvider.minerFees.size).toEqual(4);
+    expect(feeProvider.minerFees.size).toEqual(5);
   });
 
   test('should calculate miner fees', () => {
@@ -452,6 +453,23 @@ describe('FeeProvider', () => {
         reverse: {
           claim: 53948,
           lockup: 191356,
+        },
+      },
+    });
+
+    expect(feeProvider.minerFees.get('ARK')).toEqual({
+      [SwapVersion.Taproot]: {
+        normal: 0,
+        reverse: {
+          claim: 0,
+          lockup: 0,
+        },
+      },
+      [SwapVersion.Legacy]: {
+        normal: 0,
+        reverse: {
+          claim: 0,
+          lockup: 0,
         },
       },
     });

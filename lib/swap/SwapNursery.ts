@@ -30,6 +30,7 @@ import {
   getRate,
   splitPairId,
 } from '../Utils';
+import type ArkClient from '../chain/ArkClient';
 import type { IChainClient } from '../chain/ChainClient';
 import { LegacyReverseSwapOutputType, etherDecimals } from '../consts/Consts';
 import {
@@ -82,6 +83,7 @@ import {
 } from '../wallet/ethereum/contracts/ContractUtils';
 import type Contracts from '../wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
+import ArkNursery from './ArkNursery';
 import ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import EthereumNursery from './EthereumNursery';
@@ -106,6 +108,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   public static reverseSwapMempoolEta = 2;
 
   // Nurseries
+  public readonly arkNursery: ArkNursery;
   public readonly utxoNursery: UtxoNursery;
   public readonly channelNursery: ChannelNursery;
   public readonly ethereumNurseries: EthereumNursery[];
@@ -158,6 +161,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.logger,
       overPaymentConfig,
     );
+    this.arkNursery = new ArkNursery(this.logger, overpaymentProtector);
     this.utxoNursery = new UtxoNursery(
       this.logger,
       this.sidecar,
@@ -331,6 +335,62 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
+    this.arkNursery.on('swap.lockup', async ({ swap, lockupTransactionId }) => {
+      await this.lock.acquire(SwapNursery.swapLock, async () => {
+        this.emit('transaction', {
+          swap,
+          confirmed: true,
+          transaction: lockupTransactionId,
+        });
+
+        if (swap.invoice) {
+          const payRes = await this.payInvoice(swap);
+          if (payRes === undefined) {
+            return;
+          }
+
+          const { base, quote } = splitPairId(swap.pair);
+          const chainSymbol = getChainCurrency(
+            base,
+            quote,
+            swap.orderSide,
+            false,
+          );
+
+          const { arkNode } = this.currencies.get(chainSymbol)!;
+          await this.claimVtxo(
+            swap,
+            arkNode!,
+            payRes.preimage,
+            payRes.channelCreation,
+          );
+        } else {
+          await this.setSwapRate(swap);
+        }
+      });
+    });
+
+    this.arkNursery.on('swap.lockup.failed', async ({ swap, reason }) => {
+      await this.lock.acquire(SwapNursery.swapLock, async () => {
+        await this.lockupFailed(swap, reason);
+      });
+    });
+
+    this.arkNursery.on('reverseSwap.expired', async (reverseSwap) => {
+      await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+        await this.expireReverseSwap(reverseSwap);
+      });
+    });
+
+    this.arkNursery.on(
+      'reverseSwap.claimed',
+      async ({ reverseSwap, preimage }) => {
+        await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
+          await this.settleReverseSwapInvoice(reverseSwap, preimage);
+        });
+      },
+    );
+
     // Reverse Swap events
     this.utxoNursery.on('reverseSwap.expired', async (reverseSwap) => {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
@@ -447,6 +507,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
           case CurrencyType.ERC20:
             await this.lockupERC20(reverseSwap, wallet, lightningClient);
+            break;
+
+          case CurrencyType.Ark:
+            await this.lockupVtxo(reverseSwap, wallet, lightningClient);
             break;
         }
       });
@@ -583,42 +647,57 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
+    const handleChainSwapLockup = async (
+      swap: ChainSwapInfo,
+      transaction: Transaction | LiquidTransaction | string,
+      confirmed: boolean,
+    ) => {
+      await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+        const fetchedSwap = await ChainSwapRepository.getChainSwap({
+          id: swap.id,
+        });
+        if (fetchedSwap === null) {
+          return;
+        }
+
+        if (fetchedSwap.createdRefundSignature) {
+          this.logger.warn(
+            `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a lockup transaction because it already signed a refund`,
+          );
+          return;
+        }
+
+        if (
+          fetchedSwap.sendingData.transactionId !== null &&
+          fetchedSwap.sendingData.transactionId !== undefined
+        ) {
+          this.logger.warn(
+            `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a second lockup transaction`,
+          );
+          return;
+        }
+
+        this.emit('transaction', {
+          confirmed,
+          transaction,
+          swap: fetchedSwap,
+        });
+
+        await this.handleChainSwapLockup(fetchedSwap);
+      });
+    };
+
     this.utxoNursery.on(
       'chainSwap.lockup',
       async ({ swap, transaction, confirmed }) => {
-        await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
-          const fetchedSwap = await ChainSwapRepository.getChainSwap({
-            id: swap.id,
-          });
-          if (fetchedSwap === null) {
-            return;
-          }
+        await handleChainSwapLockup(swap, transaction, confirmed);
+      },
+    );
 
-          if (fetchedSwap.createdRefundSignature) {
-            this.logger.warn(
-              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a lockup transaction because it already signed a refund`,
-            );
-            return;
-          }
-
-          if (
-            fetchedSwap.sendingData.transactionId !== null &&
-            fetchedSwap.sendingData.transactionId !== undefined
-          ) {
-            this.logger.warn(
-              `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a second lockup transaction`,
-            );
-            return;
-          }
-
-          this.emit('transaction', {
-            confirmed,
-            transaction,
-            swap: fetchedSwap,
-          });
-
-          await this.handleChainSwapLockup(fetchedSwap);
-        });
+    this.arkNursery.on(
+      'chainSwap.lockup',
+      async ({ swap, lockupTransactionId }) => {
+        await handleChainSwapLockup(swap, lockupTransactionId, true);
       },
     );
 
@@ -628,7 +707,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.utxoNursery.on('chainSwap.claimed', async ({ swap, preimage }) => {
+    this.arkNursery.on('chainSwap.lockup.failed', async ({ swap, reason }) => {
+      await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+        await this.lockupFailed(swap, reason);
+      });
+    });
+
+    const handleChainSwapClaim = async (
+      swap: ChainSwapInfo,
+      preimage: Buffer,
+    ) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
         await this.attemptSettleSwap(
           this.currencies.get(swap.receivingData.symbol)!,
@@ -638,9 +726,23 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
         await this.chainSwapSigner.removeFromClaimable(swap.id);
       });
+    };
+
+    this.utxoNursery.on('chainSwap.claimed', async ({ swap, preimage }) => {
+      await handleChainSwapClaim(swap, preimage);
+    });
+
+    this.arkNursery.on('chainSwap.claimed', async ({ swap, preimage }) => {
+      await handleChainSwapClaim(swap, preimage);
     });
 
     this.utxoNursery.on('chainSwap.expired', async (chainSwap) => {
+      await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
+        await this.expireChainSwap(chainSwap);
+      });
+    });
+
+    this.arkNursery.on('chainSwap.expired', async (chainSwap) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
         await this.expireChainSwap(chainSwap);
       });
@@ -676,6 +778,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
+    this.arkNursery.init(currencies);
     this.utxoNursery.bindCurrency(currencies);
     this.lightningNursery.bindCurrencies(currencies);
 
@@ -814,6 +917,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
         break;
       }
+
+      case CurrencyType.Ark: {
+        await this.claimVtxo(
+          swap,
+          currency.arkNode!,
+          payRes.preimage,
+          payRes.channelCreation,
+        );
+        break;
+      }
     }
   };
 
@@ -902,6 +1015,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         await this.refundUtxo(chainCurrency, swap, fee);
         break;
 
+      case CurrencyType.Ark:
+        await this.refundVtxo(chainCurrency, swap);
+        break;
+
       case CurrencyType.Ether:
         await this.refundEther(swap, chainCurrency.symbol);
         break;
@@ -929,6 +1046,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
       case CurrencyType.ERC20:
         await this.lockupERC20(swap, wallet);
+        break;
+
+      case CurrencyType.Ark:
+        await this.lockupVtxo(swap, wallet);
         break;
     }
   };
@@ -1199,6 +1320,54 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  public lockupVtxo = async (
+    swap: ReverseSwap | ChainSwapInfo,
+    wallet: Wallet,
+    lightningClient?: LightningClient,
+  ) => {
+    try {
+      const lockupAddress =
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).lockupAddress
+          : (swap as ChainSwapInfo).sendingData.lockupAddress;
+      const onchainAmount =
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).onchainAmount
+          : (swap as ChainSwapInfo).sendingData.expectedAmount;
+
+      const { transactionId, vout, fee } = await wallet.sendToAddress(
+        lockupAddress,
+        onchainAmount!,
+        undefined,
+        TransactionLabelRepository.lockupLabel(swap),
+      );
+
+      this.logger.verbose(
+        `Locked up ${onchainAmount!} ${
+          wallet.symbol
+        } in vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionId}:${vout}`,
+      );
+
+      this.emit('coins.sent', {
+        transaction: transactionId!,
+        swap: await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          transactionId!,
+          onchainAmount!,
+          fee || 0,
+          vout,
+        ),
+      });
+    } catch (error) {
+      await this.handleSwapSendFailed(
+        swap,
+        wallet.symbol,
+        error,
+        lightningClient,
+      );
+    }
+  };
+
   private lockupEther = async (
     swap: ReverseSwap | ChainSwapInfo,
     wallet: Wallet,
@@ -1412,6 +1581,35 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               swap as ChainSwapInfo,
               preimage,
               claimTransactionFee,
+            ),
+    });
+  };
+
+  private claimVtxo = async (
+    swap: Swap | ChainSwapInfo,
+    arkClient: ArkClient,
+    preimage: Buffer,
+    channelCreation: ChannelCreation | null,
+  ) => {
+    const claimTransaction = await arkClient.claimVHtlc(
+      preimage,
+      getHexBuffer(swap.theirRefundPublicKey!),
+      arkClient.pubkey,
+      TransactionLabelRepository.claimLabel(swap),
+    );
+    this.logger.info(
+      `Claimed ${arkClient.symbol} vHTLC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction}`,
+    );
+
+    this.emit('claim', {
+      channelCreation: channelCreation || undefined,
+      swap:
+        swap.type === SwapType.Submarine
+          ? await SwapRepository.setMinerFee(swap as Swap, 0)
+          : await ChainSwapRepository.setClaimMinerFee(
+              swap as ChainSwapInfo,
+              preimage,
+              0,
             ),
     });
   };
@@ -1747,6 +1945,43 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         swap,
         minerFee,
         Errors.REFUNDED_COINS(sendingData.transactionId!).message,
+      ),
+    });
+  };
+
+  private refundVtxo = async (
+    chainCurrency: Currency,
+    swap: ReverseSwap | ChainSwapInfo,
+  ) => {
+    const arkClient = chainCurrency.arkNode;
+    if (arkClient === undefined) {
+      this.logger.error(`Ark node not found for ${chainCurrency.symbol}`);
+      return;
+    }
+
+    const txId = await arkClient.refundVHtlc(
+      getHexBuffer(swap.preimageHash),
+      arkClient.pubkey,
+      getHexBuffer(
+        swap.type === SwapType.ReverseSubmarine
+          ? (swap as ReverseSwap).claimPublicKey!
+          : (swap as ChainSwapInfo).sendingData.theirPublicKey!,
+      ),
+      TransactionLabelRepository.refundLabel(swap),
+    );
+
+    this.logger.info(
+      `Refunded ${chainCurrency.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${
+        swap.id
+      } in: ${txId}`,
+    );
+
+    this.emit('refund', {
+      refundTransaction: txId,
+      swap: await WrappedSwapRepository.setTransactionRefunded(
+        swap,
+        0,
+        Errors.REFUNDED_COINS(txId).message,
       ),
     });
   };

@@ -13,5 +13,7 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['<rootDir>/node_modules/(?!(@scure|micro-packed))'],
+  transformIgnorePatterns: [
+    '<rootDir>/node_modules/(?!(@noble|@scure|micro-packed))',
+  ],
 };

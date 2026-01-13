@@ -43,6 +43,28 @@ class SwapRouter extends RouterBase {
      * @openapi
      * components:
      *   schemas:
+     *     ArkTimeouts:
+     *       type: object
+     *       required: ["refund", "unilateralClaim", "unilateralRefund", "unilateralRefundWithoutReceiver"]
+     *       properties:
+     *         refund:
+     *           type: number
+     *           description: Timeout block height for the refund path
+     *         unilateralClaim:
+     *           type: number
+     *           description: Timeout block height for the unilateral claim path
+     *         unilateralRefund:
+     *           type: number
+     *           description: Timeout block height for the unilateral refund path
+     *         unilateralRefundWithoutReceiver:
+     *           type: number
+     *           description: Timeout block height for the unilateral refund without receiver path
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
      *     SwapTreeLeaf:
      *       type: object
      *       required: ["version", "output"]
@@ -66,6 +88,16 @@ class SwapRouter extends RouterBase {
      *         claimLeaf:
      *           $ref: '#/components/schemas/SwapTreeLeaf'
      *         refundLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         covenantClaimLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         refundWithoutBoltzLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         unilateralClaimLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         unilateralRefundLeaf:
+     *           $ref: '#/components/schemas/SwapTreeLeaf'
+     *         unilateralRefundWithoutBoltzLeaf:
      *           $ref: '#/components/schemas/SwapTreeLeaf'
      */
 
@@ -230,7 +262,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     SubmarineResponse:
      *       type: object
-     *       required: ["id", "timeoutBlockHeight", "expectedAmount"]
+     *       required: ["id", "expectedAmount"]
      *       properties:
      *         id:
      *           type: string
@@ -249,6 +281,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         acceptZeroConf:
      *           type: boolean
      *           description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
@@ -554,6 +588,38 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * components:
+     *   schemas:
+     *     ArkRefundRequest:
+     *       type: object
+     *       required: ["transaction", "checkpoint"]
+     *       properties:
+     *         transaction:
+     *           type: string
+     *           description: Partially signed Bitcoin transaction (PSBT) encoded as base64
+     *         checkpoint:
+     *           type: string
+     *           description: Ark checkpoint PSBT encoded as base64
+     */
+
+    /**
+     * @openapi
+     * components:
+     *   schemas:
+     *     ArkRefundResponse:
+     *       type: object
+     *       required: ["transaction", "checkpoint"]
+     *       properties:
+     *         transaction:
+     *           type: string
+     *           description: Signed transaction PSBT encoded as base64
+     *         checkpoint:
+     *           type: string
+     *           description: Signed Ark checkpoint PSBT encoded as base64
+     */
+
+    /**
+     * @openapi
      * /swap/submarine/{id}/refund:
      *   post:
      *     description: Requests a partial signature for a cooperative Submarine Swap refund transaction
@@ -594,6 +660,50 @@ class SwapRouter extends RouterBase {
     router.post(
       '/submarine/refund',
       this.handleError(this.signUtxoRefund(this.service.musigSigner)),
+    );
+
+    /**
+     * @openapi
+     * /swap/submarine/{id}/refund/ark:
+     *   post:
+     *     description: Signs cooperative refund transactions for Ark Submarine Swaps
+     *     tags: [Submarine Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Submarine Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ArkRefundRequest'
+     *     responses:
+     *       '200':
+     *         description: The signed refund transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ArkRefundResponse'
+     *       '400':
+     *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Submarine Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/submarine/:id/refund/ark',
+      this.handleError(this.refundArk(this.service.musigSigner)),
     );
 
     /**
@@ -835,7 +945,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ReverseResponse:
      *       type: object
-     *       required: ["id", "invoice", "timeoutBlockHeight"]
+     *       required: ["id", "invoice"]
      *       properties:
      *         id:
      *           type: string
@@ -857,6 +967,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         onchainAmount:
      *           type: number
      *           description: Amount that will be locked in the onchain HTLC
@@ -1220,7 +1332,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     ChainSwapData:
      *       type: object
-     *       required: ["swapTree", "timeoutBlockHeight", "amount"]
+     *       required: ["amount"]
      *       properties:
      *         swapTree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -1233,6 +1345,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Timeout block height of the onchain HTLC
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         amount:
      *           type: number
      *           description: Amount that is supposed to be locked in the onchain HTLC
@@ -1245,6 +1359,9 @@ class SwapRouter extends RouterBase {
      *         bip21:
      *           type: string
      *           description: BIP-21 for the UTXO onchain lockup of the user
+     *         claimAddress:
+     *           type: string
+     *           description: EVM address with which the Chain Swap can be claimed
      */
 
     /**
@@ -1576,6 +1693,52 @@ class SwapRouter extends RouterBase {
 
     /**
      * @openapi
+     * /swap/chain/{id}/refund/ark:
+     *   post:
+     *     description: Signs cooperative refund transactions for Ark Chain Swaps
+     *     tags: [Chain Swap]
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *         description: ID of the Chain Swap
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/ArkRefundRequest'
+     *     responses:
+     *       '200':
+     *         description: The signed refund transaction
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ArkRefundResponse'
+     *       '400':
+     *         description: Error that caused signature request to fail (e.g., invalid PSBT, swap not eligible)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: When no Chain Swap with the ID could be found
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post(
+      '/chain/:id/refund/ark',
+      this.handleError(
+        this.refundArk(this.service.swapManager.chainSwapSigner),
+      ),
+    );
+
+    /**
+     * @openapi
      * components:
      *   schemas:
      *     Quote:
@@ -1875,7 +2038,7 @@ class SwapRouter extends RouterBase {
      *   schemas:
      *     RestoreClaimDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight", "preimageHash"]
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "preimageHash"]
      *       properties:
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -1896,6 +2059,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
@@ -1905,7 +2070,7 @@ class SwapRouter extends RouterBase {
      *
      *     RestoreRefundDetails:
      *       type: object
-     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey", "timeoutBlockHeight"]
+     *       required: ["tree", "keyIndex", "lockupAddress", "serverPublicKey"]
      *       properties:
      *         tree:
      *           $ref: '#/components/schemas/SwapTree'
@@ -1926,6 +2091,8 @@ class SwapRouter extends RouterBase {
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the HTLC will time out
+     *         timeoutBlockHeights:
+     *           $ref: '#/components/schemas/ArkTimeouts'
      *         blindingKey:
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
@@ -2906,6 +3073,33 @@ class SwapRouter extends RouterBase {
       successResponse(res, {
         pubNonce: getHexString(sig.pubNonce),
         partialSignature: getHexString(sig.signature),
+      });
+    };
+
+  private refundArk =
+    (signer: MusigSigner | ChainSwapSigner) =>
+    async (req: Request, res: Response) => {
+      const params = req.params
+        ? validateRequest(req.params, [
+            { name: 'id', type: 'string', optional: true },
+          ])
+        : {};
+
+      const { id, transaction, checkpoint } = validateRequest(req.body, [
+        { name: 'id', type: 'string', optional: params.id !== undefined },
+        { name: 'transaction', type: 'string' },
+        { name: 'checkpoint', type: 'string' },
+      ]);
+
+      const signed = await signer.signRefundArk(
+        params.id || id,
+        transaction,
+        checkpoint,
+      );
+
+      successResponse(res, {
+        transaction: signed.transaction,
+        checkpoint: signed.checkpoint,
       });
     };
 

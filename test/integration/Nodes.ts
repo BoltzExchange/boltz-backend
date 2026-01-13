@@ -1,5 +1,6 @@
 import { resolve } from 'path';
 import Logger from '../../lib/Logger';
+import ArkClient from '../../lib/chain/ArkClient';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
 import Redis from '../../lib/db/Redis';
@@ -11,6 +12,7 @@ import { sidecar } from './sidecar/Utils';
 
 const mockSidecar = {
   on: jest.fn(),
+  removeListener: jest.fn(),
 } as unknown as Sidecar;
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';
@@ -96,6 +98,16 @@ export const clnClient = new ClnClient(
   },
   sidecar,
   new RoutingFee(Logger.disabledLogger),
+);
+
+export const arkClient = new ArkClient(
+  Logger.disabledLogger,
+  {
+    host: '127.0.0.1',
+    port: 7000,
+    useLocktimeSeconds: true,
+  },
+  mockSidecar,
 );
 
 export const waitForClnChainSync = () =>

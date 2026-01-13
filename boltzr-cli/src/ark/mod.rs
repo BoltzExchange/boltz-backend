@@ -49,9 +49,8 @@ impl ArkClient {
 
 #[cfg(test)]
 mod tests {
-    use alloy::primitives::FixedBytes;
-
     use super::*;
+    use alloy::primitives::FixedBytes;
 
     #[test]
     fn test_hash_preimage() {

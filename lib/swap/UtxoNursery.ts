@@ -1,6 +1,7 @@
 import AsyncLock from 'async-lock';
 import type { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
+import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
@@ -24,6 +25,7 @@ import type { IChainClient } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
 import ElementsWrapper from '../chain/ElementsWrapper';
 import {
+  SwapType,
   SwapUpdateEvent,
   SwapVersion,
   swapTypeToPrettyString,
@@ -38,7 +40,7 @@ import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import type Sidecar from '../sidecar/Sidecar';
-import { TransactionStatus } from '../sidecar/Sidecar';
+import { TransactionEvent, TransactionStatus } from '../sidecar/Sidecar';
 import type Wallet from '../wallet/Wallet';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
@@ -193,60 +195,14 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
-    {
-      const action = await this.transactionHook.hook(
-        swap.id,
-        wallet.symbol,
-        transaction.getId(),
-        transaction.toBuffer(),
-        status === TransactionStatus.Confirmed,
-        swap.type,
-        swapOutput.vout,
-      );
-
-      switch (action) {
-        case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            swap,
-            transaction,
-            swapOutput,
-          );
-          return;
-
-        case Action.Reject:
-          this.emit('chainSwap.lockup.failed', {
-            swap,
-            reason: Errors.BLOCKED_ADDRESS().message,
-          });
-          return;
-      }
-    }
-
-    if (status !== TransactionStatus.Confirmed) {
-      const zeroConfRejectedReason = await this.acceptsZeroConf(
-        swap,
-        chainClient,
-        transaction,
-        status,
-      );
-      if (zeroConfRejectedReason !== undefined) {
-        this.emit('chainSwap.lockup.zeroconf.rejected', {
-          swap,
-          transaction,
-          reason: zeroConfRejectedReason,
-        });
-        return;
-      }
-
-      this.logZeroConfAccepted(swap, transaction, swapOutput);
-    }
-
-    this.emit('chainSwap.lockup', {
+    this.checkLockupTransaction(
       swap,
+      chainClient,
+      wallet,
       transaction,
-      confirmed: status === TransactionStatus.Confirmed,
-    });
+      status,
+      swapOutput.vout,
+    );
   };
 
   private listenTransactions = (chainClient: IChainClient, wallet: Wallet) => {
@@ -260,8 +216,41 @@ class UtxoNursery extends TypedEventEmitter<{
       await Promise.all([
         this.checkSwapClaims(chainClient, event.transaction),
         this.checkOutputs(chainClient, wallet, event.transaction, event.status),
+        this.checkFundingAddresses(chainClient, wallet, event),
       ]);
     });
+  };
+
+  private checkFundingAddresses = async (
+    chainClient: IChainClient,
+    wallet: Wallet,
+    event: TransactionEvent,
+  ) => {
+    const fundingAddresses =
+      await FundingAddressRepository.getFundingAddressesByIds(
+        event.fundingAddressIds,
+      );
+    for (const fundingAddress of fundingAddresses) {
+      const [submarineSwap, chainSwap] = await Promise.all([
+        SwapRepository.getSwap({ id: fundingAddress.swapId! }),
+        ChainSwapRepository.getChainSwap({ id: fundingAddress.swapId! }),
+      ]);
+
+      const swap = submarineSwap || chainSwap;
+
+      if (!swap) {
+        continue;
+      }
+
+      await this.checkLockupTransaction(
+        swap,
+        chainClient,
+        wallet,
+        event.transaction,
+        event.status,
+        fundingAddress.lockupTransactionVout!,
+      );
+    }
   };
 
   private checkOutputs = async (
@@ -664,26 +653,42 @@ class UtxoNursery extends TypedEventEmitter<{
 
         return;
       }
-
-      if (
-        this.overpaymentProtector.isUnacceptableOverpay(
-          swap.type,
-          updatedSwap.expectedAmount,
-          outputValue,
-        )
-      ) {
-        this.emit('swap.lockup.failed', {
-          swap: updatedSwap,
-          reason: Errors.OVERPAID_AMOUNT(
-            outputValue,
-            updatedSwap.expectedAmount,
-          ).message,
-        });
-
-        return;
-      }
     }
 
+    if (
+      this.overpaymentProtector.isUnacceptableOverpay(
+        swap.type,
+        updatedSwap.expectedAmount!,
+        outputValue,
+      )
+    ) {
+      this.emit('swap.lockup.failed', {
+        swap: updatedSwap,
+        reason: Errors.OVERPAID_AMOUNT(outputValue, updatedSwap.expectedAmount!)
+          .message,
+      });
+
+      return;
+    }
+
+    await this.checkLockupTransaction(
+      swap,
+      chainClient,
+      wallet,
+      transaction,
+      status,
+      swapOutput.vout,
+    );
+  };
+
+  private checkLockupTransaction = async (
+    swap: Swap | ChainSwapInfo,
+    chainClient: IChainClient,
+    wallet: Wallet,
+    transaction: Transaction | LiquidTransaction,
+    status: TransactionStatus,
+    vout: number,
+  ) => {
     {
       const action = await this.transactionHook.hook(
         swap.id,
@@ -692,24 +697,30 @@ class UtxoNursery extends TypedEventEmitter<{
         transaction.toBuffer(),
         status === TransactionStatus.Confirmed,
         swap.type,
-        swapOutput.vout,
+        vout,
       );
 
       switch (action) {
         case Action.Hold:
-          this.logHoldingTransaction(
-            wallet.symbol,
-            updatedSwap,
-            transaction,
-            swapOutput,
-          );
+          this.logHoldingTransaction(wallet.symbol, swap, transaction, vout);
           return;
 
         case Action.Reject:
-          this.emit('swap.lockup.failed', {
-            swap: updatedSwap,
-            reason: Errors.BLOCKED_ADDRESS().message,
-          });
+          const reason = Errors.BLOCKED_ADDRESS().message;
+          switch (swap.type) {
+            case SwapType.Submarine:
+              this.emit('swap.lockup.failed', {
+                swap: swap as Swap,
+                reason,
+              });
+              break;
+            case SwapType.Chain:
+              this.emit('chainSwap.lockup.failed', {
+                swap: swap as ChainSwapInfo,
+                reason,
+              });
+              break;
+          }
           return;
       }
     }
@@ -717,28 +728,49 @@ class UtxoNursery extends TypedEventEmitter<{
     // Confirmed transactions do not have to be checked for 0-conf criteria
     if (status !== TransactionStatus.Confirmed) {
       const zeroConfRejectedReason = await this.acceptsZeroConf(
-        updatedSwap,
+        swap,
         chainClient,
         transaction,
         status,
       );
       if (zeroConfRejectedReason !== undefined) {
-        this.emit('swap.lockup.zeroconf.rejected', {
-          transaction,
-          swap: updatedSwap,
-          reason: zeroConfRejectedReason,
-        });
+        switch (swap.type) {
+          case SwapType.Submarine:
+            this.emit('swap.lockup.zeroconf.rejected', {
+              swap: swap as Swap,
+              transaction,
+              reason: zeroConfRejectedReason,
+            });
+            break;
+          case SwapType.Chain:
+            this.emit('chainSwap.lockup.zeroconf.rejected', {
+              swap: swap as ChainSwapInfo,
+              transaction,
+              reason: zeroConfRejectedReason,
+            });
+            break;
+        }
         return;
       }
 
-      this.logZeroConfAccepted(swap, transaction, swapOutput);
+      this.logZeroConfAccepted(swap, transaction, vout);
     }
-
-    this.emit('swap.lockup', {
-      transaction,
-      confirmed: status === TransactionStatus.Confirmed,
-      swap: updatedSwap,
-    });
+    switch (swap.type) {
+      case SwapType.Submarine:
+        this.emit('swap.lockup', {
+          swap: swap as Swap,
+          transaction,
+          confirmed: status === TransactionStatus.Confirmed,
+        });
+        break;
+      case SwapType.Chain:
+        this.emit('chainSwap.lockup', {
+          swap: swap as ChainSwapInfo,
+          transaction,
+          confirmed: status === TransactionStatus.Confirmed,
+        });
+        break;
+    }
   };
 
   /**
@@ -860,23 +892,23 @@ class UtxoNursery extends TypedEventEmitter<{
     symbol: string,
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
-    swapOutput: ReturnType<typeof detectSwap>,
+    vout: number,
   ) =>
     this.logger.warn(
       `Holding ${symbol} lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      }: ${transaction.getId()}:${swapOutput.vout}`,
+      }: ${transaction.getId()}:${vout}`,
     );
 
   private logZeroConfAccepted = (
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | LiquidTransaction,
-    swapOutput: ReturnType<typeof detectSwap>,
+    vout: number,
   ) =>
     this.logger.debug(
       `Accepted 0-conf lockup transaction for ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      }: ${transaction.getId()}:${swapOutput.vout}`,
+      }: ${transaction.getId()}:${vout}`,
     );
 }
 

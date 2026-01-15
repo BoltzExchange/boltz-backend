@@ -2,8 +2,10 @@ use crate::cache::{Cache, MemCache};
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
+use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::keys::KeysHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
+use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
@@ -209,6 +211,9 @@ async fn main() {
         Arc::new(ChainSwapHelperDatabase::new(db_pool.clone())),
         Arc::new(ReverseSwapHelperDatabase::new(db_pool.clone())),
         currencies.clone(),
+        Arc::new(FundingAddressHelperDatabase::new(db_pool.clone())),
+        Arc::new(ScriptPubKeyHelperDatabase::new(db_pool.clone())),
+        Arc::new(KeysHelperDatabase::new(db_pool.clone())),
         config.marking,
         config.historical,
         cache.clone(),
@@ -299,7 +304,9 @@ async fn main() {
         service.clone(),
         swap_manager.clone(),
         swap_status_update_tx.clone(),
-        Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
+        Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(
+            db_pool.clone(),
+        )),
         web_hook_status_caller,
         match rsk_manager {
             Some(manager) => Some(manager),

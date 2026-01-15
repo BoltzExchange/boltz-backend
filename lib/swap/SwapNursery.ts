@@ -55,6 +55,7 @@ import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -831,6 +832,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     preimage?: Buffer,
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
+
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress !== null) {
+      // TODO: validate presigned tx
+    }
 
     if (swap.type === SwapType.Submarine) {
       payRes = await this.payInvoice(swap as Swap, outgoingChannelId);

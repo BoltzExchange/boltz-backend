@@ -1,7 +1,7 @@
 use crate::api::ws::Config;
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
 use crate::api::ws::status_subscriptions::StatusSubscriptions;
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{FundingAddressUpdate, SwapStatus};
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
@@ -64,6 +64,8 @@ enum SubscriptionChannel {
     SwapUpdate,
     #[serde(rename = "invoice.request")]
     InvoiceRequest,
+    #[serde(rename = "funding.update")]
+    FundingAddressUpdate,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -73,6 +75,8 @@ enum SubscribeRequest {
     SwapUpdate { args: Vec<String> },
     #[serde(rename = "invoice.request")]
     InvoiceRequest { args: Vec<InvoiceRequestParams> },
+    #[serde(rename = "funding.update")]
+    FundingAddressUpdate { args: Vec<String> },
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -148,6 +152,8 @@ enum WsResponse {
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
     Update(UpdateResponse<SwapStatus>),
+    #[serde(rename = "funding.update")]
+    FundingUpdate(UpdateResponse<FundingAddressUpdate>),
     #[serde(rename = "request")]
     InvoiceRequest(UpdateResponse<InvoiceRequest>),
     #[serde(rename = "error")]
@@ -479,6 +485,7 @@ where
                         args: args.into_iter().map(|arg| arg.offer).collect(),
                     })))
                 }
+                SubscribeRequest::FundingAddressUpdate { args: _ } => todo!(),
             },
             WsRequest::Invoice(invoice) => {
                 match invoice.id.parse::<u64>() {
@@ -523,6 +530,9 @@ where
                                 })));
                             }
                         }
+                    }
+                    SubscriptionChannel::FundingAddressUpdate => {
+                        todo!()
                     }
                 };
 

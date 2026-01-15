@@ -104,31 +104,25 @@ type TokenConfig = {
   maxWalletBalance?: number;
 };
 
-type EthProviderServiceConfig = {
-  network?: string;
-  apiKey?: string;
-
-  endpoint?: string;
-};
-
 type ContractsConfig = {
   etherSwap: string;
   erc20Swap: string;
 };
 
-type RskConfig = {
-  networkName?: string;
-  providerEndpoint: string;
+type ProviderConfig = {
+  name?: string;
+  endpoint: string;
+};
 
-  alchemy: EthProviderServiceConfig;
+type EthereumConfig = {
+  networkName?: string;
+
+  providerEndpoint?: string;
+  providers?: ProviderConfig[];
 
   contracts: ContractsConfig[];
 
   tokens: TokenConfig[];
-};
-
-type EthereumConfig = RskConfig & {
-  infura: EthProviderServiceConfig;
 };
 
 type ApiConfig = {
@@ -232,8 +226,9 @@ type ConfigType = {
   liquid?: BaseCurrencyConfig<LiquidChainConfig>;
   ark?: ArkConfig;
 
-  rsk?: RskConfig;
-  ethereum: EthereumConfig;
+  rsk?: EthereumConfig;
+  arbitrum?: EthereumConfig;
+  ethereum?: EthereumConfig;
 
   sidecar: SidecarConfig;
 
@@ -413,16 +408,6 @@ class Config {
       ethereum: {
         providerEndpoint: '',
 
-        infura: {
-          apiKey: '',
-          network: 'rinkeby',
-        },
-
-        alchemy: {
-          apiKey: '',
-          network: 'rinkeby',
-        },
-
         contracts: [],
 
         tokens: [],
@@ -544,7 +529,6 @@ class Config {
 export default Config;
 export {
   ApiConfig,
-  RskConfig,
   ConfigType,
   GrpcConfig,
   SwapConfig,
@@ -559,7 +543,7 @@ export {
   LiquidChainConfig,
   BaseCurrencyConfig,
   NotificationConfig,
-  EthProviderServiceConfig,
   MinSwapSizeMultipliersConfig,
   EmailConfig,
+  ProviderConfig,
 };

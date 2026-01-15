@@ -8,6 +8,12 @@ mod refund_signer;
 pub mod utils;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct ProviderConfig {
+    pub(crate) name: String,
+    pub(crate) endpoint: String,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ContractAddresses {
     #[serde(rename = "etherSwap")]
     pub ether_swap: String,
@@ -19,7 +25,9 @@ pub struct ContractAddresses {
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
     #[serde(rename = "providerEndpoint")]
-    pub(crate) provider_endpoint: String,
+    pub(crate) provider_endpoint: Option<String>,
+    #[serde(rename = "providers")]
+    pub(crate) providers: Option<Vec<ProviderConfig>>,
 
     #[serde(rename = "contracts")]
     pub(crate) contracts: Vec<ContractAddresses>,

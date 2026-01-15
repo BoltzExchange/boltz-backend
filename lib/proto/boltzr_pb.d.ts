@@ -568,6 +568,8 @@ export namespace ClaimBatchResponse {
 }
 
 export class SignEvmRefundRequest extends jspb.Message { 
+    getChain(): string;
+    setChain(value: string): SignEvmRefundRequest;
     getPreimageHash(): Uint8Array | string;
     getPreimageHash_asU8(): Uint8Array;
     getPreimageHash_asB64(): string;
@@ -606,6 +608,7 @@ export class SignEvmRefundRequest extends jspb.Message {
 
 export namespace SignEvmRefundRequest {
     export type AsObject = {
+        chain: string,
         preimageHash: Uint8Array | string,
         amount: string,
         tokenAddress?: string,
@@ -616,8 +619,8 @@ export namespace SignEvmRefundRequest {
 
     export enum ContractCase {
         CONTRACT_NOT_SET = 0,
-        ADDRESS = 5,
-        VERSION = 6,
+        ADDRESS = 6,
+        VERSION = 7,
     }
 
 }

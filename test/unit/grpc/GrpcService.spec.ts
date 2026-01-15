@@ -18,7 +18,7 @@ import Service from '../../../lib/service/Service';
 import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
 import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
-import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const getInfoData = {
   method: 'getInfo',
@@ -655,7 +655,7 @@ describe('GrpcService', () => {
       expect(res.transactionsList).toEqual([
         {
           label: '',
-          symbol: Rsk.symbol,
+          symbol: networks.Rootstock.symbol,
           hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
           hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
           nonce: txs[0].nonce,
@@ -705,7 +705,7 @@ describe('GrpcService', () => {
       expect(res.transactionsList).toEqual([
         {
           label: '',
-          symbol: Rsk.symbol,
+          symbol: networks.Rootstock.symbol,
           hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
           hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
           nonce: txs[0].nonce,
@@ -736,7 +736,7 @@ describe('GrpcService', () => {
       } as unknown as EthereumManager);
 
       TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue({
-        symbol: Rsk.symbol,
+        symbol: networks.Rootstock.symbol,
         label: 'some label',
       });
 
@@ -752,7 +752,7 @@ describe('GrpcService', () => {
 
       expect(res.transactionsList).toEqual([
         {
-          symbol: Rsk.symbol,
+          symbol: networks.Rootstock.symbol,
           label: 'some label',
           hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
           hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),

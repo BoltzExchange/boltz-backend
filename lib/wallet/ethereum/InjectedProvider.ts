@@ -1,4 +1,6 @@
+import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import type {
+  AbstractProvider,
   AddressLike,
   BigNumberish,
   Block,
@@ -14,38 +16,28 @@ import type {
   TransactionRequest,
   TransactionResponse,
 } from 'ethers';
-import {
-  AlchemyProvider,
-  InfuraProvider,
-  JsonRpcProvider,
-  Transaction,
-} from 'ethers';
-import type {
-  EthProviderServiceConfig,
-  EthereumConfig,
-  RskConfig,
-} from '../../Config';
+import { JsonRpcProvider, Transaction, WebSocketProvider } from 'ethers';
+import type { EthereumConfig, ProviderConfig } from '../../Config';
 import type Logger from '../../Logger';
-import { formatError, stringify } from '../../Utils';
+import Tracing from '../../Tracing';
+import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import Errors from './Errors';
 import type { NetworkDetails } from './EvmNetworks';
 
-enum EthProviderService {
-  Node = 'Node',
-  Infura = 'Infura',
-  Alchemy = 'Alchemy',
-}
+// TODO: websocket reconnect
+
+const bigIntReplacer = (_key: string, value: any) =>
+  typeof value === 'bigint' ? { $bigint: value.toString() } : value;
 
 /**
- * This provider is a wrapper for the JsonRpcProvider of ethers, but it writes sent transactions to the database
- * and, depending on the configuration, falls back to Alchemy and Infura as Web3 provider
+ * This provider is a wrapper for the Provider of ethers, but it writes sent transactions to the database
+ * and, depending on the configuration, falls back to alternative providers
  */
 class InjectedProvider implements Provider {
   public readonly provider: this;
 
-  private providers = new Map<string, JsonRpcProvider>();
-
+  private providers = new Map<string, AbstractProvider>();
   private network!: Network;
 
   private static readonly requestTimeout = 5000;
@@ -53,36 +45,23 @@ class InjectedProvider implements Provider {
   constructor(
     private readonly logger: Logger,
     private readonly networkDetails: NetworkDetails,
-    config: RskConfig | EthereumConfig,
+    config: EthereumConfig,
   ) {
     this.provider = this;
 
-    if (config.providerEndpoint) {
-      this.providers.set(
-        EthProviderService.Node,
-        new JsonRpcProvider(config.providerEndpoint, undefined, {
-          polling: true,
-          pollingInterval: 1_000,
-        }),
-      );
-      this.logAddedProvider(EthProviderService.Node, {
+    const providers = config.providers ?? [];
+    if (
+      config.providerEndpoint !== undefined &&
+      config.providerEndpoint !== ''
+    ) {
+      providers.push({
         endpoint: config.providerEndpoint,
       });
-    } else {
-      this.logDisabledProvider(
-        EthProviderService.Node,
-        'no endpoint was specified',
-      );
     }
 
-    this.addEthProvider(
-      EthProviderService.Infura,
-      (config as EthereumConfig).infura,
-    );
-    this.addEthProvider(
-      EthProviderService.Alchemy,
-      (config as EthereumConfig).alchemy,
-    );
+    for (const provider of providers) {
+      this.addEthProvider(provider);
+    }
 
     if (this.providers.size === 0) {
       throw Errors.NO_PROVIDER_SPECIFIED();
@@ -128,46 +107,29 @@ class InjectedProvider implements Provider {
     );
   };
 
-  private addEthProvider = (
-    name: EthProviderService,
-    providerConfig: EthProviderServiceConfig,
-  ) => {
-    if (
-      providerConfig === undefined ||
-      (providerConfig.endpoint === undefined &&
-        (providerConfig.network === undefined ||
-          providerConfig.apiKey === undefined))
-    ) {
+  private addEthProvider = (config: ProviderConfig) => {
+    const name = config.name ?? config.endpoint;
+
+    if (config.endpoint === undefined) {
       this.logDisabledProvider(name, 'not configured');
       return;
     }
 
-    switch (name) {
-      case EthProviderService.Infura:
-        this.providers.set(
-          name,
-          new InfuraProvider(providerConfig.network, providerConfig.apiKey),
-        );
-        break;
+    this.providers.set(
+      name,
+      config.endpoint.startsWith('ws://') ||
+        config.endpoint.startsWith('wss://')
+        ? new WebSocketProvider(config.endpoint, undefined, {
+            staticNetwork: true,
+          })
+        : new JsonRpcProvider(config.endpoint, undefined, {
+            staticNetwork: true,
+            polling: true,
+            pollingInterval: 2_500,
+          }),
+    );
 
-      case EthProviderService.Alchemy:
-        this.providers.set(
-          name,
-          providerConfig.endpoint
-            ? new JsonRpcProvider(providerConfig.endpoint)
-            : new AlchemyProvider(
-                providerConfig.network,
-                providerConfig.apiKey,
-              ),
-        );
-        break;
-
-      default:
-        this.logDisabledProvider(name, 'provider not supported');
-        return;
-    }
-
-    this.logAddedProvider(name, providerConfig);
+    this.logAddedProvider(name);
   };
 
   /*
@@ -473,6 +435,45 @@ class InjectedProvider implements Provider {
     method: string,
     ...args: any[]
   ): Promise<T> => {
+    const span = Tracing.tracer.startSpan(
+      `${this.networkDetails.name} RPC ${method}`,
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          'rpc.method': method,
+          args: args.map((p) =>
+            p !== undefined && p !== null
+              ? JSON.stringify(p, bigIntReplacer)
+              : String(p),
+          ),
+        },
+      },
+    );
+    const ctx = trace.setSpan(context.active(), span);
+
+    try {
+      return await context.with(
+        ctx,
+        this.forwardMethodInternal<T>,
+        this,
+        method,
+        ...args,
+      );
+    } catch (error) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: formatError(error),
+      });
+      throw error;
+    } finally {
+      span.end();
+    }
+  };
+
+  private forwardMethodInternal = async <T = any>(
+    method: string,
+    ...args: any[]
+  ): Promise<T> => {
     const res = await this.forwardMethodNullable<T>(method, ...args);
     if (res === null) {
       throw Errors.REQUESTS_TO_PROVIDERS_FAILED(['null returned']);
@@ -557,11 +558,9 @@ class InjectedProvider implements Provider {
     return hash;
   };
 
-  private logAddedProvider = (name: string, config: Record<string, any>) => {
+  private logAddedProvider = (name: string) => {
     this.logger.debug(
-      `Adding ${this.networkDetails.name} RPC provider ${name}: ${stringify(
-        config,
-      )}`,
+      `Adding ${this.networkDetails.name} RPC provider ${name}`,
     );
   };
 
@@ -579,4 +578,3 @@ class InjectedProvider implements Provider {
 }
 
 export default InjectedProvider;
-export { EthProviderService };

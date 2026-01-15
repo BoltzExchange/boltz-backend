@@ -1,6 +1,8 @@
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
 
+// TODO: add network symbol
+
 type PendingEthereumTransactionType = {
   hash: string;
   nonce: number;

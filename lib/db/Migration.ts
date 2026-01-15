@@ -20,7 +20,7 @@ import {
 import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
-import { Rsk } from '../wallet/ethereum/EvmNetworks';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
@@ -734,7 +734,7 @@ class Migration {
           await PendingEthereumTransactionRepository.getTransactions();
         for (const tx of txs) {
           const fetchedTx = await currencies
-            .get(Rsk.symbol)
+            .get(networks.Rootstock.symbol)
             ?.provider!.getTransaction(tx.hash);
 
           if (fetchedTx === undefined || fetchedTx === null) {

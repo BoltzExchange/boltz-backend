@@ -17,6 +17,7 @@ import EipSigner from '../../../../lib/service/cooperative/EipSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import type Sidecar from '../../../../lib/sidecar/Sidecar';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import type { EthereumSetup } from '../../wallet/EthereumTools';
 import { getContracts, getSigner } from '../../wallet/EthereumTools';
 
@@ -176,6 +177,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      networks.Rootstock.symbol,
       lockupAddress,
       preimageHash,
       amount,
@@ -216,6 +218,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      networks.Rootstock.symbol,
       lockupAddress,
       preimageHash,
       amount,
@@ -255,6 +258,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      networks.Rootstock.symbol,
       lockupAddress,
       preimageHash,
       amount,
@@ -295,6 +299,7 @@ describe('EipSigner', () => {
 
     expect(sidecar.signEvmRefund).toHaveBeenCalledTimes(1);
     expect(sidecar.signEvmRefund).toHaveBeenCalledWith(
+      networks.Rootstock.symbol,
       lockupAddress,
       preimageHash,
       amount,

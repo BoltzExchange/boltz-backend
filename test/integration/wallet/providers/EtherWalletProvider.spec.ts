@@ -3,7 +3,7 @@ import { etherDecimals } from '../../../../lib/consts/Consts';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 import type { EthereumSetup } from '../EthereumTools';
 import { fundSignerWallet, getSigner } from '../EthereumTools';
@@ -21,7 +21,7 @@ describe('EtherWalletProvider', () => {
     wallet = new EtherWalletProvider(
       Logger.disabledLogger,
       setup.signer,
-      Ethereum,
+      networks.Ethereum,
     );
   });
 

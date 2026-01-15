@@ -5,7 +5,7 @@ import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../../lib/Logger';
-import { Ethereum } from '../../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractEventHandler from '../../../../../lib/wallet/ethereum/contracts/ContractEventHandler';
 import type { EthereumSetup } from '../../EthereumTools';
 import { fundSignerWallet, getContracts, getSigner } from '../../EthereumTools';
@@ -63,7 +63,7 @@ describe('ContractEventHandler', () => {
   test('should init', async () => {
     await contractEventHandler.init(
       contractsVersion,
-      Ethereum,
+      networks.Ethereum,
       setup.provider,
       contracts.etherSwap,
       contracts.erc20Swap,

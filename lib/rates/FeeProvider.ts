@@ -25,7 +25,7 @@ import type { PairConfig } from '../consts/Types';
 import type Referral from '../db/models/Referral';
 import type { ExtraFees } from '../service/Service';
 import type WalletManager from '../wallet/WalletManager';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 import type DataAggregator from './data/DataAggregator';
 
 export type SwapFees = {
@@ -418,8 +418,9 @@ class FeeProvider {
         });
         break;
 
-      case Ethereum.symbol:
-      case Rsk.symbol: {
+      case networks.Ethereum.symbol:
+      case networks.Arbitrum.symbol:
+      case networks.Rootstock.symbol: {
         const relativeFee = feeMap.get(chainCurrency)!;
         const claimCost = FeeProvider.calculateEtherGasCost(
           relativeFee,

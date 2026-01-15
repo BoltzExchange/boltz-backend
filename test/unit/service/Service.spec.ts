@@ -65,7 +65,7 @@ import SwapManager from '../../../lib/swap/SwapManager';
 import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import packageJson from '../../../package.json';
 import { createInvoice } from '../swap/InvoiceUtils';
 
@@ -291,7 +291,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     ethereumManagers: [
       {
-        networkDetails: Ethereum,
+        networkDetails: networks.Ethereum,
         provider: mockedProvider(),
         tokenAddresses: new Map<string, string>(),
         hasSymbol: jest.fn().mockReturnValue(true),
@@ -1342,7 +1342,7 @@ describe('Service', () => {
 
     const ethereumManagers = [
       {
-        networkDetails: Ethereum,
+        networkDetails: networks.Ethereum,
         network: {
           chainId: BigInt(123),
           name: 'hello',

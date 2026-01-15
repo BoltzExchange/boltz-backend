@@ -10,6 +10,7 @@ use crate::swap::manager::Manager;
 use api::ws::{self};
 use clap::Parser;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task;
@@ -144,25 +145,6 @@ async fn main() {
         Cache::Memory(MemCache::new())
     };
 
-    // TODO: move to currencies
-    let rsk_manager = if let Some(rsk_config) = config.rsk {
-        Some(Arc::new(
-            evm::manager::Manager::from_mnemonic_file(
-                "RBTC".to_string(),
-                config.mnemonic_path_evm.unwrap(),
-                &rsk_config,
-            )
-            .await
-            .unwrap_or_else(|e| {
-                error!("Could not initialize RSK manager: {}", e);
-                std::process::exit(1);
-            }),
-        ))
-    } else {
-        warn!("Not creating RSK manager because it was not configured");
-        None
-    };
-
     let cancellation_token = tokio_util::sync::CancellationToken::new();
 
     #[cfg(feature = "metrics")]
@@ -187,7 +169,8 @@ async fn main() {
         config.ark,
         db_pool.clone(),
         cache.clone(),
-        rsk_manager.clone(),
+        config.mnemonic_path_evm.unwrap(),
+        HashMap::from([("RBTC", config.rsk), ("ARB", config.arbitrum)]),
         config
             .sidecar
             .webhook
@@ -301,10 +284,6 @@ async fn main() {
         swap_status_update_tx.clone(),
         Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
         web_hook_status_caller,
-        match rsk_manager {
-            Some(manager) => Some(manager),
-            None => None,
-        },
         notification_client.clone().map(Arc::new),
     );
 

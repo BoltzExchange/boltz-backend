@@ -6,16 +6,22 @@ type NetworkDetails = {
   decimals: bigint;
 };
 
-const Ethereum: NetworkDetails = {
-  name: 'Ethereum',
-  symbol: 'ETH',
-  decimals: etherDecimals,
+const networks: Record<string, NetworkDetails> = {
+  Ethereum: {
+    name: 'Ethereum',
+    symbol: 'ETH',
+    decimals: etherDecimals,
+  },
+  Rootstock: {
+    name: 'Rootstock',
+    symbol: 'RBTC',
+    decimals: etherDecimals,
+  },
+  Arbitrum: {
+    name: 'Arbitrum',
+    symbol: 'ARB',
+    decimals: etherDecimals,
+  },
 };
 
-const Rsk: NetworkDetails = {
-  name: 'RSK',
-  symbol: 'RBTC',
-  decimals: etherDecimals,
-};
-
-export { NetworkDetails, Ethereum, Rsk };
+export { NetworkDetails, networks };

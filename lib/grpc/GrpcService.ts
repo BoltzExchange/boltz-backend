@@ -28,7 +28,7 @@ import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
 import type Service from '../service/Service';
 import Sidecar from '../sidecar/Sidecar';
-import { Rsk } from '../wallet/ethereum/EvmNetworks';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 
 class GrpcService {
   constructor(
@@ -402,7 +402,7 @@ class GrpcService {
         const txGrpc =
           new boltzrpc.GetPendingEvmTransactionsResponse.Transaction();
 
-        const symbol = Rsk.symbol;
+        const symbol = networks.Rootstock.symbol;
 
         txGrpc.setSymbol(symbol);
         txGrpc.setHash(getHexBuffer(removeHexPrefix(tx.hash)));

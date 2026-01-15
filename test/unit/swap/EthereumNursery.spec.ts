@@ -26,7 +26,7 @@ import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import type Wallet from '../../../lib/wallet/Wallet';
 import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
 import { wait } from '../../Utils';
@@ -133,7 +133,7 @@ const mockAddress = '0x735Ec659CB2E2D2B778F8D4178ce2a521D617119';
 jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
   return jest.fn().mockImplementation(() => ({
     address: mockAddress,
-    networkDetails: Ethereum,
+    networkDetails: networks.Ethereum,
     provider: {
       on: mockOnProvider,
       getTransaction: mockGetTransaction,

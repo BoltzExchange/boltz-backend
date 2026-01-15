@@ -8,7 +8,7 @@ import {
   Transaction,
   getAddress,
 } from 'ethers';
-import type { EthereumConfig, RskConfig } from '../../Config';
+import type { EthereumConfig } from '../../Config';
 import type Logger from '../../Logger';
 import { stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
@@ -20,7 +20,6 @@ import EtherWalletProvider from '../providers/EtherWalletProvider';
 import ConsolidatedEventHandler from './ConsolidatedEventHandler';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
 import type { NetworkDetails } from './EvmNetworks';
-import { Ethereum, Rsk } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 import SequentialSigner from './SequentialSigner';
 import Contracts from './contracts/Contracts';
@@ -42,7 +41,6 @@ class EthereumManager {
   public signer!: Signer;
   public address!: string;
   public network!: Network;
-  public readonly networkDetails: NetworkDetails;
 
   public readonly tokenAddresses = new Map<string, string>();
 
@@ -50,8 +48,8 @@ class EthereumManager {
 
   constructor(
     private readonly logger: Logger,
-    isRsk: boolean,
-    private readonly config: RskConfig | EthereumConfig,
+    public readonly networkDetails: NetworkDetails,
+    private readonly config: EthereumConfig,
   ) {
     if (
       config === null ||
@@ -62,7 +60,6 @@ class EthereumManager {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
 
-    this.networkDetails = isRsk ? Rsk : Ethereum;
     this.provider = new InjectedProvider(
       this.logger,
       this.networkDetails,

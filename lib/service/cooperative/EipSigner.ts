@@ -84,6 +84,7 @@ class EipSigner {
           : (swap as ChainSwapInfo).receivingData.lockupAddress;
 
       const sidecarRes = await this.sidecar.signEvmRefund(
+        manager.networkDetails.symbol,
         contractAddress,
         getHexBuffer(swap.preimageHash),
         isEtherSwap

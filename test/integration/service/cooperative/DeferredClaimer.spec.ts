@@ -56,7 +56,7 @@ import SwapOutputType from '../../../../lib/swap/SwapOutputType';
 import Wallet from '../../../../lib/wallet/Wallet';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import Contracts, {
   Feature,
@@ -431,7 +431,7 @@ describe('DeferredClaimer', () => {
       ),
     ]);
 
-    const contractHandler = new ContractHandler(Ethereum);
+    const contractHandler = new ContractHandler(networks.Ethereum);
     contractHandler.init(
       new Set<Feature>([Feature.BatchClaim]),
       ethereumSetup.provider,

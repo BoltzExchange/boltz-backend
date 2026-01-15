@@ -28,7 +28,7 @@ import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
-import { Ethereum, Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const currencies = [
   {
@@ -213,14 +213,14 @@ describe('TimeoutDeltaProvider', () => {
 
     deltaProvider.init(currencies, [
       {
-        networkDetails: Ethereum,
+        networkDetails: networks.Ethereum,
         tokenAddresses: new Map<string, string>([
           ['USDT', '0xUSDT'],
           ['USDC', '0xUSDC'],
         ]),
       } as EthereumManager,
       {
-        networkDetails: Rsk,
+        networkDetails: networks.Rootstock,
         tokenAddresses: new Map<string, string>([['DLLR', '0xDLLR']]),
       } as EthereumManager,
     ]);
@@ -283,15 +283,15 @@ describe('TimeoutDeltaProvider', () => {
   });
 
   test('should set block times of tokens', () => {
-    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(9);
+    expect(TimeoutDeltaProvider.blockTimes.size).toEqual(10);
     expect(TimeoutDeltaProvider.blockTimes.get('USDT')).toEqual(
-      TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
+      TimeoutDeltaProvider.blockTimes.get(networks.Ethereum.symbol),
     );
     expect(TimeoutDeltaProvider.blockTimes.get('USDC')).toEqual(
-      TimeoutDeltaProvider.blockTimes.get(Ethereum.symbol),
+      TimeoutDeltaProvider.blockTimes.get(networks.Ethereum.symbol),
     );
     expect(TimeoutDeltaProvider.blockTimes.get('DLLR')).toEqual(
-      TimeoutDeltaProvider.blockTimes.get(Rsk.symbol),
+      TimeoutDeltaProvider.blockTimes.get(networks.Rootstock.symbol),
     );
   });
 

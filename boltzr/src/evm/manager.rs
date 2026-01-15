@@ -3,17 +3,24 @@ use crate::evm::quoter::QuoteAggregator;
 use crate::evm::refund_signer::LocalRefundSigner;
 use alloy::network::{AnyNetwork, EthereumWallet};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
-use alloy::providers::{Provider, ProviderBuilder};
+use alloy::providers::{DynProvider, Provider, ProviderBuilder};
+use alloy::pubsub::PubSubConnect;
+use alloy::rpc::client::RpcClient;
 use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
+use alloy::transports::{
+    BoxTransport,
+    http::{Http, reqwest::Url},
+    layers::FallbackLayer,
+    ws::WsConnect,
+};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::fs;
+use tower::ServiceBuilder;
 use tracing::{debug, info, instrument, warn};
 
 pub struct Manager {
-    pub symbol: String,
     pub quote_aggregator: QuoteAggregator,
 
     signer: PrivateKeySigner,
@@ -23,20 +30,12 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub async fn from_mnemonic_file(
-        symbol: String,
-        mnemonic_path: String,
-        config: &crate::evm::Config,
-    ) -> anyhow::Result<Self> {
-        let mnemonic = fs::read_to_string(mnemonic_path)?;
-        debug!("Read mnemonic");
-
-        let signer = MnemonicBuilder::<English>::default()
+    pub async fn read_mnemonic_file(mnemonic_path: String) -> anyhow::Result<PrivateKeySigner> {
+        let mnemonic = tokio::fs::read_to_string(mnemonic_path).await?;
+        Ok(MnemonicBuilder::<English>::default()
             .phrase(mnemonic.trim())
             .index(0)?
-            .build()?;
-
-        Self::new(symbol, signer, config).await
+            .build()?)
     }
 
     #[instrument(name = "Manager::new", skip(signer, config))]
@@ -47,19 +46,17 @@ impl Manager {
     ) -> anyhow::Result<Self> {
         info!("Using address: {}", signer.address());
 
-        let provider = ProviderBuilder::new()
-            .network::<AnyNetwork>()
-            .wallet(EthereumWallet::from(signer.clone()))
-            .connect_http(config.provider_endpoint.parse()?);
+        let provider = Self::new_provider(config, signer.clone()).await?;
 
         let chain_id = provider.get_chain_id().await?;
-        info!("Connected to EVM chain with id: {}", chain_id);
+        info!("Connected to EVM chain {} with id: {}", symbol, chain_id);
 
         if config.contracts.is_empty() {
             warn!("No contracts are configured");
         }
 
         let mut refund_signers = HashMap::new();
+
         for contracts in &config.contracts {
             let refund_signer = LocalRefundSigner::new(provider.clone(), contracts).await?;
             refund_signers.insert(refund_signer.version(), refund_signer);
@@ -73,13 +70,63 @@ impl Manager {
         });
 
         Ok(Self {
-            quote_aggregator: QuoteAggregator::new(&symbol, provider, config.quoters.clone())
+            quote_aggregator: QuoteAggregator::new(symbol, provider, config.quoters.clone())
                 .await?,
-            symbol,
             signer,
-            refund_signers,
             address_versions,
+            refund_signers,
         })
+    }
+
+    async fn new_provider(
+        config: &crate::evm::Config,
+        signer: PrivateKeySigner,
+    ) -> anyhow::Result<DynProvider<AnyNetwork>> {
+        let mut configs = config.providers.clone().unwrap_or_default();
+
+        if let Some(endpoint) = config.provider_endpoint.clone() {
+            configs.push(crate::evm::ProviderConfig {
+                name: endpoint.clone(),
+                endpoint,
+            });
+        }
+
+        if configs.is_empty() {
+            return Err(anyhow!("no providers configured"));
+        }
+
+        let mut transports: Vec<BoxTransport> = Vec::new();
+        for config in configs {
+            if config.endpoint.starts_with("ws://") || config.endpoint.starts_with("wss://") {
+                debug!(
+                    "Connecting to WebSocket provider {}: {}",
+                    config.name, config.endpoint
+                );
+                let ws = WsConnect::new(config.endpoint);
+                let transport = ws.into_service().await?;
+                transports.push(BoxTransport::new(transport));
+            } else {
+                debug!(
+                    "Connecting to HTTP provider {}: {}",
+                    config.name, config.endpoint
+                );
+                let http = Http::new(Url::parse(&config.endpoint)?);
+                transports.push(BoxTransport::new(http));
+            }
+        }
+
+        let fallback_layer = FallbackLayer::default();
+        let transport = ServiceBuilder::new()
+            .layer(fallback_layer)
+            .service(transports);
+        let client = RpcClient::builder().transport(transport, false);
+
+        Ok(DynProvider::new(
+            ProviderBuilder::new()
+                .network::<AnyNetwork>()
+                .wallet(EthereumWallet::from(signer))
+                .connect_client(client),
+        ))
     }
 }
 
@@ -118,7 +165,7 @@ impl RefundSigner for Manager {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use crate::evm::manager::Manager;
     use crate::evm::refund_signer::test::{
         ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
@@ -139,22 +186,11 @@ mod test {
         let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
         fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
 
-        let signer = Manager::from_mnemonic_file(
-            "RBTC".to_string(),
-            mnemonic_file.to_str().unwrap().to_string(),
-            &Config {
-                provider_endpoint: PROVIDER.to_string(),
-                contracts: vec![ContractAddresses {
-                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
-                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
-                }],
-                quoters: None,
-            },
-        )
-        .await
-        .unwrap();
+        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string())
+            .await
+            .unwrap();
         assert_eq!(
-            signer.signer.address(),
+            signer.address(),
             EXPECTED_ADDRESS.parse::<Address>().unwrap()
         );
 
@@ -167,22 +203,11 @@ mod test {
         let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
         fs::write(mnemonic_file.clone(), format!("{MNEMONIC}\n")).unwrap();
 
-        let signer = Manager::from_mnemonic_file(
-            "RBTC".to_string(),
-            mnemonic_file.to_str().unwrap().to_string(),
-            &Config {
-                provider_endpoint: PROVIDER.to_string(),
-                contracts: vec![ContractAddresses {
-                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
-                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
-                }],
-                quoters: None,
-            },
-        )
-        .await
-        .unwrap();
+        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string())
+            .await
+            .unwrap();
         assert_eq!(
-            signer.signer.address(),
+            signer.address(),
             EXPECTED_ADDRESS.parse::<Address>().unwrap()
         );
 
@@ -241,7 +266,7 @@ mod test {
         );
     }
 
-    async fn new_manager() -> Manager {
+    pub async fn new_manager() -> Manager {
         Manager::new(
             "RBTC".to_string(),
             MnemonicBuilder::<English>::default()
@@ -251,7 +276,8 @@ mod test {
                 .build()
                 .unwrap(),
             &Config {
-                provider_endpoint: PROVIDER.to_string(),
+                provider_endpoint: Some(PROVIDER.to_string()),
+                providers: None,
                 contracts: vec![ContractAddresses {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),

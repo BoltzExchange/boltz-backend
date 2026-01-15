@@ -55,7 +55,8 @@ pub async fn connect_nodes<K: KeysHelper>(
     ark: Option<ArkConfig>,
     db: Pool,
     cache: Cache,
-    rsk_manager: Option<Arc<Manager>>,
+    evm_mnemonic_path: String,
+    evm_configs: HashMap<&'static str, Option<crate::evm::Config>>,
     webhook_block_list: Option<Vec<String>>,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
@@ -221,18 +222,29 @@ pub async fn connect_nodes<K: KeysHelper>(
         );
     }
 
-    if let Some(rsk_manager) = rsk_manager {
-        curs.insert(
-            rsk_manager.symbol.clone(),
-            Currency {
-                network,
-                evm_manager: Some(rsk_manager),
-                chain: None,
-                wallet: None,
-                cln: None,
-                lnd: None,
-            },
-        );
+    let evm_signer = Manager::read_mnemonic_file(evm_mnemonic_path).await?;
+
+    for (symbol, config) in evm_configs {
+        if let Some(config) = config {
+            curs.insert(
+                symbol.to_string(),
+                Currency {
+                    network,
+                    evm_manager: Some(Arc::new(
+                        Manager::new(symbol.to_string(), evm_signer.clone(), &config).await?,
+                    )),
+                    chain: None,
+                    wallet: None,
+                    cln: None,
+                    lnd: None,
+                },
+            );
+        } else {
+            warn!(
+                "Not creating {} manager because it was not configured",
+                symbol
+            );
+        }
     }
 
     if let Some(ark) = ark {

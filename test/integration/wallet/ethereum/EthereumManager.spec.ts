@@ -4,7 +4,7 @@ import Database from '../../../../lib/db/Database';
 import Errors from '../../../../lib/wallet/Errors';
 import type Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
-import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import type Contracts from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import type { EthereumSetup } from '../EthereumTools';
@@ -55,7 +55,7 @@ describe('EthereumManager', () => {
     await fundSignerWallet(setup.signer, setup.etherBase);
     const contracts = await getContracts(setup.signer);
 
-    manager = new EthereumManager(Logger.disabledLogger, false, {
+    manager = new EthereumManager(Logger.disabledLogger, networks.Ethereum, {
       providerEndpoint,
       networkName: 'Anvil',
       contracts: [
@@ -66,7 +66,7 @@ describe('EthereumManager', () => {
       ],
       tokens: [
         {
-          symbol: Ethereum.symbol,
+          symbol: networks.Ethereum.symbol,
           minWalletBalance: 100_000,
         },
         {
@@ -98,7 +98,8 @@ describe('EthereumManager', () => {
     ${{ erc20SwapAddress: '0x2' }}
   `('constructor should throw with invalid config $config', ({ config }) => {
     expect(
-      () => new EthereumManager(Logger.disabledLogger, false, config),
+      () =>
+        new EthereumManager(Logger.disabledLogger, networks.Ethereum, config),
     ).toThrow(Errors.MISSING_SWAP_CONTRACTS().message);
   });
 
@@ -151,11 +152,11 @@ describe('EthereumManager', () => {
   });
 
   test.each`
-    symbol             | expected
-    ${Ethereum.symbol} | ${true}
-    ${'USDT'}          | ${true}
-    ${Rsk.symbol}      | ${false}
-    ${'WBTC'}          | ${false}
+    symbol                       | expected
+    ${networks.Ethereum.symbol}  | ${true}
+    ${'USDT'}                    | ${true}
+    ${networks.Rootstock.symbol} | ${false}
+    ${'WBTC'}                    | ${false}
   `('should have symbol $symbol -> $expected', ({ symbol, expected }) => {
     expect(manager.hasSymbol(symbol)).toEqual(expected);
   });

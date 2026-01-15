@@ -212,6 +212,15 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     await this.rescan(tx.blockNumber - 1, tx.blockNumber + 1);
   };
 
+  public checkMissedEvents = async (provider: Provider) => {
+    this.logger.debug(
+      `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${this.rescanLastHeight}`,
+    );
+    const currentHeight = await provider.getBlockNumber();
+    await this.rescan(this.rescanLastHeight);
+    this.rescanLastHeight = currentHeight;
+  };
+
   private subscribeContractEvents = async () => {
     await this.etherSwap.on(
       'Lockup' as any,
@@ -308,15 +317,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         });
       },
     );
-  };
-
-  private checkMissedEvents = async (provider: Provider) => {
-    this.logger.debug(
-      `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${this.rescanLastHeight}`,
-    );
-    const currentHeight = await provider.getBlockNumber();
-    await this.rescan(this.rescanLastHeight);
-    this.rescanLastHeight = currentHeight;
   };
 }
 

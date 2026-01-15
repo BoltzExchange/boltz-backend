@@ -10,7 +10,7 @@ import {
 } from 'ethers';
 import type { EthereumConfig } from '../../Config';
 import type Logger from '../../Logger';
-import { stringify } from '../../Utils';
+import { formatError, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
 import ChainTipRepository from '../../db/repositories/ChainTipRepository';
 import Errors from '../Errors';
@@ -124,10 +124,29 @@ class EthereumManager {
 
     await transactionTracker.init();
 
+    let lastBlockNumber = currentBlock;
     await this.provider.on('block', async (blockNumber: number) => {
       this.logger.silly(
         `Got new ${this.networkDetails.name} block: ${blockNumber}`,
       );
+
+      if (blockNumber - lastBlockNumber > 1) {
+        this.logger.warn(
+          `${this.networkDetails.name} block gap detected: ${blockNumber - lastBlockNumber}; rescanning for missed events`,
+        );
+
+        for (const c of this.contracts) {
+          c.contractEventHandler
+            .checkMissedEvents(this.provider)
+            .catch((error) => {
+              this.logger.error(
+                `Error checking for missed events of ${this.networkDetails.name} contracts v${c.version}: ${formatError(error)}`,
+              );
+            });
+        }
+      }
+
+      lastBlockNumber = blockNumber;
 
       await Promise.all([
         ChainTipRepository.updateTip(chainTip, blockNumber),

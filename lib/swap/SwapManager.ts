@@ -1535,7 +1535,9 @@ class SwapManager {
       switch (swap.chainSwap.status) {
         case SwapUpdateEvent.SwapCreated:
         case SwapUpdateEvent.TransactionMempool: {
-          const { arkNode } = this.currencies.get(swap.receivingData.symbol)!;
+          const arkNode = this.currencies.get(
+            swap.receivingData.symbol,
+          )?.arkNode;
 
           if (arkNode !== undefined) {
             await arkNode.subscription.subscribeAddresses([
@@ -1555,7 +1557,7 @@ class SwapManager {
 
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed: {
-          const { arkNode } = this.currencies.get(swap.sendingData.symbol)!;
+          const arkNode = this.currencies.get(swap.sendingData.symbol)?.arkNode;
 
           if (arkNode !== undefined) {
             await arkNode.subscription.subscribeAddresses([

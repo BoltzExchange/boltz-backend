@@ -91,6 +91,10 @@ class InjectedProvider implements Provider {
       }
     }
 
+    if (networks.length === 0) {
+      throw Errors.NO_PROVIDER_SPECIFIED();
+    }
+
     const networksAreSame = networks.every(
       (network) => network.chainId === networks[0].chainId,
     );
@@ -110,7 +114,7 @@ class InjectedProvider implements Provider {
   private addEthProvider = (config: ProviderConfig) => {
     const name = config.name ?? config.endpoint;
 
-    if (config.endpoint === undefined) {
+    if (config.endpoint === undefined || config.endpoint === '') {
       this.logDisabledProvider(name, 'not configured');
       return;
     }
@@ -218,7 +222,9 @@ class InjectedProvider implements Provider {
   ): Promise<number> => {
     {
       const highestNonce =
-        await PendingEthereumTransactionRepository.getHighestNonce();
+        await PendingEthereumTransactionRepository.getHighestNonce(
+          this.networkDetails.symbol,
+        );
       if (highestNonce !== undefined) {
         return highestNonce;
       }
@@ -540,6 +546,7 @@ class InjectedProvider implements Provider {
     );
     await PendingEthereumTransactionRepository.addTransaction(
       tx.hash!,
+      this.networkDetails.symbol,
       tx.nonce,
       tx.value,
       tx.serialized,

@@ -28,7 +28,6 @@ import * as boltzrpc from '../proto/boltzrpc_pb';
 import { LogLevel } from '../proto/boltzrpc_pb';
 import type Service from '../service/Service';
 import Sidecar from '../sidecar/Sidecar';
-import { networks } from '../wallet/ethereum/EvmNetworks';
 
 class GrpcService {
   constructor(
@@ -402,9 +401,7 @@ class GrpcService {
         const txGrpc =
           new boltzrpc.GetPendingEvmTransactionsResponse.Transaction();
 
-        const symbol = networks.Rootstock.symbol;
-
-        txGrpc.setSymbol(symbol);
+        txGrpc.setSymbol(tx.chain);
         txGrpc.setHash(getHexBuffer(removeHexPrefix(tx.hash)));
         txGrpc.setHex(getHexBuffer(removeHexPrefix(tx.hex)));
         txGrpc.setNonce(tx.nonce);
@@ -419,12 +416,22 @@ class GrpcService {
 
         {
           const manager = this.service.walletManager.ethereumManagers.find(
-            (m) => m.hasSymbol(symbol),
+            (m) => m.hasSymbol(tx.chain),
           );
           if (manager !== undefined) {
             const received = await manager.getClaimedAmount(tx.hex);
             if (received !== undefined) {
-              txGrpc.setAmountReceived(received.toString());
+              txGrpc.setAmountReceived(received.amount.toString());
+
+              if (received.token !== undefined) {
+                const tokenSymbol = Array.from(
+                  manager.tokenAddresses.entries(),
+                ).find(([, address]) => address === received.token);
+
+                if (tokenSymbol !== undefined) {
+                  txGrpc.setSymbol(tokenSymbol[0]);
+                }
+              }
             }
           }
         }

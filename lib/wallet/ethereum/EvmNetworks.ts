@@ -6,7 +6,7 @@ type NetworkDetails = {
   decimals: bigint;
 };
 
-const networks: Record<string, NetworkDetails> = {
+const networks = {
   Ethereum: {
     name: 'Ethereum',
     symbol: 'ETH',

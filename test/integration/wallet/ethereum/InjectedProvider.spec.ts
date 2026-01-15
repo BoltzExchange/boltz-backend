@@ -100,6 +100,7 @@ describe('InjectedProvider', () => {
       PendingEthereumTransactionRepository.addTransaction,
     ).toHaveBeenCalledWith(
       tx.hash,
+      networks.Ethereum.symbol,
       tx.nonce,
       tx.value,
       Transaction.from(tx).serialized,

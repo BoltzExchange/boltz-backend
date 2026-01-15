@@ -17,6 +17,8 @@ enum Feature {
   BatchClaim,
 }
 
+type DecodedClaim = { token?: string; preimage: string; amount: bigint };
+
 class Contracts {
   public static readonly minVersion = 3n;
   public static readonly maxVersion = 5n;
@@ -118,14 +120,22 @@ class Contracts {
   };
 
   public decodeClaimData = (
+    isEtherSwap: boolean,
     data: string,
-  ): { preimage: string; amount: bigint }[] => {
-    for (const decoder of [
-      this.decodeEtherClaimBatch,
-      this.decodeEtherClaimBatchWithCommitment,
-      this.decodeEtherClaim,
-      this.decodeEtherClaimForAddress,
-    ]) {
+  ): DecodedClaim[] => {
+    for (const decoder of isEtherSwap
+      ? [
+          this.decodeEtherClaimBatch,
+          this.decodeEtherClaimBatchWithCommitment,
+          this.decodeEtherClaim,
+          this.decodeEtherClaimForAddress,
+        ]
+      : [
+          this.decodeErc20ClaimBatch,
+          this.decodeErc20ClaimBatchWithCommitment,
+          this.decodeErc20Claim,
+          this.decodeErc20ClaimForAddress,
+        ]) {
       try {
         return decoder(data);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -139,7 +149,9 @@ class Contracts {
 
   private decodeEtherClaimBatch = (data: string) => {
     const dec = this.etherSwap.interface.decodeFunctionData(
-      'claimBatch(bytes32[],uint256[],address[],uint256[])',
+      this.etherSwap.interface.getFunction(
+        'claimBatch(bytes32[],uint256[],address[],uint256[])',
+      ),
       data,
     );
     return dec[0].map((preimage: string, index: number) => ({
@@ -150,7 +162,9 @@ class Contracts {
 
   private decodeEtherClaimBatchWithCommitment = (data: string) => {
     const dec = this.etherSwap.interface.decodeFunctionData(
-      'claimBatch((bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])',
+      this.etherSwap.interface.getFunction(
+        'claimBatch((bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])',
+      ),
       data,
     );
     return dec[0].map(({ preimage, amount }) => ({
@@ -161,7 +175,9 @@ class Contracts {
 
   private decodeEtherClaim = (data: string) => {
     const dec = this.etherSwap.interface.decodeFunctionData(
-      'claim(bytes32,uint256,address,uint256)',
+      this.etherSwap.interface.getFunction(
+        'claim(bytes32,uint256,address,uint256)',
+      ),
       data,
     );
     return [
@@ -174,13 +190,75 @@ class Contracts {
 
   private decodeEtherClaimForAddress = (data: string) => {
     const dec = this.etherSwap.interface.decodeFunctionData(
-      'claim(bytes32,uint256,address,address,uint256)',
+      this.etherSwap.interface.getFunction(
+        'claim(bytes32,uint256,address,address,uint256)',
+      ),
       data,
     );
     return [
       {
         preimage: dec[0],
         amount: dec[1],
+      },
+    ];
+  };
+
+  private decodeErc20ClaimBatch = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'claimBatch(address,bytes32[],uint256[],address[],uint256[])',
+      ),
+      data,
+    );
+    return dec[1].map((preimage: string, index: number) => ({
+      preimage,
+      amount: dec[2][index],
+      token: dec[0],
+    }));
+  };
+
+  private decodeErc20ClaimBatchWithCommitment = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'claimBatch(address,(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])',
+      ),
+      data,
+    );
+    return dec[1].map(({ preimage, amount }) => ({
+      preimage,
+      amount,
+      token: dec[0],
+    }));
+  };
+
+  private decodeErc20Claim = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'claim(bytes32,uint256,address,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimage: dec[0],
+        amount: dec[1],
+        token: dec[2],
+      },
+    ];
+  };
+
+  private decodeErc20ClaimForAddress = (data: string) => {
+    const dec = this.erc20Swap.interface.decodeFunctionData(
+      this.erc20Swap.interface.getFunction(
+        'claim(bytes32,uint256,address,address,address,uint256)',
+      ),
+      data,
+    );
+    return [
+      {
+        preimage: dec[0],
+        amount: dec[1],
+        token: dec[2],
       },
     ];
   };

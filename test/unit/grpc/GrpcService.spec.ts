@@ -635,6 +635,7 @@ describe('GrpcService', () => {
           hex: '0x12345678',
           nonce: 123,
           etherAmount: 21_000_000_000,
+          chain: networks.Rootstock.symbol,
         },
       ] as PendingEthereumTransaction[];
 
@@ -679,6 +680,7 @@ describe('GrpcService', () => {
           hex: '0x12345678',
           nonce: 123,
           etherAmount: 21_000_000_000,
+          chain: networks.Rootstock.symbol,
         },
       ] as PendingEthereumTransaction[];
 
@@ -689,7 +691,9 @@ describe('GrpcService', () => {
       const claimedAmount = 123123123123n;
       grpcService['service'].walletManager.ethereumManagers.push({
         hasSymbol: jest.fn().mockReturnValue(true),
-        getClaimedAmount: jest.fn().mockResolvedValue(claimedAmount),
+        getClaimedAmount: jest
+          .fn()
+          .mockResolvedValue({ amount: claimedAmount }),
       } as unknown as EthereumManager);
 
       const res = await new Promise<any>((resolve) => {
@@ -722,6 +726,7 @@ describe('GrpcService', () => {
           hex: '0x12345678',
           nonce: 123,
           etherAmount: 21_000_000_000,
+          chain: networks.Rootstock.symbol,
         },
       ] as PendingEthereumTransaction[];
 
@@ -732,7 +737,9 @@ describe('GrpcService', () => {
       const claimedAmount = 123123123123n;
       grpcService['service'].walletManager.ethereumManagers.push({
         hasSymbol: jest.fn().mockReturnValue(true),
-        getClaimedAmount: jest.fn().mockResolvedValue(claimedAmount),
+        getClaimedAmount: jest
+          .fn()
+          .mockResolvedValue({ amount: claimedAmount }),
       } as unknown as EthereumManager);
 
       TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue({
@@ -766,6 +773,60 @@ describe('GrpcService', () => {
       expect(TransactionLabelRepository.getLabel).toHaveBeenCalledWith(
         txs[0].hash,
       );
+    });
+
+    test('should get pending EVM transactions with token symbol from token address', async () => {
+      TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue(null);
+
+      const txs = [
+        {
+          hash: '0x1234',
+          hex: '0x12345678',
+          nonce: 123,
+          etherAmount: 21_000_000_000,
+          chain: networks.Rootstock.symbol,
+        },
+      ] as PendingEthereumTransaction[];
+
+      PendingEthereumTransactionRepository.getTransactions = jest
+        .fn()
+        .mockResolvedValue(txs);
+
+      const claimedAmount = 123123123123n;
+      const tokenAddress = '0xTokenAddress123';
+      const tokenSymbol = 'USDT';
+
+      grpcService['service'].walletManager.ethereumManagers.length = 0;
+      grpcService['service'].walletManager.ethereumManagers.push({
+        hasSymbol: jest.fn().mockReturnValue(true),
+        getClaimedAmount: jest.fn().mockResolvedValue({
+          amount: claimedAmount,
+          token: tokenAddress,
+        }),
+        tokenAddresses: new Map([[tokenSymbol, tokenAddress]]),
+      } as unknown as EthereumManager);
+
+      const res = await new Promise<any>((resolve) => {
+        grpcService.getPendingEvmTransactions(
+          createCall({}),
+          createCallback((error, response) => {
+            expect(error).toEqual(null);
+            resolve(response.toObject());
+          }),
+        );
+      });
+
+      expect(res.transactionsList).toEqual([
+        {
+          label: '',
+          symbol: tokenSymbol,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
+          nonce: txs[0].nonce,
+          amountSent: txs[0].etherAmount.toString(),
+          amountReceived: claimedAmount.toString(),
+        },
+      ]);
     });
   });
 

@@ -134,7 +134,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 22;
+  private static latestSchemaVersion = 23;
 
   private toBackFill: number[] = [];
 
@@ -1016,6 +1016,39 @@ class Migration {
 
       case 21: {
         this.toBackFill.push(21);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 22: {
+        this.logUpdatingTable('pendingEthereumTransactions');
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(PendingEthereumTransaction.tableName, 'chain', {
+            type: new DataTypes.STRING(255),
+            allowNull: true,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate(
+            PendingEthereumTransaction.tableName,
+            { chain: networks.Rootstock.symbol },
+            {},
+          );
+
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn(PendingEthereumTransaction.tableName, 'chain', {
+            type: new DataTypes.STRING(255),
+            allowNull: false,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .removeIndex(PendingEthereumTransaction.tableName, ['nonce']);
+
         await this.finishMigration(versionRow.version, currencies);
         break;
       }

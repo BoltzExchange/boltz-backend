@@ -271,7 +271,7 @@ class EthereumManager {
 
   public getClaimedAmount = async (
     txHex: string,
-  ): Promise<bigint | undefined> => {
+  ): Promise<{ token?: string; amount: bigint } | undefined> => {
     const tx = Transaction.from(txHex);
     if (tx.to === null || tx.to === undefined) {
       return undefined;
@@ -282,9 +282,19 @@ class EthereumManager {
       return undefined;
     }
 
-    return contracts
-      .decodeClaimData(tx.data)
-      .reduce((acc, { amount }) => acc + amount, 0n);
+    const decoded = contracts.decodeClaimData(
+      (await contracts.erc20Swap.getAddress()) !== tx.to,
+      tx.data,
+    );
+
+    if (decoded.length === 0) {
+      return undefined;
+    }
+
+    return {
+      token: decoded[0]?.token,
+      amount: decoded.reduce((acc, { amount }) => acc + amount, 0n),
+    };
   };
 
   private checkERC20Allowance = async (

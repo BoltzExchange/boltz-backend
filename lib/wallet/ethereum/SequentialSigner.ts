@@ -70,7 +70,7 @@ class SequentialSigner extends AbstractSigner {
       if (tx.value !== undefined && tx.value !== null) {
         const [ourBalance, pendingTxsValue] = await Promise.all([
           this.signer.provider!.getBalance(await this.getAddress()),
-          PendingEthereumTransactionRepository.getTotalSent(),
+          PendingEthereumTransactionRepository.getTotalSent(this.symbol),
         ]);
 
         if (ourBalance - pendingTxsValue < BigInt(tx.value)) {

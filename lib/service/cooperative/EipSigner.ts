@@ -72,6 +72,12 @@ class EipSigner {
           ? (swap as Swap).onchainAmount
           : (swap as ChainSwapInfo).receivingData.amount;
 
+      if (onchainAmount === null || onchainAmount === undefined) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'no coins were locked up',
+        );
+      }
+
       const contractAddress =
         swap.type === SwapType.Submarine
           ? (swap as Swap).lockupAddress

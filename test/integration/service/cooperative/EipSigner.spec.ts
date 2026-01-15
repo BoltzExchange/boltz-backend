@@ -124,6 +124,23 @@ describe('EipSigner', () => {
     );
   });
 
+  test('should throw when no coins were locked up', async () => {
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      orderSide: 1,
+      pair: 'RBTC/BTC',
+      type: SwapType.Submarine,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexString(randomBytes(32)),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+      lockupAddress: '0xfbd623a70f5D6d50d2935071b5c4cd0E5a9772Ad',
+      timeoutBlockHeight: 123,
+      onchainAmount: null,
+    });
+    await expect(signer.signSwapRefund('no coins locked')).rejects.toEqual(
+      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('no coins were locked up'),
+    );
+  });
+
   test('should throw when no signer is available', async () => {
     SwapRepository.getSwap = jest.fn().mockResolvedValue({
       orderSide: 1,

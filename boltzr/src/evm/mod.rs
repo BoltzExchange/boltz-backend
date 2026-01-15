@@ -2,6 +2,7 @@ use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use serde::{Deserialize, Serialize};
 
 mod contracts;
+mod log_layer;
 pub mod manager;
 pub mod quoter;
 mod refund_signer;

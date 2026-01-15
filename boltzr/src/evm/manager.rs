@@ -1,4 +1,5 @@
 use crate::evm::RefundSigner;
+use crate::evm::log_layer::LoggingLayer;
 use crate::evm::quoter::QuoteAggregator;
 use crate::evm::refund_signer::LocalRefundSigner;
 use alloy::network::{AnyNetwork, EthereumWallet};
@@ -46,7 +47,7 @@ impl Manager {
     ) -> anyhow::Result<Self> {
         info!("Using address: {}", signer.address());
 
-        let provider = Self::new_provider(config, signer.clone()).await?;
+        let provider = Self::new_provider(symbol.clone(), config, signer.clone()).await?;
 
         let chain_id = provider.get_chain_id().await?;
         info!("Connected to EVM chain {} with id: {}", symbol, chain_id);
@@ -79,6 +80,7 @@ impl Manager {
     }
 
     async fn new_provider(
+        symbol: String,
         config: &crate::evm::Config,
         signer: PrivateKeySigner,
     ) -> anyhow::Result<DynProvider<AnyNetwork>> {
@@ -117,6 +119,7 @@ impl Manager {
 
         let fallback_layer = FallbackLayer::default();
         let transport = ServiceBuilder::new()
+            .layer(LoggingLayer { symbol })
             .layer(fallback_layer)
             .service(transports);
         let client = RpcClient::builder().transport(transport, false);

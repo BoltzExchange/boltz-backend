@@ -704,7 +704,7 @@ class Service {
     const result: Contracts = {};
     await Promise.all(
       this.walletManager.ethereumManagers.map(async (manager) => {
-        result[manager.networkDetails.name.toLowerCase()] =
+        result[manager.networkDetails.identifier.toLowerCase()] =
           await manager.getContractDetails();
       }),
     );

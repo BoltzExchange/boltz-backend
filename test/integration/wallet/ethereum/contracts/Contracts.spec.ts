@@ -1,6 +1,7 @@
 import Logger from '../../../../../lib/Logger';
 import Errors from '../../../../../lib/wallet/Errors';
 import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
+import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import type InjectedProvider from '../../../../../lib/wallet/ethereum/InjectedProvider';
 import Contracts, {
   Feature,
@@ -31,18 +32,10 @@ describe('Contracts', () => {
         contracts.contractEventHandler.destroy();
       }
 
-      contracts = new Contracts(
-        Logger.disabledLogger,
-        {
-          name: 'RSK',
-          symbol: 'RBTC',
-          decimals: 18n,
-        },
-        {
-          etherSwap: await setupContracts.etherSwap.getAddress(),
-          erc20Swap: await setupContracts.erc20Swap.getAddress(),
-        },
-      );
+      contracts = new Contracts(Logger.disabledLogger, networks.Rootstock, {
+        etherSwap: await setupContracts.etherSwap.getAddress(),
+        erc20Swap: await setupContracts.erc20Swap.getAddress(),
+      });
     });
 
     test('should init', async () => {

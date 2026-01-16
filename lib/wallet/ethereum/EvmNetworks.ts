@@ -2,20 +2,30 @@ import { etherDecimals } from '../../consts/Consts';
 
 type NetworkDetails = {
   name: string;
+  identifier: string;
   symbol: string;
   decimals: bigint;
 };
 
-const Ethereum: NetworkDetails = {
-  name: 'Ethereum',
-  symbol: 'ETH',
-  decimals: etherDecimals,
+const networks = {
+  Ethereum: {
+    name: 'Ethereum',
+    identifier: 'ethereum',
+    symbol: 'ETH',
+    decimals: etherDecimals,
+  },
+  Rootstock: {
+    name: 'Rootstock',
+    identifier: 'rsk',
+    symbol: 'RBTC',
+    decimals: etherDecimals,
+  },
+  Arbitrum: {
+    name: 'Arbitrum',
+    identifier: 'arbitrum',
+    symbol: 'ARB',
+    decimals: etherDecimals,
+  },
 };
 
-const Rsk: NetworkDetails = {
-  name: 'RSK',
-  symbol: 'RBTC',
-  decimals: etherDecimals,
-};
-
-export { NetworkDetails, Ethereum, Rsk };
+export { NetworkDetails, networks };

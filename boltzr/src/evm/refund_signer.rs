@@ -2,11 +2,8 @@ use crate::evm::contracts::erc20_swap::ERC20SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwapContract;
 use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
-use alloy::providers::RootProvider;
-use alloy::providers::fillers::{
-    BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
-};
-use alloy::providers::network::{AnyNetwork, EthereumWallet};
+use alloy::providers::DynProvider;
+use alloy::providers::network::AnyNetwork;
 use alloy::signers::Signer;
 use alloy::signers::local::PrivateKeySigner;
 use anyhow::anyhow;
@@ -15,28 +12,16 @@ use tracing::info;
 const MIN_VERSION: u8 = 3;
 const MAX_VERSION: u8 = 5;
 
-type AlloyProvider = FillProvider<
-    JoinFill<
-        JoinFill<
-            alloy::providers::Identity,
-            JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
-        >,
-        WalletFiller<EthereumWallet>,
-    >,
-    RootProvider<AnyNetwork>,
-    AnyNetwork,
->;
-
 pub struct LocalRefundSigner {
     version: u8,
 
-    ether_swap: EtherSwapContract<AlloyProvider, AnyNetwork>,
-    erc20_swap: ERC20SwapContract<AlloyProvider, AnyNetwork>,
+    ether_swap: EtherSwapContract<DynProvider<AnyNetwork>, AnyNetwork>,
+    erc20_swap: ERC20SwapContract<DynProvider<AnyNetwork>, AnyNetwork>,
 }
 
 impl LocalRefundSigner {
     pub async fn new(
-        provider: AlloyProvider,
+        provider: DynProvider<AnyNetwork>,
         config: &crate::evm::ContractAddresses,
     ) -> anyhow::Result<Self> {
         let (ether_swap, erc20_swap) = match tokio::try_join!(
@@ -122,10 +107,10 @@ pub mod test {
     use crate::evm::contracts::SwapContract;
     use crate::evm::contracts::erc20_swap::ERC20Swap;
     use crate::evm::contracts::ether_swap::EtherSwap;
-    use crate::evm::refund_signer::{AlloyProvider, LocalRefundSigner};
+    use crate::evm::refund_signer::LocalRefundSigner;
     use alloy::primitives::{Address, FixedBytes, U256};
     use alloy::providers::network::{AnyNetwork, EthereumWallet, ReceiptResponse};
-    use alloy::providers::{Provider, ProviderBuilder};
+    use alloy::providers::{DynProvider, Provider, ProviderBuilder};
     use alloy::signers::local::coins_bip39::English;
     use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
     use alloy::sol;
@@ -316,15 +301,17 @@ pub mod test {
         PrivateKeySigner,
         PrivateKeySigner,
         LocalRefundSigner,
-        AlloyProvider,
+        DynProvider<AnyNetwork>,
     ) {
         let mnemonic_builder = MnemonicBuilder::<English>::default().phrase(MNEMONIC);
         let claim_keys = mnemonic_builder.clone().index(0).unwrap().build().unwrap();
         let signer = LocalRefundSigner::new(
-            ProviderBuilder::new()
-                .network::<AnyNetwork>()
-                .wallet(EthereumWallet::from(claim_keys.clone()))
-                .connect_http(PROVIDER.parse().unwrap()),
+            DynProvider::new(
+                ProviderBuilder::new()
+                    .network::<AnyNetwork>()
+                    .wallet(EthereumWallet::from(claim_keys.clone()))
+                    .connect_http(PROVIDER.parse().unwrap()),
+            ),
             &ContractAddresses {
                 ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                 erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
@@ -334,10 +321,12 @@ pub mod test {
         .unwrap();
 
         let refund_keys = mnemonic_builder.index(1).unwrap().build().unwrap();
-        let provider = ProviderBuilder::new()
-            .network::<AnyNetwork>()
-            .wallet(EthereumWallet::from(refund_keys.clone()))
-            .connect_http(PROVIDER.parse().unwrap());
+        let provider = DynProvider::new(
+            ProviderBuilder::new()
+                .network::<AnyNetwork>()
+                .wallet(EthereumWallet::from(refund_keys.clone()))
+                .connect_http(PROVIDER.parse().unwrap()),
+        );
 
         (claim_keys, refund_keys, signer, provider)
     }

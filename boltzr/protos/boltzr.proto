@@ -138,15 +138,16 @@ message ClaimBatchResponse {
 }
 
 message SignEvmRefundRequest {
-  bytes preimage_hash = 1;
-  string amount = 2;
+  string chain = 1;
+  bytes preimage_hash = 2;
+  string amount = 3;
   // When populated, an ERC20 refund signature will be signed
-  optional string token_address = 3;
-  uint64 timeout = 4;
+  optional string token_address = 4;
+  uint64 timeout = 5;
 
   oneof contract {
-    string address = 5;
-    uint64 version = 6;
+    string address = 6;
+    uint64 version = 7;
   }
 }
 

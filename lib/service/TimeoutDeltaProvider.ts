@@ -32,7 +32,7 @@ import type Sidecar from '../sidecar/Sidecar';
 import type NodeSwitch from '../swap/NodeSwitch';
 import type { Currency } from '../wallet/WalletManager';
 import type EthereumManager from '../wallet/ethereum/EthereumManager';
-import { Ethereum, Rsk } from '../wallet/ethereum/EvmNetworks';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 import Errors from './Errors';
 import RoutingOffsets from './RoutingOffsets';
 
@@ -58,9 +58,10 @@ class TimeoutDeltaProvider {
   public static blockTimes = new Map<string, number>([
     ['BTC', 10],
     ['LTC', 2.5],
-    [Rsk.symbol, 25 / 60],
+    [networks.Rootstock.symbol, 25 / 60],
     ['ARK', 10],
-    [Ethereum.symbol, 0.2],
+    [networks.Ethereum.symbol, 0.2],
+    [networks.Arbitrum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);
 

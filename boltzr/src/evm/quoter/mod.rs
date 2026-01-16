@@ -83,7 +83,7 @@ pub struct QuoteAggregator {
 }
 
 impl QuoteAggregator {
-    pub async fn new<P, N>(symbol: &str, provider: P, config: Option<Config>) -> Result<Self>
+    pub async fn new<P, N>(symbol: String, provider: P, config: Option<Config>) -> Result<Self>
     where
         P: Provider<N> + Clone + 'static,
         N: Network,
@@ -96,15 +96,12 @@ impl QuoteAggregator {
 
             if let Some(uniswap_v3) = config.uniswap_v3 {
                 quoters.push(Arc::new(
-                    uniswap_v3::UniswapV3::new(symbol, provider, weth, uniswap_v3).await?,
+                    uniswap_v3::UniswapV3::new(&symbol, provider, weth, uniswap_v3).await?,
                 ));
             }
         }
 
-        Ok(Self {
-            symbol: symbol.to_string(),
-            quoters,
-        })
+        Ok(Self { symbol, quoters })
     }
 
     #[instrument(name = "QuoteAggregator::quote_input", skip(self))]

@@ -1,7 +1,7 @@
 import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import EthereumTransactionTracker from '../../../../lib/wallet/ethereum/EthereumTransactionTracker';
-import { Ethereum } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import type { EthereumSetup } from '../EthereumTools';
 import { fundSignerWallet, getSigner } from '../EthereumTools';
 
@@ -28,7 +28,7 @@ describe('EthereumTransactionTracker', () => {
     setup = await getSigner();
     transactionTracker = new EthereumTransactionTracker(
       Logger.disabledLogger,
-      Ethereum,
+      networks.Ethereum,
       setup.provider,
       setup.signer,
     );

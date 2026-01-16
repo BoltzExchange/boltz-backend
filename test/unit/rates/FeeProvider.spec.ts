@@ -11,7 +11,7 @@ import FeeProvider from '../../../lib/rates/FeeProvider';
 import DataAggregator from '../../../lib/rates/data/DataAggregator';
 import type { ExtraFees } from '../../../lib/service/Service';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 
 const btcFee = 36;
 const ltcFee = 3;
@@ -39,7 +39,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({
     ethereumManagers: [
       {
-        networkDetails: Ethereum,
+        networkDetails: networks.Ethereum,
         hasSymbol: jest.fn().mockReturnValue(true),
       },
     ],

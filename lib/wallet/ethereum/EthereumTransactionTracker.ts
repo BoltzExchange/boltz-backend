@@ -27,7 +27,9 @@ class EthereumTransactionTracker {
    * in that class already
    */
   public scanPendingTransactions = async (): Promise<void> => {
-    for (const transaction of await PendingEthereumTransactionRepository.getTransactions()) {
+    for (const transaction of await PendingEthereumTransactionRepository.getTransactions(
+      this.networkDetails.symbol,
+    )) {
       const receipt = await this.provider.getTransactionReceipt(
         transaction.hash,
       );

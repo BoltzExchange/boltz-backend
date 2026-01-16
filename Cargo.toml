@@ -27,6 +27,8 @@ alloy = { version = "1.4.0", features = [
 	"transports",
 	"contract",
 	"json",
+	"provider-ws",
+	"json-rpc",
 ] }
 anyhow = "1.0.100"
 base64 = "0.22.1"

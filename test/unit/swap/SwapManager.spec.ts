@@ -49,7 +49,7 @@ import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import { Ethereum } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { raceCall } from '../../Utils';
 
 Database.sequelize = {
@@ -192,7 +192,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       wallets: mockWallets,
       ethereumManagers: [
         {
-          networkDetails: Ethereum,
+          networkDetails: networks.Ethereum,
           hasSymbol: jest.fn().mockReturnValue(true),
         },
       ],

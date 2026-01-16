@@ -11,7 +11,7 @@ import Database from '../../../../../lib/db/Database';
 import TransactionLabel from '../../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../../lib/db/repositories/TransactionLabelRepository';
 import Errors from '../../../../../lib/wallet/ethereum/Errors';
-import { Ethereum } from '../../../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import type { BatchClaimValues } from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import ContractHandler from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
@@ -30,8 +30,8 @@ describe('ContractHandler', () => {
 
   let erc20WalletProvider: ERC20WalletProvider;
 
-  const contractHandler = new ContractHandler(Ethereum);
-  const contractHandlerEtherBase = new ContractHandler(Ethereum);
+  const contractHandler = new ContractHandler(networks.Ethereum);
+  const contractHandlerEtherBase = new ContractHandler(networks.Ethereum);
 
   const amount = BigInt(10) ** BigInt(17);
   const preimage = randomBytes(32);
@@ -168,7 +168,7 @@ describe('ContractHandler', () => {
     const label = await TransactionLabelRepository.getLabel(tx!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(tx!.hash);
-    expect(label!.symbol).toEqual(Ethereum.symbol);
+    expect(label!.symbol).toEqual(networks.Ethereum.symbol);
     expect(label!.label).toEqual(
       TransactionLabelRepository.lockupLabel(swap, false),
     );
@@ -213,7 +213,7 @@ describe('ContractHandler', () => {
     const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
-    expect(label!.symbol).toEqual(Ethereum.symbol);
+    expect(label!.symbol).toEqual(networks.Ethereum.symbol);
     expect(label!.label).toEqual(
       TransactionLabelRepository.lockupLabel(swap, true),
     );
@@ -239,7 +239,7 @@ describe('ContractHandler', () => {
     const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
-    expect(label!.symbol).toEqual(Ethereum.symbol);
+    expect(label!.symbol).toEqual(networks.Ethereum.symbol);
     expect(label!.label).toEqual(TransactionLabelRepository.claimLabel(swap));
   });
 
@@ -319,14 +319,14 @@ describe('ContractHandler', () => {
       const label = await TransactionLabelRepository.getLabel(tx!.hash);
       expect(label!).not.toBeNull();
       expect(label!.id).toEqual(tx!.hash);
-      expect(label!.symbol).toEqual(Ethereum.symbol);
+      expect(label!.symbol).toEqual(networks.Ethereum.symbol);
       expect(label!.label).toEqual(
         TransactionLabelRepository.claimBatchLabel([swap.id]),
       );
     });
 
     test('should not batch claim when contract does not support it', async () => {
-      const handler = new ContractHandler(Ethereum);
+      const handler = new ContractHandler(networks.Ethereum);
       handler.init(new Set(), setup.provider, etherSwap, erc20Swap);
 
       await expect(handler.claimBatchEther([], [])).rejects.toEqual(
@@ -365,7 +365,7 @@ describe('ContractHandler', () => {
     const label = await TransactionLabelRepository.getLabel(transaction!.hash);
     expect(label!).not.toBeNull();
     expect(label!.id).toEqual(transaction!.hash);
-    expect(label!.symbol).toEqual(Ethereum.symbol);
+    expect(label!.symbol).toEqual(networks.Ethereum.symbol);
     expect(label!.label).toEqual(TransactionLabelRepository.refundLabel(swap));
   });
 
@@ -551,7 +551,7 @@ describe('ContractHandler', () => {
     });
 
     test('should not batch claim when contract does not support it', async () => {
-      const handler = new ContractHandler(Ethereum);
+      const handler = new ContractHandler(networks.Ethereum);
       handler.init(new Set(), setup.provider, etherSwap, erc20Swap);
 
       await expect(

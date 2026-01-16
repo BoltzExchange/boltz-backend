@@ -59,7 +59,6 @@ pub struct BoltzService<M, T> {
     web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
     web_hook_status_caller: Arc<StatusCaller>,
 
-    refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<T>>,
 
     status_fetcher: StatusFetcher,
@@ -76,13 +75,11 @@ impl<M, T> BoltzService<M, T> {
         swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_status_caller: Arc<StatusCaller>,
-        refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
         notification_client: Option<Arc<T>>,
     ) -> Self {
         BoltzService {
             manager,
             service,
-            refund_signer,
             status_fetcher,
             web_hook_status_caller,
             web_hook_helper,
@@ -405,14 +402,21 @@ where
         &self,
         request: Request<SignEvmRefundRequest>,
     ) -> Result<Response<SignEvmRefundResponse>, Status> {
-        let refund_signer = match &self.refund_signer {
+        let params = request.into_inner();
+
+        let refund_signer = match self
+            .manager
+            .get_currency(&params.chain)
+            .and_then(|currency| currency.evm_manager)
+        {
             Some(signer) => signer,
             None => {
-                return Err(Status::new(Code::Internal, "RSK signer not enabled"));
+                return Err(Status::new(
+                    Code::Internal,
+                    format!("{} signer not found", params.chain),
+                ));
             }
         };
-
-        let params = request.into_inner();
 
         let preimage_hash = match FixedBytes::<32>::try_from(params.preimage_hash.as_slice()) {
             Ok(res) => res,
@@ -786,6 +790,7 @@ where
 mod test {
     use crate::api::ws;
     use crate::cache::{Cache, MemCache};
+    use crate::currencies::Currency;
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{
         ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
@@ -797,7 +802,6 @@ mod test {
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::ReverseRoutingHint;
     use crate::db::models::{ChainSwapInfo, ReverseSwap, Swap, WebHook, WebHookState};
-    use crate::evm::RefundSigner;
     use crate::grpc::service::BoltzService;
     use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
     use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
@@ -812,13 +816,10 @@ mod test {
     use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::{Address, FixedBytes, Signature, U256};
-    use anyhow::anyhow;
-    use async_trait::async_trait;
+    use alloy::primitives::FixedBytes;
     use mockall::mock;
     use rand::Rng;
     use std::collections::HashMap;
-    use std::str::FromStr;
     use std::sync::Arc;
     use tokio_util::sync::CancellationToken;
     use tonic::{Code, Request};
@@ -895,27 +896,9 @@ mod test {
         }
     }
 
-    mock! {
-        RefundSigner {}
-
-        #[async_trait]
-        impl RefundSigner for RefundSigner {
-            fn version_for_address(&self, contract_address: &Address) -> anyhow::Result<u8>;
-
-            async fn sign_cooperative_refund(
-                &self,
-                contract_version: u8,
-                preimage_hash: FixedBytes<32>,
-                amount: U256,
-                token_address: Option<Address>,
-                timeout: u64,
-            ) -> anyhow::Result<Signature>;
-        }
-    }
-
     #[tokio::test]
     async fn test_get_info() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
         assert_eq!(
             svc.get_info(Request::new(GetInfoRequest {}))
                 .await
@@ -929,7 +912,7 @@ mod test {
 
     #[tokio::test]
     async fn test_web_hook_retries() {
-        let (cancel_token, svc) = make_service();
+        let (cancel_token, svc) = make_service().await;
         assert!(
             svc.web_hook_retry_handle
                 .clone()
@@ -967,7 +950,7 @@ mod test {
 
     #[tokio::test]
     async fn test_create_web_hook() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
         assert_eq!(
             svc.create_web_hook(Request::new(CreateWebHookRequest {
                 id: "id".to_string(),
@@ -984,7 +967,7 @@ mod test {
 
     #[tokio::test]
     async fn test_create_web_hook_invalid_url() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
         let err = svc
             .create_web_hook(Request::new(CreateWebHookRequest {
                 id: "adsf".to_string(),
@@ -1001,7 +984,7 @@ mod test {
 
     #[tokio::test]
     async fn test_send_web_hook() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
         assert_eq!(
             svc.send_web_hook(Request::new(SendWebHookRequest {
                 id: "calledHook".to_string(),
@@ -1016,7 +999,7 @@ mod test {
 
     #[tokio::test]
     async fn test_send_web_hook_no_hook() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
         let id = "notFound";
         let err = svc
             .send_web_hook(Request::new(SendWebHookRequest {
@@ -1031,75 +1014,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_sign_evm_refund() {
-        let (_, mut svc) = make_service();
-
-        let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
-
-        let req = SignEvmRefundRequest {
-            preimage_hash: preimage_hash.to_vec(),
-            amount: "321".to_string(),
-            token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
-            timeout: 123,
-            contract: Some(Contract::Version(4)),
-        };
-
-        let mut signer = MockRefundSigner::new();
-        let sig_str = "0xd247cfedc0c62ea93f4f3093a3b2941c329773f140ab0cdc04a641376982d34e0aa7152cb2dd9036fad543646a3fdc8b22c8d83e62e13684d61f630afdd08b0f1c";
-        signer
-            .expect_sign_cooperative_refund()
-            .returning(|_, _, _, _, _| Ok(Signature::from_str(sig_str).unwrap()));
-        svc.refund_signer = Some(Arc::new(signer));
-
-        let res = svc
-            .sign_evm_refund(Request::new(req))
-            .await
-            .unwrap()
-            .into_inner();
-        assert_eq!(
-            res.signature,
-            Vec::from(
-                alloy::signers::Signature::from_str(sig_str)
-                    .unwrap()
-                    .as_bytes()
-            )
-        );
-    }
-
-    #[tokio::test]
-    async fn test_sign_evm_refund_signing_failed() {
-        let (_, mut svc) = make_service();
-
-        let mut preimage_hash = FixedBytes::<32>::default();
-        rand::thread_rng().fill(&mut preimage_hash[..]);
-
-        let req = SignEvmRefundRequest {
-            preimage_hash: preimage_hash.to_vec(),
-            amount: "321".to_string(),
-            token_address: Some("0xB65828B4729754fD7d3ce72344DAF00fC3F5E06B".to_string()),
-            timeout: 123,
-            contract: Some(Contract::Version(4)),
-        };
-
-        let mut signer = MockRefundSigner::new();
-        signer
-            .expect_sign_cooperative_refund()
-            .returning(|_, _, _, _, _| Err(anyhow!("fail")));
-        svc.refund_signer = Some(Arc::new(signer));
-
-        let err = svc.sign_evm_refund(Request::new(req)).await.err().unwrap();
-        assert_eq!(err.code(), Code::Internal);
-        assert_eq!(err.message(), "signing failed: fail");
-    }
-
-    #[tokio::test]
     async fn test_sign_evm_refund_no_signer() {
-        let (_, mut svc) = make_service();
-        svc.refund_signer = None;
+        let (_, svc) = make_service().await;
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                chain: "unknown".to_string(),
                 preimage_hash: vec![],
                 amount: "".to_string(),
                 token_address: None,
@@ -1110,18 +1030,19 @@ mod test {
             .err()
             .unwrap();
         assert_eq!(err.code(), Code::Internal);
-        assert_eq!(err.message(), "RSK signer not enabled");
+        assert_eq!(err.message(), "unknown signer not found");
     }
 
     #[tokio::test]
     async fn test_sign_evm_refund_invalid_preimage() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
 
         let mut preimage_hash = FixedBytes::<33>::default();
         rand::thread_rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                chain: "RBTC".to_string(),
                 preimage_hash: preimage_hash.to_vec(),
                 amount: "".to_string(),
                 token_address: None,
@@ -1140,13 +1061,14 @@ mod test {
 
     #[tokio::test]
     async fn test_sign_evm_refund_invalid_amount() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
 
         let mut preimage_hash = FixedBytes::<32>::default();
         rand::thread_rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                chain: "RBTC".to_string(),
                 preimage_hash: preimage_hash.to_vec(),
                 amount: "-1".to_string(),
                 token_address: None,
@@ -1165,13 +1087,14 @@ mod test {
 
     #[tokio::test]
     async fn test_sign_evm_refund_invalid_token_address() {
-        let (_, svc) = make_service();
+        let (_, svc) = make_service().await;
 
         let mut preimage_hash = FixedBytes::<32>::default();
         rand::thread_rng().fill(&mut preimage_hash[..]);
 
         let err = svc
             .sign_evm_refund(Request::new(SignEvmRefundRequest {
+                chain: "RBTC".to_string(),
                 preimage_hash: preimage_hash.to_vec(),
                 amount: "21".to_string(),
                 token_address: Some("clearly not an address".to_string()),
@@ -1188,14 +1111,15 @@ mod test {
         );
     }
 
-    fn make_service() -> (
+    async fn make_service() -> (
         CancellationToken,
         BoltzService<MockManager, crate::notifications::mattermost::Client<Commands>>,
     ) {
         let token = CancellationToken::new();
-        let refund_signer = Arc::new(MockRefundSigner::new());
         let (status_tx, _) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1);
+
+        let evm_manager = Arc::new(crate::evm::manager::test::new_manager().await);
 
         (
             token.clone(),
@@ -1205,19 +1129,28 @@ mod test {
                     Arc::new(MockSwapHelper::new()),
                     Arc::new(MockChainSwapHelper::new()),
                     Arc::new(MockReverseSwapHelper::new()),
-                    Arc::new(HashMap::new()),
+                    Arc::new(HashMap::from([(
+                        "RBTC".to_string(),
+                        Currency {
+                            network: crate::wallet::Network::Regtest,
+                            wallet: None,
+                            chain: None,
+                            cln: None,
+                            lnd: None,
+                            evm_manager: Some(evm_manager.clone()),
+                        },
+                    )])),
                     None,
                     None,
                     Cache::Memory(MemCache::new()),
                 )),
-                Arc::new(make_mock_manager()),
+                Arc::new(make_mock_manager(Some(evm_manager))),
                 StatusFetcher::new(Cache::Memory(MemCache::new())),
                 status_tx,
                 Arc::new(Box::new(make_mock_hook_helper())),
                 Arc::new(crate::webhook::status_caller::test::new_caller(
                     token.clone(),
                 )),
-                Some(refund_signer.clone()),
                 None,
             ),
         )
@@ -1248,12 +1181,29 @@ mod test {
         hook_helper
     }
 
-    fn make_mock_manager() -> MockManager {
+    fn make_mock_manager(evm_manager: Option<Arc<crate::evm::manager::Manager>>) -> MockManager {
         let mut manager = MockManager::new();
-        manager.expect_clone().returning(make_mock_manager);
+        let evm_manager_clone = evm_manager.clone();
+        manager
+            .expect_clone()
+            .returning(move || make_mock_manager(evm_manager_clone.clone()));
         manager
             .expect_get_network()
             .returning(|| crate::wallet::Network::Regtest);
+        manager.expect_get_currency().returning(move |symbol| {
+            if symbol == "RBTC" {
+                Some(Currency {
+                    network: crate::wallet::Network::Regtest,
+                    wallet: None,
+                    chain: None,
+                    cln: None,
+                    lnd: None,
+                    evm_manager: evm_manager.clone(),
+                })
+            } else {
+                None
+            }
+        });
 
         manager
     }

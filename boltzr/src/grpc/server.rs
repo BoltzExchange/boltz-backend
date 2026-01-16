@@ -1,7 +1,6 @@
 use crate::api::ws::types::SwapStatus;
 use crate::cache::Cache;
 use crate::db::helpers::web_hook::WebHookHelper;
-use crate::evm::RefundSigner;
 use crate::grpc::service::BoltzService;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
 use crate::grpc::status_fetcher::StatusFetcher;
@@ -59,7 +58,6 @@ pub struct Server<M, W, N> {
     web_hook_helper: Box<W>,
     web_hook_status_caller: StatusCaller,
 
-    refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
     notification_client: Option<Arc<N>>,
 
     status_fetcher: StatusFetcher,
@@ -85,14 +83,12 @@ where
         swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
-        refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
         notification_client: Option<Arc<N>>,
     ) -> Self {
         Server {
             config,
             service,
             manager,
-            refund_signer,
             web_hook_helper,
             cancellation_token,
             log_reload_handler,
@@ -125,7 +121,6 @@ where
             self.swap_status_update_tx.clone(),
             Arc::new(self.web_hook_helper.clone()),
             Arc::new(self.web_hook_status_caller.clone()),
-            self.refund_signer.clone(),
             self.notification_client.clone(),
         );
 
@@ -300,7 +295,6 @@ mod server_test {
             status_tx,
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
-            Some(Arc::new(MockRefundSigner::default())),
             None,
         );
 
@@ -426,7 +420,6 @@ mod server_test {
             status_tx,
             Box::new(make_mock_hook_helper()),
             crate::webhook::status_caller::test::new_caller(token.clone()),
-            Some(Arc::new(MockRefundSigner::default())),
             None,
         );
 

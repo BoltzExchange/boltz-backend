@@ -20,7 +20,7 @@ import {
 import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
-import { Rsk } from '../wallet/ethereum/EvmNetworks';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
 import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
@@ -134,7 +134,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 22;
+  private static latestSchemaVersion = 23;
 
   private toBackFill: number[] = [];
 
@@ -734,7 +734,7 @@ class Migration {
           await PendingEthereumTransactionRepository.getTransactions();
         for (const tx of txs) {
           const fetchedTx = await currencies
-            .get(Rsk.symbol)
+            .get(networks.Rootstock.symbol)
             ?.provider!.getTransaction(tx.hash);
 
           if (fetchedTx === undefined || fetchedTx === null) {
@@ -1016,6 +1016,39 @@ class Migration {
 
       case 21: {
         this.toBackFill.push(21);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 22: {
+        this.logUpdatingTable('pendingEthereumTransactions');
+
+        await this.sequelize
+          .getQueryInterface()
+          .addColumn(PendingEthereumTransaction.tableName, 'chain', {
+            type: new DataTypes.STRING(255),
+            allowNull: true,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .bulkUpdate(
+            PendingEthereumTransaction.tableName,
+            { chain: networks.Rootstock.symbol },
+            {},
+          );
+
+        await this.sequelize
+          .getQueryInterface()
+          .changeColumn(PendingEthereumTransaction.tableName, 'chain', {
+            type: new DataTypes.STRING(255),
+            allowNull: false,
+          });
+
+        await this.sequelize
+          .getQueryInterface()
+          .removeIndex(PendingEthereumTransaction.tableName, ['nonce']);
+
         await this.finishMigration(versionRow.version, currencies);
         break;
       }

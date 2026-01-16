@@ -1,12 +1,9 @@
 import { Transaction } from 'ethers';
-import type { RskConfig } from '../../../../lib/Config';
 import Logger from '../../../../lib/Logger';
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
 import Errors from '../../../../lib/wallet/ethereum/Errors';
-import { Ethereum, Rsk } from '../../../../lib/wallet/ethereum/EvmNetworks';
-import InjectedProvider, {
-  EthProviderService,
-} from '../../../../lib/wallet/ethereum/InjectedProvider';
+import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import InjectedProvider from '../../../../lib/wallet/ethereum/InjectedProvider';
 import {
   fundSignerWallet,
   getSigner,
@@ -25,7 +22,7 @@ describe('InjectedProvider', () => {
   let provider: InjectedProvider;
 
   beforeAll(async () => {
-    provider = new InjectedProvider(Logger.disabledLogger, Ethereum, {
+    provider = new InjectedProvider(Logger.disabledLogger, networks.Ethereum, {
       providerEndpoint,
     } as never);
     await provider.init();
@@ -33,15 +30,18 @@ describe('InjectedProvider', () => {
 
   test('should throw when no provider is set', () => {
     expect(
-      () => new InjectedProvider(Logger.disabledLogger, Rsk, {} as RskConfig),
+      () =>
+        new InjectedProvider(
+          Logger.disabledLogger,
+          networks.Rootstock,
+          {} as never,
+        ),
     ).toThrow(Errors.NO_PROVIDER_SPECIFIED().message);
   });
 
-  test(`should init ${EthProviderService.Node} provider`, () => {
+  test('should init provider', () => {
     expect(provider['providers'].size).toEqual(1);
-    expect(
-      provider['providers'].get(EthProviderService.Node),
-    ).not.toBeUndefined();
+    expect(provider['providers'].get(providerEndpoint)).not.toBeUndefined();
   });
 
   test.each`
@@ -100,6 +100,7 @@ describe('InjectedProvider', () => {
       PendingEthereumTransactionRepository.addTransaction,
     ).toHaveBeenCalledWith(
       tx.hash,
+      networks.Ethereum.symbol,
       tx.nonce,
       tx.value,
       Transaction.from(tx).serialized,

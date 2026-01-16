@@ -14,7 +14,7 @@ import NotificationProvider from '../../../lib/notifications/NotificationProvide
 import Service from '../../../lib/service/Service';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import WalletManager from '../../../lib/wallet/WalletManager';
-import { Rsk } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { wait } from '../../Utils';
 import {
   channelCreationExample,
@@ -112,7 +112,7 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
     return {
       ethereumManagers: [
         {
-          networkDetails: Rsk,
+          networkDetails: networks.Rootstock,
           hasSymbol: jest
             .fn()
             .mockImplementation((symbol) => symbol === 'USDT'),

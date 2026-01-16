@@ -14,12 +14,6 @@ pub type MetricsLayer = GenericMetricLayer<'static, PrometheusHandle, axum_prome
 pub struct Config {
     pub host: String,
     pub port: u16,
-
-    #[serde(rename = "disableProcessMetrics")]
-    pub disable_process_metrics: Option<bool>,
-
-    #[serde(rename = "disableServerMetrics")]
-    pub disable_server_metrics: Option<bool>,
 }
 
 #[derive(Clone)]
@@ -28,34 +22,76 @@ pub struct Server {
 
     cancellation_token: CancellationToken,
 
-    api_metrics_layer: Option<MetricsLayer>,
-    api_metrics_handle: Option<PrometheusHandle>,
+    api_metrics_layer: MetricsLayer,
 }
 
 impl Server {
     pub fn new(cancellation_token: CancellationToken, config: Option<Config>) -> Self {
-        if let Some(cfg) = config.as_ref()
-            && !cfg.disable_server_metrics.unwrap_or(false)
-        {
-            let (prometheus_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
-
-            return Server {
-                config,
-                cancellation_token,
-                api_metrics_handle: Some(metric_handle),
-                api_metrics_layer: Some(prometheus_layer),
-            };
-        }
+        let (api_metrics_layer, _) = axum_prometheus::PrometheusMetricLayerBuilder::new()
+            .with_group_patterns_as("/api", &["/api"])
+            // Swap stats
+            .with_group_patterns_as("/v2/swap/:type/stats/:from/:to", &["/v2/swap/*/stats/*/*"])
+            // Asset rescue
+            .with_group_patterns_as(
+                "/v2/asset/:currency/rescue/setup",
+                &["/v2/asset/*/rescue/setup"],
+            )
+            .with_group_patterns_as(
+                "/v2/asset/:currency/rescue/broadcast",
+                &["/v2/asset/*/rescue/broadcast"],
+            )
+            // Lightning - more specific patterns first
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/bolt12/fetch",
+                &["/v2/lightning/*/bolt12/fetch"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/bolt12/delete",
+                &["/v2/lightning/*/bolt12/delete"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/bolt12/:receiving",
+                &["/v2/lightning/*/bolt12/*"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/bolt12",
+                &["/v2/lightning/*/bolt12"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/node/:pubkey",
+                &["/v2/lightning/*/node/*"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/channels/:pubkey",
+                &["/v2/lightning/*/channels/*"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/channel/:id",
+                &["/v2/lightning/*/channel/*"],
+            )
+            .with_group_patterns_as(
+                "/v2/lightning/:currency/search",
+                &["/v2/lightning/*/search"],
+            )
+            // Quoter
+            .with_group_patterns_as("/v2/quote/:currency/in", &["/v2/quote/*/in"])
+            .with_group_patterns_as("/v2/quote/:currency/out", &["/v2/quote/*/out"])
+            .with_group_patterns_as("/v2/quote/:currency/encode", &["/v2/quote/*/encode"])
+            .with_metrics_from_fn(|| {
+                axum_prometheus::metrics_exporter_prometheus::PrometheusBuilder::new()
+                    .build_recorder()
+                    .handle()
+            })
+            .build_pair();
 
         Server {
             config,
             cancellation_token,
-            api_metrics_layer: None,
-            api_metrics_handle: None,
+            api_metrics_layer,
         }
     }
 
-    pub fn api_metrics_layer(&self) -> Option<MetricsLayer> {
+    pub fn api_metrics_layer(&self) -> MetricsLayer {
         self.api_metrics_layer.clone()
     }
 
@@ -70,27 +106,16 @@ impl Server {
 
         let prom_collector = Self::setup_prometheus_collector();
 
-        if !config.disable_process_metrics.unwrap_or(false) {
-            debug!("Enabling process metrics");
+        let process_collector = metrics_process::Collector::default();
+        process_collector.describe();
 
-            let collector = metrics_process::Collector::default();
-            collector.describe();
-
-            router = router.route(
-                "/",
-                get(move || {
-                    collector.collect();
-                    std::future::ready(prom_collector.render())
-                }),
-            );
-        }
-
-        if let Some(api_metrics_handle) = self.api_metrics_handle.clone() {
-            router = router.route(
-                "/api",
-                get(move || std::future::ready(api_metrics_handle.render())),
-            );
-        }
+        router = router.route(
+            "/",
+            get(move || {
+                process_collector.collect();
+                std::future::ready(prom_collector.render())
+            }),
+        );
 
         let address = format!("{}:{}", config.host, config.port);
         info!("Starting metrics server on: {}", address);
@@ -177,7 +202,7 @@ mod server_test {
 
     #[tokio::test]
     async fn test_start_server() {
-        let (config, token) = start_server(9103, Some(true), Some(true)).await;
+        let (config, token) = start_server(9103).await;
 
         let res = reqwest::get(format!("http://{}:{}/notFound", config.host, config.port))
             .await
@@ -189,7 +214,7 @@ mod server_test {
 
     #[tokio::test]
     async fn test_serve_metrics() {
-        let (config, token) = start_server(9104, Some(true), None).await;
+        let (config, token) = start_server(9104).await;
 
         let res = reqwest::get(format!("http://{}:{}", config.host, config.port))
             .await
@@ -199,26 +224,10 @@ mod server_test {
         token.cancel();
     }
 
-    #[tokio::test]
-    async fn test_serve_api_metrics() {
-        let (config, token) = start_server(9105, None, Some(true)).await;
-        let res = reqwest::get(format!("http://{}:{}/api", config.host, config.port))
-            .await
-            .unwrap();
-        assert_eq!(res.status(), StatusCode::OK);
-        token.cancel();
-    }
-
-    async fn start_server(
-        port: u16,
-        disable_server_metrics: Option<bool>,
-        disable_process_metrics: Option<bool>,
-    ) -> (Config, CancellationToken) {
+    async fn start_server(port: u16) -> (Config, CancellationToken) {
         let token = CancellationToken::new();
         let config = Config {
             port,
-            disable_server_metrics,
-            disable_process_metrics,
             host: "127.0.0.1".to_string(),
         };
         let mut server = Server::new(token.clone(), Some(config.clone()));

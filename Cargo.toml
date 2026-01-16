@@ -16,7 +16,7 @@ codegen-units = 1
 panic = "abort"
 
 [workspace.dependencies]
-alloy = { version = "1.4.0", features = [
+alloy = { version = "1.4.3", features = [
 	"reqwest",
 	"sol-types",
 	"serde",

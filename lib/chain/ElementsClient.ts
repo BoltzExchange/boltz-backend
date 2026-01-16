@@ -72,7 +72,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
 
     for (const balanceType of Object.values(res.mine)) {
       for (const [key, value] of Object.entries(balanceType)) {
-        balanceType[key] = value * ChainClient.decimals;
+        balanceType[key] = Math.floor(value * ChainClient.decimals);
       }
     }
 

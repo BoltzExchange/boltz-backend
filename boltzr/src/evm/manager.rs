@@ -104,7 +104,9 @@ impl Manager {
                     "Connecting to WebSocket provider {}: {}",
                     config.name, config.endpoint
                 );
-                let ws = WsConnect::new(config.endpoint);
+                let ws = WsConnect::new(config.endpoint)
+                    .with_retry_interval(std::time::Duration::from_secs(1))
+                    .with_max_retries(60);
                 let transport = ws.into_service().await?;
                 transports.push(BoxTransport::new(transport));
             } else {

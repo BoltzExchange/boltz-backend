@@ -16,7 +16,7 @@ import type {
   TransactionRequest,
   TransactionResponse,
 } from 'ethers';
-import { JsonRpcProvider, Transaction, WebSocketProvider } from 'ethers';
+import { JsonRpcProvider, Transaction } from 'ethers';
 import type { EthereumConfig, ProviderConfig } from '../../Config';
 import type Logger from '../../Logger';
 import Tracing from '../../Tracing';
@@ -24,8 +24,7 @@ import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import Errors from './Errors';
 import type { NetworkDetails } from './EvmNetworks';
-
-// TODO: websocket reconnect
+import WebSocketProvider from './WebSocketProvider';
 
 const bigIntReplacer = (_key: string, value: any) =>
   typeof value === 'bigint' ? { $bigint: value.toString() } : value;
@@ -123,9 +122,12 @@ class InjectedProvider implements Provider {
       name,
       config.endpoint.startsWith('ws://') ||
         config.endpoint.startsWith('wss://')
-        ? new WebSocketProvider(config.endpoint, undefined, {
-            staticNetwork: true,
-          })
+        ? new WebSocketProvider(
+            this.logger,
+            this.networkDetails.symbol,
+            name,
+            config.endpoint,
+          )
         : new JsonRpcProvider(config.endpoint, undefined, {
             staticNetwork: true,
             polling: true,

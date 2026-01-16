@@ -297,7 +297,7 @@ async fn main() {
     );
     let api_handle = tokio::spawn(async move {
         #[cfg(feature = "metrics")]
-        let res = api_server.start(api_metrics_layer);
+        let res = api_server.start(Some(api_metrics_layer));
 
         #[cfg(not(feature = "metrics"))]
         let res = api_server.start();

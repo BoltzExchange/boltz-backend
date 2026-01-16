@@ -322,8 +322,6 @@ providerEndpoint = "http://127.0.0.1:8545"
                 metrics: Some(crate::metrics::server::Config {
                     host: "127.0.0.1".to_string(),
                     port: 9093,
-                    disable_server_metrics: None,
-                    disable_process_metrics: None,
                 }),
             }
         );

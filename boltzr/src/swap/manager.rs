@@ -116,7 +116,7 @@ impl Manager {
             swap_repo: swap_repo.clone(),
             chain_swap_repo: chain_swap_repo.clone(),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
-            timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(pairs)?),
+            timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(&currencies, pairs)?),
             utxo_nursery: UtxoNursery::new(
                 cancellation_token,
                 currencies.clone(),
@@ -549,7 +549,8 @@ pub mod test {
             },
         }];
 
-        let timeout_provider = TimeoutDeltaProvider::new(&pairs).unwrap();
+        let timeout_provider =
+            TimeoutDeltaProvider::new(&Arc::new(HashMap::new()), &pairs).unwrap();
         let pool = get_pool();
         let currencies = Arc::new(HashMap::new());
         let cancellation_token = CancellationToken::new();

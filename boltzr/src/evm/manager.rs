@@ -24,6 +24,9 @@ use tracing::{debug, info, instrument, warn};
 pub struct Manager {
     pub quote_aggregator: QuoteAggregator,
 
+    /// Map of token symbol to contract address
+    pub tokens: HashMap<String, Address>,
+
     signer: PrivateKeySigner,
 
     address_versions: HashMap<Address, u8>,
@@ -70,9 +73,31 @@ impl Manager {
             address_versions.insert(*addresses.1, *version);
         });
 
+        let tokens = config
+            .tokens
+            .as_ref()
+            .map(|tokens| tokens.iter())
+            .into_iter()
+            .flatten()
+            .map(|token| {
+                let address = token
+                    .contract_address
+                    .as_ref()
+                    .map(|addr| {
+                        addr.parse::<Address>().map_err(|e| {
+                            anyhow!("invalid token address for {}: {}", token.symbol, e)
+                        })
+                    })
+                    .transpose()?
+                    .unwrap_or(Address::ZERO);
+                Ok((token.symbol.clone(), address))
+            })
+            .collect::<anyhow::Result<HashMap<_, _>>>()?;
+
         Ok(Self {
             quote_aggregator: QuoteAggregator::new(symbol, provider, config.quoters.clone())
                 .await?,
+            tokens,
             signer,
             address_versions,
             refund_signers,
@@ -175,7 +200,7 @@ pub mod test {
     use crate::evm::refund_signer::test::{
         ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
     };
-    use crate::evm::{Config, ContractAddresses, RefundSigner};
+    use crate::evm::{Config, ContractAddresses, RefundSigner, TokenConfig};
     use alloy::primitives::{Address, FixedBytes};
     use alloy::signers::local::MnemonicBuilder;
     use alloy::signers::local::coins_bip39::English;
@@ -287,10 +312,111 @@ pub mod test {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
                 }],
+                tokens: None,
                 quoters: None,
             },
         )
         .await
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_tokens_parsing() {
+        let token_address = "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0de40";
+
+        let manager = Manager::new(
+            "RBTC".to_string(),
+            MnemonicBuilder::<English>::default()
+                .phrase(MNEMONIC)
+                .index(0)
+                .unwrap()
+                .build()
+                .unwrap(),
+            &Config {
+                provider_endpoint: Some(PROVIDER.to_string()),
+                providers: None,
+                contracts: vec![ContractAddresses {
+                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
+                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
+                }],
+                tokens: Some(vec![TokenConfig {
+                    symbol: "TBTC".to_string(),
+                    decimals: 18,
+                    contract_address: Some(token_address.to_string()),
+                }]),
+                quoters: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(manager.tokens.len(), 1);
+        assert_eq!(
+            manager.tokens.get("TBTC").unwrap(),
+            &token_address.parse::<Address>().unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tokens_parsing_no_address() {
+        let manager = Manager::new(
+            "RBTC".to_string(),
+            MnemonicBuilder::<English>::default()
+                .phrase(MNEMONIC)
+                .index(0)
+                .unwrap()
+                .build()
+                .unwrap(),
+            &Config {
+                provider_endpoint: Some(PROVIDER.to_string()),
+                providers: None,
+                contracts: vec![ContractAddresses {
+                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
+                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
+                }],
+                tokens: Some(vec![TokenConfig {
+                    symbol: "ETH".to_string(),
+                    decimals: 18,
+                    contract_address: None,
+                }]),
+                quoters: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(manager.tokens.len(), 1);
+        assert_eq!(manager.tokens.get("ETH").unwrap(), &Address::ZERO);
+    }
+
+    #[tokio::test]
+    async fn test_tokens_parsing_invalid_address() {
+        let result = Manager::new(
+            "RBTC".to_string(),
+            MnemonicBuilder::<English>::default()
+                .phrase(MNEMONIC)
+                .index(0)
+                .unwrap()
+                .build()
+                .unwrap(),
+            &Config {
+                provider_endpoint: Some(PROVIDER.to_string()),
+                providers: None,
+                contracts: vec![ContractAddresses {
+                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
+                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
+                }],
+                tokens: Some(vec![TokenConfig {
+                    symbol: "TBTC".to_string(),
+                    decimals: 18,
+                    contract_address: Some("invalid".to_string()),
+                }]),
+                quoters: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result.err().unwrap().to_string().contains("TBTC"));
     }
 }

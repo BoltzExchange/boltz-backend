@@ -8,6 +8,13 @@ pub mod quoter;
 mod refund_signer;
 pub mod utils;
 
+#[cfg(test)]
+pub use refund_signer::test::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
+
+fn default_decimals() -> u8 {
+    18
+}
+
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ProviderConfig {
     pub(crate) name: String,
@@ -24,6 +31,17 @@ pub struct ContractAddresses {
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct TokenConfig {
+    pub symbol: String,
+
+    #[serde(default = "default_decimals")]
+    pub decimals: u8,
+
+    #[serde(rename = "contractAddress")]
+    pub contract_address: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct Config {
     #[serde(rename = "providerEndpoint")]
     pub(crate) provider_endpoint: Option<String>,
@@ -32,6 +50,9 @@ pub struct Config {
 
     #[serde(rename = "contracts")]
     pub(crate) contracts: Vec<ContractAddresses>,
+
+    #[serde(rename = "tokens")]
+    pub(crate) tokens: Option<Vec<TokenConfig>>,
 
     #[serde(rename = "quoters")]
     pub(crate) quoters: Option<quoter::Config>,

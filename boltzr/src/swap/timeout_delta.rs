@@ -1,26 +1,28 @@
 use crate::{
+    currencies::Currencies,
     db::models::SwapType,
     utils::pair::{OrderSide, concat_pair, split_pair},
 };
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, RwLock};
 use tracing::{debug, instrument};
 
 const LIGHTNING_BUFFER: u64 = 15;
 const CROSS_CHAIN_BUFFER_FACTOR: f64 = 0.25;
 
 /// Map of symbol to block time in minutes
-static BLOCK_TIMES: LazyLock<HashMap<String, f64>> = LazyLock::new(|| {
+static BLOCK_TIMES: LazyLock<RwLock<HashMap<String, f64>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     map.insert("BTC".to_string(), 10.0);
     map.insert("ARK".to_string(), 10.0);
     map.insert("LTC".to_string(), 2.5);
     map.insert("RBTC".to_string(), 25.0 / 60.0);
     map.insert("ETH".to_string(), 0.2);
+    map.insert("ARB".to_string(), 0.2);
     map.insert("L-BTC".to_string(), 1.0);
-    map
+    RwLock::new(map)
 });
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,8 +59,25 @@ pub struct TimeoutDeltaProvider {
 
 impl TimeoutDeltaProvider {
     #[instrument(name = "TimeoutDeltaProvider::new", skip_all)]
-    pub fn new(pairs: &[PairConfig]) -> Result<Self> {
+    pub fn new(currencies: &Currencies, pairs: &[PairConfig]) -> Result<Self> {
         let mut timeout_deltas = HashMap::new();
+
+        for (symbol, currency) in currencies.iter() {
+            if let Some(evm_manager) = &currency.evm_manager {
+                let block_time = *BLOCK_TIMES
+                    .read()
+                    .map_err(|e| anyhow!("failed to read block times: {}", e))?
+                    .get(symbol)
+                    .ok_or(anyhow!("no block time for symbol: {}", symbol))?;
+
+                for token in evm_manager.tokens.keys() {
+                    BLOCK_TIMES
+                        .write()
+                        .map_err(|e| anyhow!("failed to write block times: {}", e))?
+                        .insert(token.clone(), block_time);
+                }
+            }
+        }
 
         for pair in pairs {
             let id = concat_pair(&pair.base, &pair.quote);
@@ -161,9 +180,12 @@ impl TimeoutDeltaProvider {
         Ok(blocks)
     }
 
-    fn get_block_time(symbol: &str) -> Result<&f64> {
+    fn get_block_time(symbol: &str) -> Result<f64> {
         BLOCK_TIMES
+            .read()
+            .map_err(|e| anyhow!("failed to read block times: {}", e))?
             .get(symbol)
+            .copied()
             .ok_or(anyhow!("no block time for symbol: {}", symbol))
     }
 }
@@ -171,7 +193,19 @@ impl TimeoutDeltaProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::currencies::Currency;
+    use crate::evm::{
+        Config, ContractAddresses, ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
+        TokenConfig, manager::Manager,
+    };
+    use crate::wallet::Network;
+    use alloy::signers::local::{MnemonicBuilder, coins_bip39::English};
     use rstest::rstest;
+    use std::sync::Arc;
+
+    fn empty_currencies() -> Currencies {
+        Arc::new(HashMap::new())
+    }
 
     #[test]
     fn test_new() {
@@ -187,7 +221,7 @@ mod tests {
             },
         }];
 
-        let provider = TimeoutDeltaProvider::new(&pairs).unwrap();
+        let provider = TimeoutDeltaProvider::new(&empty_currencies(), &pairs).unwrap();
         assert_eq!(provider.timeout_deltas.len(), 1);
 
         let deltas = provider.timeout_deltas.get("L-BTC/BTC").unwrap();
@@ -250,7 +284,7 @@ mod tests {
             },
         ];
 
-        let provider = TimeoutDeltaProvider::new(&configs).unwrap();
+        let provider = TimeoutDeltaProvider::new(&empty_currencies(), &configs).unwrap();
         let (onchain, lightning) = provider.get_timeouts(pair, order_side, swap_type).unwrap();
         assert_eq!(onchain, expected_onchain);
         assert_eq!(lightning, expected_lightning);
@@ -258,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_get_timeouts_invalid_pair() {
-        let provider = TimeoutDeltaProvider::new(&[]).unwrap();
+        let provider = TimeoutDeltaProvider::new(&empty_currencies(), &[]).unwrap();
         let result = provider.get_timeouts("INVALID/BTC", OrderSide::Buy, SwapType::Reverse);
         assert!(result.is_err());
     }
@@ -277,7 +311,7 @@ mod tests {
             },
         };
 
-        let provider = TimeoutDeltaProvider::new(&[pair_config]).unwrap();
+        let provider = TimeoutDeltaProvider::new(&empty_currencies(), &[pair_config]).unwrap();
         let result = provider.get_timeouts("BTC/L-BTC", OrderSide::Buy, SwapType::Submarine);
         assert!(result.is_err());
     }
@@ -404,7 +438,6 @@ mod tests {
     }
 
     #[rstest]
-    #[rstest]
     #[case("BTC", 10.0)]
     #[case("L-BTC", 1.0)]
     #[case("RBTC", 25.0 / 60.0)]
@@ -412,12 +445,69 @@ mod tests {
     fn test_get_block_time(#[case] symbol: &str, #[case] expected: f64) {
         assert_eq!(
             TimeoutDeltaProvider::get_block_time(symbol).unwrap(),
-            &expected
+            expected
         );
     }
 
     #[test]
     fn test_get_block_time_not_found() {
         assert!(TimeoutDeltaProvider::get_block_time("USDT").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_new_with_evm_tokens() {
+        let token_symbol = "TBTC";
+
+        let manager = Manager::new(
+            "RBTC".to_string(),
+            MnemonicBuilder::<English>::default()
+                .phrase(MNEMONIC)
+                .index(0)
+                .unwrap()
+                .build()
+                .unwrap(),
+            &Config {
+                provider_endpoint: Some(PROVIDER.to_string()),
+                providers: None,
+                contracts: vec![ContractAddresses {
+                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
+                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
+                }],
+                tokens: Some(vec![TokenConfig {
+                    symbol: token_symbol.to_string(),
+                    decimals: 18,
+                    contract_address: Some(
+                        "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0de40".to_string(),
+                    ),
+                }]),
+                quoters: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let mut currencies_map = HashMap::new();
+        currencies_map.insert(
+            "RBTC".to_string(),
+            Currency {
+                network: Network::Regtest,
+                wallet: None,
+                chain: None,
+                cln: None,
+                lnd: None,
+                evm_manager: Some(Arc::new(manager)),
+            },
+        );
+        let currencies: Currencies = Arc::new(currencies_map);
+
+        assert!(TimeoutDeltaProvider::get_block_time(token_symbol).is_err());
+
+        let _provider = TimeoutDeltaProvider::new(&currencies, &[]).unwrap();
+
+        let rbtc_block_time = TimeoutDeltaProvider::get_block_time("RBTC").unwrap();
+        assert_eq!(
+            TimeoutDeltaProvider::get_block_time(token_symbol).unwrap(),
+            rbtc_block_time
+        );
     }
 }

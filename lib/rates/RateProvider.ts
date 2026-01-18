@@ -23,6 +23,7 @@ import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import type RoutingFee from '../lightning/RoutingFee';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
+import { networks } from '../wallet/ethereum/EvmNetworks';
 import Errors from './Errors';
 import FeeProvider from './FeeProvider';
 import RateCalculator from './RateCalculator';
@@ -157,6 +158,27 @@ class RateProvider {
         checkAndRegisterToken(pair.base);
         checkAndRegisterToken(pair.quote);
       }
+
+      const registerEvmTokenPair = (symbol: string) => {
+        if (this.currencies.get(symbol)!.type !== CurrencyType.ERC20) {
+          return;
+        }
+
+        const manager = this.walletManager.ethereumManagers.find((manager) =>
+          manager.hasSymbol(symbol),
+        )!;
+        if (
+          manager.networkDetails.identifier !== networks.Rootstock.identifier
+        ) {
+          this.dataAggregator.registerPair(
+            symbol,
+            manager.networkDetails.symbol,
+          );
+        }
+      };
+
+      registerEvmTokenPair(pair.base);
+      registerEvmTokenPair(pair.quote);
     }
 
     if (this.dataAggregator.pairs.size > 0) {

@@ -1,4 +1,5 @@
 import { getPairId } from '../../Utils';
+import { networks } from '../../wallet/ethereum/EvmNetworks';
 import type Exchange from './Exchange';
 import Binance from './exchanges/Binance';
 import Bitfinex from './exchanges/Bitfinex';
@@ -17,6 +18,9 @@ class DataAggregator {
 
   public latestRates = new Map<string, number>();
 
+  // Pairs that need to be fetched inverted (base/quote swapped)
+  private readonly invertedPairs = new Set<string>();
+
   public registerPair = (baseAsset: string, quoteAsset: string): void => {
     this.pairs.add([baseAsset, quoteAsset]);
   };
@@ -28,13 +32,16 @@ class DataAggregator {
 
     const queryRate = async (base: string, quote: string) => {
       const pairId = getPairId({ base, quote });
-      const rate = await this.getRate(base, quote);
+      const inversePairId = getPairId({ base: quote, quote: base });
+      const rate = await this.getRateWithInverse(base, quote);
 
-      if (rate && !isNaN(rate)) {
+      if (rate !== undefined) {
         rateMap.set(pairId, rate);
+        rateMap.set(inversePairId, 1 / rate);
       } else {
         // If the rate couldn't be fetched, the latest one should be used
         rateMap.set(pairId, this.latestRates.get(pairId) || NaN);
+        rateMap.set(inversePairId, this.latestRates.get(inversePairId) || NaN);
       }
     };
 
@@ -48,11 +55,49 @@ class DataAggregator {
     return rateMap;
   };
 
-  private getRate = async (baseAsset: string, quoteAsset: string) => {
+  private getRateWithInverse = async (
+    baseAsset: string,
+    quoteAsset: string,
+  ): Promise<number | undefined> => {
+    const pairId = getPairId({ base: baseAsset, quote: quoteAsset });
+    const shouldInvert = this.invertedPairs.has(pairId);
+
+    const [first, second] = shouldInvert
+      ? [quoteAsset, baseAsset]
+      : [baseAsset, quoteAsset];
+
+    // Try the preferred order first
+    const rate = await this.getRate(first, second);
+    if (rate !== undefined) {
+      return shouldInvert ? 1 / rate : rate;
+    }
+
+    // Try the other order
+    const inverseRate = await this.getRate(second, first);
+    if (inverseRate !== undefined) {
+      // Remember to use inverted order for subsequent fetches
+      if (!shouldInvert) {
+        this.invertedPairs.add(pairId);
+      }
+      return shouldInvert ? inverseRate : 1 / inverseRate;
+    }
+
+    return undefined;
+  };
+
+  private getRate = async (
+    baseAsset: string,
+    quoteAsset: string,
+  ): Promise<number | undefined> => {
     const promises: Promise<number>[] = [];
 
     this.exchanges.forEach((exchange) =>
-      promises.push(exchange.getPrice(baseAsset, quoteAsset)),
+      promises.push(
+        exchange.getPrice(
+          this.assetMapper(baseAsset),
+          this.assetMapper(quoteAsset),
+        ),
+      ),
     );
 
     const results = await Promise.all(
@@ -63,6 +108,11 @@ class DataAggregator {
     const validResults: number[] = results.filter(
       (result) => !isNaN(Number(result)),
     );
+
+    if (validResults.length === 0) {
+      return undefined;
+    }
+
     validResults.sort((a, b) => a - b);
 
     const middle = (validResults.length - 1) / 2;
@@ -73,6 +123,17 @@ class DataAggregator {
       );
     } else {
       return validResults[middle];
+    }
+  };
+
+  private assetMapper = (asset: string) => {
+    switch (asset) {
+      case networks.Arbitrum.symbol:
+        return 'ETH';
+      case 'TBTC':
+        return 'BTC';
+      default:
+        return asset;
     }
   };
 }

@@ -27,11 +27,6 @@ type Events = {
     preimageHash: Buffer;
     preimage: Buffer;
   };
-  'eth.refund': {
-    version: bigint;
-    transactionHash: string;
-    preimageHash: Buffer;
-  };
 
   // ERC20Swap contract events
   'erc20.lockup': {
@@ -44,11 +39,6 @@ type Events = {
     transactionHash: string;
     preimageHash: Buffer;
     preimage: Buffer;
-  };
-  'erc20.refund': {
-    version: bigint;
-    transactionHash: string;
-    preimageHash: Buffer;
   };
 };
 
@@ -114,7 +104,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     startHeight: number,
     endHeight?: number,
   ): Promise<void> => {
-    const [etherLockups, etherClaims, etherRefunds] = await Promise.all([
+    const [etherLockups, etherClaims] = await Promise.all([
       this.etherSwap.queryFilter(
         this.etherSwap.filters.Lockup(),
         startHeight,
@@ -122,11 +112,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       ),
       this.etherSwap.queryFilter(
         this.etherSwap.filters.Claim(),
-        startHeight,
-        endHeight,
-      ),
-      this.etherSwap.queryFilter(
-        this.etherSwap.filters.Refund(),
         startHeight,
         endHeight,
       ),
@@ -149,15 +134,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       });
     }
 
-    for (const event of etherRefunds) {
-      this.emit('eth.refund', {
-        version: this.version,
-        transactionHash: event.transactionHash,
-        preimageHash: parseBuffer(event.topics[1]),
-      });
-    }
-
-    const [erc20Lockups, erc20Claims, erc20Refunds] = await Promise.all([
+    const [erc20Lockups, erc20Claims] = await Promise.all([
       this.erc20Swap.queryFilter(
         this.erc20Swap.filters.Lockup(),
         startHeight,
@@ -165,11 +142,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       ),
       this.erc20Swap.queryFilter(
         this.erc20Swap.filters.Claim(),
-        startHeight,
-        endHeight,
-      ),
-      this.erc20Swap.queryFilter(
-        this.erc20Swap.filters.Refund(),
         startHeight,
         endHeight,
       ),
@@ -189,14 +161,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
         transactionHash: event.transactionHash,
         preimageHash: parseBuffer(event.topics[1]),
         preimage: parseBuffer(event.args!.preimage),
-      });
-    }
-
-    for (const event of erc20Refunds) {
-      this.emit('erc20.refund', {
-        version: this.version,
-        transactionHash: event.transactionHash,
-        preimageHash: parseBuffer(event.topics[1]),
       });
     }
   };
@@ -258,17 +222,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       },
     );
 
-    await this.etherSwap.on(
-      'Refund' as any,
-      (preimageHash: string, event: ContractEventPayload) => {
-        this.emit('eth.refund', {
-          version: this.version,
-          transactionHash: event.log.transactionHash,
-          preimageHash: parseBuffer(preimageHash),
-        });
-      },
-    );
-
     await this.erc20Swap.on(
       'Lockup' as any,
       async (
@@ -303,17 +256,6 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
           transactionHash: event.log.transactionHash,
           preimageHash: parseBuffer(preimageHash),
           preimage: parseBuffer(preimage),
-        });
-      },
-    );
-
-    await this.erc20Swap.on(
-      'Refund' as any,
-      (preimageHash: string, event: ContractEventPayload) => {
-        this.emit('erc20.refund', {
-          version: this.version,
-          transactionHash: event.log.transactionHash,
-          preimageHash: parseBuffer(preimageHash),
         });
       },
     );

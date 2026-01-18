@@ -14,11 +14,9 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
 
     handler.on('eth.lockup', (lockup) => this.emit('eth.lockup', lockup));
     handler.on('eth.claim', (claim) => this.emit('eth.claim', claim));
-    handler.on('eth.refund', (refund) => this.emit('eth.refund', refund));
 
     handler.on('erc20.lockup', (lockup) => this.emit('erc20.lockup', lockup));
     handler.on('erc20.claim', (claim) => this.emit('erc20.claim', claim));
-    handler.on('erc20.refund', (refund) => this.emit('erc20.refund', refund));
   };
 
   public rescan = async (startHeight: number): Promise<void> => {

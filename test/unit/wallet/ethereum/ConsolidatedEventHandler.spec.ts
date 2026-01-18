@@ -28,10 +28,8 @@ describe('ConsolidatedEventHandler', () => {
     event
     ${'eth.lockup'}
     ${'eth.claim'}
-    ${'eth.refund'}
     ${'erc20.lockup'}
     ${'erc20.claim'}
-    ${'erc20.refund'}
   `('should forward event $event', ({ event }) => {
     expect.assertions(6);
 
@@ -39,7 +37,7 @@ describe('ConsolidatedEventHandler', () => {
     handler.register(eventsV3);
     handler.register(eventsV4);
 
-    expect(eventsV3.on).toHaveBeenCalledTimes(6);
+    expect(eventsV3.on).toHaveBeenCalledTimes(4);
     expect(eventsV3.on).toHaveBeenCalledWith(event, expect.any(Function));
 
     expect(emittersV3[event]).toBeDefined();

@@ -19,8 +19,9 @@ type HolisticInvoice = InvoiceWithRoutingHints & {
 class NodeFallback {
   private static readonly addInvoiceTimeout = 10_000;
   private static readonly invoiceMemoRegex = new RegExp(
-    // Visible ASCII characters with a maximal length of 500
-    '^[\x20-\x7E]{0,500}$',
+    // Visible ASCII characters, newlines, and the Bitcoin symbol with a maximal length of 500
+    // eslint-disable-next-line no-control-regex
+    '^[\x20-\x7E\n\r₿]{0,500}$',
   );
 
   constructor(

@@ -386,10 +386,17 @@ describe('NodeFallback', () => {
       ${'\r'}
       ${'\r\n'}
       ${'normal\nstring'}
-    `('should throw on newline', ({ input }) => {
-      expect(() => fallback['checkInvoiceMemo'](input)).toThrow(
-        Errors.INVALID_INVOICE_MEMO().message,
-      );
+    `('should allow newlines: $input', ({ input }) => {
+      fallback['checkInvoiceMemo'](input);
+    });
+
+    test.each`
+      input
+      ${'₿'}
+      ${'1 ₿'}
+      ${'Price: 0.5 ₿'}
+    `('should allow Bitcoin symbol: $input', ({ input }) => {
+      fallback['checkInvoiceMemo'](input);
     });
 
     test.each`

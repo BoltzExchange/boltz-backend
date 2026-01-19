@@ -268,7 +268,7 @@ enum EvmCommands {
         to: alloy::primitives::Address,
         amount: parsers::Amount,
     },
-    #[command(about = "Locks Ether in EtherSwap")]
+    #[command(about = "Locks tokens in a swap contract")]
     Lock {
         #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
         preimage_hash: alloy::primitives::FixedBytes<32>,
@@ -276,20 +276,39 @@ enum EvmCommands {
         #[arg(value_parser = parsers::parse_alloy_address)]
         claim_address: alloy::primitives::Address,
         timelock: u64,
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        token: Option<alloy::primitives::Address>,
     },
-    #[command(about = "Claims Ether from EtherSwap")]
+    #[command(about = "Claims tokens from a swap contract")]
     Claim {
         #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
         preimage: alloy::primitives::FixedBytes<32>,
         #[arg(short, long, default_value_t = 0)]
         query_start_height: u64,
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        token: Option<alloy::primitives::Address>,
     },
-    #[command(about = "Refunds Ether from EtherSwap")]
+    #[command(about = "Refunds tokens from a swap contract")]
     Refund {
         #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
         preimage_hash: alloy::primitives::FixedBytes<32>,
         #[arg(short, long, default_value_t = 0)]
         query_start_height: u64,
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        token: Option<alloy::primitives::Address>,
+    },
+    #[command(about = "Gets the balance of the native asset or a token")]
+    GetBalance {
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        token: Option<alloy::primitives::Address>,
+    },
+    #[command(about = "Approves a token for a spender")]
+    Approve {
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        token: alloy::primitives::Address,
+        #[arg(value_parser = parsers::parse_alloy_address)]
+        spender: alloy::primitives::Address,
+        amount: parsers::Amount,
     },
     #[command(about = "Mines the specified number of blocks on Anvil")]
     Mine { blocks: u64 },
@@ -431,40 +450,107 @@ async fn run_command(cli: Cli) -> Result<()> {
                     amount,
                     claim_address,
                     timelock,
+                    token,
                 } => {
-                    let tx_hash = evm::lock_ether(
-                        &rpc_url,
-                        keys,
-                        contract,
-                        *preimage_hash,
-                        *amount,
-                        *claim_address,
-                        *timelock,
-                    )
-                    .await?;
+                    let tx_hash = match token {
+                        Some(token) => {
+                            evm::lock_erc20(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *token,
+                                *preimage_hash,
+                                *amount,
+                                *claim_address,
+                                *timelock,
+                            )
+                            .await?
+                        }
+                        None => {
+                            evm::lock_ether(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *preimage_hash,
+                                *amount,
+                                *claim_address,
+                                *timelock,
+                            )
+                            .await?
+                        }
+                    };
                     println!("{}", tx_hash);
                 }
                 EvmCommands::Claim {
                     preimage,
                     query_start_height,
+                    token,
                 } => {
-                    let tx_hash =
-                        evm::claim_ether(&rpc_url, keys, contract, *preimage, *query_start_height)
-                            .await?;
+                    let tx_hash = match token {
+                        Some(token) => {
+                            evm::claim_erc20(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *token,
+                                *preimage,
+                                *query_start_height,
+                            )
+                            .await?
+                        }
+                        None => {
+                            evm::claim_ether(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *preimage,
+                                *query_start_height,
+                            )
+                            .await?
+                        }
+                    };
                     println!("{}", tx_hash);
                 }
                 EvmCommands::Refund {
                     preimage_hash,
                     query_start_height,
+                    token,
                 } => {
-                    let tx_hash = evm::refund_ether(
-                        &rpc_url,
-                        keys,
-                        contract,
-                        *preimage_hash,
-                        *query_start_height,
-                    )
-                    .await?;
+                    let tx_hash = match token {
+                        Some(token) => {
+                            evm::refund_erc20(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *token,
+                                *preimage_hash,
+                                *query_start_height,
+                            )
+                            .await?
+                        }
+                        None => {
+                            evm::refund_ether(
+                                &rpc_url,
+                                keys,
+                                contract,
+                                *preimage_hash,
+                                *query_start_height,
+                            )
+                            .await?
+                        }
+                    };
+                    println!("{}", tx_hash);
+                }
+                EvmCommands::GetBalance { token } => {
+                    let balance = evm::get_balance(&rpc_url, keys, *token).await?;
+                    println!("{}", balance);
+                }
+                EvmCommands::Approve {
+                    token,
+                    spender,
+                    amount,
+                } => {
+                    let tx_hash = evm::approve(&rpc_url, keys, *token, *spender, *amount).await?;
                     println!("{}", tx_hash);
                 }
                 EvmCommands::Mine { blocks } => {

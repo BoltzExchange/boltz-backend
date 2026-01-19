@@ -22,6 +22,7 @@ struct LockedFunds {
     amount: U256,
 }
 
+// TODO: erc20 swap compatibility
 pub async fn scan_locked_in_contract(
     rpc_url: &str,
     address: Address,

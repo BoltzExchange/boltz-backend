@@ -31,7 +31,7 @@ import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvid
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
 import { wait } from '../../Utils';
 
-type blockCallback = (height: number) => void;
+type blockCallback = (data: { number: number; l1BlockNumber?: number }) => void;
 
 type claimCallback = (args: {
   transactionHash: string;
@@ -89,15 +89,10 @@ const MockedErc20WalletProvider = <jest.Mock<ERC20WalletProvider>>(
 
 let emitBlock: blockCallback;
 
-const mockOnProvider = jest
-  .fn()
-  .mockImplementation((event: string, callback: any): any => {
-    switch (event) {
-      case 'block':
-        emitBlock = callback;
-        return new Promise(() => {});
-    }
-  });
+const mockOnBlock = jest.fn().mockImplementation((callback: any): any => {
+  emitBlock = callback;
+  return new Promise(() => {});
+});
 
 const mockGetTransaction = jest.fn().mockResolvedValue(null);
 
@@ -135,7 +130,7 @@ jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
     address: mockAddress,
     networkDetails: networks.Ethereum,
     provider: {
-      on: mockOnProvider,
+      onBlock: mockOnBlock,
       getTransaction: mockGetTransaction,
     },
     contractEventHandler: {
@@ -1103,7 +1098,7 @@ describe('EthereumNursery', () => {
     });
 
     const emittedBlockHeight = 123321;
-    await emitBlock(emittedBlockHeight);
+    await emitBlock({ number: emittedBlockHeight });
 
     expect(mockGetSwapsExpirable).toHaveBeenCalledTimes(1);
     expect(mockGetSwapsExpirable).toHaveBeenCalledWith(emittedBlockHeight);
@@ -1144,8 +1139,8 @@ describe('EthereumNursery', () => {
       eventsEmitted += 1;
     });
 
-    const emittedBlockHeight = 123321;
-    await emitBlock(emittedBlockHeight);
+    const emittedBlockHeight = 123322;
+    await emitBlock({ number: emittedBlockHeight });
 
     expect(mockGetReverseSwapsExpirable).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwapsExpirable).toHaveBeenCalledWith(

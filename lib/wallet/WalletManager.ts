@@ -2,7 +2,6 @@ import type { BIP32Interface } from 'bip32';
 import BIP32Factory from 'bip32';
 import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import type { Network } from 'bitcoinjs-lib';
-import type { Provider } from 'ethers';
 import fs from 'fs';
 import type { IElementsClient } from 'lib/chain/ElementsClient';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
@@ -23,6 +22,7 @@ import Errors from './Errors';
 import Wallet from './Wallet';
 import WalletLiquid from './WalletLiquid';
 import type EthereumManager from './ethereum/EthereumManager';
+import type InjectedProvider from './ethereum/InjectedProvider';
 import ArkWallet from './providers/ArkWallet';
 import CoreWalletProvider from './providers/CoreWalletProvider';
 import ElementsWalletProvider from './providers/ElementsWalletProvider';
@@ -52,7 +52,7 @@ type Currency = {
   arkNode?: ArkClient;
 
   // Needed for Ether and tokens on Ethereum
-  provider?: Provider;
+  provider?: InjectedProvider;
 };
 
 const bip32 = BIP32Factory(ecc);

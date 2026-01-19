@@ -19,6 +19,8 @@ jest.mock(
 );
 
 describe('InjectedProvider', () => {
+  InjectedProvider.allowHttpOnly = true;
+
   let provider: InjectedProvider;
 
   beforeAll(async () => {

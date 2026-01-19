@@ -39,7 +39,7 @@ describe('ExpiryTrigger', () => {
       {
         type: CurrencyType.Ether,
         provider: {
-          getBlockNumber: async () => 1_021,
+          getLocktimeHeight: async () => 1_021,
         },
       },
     ],
@@ -48,7 +48,7 @@ describe('ExpiryTrigger', () => {
       {
         type: CurrencyType.ERC20,
         provider: {
-          getBlockNumber: async () => 1_022,
+          getLocktimeHeight: async () => 1_022,
         },
       },
     ],

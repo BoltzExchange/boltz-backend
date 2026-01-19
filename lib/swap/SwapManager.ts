@@ -550,7 +550,7 @@ class SwapManager {
         receivingCurrency.type,
       );
 
-      const blockNumber = await receivingCurrency.provider!.getBlockNumber();
+      const blockNumber = await receivingCurrency.provider!.getLocktimeHeight();
       result.timeoutBlockHeight = blockNumber + args.timeoutBlockDelta;
 
       result.claimAddress = await receivingCurrency.wallet.getAddress(
@@ -658,7 +658,7 @@ class SwapManager {
           )!.networkDetails;
 
           return {
-            blocks: await currency.provider!.getBlockNumber(),
+            blocks: await currency.provider!.getLocktimeHeight(),
             blockTime: TimeoutDeltaProvider.blockTimes.get(networkInfo.symbol)!,
           };
         }
@@ -1181,7 +1181,7 @@ class SwapManager {
         },
       ]);
     } else {
-      const blockNumber = await sendingCurrency.provider!.getBlockNumber();
+      const blockNumber = await sendingCurrency.provider!.getLocktimeHeight();
       result.timeoutBlockHeight = blockNumber + args.onchainTimeoutBlockDelta;
 
       result.lockupAddress = await this.getLockupContractAddress(
@@ -1359,7 +1359,7 @@ class SwapManager {
         res.lockupAddress = vHtlc.vHtlc.address;
         res.timeoutBlockHeight = vHtlc.timeouts.refund;
       } else {
-        const blockNumber = await currency.provider!.getBlockNumber();
+        const blockNumber = await currency.provider!.getLocktimeHeight();
         res.timeoutBlockHeight = blockNumber + timeoutBlockDelta;
 
         res.lockupAddress = await this.getLockupContractAddress(

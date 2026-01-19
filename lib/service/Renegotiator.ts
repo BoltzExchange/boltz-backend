@@ -345,7 +345,7 @@ class Renegotiator {
     if (currency.chainClient !== undefined) {
       return (await currency.chainClient.getBlockchainInfo()).blocks;
     } else if (currency.provider !== undefined) {
-      return await currency.provider.getBlockNumber();
+      return await currency.provider.getLocktimeHeight();
     }
 
     throw Errors.CURRENCY_NOT_FOUND(currency.symbol);

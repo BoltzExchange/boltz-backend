@@ -24,7 +24,7 @@ import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import Errors from './Errors';
 import type { NetworkDetails } from './EvmNetworks';
-import WebSocketProvider from './WebSocketProvider';
+import WebSocketProvider, { type BlockEvent } from './WebSocketProvider';
 
 const bigIntReplacer = (_key: string, value: any) =>
   typeof value === 'bigint' ? { $bigint: value.toString() } : value;
@@ -34,6 +34,8 @@ const bigIntReplacer = (_key: string, value: any) =>
  * and, depending on the configuration, falls back to alternative providers
  */
 class InjectedProvider implements Provider {
+  public static allowHttpOnly = false;
+
   public readonly provider: this;
 
   private providers = new Map<string, AbstractProvider>();
@@ -44,7 +46,7 @@ class InjectedProvider implements Provider {
   constructor(
     private readonly logger: Logger,
     private readonly networkDetails: NetworkDetails,
-    config: EthereumConfig,
+    config: Pick<EthereumConfig, 'providers' | 'providerEndpoint'>,
   ) {
     this.provider = this;
 
@@ -67,7 +69,7 @@ class InjectedProvider implements Provider {
     }
   }
 
-  public init = async (): Promise<void> => {
+  public async init(): Promise<void> {
     this.logger.verbose(
       `Trying to connect to ${this.providers.size} ${
         this.networkDetails.name
@@ -102,13 +104,22 @@ class InjectedProvider implements Provider {
       throw Errors.UNEQUAL_PROVIDER_NETWORKS(networks);
     }
 
+    if (
+      !InjectedProvider.allowHttpOnly &&
+      !Array.from(this.providers.values()).some(
+        (provider) => provider instanceof WebSocketProvider,
+      )
+    ) {
+      throw Errors.NEED_WEBSOCKET_PROVIDER();
+    }
+
     this.network = networks[0];
     this.logger.info(
       `Connected to ${this.providers.size} ${
         this.networkDetails.name
       } RPC providers:\n - ${Array.from(this.providers.keys()).join('\n - ')}`,
     );
-  };
+  }
 
   private addEthProvider = (config: ProviderConfig) => {
     const name = config.name ?? config.endpoint;
@@ -138,13 +149,19 @@ class InjectedProvider implements Provider {
     this.logAddedProvider(name);
   };
 
+  public getLocktimeHeight = async (): Promise<number> => {
+    return await this.getBlockNumber();
+  };
+
   /*
    * Method calls
    */
 
-  public destroy = (): void => {
-    this.providers.forEach((provider) => provider.destroy());
-  };
+  public async destroy(): Promise<void> {
+    await Promise.all(
+      Array.from(this.providers.values()).map((provider) => provider.destroy()),
+    );
+  }
 
   public call = (
     transaction: TransactionRequest,
@@ -367,32 +384,32 @@ class InjectedProvider implements Provider {
     eventName: ProviderEvent,
     listener: Listener,
   ): Promise<this> => {
-    const providerDeltas = new Map<number, number>();
-
-    const injectedListener = (...args: any[]) => {
-      if (this.providers.size === 1) {
-        listener(...args);
-        return;
-      }
-
-      const hashCode = this.hashCode(
-        args.map((entry) => JSON.stringify(entry)).join(),
-      );
-      const currentDelta = providerDeltas.get(hashCode) || 0;
-
-      if (currentDelta === this.providers.size - 1) {
-        providerDeltas.delete(hashCode);
-      } else {
-        providerDeltas.set(hashCode, currentDelta + 1);
-      }
-
-      if (currentDelta === 0) {
-        listener(...args);
-      }
-    };
+    const injected = this.createInjectedListener(listener);
 
     for (const provider of this.providers.values()) {
-      await provider.on(eventName, injectedListener);
+      await provider.on(eventName, injected);
+    }
+
+    return this;
+  };
+
+  public onBlock = async (
+    listener: (block: BlockEvent) => void,
+  ): Promise<this> => {
+    // Start a block listener for subscription to be created
+    await this.on('block', () => {});
+
+    const webSocketProviders = Array.from(this.providers.values()).filter(
+      (provider) => provider instanceof WebSocketProvider,
+    );
+
+    const injected = this.createInjectedListener(
+      listener,
+      webSocketProviders.length,
+    );
+
+    for (const provider of webSocketProviders) {
+      provider.ws.on('block', injected);
     }
 
     return this;
@@ -553,6 +570,46 @@ class InjectedProvider implements Provider {
       tx.value,
       tx.serialized,
     );
+  };
+
+  private createInjectedListener = (
+    listener: Listener,
+    providersCount: number = this.providers.size,
+  ) => {
+    const providerDeltas = new Map<number, number>();
+    const safeStringify = (entry: unknown) => {
+      try {
+        return JSON.stringify(entry, bigIntReplacer);
+      } catch {
+        return String(entry);
+      }
+    };
+
+    return (...args: any[]) => {
+      if (providersCount === 1) {
+        listener(...args);
+        return;
+      }
+
+      const hashCode = this.hashCode(
+        args.map((entry) => safeStringify(entry)).join(),
+      );
+      const currentDelta = providerDeltas.get(hashCode) || 0;
+
+      if (currentDelta === providersCount - 1) {
+        providerDeltas.delete(hashCode);
+      } else {
+        providerDeltas.set(hashCode, currentDelta + 1);
+      }
+
+      if (providerDeltas.size > 10_000) {
+        providerDeltas.clear();
+      }
+
+      if (currentDelta === 0) {
+        listener(...args);
+      }
+    };
   };
 
   private hashCode = (value: string): number => {

@@ -184,7 +184,7 @@ class TimeoutDeltaProvider {
 
         case CurrencyType.Ether:
         case CurrencyType.ERC20:
-          currentBlock = await chainCurrency.provider!.getBlockNumber();
+          currentBlock = await chainCurrency.provider!.getLocktimeHeight();
           break;
       }
 

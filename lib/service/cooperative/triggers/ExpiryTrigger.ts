@@ -49,7 +49,7 @@ class ExpiryTrigger extends SweepTrigger {
 
       case CurrencyType.Ether:
       case CurrencyType.ERC20:
-        return await currency.provider!.getBlockNumber();
+        return await currency.provider!.getLocktimeHeight();
 
       case CurrencyType.Ark:
         throw new Error(

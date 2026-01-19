@@ -125,6 +125,10 @@ type EthereumConfig = {
   tokens: TokenConfig[];
 };
 
+type ArbitrumConfig = EthereumConfig & {
+  l1Providers: ProviderConfig[];
+};
+
 type ApiConfig = {
   host: string;
   port: number;
@@ -227,7 +231,7 @@ type ConfigType = {
   ark?: ArkConfig;
 
   rsk?: EthereumConfig;
-  arbitrum?: EthereumConfig;
+  arbitrum?: ArbitrumConfig;
   ethereum?: EthereumConfig;
 
   sidecar: SidecarConfig;
@@ -546,4 +550,5 @@ export {
   MinSwapSizeMultipliersConfig,
   EmailConfig,
   ProviderConfig,
+  ArbitrumConfig,
 };

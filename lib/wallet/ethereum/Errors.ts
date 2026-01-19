@@ -41,4 +41,8 @@ export default {
     message: 'unsupported contract',
     code: concatErrorCode(ErrorCodePrefix.Ethereum, 6),
   }),
+  NEED_WEBSOCKET_PROVIDER: (): Error => ({
+    message: 'at least one WebSocket provider is needed',
+    code: concatErrorCode(ErrorCodePrefix.Ethereum, 7),
+  }),
 };

@@ -8,7 +8,7 @@ import {
   Transaction,
   getAddress,
 } from 'ethers';
-import type { EthereumConfig } from '../../Config';
+import type { ArbitrumConfig, EthereumConfig } from '../../Config';
 import type Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
@@ -17,9 +17,10 @@ import Errors from '../Errors';
 import Wallet from '../Wallet';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
 import EtherWalletProvider from '../providers/EtherWalletProvider';
+import ArbitrumProvider from './ArbitrumProvider';
 import ConsolidatedEventHandler from './ConsolidatedEventHandler';
 import EthereumTransactionTracker from './EthereumTransactionTracker';
-import type { NetworkDetails } from './EvmNetworks';
+import { type NetworkDetails, networks } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 import SequentialSigner from './SequentialSigner';
 import Contracts from './contracts/Contracts';
@@ -49,7 +50,7 @@ class EthereumManager {
   constructor(
     private readonly logger: Logger,
     public readonly networkDetails: NetworkDetails,
-    private readonly config: EthereumConfig,
+    private readonly config: EthereumConfig | ArbitrumConfig,
   ) {
     if (
       config === null ||
@@ -60,11 +61,19 @@ class EthereumManager {
       throw Errors.MISSING_SWAP_CONTRACTS();
     }
 
-    this.provider = new InjectedProvider(
-      this.logger,
-      this.networkDetails,
-      this.config,
-    );
+    if (networkDetails.identifier === networks.Arbitrum.identifier) {
+      this.provider = new ArbitrumProvider(
+        this.logger,
+        this.networkDetails,
+        this.config as ArbitrumConfig,
+      );
+    } else {
+      this.provider = new InjectedProvider(
+        this.logger,
+        this.networkDetails,
+        this.config,
+      );
+    }
 
     if (
       this.config.networkName === undefined ||
@@ -125,14 +134,12 @@ class EthereumManager {
     await transactionTracker.init();
 
     let lastBlockNumber = currentBlock;
-    await this.provider.on('block', async (blockNumber: number) => {
-      this.logger.silly(
-        `Got new ${this.networkDetails.name} block: ${blockNumber}`,
-      );
+    await this.provider.onBlock(async ({ number }) => {
+      this.logger.silly(`Got new ${this.networkDetails.name} block: ${number}`);
 
-      if (blockNumber - lastBlockNumber > 1) {
+      if (number - lastBlockNumber > 1) {
         this.logger.warn(
-          `${this.networkDetails.name} block gap detected: ${blockNumber - lastBlockNumber}; rescanning for missed events`,
+          `${this.networkDetails.name} block gap detected: ${number - lastBlockNumber}; rescanning for missed events`,
         );
 
         for (const c of this.contracts) {
@@ -146,10 +153,10 @@ class EthereumManager {
         }
       }
 
-      lastBlockNumber = blockNumber;
+      lastBlockNumber = number;
 
       await Promise.all([
-        ChainTipRepository.updateTip(chainTip, blockNumber),
+        ChainTipRepository.updateTip(chainTip, number),
         transactionTracker.scanPendingTransactions(),
       ]);
     });
@@ -234,6 +241,7 @@ class EthereumManager {
 
   public destroy = async () => {
     await this.provider.removeAllListeners();
+    await this.provider.destroy();
   };
 
   public getContractDetails = async () => {

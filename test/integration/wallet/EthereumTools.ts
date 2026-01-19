@@ -20,6 +20,9 @@ export const getSigner = async (): Promise<EthereumSetup> => {
     polling: true,
   });
   provider.pollingInterval = 500;
+  (provider as any).getLocktimeHeight = async () => {
+    return await provider.getBlockNumber();
+  };
 
   const mnemonic = generateMnemonic();
 

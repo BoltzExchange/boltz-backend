@@ -8,6 +8,7 @@ describe('KeyRepository', () => {
 
   beforeAll(async () => {
     database = getPostgresDatabase();
+    await KeyProvider.drop();
     await database.init();
   });
 
@@ -16,7 +17,7 @@ describe('KeyRepository', () => {
   });
 
   afterAll(async () => {
-    await KeyProvider.truncate();
+    await KeyProvider.drop();
     await database.close();
   });
 

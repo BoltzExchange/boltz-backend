@@ -62,22 +62,23 @@ impl TimeoutDeltaProvider {
     pub fn new(currencies: &Currencies, pairs: &[PairConfig]) -> Result<Self> {
         let mut timeout_deltas = HashMap::new();
 
+        let mut block_times = BLOCK_TIMES
+            .write()
+            .map_err(|e| anyhow!("failed to write block times: {}", e))?;
+
         for (symbol, currency) in currencies.iter() {
             if let Some(evm_manager) = &currency.evm_manager {
-                let block_time = *BLOCK_TIMES
-                    .read()
-                    .map_err(|e| anyhow!("failed to read block times: {}", e))?
+                let block_time = *block_times
                     .get(symbol)
                     .ok_or(anyhow!("no block time for symbol: {}", symbol))?;
 
                 for token in evm_manager.tokens.keys() {
-                    BLOCK_TIMES
-                        .write()
-                        .map_err(|e| anyhow!("failed to write block times: {}", e))?
-                        .insert(token.clone(), block_time);
+                    block_times.insert(token.clone(), block_time);
                 }
             }
         }
+
+        drop(block_times);
 
         for pair in pairs {
             let id = concat_pair(&pair.base, &pair.quote);

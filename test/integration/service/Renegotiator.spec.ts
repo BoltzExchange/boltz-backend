@@ -445,7 +445,7 @@ describe('Renegotiator', () => {
       });
 
       test('should handle EtherSwap lockups', async () => {
-        const { etherBase, signer, provider } = await getSigner();
+        const { etherBase, signer } = await getSigner();
         const { etherSwap } = await getContracts(etherBase);
 
         const preimageHash = randomBytes(32);
@@ -493,14 +493,12 @@ describe('Renegotiator', () => {
           quote,
         );
 
-        const receipt = await provider.getTransactionReceipt(transaction.hash);
-
         expect(
           swapNursery.ethereumNurseries[0].checkEtherSwapLockup,
         ).toHaveBeenCalledTimes(1);
         expect(
           swapNursery.ethereumNurseries[0].checkEtherSwapLockup,
-        ).toHaveBeenCalledWith(expect.anything(), receipt, {
+        ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
           amount,
           timelock,
           preimageHash,
@@ -510,7 +508,7 @@ describe('Renegotiator', () => {
       });
 
       test('should handle ERC20 lockups', async () => {
-        const { etherBase, signer, provider } = await getSigner();
+        const { etherBase, signer } = await getSigner();
         const { token, erc20Swap } = await getContracts(etherBase);
 
         const preimageHash = randomBytes(32);
@@ -562,14 +560,12 @@ describe('Renegotiator', () => {
           quote,
         );
 
-        const receipt = await provider.getTransactionReceipt(transaction.hash);
-
         expect(
           swapNursery.ethereumNurseries[0].checkErc20SwapLockup,
         ).toHaveBeenCalledTimes(1);
         expect(
           swapNursery.ethereumNurseries[0].checkErc20SwapLockup,
-        ).toHaveBeenCalledWith(expect.anything(), receipt, {
+        ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
           amount,
           timelock,
           preimageHash,

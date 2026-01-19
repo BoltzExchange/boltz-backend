@@ -538,13 +538,21 @@ class EthereumNursery extends TypedEventEmitter<{
   };
 
   private listenBlocks = () => {
+    let lastKnownBlock = 0;
+
     this.ethereumManager.provider
-      .on('block', async (height) => {
-        await Promise.all([
-          this.checkExpiredSwaps(height),
-          this.checkExpiredChainSwaps(height),
-          this.checkExpiredReverseSwaps(height),
-        ]);
+      .onBlock(async ({ number, l1BlockNumber }) => {
+        const latest = l1BlockNumber ?? number;
+
+        if (latest > lastKnownBlock) {
+          lastKnownBlock = latest;
+
+          await Promise.all([
+            this.checkExpiredSwaps(latest),
+            this.checkExpiredChainSwaps(latest),
+            this.checkExpiredReverseSwaps(latest),
+          ]);
+        }
       })
       .catch((err) => {
         this.logger.error(

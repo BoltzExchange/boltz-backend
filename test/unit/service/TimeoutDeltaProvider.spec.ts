@@ -122,7 +122,7 @@ describe('TimeoutDeltaProvider', () => {
         symbol: 'ETH',
         type: CurrencyType.Ether,
         provider: {
-          getBlockNumber: jest.fn().mockResolvedValue(1000),
+          getLocktimeHeight: jest.fn().mockResolvedValue(1000),
         },
       } as unknown as Currency,
     ],
@@ -132,7 +132,7 @@ describe('TimeoutDeltaProvider', () => {
         symbol: 'USDT',
         type: CurrencyType.ERC20,
         provider: {
-          getBlockNumber: jest.fn().mockResolvedValue(1500),
+          getLocktimeHeight: jest.fn().mockResolvedValue(1500),
         },
       } as unknown as Currency,
     ],

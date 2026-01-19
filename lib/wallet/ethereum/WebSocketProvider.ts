@@ -8,9 +8,15 @@ import type Logger from '../../Logger';
 import { formatError } from '../../Utils';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
 
+type BlockEvent = {
+  number: number;
+  l1BlockNumber?: number;
+};
+
 class ReconnectingWebSocket
   extends TypedEventEmitter<{
     reconnected: void;
+    block: BlockEvent;
   }>
   implements WebSocketLike
 {
@@ -84,6 +90,8 @@ class ReconnectingWebSocket
       };
 
       this.ws.onmessage = (event) => {
+        this.emitBlock(event);
+
         if (this.onmessage) {
           this.onmessage(event);
         }
@@ -133,10 +141,37 @@ class ReconnectingWebSocket
       this.connect();
     }, ReconnectingWebSocket.reconnectDelay);
   };
+
+  private emitBlock = (event: MessageEvent) => {
+    try {
+      const parsed = JSON.parse(event.data);
+      if (parsed.method === 'eth_blockNumber') {
+        return;
+      }
+
+      const data = parsed.params?.result;
+
+      if (data && 'number' in data && 'stateRoot' in data) {
+        const res: BlockEvent = {
+          number: Number(data.number),
+        };
+
+        if ('l1BlockNumber' in data) {
+          res.l1BlockNumber = Number(data.l1BlockNumber);
+        }
+
+        this.emit('block', res);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      // Ignored; there might be other messages coming in
+    }
+  };
 }
 
 class WebSocketProvider extends EthersWebSocketProvider {
-  private ws: ReconnectingWebSocket;
+  public ws: ReconnectingWebSocket;
+
   private registeredListeners = new Map<ProviderEvent, Set<Listener>>();
   private registeredOnceListeners = new Map<ProviderEvent, Set<Listener>>();
   private onceWrappedListeners = new Map<Listener, Listener>();
@@ -234,11 +269,18 @@ class WebSocketProvider extends EthersWebSocketProvider {
   }
 
   public async destroy(): Promise<void> {
+    try {
+      await this.removeAllListeners();
+      await super.destroy();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      // Ignored; fails with Anvil
+    }
+
     this.registeredListeners.clear();
     this.registeredOnceListeners.clear();
     this.onceWrappedListeners.clear();
     this.ws.close();
-    await super.destroy();
   }
 
   private reregisterListeners = async (): Promise<void> => {
@@ -268,3 +310,4 @@ class WebSocketProvider extends EthersWebSocketProvider {
 }
 
 export default WebSocketProvider;
+export { BlockEvent };

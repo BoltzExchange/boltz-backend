@@ -5,6 +5,7 @@ import Errors from '../../../../lib/wallet/Errors';
 import type Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import InjectedProvider from '../../../../lib/wallet/ethereum/InjectedProvider';
 import type Contracts from '../../../../lib/wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../../../../lib/wallet/providers/ERC20WalletProvider';
 import type { EthereumSetup } from '../EthereumTools';
@@ -27,6 +28,8 @@ jest.mock(
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
 describe('EthereumManager', () => {
+  InjectedProvider.allowHttpOnly = true;
+
   let database: Database;
 
   let setup: EthereumSetup;

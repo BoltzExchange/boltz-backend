@@ -2,7 +2,6 @@ import { address } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import { Networks } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import type { Provider } from 'ethers';
 import {
   Transaction as LiquidTransaction,
   networks as liquidNetworks,
@@ -66,6 +65,7 @@ import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
+import type InjectedProvider from '../../../lib/wallet/ethereum/InjectedProvider';
 import packageJson from '../../../package.json';
 import { createInvoice } from '../swap/InvoiceUtils';
 
@@ -223,7 +223,7 @@ const mockGetBlockNumber = jest
   .fn()
   .mockImplementation(async () => mockGetBlockNumberResult);
 
-const mockedProvider = <jest.Mock<Provider>>(
+const mockedProvider = <jest.Mock<InjectedProvider>>(
   (<any>jest.fn().mockImplementation(() => ({
     getFeeData: mockGetFeeData,
     getBlockNumber: mockGetBlockNumber,

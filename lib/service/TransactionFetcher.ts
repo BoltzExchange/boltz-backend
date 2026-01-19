@@ -288,7 +288,7 @@ class TransactionFetcher {
     }
 
     if (currency.provider) {
-      return currency.provider.getBlockNumber();
+      return currency.provider.getLocktimeHeight();
     }
 
     throw Errors.NOT_SUPPORTED_BY_SYMBOL(currency.symbol);

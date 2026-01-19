@@ -3,6 +3,14 @@ use crate::{
     grpc::service::boltzr::{SwapUpdate, swap_update},
 };
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
+
+/// Type alias for broadcast senders that send updates with an optional connection ID filter.
+/// The `Option<u64>` is the connection ID - when `Some`, updates are only sent to that connection.
+pub type UpdateSender<T> = broadcast::Sender<(Option<u64>, Vec<T>)>;
+
+/// Type alias for broadcast receivers that receive updates with an optional connection ID filter.
+pub type UpdateReceiver<T> = broadcast::Receiver<(Option<u64>, Vec<T>)>;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct TransactionInfo {

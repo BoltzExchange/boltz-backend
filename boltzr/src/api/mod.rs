@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 use ws::status::SwapInfos;
-use ws::types::SwapStatus;
+use ws::types::{SwapStatus, UpdateSender};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::server::MetricsLayer;
@@ -46,7 +46,7 @@ pub struct Server<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 struct ServerState<S, M> {
@@ -54,7 +54,7 @@ struct ServerState<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 impl<S, M> Server<S, M>
@@ -68,7 +68,7 @@ where
         manager: Arc<M>,
         service: Arc<Service>,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Self {
         Server {
             config,

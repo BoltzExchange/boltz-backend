@@ -142,6 +142,8 @@ diesel::table! {
         script_pubkey -> Binary,
         swap_id -> Nullable<Text>,
         funding_address_id -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 

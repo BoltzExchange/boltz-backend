@@ -57,6 +57,19 @@ pub fn get_wallet(
     Ok(wallet)
 }
 
+pub fn get_chain_client(
+    currencies: &Currencies,
+    symbol: &str,
+) -> anyhow::Result<Arc<dyn crate::chain::Client + Send + Sync>> {
+    let chain = currencies
+        .get(symbol)
+        .ok_or(anyhow::anyhow!("currency not found"))?
+        .chain
+        .clone()
+        .ok_or(anyhow::anyhow!("chain client not found"))?;
+    Ok(chain)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn connect_nodes<K: KeysHelper>(
     cancellation_token: CancellationToken,

@@ -2,7 +2,7 @@ import type { Transaction } from 'bitcoinjs-lib';
 import type { Musig } from 'boltz-core';
 import { SwapTreeSerializer } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
-import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
+import type { ClaimDetails, LiquidClaimDetails, SomeTree } from '../../Core';
 import {
   calculateTransactionFee,
   constructClaimDetails,
@@ -21,6 +21,7 @@ import type { AnySwap } from '../../consts/Types';
 import type ChainSwapData from '../../db/models/ChainSwapData';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../../db/repositories/FundingAddressRepository';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
 import type SwapOutputType from '../../swap/SwapOutputType';
 import type Wallet from '../../wallet/Wallet';
@@ -46,6 +47,7 @@ type CooperativeClientDetails = {
   pubNonce: Buffer;
   publicKey: Buffer;
   transactionHash: Buffer;
+  fundingAddressId?: string;
 };
 
 abstract class CoopSignerBase<
@@ -76,10 +78,21 @@ abstract class CoopSignerBase<
       ? (toClaim.swap as Swap)
       : (toClaim.swap as ChainSwapInfo).receivingData;
 
-    const ourKeys = wallet.getKeysByIndex(details.keyIndex!);
+    let keyIndex = details.keyIndex!;
+    let theirPublicKey = details.theirPublicKey;
+
+    const fundingAddress = await FundingAddressRepository.getBySwapId(
+      toClaim.swap.id,
+    );
+    if (fundingAddress !== null) {
+      keyIndex = fundingAddress.keyIndex;
+      theirPublicKey = fundingAddress.theirPublicKey;
+    }
+
+    const ourKeys = wallet.getKeysByIndex(keyIndex);
     toClaim.cooperative = {
       sweepAddress: address,
-      musig: createMusig(ourKeys, getHexBuffer(details.theirPublicKey!)),
+      musig: createMusig(ourKeys, getHexBuffer(theirPublicKey!)),
       transaction: constructClaimTransaction(
         wallet,
         [
@@ -102,6 +115,7 @@ abstract class CoopSignerBase<
         toClaim.cooperative.transaction,
         0,
       ),
+      fundingAddressId: fundingAddress?.id,
     };
   };
 
@@ -152,16 +166,19 @@ abstract class CoopSignerBase<
       ? (swap as Swap)
       : (swap as ChainSwapInfo).receivingData;
 
-    const swapTree = isSubmarine
-      ? (details as Swap).redeemScript!
-      : (details as ChainSwapData).swapTree!;
-    tweakMusig(
-      chainCurrency.type,
-      musig,
-      SwapTreeSerializer.deserializeSwapTree(swapTree),
-    );
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    let swapTree: SomeTree =
+      fundingAddress !== null
+        ? fundingAddress.tree()
+        : SwapTreeSerializer.deserializeSwapTree(
+            isSubmarine
+              ? (details as Swap).redeemScript!
+              : (details as ChainSwapData).swapTree!,
+          );
 
-    const theirPublicKey = getHexBuffer(details.theirPublicKey!);
+    tweakMusig(chainCurrency.type, musig, swapTree);
+
+    const theirPublicKey = musig.publicKeys[1]!;
     musig.aggregateNonces([[theirPublicKey, theirPubNonce]]);
     musig.initializeSession(
       await hashForWitnessV1(chainCurrency, transaction, 0),

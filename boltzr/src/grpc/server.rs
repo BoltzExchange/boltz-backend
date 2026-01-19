@@ -1,4 +1,4 @@
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{SwapStatus, UpdateSender};
 use crate::cache::Cache;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::evm::RefundSigner;
@@ -63,7 +63,7 @@ pub struct Server<M, W, N> {
     notification_client: Option<Arc<N>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 
     cancellation_token: CancellationToken,
 }
@@ -82,7 +82,7 @@ where
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,
@@ -271,6 +271,7 @@ mod server_test {
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
+            fn funding_address_update_sender(&self) -> crate::api::ws::types::UpdateSender<crate::api::ws::types::FundingAddressUpdate>;
             async fn rescan_chains(
                 &self,
                 options: Option<Vec<RescanChainOptions>>,

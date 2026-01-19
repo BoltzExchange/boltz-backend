@@ -1,5 +1,8 @@
+import { fundingAddressTree } from 'boltz-core';
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
+import { SomeTree } from '../../Core';
+import { getHexBuffer } from '../../Utils';
 
 type FundingAddressType = {
   id: string;
@@ -76,6 +79,14 @@ class FundingAddress extends Model implements FundingAddressType {
         tableName: 'funding_addresses',
         underscored: true,
       },
+    );
+  };
+
+  public tree = (): SomeTree => {
+    return fundingAddressTree(
+      this.symbol === 'L-BTC',
+      getHexBuffer(this.theirPublicKey),
+      this.timeoutBlockHeight,
     );
   };
 }

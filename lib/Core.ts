@@ -65,6 +65,8 @@ type UnblindedOutput = Omit<LiquidTxOutput, 'value'> & {
   isLbtc: boolean;
 };
 
+export type SomeTree = Types.SwapTree | Types.FundingAddressTree;
+
 export let zkp: Secp256k1ZKP;
 let confi: confidential.Confidential;
 
@@ -377,7 +379,7 @@ export const createMusig = (
 export const tweakMusig = (
   type: CurrencyType,
   musig: Musig,
-  swapTree: Types.SwapTree,
+  swapTree: Types.SwapTree | Types.FundingAddressTree,
 ) =>
   (isBitcoin(type) ? TaprootUtils : TaprootUtilsLiquid).tweakMusig(
     musig,

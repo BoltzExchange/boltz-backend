@@ -56,7 +56,6 @@ import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
-import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
@@ -1138,8 +1137,6 @@ class Service {
 
     // Invoice, if available, to adjust the timeout block height
     invoice?: string;
-
-    fundingAddressId?: string;
   }): Promise<{
     id: string;
     address: string;
@@ -1564,7 +1561,6 @@ class Service {
     paymentTimeout?: number,
     webHook?: WebHookData,
     extraFees?: ExtraFees,
-    fundingAddressId?: string,
   ): Promise<{
     id: string;
     bip21: string;
@@ -1630,14 +1626,6 @@ class Service {
           extraFees,
         );
 
-      if (fundingAddressId !== undefined) {
-        await this.swapManager.setSwapFundingAddress(
-          swap!,
-          fundingAddressId,
-          expectedAmount,
-        );
-      }
-
       return {
         bip21,
         acceptZeroConf,
@@ -1664,10 +1652,6 @@ class Service {
         id: createdSwap.id,
       });
       await swap?.destroy();
-
-      if (fundingAddressId !== undefined) {
-        await FundingAddressRepository.setSwapId(fundingAddressId, null);
-      }
 
       throw error;
     }

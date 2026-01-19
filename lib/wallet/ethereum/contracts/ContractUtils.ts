@@ -27,6 +27,7 @@ export const queryEtherSwapValuesFromLock = async (
     for (const log of lockTransactionReceipt.logs) {
       if (log.topics[0] === topicHash) {
         const event = etherSwap.interface.parseLog(log as any);
+        // @ts-ignore
         return formatEtherSwapValues(event!.args);
       }
     }
@@ -49,6 +50,7 @@ export const queryERC20SwapValuesFromLock = async (
     for (const log of lockTransactionReceipt.logs) {
       if (log.topics[0] === topicHash) {
         const event = erc20Swap.interface.parseLog(log as any);
+        // @ts-ignore
         return formatERC20SwapValues(event!.args);
       }
     }

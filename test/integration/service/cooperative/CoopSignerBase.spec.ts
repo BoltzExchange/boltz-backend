@@ -41,6 +41,14 @@ import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvi
 import { bitcoinClient } from '../../Nodes';
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
 
 class CoopSigner extends CoopSignerBase<NonNullable<unknown>> {
   constructor(walletManager: WalletManager, swapOutputType: SwapOutputType) {

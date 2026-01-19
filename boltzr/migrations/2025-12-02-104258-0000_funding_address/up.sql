@@ -22,3 +22,14 @@ CREATE TRIGGER update_funding_addresses_modified_time
     ON funding_addresses
     FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();
+
+ALTER TABLE script_pubkeys ADD COLUMN IF NOT EXISTS funding_address_id TEXT;
+ALTER TABLE script_pubkeys ALTER COLUMN swap_id DROP NOT NULL;
+ALTER TABLE script_pubkeys ALTER COLUMN "createdAt" SET DEFAULT now();
+ALTER TABLE script_pubkeys ALTER COLUMN "updatedAt" SET DEFAULT now();
+
+CREATE TRIGGER update_script_pubkeys_modified_time
+    BEFORE UPDATE
+    ON script_pubkeys
+    FOR EACH ROW
+EXECUTE FUNCTION update_modified_column();

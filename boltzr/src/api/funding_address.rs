@@ -1,6 +1,7 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
+use crate::api::ws::types::FundingAddressUpdate;
 use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
@@ -33,8 +34,6 @@ pub struct CreateRequest {
     pub symbol: String,
     #[serde(rename = "refundPublicKey")]
     pub refund_public_key: PublicKeyDeserialize,
-    #[serde(rename = "timeoutBlockHeight")]
-    pub timeout_block_height: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,25 +44,8 @@ pub struct CreateResponse {
     pub timeout_block_height: u32,
     #[serde(rename = "boltzPublicKey")]
     pub boltz_public_key: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GetResponse {
-    pub id: String,
-    pub address: String,
-    pub symbol: String,
-    pub status: String,
-    #[serde(rename = "timeoutBlockHeight")]
-    pub timeout_block_height: u32,
-    #[serde(rename = "boltzPublicKey")]
-    pub boltz_public_key: String,
-    #[serde(
-        rename = "lockupTransactionId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub lockup_transaction_id: Option<String>,
-    #[serde(rename = "swapId", skip_serializing_if = "Option::is_none")]
-    pub swap_id: Option<String>,
+    #[serde(rename = "blindingKey", skip_serializing_if = "Option::is_none")]
+    pub blinding_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -76,6 +58,12 @@ pub struct GetSigningDetailsResponse {
     pub transaction_hex: String,
     #[serde(rename = "transactionHash")]
     pub transaction_hash: String,
+}
+
+#[derive(Deserialize)]
+pub struct GetSigningDetailsQuery {
+    #[serde(rename = "swap_id")]
+    pub swap_id: String,
 }
 
 #[derive(Deserialize)]
@@ -97,18 +85,18 @@ where
     let request = CreateFundingAddressRequest {
         symbol: body.symbol,
         refund_public_key: body.refund_public_key.0,
-        timeout_block_height: body.timeout_block_height,
     };
 
-    let response = state.service.funding_address.create(request)?;
+    let response = state.service.funding_address.create(request).await?;
 
     Ok((
         StatusCode::OK,
         Json(CreateResponse {
             id: response.id,
             address: response.address,
-            timeout_block_height: response.timeout_block_height,
             boltz_public_key: response.boltz_public_key,
+            timeout_block_height: response.timeout_block_height,
+            blinding_key: response.blinding_key,
         }),
     )
         .into_response())
@@ -124,26 +112,13 @@ where
 {
     let response = state.service.funding_address.get_by_id(&id)?;
 
-    Ok((
-        StatusCode::OK,
-        Json(GetResponse {
-            id: response.id,
-            symbol: response.symbol,
-            status: response.status,
-            address: response.address,
-            timeout_block_height: response.timeout_block_height,
-            boltz_public_key: response.boltz_public_key,
-            lockup_transaction_id: response.lockup_transaction_id,
-            swap_id: response.swap_id,
-        }),
-    )
-        .into_response())
+    Ok((StatusCode::OK, Json(FundingAddressUpdate::from(response))).into_response())
 }
 
 pub async fn get_signing_details<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-    Query(swap_id): Query<String>,
+    Query(query): Query<GetSigningDetailsQuery>,
 ) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
@@ -152,7 +127,8 @@ where
     let response = state
         .service
         .funding_address
-        .get_signing_details(&id, &swap_id)
+        .get_signing_details(&id, &query.swap_id)
+        .await
         .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
 
     Ok((
@@ -182,24 +158,25 @@ where
         partial_signature: body.partial_signature,
     };
 
-    state
+    let funding_address = state
         .service
         .funding_address
         .set_signature(request)
+        .await
         .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
 
-    /*
-    TODO: Trigger transaction check after signature is set
     state
         .manager
         .check_transaction(
-            response
+            &funding_address.symbol,
+            &funding_address
                 .lockup_transaction_id
                 .ok_or(FundingAddressError::Internal(
                     "lockup transaction id missing".to_string(),
                 ))?,
-        );
-        */
+        )
+        .await
+        .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
 
     Ok(StatusCode::NO_CONTENT.into_response())
 }
@@ -297,6 +274,30 @@ mod test {
         assert!(!response.id.is_empty());
         assert!(!response.address.is_empty());
         assert!(!response.boltz_public_key.is_empty());
+        // BTC (non-Liquid) should not have a blinding key
+        assert!(response.blinding_key.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_create_funding_address_liquid_has_blinding_key() {
+        let res = make_create_request("L-BTC", &get_keypair()).await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let response: CreateResponse = serde_json::from_slice(&body).unwrap();
+
+        assert!(!response.id.is_empty());
+        assert!(!response.address.is_empty());
+        // Liquid confidential address should start with "el" for regtest
+        assert!(
+            response.address.starts_with("el"),
+            "Liquid address should be confidential (start with 'el'), got: {}",
+            response.address
+        );
+        assert!(!response.boltz_public_key.is_empty());
+        // Liquid should have a blinding key
+        assert!(response.blinding_key.is_some());
+        assert!(!response.blinding_key.unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -358,20 +359,12 @@ mod test {
         assert_eq!(get_res.status(), StatusCode::OK);
 
         let get_body = get_res.into_body().collect().await.unwrap().to_bytes();
-        let get_response: GetResponse = serde_json::from_slice(&get_body).unwrap();
+        let get_response: FundingAddressUpdate = serde_json::from_slice(&get_body).unwrap();
 
         assert_eq!(get_response.id, create_response.id);
-        assert_eq!(get_response.address, create_response.address);
-        assert_eq!(
-            get_response.timeout_block_height,
-            create_response.timeout_block_height
-        );
-        assert_eq!(
-            get_response.boltz_public_key,
-            create_response.boltz_public_key
-        );
-        assert_eq!(get_response.lockup_transaction_id, None);
-        assert_eq!(get_response.swap_id, None);
+        assert!(!get_response.status.is_empty());
+        assert!(get_response.transaction.is_none());
+        assert!(get_response.swap_id.is_none());
     }
 
     #[tokio::test]

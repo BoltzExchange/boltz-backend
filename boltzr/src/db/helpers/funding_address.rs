@@ -24,6 +24,7 @@ pub trait FundingAddressHelper {
         value: i64,
         status: &str,
     ) -> QueryResponse<usize>;
+    fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
 }
 
 #[derive(Clone, Debug)]
@@ -105,6 +106,13 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .filter(funding_addresses::dsl::id.eq(id))
             .execute(&mut self.pool.get()?)?)
     }
+
+    fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize> {
+        Ok(update(funding_addresses::dsl::funding_addresses)
+            .set(funding_addresses::dsl::status.eq(status.to_string()))
+            .filter(funding_addresses::dsl::id.eq(id))
+            .execute(&mut self.pool.get()?)?)
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +136,7 @@ pub mod test {
                 value: i64,
                 status: &str
             ) -> QueryResponse<usize>;
+            fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
         }
     }
 }

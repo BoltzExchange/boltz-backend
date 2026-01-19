@@ -1,8 +1,6 @@
 use crate::chain::Client;
-use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::FundingAddressHelper;
-use crate::db::helpers::swap::SwapHelper;
-use crate::db::schema;
+use crate::db::models::{ChainSwapInfo, Swap};
 use crate::wallet::Wallet;
 use crate::{currencies::Currencies, db::models::FundingAddress};
 use anyhow::{Result, anyhow};
@@ -16,16 +14,14 @@ use boltz_core::wrapper::{
     BitcoinParams, ElementsParams, InputDetail, Params, Transaction, construct_tx,
 };
 use boltz_core::{Address, Destination, FeeTarget, Musig};
-use diesel::ExpressionMethods;
 use elements::OutPoint as ElementsOutPoint;
+use elements::hex::ToHex;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct FundingAddressClaimer {
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
-    swap_helper: Arc<dyn SwapHelper + Sync + Send>,
-    chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
     currencies: Currencies,
 }
 
@@ -41,14 +37,10 @@ struct SwapInfo {
 impl FundingAddressClaimer {
     pub fn new(
         funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
-        swap_helper: Arc<dyn SwapHelper + Sync + Send>,
-        chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
     ) -> Self {
         Self {
             funding_address_helper,
-            swap_helper,
-            chain_swap_helper,
             currencies,
         }
     }
@@ -176,14 +168,23 @@ impl FundingAddressClaimer {
             }
             "BTC" => {
                 for swap in swaps {
-                    let _tx = construct_tx(&Params::Bitcoin(BitcoinParams {
+                    let chain = self.chain(swap.funding_address.symbol.as_str())?;
+                    let fee_rate = chain.estimate_fee().await?;
+                    let tx = construct_tx(&Params::Bitcoin(BitcoinParams {
                         inputs: &[&self.input_detail(swap)?.try_into()?],
                         destination: &Destination::Single(&address.clone().try_into()?),
-                        fee: FeeTarget::Absolute(0),
+                        fee: FeeTarget::Relative(fee_rate),
                     }))?;
                     let presigned = swap.funding_address.presigned_tx_hex()?;
-                    let chain = self.chain(swap.funding_address.symbol.as_str())?;
-                    let _tx = chain.send_raw_transaction(&presigned).await?;
+                    let tx_hex = tx.0.serialize().to_hex();
+
+                    let response = chain.submit_package(&[&presigned, &tx_hex]).await?;
+                    if response.package_msg != "success" {
+                        return Err(anyhow!(
+                            "failed to submit package: {}",
+                            response.package_msg
+                        ));
+                    }
                 }
                 Ok(())
             }
@@ -207,72 +208,65 @@ impl FundingAddressClaimer {
         Ok(tx_id)
     }
 
-    pub async fn sweep_swaps(&self, symbol: &str, swap_ids: Vec<String>) -> Result<Vec<String>> {
-        let mut swaps = self
-            .swap_helper
-            .get_all(Box::new(schema::swaps::dsl::id.eq_any(swap_ids.clone())))?
-            .into_iter()
-            .map(|swap| {
-                let funding_address = self
-                    .funding_address_helper
-                    .get_by_swap_id(&swap.id)?
-                    .ok_or(anyhow!("swap not linked to a funding address: {}", swap.id))?;
-                Ok(SwapInfo {
-                    id: swap.id.clone(),
-                    key_index: swap.keyIndex.ok_or(anyhow!("key index not found"))? as u64,
-                    refund_public_key: swap
-                        .refundPublicKey
-                        .ok_or(anyhow!("refund public key not found"))?,
-                    tree: swap
-                        .redeemScript
-                        .ok_or(anyhow!("redeem script not found"))?,
-                    preimage: swap.preimage.ok_or(anyhow!("preimage not found"))?,
-                    funding_address,
-                })
-            })
-            .collect::<Result<Vec<SwapInfo>>>()?;
-        let chain_swaps = self
-            .chain_swap_helper
-            .get_all(Box::new(
-                schema::chainSwaps::dsl::id.eq_any(swap_ids.clone()),
-            ))?
-            .into_iter()
-            .map(|chain_swap| {
-                let funding_address = self
-                    .funding_address_helper
-                    .get_by_swap_id(&chain_swap.swap.id)?
-                    .ok_or(anyhow!(
-                        "chain swap not linked to a funding address: {}",
-                        chain_swap.swap.id
-                    ))?;
-                Ok(SwapInfo {
-                    id: chain_swap.swap.id.clone(),
-                    key_index: chain_swap
-                        .receiving()
-                        .keyIndex
-                        .ok_or(anyhow!("key index not found"))?
-                        as u64,
-                    refund_public_key: chain_swap
-                        .receiving()
-                        .theirPublicKey
-                        .clone()
-                        .ok_or(anyhow!("their public key not found"))?,
-                    tree: chain_swap
-                        .receiving()
-                        .swapTree
-                        .clone()
-                        .ok_or(anyhow!("redeem script not found"))?,
-                    preimage: chain_swap
-                        .swap
-                        .preimage
-                        .ok_or(anyhow!("preimage not found"))?,
-                    funding_address,
-                })
-            })
-            .collect::<Result<Vec<SwapInfo>>>()?;
+    pub async fn funding_claimable_swaps(
+        &self,
+        swaps: Vec<Swap>,
+        chain_swaps: Vec<ChainSwapInfo>,
+    ) -> Result<Vec<SwapInfo>> {
+        let mut swap_infos: Vec<SwapInfo> = Vec::new();
+        for swap in swaps {
+            let funding_address = self
+                .funding_address_helper
+                .get_by_swap_id(&swap.id)?
+                .ok_or(anyhow!("swap not linked to a funding address: {}", swap.id))?;
+            swap_infos.push(SwapInfo {
+                id: swap.id.clone(),
+                key_index: swap.keyIndex.ok_or(anyhow!("key index not found"))? as u64,
+                refund_public_key: swap
+                    .refundPublicKey
+                    .ok_or(anyhow!("refund public key not found"))?,
+                tree: swap
+                    .redeemScript
+                    .ok_or(anyhow!("redeem script not found"))?,
+                preimage: swap.preimage.ok_or(anyhow!("preimage not found"))?,
+                funding_address,
+            });
+        }
+        for chain_swap in chain_swaps {
+            let funding_address = self
+                .funding_address_helper
+                .get_by_swap_id(&chain_swap.swap.id)?
+                .ok_or(anyhow!(
+                    "chain swap not linked to a funding address: {}",
+                    chain_swap.swap.id
+                ))?;
+            swap_infos.push(SwapInfo {
+                id: chain_swap.swap.id.clone(),
+                key_index: chain_swap
+                    .receiving()
+                    .keyIndex
+                    .ok_or(anyhow!("key index not found"))? as u64,
+                refund_public_key: chain_swap
+                    .receiving()
+                    .theirPublicKey
+                    .clone()
+                    .ok_or(anyhow!("their public key not found"))?,
+                tree: chain_swap
+                    .receiving()
+                    .swapTree
+                    .clone()
+                    .ok_or(anyhow!("redeem script not found"))?,
+                preimage: chain_swap
+                    .swap
+                    .preimage
+                    .ok_or(anyhow!("preimage not found"))?,
+                funding_address,
+            });
+        }
+        Ok(swap_infos)
+    }
 
-        swaps.extend(chain_swaps);
-
+    pub async fn sweep_swaps(&self, symbol: &str, swaps: Vec<SwapInfo>) -> Result<Vec<String>> {
         let mut claimed = Vec::new();
         let chunk_size = match symbol {
             "BTC" => 1,
@@ -349,14 +343,10 @@ mod test {
 
     fn create_claimer(
         funding_address_helper: MockFundingAddressHelper,
-        swap_helper: MockSwapHelper,
-        chain_swap_helper: MockChainSwapHelper,
         currencies: Option<Currencies>,
     ) -> FundingAddressClaimer {
         FundingAddressClaimer::new(
             Arc::new(funding_address_helper),
-            Arc::new(swap_helper),
-            Arc::new(chain_swap_helper),
             currencies.unwrap_or_default(),
         )
     }

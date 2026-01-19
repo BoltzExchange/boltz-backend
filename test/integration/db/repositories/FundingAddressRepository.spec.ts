@@ -28,7 +28,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           'e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452',
         timeoutBlockHeight: 1000,
-        lockupConfirmed: false,
       });
 
       expect(fundingAddress.id).toEqual('test123');
@@ -38,7 +37,6 @@ describe('FundingAddressRepository', () => {
         'e5b4f43d66647713102a5e65be6ee689a16b44cfae716c724e319c9023e63452',
       );
       expect(fundingAddress.timeoutBlockHeight).toEqual(1000);
-      expect(fundingAddress.lockupConfirmed).toEqual(false);
     });
   });
 
@@ -51,7 +49,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         timeoutBlockHeight: 2000,
-        lockupConfirmed: false,
       });
 
       const result =
@@ -81,7 +78,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
         timeoutBlockHeight: 3000,
-        lockupConfirmed: true,
         lockupTransactionId: 'txid123',
         lockupAmount: 50000,
         swapId: 'swap456',
@@ -93,7 +89,6 @@ describe('FundingAddressRepository', () => {
 
       expect(result).not.toBeNull();
       expect(result?.lockupTransactionId).toEqual('txid123');
-      expect(result?.lockupConfirmed).toEqual(true);
       expect(result?.lockupAmount).toEqual(50000);
       expect(result?.swapId).toEqual('swap456');
       expect(result?.presignedTx).toEqual(presignedTx);
@@ -107,7 +102,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           '1111111111111111111111111111111111111111111111111111111111111111',
         timeoutBlockHeight: 100,
-        lockupConfirmed: false,
       });
 
       await FundingAddressRepository.addFundingAddress({
@@ -117,7 +111,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           '2222222222222222222222222222222222222222222222222222222222222222',
         timeoutBlockHeight: 200,
-        lockupConfirmed: false,
       });
 
       await FundingAddressRepository.addFundingAddress({
@@ -127,7 +120,6 @@ describe('FundingAddressRepository', () => {
         theirPublicKey:
           '3333333333333333333333333333333333333333333333333333333333333333',
         timeoutBlockHeight: 300,
-        lockupConfirmed: false,
       });
 
       const result =

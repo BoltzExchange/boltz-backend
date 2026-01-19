@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import type {

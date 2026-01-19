@@ -17,6 +17,7 @@ import {
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../../../lib/db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -36,7 +37,16 @@ type blockCallback = (block: {
   hash: Buffer;
 }) => Promise<void>;
 
+type transactionCallback = (event: {
+  symbol: string;
+  transaction: Transaction;
+  status: TransactionStatus;
+  swapIds: string[];
+  fundingAddressIds: string[];
+}) => Promise<void>;
+
 let emitBlock: blockCallback;
+let emitTransaction: transactionCallback;
 
 const mockOnSidecar = jest
   .fn()
@@ -46,7 +56,7 @@ const mockOnSidecar = jest
         emitBlock = callback;
         break;
       case 'transaction':
-        // Transaction callback not used in current tests
+        emitTransaction = callback;
         break;
     }
   });
@@ -170,6 +180,8 @@ const mockSetStatus = jest.fn().mockImplementation(async (arg) => arg);
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 
+jest.mock('../../../lib/db/repositories/FundingAddressRepository');
+
 describe('UtxoNursery', () => {
   const btcWallet = new MockedWallet('BTC');
   const btcChainClient = new MockedChainClient('BTC');
@@ -216,6 +228,7 @@ describe('UtxoNursery', () => {
       mockGetReverseSwapsExpirable;
 
     ChainSwapRepository.getChainSwapByData = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
     ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
     ChainSwapRepository.getChainSwapsExpirable = jest
       .fn()
@@ -251,6 +264,7 @@ describe('UtxoNursery', () => {
 
     mockGetSwapResult = {
       id: 'id',
+      type: SwapType.Submarine,
       expectedAmount: 100214,
       redeemScript: sampleRedeemScript,
     };
@@ -620,6 +634,7 @@ describe('UtxoNursery', () => {
     mockGetKeysByIndexResult = ourKeys;
     mockGetSwapResult = {
       id: 'taproot',
+      type: SwapType.Submarine,
       keyIndex: 123,
       version: SwapVersion.Taproot,
       refundPublicKey: theirPublicKey,
@@ -639,7 +654,6 @@ describe('UtxoNursery', () => {
     );
 
     expect(eventEmitted).toEqual(true);
-
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
@@ -1207,5 +1221,329 @@ describe('UtxoNursery', () => {
         getOutputValueSpy.mockRestore();
       },
     );
+  });
+
+  describe('checkFundingAddresses', () => {
+    const checkFundingAddresses = async (
+      event: Parameters<transactionCallback>[0],
+    ) => {
+      await nursery['checkFundingAddresses'](btcChainClient, btcWallet, event);
+    };
+
+    beforeEach(() => {
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([]);
+    });
+
+    test('should do nothing when there are no funding address IDs', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.Confirmed,
+        swapIds: [],
+        fundingAddressIds: [],
+      });
+
+      expect(
+        FundingAddressRepository.getFundingAddressesByIds,
+      ).toHaveBeenCalledWith([]);
+    });
+
+    test('should handle funding address for Submarine Swap', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      const fundingAddressId = 'fundingAddr1';
+      const swapId = 'swap123';
+      const lockupAmount = 100214;
+
+      const mockFundingAddress = {
+        id: fundingAddressId,
+        swapId,
+        lockupAmount,
+        lockupTransactionVout: 0,
+      };
+
+      mockGetSwapResult = {
+        id: swapId,
+        type: SwapType.Submarine,
+        expectedAmount: lockupAmount,
+        redeemScript: sampleRedeemScript,
+      };
+
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([mockFundingAddress]);
+
+      let eventEmitted = false;
+
+      nursery.once('swap.lockup', (args) => {
+        expect(args.swap.id).toEqual(swapId);
+        expect(args.confirmed).toEqual(true);
+        eventEmitted = true;
+      });
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.Confirmed,
+        swapIds: [],
+        fundingAddressIds: [fundingAddressId],
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(eventEmitted).toEqual(true);
+      expect(
+        FundingAddressRepository.getFundingAddressesByIds,
+      ).toHaveBeenCalledWith([fundingAddressId]);
+      expect(mockSetLockupTransaction).toHaveBeenCalledWith(
+        mockGetSwapResult,
+        transaction.getId(),
+        lockupAmount,
+        true,
+        0,
+      );
+    });
+
+    test('should handle funding address for Chain Swap', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      const fundingAddressId = 'fundingAddr2';
+      const swapId = 'chainSwap456';
+      const lockupAmount = 100214;
+
+      const mockFundingAddress = {
+        id: fundingAddressId,
+        swapId,
+        lockupAmount,
+        lockupTransactionVout: 0,
+      };
+
+      const ourKeys = ECPair.makeRandom();
+      const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+
+      const tree = swapTree(
+        false,
+        randomBytes(32),
+        Buffer.from(ourKeys.publicKey),
+        theirPublicKey,
+        210,
+      );
+
+      const mockChainSwap = {
+        id: swapId,
+        type: SwapType.Chain,
+        acceptZeroConf: true,
+        receivingData: {
+          symbol: 'BTC',
+          keyIndex: 123,
+          expectedAmount: lockupAmount,
+          theirPublicKey: theirPublicKey.toString('hex'),
+          swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+        },
+      };
+
+      mockGetSwapResult = null;
+      ChainSwapRepository.getChainSwap = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+      mockGetKeysByIndexResult = ourKeys;
+
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([mockFundingAddress]);
+
+      let eventEmitted = false;
+
+      nursery.once('chainSwap.lockup', (args) => {
+        expect(args.swap.id).toEqual(swapId);
+        expect(args.confirmed).toEqual(true);
+        eventEmitted = true;
+      });
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.Confirmed,
+        swapIds: [],
+        fundingAddressIds: [fundingAddressId],
+      });
+
+      expect(eventEmitted).toEqual(true);
+      expect(
+        FundingAddressRepository.getFundingAddressesByIds,
+      ).toHaveBeenCalledWith([fundingAddressId]);
+    });
+
+    test('should skip funding addresses without associated swaps', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      const fundingAddressId = 'fundingAddrNoSwap';
+
+      const mockFundingAddress = {
+        id: fundingAddressId,
+        swapId: 'nonExistentSwap',
+        lockupAmount: 100214,
+        lockupTransactionVout: 0,
+      };
+
+      mockGetSwapResult = null;
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([mockFundingAddress]);
+
+      let eventEmitted = false;
+
+      nursery.once('swap.lockup', () => {
+        eventEmitted = true;
+      });
+      nursery.once('chainSwap.lockup', () => {
+        eventEmitted = true;
+      });
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.Confirmed,
+        swapIds: [],
+        fundingAddressIds: [fundingAddressId],
+      });
+
+      expect(eventEmitted).toEqual(false);
+      expect(mockSetLockupTransaction).not.toHaveBeenCalled();
+    });
+
+    test('should handle unconfirmed funding address transactions', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      transaction.ins[0].sequence = 0xffffffff;
+      transaction.ins[1].sequence = 0xffffffff;
+
+      const fundingAddressId = 'fundingAddrUnconfirmed';
+      const swapId = 'swap789';
+      const lockupAmount = 100214;
+
+      const mockFundingAddress = {
+        id: fundingAddressId,
+        swapId,
+        lockupAmount,
+        lockupTransactionVout: 0,
+      };
+
+      mockGetSwapResult = {
+        id: swapId,
+        type: SwapType.Submarine,
+        acceptZeroConf: true,
+        expectedAmount: lockupAmount,
+        redeemScript: sampleRedeemScript,
+      };
+
+      mockGetRawTransactionVerboseResult = () => ({
+        confirmations: 1,
+      });
+
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([mockFundingAddress]);
+
+      let eventEmitted = false;
+
+      nursery.once('swap.lockup.zeroconf.rejected', (args) => {
+        eventEmitted = true;
+        expect(args.swap.id).toEqual(swapId);
+      });
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.NotSafe,
+        swapIds: [],
+        fundingAddressIds: [fundingAddressId],
+      });
+
+      expect(eventEmitted).toEqual(true);
+      expect(mockSetLockupTransaction).toHaveBeenCalledWith(
+        mockGetSwapResult,
+        transaction.getId(),
+        lockupAmount,
+        false,
+        0,
+      );
+    });
+
+    test('should handle multiple funding addresses in one transaction', async () => {
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+      const fundingAddressId1 = 'fundingAddr1';
+      const fundingAddressId2 = 'fundingAddr2';
+      const swapId1 = 'swap1';
+      const swapId2 = 'swap2';
+      const lockupAmount = 100214;
+
+      const mockFundingAddress1 = {
+        id: fundingAddressId1,
+        swapId: swapId1,
+        lockupAmount,
+        lockupTransactionVout: 0,
+      };
+
+      const mockFundingAddress2 = {
+        id: fundingAddressId2,
+        swapId: swapId2,
+        lockupAmount,
+        lockupTransactionVout: 1,
+      };
+
+      const mockSwap1 = {
+        id: swapId1,
+        type: SwapType.Submarine,
+        expectedAmount: lockupAmount,
+        redeemScript: sampleRedeemScript,
+      };
+
+      const mockSwap2 = {
+        id: swapId2,
+        type: SwapType.Submarine,
+        expectedAmount: lockupAmount,
+        redeemScript: sampleRedeemScript,
+      };
+
+      let currentSwap = mockSwap1;
+      SwapRepository.getSwap = jest.fn().mockImplementation(async () => {
+        const swap = currentSwap;
+        currentSwap = currentSwap === mockSwap1 ? mockSwap2 : mockSwap1;
+        return swap;
+      });
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+
+      FundingAddressRepository.getFundingAddressesByIds = jest
+        .fn()
+        .mockResolvedValue([mockFundingAddress1, mockFundingAddress2]);
+
+      const emittedSwapIds: string[] = [];
+
+      nursery.on('swap.lockup', (args) => {
+        emittedSwapIds.push(args.swap.id);
+      });
+
+      await checkFundingAddresses({
+        symbol: 'BTC',
+        transaction,
+        status: TransactionStatus.Confirmed,
+        swapIds: [],
+        fundingAddressIds: [fundingAddressId1, fundingAddressId2],
+      });
+
+      expect(emittedSwapIds).toContain(swapId1);
+      expect(emittedSwapIds).toContain(swapId2);
+      expect(
+        FundingAddressRepository.getFundingAddressesByIds,
+      ).toHaveBeenCalledWith([fundingAddressId1, fundingAddressId2]);
+
+      nursery.removeAllListeners('swap.lockup');
+    });
   });
 });

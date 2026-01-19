@@ -1,4 +1,4 @@
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{SwapStatus, UpdateSender};
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::evm::RefundSigner;
@@ -63,7 +63,7 @@ pub struct BoltzService<M, T> {
     notification_client: Option<Arc<T>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 impl<M, T> BoltzService<M, T> {
@@ -73,7 +73,7 @@ impl<M, T> BoltzService<M, T> {
         service: Arc<Service>,
         manager: Arc<M>,
         status_fetcher: StatusFetcher,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
         web_hook_helper: Arc<Box<dyn WebHookHelper + Sync + Send>>,
         web_hook_status_caller: Arc<StatusCaller>,
         refund_signer: Option<Arc<dyn RefundSigner + Sync + Send>>,

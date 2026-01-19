@@ -1,7 +1,6 @@
 import AsyncLock from 'async-lock';
 import type { Transaction } from 'bitcoinjs-lib';
 import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
-import FundingAddressRepository from 'lib/db/repositories/FundingAddressRepository';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
@@ -35,6 +34,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -236,10 +236,33 @@ class UtxoNursery extends TypedEventEmitter<{
         ChainSwapRepository.getChainSwap({ id: fundingAddress.swapId! }),
       ]);
 
-      const swap = submarineSwap || chainSwap;
+      let swap = submarineSwap || chainSwap;
 
       if (!swap) {
         continue;
+      }
+
+      switch (swap.type) {
+        case SwapType.Submarine:
+          swap = await SwapRepository.setLockupTransaction(
+            swap as Swap,
+            event.transaction.getId(),
+            fundingAddress.lockupAmount!,
+            event.status === TransactionStatus.Confirmed,
+            fundingAddress.lockupTransactionVout!,
+          );
+          break;
+        case SwapType.Chain:
+          swap = await ChainSwapRepository.setUserLockupTransaction(
+            swap as ChainSwapInfo,
+            event.transaction.getId(),
+            fundingAddress.lockupAmount!,
+            event.status === TransactionStatus.Confirmed,
+            fundingAddress.lockupTransactionVout!,
+          );
+          break;
+        default:
+          throw new Error(`Unknown swap type: ${swap.type}`);
       }
 
       await this.checkLockupTransaction(

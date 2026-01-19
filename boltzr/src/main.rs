@@ -8,8 +8,8 @@ use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
-use crate::swap::manager::Manager;
-use api::ws::{self};
+use crate::swap::manager::{Manager, SwapManager};
+use api::ws::{self, types::UpdateSender};
 use clap::Parser;
 use serde::Serialize;
 use std::sync::Arc;
@@ -277,8 +277,8 @@ async fn main() {
         })
     });
 
-    let (swap_status_update_tx, _swap_status_update_rx) =
-        tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1024);
+    let (swap_status_update_tx, _swap_status_update_rx): (UpdateSender<ws::types::SwapStatus>, _) =
+        tokio::sync::broadcast::channel(1024);
 
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
@@ -288,6 +288,7 @@ async fn main() {
         db_pool.clone(),
         network,
         &config.pairs.unwrap_or_default(),
+        swap_status_update_tx.clone(),
     ) {
         Ok(swap_manager) => Arc::new(swap_manager),
         Err(err) => {
@@ -340,6 +341,7 @@ async fn main() {
         config.sidecar.ws,
         grpc_server.status_fetcher(),
         swap_status_update_tx,
+        swap_manager.funding_address_update_sender(),
         offer_subscriptions,
     );
 

@@ -3,8 +3,8 @@ import { DataTypes, Model, type Sequelize } from 'sequelize';
 type ScriptPubKeyType = {
   symbol: string;
   script_pubkey: Buffer;
-  swap_id?: string | null;
-  funding_address_id?: string | null;
+  swap_id?: string;
+  funding_address_id?: string;
 };
 
 class ScriptPubKey extends Model implements ScriptPubKeyType {
@@ -28,11 +28,17 @@ class ScriptPubKey extends Model implements ScriptPubKeyType {
         },
         swap_id: {
           type: new DataTypes.STRING(255),
-          allowNull: false,
+          allowNull: true,
+        },
+        funding_address_id: {
+          type: new DataTypes.STRING(255),
+          allowNull: true,
         },
       },
       {
         sequelize,
+        createdAt: false,
+        updatedAt: false,
         tableName: 'script_pubkeys',
         indexes: [
           {

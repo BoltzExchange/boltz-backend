@@ -29,6 +29,7 @@ import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
+import FundingAddressRepository from '../../db/repositories/FundingAddressRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import type RateProvider from '../../rates/RateProvider';
 import type Sidecar from '../../sidecar/Sidecar';
@@ -245,8 +246,11 @@ class DeferredClaimer extends CoopSignerBase<{
         ? getChainCurrency(base, quote, swap.orderSide, false)
         : (swap as ChainSwapInfo).receivingData.symbol;
 
-    if (!(await this.shouldBeDeferred(chainCurrency, swap))) {
-      return false;
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress === null) {
+      if (!(await this.shouldBeDeferred(chainCurrency, swap))) {
+        return false;
+      }
     }
 
     this.logger.verbose(
@@ -299,6 +303,7 @@ class DeferredClaimer extends CoopSignerBase<{
     pubNonce: Buffer;
     publicKey: Buffer;
     transactionHash: Buffer;
+    fundingAddressId?: string;
   }> => {
     if (this.disableCooperative) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(

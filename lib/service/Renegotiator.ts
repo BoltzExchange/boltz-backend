@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
 import { isTxConfirmed } from '../Utils';

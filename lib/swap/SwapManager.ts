@@ -48,6 +48,7 @@ import {
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
+  swapTypeToPrettyString,
   swapVersionToString,
 } from '../consts/Enums';
 import type { PairConfig } from '../consts/Types';
@@ -1447,6 +1448,29 @@ class SwapManager {
     };
   };
 
+  private getArkNodeOrWarn = (
+    symbol: string,
+    swapType: SwapType,
+    swapId: string,
+  ) => {
+    const currency = this.currencies.get(symbol);
+    const arkNode = currency?.arkNode;
+
+    if (arkNode !== undefined) {
+      return arkNode;
+    }
+
+    if (currency?.type === CurrencyType.Ark) {
+      this.logger.warn(
+        `${ArkClient.symbol} node not configured for ${symbol}; skipping ${swapTypeToPrettyString(
+          swapType,
+        )} Swap ${swapId} subscription`,
+      );
+    }
+
+    return undefined;
+  };
+
   private recreateSubscriptions = async (swaps: Swap[] | ReverseSwap[]) => {
     for (const swap of swaps) {
       const isReverse = swap.type === SwapType.ReverseSubmarine;
@@ -1497,9 +1521,13 @@ class SwapManager {
         (swap.status === SwapUpdateEvent.TransactionMempool ||
           swap.status === SwapUpdateEvent.TransactionConfirmed)
       ) {
-        const { arkNode } = this.currencies.get(chainCurrency)!;
+        const arkNode = this.getArkNodeOrWarn(
+          chainCurrency,
+          swap.type,
+          swap.id,
+        );
 
-        if (arkNode) {
+        if (arkNode !== undefined) {
           await arkNode.subscription.subscribeAddresses([
             {
               address: swap.lockupAddress,
@@ -1512,19 +1540,25 @@ class SwapManager {
           ]);
         }
       } else {
-        const { arkNode } = this.currencies.get(chainCurrency)!;
+        if (!isReverse) {
+          const arkNode = this.getArkNodeOrWarn(
+            chainCurrency,
+            swap.type,
+            swap.id,
+          );
 
-        if (arkNode && !isReverse) {
-          await arkNode.subscription.subscribeAddresses([
-            {
-              address: swap.lockupAddress,
-              vHtlcId: ArkClient.createVhtlcId(
-                getHexBuffer(swap.preimageHash),
-                getHexBuffer((swap as Swap).refundPublicKey!),
-                arkNode.pubkey,
-              ),
-            },
-          ]);
+          if (arkNode !== undefined) {
+            await arkNode.subscription.subscribeAddresses([
+              {
+                address: swap.lockupAddress,
+                vHtlcId: ArkClient.createVhtlcId(
+                  getHexBuffer(swap.preimageHash),
+                  getHexBuffer((swap as Swap).refundPublicKey!),
+                  arkNode.pubkey,
+                ),
+              },
+            ]);
+          }
         }
       }
     }
@@ -1535,9 +1569,11 @@ class SwapManager {
       switch (swap.chainSwap.status) {
         case SwapUpdateEvent.SwapCreated:
         case SwapUpdateEvent.TransactionMempool: {
-          const arkNode = this.currencies.get(
+          const arkNode = this.getArkNodeOrWarn(
             swap.receivingData.symbol,
-          )?.arkNode;
+            swap.type,
+            swap.id,
+          );
 
           if (arkNode !== undefined) {
             await arkNode.subscription.subscribeAddresses([
@@ -1551,13 +1587,16 @@ class SwapManager {
               },
             ]);
           }
-
           break;
         }
 
         case SwapUpdateEvent.TransactionServerMempool:
         case SwapUpdateEvent.TransactionServerConfirmed: {
-          const arkNode = this.currencies.get(swap.sendingData.symbol)?.arkNode;
+          const arkNode = this.getArkNodeOrWarn(
+            swap.sendingData.symbol,
+            swap.type,
+            swap.id,
+          );
 
           if (arkNode !== undefined) {
             await arkNode.subscription.subscribeAddresses([
@@ -1571,7 +1610,6 @@ class SwapManager {
               },
             ]);
           }
-
           break;
         }
       }

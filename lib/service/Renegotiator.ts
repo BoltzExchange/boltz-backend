@@ -171,6 +171,22 @@ class Renegotiator {
               formatERC20SwapValues(values),
             );
           }
+        } else if (receivingCurrency.arkNode !== undefined) {
+          await ChainSwapRepository.setExpectedAmounts(
+            swap,
+            percentageFee,
+            swap.receivingData.amount!,
+            serverLockAmount,
+          );
+          await this.swapNursery.arkNursery.checkChainSwapLockup(
+            receivingCurrency.arkNode,
+            {
+              txId: swap.receivingData.transactionId!,
+              vout: swap.receivingData.transactionVout!,
+              amount: swap.receivingData.amount!,
+              address: swap.receivingData.lockupAddress,
+            },
+          );
         } else {
           throw Errors.CURRENCY_NOT_FOUND(swap.pair);
         }
@@ -314,14 +330,20 @@ class Renegotiator {
       throw Errors.LOCKUP_NOT_REJECTED();
     }
 
-    const blocksLeft =
-      swap.receivingData.timeoutBlockHeight -
-      (await this.getBlockHeight(receivingCurrency));
+    const { isSeconds, value } = await this.getBlockHeight(receivingCurrency);
 
-    const minutesLeft = Math.floor(
-      blocksLeft *
-        (TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol) || 0),
-    );
+    const left = swap.receivingData.timeoutBlockHeight - value;
+
+    let minutesLeft: number;
+    if (isSeconds) {
+      minutesLeft = Math.floor(left / 60);
+    } else {
+      minutesLeft = Math.floor(
+        left *
+          (TimeoutDeltaProvider.blockTimes.get(receivingCurrency.symbol) || 0),
+      );
+    }
+
     if (minutesLeft <= Renegotiator.minimumLeftUntilExpiryMinutes) {
       throw Errors.TIME_UNTIL_EXPIRY_TOO_SHORT();
     }
@@ -341,11 +363,30 @@ class Renegotiator {
     return { swap, receivingCurrency };
   };
 
-  private getBlockHeight = async (currency: Currency) => {
+  private getBlockHeight = async (
+    currency: Currency,
+  ): Promise<{
+    isSeconds: boolean;
+    value: number;
+  }> => {
     if (currency.chainClient !== undefined) {
-      return (await currency.chainClient.getBlockchainInfo()).blocks;
+      return {
+        isSeconds: false,
+        value: (await currency.chainClient.getBlockchainInfo()).blocks,
+      };
     } else if (currency.provider !== undefined) {
-      return await currency.provider.getLocktimeHeight();
+      return {
+        isSeconds: false,
+        value: await currency.provider.getLocktimeHeight(),
+      };
+    } else if (currency.arkNode !== undefined) {
+      const blockHeight = await currency.arkNode.getBlockHeight();
+      return {
+        isSeconds: currency.arkNode.usesLocktimeSeconds,
+        value: currency.arkNode.usesLocktimeSeconds
+          ? await currency.arkNode.getBlockTimestamp(blockHeight)
+          : blockHeight,
+      };
     }
 
     throw Errors.CURRENCY_NOT_FOUND(currency.symbol);

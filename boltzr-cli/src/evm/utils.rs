@@ -33,7 +33,7 @@ sol!(
     #[allow(clippy::too_many_arguments)]
     #[sol(rpc)]
     IERC20,
-    "../node_modules/boltz-core/out/IERC20.sol/IERC20.json"
+    "../node_modules/boltz-core/dist/out/ERC20.sol/ERC20.json"
 );
 
 pub async fn token_decimals(provider: &DynProvider<AnyNetwork>, token: Address) -> u8 {

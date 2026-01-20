@@ -134,12 +134,7 @@ describe('CoreWalletProvider', () => {
     });
 
     it('should get safe unconfirmed balance correctly', async () => {
-      await provider.sendToAddress(
-        await provider.getAddress(''),
-        10000,
-        undefined,
-        '',
-      );
+      await provider.sendToAddress(await provider.getAddress(''), 10000, 1, '');
 
       const balance = await provider.getBalance();
       expect(balance.unconfirmedBalance).toEqual(0);
@@ -165,7 +160,7 @@ describe('CoreWalletProvider', () => {
     const sentTransaction = await provider.sendToAddress(
       testAddress,
       amount,
-      undefined,
+      1,
       label,
     );
 
@@ -194,12 +189,7 @@ describe('CoreWalletProvider', () => {
   it('should send transactions that do not signal RBF', async () => {
     const amount = 321312;
     const addr = await provider.getAddress('');
-    const { transaction } = await provider.sendToAddress(
-      addr,
-      amount,
-      undefined,
-      '',
-    );
+    const { transaction } = await provider.sendToAddress(addr, amount, 1, '');
     expect(transaction).toBeDefined();
     expect(
       transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
@@ -210,11 +200,7 @@ describe('CoreWalletProvider', () => {
     const balance = await provider.getBalance();
     const label = 'sweep Core wallet';
 
-    const sentTransaction = await provider.sweepWallet(
-      testAddress,
-      undefined,
-      label,
-    );
+    const sentTransaction = await provider.sweepWallet(testAddress, 1, label);
 
     const transactionInfo = await bitcoinClient.getWalletTransaction(
       sentTransaction.transactionId,

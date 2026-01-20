@@ -567,7 +567,7 @@ impl Client for ChainClient {
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
         let floor = match self.client_type {
-            crate::chain::types::Type::Bitcoin => 2.0,
+            crate::chain::types::Type::Bitcoin => 0.2,
             crate::chain::types::Type::Elements => 0.1,
         };
         Ok(f64::max(self.estimate_fee_raw(floor).await?, floor))
@@ -899,7 +899,7 @@ pub mod test {
     async fn test_get_fees_smart_fee() {
         let client = get_client().await;
         let fees = client.estimate_fee().await.unwrap();
-        assert_eq!(fees, 2.0);
+        assert!(fees >= 0.2);
     }
 
     #[tokio::test]

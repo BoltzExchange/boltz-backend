@@ -124,7 +124,7 @@ describe('Core', () => {
     const { transaction, vout } = await wallet.sendToAddress(
       await wallet.getAddress(''),
       outputAmount,
-      undefined,
+      1,
       '',
     );
 

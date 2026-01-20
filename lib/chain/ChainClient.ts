@@ -77,7 +77,7 @@ class ChainClient extends BaseClient implements IChainClient {
   public isRegtest = false;
 
   protected client: RpcClient;
-  protected feeFloor = 2;
+  protected feeFloor = 0.2;
 
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
@@ -265,7 +265,7 @@ class ChainClient extends BaseClient implements IChainClient {
 
       if (response.feerate) {
         const feePerKb = response.feerate * ChainClient.decimals;
-        return Math.max(Math.round(feePerKb / 1000), 2);
+        return Math.max(feePerKb / 1000, this.feeFloor);
       }
 
       return this.feeFloor;
@@ -276,7 +276,7 @@ class ChainClient extends BaseClient implements IChainClient {
           `'estimatesmartfee' method not found on ${this.symbol} chain`,
         );
 
-        return 2;
+        return 0.2;
       }
 
       throw error;

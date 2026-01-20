@@ -3,10 +3,11 @@ import axios from 'axios';
 import type Logger from '../Logger';
 import { formatError, stringify } from '../Utils';
 
-type RecommendedFees = {
+type PreciseFees = {
   fastestFee?: number;
   halfHourFee?: number;
   hourFee?: number;
+  economyFee?: number;
   minimumFee?: number;
 };
 
@@ -50,8 +51,8 @@ class MempoolSpaceClient {
   private fetchRecommendedFees = async () => {
     try {
       const [feeRes, tipHeight] = await Promise.all([
-        axios.get<any, AxiosResponse<RecommendedFees>>(
-          `${this.apiUrl}/v1/fees/recommended`,
+        axios.get<any, AxiosResponse<PreciseFees>>(
+          `${this.apiUrl}/v1/fees/precise`,
         ),
         this.getTipHeight(),
       ]);
@@ -69,7 +70,9 @@ class MempoolSpaceClient {
 
       this.data = {
         tipHeight,
-        fee: Math.ceil(feeRes.data.fastestFee * MempoolSpaceClient.factor),
+        fee: Number(
+          (feeRes.data.fastestFee * MempoolSpaceClient.factor).toFixed(3),
+        ),
       };
     } catch (error) {
       this.handleCouldNotFetch(error);

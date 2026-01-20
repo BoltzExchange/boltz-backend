@@ -49,6 +49,9 @@ describe('Renegotiator', () => {
 
   const contracts = {} as Contracts;
   const swapNursery = {
+    arkNursery: {
+      checkChainSwapLockup: jest.fn(),
+    },
     utxoNursery: {
       checkChainSwapTransaction: jest.fn().mockImplementation(async () => {}),
     } as any as UtxoNursery,
@@ -577,6 +580,183 @@ describe('Renegotiator', () => {
     });
   });
 
+  describe('Ark node support', () => {
+    test('should check Ark chain swap lockups on acceptQuote', async () => {
+      const swapId = 'someId';
+      const transactionId = getHexString(randomBytes(32));
+      const transactionVout = 1;
+      const lockupAddress = 'arkLockupAddress';
+      const arkNode = {
+        symbol: 'ARK',
+        usesLocktimeSeconds: false,
+      };
+
+      const previousArkCurrency = currencies.get('ARK');
+      currencies.set('ARK', {
+        symbol: 'ARK',
+        type: CurrencyType.Ark,
+        arkNode,
+      } as any);
+
+      try {
+        ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+          id: swapId,
+          chainSwap: {},
+          receivingData: {
+            symbol: 'ARK',
+            amount: 100_000,
+            transactionId,
+            transactionVout,
+            lockupAddress,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        });
+        ChainSwapRepository.setExpectedAmounts = jest
+          .fn()
+          .mockImplementation(async (swap) => swap);
+
+        negotiator['validateEligibility'] = jest
+          .fn()
+          .mockImplementation(async () => {});
+        negotiator['calculateNewQuote'] = jest.fn().mockResolvedValue({
+          percentageFee: 5_000,
+          serverLockAmount: 94_877,
+        });
+
+        await negotiator.acceptQuote(swapId, 94_877);
+
+        expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledTimes(1);
+        expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledWith(
+          expect.anything(),
+          5_000,
+          100_000,
+          94_877,
+        );
+
+        expect(
+          swapNursery.arkNursery.checkChainSwapLockup,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          swapNursery.arkNursery.checkChainSwapLockup,
+        ).toHaveBeenCalledWith(arkNode, {
+          txId: transactionId,
+          vout: transactionVout,
+          amount: 100_000,
+          address: lockupAddress,
+        });
+      } finally {
+        if (previousArkCurrency) {
+          currencies.set('ARK', previousArkCurrency);
+        } else {
+          currencies.delete('ARK');
+        }
+      }
+    });
+
+    test('should use locktime seconds for Ark expiry checks', async () => {
+      const timeoutBlockHeight = 1_700_000_000;
+      const currentTimestamp = timeoutBlockHeight - 1_200;
+      const arkNode = {
+        symbol: 'ARK',
+        usesLocktimeSeconds: true,
+        getBlockHeight: jest.fn().mockResolvedValue(123),
+        getBlockTimestamp: jest.fn().mockResolvedValue(currentTimestamp),
+      };
+
+      await expect(
+        negotiator['validateEligibility'](
+          {
+            createdRefundSignature: false,
+            status: SwapUpdateEvent.TransactionLockupFailed,
+            chainSwap: {
+              failureReason: ErrorsSwap.INSUFFICIENT_AMOUNT(1, 2).message,
+            },
+            receivingData: {
+              symbol: 'ARK',
+              timeoutBlockHeight,
+              amount: 1,
+              expectedAmount: 2,
+            },
+          } as any,
+          {
+            symbol: 'ARK',
+            type: CurrencyType.Ark,
+            arkNode,
+          } as any,
+        ),
+      ).rejects.toEqual(Errors.TIME_UNTIL_EXPIRY_TOO_SHORT());
+
+      expect(arkNode.getBlockHeight).toHaveBeenCalledTimes(1);
+      expect(arkNode.getBlockTimestamp).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('expiry minutes calculation', () => {
+    test('should use block times for block-based expiries', async () => {
+      const timeoutBlockHeight = 4_600;
+      const currentHeight = 1_000;
+
+      negotiator['getBlockHeight'] = jest.fn().mockResolvedValue({
+        isSeconds: false,
+        value: currentHeight,
+      });
+
+      await expect(
+        negotiator['validateEligibility'](
+          {
+            createdRefundSignature: false,
+            status: SwapUpdateEvent.TransactionLockupFailed,
+            chainSwap: {
+              failureReason: ErrorsSwap.INSUFFICIENT_AMOUNT(1, 2).message,
+            },
+            receivingData: {
+              symbol: 'BTC',
+              timeoutBlockHeight,
+              amount: 1,
+              expectedAmount: 2,
+            },
+          } as any,
+          {
+            symbol: 'BTC',
+          } as any,
+        ),
+      ).resolves.toBeUndefined();
+    });
+
+    test('should use seconds for second-based expiries', async () => {
+      const timeoutBlockHeight = 1_700_000_000;
+      const currentTimestamp = timeoutBlockHeight - 3_600;
+
+      negotiator['getBlockHeight'] = jest.fn().mockResolvedValue({
+        isSeconds: true,
+        value: currentTimestamp,
+      });
+
+      await expect(
+        negotiator['validateEligibility'](
+          {
+            createdRefundSignature: false,
+            status: SwapUpdateEvent.TransactionLockupFailed,
+            chainSwap: {
+              failureReason: ErrorsSwap.INSUFFICIENT_AMOUNT(1, 2).message,
+            },
+            receivingData: {
+              symbol: 'ARK',
+              timeoutBlockHeight,
+              amount: 1,
+              expectedAmount: 2,
+            },
+          } as any,
+          {
+            symbol: 'ARK',
+          } as any,
+        ),
+      ).rejects.toEqual(Errors.TIME_UNTIL_EXPIRY_TOO_SHORT());
+    });
+  });
+
   test.each`
     rate | userLockAmount | feePercent    | baseFee | expected
     ${1} | ${100_000}     | ${0.01}       | ${500}  | ${{ percentageFee: 1_000, serverLockAmount: 98_500 }}
@@ -874,15 +1054,51 @@ describe('Renegotiator', () => {
     test('should get block height for chain clients', async () => {
       await expect(
         negotiator['getBlockHeight'](currencies.get('BTC')),
-      ).resolves.toEqual((await bitcoinClient.getBlockchainInfo()).blocks);
+      ).resolves.toEqual({
+        isSeconds: false,
+        value: (await bitcoinClient.getBlockchainInfo()).blocks,
+      });
     });
 
     test('should get block height for Ethereum providers', async () => {
       const currency = currencies.get('RBTC');
-      await expect(negotiator['getBlockHeight'](currency)).resolves.toEqual(
-        await currency.provider.getBlockNumber(),
-      );
+      await expect(negotiator['getBlockHeight'](currency)).resolves.toEqual({
+        isSeconds: false,
+        value: await currency.provider.getLocktimeHeight(),
+      });
     });
+
+    test.each`
+      usesLocktimeSeconds | expectedValue
+      ${true}             | ${1_700_000_000}
+      ${false}            | ${42}
+    `(
+      'should get block height for Ark nodes (usesLocktimeSeconds=$usesLocktimeSeconds)',
+      async ({ usesLocktimeSeconds, expectedValue }) => {
+        const arkNode = {
+          symbol: 'ARK',
+          usesLocktimeSeconds,
+          getBlockHeight: jest.fn().mockResolvedValue(42),
+          getBlockTimestamp: jest.fn().mockResolvedValue(1_700_000_000),
+        };
+
+        await expect(
+          negotiator['getBlockHeight']({
+            symbol: 'ARK',
+            type: CurrencyType.Ark,
+            arkNode,
+          } as any),
+        ).resolves.toEqual({
+          isSeconds: usesLocktimeSeconds,
+          value: expectedValue,
+        });
+
+        expect(arkNode.getBlockHeight).toHaveBeenCalledTimes(1);
+        expect(arkNode.getBlockTimestamp).toHaveBeenCalledTimes(
+          usesLocktimeSeconds ? 1 : 0,
+        );
+      },
+    );
 
     test('should throw when no chain connection is available for currency', async () => {
       const currency = { symbol: 'ETH' } as any;

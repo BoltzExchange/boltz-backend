@@ -99,6 +99,82 @@ class ArkNursery extends TypedEventEmitter<{
     }
   };
 
+  public checkChainSwapLockup = async (
+    arkNode: ArkClient,
+    vHtlc: CreatedVHtlc,
+  ) => {
+    let swap = await ChainSwapRepository.getChainSwapByData(
+      {
+        lockupAddress: vHtlc.address,
+      },
+      {
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.SwapCreated,
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionLockupFailed,
+            SwapUpdateEvent.TransactionZeroConfRejected,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+      },
+    );
+
+    if (swap === null || swap === undefined) {
+      return;
+    }
+
+    if (swap.receivingData.symbol !== arkNode.symbol) {
+      return;
+    }
+
+    arkNode.subscription.unsubscribeAddress(vHtlc.address);
+
+    this.logger.info(
+      `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
+    );
+    swap = await ChainSwapRepository.setUserLockupTransaction(
+      swap,
+      vHtlc.txId,
+      vHtlc.amount,
+      true,
+      vHtlc.vout,
+    );
+
+    if (swap.receivingData.expectedAmount! > vHtlc.amount) {
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.INSUFFICIENT_AMOUNT(
+          vHtlc.amount,
+          swap.receivingData.expectedAmount!,
+        ).message,
+      });
+      return;
+    }
+
+    if (
+      this.overpaymentProtector.isUnacceptableOverpay(
+        swap.type,
+        swap.receivingData.expectedAmount!,
+        vHtlc.amount,
+      )
+    ) {
+      this.emit('chainSwap.lockup.failed', {
+        swap,
+        reason: Errors.OVERPAID_AMOUNT(
+          vHtlc.amount,
+          swap.receivingData.expectedAmount!,
+        ).message,
+      });
+      return;
+    }
+
+    this.emit('chainSwap.lockup', {
+      swap,
+      lockupTransactionId: vHtlc.txId,
+    });
+  };
+
   private bindEvents = (arkNode: ArkClient) => {
     arkNode.on('vhtlc.created', async (vHtlc) => {
       await Promise.all([
@@ -163,82 +239,6 @@ class ArkNursery extends TypedEventEmitter<{
 
     this.emit('swap.lockup', {
       swap: await SwapRepository.setLockupTransaction(
-        swap,
-        vHtlc.txId,
-        vHtlc.amount,
-        // TODO: how to handle out of round?
-        true,
-        vHtlc.vout,
-      ),
-      lockupTransactionId: vHtlc.txId,
-    });
-  };
-
-  private checkChainSwapLockup = async (
-    arkNode: ArkClient,
-    vHtlc: CreatedVHtlc,
-  ) => {
-    const swap = await ChainSwapRepository.getChainSwapByData(
-      {
-        lockupAddress: vHtlc.address,
-      },
-      {
-        status: {
-          [Op.in]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionLockupFailed,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-            SwapUpdateEvent.TransactionConfirmed,
-          ],
-        },
-      },
-    );
-
-    if (swap === null || swap === undefined) {
-      return;
-    }
-
-    if (swap.receivingData.symbol !== arkNode.symbol) {
-      return;
-    }
-
-    arkNode.subscription.unsubscribeAddress(vHtlc.address);
-
-    this.logger.info(
-      `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
-    );
-
-    if (swap.receivingData.expectedAmount! > vHtlc.amount) {
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.INSUFFICIENT_AMOUNT(
-          vHtlc.amount,
-          swap.receivingData.expectedAmount!,
-        ).message,
-      });
-      return;
-    }
-
-    if (
-      this.overpaymentProtector.isUnacceptableOverpay(
-        swap.type,
-        swap.receivingData.expectedAmount!,
-        vHtlc.amount,
-      )
-    ) {
-      this.emit('chainSwap.lockup.failed', {
-        swap,
-        reason: Errors.OVERPAID_AMOUNT(
-          vHtlc.amount,
-          swap.receivingData.expectedAmount!,
-        ).message,
-      });
-      return;
-    }
-
-    this.emit('chainSwap.lockup', {
-      swap: await ChainSwapRepository.setUserLockupTransaction(
         swap,
         vHtlc.txId,
         vHtlc.amount,

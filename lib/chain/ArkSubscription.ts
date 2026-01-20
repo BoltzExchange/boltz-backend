@@ -235,7 +235,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
             continue;
           }
 
-          if (vhtlc.spentBy === undefined) {
+          if (vhtlc.spentBy === undefined || vhtlc.spentBy === '') {
             this.logger.warn(`No spentBy for spent vHTLC ${vhtlc.script}`);
             continue;
           }

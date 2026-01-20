@@ -440,9 +440,21 @@ describe('ArkNursery', () => {
         },
       };
 
+      const updatedSwap = {
+        ...swap,
+        receivingData: {
+          ...swap.receivingData,
+          lockupTransactionId: 'txid',
+          amount: 50000,
+        },
+      };
+
       ChainSwapRepository.getChainSwapByData = jest
         .fn()
         .mockResolvedValue(swap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
 
       let emittedEvent: any = null;
       nursery.once('chainSwap.lockup.failed', (data) => {
@@ -459,8 +471,15 @@ describe('ArkNursery', () => {
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_address',
       );
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        50000,
+        true,
+        0,
+      );
       expect(emittedEvent).not.toBeNull();
-      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.swap).toEqual(updatedSwap);
       expect(emittedEvent.reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(50000, 100000).message,
       );
@@ -476,9 +495,21 @@ describe('ArkNursery', () => {
         },
       };
 
+      const updatedSwap = {
+        ...swap,
+        receivingData: {
+          ...swap.receivingData,
+          lockupTransactionId: 'txid',
+          amount: 150000,
+        },
+      };
+
       ChainSwapRepository.getChainSwapByData = jest
         .fn()
         .mockResolvedValue(swap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
 
       const protector = new OverpaymentProtector(Logger.disabledLogger, {
         exemptAmount: 1000,
@@ -501,8 +532,15 @@ describe('ArkNursery', () => {
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_address',
       );
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        150000,
+        true,
+        0,
+      );
       expect(emittedEvent).not.toBeNull();
-      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.swap).toEqual(updatedSwap);
       expect(emittedEvent.reason).toEqual(
         Errors.OVERPAID_AMOUNT(150000, 100000).message,
       );

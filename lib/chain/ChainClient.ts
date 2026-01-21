@@ -276,7 +276,7 @@ class ChainClient extends BaseClient implements IChainClient {
           `'estimatesmartfee' method not found on ${this.symbol} chain`,
         );
 
-        return 0.2;
+        return this.feeFloor;
       }
 
       throw error;

@@ -2416,25 +2416,25 @@ class Service {
   /**
    * Sends coins to a specified address
    */
-  public sendCoins = (args: {
-    symbol: string;
-    address: string;
-    amount: number;
-    label: string;
-    sendAll?: boolean;
-    fee?: number;
-  }): Promise<{
+  public sendCoins = (
+    symbol: string,
+    address: string,
+    amount: number,
+    label: string,
+    sendAll?: boolean,
+    fee?: number,
+  ): Promise<{
     vout?: number;
     transactionId: string;
   }> => {
-    const wallet = this.walletManager.wallets.get(args.symbol);
+    const wallet = this.walletManager.wallets.get(symbol);
     if (wallet === undefined) {
-      throw Errors.CURRENCY_NOT_FOUND(args.symbol);
+      throw Errors.CURRENCY_NOT_FOUND(symbol);
     }
 
-    return args.sendAll
-      ? wallet.sweepWallet(args.address, args.fee, args.label)
-      : wallet.sendToAddress(args.address, args.amount, args.fee, args.label);
+    return sendAll
+      ? wallet.sweepWallet(address, fee, label)
+      : wallet.sendToAddress(address, amount, fee, label);
   };
 
   private getGasPrice = async (provider: Provider) => {

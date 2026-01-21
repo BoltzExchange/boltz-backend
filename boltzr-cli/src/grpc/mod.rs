@@ -247,7 +247,7 @@ impl BoltzClient {
         address: String,
         amount: crate::parsers::AmountOrAll,
         label: String,
-        fee: u32,
+        fee: Option<u32>,
     ) -> Result<boltz_rpc::SendCoinsResponse> {
         let response = self
             .client

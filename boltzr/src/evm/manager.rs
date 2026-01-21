@@ -1,3 +1,4 @@
+use crate::cache::Cache;
 use crate::evm::RefundSigner;
 use crate::evm::log_layer::LoggingLayer;
 use crate::evm::quoter::QuoteAggregator;
@@ -42,9 +43,10 @@ impl Manager {
             .build()?)
     }
 
-    #[instrument(name = "Manager::new", skip(signer, config))]
+    #[instrument(name = "Manager::new", skip(cache, signer, config))]
     pub async fn new(
         symbol: String,
+        cache: Cache,
         signer: PrivateKeySigner,
         config: &crate::evm::Config,
     ) -> anyhow::Result<Self> {
@@ -95,7 +97,7 @@ impl Manager {
             .collect::<anyhow::Result<HashMap<_, _>>>()?;
 
         Ok(Self {
-            quote_aggregator: QuoteAggregator::new(symbol, provider, config.quoters.clone())
+            quote_aggregator: QuoteAggregator::new(symbol, cache, provider, config.quoters.clone())
                 .await?,
             tokens,
             signer,
@@ -196,6 +198,8 @@ impl RefundSigner for Manager {
 
 #[cfg(test)]
 pub mod test {
+    use super::*;
+    use crate::cache::MemCache;
     use crate::evm::manager::Manager;
     use crate::evm::refund_signer::test::{
         ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
@@ -299,6 +303,7 @@ pub mod test {
     pub async fn new_manager() -> Manager {
         Manager::new(
             "RBTC".to_string(),
+            Cache::Memory(MemCache::new()),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)
@@ -326,6 +331,7 @@ pub mod test {
 
         let manager = Manager::new(
             "RBTC".to_string(),
+            Cache::Memory(MemCache::new()),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)
@@ -361,6 +367,7 @@ pub mod test {
     async fn test_tokens_parsing_no_address() {
         let manager = Manager::new(
             "RBTC".to_string(),
+            Cache::Memory(MemCache::new()),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)
@@ -393,6 +400,7 @@ pub mod test {
     async fn test_tokens_parsing_invalid_address() {
         let result = Manager::new(
             "RBTC".to_string(),
+            Cache::Memory(MemCache::new()),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)

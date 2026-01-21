@@ -243,7 +243,8 @@ Status Codes:
 
 - `201 Created`
 - `400 Bad Request`: The swap could not be created. Check the `error` string in
-  the `JSON` object of the body of the response for more information.
+  the `JSON` object of the body of the response for more information. This
+  includes validation errors such as routing fees exceeding referral limits.
 
 Response objects:
 
@@ -427,7 +428,8 @@ Status Codes:
 
 - `200 OK`
 - `400 Bad Request`: The invoice could not be set. Check the `error` string in
-  the `JSON` object of the body of the response for more information.
+  the `JSON` object of the body of the response for more information. This
+  includes validation errors such as routing fees exceeding referral limits.
 
 Response objects:
 
@@ -578,7 +580,8 @@ Status Codes:
 
 - `201 Created`
 - `400 Bad Request`: The swap could not be created. Check the `error` string in
-  the `JSON` object of the body of the response for more information.
+  the `JSON` object of the body of the response for more information. This
+  includes validation errors such as routing fees exceeding referral limits.
 
 Response objects:
 

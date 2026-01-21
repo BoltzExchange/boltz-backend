@@ -227,4 +227,8 @@ export default {
     message: 'invalid payment timeout',
     code: concatErrorCode(ErrorCodePrefix.Service, 58),
   }),
+  ROUTING_FEE_TOO_HIGH: (maxPercent: number, actualPercent: number): Error => ({
+    message: `routing fee ${actualPercent.toFixed(2)}% exceeds maximum allowed ${maxPercent.toFixed(2)}%`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 59),
+  }),
 };

@@ -1479,6 +1479,27 @@ class Service {
 
     swap.invoiceAmount = msatToSat(decodedInvoice.amountMsat);
 
+    // Validate routing fee against referral limits
+    if (referral !== undefined && referral !== null) {
+      const referralData = await ReferralRepository.getReferralById(
+        referral.id,
+      );
+      if (referralData !== null && decodedInvoice.amountMsat !== 0) {
+        const maxRoutingFeeRatio = referralData.maxRoutingFeeRatio(swap.pair);
+        if (maxRoutingFeeRatio !== undefined) {
+          const routingFeeMsat = this.routingFee.calculateFee(decodedInvoice);
+          const routingFeeRatio = routingFeeMsat / decodedInvoice.amountMsat;
+
+          if (routingFeeRatio > maxRoutingFeeRatio) {
+            throw Errors.ROUTING_FEE_TOO_HIGH(
+              maxRoutingFeeRatio * 100,
+              routingFeeRatio * 100,
+            );
+          }
+        }
+      }
+    }
+
     const lightningClient = await this.nodeSwitch.getSwapNode(
       getCurrency(this.currencies, lightningCurrency)!,
       decodedInvoice,

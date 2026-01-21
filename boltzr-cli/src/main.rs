@@ -247,7 +247,7 @@ enum WalletCommands {
             long,
             help = "sat/vbyte or gas price in gwei that should be paid as fee"
         )]
-        fee: u32,
+        fee: Option<u32>,
     },
     #[command(about = "Unblinds the outputs of an Elements transaction")]
     UnblindOutputs {

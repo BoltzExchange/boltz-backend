@@ -346,12 +346,28 @@ describe('GrpcService', () => {
 
   test('should handle SendCoins', () => {
     const callData = {
-      data: true,
-      random: 'random',
+      symbol: 'BTC',
+      address: 'bcrt1qtest',
+      amount: 100000,
+      label: 'test label',
+      sendAll: false,
+      fee: 2,
     };
 
+    const call = {
+      request: {
+        getSymbol: () => callData.symbol,
+        getAddress: () => callData.address,
+        getAmount: () => callData.amount,
+        getLabel: () => callData.label,
+        getSendAll: () => callData.sendAll,
+        hasFee: () => true,
+        getFee: () => callData.fee,
+      },
+    } as any;
+
     grpcService.sendCoins(
-      createCall(callData),
+      call,
       createCallback((error, response) => {
         expect(error).toEqual(null);
 
@@ -363,7 +379,14 @@ describe('GrpcService', () => {
     );
 
     expect(mockSendCoins).toHaveBeenCalledTimes(1);
-    expect(mockSendCoins).toHaveBeenCalledWith(callData);
+    expect(mockSendCoins).toHaveBeenCalledWith(
+      callData.symbol,
+      callData.address,
+      callData.amount,
+      callData.label,
+      callData.sendAll,
+      callData.fee,
+    );
   });
 
   test('should handle AddReferral', () => {

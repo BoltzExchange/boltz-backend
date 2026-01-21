@@ -3219,13 +3219,7 @@ describe('Service', () => {
       const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
 
       await expect(
-        service.sendCoins({
-          fee,
-          label,
-          amount,
-          symbol,
-          address,
-        }),
+        service.sendCoins(symbol, address, amount, label, undefined, fee),
       ).resolves.toEqual({
         vout: mockTransaction.vout,
         transaction: expect.anything(),
@@ -3249,14 +3243,7 @@ describe('Service', () => {
       const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
 
       await expect(
-        service.sendCoins({
-          fee,
-          label,
-          amount,
-          symbol,
-          address,
-          sendAll: true,
-        }),
+        service.sendCoins(symbol, address, amount, label, true, fee),
       ).resolves.toEqual({
         vout: mockTransaction.vout,
         transaction: expect.anything(),
@@ -3274,13 +3261,14 @@ describe('Service', () => {
       const label = 'send some WEI';
       const address = '0x0000000000000000000000000000000000000000';
 
-      const response = await service.sendCoins({
-        fee,
-        label,
-        amount,
+      const response = await service.sendCoins(
         symbol,
         address,
-      });
+        amount,
+        label,
+        undefined,
+        fee,
+      );
 
       expect(response).toEqual({
         transactionId: etherTransaction.transactionId,
@@ -3297,13 +3285,14 @@ describe('Service', () => {
       const label = 'send some tokens';
       const address = '0x0000000000000000000000000000000000000000';
 
-      const response = await service.sendCoins({
-        fee,
-        label,
-        amount,
+      const response = await service.sendCoins(
         symbol,
         address,
-      });
+        amount,
+        label,
+        undefined,
+        fee,
+      );
 
       expect(response).toEqual({
         transactionId: tokenTransaction.transactionId,
@@ -3316,16 +3305,9 @@ describe('Service', () => {
     test('should throw of currency to send cannot be found', async () => {
       const notFound = 'notFound';
 
-      expect(() =>
-        service.sendCoins({
-          fee: 0,
-          amount: 0,
-          label: 'no',
-          address: '',
-          sendAll: false,
-          symbol: notFound,
-        }),
-      ).toThrow(Errors.CURRENCY_NOT_FOUND(notFound).message);
+      expect(() => service.sendCoins(notFound, '', 0, 'no', false, 0)).toThrow(
+        Errors.CURRENCY_NOT_FOUND(notFound).message,
+      );
     });
   });
 

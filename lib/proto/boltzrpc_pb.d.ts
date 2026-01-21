@@ -569,7 +569,10 @@ export class SendCoinsRequest extends jspb.Message {
     setAddress(value: string): SendCoinsRequest;
     getAmount(): number;
     setAmount(value: number): SendCoinsRequest;
-    getFee(): number;
+
+    hasFee(): boolean;
+    clearFee(): void;
+    getFee(): number | undefined;
     setFee(value: number): SendCoinsRequest;
     getSendAll(): boolean;
     setSendAll(value: boolean): SendCoinsRequest;
@@ -591,7 +594,7 @@ export namespace SendCoinsRequest {
         symbol: string,
         address: string,
         amount: number,
-        fee: number,
+        fee?: number,
         sendAll: boolean,
         label: string,
     }

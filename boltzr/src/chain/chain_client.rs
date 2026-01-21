@@ -193,6 +193,11 @@ impl ChainClient {
             .await
     }
 
+    fn round_to_3_decimal_places(x: f64) -> f64 {
+        let factor = 1000.0; // 10^3 for 3 decimal places
+        (x * factor).round() / factor
+    }
+
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
         if let Some(mempool_space) = &self.mempool_space {
             match mempool_space.get_fees() {
@@ -207,7 +212,9 @@ impl ChainClient {
             .await
             .map(|fee| fee.feerate)
         {
-            Ok(fee) => Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64),
+            Ok(fee) => Ok(Self::round_to_3_decimal_places(
+                fee * BTC_KVB_SAT_VBYTE_FACTOR as f64,
+            )),
             // On regtest estimatesmartfee can fail
             Err(_) => Ok(floor),
         }

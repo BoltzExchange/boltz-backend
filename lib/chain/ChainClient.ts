@@ -254,7 +254,7 @@ class ChainClient extends BaseClient implements IChainClient {
         ? mempoolFee
         : await this.estimateFeeChainClient(confTarget);
 
-    return Math.max(estimation, this.feeFloor);
+    return Math.max(Number(estimation), this.feeFloor);
   };
 
   private estimateFeeChainClient = async (confTarget = 1) => {
@@ -265,7 +265,7 @@ class ChainClient extends BaseClient implements IChainClient {
 
       if (response.feerate) {
         const feePerKb = response.feerate * ChainClient.decimals;
-        return Math.max(feePerKb / 1000, this.feeFloor);
+        return Number(Math.max(feePerKb / 1000, this.feeFloor)).toFixed(3);
       }
 
       return this.feeFloor;

@@ -194,6 +194,7 @@ impl TimeoutDeltaProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cache::{Cache, MemCache};
     use crate::currencies::Currency;
     use crate::evm::{
         Config, ContractAddresses, ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
@@ -461,6 +462,7 @@ mod tests {
 
         let manager = Manager::new(
             "RBTC".to_string(),
+            Cache::Memory(MemCache::new()),
             MnemonicBuilder::<English>::default()
                 .phrase(MNEMONIC)
                 .index(0)

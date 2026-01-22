@@ -12,6 +12,8 @@ use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+const NO_QUOTES_FOUND: &str = "no quotes found";
+
 #[derive(Deserialize)]
 pub struct QuotePath {
     pub currency: String,
@@ -83,6 +85,13 @@ where
         .map(|(quote, data)| QuoteResponse { quote, data })
         .collect::<Vec<_>>();
 
+    if quotes.is_empty() {
+        return Err(AxumError::new(
+            StatusCode::NOT_FOUND,
+            anyhow!(NO_QUOTES_FOUND),
+        ));
+    }
+
     // Descending order
     quotes.sort_by(|a, b| b.quote.cmp(&a.quote));
 
@@ -108,6 +117,13 @@ where
         .into_iter()
         .map(|(quote, data)| QuoteResponse { quote, data })
         .collect::<Vec<_>>();
+
+    if quotes.is_empty() {
+        return Err(AxumError::new(
+            StatusCode::NOT_FOUND,
+            anyhow!(NO_QUOTES_FOUND),
+        ));
+    }
 
     // Ascending order
     quotes.sort_by(|a, b| a.quote.cmp(&b.quote));

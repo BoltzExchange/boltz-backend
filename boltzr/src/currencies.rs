@@ -231,7 +231,13 @@ pub async fn connect_nodes<K: KeysHelper>(
                 Currency {
                     network,
                     evm_manager: Some(Arc::new(
-                        Manager::new(symbol.to_string(), evm_signer.clone(), &config).await?,
+                        Manager::new(
+                            symbol.to_string(),
+                            cache.clone(),
+                            evm_signer.clone(),
+                            &config,
+                        )
+                        .await?,
                     )),
                     chain: None,
                     wallet: None,

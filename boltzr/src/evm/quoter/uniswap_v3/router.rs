@@ -1,6 +1,6 @@
 use crate::evm::quoter::Call;
-use crate::evm::quoter::uniswap_v3::Data;
 use crate::evm::quoter::uniswap_v3::router::IUniversalRouter::IUniversalRouterInstance;
+use crate::evm::quoter::uniswap_v3::{Data, Hop};
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, Bytes, U256};
 use alloy::providers::Provider;
@@ -42,7 +42,8 @@ where
         let mut commands = Commands::new();
 
         let is_ether_in = data.token_in == Address::ZERO;
-        let is_ether_out = data.token_out == Address::ZERO;
+        let is_ether_out =
+            data.hops.last().ok_or(anyhow::anyhow!("no hops"))?.token == Address::ZERO;
 
         if is_ether_in {
             commands = commands.wrap_ether(*self.router.address(), amount_in);
@@ -58,7 +59,16 @@ where
             amount_out_min,
             PathEncoder::new()
                 .add_token(self.handle_eth(data.token_in))
-                .add_hop(data.fee, self.handle_eth(data.token_out))?,
+                .add_hops(
+                    data.hops
+                        .iter()
+                        .map(|h| Hop {
+                            fee: h.fee,
+                            token: self.handle_eth(h.token),
+                        })
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )?,
             !is_ether_in,
         );
 
@@ -191,25 +201,36 @@ impl Command {
 }
 
 #[derive(Debug, Clone)]
-struct PathEncoder {
+pub struct PathEncoder {
     data: Vec<u8>,
 }
 
 impl PathEncoder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { data: Vec::new() }
     }
 
-    fn add_token(mut self, token: Address) -> Self {
+    pub fn build(self) -> Vec<u8> {
+        self.data
+    }
+
+    pub fn add_hops(mut self, hops: &[Hop]) -> Result<Self> {
+        for hop in hops {
+            self = self.add_hop(hop.fee, hop.token)?;
+        }
+        Ok(self)
+    }
+
+    pub fn add_hop(self, fee: u64, token_out: Address) -> Result<Self> {
+        Ok(self.add_fee(fee)?.add_token(token_out))
+    }
+
+    pub fn add_token(mut self, token: Address) -> Self {
         self.data.extend_from_slice(token.as_slice());
         self
     }
 
-    fn add_hop(self, fee: u64, token_out: Address) -> Result<Self> {
-        Ok(self.add_fee(fee)?.add_token(token_out))
-    }
-
-    fn add_fee(mut self, fee: u64) -> Result<Self> {
+    pub fn add_fee(mut self, fee: u64) -> Result<Self> {
         if fee > 0xFFFFFF {
             return Err(anyhow::anyhow!("fee must be a 24-bit value"));
         }

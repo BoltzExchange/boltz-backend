@@ -1,14 +1,15 @@
+use crate::cache::Cache;
+use crate::evm::utils::check_contract_exists;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::providers::network::Network;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::{debug, instrument};
-
-use crate::evm::utils::check_contract_exists;
+use tracing::{debug, instrument, warn};
 
 mod uniswap_v3;
 
@@ -23,6 +24,14 @@ pub struct Config {
 #[derive(Deserialize, Serialize, PartialEq, Clone, Copy, Debug)]
 pub enum QuoterType {
     UniswapV3,
+}
+
+impl fmt::Display for QuoterType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QuoterType::UniswapV3 => write!(f, "UniswapV3"),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -83,7 +92,12 @@ pub struct QuoteAggregator {
 }
 
 impl QuoteAggregator {
-    pub async fn new<P, N>(symbol: String, provider: P, config: Option<Config>) -> Result<Self>
+    pub async fn new<P, N>(
+        symbol: String,
+        cache: Cache,
+        provider: P,
+        config: Option<Config>,
+    ) -> Result<Self>
     where
         P: Provider<N> + Clone + 'static,
         N: Network,
@@ -96,7 +110,8 @@ impl QuoteAggregator {
 
             if let Some(uniswap_v3) = config.uniswap_v3 {
                 quoters.push(Arc::new(
-                    uniswap_v3::UniswapV3::new(&symbol, provider, weth, uniswap_v3).await?,
+                    uniswap_v3::UniswapV3::new(symbol.clone(), cache, provider, weth, uniswap_v3)
+                        .await?,
                 ));
             }
         }
@@ -104,7 +119,7 @@ impl QuoteAggregator {
         Ok(Self { symbol, quoters })
     }
 
-    #[instrument(name = "QuoteAggregator::quote_input", skip(self))]
+    #[instrument(name = "QuoteAggregator::quote_input", skip(self, amount_in))]
     pub async fn quote_input(
         &self,
         token_in: Address,
@@ -113,20 +128,18 @@ impl QuoteAggregator {
     ) -> Result<Vec<(U256, Data)>> {
         debug!("Quoting {}", self.symbol);
 
-        let results = futures::future::join_all(
-            self.quoters
-                .iter()
-                .map(|quoter| quoter.quote_input(token_in, token_out, amount_in)),
-        )
-        .await
-        .into_iter()
-        .flatten()
-        .collect();
-
-        Ok(results)
+        Ok(Self::filter_quotes(
+            futures::future::join_all(self.quoters.iter().map(async |quoter| {
+                (
+                    quoter.quoter_type(),
+                    quoter.quote_input(token_in, token_out, amount_in).await,
+                )
+            }))
+            .await,
+        ))
     }
 
-    #[instrument(name = "QuoteAggregator::quote_output", skip(self))]
+    #[instrument(name = "QuoteAggregator::quote_output", skip(self, amount_out))]
     pub async fn quote_output(
         &self,
         token_in: Address,
@@ -135,17 +148,15 @@ impl QuoteAggregator {
     ) -> Result<Vec<(U256, Data)>> {
         debug!("Quoting {}", self.symbol);
 
-        let results = futures::future::join_all(
-            self.quoters
-                .iter()
-                .map(|quoter| quoter.quote_output(token_in, token_out, amount_out)),
-        )
-        .await
-        .into_iter()
-        .flatten()
-        .collect();
-
-        Ok(results)
+        Ok(Self::filter_quotes(
+            futures::future::join_all(self.quoters.iter().map(async |quoter| {
+                (
+                    quoter.quoter_type(),
+                    quoter.quote_output(token_in, token_out, amount_out).await,
+                )
+            }))
+            .await,
+        ))
     }
 
     pub fn encode(
@@ -168,5 +179,18 @@ impl QuoteAggregator {
                 data.quoter_type()
             ))
         }
+    }
+
+    fn filter_quotes(result: Vec<(QuoterType, Result<(U256, Data)>)>) -> Vec<(U256, Data)> {
+        result
+            .into_iter()
+            .filter_map(|(quoter_type, res)| {
+                if let Err(err) = &res {
+                    warn!("Quote {quoter_type} failed: {:#}", err);
+                }
+
+                res.ok()
+            })
+            .collect()
     }
 }

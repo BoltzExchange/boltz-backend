@@ -210,7 +210,11 @@ describe('CoreWalletProvider', () => {
     const balance = await provider.getBalance();
     const label = 'sweep Core wallet';
 
-    const sentTransaction = await provider.sweepWallet(testAddress, 1, label);
+    const sentTransaction = await provider.sweepWallet(
+      testAddress,
+      undefined,
+      label,
+    );
 
     const transactionInfo = await bitcoinClient.getWalletTransaction(
       sentTransaction.transactionId,

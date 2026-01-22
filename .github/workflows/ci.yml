@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build:
+    timeout-minutes: 60
     strategy:
       matrix:
         platform: [ubuntu-latest]
@@ -13,56 +14,20 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: 'Free disk space'
-        uses: endersonmenezes/free-disk-space@v3
-        with:
-          remove_android: true
-          remove_dotnet: true
-          remove_haskell: true
-
       - name: Check out code
         uses: actions/checkout@v6
         with:
           submodules: 'true'
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-environment
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Use Rust toolchain
-        run:
-          rustup update ${{ matrix.rust-version }} && rustup default ${{
-          matrix.rust-version }}
-
-      - name: Install build dependencies
-        run:
-          sudo apt-get update && sudo apt-get -y install protobuf-compiler
-          libsqlite3-dev
-
-      - name: Install Node.js dependencies
-        run: npm ci
-
-      - name: Rust build cache
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key:
-            ${{ runner.os }}-npm-rust-build-${{ matrix.rust-version }}-${{
-            hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-rust-build-${{ matrix.rust-version }}-
+          rust-version: ${{ matrix.rust-version }}
+          cache-prefix: npm-rust-build
 
       - name: Start regtest
+        timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
       - name: Compile
@@ -84,6 +49,7 @@ jobs:
         run: node run-int.js
 
   build-rust:
+    timeout-minutes: 60
     strategy:
       matrix:
         platform: [ubuntu-latest]
@@ -93,31 +59,17 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: 'Free disk space'
-        uses: endersonmenezes/free-disk-space@v3
-        with:
-          remove_android: true
-          remove_dotnet: true
-          remove_haskell: true
-
       - name: Check out code
         uses: actions/checkout@v6
         with:
           submodules: 'true'
 
-      - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get -y install protobuf-compiler
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-environment
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
-      - name: Use Rust toolchain
-        run:
-          rustup update ${{ matrix.rust-version }} && rustup default ${{
-          matrix.rust-version }}
+          rust-version: ${{ matrix.rust-version }}
+          cache-prefix: cargo-build
 
       - name: Install rustfmt
         run: rustup component add rustfmt
@@ -125,28 +77,8 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Node.js dependencies
-        run: npm ci
-
-      - name: Rust build cache
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key:
-            ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-${{
-            hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-
-
       - name: Start regtest
+        timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
       - name: Compile
@@ -162,6 +94,7 @@ jobs:
         run: cargo test
 
   swagger-validation:
+    timeout-minutes: 60
     strategy:
       matrix:
         platform: [ubuntu-latest]

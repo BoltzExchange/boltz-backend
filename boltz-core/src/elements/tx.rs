@@ -601,6 +601,7 @@ pub mod tests {
     use std::str::FromStr;
 
     pub const FUNDING_AMOUNT: u64 = 100_000;
+    const MAX_BLINDING_RETRIES: usize = 3;
 
     // There is some variance in the proof sizes of Elements transactions
     fn assert_within_one_percent(actual: u64, expected: u64) {
@@ -647,42 +648,65 @@ pub mod tests {
         BlockHash::from_str(&block.hash).unwrap()
     }
 
+    fn verify_output_blinded(tx: &Transaction, vout: usize, expect_blinded: bool) -> bool {
+        match tx.output.get(vout) {
+            Some(output) => output.value.is_confidential() == expect_blinded,
+            None => false,
+        }
+    }
+
     pub fn fund_address(
         client: &RpcClient,
         address: &Address,
         asset: Option<&str>,
+        expect_blinded: Option<bool>,
     ) -> (Transaction, usize) {
-        let tx = client
-            .request::<String>(
-                "sendtoaddress",
-                Some(&[
-                    RpcParam::Str(&address.to_string()),
-                    RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::Null,
-                    RpcParam::StrOption(asset),
-                ]),
-            )
-            .unwrap();
+        // Sometimes, Elements does not blind, so we give it a couple tries
+        for _ in 0..MAX_BLINDING_RETRIES {
+            let tx = client
+                .request::<String>(
+                    "sendtoaddress",
+                    Some(&[
+                        RpcParam::Str(&address.to_string()),
+                        RpcParam::Float(Amount::from_sat(FUNDING_AMOUNT).to_btc()),
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::Null,
+                        RpcParam::StrOption(asset),
+                    ]),
+                )
+                .unwrap();
 
-        let tx = client
-            .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx)]))
-            .unwrap();
+            let tx = client
+                .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&tx)]))
+                .unwrap();
 
-        let tx: Transaction = elements::encode::deserialize(&hex::decode(tx).unwrap()).unwrap();
+            let tx: Transaction = elements::encode::deserialize(&hex::decode(tx).unwrap()).unwrap();
 
-        let vout_index = tx
-            .output
-            .iter()
-            .position(|output| output.script_pubkey == address.script_pubkey())
-            .unwrap();
+            let vout_index = tx
+                .output
+                .iter()
+                .position(|output| output.script_pubkey == address.script_pubkey())
+                .unwrap();
 
-        (tx, vout_index)
+            if let Some(expect_blinded) = expect_blinded {
+                if verify_output_blinded(&tx, vout_index, expect_blinded) {
+                    return (tx, vout_index);
+                }
+            } else {
+                return (tx, vout_index);
+            }
+        }
+
+        panic!(
+            "Failed to create {}blinded output after {} attempts",
+            if expect_blinded.unwrap() { "" } else { "un" },
+            MAX_BLINDING_RETRIES
+        );
     }
 
     pub fn address_blinding_key(client: &RpcClient, address: String) -> String {
@@ -780,7 +804,7 @@ pub mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, None);
+        let (funding_tx, vout_index) = fund_address(client, &address, None, Some(blind));
 
         (
             keys,
@@ -840,7 +864,7 @@ pub mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, None);
+        let (funding_tx, vout_index) = fund_address(client, &address, None, Some(blind));
 
         (
             blinding_keys,
@@ -902,7 +926,7 @@ pub mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, None);
+        let (funding_tx, vout_index) = fund_address(client, &address, None, Some(blind));
 
         (
             blinding_keys,
@@ -960,7 +984,7 @@ pub mod tests {
         );
 
         mine_block(client);
-        let (funding_tx, vout_index) = fund_address(client, &address, None);
+        let (funding_tx, vout_index) = fund_address(client, &address, None, Some(blind));
 
         (
             blinding_keys,

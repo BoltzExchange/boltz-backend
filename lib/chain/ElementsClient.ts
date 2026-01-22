@@ -26,7 +26,8 @@ interface IElementsClient extends IChainClient {
 
 class ElementsClient extends ChainClient implements IElementsClient {
   public static readonly symbol = liquidSymbol;
-  private static readonly feeFloor = 0.1;
+
+  private static readonly elementsFeeFloor = 0.1;
 
   constructor(
     logger: Logger,
@@ -42,7 +43,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
     }
 
     super(logger, sidecar, network, config, ElementsClient.symbol);
-    this.feeFloor = ElementsClient.feeFloor;
+    this.feeFloor = config.feeFloor ?? ElementsClient.elementsFeeFloor;
     this.currencyType = CurrencyType.Liquid;
   }
 
@@ -55,7 +56,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
     return (
       confidential.confidentialValueToSatoshi(feeOutput.value) /
         tx.virtualSize(true) <
-      ElementsClient.feeFloor
+      ElementsClient.elementsFeeFloor
     );
   };
 

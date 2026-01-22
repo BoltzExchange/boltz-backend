@@ -50,6 +50,10 @@ pub struct Config {
     mempool_space: Option<String>,
 
     wallet: Option<String>,
+
+    /// Minimum fee rate in sat/vbyte used as floor for fee estimation
+    #[serde(rename = "feeFloor")]
+    pub fee_floor: Option<f64>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]

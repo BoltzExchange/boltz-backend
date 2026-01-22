@@ -73,11 +73,13 @@ class ChainClient extends BaseClient implements IChainClient {
   public static readonly serviceName = 'Core';
   public static readonly decimals = 100_000_000;
 
+  private static readonly coreFeeFloor = 0.2;
+
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
   public isRegtest = false;
 
   protected client: RpcClient;
-  protected feeFloor = 2;
+  protected feeFloor: number;
 
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
@@ -94,6 +96,7 @@ class ChainClient extends BaseClient implements IChainClient {
     this.client = new RpcClient(logger, symbol, this.config);
     this.isRegtest = network.toLowerCase().includes('regtest');
     this.rebroadcaster = new Rebroadcaster(this.logger, sidecar, this);
+    this.feeFloor = this.config.feeFloor ?? ChainClient.coreFeeFloor;
 
     if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
       this.mempoolSpace = new MempoolSpace(
@@ -103,6 +106,10 @@ class ChainClient extends BaseClient implements IChainClient {
       );
     }
   }
+
+  private static roundToThreeDecimals = (fee: number): number => {
+    return Math.round(fee * 1000) / 1000;
+  };
 
   public serviceName = (): string => {
     return ChainClient.serviceName;
@@ -265,7 +272,8 @@ class ChainClient extends BaseClient implements IChainClient {
 
       if (response.feerate) {
         const feePerKb = response.feerate * ChainClient.decimals;
-        return Math.max(Math.round(feePerKb / 1000), 2);
+        const fee = Math.max(feePerKb / 1000, this.feeFloor);
+        return ChainClient.roundToThreeDecimals(fee);
       }
 
       return this.feeFloor;
@@ -276,7 +284,7 @@ class ChainClient extends BaseClient implements IChainClient {
           `'estimatesmartfee' method not found on ${this.symbol} chain`,
         );
 
-        return 2;
+        return this.feeFloor;
       }
 
       throw error;

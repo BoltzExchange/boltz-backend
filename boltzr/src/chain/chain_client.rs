@@ -37,6 +37,7 @@ pub struct ChainClient {
     network: Network,
     cache: Cache,
     client_type: Type,
+    fee_floor: f64,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transactions, bool)>,
@@ -52,6 +53,9 @@ impl PartialEq for ChainClient {
 }
 
 impl ChainClient {
+    const DEFAULT_FEE_FLOOR_BTC: f64 = 0.2;
+    const DEFAULT_FEE_FLOOR_ELEMENTS: f64 = 0.1;
+
     pub fn new(
         cancellation_token: CancellationToken,
         cache: Cache,
@@ -60,9 +64,16 @@ impl ChainClient {
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
+        let default_floor = match client_type {
+            Type::Bitcoin => Self::DEFAULT_FEE_FLOOR_BTC,
+            Type::Elements => Self::DEFAULT_FEE_FLOOR_ELEMENTS,
+        };
+        let fee_floor = config.fee_floor.unwrap_or(default_floor);
+
         let client = Self {
             cache,
             network,
+            fee_floor,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
             mempool_space: config
@@ -193,6 +204,11 @@ impl ChainClient {
             .await
     }
 
+    fn round_to_3_decimal_places(x: f64) -> f64 {
+        let factor = 1000.0; // 10^3 for 3 decimal places
+        (x * factor).round() / factor
+    }
+
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
         if let Some(mempool_space) = &self.mempool_space {
             match mempool_space.get_fees() {
@@ -207,7 +223,9 @@ impl ChainClient {
             .await
             .map(|fee| fee.feerate)
         {
-            Ok(fee) => Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64),
+            Ok(fee) => Ok(Self::round_to_3_decimal_places(
+                fee * BTC_KVB_SAT_VBYTE_FACTOR as f64,
+            )),
             // On regtest estimatesmartfee can fail
             Err(_) => Ok(floor),
         }
@@ -566,11 +584,10 @@ impl Client for ChainClient {
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        let floor = match self.client_type {
-            crate::chain::types::Type::Bitcoin => 2.0,
-            crate::chain::types::Type::Elements => 0.1,
-        };
-        Ok(f64::max(self.estimate_fee_raw(floor).await?, floor))
+        Ok(f64::max(
+            self.estimate_fee_raw(self.fee_floor).await?,
+            self.fee_floor,
+        ))
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
@@ -899,7 +916,7 @@ pub mod test {
     async fn test_get_fees_smart_fee() {
         let client = get_client().await;
         let fees = client.estimate_fee().await.unwrap();
-        assert_eq!(fees, 2.0);
+        assert!(fees >= ChainClient::DEFAULT_FEE_FLOOR_BTC);
     }
 
     #[tokio::test]

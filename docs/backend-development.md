@@ -10,8 +10,7 @@ Backend development.
   installed. We recommend using
   [nvm](https://github.com/nvm-sh/nvm#install--update-script) to manage npm
   installs: `nvm install --lts`
-- [Docker](https://docs.docker.com/engine/install/) or
-  [Orbstack](https://orbstack.dev/) for Apple Silicon Macs
+- [Docker](https://docs.docker.com/engine/install/)
 
 The regtest environment of the Boltz Backend is based on
 [boltz-regtest](https://github.com/BoltzExchange/boltz-regtest). To start the
@@ -22,32 +21,6 @@ To use the nodes in the container with the Boltz Backend, use a configuration
 file in `~/.boltz/boltz.conf` similar to this one:
 
 <<< @/boltz.conf{toml} [Boltz configuration]
-
-We recommend adding aliases to control executables of Boltz and nodes to your
-`.bashrc`:
-
-```bash
-# Boltz Docker regtest
-boltzDir="<path to the cloned repository>"
-boltzDataDir="$boltzDir/docker/regtest/data"
-
-alias bitcoin-cli-sim='bitcoin-cli --regtest --rpcport=18443 -rpcuser=boltz -rpcpassword=anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI'
-alias elements-cli-sim='elements-cli --regtest --rpcport=18884 -rpcuser=boltz -rpcpassword=anoVB0m1KvX0SmpPxvaLVADg0UQVLQTEx3jCD3qtuRI'
-
-lndCert="$boltzDataDir/lnd/certificates/tls.cert"
-lndMacaroon="$boltzDataDir/lnd/macaroons/admin.macaroon"
-
-alias lnclibtc='lncli --rpcserver=127.0.0.1:10009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-alias lnclibtc2='lncli --rpcserver=127.0.0.1:10011 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-
-alias lncliltc='lncli --rpcserver=127.0.0.1:11009 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-alias lncliltc2='lncli --rpcserver=127.0.0.1:11010 --tlscertpath=$lndCert --macaroonpath=$lndMacaroon'
-
-alias lightning-cli-sim='docker exec -it regtest lightning-cli'
-
-# Add the Boltz executables to the path
-export PATH="$boltzDir/bin:$PATH"
-```
 
 ## boltzr-cli
 

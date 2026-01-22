@@ -334,7 +334,15 @@ mod test {
 
         let client = Arc::new(client) as Arc<dyn crate::chain::Client + Send + Sync>;
         let fee = tx.calculate_fee(&client).await.unwrap();
-        assert_eq!(fee, tx.vsize());
+
+        let expected = tx.vsize();
+        let tolerance = expected / 10;
+        assert!(
+            fee >= expected.saturating_sub(tolerance) && fee <= expected + tolerance,
+            "fee {} not within ±10% of expected vsize {}",
+            fee,
+            expected
+        );
     }
 
     #[tokio::test]

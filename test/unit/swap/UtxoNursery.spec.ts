@@ -97,6 +97,7 @@ jest.mock('../../../lib/chain/ChainClient', () => {
   return jest.fn().mockImplementation((symbol) => ({
     symbol,
     currencyType: CurrencyType.BitcoinLike,
+    feeFloor: 2,
     estimateFee: mockEstimateFee,
     getRawTransaction: mockGetRawTransaction,
     getRawTransactionVerbose: mockGetRawTransactionVerbose,
@@ -564,6 +565,57 @@ describe('UtxoNursery', () => {
       2,
       '62af53c6dcda51c4ebac3309b85ce2ca043a912f127250c51e19b1de82299730',
     );
+  });
+
+  test('should accept 0-conf transactions when fee estimation equals the fee floor', async () => {
+    const checkSwapOutputs = nursery['checkOutputs'];
+
+    const transaction = Transaction.fromHex(sampleTransactions.lockup);
+    transaction.ins[0].sequence = 0xffffffff;
+    transaction.ins[1].sequence = 0xffffffff;
+
+    mockGetSwapResult = {
+      id: '0conf',
+      acceptZeroConf: true,
+      redeemScript: sampleRedeemScript,
+      type: SwapType.Submarine,
+    };
+
+    // Mock verbose transaction response to return confirmed inputs (to skip recursive RBF check)
+    mockGetRawTransactionVerboseResult = () => ({
+      confirmations: 1,
+    });
+
+    let lockupEmitted = false;
+    let rejectedEmitted = false;
+
+    // Set the fee estimation to equal the fee floor (2 sat/vbyte)
+    // When feeEstimation === chainClient.feeFloor, the fee check is skipped
+    mockEstimateFeeResult = 2; // equals btcChainClient.feeFloor
+
+    nursery.once('swap.lockup', () => {
+      lockupEmitted = true;
+    });
+
+    nursery.once('swap.lockup.zeroconf.rejected', () => {
+      rejectedEmitted = true;
+    });
+
+    await checkSwapOutputs(
+      btcChainClient,
+      btcWallet,
+      transaction,
+      TransactionStatus.ZeroConfSafe,
+    );
+
+    // Transaction should be accepted, not rejected (fee check is skipped at fee floor)
+    expect(lockupEmitted).toEqual(true);
+    expect(rejectedEmitted).toEqual(false);
+
+    expect(mockGetSwap).toHaveBeenCalledTimes(1);
+    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
+    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
   });
 
   test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {

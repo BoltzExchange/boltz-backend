@@ -806,9 +806,12 @@ class UtxoNursery extends TypedEventEmitter<{
 
     // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
     //
-    // Special case: if the fee estimation is the lowest possible of 2 sat/vbyte,
+    // Special case: if the fee estimation is at the lowest possible (fee floor),
     // every fee paid by the transaction will be accepted
-    if (transactionFeePerVbyte / feeEstimation < 0.8 && feeEstimation !== 2) {
+    if (
+      transactionFeePerVbyte / feeEstimation < 0.8 &&
+      feeEstimation !== chainClient.feeFloor
+    ) {
       return Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message;
     }
 

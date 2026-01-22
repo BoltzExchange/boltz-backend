@@ -39,6 +39,7 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   get isRegtest(): boolean;
   get symbol(): string;
   get currencyType(): CurrencyType;
+  get feeFloor(): number;
 
   connect(): Promise<void>;
 
@@ -75,11 +76,12 @@ class ChainClient extends BaseClient implements IChainClient {
 
   private static readonly coreFeeFloor = 0.2;
 
+  public readonly feeFloor: number;
+
   public currencyType: CurrencyType = CurrencyType.BitcoinLike;
   public isRegtest = false;
 
   protected client: RpcClient;
-  protected feeFloor: number;
 
   private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;

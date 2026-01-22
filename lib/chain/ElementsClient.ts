@@ -42,8 +42,16 @@ class ElementsClient extends ChainClient implements IElementsClient {
       );
     }
 
-    super(logger, sidecar, network, config, ElementsClient.symbol);
-    this.feeFloor = config.feeFloor ?? ElementsClient.elementsFeeFloor;
+    super(
+      logger,
+      sidecar,
+      network,
+      {
+        ...config,
+        feeFloor: config.feeFloor ?? ElementsClient.elementsFeeFloor,
+      },
+      ElementsClient.symbol,
+    );
     this.currencyType = CurrencyType.Liquid;
   }
 

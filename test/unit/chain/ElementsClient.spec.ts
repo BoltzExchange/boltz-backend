@@ -4,6 +4,64 @@ import ElementsClient from '../../../lib/chain/ElementsClient';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('ElementsClient', () => {
+  const mockSidecar = {
+    on: jest.fn(),
+  } as unknown as Sidecar;
+
+  const baseConfig = {
+    host: '127.0.0.1',
+    port: 123,
+    user: 'good',
+    password: 'morning',
+  };
+
+  describe('feeFloor config parsing', () => {
+    test('should use default feeFloor when not provided in config', () => {
+      const client = new ElementsClient(
+        Logger.disabledLogger,
+        mockSidecar,
+        'liquidRegtest',
+        baseConfig,
+        false,
+      );
+
+      expect(client.feeFloor).toEqual(0.1);
+    });
+
+    test('should use custom feeFloor when provided in config', () => {
+      const customFeeFloor = 0.05;
+      const client = new ElementsClient(
+        Logger.disabledLogger,
+        mockSidecar,
+        'liquidRegtest',
+        {
+          ...baseConfig,
+          feeFloor: customFeeFloor,
+        },
+        false,
+      );
+
+      expect(client.feeFloor).toEqual(customFeeFloor);
+    });
+
+    test('should pass feeFloor to parent ChainClient via config', async () => {
+      const customFeeFloor = 0.2;
+      const client = new ElementsClient(
+        Logger.disabledLogger,
+        mockSidecar,
+        'liquidRegtest',
+        {
+          ...baseConfig,
+          feeFloor: customFeeFloor,
+        },
+        false,
+      );
+
+      // estimateFee for Elements always returns feeFloor
+      await expect(client.estimateFee()).resolves.toEqual(customFeeFloor);
+    });
+  });
+
   test.each`
     lowball  | expected
     ${false} | ${0.1}
@@ -13,16 +71,9 @@ describe('ElementsClient', () => {
     async ({ lowball, expected }) => {
       const client = new ElementsClient(
         Logger.disabledLogger,
-        {
-          on: jest.fn(),
-        } as unknown as Sidecar,
+        mockSidecar,
         'liquidRegtest',
-        {
-          host: '127.0.0.1',
-          port: 123,
-          user: 'good',
-          password: 'morning',
-        },
+        baseConfig,
         lowball,
       );
 

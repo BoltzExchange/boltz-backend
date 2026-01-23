@@ -133,12 +133,6 @@ impl FundingAddress {
 
         musig.xonly_tweak_add(&Musig::convert_scalar_be(&tweak.to_be_bytes())?)
     }
-
-    pub fn presigned_tx_hex(&self) -> Result<String> {
-        Ok(alloy::hex::encode(self.presigned_tx.clone().ok_or_else(
-            || anyhow::anyhow!("funding address has no presigned transaction"),
-        )?))
-    }
 }
 
 #[cfg(test)]

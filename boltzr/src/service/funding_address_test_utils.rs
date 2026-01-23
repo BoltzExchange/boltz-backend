@@ -44,7 +44,6 @@ pub mod test {
         fa
     }
 
-    /// Create a funding address for a specific symbol (BTC or L-BTC)
     pub fn test_funding_address_for_symbol(
         id: &str,
         symbol: &str,
@@ -54,7 +53,7 @@ pub mod test {
         let mut fa = test_funding_address(id, their_public_key);
         fa.symbol = symbol.to_string();
         fa.timeout_block_height = timeout_block_height;
-        fa.tree = fa.tree_json().ok();
+        fa.tree = fa.tree_json().unwrap();
         fa
     }
 
@@ -76,14 +75,26 @@ pub mod test {
     }
 
     pub fn test_swap(lockup_address: &str) -> Swap {
+        test_swap_with_timeout(lockup_address, 500)
+    }
+
+    pub fn test_swap_with_timeout(lockup_address: &str, timeout_block_height: i32) -> Swap {
         Swap {
             id: TEST_SWAP_ID.to_string(),
             lockupAddress: lockup_address.to_string(),
+            timeoutBlockHeight: timeout_block_height,
             ..Default::default()
         }
     }
 
     pub fn test_chain_swap_info(lockup_address: &str) -> ChainSwapInfo {
+        test_chain_swap_info_with_timeout(lockup_address, 500)
+    }
+
+    pub fn test_chain_swap_info_with_timeout(
+        lockup_address: &str,
+        timeout_block_height: i32,
+    ) -> ChainSwapInfo {
         let swap = ChainSwap {
             id: TEST_SWAP_ID.to_string(),
             pair: "L-BTC/BTC".to_string(),
@@ -96,12 +107,14 @@ pub mod test {
                 swapId: TEST_SWAP_ID.to_string(),
                 symbol: "BTC".to_string(),
                 lockupAddress: lockup_address.to_string(),
+                timeoutBlockHeight: timeout_block_height,
                 ..Default::default()
             },
             ChainSwapData {
                 swapId: TEST_SWAP_ID.to_string(),
                 symbol: "L-BTC".to_string(),
                 lockupAddress: "el1qq0test".to_string(),
+                timeoutBlockHeight: timeout_block_height,
                 ..Default::default()
             },
         ];
@@ -112,12 +125,14 @@ pub mod test {
         swap_helper: MockSwapHelper,
         chain_swap_helper: MockChainSwapHelper,
         currencies: Currencies,
+        timeout_buffer_minutes: Option<u64>,
     ) -> FundingAddressSigner {
         FundingAddressSigner::new(
             Arc::new(swap_helper),
             Arc::new(chain_swap_helper),
             currencies,
             Cache::Memory(crate::cache::MemCache::new()),
+            timeout_buffer_minutes.unwrap_or(60 * 3), // 3 hours
         )
     }
 
@@ -221,10 +236,8 @@ pub mod test {
         }
     }
 
-    /// Create a proper swap tree JSON for claiming. The tree has claimLeaf and refundLeaf.
-    /// Works for both Bitcoin and Elements/Liquid based on the `chain_type` parameter.
     pub fn create_swap_tree_json(
-        chain_type: Type,
+        chain_type: Chain,
         preimage_hash: &[u8; 20],
         claim_pubkey: &bitcoin::XOnlyPublicKey,
         refund_pubkey: &bitcoin::XOnlyPublicKey,
@@ -235,7 +248,7 @@ pub mod test {
         let preimage_hash = hash160::Hash::from_byte_array(*preimage_hash);
 
         match chain_type {
-            Type::Bitcoin => {
+            Chain::Bitcoin => {
                 use bitcoin::absolute::LockTime;
                 let tree = boltz_core::bitcoin::swap_tree(
                     preimage_hash,
@@ -245,7 +258,7 @@ pub mod test {
                 );
                 serde_json::to_string(&tree).unwrap()
             }
-            Type::Elements => {
+            Chain::Elements => {
                 use elements::LockTime;
                 let claim_pubkey_elements =
                     elements::secp256k1_zkp::XOnlyPublicKey::from_slice(&claim_pubkey.serialize())
@@ -268,7 +281,7 @@ pub mod test {
     /// This is the actual address where the swap lockup output should be sent.
     /// Works for both Bitcoin and Elements/Liquid based on the `chain_type` parameter.
     pub fn compute_swap_lockup_address(
-        chain_type: Type,
+        chain_type: Chain,
         swap_tree_json: &str,
         internal_key: &bitcoin::XOnlyPublicKey,
         network: crate::wallet::Network,
@@ -278,7 +291,7 @@ pub mod test {
         let secp = Secp256k1::new();
 
         match chain_type {
-            Type::Bitcoin => {
+            Chain::Bitcoin => {
                 let tree: boltz_core::bitcoin::Tree = serde_json::from_str(swap_tree_json).unwrap();
                 let taproot_spend_info = tree
                     .build()
@@ -296,7 +309,7 @@ pub mod test {
 
                 bitcoin::Address::p2tr_tweaked(output_key, btc_network).to_string()
             }
-            Type::Elements => {
+            Chain::Elements => {
                 let tree: boltz_core::elements::Tree =
                     serde_json::from_str(swap_tree_json).unwrap();
                 let internal_key_elements =
@@ -353,7 +366,8 @@ pub mod test {
 
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
         let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
-        let (vout, amount) = find_vout_and_amount(symbol, &raw_tx, &script_pubkey.to_vec());
+        let vout = find_vout(symbol, &raw_tx, &script_pubkey.to_vec());
+        let amount = 100_000_000i64;
 
         (tx_id, vout, amount)
     }

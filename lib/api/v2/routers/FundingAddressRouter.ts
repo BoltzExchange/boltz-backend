@@ -117,6 +117,22 @@
 
 /**
  * @openapi
+ * components:
+ *   schemas:
+ *     FundingAddressClaimRequest:
+ *       type: object
+ *       required: ["pubNonce", "transactionHash"]
+ *       properties:
+ *         pubNonce:
+ *           type: string
+ *           description: Public nonce of the client for the session encoded as HEX
+ *         transactionHash:
+ *           type: string
+ *           description: Hash of the transaction to be signed encoded as HEX
+ */
+
+/**
+ * @openapi
  * /funding:
  *   post:
  *     description: Create a new funding address for pre-funding swaps
@@ -240,6 +256,46 @@
  *         description: Signature was accepted and transaction broadcast
  *       '400':
  *         description: Error that caused the signature submission to fail
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: When the funding address is not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /funding/{id}/claim:
+ *   post:
+ *     description: Requests a partial signature for a funding address claim transaction
+ *     tags: [Funding Address]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the funding address
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FundingAddressClaimRequest'
+ *     responses:
+ *       '200':
+ *         description: A partial signature
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PartialSignature'
+ *       '400':
+ *         description: Error that caused signature request to fail
  *         content:
  *           application/json:
  *             schema:

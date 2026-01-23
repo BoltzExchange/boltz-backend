@@ -3,6 +3,7 @@ use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
 use crate::currencies::get_chain_client;
+use crate::service::funding_address::ClaimSignatureRequest;
 use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
@@ -20,6 +21,7 @@ impl IntoResponse for FundingAddressError {
             FundingAddressError::CurrencyNotFound(_)
             | FundingAddressError::NoWallet(_)
             | FundingAddressError::NotFound(_) => StatusCode::NOT_FOUND,
+            FundingAddressError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
             FundingAddressError::Database(_) | FundingAddressError::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -70,6 +72,22 @@ pub struct GetSigningDetailsQuery {
 
 #[derive(Deserialize)]
 pub struct SetSignatureRequestBody {
+    #[serde(rename = "pubNonce")]
+    pub pub_nonce: String,
+    #[serde(rename = "partialSignature")]
+    pub partial_signature: String,
+}
+
+#[derive(Deserialize)]
+pub struct ClaimRequestBody {
+    #[serde(rename = "pubNonce")]
+    pub pub_nonce: String,
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PartialSignatureResponse {
     #[serde(rename = "pubNonce")]
     pub pub_nonce: String,
     #[serde(rename = "partialSignature")]
@@ -200,6 +218,35 @@ where
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
+pub async fn claim<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(id): Path<String>,
+    Json(body): Json<ClaimRequestBody>,
+) -> Result<impl IntoResponse, FundingAddressError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let response = state
+        .service
+        .funding_address
+        .sign_claim(ClaimSignatureRequest {
+            id,
+            pub_nonce: body.pub_nonce,
+            transaction_hash: body.transaction_hash,
+        })
+        .await?;
+
+    Ok((
+        StatusCode::OK,
+        Json(PartialSignatureResponse {
+            pub_nonce: response.pub_nonce,
+            partial_signature: response.partial_signature,
+        }),
+    )
+        .into_response())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -207,6 +254,7 @@ mod test {
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
+    use crate::db::helpers::funding_address::FundingAddressHelper;
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
@@ -215,6 +263,7 @@ mod test {
     use axum::http::{Request, StatusCode};
     use axum::{Extension, Router};
     use bitcoin::key::{Keypair, Secp256k1};
+    use boltz_core::musig::Musig;
     use http_body_util::BodyExt;
     use rstest::*;
     use std::sync::Arc;
@@ -445,6 +494,44 @@ mod test {
             .unwrap()
     }
 
+    async fn make_claim_request(
+        id: &str,
+        pub_nonce: &str,
+        transaction_hash: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "pubNonce": pub_nonce,
+            "transactionHash": transaction_hash
+        });
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri(format!("/v2/funding/{}/claim", id))
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    fn create_pub_nonce_hex(keypair: &Keypair, message: [u8; 32]) -> String {
+        let secp = Secp256k1::new();
+        let other_keypair = Keypair::new(&secp, &mut rand::thread_rng());
+        let musig = Musig::setup(
+            Musig::convert_keypair(keypair.secret_key().secret_bytes()).unwrap(),
+            vec![
+                Musig::convert_pub_key(&keypair.public_key().serialize()).unwrap(),
+                Musig::convert_pub_key(&other_keypair.public_key().serialize()).unwrap(),
+            ],
+        )
+        .unwrap();
+        let musig = musig.message(message).generate_nonce(&mut Musig::rng());
+        alloy::hex::encode(musig.pub_nonce().serialize())
+    }
+
     #[tokio::test]
     async fn test_set_signature_not_found() {
         let res = make_set_signature_request(
@@ -458,5 +545,118 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("funding address not found"));
+    }
+
+    #[tokio::test]
+    async fn test_claim_funding_address_success() {
+        let secp = Secp256k1::new();
+        let keypair = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let funding_address =
+            make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
+        assert_eq!(funding_address.status(), StatusCode::OK);
+        let funding_address_body = funding_address
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let funding_address_response: CreateResponse =
+            serde_json::from_slice(&funding_address_body).unwrap();
+
+        let message = [1u8; 32];
+        let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
+        let transaction_hash = alloy::hex::encode(message);
+
+        let response = make_claim_request(
+            &funding_address_response.id,
+            &pub_nonce_hex,
+            &transaction_hash,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let response_body = response.into_body().collect().await.unwrap().to_bytes();
+        let response: PartialSignatureResponse = serde_json::from_slice(&response_body).unwrap();
+
+        assert!(!response.pub_nonce.is_empty());
+        assert!(!response.partial_signature.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_claim_funding_address_swap_linked() {
+        use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
+        use crate::db::helpers::web_hook::test::get_pool;
+
+        let secp = Secp256k1::new();
+        let keypair = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let funding_address =
+            make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
+        assert_eq!(funding_address.status(), StatusCode::OK);
+        let funding_address_body = funding_address
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let funding_address_response: CreateResponse =
+            serde_json::from_slice(&funding_address_body).unwrap();
+
+        let helper = FundingAddressHelperDatabase::new(get_pool());
+        helper
+            .set_presigned_tx(&funding_address_response.id, None)
+            .unwrap();
+
+        let message = [2u8; 32];
+        let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
+        let transaction_hash = alloy::hex::encode(message);
+
+        let response = make_claim_request(
+            &funding_address_response.id,
+            &pub_nonce_hex,
+            &transaction_hash,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let response_body = response.into_body().collect().await.unwrap().to_bytes();
+        let error: ApiError = serde_json::from_slice(&response_body).unwrap();
+        assert!(
+            error
+                .error
+                .contains("funding address is already linked to a swap")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_full_flow() {
+        let keypair = get_keypair();
+        let funding_address = make_create_request(TEST_SYMBOL, &keypair).await;
+        assert_eq!(funding_address.status(), StatusCode::OK);
+        let funding_address_body = funding_address
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let funding_address_response: CreateResponse =
+            serde_json::from_slice(&funding_address_body).unwrap();
+
+        let signing_details =
+            make_get_signing_details_request(&funding_address_response.id, "swap").await;
+        assert_eq!(signing_details.status(), StatusCode::OK);
+        let signing_details_body = signing_details
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let signing_details_response: GetSigningDetailsResponse =
+            serde_json::from_slice(&signing_details_body).unwrap();
+
+        assert!(!signing_details_response.pub_nonce.is_empty());
+        assert!(!signing_details_response.public_key.is_empty());
+        assert!(!signing_details_response.transaction_hex.is_empty());
+        assert!(!signing_details_response.transaction_hash.is_empty());
     }
 }

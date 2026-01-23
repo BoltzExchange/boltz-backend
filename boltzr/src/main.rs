@@ -202,6 +202,7 @@ async fn main() {
         Arc::new(KeysHelperDatabase::new(db_pool.clone())),
         config.marking,
         config.historical,
+        config.funding_address,
         cache.clone(),
     ));
     {

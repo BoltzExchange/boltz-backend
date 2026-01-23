@@ -1,9 +1,7 @@
-use crate::chain::Client;
 use crate::chain::types::Type;
 use crate::currencies::{get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
 use crate::db::models::{ChainSwapInfo, LightningSwap, SomeSwap, Swap};
-use crate::wallet::Wallet;
 use crate::{currencies::Currencies, db::models::FundingAddress};
 use anyhow::{Result, anyhow};
 use bitcoin::OutPoint as BitcoinOutPoint;
@@ -51,7 +49,7 @@ impl FundingAddressClaimer {
     }
 
     fn input_detail(&self, swap: &SwapInfo) -> Result<InputDetail> {
-        let chain_type = boltz_core::utils::Type::from_str(&swap.funding_address.symbol)?;
+        let chain_type = boltz_core::utils::Chain::from_str(&swap.funding_address.symbol)?;
         let presigned = Transaction::parse(
             &chain_type,
             &swap
@@ -342,7 +340,7 @@ mod test {
     };
     use crate::service::test::get_test_currencies;
     use boltz_core::Musig;
-    use boltz_core::utils::Type;
+    use boltz_core::utils::Chain;
     use rstest::rstest;
     use serial_test::serial;
 
@@ -456,8 +454,16 @@ mod test {
         assert!(result.unwrap().is_empty());
     }
 
-    /// Shared test helper for batch claim tests across different chain types.
-    async fn run_batch_claim_test(symbol: &str, chain_type: Type, funding_address_id: &str) {
+    #[rstest]
+    #[case::elements("L-BTC", Chain::Elements, "test_batch_claim_lbtc")]
+    #[case::bitcoin("BTC", Chain::Bitcoin, "test_batch_claim_btc")]
+    #[tokio::test]
+    #[serial]
+    async fn test_batch_claim(
+        #[case] symbol: &str,
+        #[case] chain_type: Chain,
+        #[case] funding_address_id: &str,
+    ) {
         let currencies = get_test_currencies().await;
         let currency = currencies.get(symbol).expect("currency not found");
         let chain_client = currency.chain.as_ref().expect("chain client not found");
@@ -535,7 +541,7 @@ mod test {
             .expect_get_by_id()
             .returning(|_| Err(anyhow!("not found")));
 
-        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone());
+        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone(), None);
 
         // Create presigned transaction
         let presigned_tx = create_presigned_tx(
@@ -571,17 +577,5 @@ mod test {
         let (txids, total_fee) = result.unwrap();
         assert!(!txids.is_empty());
         assert!(total_fee > 0, "Expected non-zero fee");
-    }
-
-    #[tokio::test]
-    #[serial(LBTC)]
-    async fn test_batch_claim_elements() {
-        run_batch_claim_test("L-BTC", Type::Elements, "test_batch_claim_lbtc").await;
-    }
-
-    #[tokio::test]
-    #[serial(BTC)]
-    async fn test_batch_claim_bitcoin_package() {
-        run_batch_claim_test("BTC", Type::Bitcoin, "test_batch_claim_btc").await;
     }
 }

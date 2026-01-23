@@ -1097,6 +1097,7 @@ mod test {
                     Arc::new(MockKeysHelper::new()),
                     None,
                     None,
+                    None,
                     Cache::Memory(MemCache::new()),
                 )),
                 Arc::new(make_mock_manager(Some(evm_manager))),

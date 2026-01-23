@@ -14,6 +14,8 @@ sol!(
     "./src/evm/quoter/uniswap_v3/abis/IUniversalRouter.sol"
 );
 
+sol!("./src/evm/quoter/uniswap_v3/abis/IERC20.sol");
+
 #[derive(Debug, Clone)]
 pub struct Router<P, N> {
     weth: Address,
@@ -39,6 +41,7 @@ where
         amount_in: U256,
         amount_out_min: U256,
     ) -> Result<Vec<Call>> {
+        let mut calldata = Vec::new();
         let mut commands = Commands::new();
 
         let is_ether_in = data.token_in == Address::ZERO;
@@ -47,6 +50,16 @@ where
 
         if is_ether_in {
             commands = commands.wrap_ether(*self.router.address(), amount_in);
+        } else {
+            calldata.push(Call {
+                to: data.token_in,
+                value: U256::ZERO,
+                data: IERC20::transferCall {
+                    to: *self.router.address(),
+                    value: amount_in,
+                }
+                .abi_encode(),
+            });
         }
 
         commands = commands.v3_swap_exact_in(
@@ -69,23 +82,24 @@ where
                         .collect::<Vec<_>>()
                         .as_slice(),
                 )?,
-            !is_ether_in,
+            false,
         );
 
         if is_ether_out {
             commands = commands.unwrap_ether(recipient, amount_out_min);
         }
 
-        let calldata = IUniversalRouter::execute_1Call {
-            commands: commands.commands.into(),
-            inputs: commands.inputs,
-        };
-
-        Ok(vec![Call {
+        calldata.push(Call {
             to: *self.router.address(),
             value: if is_ether_in { amount_in } else { U256::ZERO },
-            data: calldata.abi_encode(),
-        }])
+            data: IUniversalRouter::execute_1Call {
+                commands: commands.commands.into(),
+                inputs: commands.inputs,
+            }
+            .abi_encode(),
+        });
+
+        Ok(calldata)
     }
 
     pub fn handle_eth(&self, token: Address) -> Address {

@@ -1,12 +1,17 @@
 #[cfg(test)]
 pub mod test {
     use crate::cache::Cache;
+    use crate::chain::Client;
+    use crate::chain::types::RpcParam;
     use crate::currencies::Currencies;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, FundingAddress, Swap};
-    use crate::service::funding_address_signer::{CooperativeDetails, FundingAddressSigner};
+    use crate::service::funding_address_signer::{
+        CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
+    };
     use crate::swap::FundingAddressStatus;
+    use bitcoin::hashes::Hash;
     use bitcoin::key::Keypair;
     use bitcoin::secp256k1::{Secp256k1, rand};
     use bitcoin::{TapTweakHash, hex::FromHex};
@@ -39,6 +44,20 @@ pub mod test {
             swap_id: None,
             presigned_tx: None,
         };
+        fa.tree = fa.tree_json().ok();
+        fa
+    }
+
+    /// Create a funding address for a specific symbol (BTC or L-BTC)
+    pub fn test_funding_address_for_symbol(
+        id: &str,
+        symbol: &str,
+        their_public_key: &[u8],
+        timeout_block_height: i32,
+    ) -> FundingAddress {
+        let mut fa = test_funding_address(id, their_public_key);
+        fa.symbol = symbol.to_string();
+        fa.timeout_block_height = timeout_block_height;
         fa.tree = fa.tree_json().ok();
         fa
     }
@@ -204,5 +223,188 @@ pub mod test {
                     as i32
             }
         }
+    }
+
+    /// Create a proper swap tree JSON for claiming. The tree has claimLeaf and refundLeaf.
+    /// Works for both Bitcoin and Elements/Liquid based on the `chain_type` parameter.
+    pub fn create_swap_tree_json(
+        chain_type: Type,
+        preimage_hash: &[u8; 20],
+        claim_pubkey: &bitcoin::XOnlyPublicKey,
+        refund_pubkey: &bitcoin::XOnlyPublicKey,
+        timeout: u32,
+    ) -> String {
+        use bitcoin::hashes::hash160;
+
+        let preimage_hash = hash160::Hash::from_byte_array(*preimage_hash);
+
+        match chain_type {
+            Type::Bitcoin => {
+                use bitcoin::absolute::LockTime;
+                let tree = boltz_core::bitcoin::swap_tree(
+                    preimage_hash,
+                    claim_pubkey,
+                    refund_pubkey,
+                    LockTime::from_height(timeout).unwrap(),
+                );
+                serde_json::to_string(&tree).unwrap()
+            }
+            Type::Elements => {
+                use elements::LockTime;
+                let claim_pubkey_elements =
+                    elements::secp256k1_zkp::XOnlyPublicKey::from_slice(&claim_pubkey.serialize())
+                        .unwrap();
+                let refund_pubkey_elements =
+                    elements::secp256k1_zkp::XOnlyPublicKey::from_slice(&refund_pubkey.serialize())
+                        .unwrap();
+                let tree = boltz_core::elements::swap_tree(
+                    preimage_hash,
+                    &claim_pubkey_elements,
+                    &refund_pubkey_elements,
+                    LockTime::from_height(timeout).unwrap(),
+                );
+                serde_json::to_string(&tree).unwrap()
+            }
+        }
+    }
+
+    /// Compute the swap lockup address from a swap tree and internal key.
+    /// This is the actual address where the swap lockup output should be sent.
+    /// Works for both Bitcoin and Elements/Liquid based on the `chain_type` parameter.
+    pub fn compute_swap_lockup_address(
+        chain_type: Type,
+        swap_tree_json: &str,
+        internal_key: &bitcoin::XOnlyPublicKey,
+        network: crate::wallet::Network,
+    ) -> String {
+        use crate::wallet::Network;
+
+        let secp = Secp256k1::new();
+
+        match chain_type {
+            Type::Bitcoin => {
+                let tree: boltz_core::bitcoin::Tree = serde_json::from_str(swap_tree_json).unwrap();
+                let taproot_spend_info = tree
+                    .build()
+                    .unwrap()
+                    .finalize(&secp, *internal_key)
+                    .unwrap();
+                let output_key = taproot_spend_info.output_key();
+
+                let btc_network = match network {
+                    Network::Mainnet => bitcoin::Network::Bitcoin,
+                    Network::Testnet => bitcoin::Network::Testnet,
+                    Network::Signet => bitcoin::Network::Signet,
+                    Network::Regtest => bitcoin::Network::Regtest,
+                };
+
+                bitcoin::Address::p2tr_tweaked(output_key, btc_network).to_string()
+            }
+            Type::Elements => {
+                let tree: boltz_core::elements::Tree =
+                    serde_json::from_str(swap_tree_json).unwrap();
+                let internal_key_elements =
+                    elements::secp256k1_zkp::XOnlyPublicKey::from_slice(&internal_key.serialize())
+                        .unwrap();
+                let taproot_spend_info = tree
+                    .build()
+                    .unwrap()
+                    .finalize(&secp, internal_key_elements)
+                    .unwrap();
+                let output_key = taproot_spend_info.output_key();
+
+                let elements_params = match network {
+                    Network::Mainnet => &elements::AddressParams::LIQUID,
+                    _ => &elements::AddressParams::ELEMENTS,
+                };
+
+                elements::Address::p2tr_tweaked(output_key, None, elements_params).to_string()
+            }
+        }
+    }
+
+    /// Fund a funding address via RPC and return (tx_id, vout, amount)
+    /// Also mines a block to confirm the funding transaction.
+    pub async fn fund_address(
+        chain_client: &Arc<dyn Client + Send + Sync>,
+        symbol: &str,
+        address: &str,
+        script_pubkey: &[u8],
+    ) -> (String, i32, i64) {
+        let tx_id = chain_client
+            .request_wallet(
+                None,
+                "sendtoaddress",
+                Some(&[RpcParam::Str(address), RpcParam::Float(0.001)]),
+            )
+            .await
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // Mine a block to confirm the funding transaction
+        let _ = chain_client
+            .request_wallet(
+                None,
+                "generatetoaddress",
+                Some(&[
+                    RpcParam::Int(1),
+                    RpcParam::Str(address), // Use same address for simplicity
+                ]),
+            )
+            .await;
+
+        let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
+        let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
+        let (vout, amount) = find_vout_and_amount(symbol, &raw_tx, &script_pubkey.to_vec());
+
+        (tx_id, vout, amount)
+    }
+
+    /// Create a presigned transaction for a funding address using the signer.
+    /// This performs the full MuSig2 signing flow between client and server.
+    pub async fn create_presigned_tx(
+        signer: &FundingAddressSigner,
+        funding_address: &mut FundingAddress,
+        server_keypair: &Keypair,
+        client_keypair: &Keypair,
+        swap_id: &str,
+    ) -> Vec<u8> {
+        let details = signer
+            .get_signing_details(funding_address, server_keypair, swap_id)
+            .await
+            .unwrap();
+
+        let (client_nonce, client_sig) =
+            client_sign(client_keypair, server_keypair, funding_address, &details);
+
+        let request = SetSignatureRequest {
+            id: funding_address.id.clone(),
+            pub_nonce: client_nonce,
+            partial_signature: client_sig,
+        };
+
+        let (tx, _) = signer
+            .set_signature(funding_address, server_keypair, &request)
+            .await
+            .unwrap();
+
+        tx.serialize().to_vec()
+    }
+
+    /// Compute preimage hash (HASH160) from a 32-byte preimage
+    pub fn compute_preimage_hash(preimage: &[u8; 32]) -> [u8; 20] {
+        bitcoin::hashes::hash160::Hash::hash(preimage).to_byte_array()
+    }
+
+    /// Encode a script pubkey as an address string
+    pub fn encode_funding_address(
+        symbol: &str,
+        script_pubkey: Vec<u8>,
+        network: crate::wallet::Network,
+    ) -> String {
+        let chain_type = crate::chain::types::Type::from_str(symbol).unwrap();
+        crate::chain::utils::encode_address(chain_type, script_pubkey, None, network).unwrap()
     }
 }

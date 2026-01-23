@@ -540,10 +540,10 @@ export namespace ClaimBatchRequest {
 }
 
 export class ClaimBatchResponse extends jspb.Message { 
-    getTransaction(): Uint8Array | string;
-    getTransaction_asU8(): Uint8Array;
-    getTransaction_asB64(): string;
-    setTransaction(value: Uint8Array | string): ClaimBatchResponse;
+    clearTransactionIdsList(): void;
+    getTransactionIdsList(): Array<string>;
+    setTransactionIdsList(value: Array<string>): ClaimBatchResponse;
+    addTransactionIds(value: string, index?: number): string;
     getTransactionId(): string;
     setTransactionId(value: string): ClaimBatchResponse;
     getFee(): number;
@@ -561,7 +561,7 @@ export class ClaimBatchResponse extends jspb.Message {
 
 export namespace ClaimBatchResponse {
     export type AsObject = {
-        transaction: Uint8Array | string,
+        transactionIdsList: Array<string>,
         transactionId: string,
         fee: number,
     }

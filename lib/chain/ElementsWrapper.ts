@@ -43,6 +43,10 @@ class ElementsWrapper
 
   public serviceName = () => 'ElementsWrapper';
 
+  public get feeFloor(): number {
+    return this.walletClient().feeFloor;
+  }
+
   public connect = async () => {
     await Promise.all(this.clients.map((c) => c.connect()));
 

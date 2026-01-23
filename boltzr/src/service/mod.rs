@@ -6,7 +6,7 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::service::country_codes::CountryCodes;
-use crate::service::funding_address::FundingAddressService;
+use crate::service::funding_address::{FundingAddressConfig, FundingAddressService};
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
@@ -54,6 +54,7 @@ impl Service {
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
+        funding_address_config: Option<FundingAddressConfig>,
         cache: Cache,
     ) -> Self {
         Self {
@@ -65,6 +66,7 @@ impl Service {
                 currencies.clone(),
             ),
             funding_address: FundingAddressService::new(
+                funding_address_config,
                 funding_address_helper,
                 keys_helper,
                 swap_helper.clone(),
@@ -199,6 +201,7 @@ pub mod test {
                     currencies.clone(),
                 ),
                 funding_address: FundingAddressService::new(
+                    None,
                     Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
                     Arc::new(KeysHelperDatabase::new(pool.clone())),
                     Arc::new(funding_swap_helper),

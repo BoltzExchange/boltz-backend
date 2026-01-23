@@ -18,8 +18,11 @@ use boltz_core::musig::Musig;
 use boltz_core::utils::{Destination, InputType, OutputType};
 use boltz_core::wrapper::{BitcoinParams, InputDetail, Params, Transaction, construct_tx};
 use elements::hex::ToHex;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
+
+use crate::swap::TimeoutDeltaProvider;
 
 /// Short TTL so that clients can't hold sessions for too long
 const CACHE_TTL: u64 = 60;
@@ -34,11 +37,33 @@ struct PendingSigningSession {
     transaction: String,
 }
 
+/// Information about a swap needed for linking to a funding address.
+#[derive(Debug, Clone)]
+struct SwapInfo {
+    /// The lockup address of the swap
+    lockup_address: String,
+    /// The timeout block height of the swap
+    timeout_block_height: u32,
+}
+
+#[derive(Debug)]
+pub(crate) struct FundingAddressEligibilityError(String);
+
+impl Display for FundingAddressEligibilityError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for FundingAddressEligibilityError {}
+
 pub struct FundingAddressSigner {
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
     currencies: Currencies,
     cache: Cache,
+    /// The minimum time buffer in minutes between the swap timeout and funding address timeout
+    timeout_buffer_minutes: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -56,18 +81,32 @@ pub struct SetSignatureRequest {
     pub partial_signature: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ClaimSignatureRequest {
+    pub pub_nonce: String,
+    pub transaction_hash: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PartialSignatureResponse {
+    pub pub_nonce: String,
+    pub partial_signature: String,
+}
+
 impl FundingAddressSigner {
     pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
         cache: Cache,
+        timeout_buffer_minutes: u64,
     ) -> Self {
         Self {
             swap_helper,
             chain_swap_helper,
             currencies,
             cache,
+            timeout_buffer_minutes,
         }
     }
 
@@ -78,13 +117,19 @@ impl FundingAddressSigner {
     fn can_link_swap(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
         if status == FundingAddressStatus::TransactionClaimed {
-            return Err(anyhow!("funding address has already been claimed"));
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address has already been claimed".to_string(),
+            )));
         }
         if status == FundingAddressStatus::Expired {
-            return Err(anyhow!("funding address has expired"));
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address has expired".to_string(),
+            )));
         }
         if funding_address.swap_id.is_some() {
-            return Err(anyhow!("funding address is already linked to a swap"));
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address is already linked to a swap".to_string(),
+            )));
         }
         Ok(())
     }
@@ -97,8 +142,12 @@ impl FundingAddressSigner {
     ) -> Result<CooperativeDetails> {
         self.can_link_swap(funding_address)?;
 
+        // Get swap info and validate timeout buffer before creating presigned tx
+        let swap_info = self.get_swap_info(swap_id)?;
+        self.validate_timeout_buffer(funding_address, swap_info.timeout_block_height)?;
+
         let (tx, msg) = self
-            .create_presigning_tx(funding_address, key_pair, swap_id)
+            .create_presigning_tx(funding_address, key_pair, &swap_info)
             .await?;
         let musig = funding_address.musig(key_pair)?.message(msg);
         let musig = musig.generate_nonce(&mut Musig::rng());
@@ -191,25 +240,88 @@ impl FundingAddressSigner {
         Ok((tx, session.swap_id))
     }
 
-    fn get_lockup_address(&self, swap_id: &str) -> Result<String> {
+    pub async fn sign_claim(
+        &self,
+        funding_address: &FundingAddress,
+        key_pair: &Keypair,
+        request: &ClaimSignatureRequest,
+    ) -> Result<PartialSignatureResponse> {
+        self.can_link_swap(funding_address)?;
+
+        let msg: [u8; 32] = hex::decode(&request.transaction_hash)?
+            .try_into()
+            .map_err(|_| anyhow!("invalid transaction hash length"))?;
+        let their_pubkey = Musig::convert_pub_key(&funding_address.their_public_key()?.to_bytes())?;
+
+        let musig = funding_address
+            .musig(key_pair)?
+            .message(msg)
+            .generate_nonce(&mut Musig::rng());
+
+        let pub_nonce = musig.pub_nonce().serialize();
+        let musig = musig
+            .aggregate_nonces(vec![(
+                their_pubkey,
+                Musig::convert_pub_nonce(&hex::decode(&request.pub_nonce)?)?,
+            )])?
+            .initialize_session()?
+            .partial_sign()?;
+
+        Ok(PartialSignatureResponse {
+            pub_nonce: hex::encode(pub_nonce),
+            partial_signature: hex::encode(musig.our_partial_signature().serialize()),
+        })
+    }
+
+    fn get_swap_info(&self, swap_id: &str) -> Result<SwapInfo> {
         self.swap_helper
             .get_by_id(swap_id)
-            .map(|swap| swap.lockupAddress)
-            .or_else(|_| {
-                self.chain_swap_helper
-                    .get_by_id(swap_id)
-                    .map(|chain_swap| chain_swap.receiving().lockupAddress.clone())
+            .map(|swap| SwapInfo {
+                lockup_address: swap.lockupAddress,
+                timeout_block_height: swap.timeoutBlockHeight as u32,
             })
-            .map_err(|e| anyhow!("failed to get lockup address: {}", e))
+            .or_else(|_| {
+                self.chain_swap_helper.get_by_id(swap_id).map(|chain_swap| {
+                    let receiving = chain_swap.receiving();
+                    SwapInfo {
+                        lockup_address: receiving.lockupAddress.clone(),
+                        timeout_block_height: receiving.timeoutBlockHeight as u32,
+                    }
+                })
+            })
+            .map_err(|e| anyhow!("failed to get swap info: {}", e))
+    }
+
+    fn validate_timeout_buffer(
+        &self,
+        funding_address: &FundingAddress,
+        swap_timeout: u32,
+    ) -> Result<()> {
+        let funding_timeout = funding_address.timeout_block_height as u32;
+
+        let timeout_buffer_blocks = TimeoutDeltaProvider::calculate_blocks(
+            &funding_address.symbol,
+            self.timeout_buffer_minutes,
+        )? as u32;
+
+        let required_max_swap_timeout = funding_timeout.saturating_sub(timeout_buffer_blocks);
+
+        if swap_timeout > required_max_swap_timeout {
+            return Err(anyhow!(FundingAddressEligibilityError(format!(
+                "swap timeout to close to funding address timeout: difference must be at least {timeout_buffer_blocks} blocks",
+            ))));
+        }
+
+        Ok(())
     }
 
     async fn create_presigning_tx(
         &self,
         funding_address: &FundingAddress,
         key_pair: &Keypair,
-        swap_id: &str,
+        swap_info: &SwapInfo,
     ) -> Result<(Transaction, [u8; 32])> {
-        let destination = Address::try_from(self.get_lockup_address(swap_id)?.as_str())?;
+        let destination = Address::try_from(swap_info.lockup_address.as_str())?;
         let symbol = funding_address.symbol.as_str();
 
         let input_detail = self.input_detail(funding_address, key_pair).await?;
@@ -328,16 +440,23 @@ mod test {
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::funding_address_test_utils::test::*;
     use crate::service::test::get_test_currencies;
+    use bitcoin::TapTweakHash;
+    use boltz_core::Address as CoreAddress;
+    use boltz_core::FeeTarget;
+    use boltz_core::musig::Musig;
+    use boltz_core::utils::{Chain, Destination};
+    use boltz_core::wrapper::{
+        BitcoinParams, ElementsParams, InputDetail, Params, Transaction, construct_tx,
+    };
     use elements::hex::ToHex;
     use rstest::rstest;
     use serial_test::serial;
-
-    // ========== TestContext Builder ==========
 
     struct TestSignerContext {
         swap_helper: MockSwapHelper,
         chain_swap_helper: MockChainSwapHelper,
         currencies: Option<Currencies>,
+        timeout_buffer_minutes: Option<u64>,
     }
 
     impl TestSignerContext {
@@ -346,6 +465,7 @@ mod test {
                 swap_helper: MockSwapHelper::new(),
                 chain_swap_helper: MockChainSwapHelper::new(),
                 currencies: None,
+                timeout_buffer_minutes: None,
             }
         }
 
@@ -354,6 +474,17 @@ mod test {
             self.swap_helper
                 .expect_get_by_id()
                 .returning(move |_| Ok(test_swap(&lockup_address)));
+            self
+        }
+
+        fn with_swap_timeout(mut self, lockup_address: &str, timeout_block_height: i32) -> Self {
+            let lockup_address = lockup_address.to_string();
+            self.swap_helper.expect_get_by_id().returning(move |_| {
+                Ok(test_swap_with_timeout(
+                    &lockup_address,
+                    timeout_block_height,
+                ))
+            });
             self
         }
 
@@ -372,6 +503,23 @@ mod test {
             self
         }
 
+        fn with_chain_swap_timeout(
+            mut self,
+            lockup_address: &str,
+            timeout_block_height: i32,
+        ) -> Self {
+            let lockup_address = lockup_address.to_string();
+            self.chain_swap_helper
+                .expect_get_by_id()
+                .returning(move |_| {
+                    Ok(test_chain_swap_info_with_timeout(
+                        &lockup_address,
+                        timeout_block_height,
+                    ))
+                });
+            self
+        }
+
         fn with_chain_swap_not_found(mut self) -> Self {
             self.chain_swap_helper
                 .expect_get_by_id()
@@ -384,11 +532,21 @@ mod test {
             self
         }
 
+        fn with_timeout_buffer_minutes(mut self, minutes: u64) -> Self {
+            self.timeout_buffer_minutes = Some(minutes);
+            self
+        }
+
         fn build(self) -> FundingAddressSigner {
             let currencies = self
                 .currencies
                 .unwrap_or_else(|| Arc::new(std::collections::HashMap::new()));
-            create_signer(self.swap_helper, self.chain_swap_helper, currencies)
+            create_signer(
+                self.swap_helper,
+                self.chain_swap_helper,
+                currencies,
+                self.timeout_buffer_minutes,
+            )
         }
     }
 
@@ -444,62 +602,118 @@ mod test {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("failed to get lockup address")
+                .contains("failed to get swap info")
         );
     }
 
     #[rstest]
-    #[case(true, false, "bcrt1qtest123", true)] // swap found
-    #[case(false, true, "bcrt1qchain123", true)] // chain swap found
-    #[case(false, false, "", false)] // both fail
+    #[case(true, false, "bcrt1qtest123", 500, true)] // swap found
+    #[case(false, true, "bcrt1qchain123", 600, true)] // chain swap found
+    #[case(false, false, "", 0, false)] // both fail
     #[tokio::test]
-    async fn test_get_lockup_address_scenarios(
+    async fn test_get_swap_info_scenarios(
         #[case] swap_exists: bool,
         #[case] chain_swap_exists: bool,
         #[case] expected_address: &str,
+        #[case] expected_timeout: u32,
         #[case] should_succeed: bool,
     ) {
         let mut context = TestSignerContext::new().with_currencies().await;
 
         if swap_exists {
-            context = context.with_swap(expected_address);
+            context = context.with_swap_timeout(expected_address, expected_timeout as i32);
         } else {
             context = context.with_swap_not_found();
         }
 
         if chain_swap_exists {
-            context = context.with_chain_swap(expected_address);
+            context = context.with_chain_swap_timeout(expected_address, expected_timeout as i32);
         } else {
             context = context.with_chain_swap_not_found();
         }
 
         let signer = context.build();
-        let result = signer.get_lockup_address(TEST_SWAP_ID);
+        let result = signer.get_swap_info(TEST_SWAP_ID);
 
         if should_succeed {
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), expected_address);
+            let swap_info = result.unwrap();
+            assert_eq!(swap_info.lockup_address, expected_address);
+            assert_eq!(swap_info.timeout_block_height, expected_timeout);
         } else {
             assert!(result.is_err());
             assert!(
                 result
                     .unwrap_err()
                     .to_string()
-                    .contains("failed to get lockup address")
+                    .contains("failed to get swap info")
             );
         }
     }
 
-    /// Helper struct for parameterized lockup tests
-    struct LockupTestParams {
-        symbol: &'static str,
-        funding_address_id: String,
+    // symbol, is_chain_swap, swap_timeout, buffer_minutes (None = default 1440), should_pass
+    #[rstest]
+    #[case("BTC", false, 990, Some(100), true)] // BTC: 10 min blocks, 100 min = 10 blocks buffer, limit = 990
+    #[case("BTC", false, 991, Some(100), false)] // 1 block over limit
+    #[case("L-BTC", false, 940, Some(60), true)] // L-BTC: 1 min blocks, 60 min = 60 blocks buffer, limit = 940
+    #[case("L-BTC", false, 941, Some(60), false)] // 1 block over limit
+    #[case("BTC", true, 856, Some(1440), true)] // chain swap: 24h = 144 blocks, limit = 856
+    #[case("BTC", false, 856, None, true)] // default buffer (1440 min = 144 blocks)
+    #[tokio::test]
+    async fn test_validate_timeout_buffer(
+        #[case] symbol: &str,
+        #[case] is_chain_swap: bool,
+        #[case] swap_timeout: i32,
+        #[case] buffer_minutes: Option<u64>,
+        #[case] should_pass: bool,
+    ) {
+        let lockup_address = if symbol == "L-BTC" {
+            "el1qqtest"
+        } else {
+            "bcrt1qtest"
+        };
+
+        let mut ctx = TestSignerContext::new();
+        ctx = if is_chain_swap {
+            ctx.with_swap_not_found()
+                .with_chain_swap_timeout(lockup_address, swap_timeout)
+        } else {
+            ctx.with_swap_timeout(lockup_address, swap_timeout)
+                .with_chain_swap_not_found()
+        };
+        ctx = ctx.with_currencies().await;
+        if let Some(minutes) = buffer_minutes {
+            ctx = ctx.with_timeout_buffer_minutes(minutes);
+        }
+        let signer = ctx.build();
+
+        let key_pair = get_keypair();
+        let funding_address = test_funding_address_for_symbol(
+            "test_timeout",
+            symbol,
+            &key_pair.public_key().serialize(),
+            1000,
+        );
+
+        let swap_info = signer.get_swap_info(TEST_SWAP_ID).unwrap();
+        let result =
+            signer.validate_timeout_buffer(&funding_address, swap_info.timeout_block_height);
+
+        assert_eq!(result.is_ok(), should_pass, "result: {:?}", result);
     }
 
-    async fn run_real_lockup_test(params: LockupTestParams) {
+    #[rstest]
+    #[case("BTC", "test_funding_set_sig_btc")]
+    #[case("L-BTC", "test_funding_set_sig_lbtc")]
+    #[tokio::test]
+    #[serial]
+    async fn test_set_signature_with_real_lockup(
+        #[case] symbol: &str,
+        #[case] funding_address_id: &str,
+    ) {
         let currencies = get_test_currencies().await;
         let chain_client = currencies
-            .get(params.symbol)
+            .get(symbol)
             .unwrap()
             .chain
             .as_ref()
@@ -507,7 +721,7 @@ mod test {
             .clone();
 
         // Generate a lockup address for the swap
-        let address_type = if params.symbol == "L-BTC" {
+        let address_type = if symbol == "L-BTC" {
             Some("blech32")
         } else {
             Some("bech32m")
@@ -527,8 +741,8 @@ mod test {
         let server_key_pair = get_keypair();
 
         let mut funding_address = FundingAddress {
-            id: params.funding_address_id.clone(),
-            symbol: params.symbol.to_string(),
+            id: funding_address_id.to_string(),
+            symbol: symbol.to_string(),
             key_index: 10,
             their_public_key: client_key_pair.public_key().serialize().to_vec(),
             timeout_block_height: 1000,
@@ -540,10 +754,10 @@ mod test {
         // Generate the funding address and send funds
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
         let funding_address_str = encode_address(
-            Type::from_str(params.symbol).unwrap(),
+            Type::from_str(symbol).unwrap(),
             script_pubkey.clone(),
             None,
-            currencies.get(params.symbol).unwrap().network,
+            currencies.get(symbol).unwrap().network,
         )
         .unwrap();
 
@@ -566,7 +780,7 @@ mod test {
         // Find the actual vout by inspecting the transaction
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
         let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
-        let vout = find_vout(params.symbol, &raw_tx, &script_pubkey);
+        let vout = find_vout(symbol, &raw_tx, &script_pubkey);
 
         let mut funding_address_with_lockup = funding_address.clone();
         funding_address_with_lockup.lockup_transaction_id = Some(tx_id.clone());
@@ -610,7 +824,7 @@ mod test {
 
         // For BTC, the transaction has fee=0 so broadcast should fail with fee error
         // For L-BTC, the transaction has a proper fee so broadcast succeeds
-        if params.symbol == "BTC" {
+        if symbol == "BTC" {
             assert!(broadcast_result.is_err());
             let err_msg = broadcast_result.unwrap_err().to_string();
             assert!(
@@ -632,31 +846,247 @@ mod test {
             .cache
             .get::<PendingSigningSession>(
                 CACHE_KEY,
-                &FundingAddressSigner::cache_field(&params.funding_address_id),
+                &FundingAddressSigner::cache_field(&funding_address_id),
             )
             .await
             .unwrap();
         assert!(cached_session.is_none());
     }
 
-    #[tokio::test]
-    #[serial(BTC)]
-    async fn test_set_signature_with_real_lockup_btc() {
-        run_real_lockup_test(LockupTestParams {
-            symbol: "BTC",
-            funding_address_id: "test_funding_set_sig_btc".to_string(),
-        })
-        .await;
+    async fn build_claim_tx(
+        signer: &FundingAddressSigner,
+        funding_address: &FundingAddress,
+        key_pair: &Keypair,
+        destination_address: &str,
+        currencies: &Currencies,
+    ) -> Result<(Transaction, InputDetail, [u8; 32])> {
+        let destination = CoreAddress::try_from(destination_address)?;
+        let symbol = funding_address.symbol.as_str();
+
+        let input_detail = signer.input_detail(funding_address, key_pair).await?;
+        let chain_client = get_chain_client(currencies, symbol)?;
+        let fee = chain_client.estimate_fee().await?;
+        let params = match &input_detail {
+            InputDetail::Bitcoin(btc_input) => Params::Bitcoin(BitcoinParams {
+                inputs: &[btc_input.as_ref()],
+                destination: &Destination::Single(&destination.clone().try_into()?),
+                fee: FeeTarget::Relative(fee),
+            }),
+            InputDetail::Elements(elements_input) => Params::Elements(ElementsParams {
+                genesis_hash: chain_client.network().liquid_genesis_hash()?,
+                inputs: &[elements_input.as_ref()],
+                destination: &Destination::Single(&destination.clone().try_into()?),
+                fee: FeeTarget::Relative(fee),
+            }),
+        };
+        let (tx, _) = construct_tx(&params)?;
+
+        let msg = match (tx.clone(), &input_detail) {
+            (Transaction::Bitcoin(btc_tx), InputDetail::Bitcoin(btc_input_detail)) => {
+                let mut sighash_cache = SighashCache::new(&btc_tx);
+                let hash = sighash_cache.taproot_key_spend_signature_hash(
+                    0,
+                    &Prevouts::All(&[&btc_input_detail.tx_out]),
+                    bitcoin::TapSighashType::Default,
+                )?;
+                *hash.to_raw_hash().as_byte_array()
+            }
+            (Transaction::Elements(elements_tx), InputDetail::Elements(elements_input_detail)) => {
+                let mut sighash_cache = elements::sighash::SighashCache::new(&elements_tx);
+                let network = currencies
+                    .get(symbol)
+                    .ok_or(anyhow!("currency not found"))?
+                    .network;
+                let hash = sighash_cache.taproot_key_spend_signature_hash(
+                    0,
+                    &elements::sighash::Prevouts::All(&[&elements_input_detail.tx_out]),
+                    elements::sighash::SchnorrSighashType::Default,
+                    network.liquid_genesis_hash()?,
+                )?;
+                *hash.to_raw_hash().as_byte_array()
+            }
+            _ => return Err(anyhow!("unsupported transaction type")),
+        };
+
+        Ok((tx, input_detail, msg))
     }
 
+    #[rstest]
+    #[case("BTC", "test_funding_claim_btc")]
+    #[case("L-BTC", "test_funding_claim_lbtc")]
     #[tokio::test]
-    #[serial(LBTC)]
-    async fn test_set_signature_with_real_lockup_lbtc() {
-        run_real_lockup_test(LockupTestParams {
-            symbol: "L-BTC",
-            funding_address_id: "test_funding_set_sig_lbtc".to_string(),
-        })
-        .await;
+    #[serial]
+    async fn test_sign_claim_with_real_lockup(
+        #[case] symbol: &str,
+        #[case] funding_address_id: &str,
+    ) {
+        let currencies = get_test_currencies().await;
+        let chain_client = currencies
+            .get(symbol)
+            .unwrap()
+            .chain
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        let signer = TestSignerContext::new().with_currencies().await.build();
+
+        let client_key_pair = get_keypair();
+        let server_key_pair = get_keypair();
+
+        let mut funding_address = FundingAddress {
+            id: funding_address_id.to_string(),
+            symbol: symbol.to_string(),
+            key_index: 10,
+            their_public_key: client_key_pair.public_key().serialize().to_vec(),
+            timeout_block_height: 1000,
+            ..Default::default()
+        };
+        funding_address.tree = funding_address.tree_json().unwrap();
+
+        let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
+        let funding_address_str = encode_address(
+            Type::from_str(symbol).unwrap(),
+            script_pubkey.clone(),
+            None,
+            currencies.get(symbol).unwrap().network,
+        )
+        .unwrap();
+
+        let (tx_id, vout, amount) =
+            fund_address(&chain_client, symbol, &funding_address_str, &script_pubkey).await;
+
+        funding_address.lockup_transaction_id = Some(tx_id);
+        funding_address.lockup_transaction_vout = Some(vout);
+        funding_address.lockup_amount = Some(amount);
+
+        let address_type = if symbol == "L-BTC" {
+            Some("blech32")
+        } else {
+            Some("bech32m")
+        };
+        let destination_address = chain_client
+            .get_new_address(None, "test", address_type)
+            .await
+            .unwrap();
+
+        let (mut tx, input_detail, msg) = build_claim_tx(
+            &signer,
+            &funding_address,
+            &server_key_pair,
+            &destination_address,
+            &currencies,
+        )
+        .await
+        .unwrap();
+
+        let mut musig = Musig::setup(
+            Musig::convert_keypair(client_key_pair.secret_key().secret_bytes()).unwrap(),
+            vec![
+                Musig::convert_pub_key(&server_key_pair.public_key().serialize()).unwrap(),
+                Musig::convert_pub_key(&client_key_pair.public_key().serialize()).unwrap(),
+            ],
+        )
+        .unwrap();
+
+        let untweaked_internal_key =
+            bitcoin::XOnlyPublicKey::from_slice(&musig.agg_pk().serialize()).unwrap();
+        let secp = Secp256k1::new();
+        let tree_json = funding_address.tree.clone();
+        let tweak = match Chain::from_str(symbol).unwrap() {
+            Chain::Bitcoin => {
+                let tree =
+                    serde_json::from_str::<boltz_core::bitcoin::FundingTree>(&tree_json).unwrap();
+                let taproot_spend_info = tree
+                    .build()
+                    .unwrap()
+                    .finalize(&secp, untweaked_internal_key)
+                    .unwrap();
+                TapTweakHash::from_key_and_tweak(
+                    untweaked_internal_key,
+                    taproot_spend_info.merkle_root(),
+                )
+                .to_scalar()
+            }
+            Chain::Elements => {
+                let tree =
+                    serde_json::from_str::<boltz_core::elements::FundingTree>(&tree_json).unwrap();
+                let taproot_spend_info = tree
+                    .build()
+                    .unwrap()
+                    .finalize(&secp, untweaked_internal_key)
+                    .unwrap();
+                elements::taproot::TapTweakHash::from_key_and_tweak(
+                    untweaked_internal_key,
+                    taproot_spend_info.merkle_root(),
+                )
+                .to_scalar()
+            }
+        };
+        musig = musig
+            .xonly_tweak_add(&Musig::convert_scalar_be(&tweak.to_be_bytes()).unwrap())
+            .unwrap();
+
+        let musig = musig.message(msg).generate_nonce(&mut Musig::rng());
+        let client_pub_nonce = musig.pub_nonce().serialize();
+
+        let response = signer
+            .sign_claim(
+                &funding_address,
+                &server_key_pair,
+                &ClaimSignatureRequest {
+                    pub_nonce: hex::encode(client_pub_nonce),
+                    transaction_hash: hex::encode(msg),
+                },
+            )
+            .await
+            .unwrap();
+
+        let server_pubkey =
+            Musig::convert_pub_key(&server_key_pair.public_key().serialize()).unwrap();
+        let musig = musig
+            .aggregate_nonces(vec![(
+                server_pubkey,
+                Musig::convert_pub_nonce(&hex::decode(&response.pub_nonce).unwrap()).unwrap(),
+            )])
+            .unwrap()
+            .initialize_session()
+            .unwrap()
+            .partial_sign()
+            .unwrap()
+            .partial_add(
+                server_pubkey,
+                Musig::convert_partial_signature(
+                    hex::decode(&response.partial_signature).unwrap().as_slice(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        let agg_pk = musig.agg_pk();
+        let agg_sig = musig.partial_aggregate().unwrap();
+        let sig = agg_sig.verify(&agg_pk, &msg).unwrap();
+        assert!(sig.verify(&msg, &agg_pk).is_ok());
+
+        let sig_bytes = sig.to_byte_array().to_vec();
+        match (&mut tx, &input_detail) {
+            (Transaction::Bitcoin(btc_tx), InputDetail::Bitcoin(_)) => {
+                btc_tx.input[0].witness = Witness::from_slice(&[sig_bytes]);
+            }
+            (Transaction::Elements(elements_tx), InputDetail::Elements(_)) => {
+                elements_tx.input[0].witness.script_witness = vec![sig_bytes];
+            }
+            _ => panic!("mismatched transaction/input detail types"),
+        }
+
+        let broadcast_result = chain_client
+            .send_raw_transaction(&tx.serialize().to_hex())
+            .await;
+        assert!(
+            broadcast_result.is_ok(),
+            "broadcast failed: {:?}",
+            broadcast_result.err()
+        );
     }
 
     #[tokio::test]

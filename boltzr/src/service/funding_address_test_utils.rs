@@ -80,14 +80,26 @@ pub mod test {
     }
 
     pub fn test_swap(lockup_address: &str) -> Swap {
+        test_swap_with_timeout(lockup_address, 500)
+    }
+
+    pub fn test_swap_with_timeout(lockup_address: &str, timeout_block_height: i32) -> Swap {
         Swap {
             id: TEST_SWAP_ID.to_string(),
             lockupAddress: lockup_address.to_string(),
+            timeoutBlockHeight: timeout_block_height,
             ..Default::default()
         }
     }
 
     pub fn test_chain_swap_info(lockup_address: &str) -> ChainSwapInfo {
+        test_chain_swap_info_with_timeout(lockup_address, 500)
+    }
+
+    pub fn test_chain_swap_info_with_timeout(
+        lockup_address: &str,
+        timeout_block_height: i32,
+    ) -> ChainSwapInfo {
         let swap = ChainSwap {
             id: TEST_SWAP_ID.to_string(),
             pair: "L-BTC/BTC".to_string(),
@@ -100,12 +112,14 @@ pub mod test {
                 swapId: TEST_SWAP_ID.to_string(),
                 symbol: "BTC".to_string(),
                 lockupAddress: lockup_address.to_string(),
+                timeoutBlockHeight: timeout_block_height,
                 ..Default::default()
             },
             ChainSwapData {
                 swapId: TEST_SWAP_ID.to_string(),
                 symbol: "L-BTC".to_string(),
                 lockupAddress: "el1qq0test".to_string(),
+                timeoutBlockHeight: timeout_block_height,
                 ..Default::default()
             },
         ];
@@ -116,12 +130,14 @@ pub mod test {
         swap_helper: MockSwapHelper,
         chain_swap_helper: MockChainSwapHelper,
         currencies: Currencies,
+        timeout_buffer_minutes: Option<u64>,
     ) -> FundingAddressSigner {
         FundingAddressSigner::new(
             Arc::new(swap_helper),
             Arc::new(chain_swap_helper),
             currencies,
             Cache::Memory(crate::cache::MemCache::new()),
+            timeout_buffer_minutes.unwrap_or(60 * 3), // 3 hours
         )
     }
 

@@ -1,9 +1,7 @@
-use crate::chain::Client;
 use crate::chain::types::Type;
 use crate::currencies::{get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
 use crate::db::models::{ChainSwapInfo, LightningSwap, SomeSwap, Swap};
-use crate::wallet::Wallet;
 use crate::{currencies::Currencies, db::models::FundingAddress};
 use anyhow::{Result, anyhow};
 use bitcoin::OutPoint as BitcoinOutPoint;
@@ -535,7 +533,7 @@ mod test {
             .expect_get_by_id()
             .returning(|_| Err(anyhow!("not found")));
 
-        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone());
+        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone(), None);
 
         // Create presigned transaction
         let presigned_tx = create_presigned_tx(

@@ -3,19 +3,18 @@ use std::str::FromStr;
 use anyhow::Result;
 
 use bitcoin::{
-    TapTweakHash,
     absolute::LockTime,
     key::{Keypair, Secp256k1, TweakedPublicKey},
     secp256k1::PublicKey,
+    TapTweakHash,
 };
 use boltz_core::{
-    Musig,
     bitcoin::FundingTree,
     musig::{MusigBuilder, NoMessage, Unsigned},
+    Musig,
 };
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use elements::schnorr::TapTweak;
-use elements_miniscript::ToPublicKey;
 
 use crate::chain::types::Type;
 

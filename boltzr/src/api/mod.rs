@@ -206,6 +206,7 @@ where
                 "/v2/funding/{id}/signature",
                 post(funding_address::set_signature::<S, M>),
             )
+            .route("/v2/funding/{id}/claim", post(funding_address::claim::<S, M>))
             // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))

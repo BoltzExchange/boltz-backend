@@ -27,7 +27,6 @@ use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use boltz_core::wrapper::InputDetail;
-use boltz_core::wrapper::Transaction;
 use diesel::ExpressionMethods;
 use futures_util::future::try_join_all;
 use futures_util::{StreamExt, TryStreamExt};

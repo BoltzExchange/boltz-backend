@@ -1355,6 +1355,7 @@ class SwapManager {
         ]);
 
         timeouts = vHtlc.timeouts;
+        serverKeys = getHexString(currency.arkNode!.pubkey);
 
         res.theirPublicKey = getHexString(theirPublicKey!);
         res.lockupAddress = vHtlc.vHtlc.address;

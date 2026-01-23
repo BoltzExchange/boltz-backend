@@ -4219,7 +4219,8 @@
             "type": "object",
             "required": [
               "minimal",
-              "maximal"
+              "maximal",
+              "maximalZeroConf"
             ],
             "properties": {
               "minimal": {
@@ -4229,6 +4230,10 @@
               "maximal": {
                 "type": "number",
                 "description": "Maximal amount that can be swapped in satoshis"
+              },
+              "maximalZeroConf": {
+                "type": "number",
+                "description": "Maximal amount that will be accepted 0-conf in satoshis"
               }
             }
           },
@@ -4246,17 +4251,30 @@
               "minerFees": {
                 "type": "object",
                 "required": [
-                  "lockup",
-                  "claim"
+                  "server",
+                  "user"
                 ],
                 "properties": {
-                  "lockup": {
+                  "server": {
                     "type": "number",
-                    "description": "Absolute miner fee that will be charged in satoshis"
+                    "description": "Absolute miner fee that Boltz charges"
                   },
-                  "claim": {
-                    "type": "number",
-                    "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
+                  "user": {
+                    "type": "object",
+                    "required": [
+                      "claim",
+                      "lockup"
+                    ],
+                    "properties": {
+                      "claim": {
+                        "type": "number",
+                        "description": "Absolute miner fee that we estimate for the claim transaction in satoshis"
+                      },
+                      "lockup": {
+                        "type": "number",
+                        "description": "Absolute miner fee that we estimate for the user lockup in satoshis"
+                      }
+                    }
                   }
                 }
               }

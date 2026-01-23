@@ -2,6 +2,7 @@ use crate::db::helpers::QueryResponse;
 use crate::db::models::FundingAddress;
 use crate::db::schema::{funding_addresses, script_pubkeys};
 use crate::db::{Pool, models::ScriptPubKey};
+use crate::swap::FundingAddressStatus;
 use anyhow::anyhow;
 use diesel::{
     Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, dsl::update,
@@ -35,6 +36,7 @@ pub trait FundingAddressHelper {
         delink: bool,
     ) -> QueryResponse<usize>;
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
+    fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>>;
 }
 
 #[derive(Clone, Debug)]
@@ -149,6 +151,28 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .filter(funding_addresses::dsl::id.eq(id))
             .execute(&mut self.pool.get()?)?)
     }
+
+    fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>> {
+        let mut conn = self.pool.get()?;
+        let expired_status = FundingAddressStatus::Expired.to_string();
+        let claimed_status = FundingAddressStatus::TransactionClaimed.to_string();
+
+        update(funding_addresses::dsl::funding_addresses)
+            .set((
+                funding_addresses::dsl::status.eq(&expired_status),
+                funding_addresses::dsl::swap_id.eq::<Option<String>>(None),
+                funding_addresses::dsl::presigned_tx.eq::<Option<Vec<u8>>>(None),
+            ))
+            .filter(funding_addresses::dsl::symbol.eq(symbol))
+            .filter(funding_addresses::dsl::timeout_block_height.le(height))
+            .filter(funding_addresses::dsl::status.ne(&claimed_status))
+            .filter(funding_addresses::dsl::status.ne(&expired_status))
+            .returning(funding_addresses::dsl::id)
+            .get_results(&mut conn)
+            .map_err(|e: diesel::result::Error| {
+                anyhow!("failed to expire funding addresses: {}", e)
+            })
+    }
 }
 
 #[cfg(test)]
@@ -174,6 +198,7 @@ pub mod test {
                 delink: bool,
             ) -> QueryResponse<usize>;
             fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
+            fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>>;
         }
     }
 }

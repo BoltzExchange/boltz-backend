@@ -41,6 +41,7 @@ impl FundingAddressNursery {
         mut relevant_txs: broadcast::Receiver<RelevantTx>,
         mut swap_status_rx: UpdateReceiver<SwapStatus>,
     ) {
+        self.start_block_listeners();
         let self_clone = self.clone();
         tokio::spawn(async move {
             loop {
@@ -90,6 +91,46 @@ impl FundingAddressNursery {
         });
     }
 
+    fn start_block_listeners(&self) {
+        for (symbol, currency) in self.currencies.iter() {
+            let Some(chain_client) = currency.chain.as_ref() else {
+                continue;
+            };
+
+            let mut block_receiver = chain_client.block_receiver();
+            let nursery = self.clone();
+            let symbol = symbol.clone();
+
+            tokio::spawn(async move {
+                loop {
+                    match block_receiver.recv().await {
+                        Ok((height, _)) => {
+                            if let Err(e) = nursery.handle_block_update(&symbol, height).await {
+                                error!(
+                                    "Funding address nursery failed to handle {} block update: {}",
+                                    symbol, e
+                                );
+                            }
+                        }
+                        Err(RecvError::Lagged(skipped)) => {
+                            error!(
+                                "Funding address nursery missed {} {} block messages",
+                                skipped, symbol
+                            );
+                        }
+                        Err(RecvError::Closed) => {
+                            error!(
+                                "Funding address nursery block receiver closed unexpectedly for {}",
+                                symbol
+                            );
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     pub async fn handle_swap_status_update(&self, swap_status: &SwapStatus) -> Result<()> {
         let swap_id = &swap_status.id;
         let status = SwapUpdate::parse(&swap_status.base.status);
@@ -136,6 +177,31 @@ impl FundingAddressNursery {
         }
 
         self.send_update(funding_address_id, None).await?;
+        Ok(())
+    }
+
+    pub async fn handle_block_update(&self, symbol: &str, height: u64) -> Result<()> {
+        let height = i32::try_from(height)
+            .map_err(|_| anyhow::anyhow!("block height exceeds i32: {}", height))?;
+
+        let expired_ids = self
+            .funding_address_helper
+            .expire_by_timeout(symbol, height)?;
+        if expired_ids.is_empty() {
+            return Ok(());
+        }
+
+        for id in expired_ids {
+            match self.send_update(id.as_str(), None).await {
+                Ok(()) => (),
+                Err(e) => {
+                    error!(
+                        "Funding address nursery failed to send update for expired funding address {}: {}",
+                        id, e
+                    );
+                }
+            }
+        }
         Ok(())
     }
 
@@ -977,6 +1043,36 @@ mod test {
                 .to_string()
                 .contains("funding address not found")
         );
+    }
+
+    #[tokio::test]
+    async fn handle_block_update_expires_funding_addresses() {
+        let mut mock_helper = MockFundingAddressHelper::new();
+
+        let mut funding_address = test_funding_address("test_id");
+        funding_address.status = FundingAddressStatus::Expired.to_string();
+        let fa_clone = funding_address.clone();
+
+        mock_helper
+            .expect_expire_by_timeout()
+            .with(eq("BTC"), eq(100))
+            .times(1)
+            .returning(|_, _| Ok(vec!["test_id".to_string()]));
+
+        mock_helper
+            .expect_get_by_id()
+            .with(eq("test_id"))
+            .times(1)
+            .returning(move |_| Ok(Some(fa_clone.clone())));
+
+        let mut test = TestNursery::new(mock_helper);
+
+        test.nursery.handle_block_update("BTC", 100).await.unwrap();
+
+        let (_, updates) = test.rx.try_recv().unwrap();
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].id, "test_id");
+        assert_eq!(updates[0].status, "expired");
     }
 
     #[tokio::test]

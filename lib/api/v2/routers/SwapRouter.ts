@@ -1232,7 +1232,7 @@ class SwapRouter extends RouterBase {
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
-     *           required: ["minimal", "maximal"]
+     *           required: ["minimal", "maximal", "maximalZeroConf"]
      *           properties:
      *             minimal:
      *               type: number
@@ -1240,6 +1240,9 @@ class SwapRouter extends RouterBase {
      *             maximal:
      *               type: number
      *               description: Maximal amount that can be swapped in satoshis
+     *             maximalZeroConf:
+     *               type: number
+     *               description: Maximal amount that will be accepted 0-conf in satoshis
      *         fees:
      *           type: object
      *           required: ["percentage", "minerFees"]
@@ -1249,14 +1252,21 @@ class SwapRouter extends RouterBase {
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: object
-     *               required: ["lockup", "claim"]
+     *               required: ["server", "user"]
      *               properties:
-     *                 lockup:
+     *                 server:
      *                   type: number
-     *                   description: Absolute miner fee that will be charged in satoshis
-     *                 claim:
-     *                   type: number
-     *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     *                   description: Absolute miner fee that Boltz charges
+     *                 user:
+     *                   type: object
+     *                   required: ["claim", "lockup"]
+     *                   properties:
+     *                     claim:
+     *                       type: number
+     *                       description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     *                     lockup:
+     *                       type: number
+     *                       description: Absolute miner fee that we estimate for the user lockup in satoshis
      */
 
     /**

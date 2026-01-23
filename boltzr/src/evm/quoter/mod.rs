@@ -126,6 +126,10 @@ impl QuoteAggregator {
         token_out: Address,
         amount_in: U256,
     ) -> Result<Vec<(U256, Data)>> {
+        if amount_in.is_zero() {
+            return Ok(vec![]);
+        }
+
         debug!("Quoting {}", self.symbol);
 
         Ok(Self::filter_quotes(
@@ -146,6 +150,10 @@ impl QuoteAggregator {
         token_out: Address,
         amount_out: U256,
     ) -> Result<Vec<(U256, Data)>> {
+        if amount_out.is_zero() {
+            return Ok(vec![]);
+        }
+
         debug!("Quoting {}", self.symbol);
 
         Ok(Self::filter_quotes(

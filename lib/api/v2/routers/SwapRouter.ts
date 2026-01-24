@@ -1586,7 +1586,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/chain/{id}/claim:
      *   post:
-     *     description: Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return
+     *     description: Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return. If client claimed already, only providing "signature" is required and an empty object is returned.
      *     tags: [Chain Swap]
      *     parameters:
      *       - in: path
@@ -1607,7 +1607,9 @@ class SwapRouter extends RouterBase {
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/PartialSignature'
+     *               oneOf:
+     *                 - $ref: '#/components/schemas/PartialSignature'
+     *                 - type: object
      *       '404':
      *         description: When no Chain Swap with the ID could be found
      *         content:

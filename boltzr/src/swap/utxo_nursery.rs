@@ -5,7 +5,7 @@ use crate::{
     },
     currencies::Currencies,
     db::helpers::chain_tip::ChainTipHelper,
-    swap::tx_check::TxChecker,
+    swap::tx_check::{RelevantId, TxChecker, TxDetails},
 };
 use anyhow::{Context, Result};
 use futures::future::try_join_all;
@@ -29,7 +29,7 @@ pub struct RelevantTx {
     pub symbol: String,
     pub tx: Transaction,
     pub status: TxStatus,
-    pub swaps: Vec<String>,
+    pub entries: Vec<(RelevantId, TxDetails)>,
 }
 
 #[derive(Clone)]
@@ -161,13 +161,13 @@ impl UtxoNursery {
         txs: Transactions,
         confirmed: bool,
     ) -> Result<()> {
-        let mut relevant_swaps = self.tx_checker.check(symbol, txs, confirmed)?;
+        let mut relevant = self.tx_checker.check(symbol, txs, confirmed)?;
         if self.relevant_txs.receiver_count() == 0 {
             return Ok(());
         }
 
         // Collect into Vec to maintain deterministic order
-        let tx_vec: Vec<_> = relevant_swaps.keys().cloned().collect();
+        let tx_vec: Vec<_> = relevant.keys().cloned().collect();
 
         let zero_conf_safe = stream::iter(tx_vec.iter().cloned())
             .map(|tx| async move {
@@ -197,13 +197,13 @@ impl UtxoNursery {
             .await;
 
         for (tx, status) in tx_vec.into_iter().zip(zero_conf_safe.into_iter()) {
-            let swap_ids = relevant_swaps.remove(&tx).context("swap ids not found")?;
+            let entries = relevant.remove(&tx).context("relevant ids not found")?;
 
             if let Err(e) = self.relevant_txs.send(RelevantTx {
                 symbol: symbol.to_string(),
-                status,
                 tx,
-                swaps: swap_ids,
+                status,
+                entries,
             }) {
                 error!(
                     "UTXO nursery failed to send relevant {} transaction: {}",

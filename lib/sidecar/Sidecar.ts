@@ -43,6 +43,7 @@ export type TransactionEvent = {
   transaction: SomeTransaction;
   status: TransactionStatus;
   swapIds: string[];
+  fundingAddressIds: string[];
 };
 
 type SidecarConfig = {
@@ -702,6 +703,7 @@ class Sidecar extends BaseClient<
           ),
           status,
           swapIds: transaction.getSwapIdsList(),
+          fundingAddressIds: transaction.getFundingAddressIdsList(),
         });
       },
     );

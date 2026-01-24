@@ -726,6 +726,9 @@ class SwapRouter extends RouterBase {
      *         transactionHash:
      *           type: string
      *           description: Hash of the transaction that should be signed
+     *         fundingAddressId:
+     *           type: string
+     *           description: ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction.
      */
 
     /**
@@ -1515,6 +1518,9 @@ class SwapRouter extends RouterBase {
      *         transactionHash:
      *           type: string
      *           description: Transaction hash which should be signed, encoded as HEX
+     *         fundingAddressId:
+     *           type: string
+     *           description: ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction.
      */
 
     /**
@@ -2643,6 +2649,7 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
       transactionHash: getHexString(details.transactionHash),
+      fundingAddressId: details.fundingAddressId,
     });
   };
 
@@ -2970,6 +2977,7 @@ class SwapRouter extends RouterBase {
       pubNonce: getHexString(details.pubNonce),
       publicKey: getHexString(details.publicKey),
       transactionHash: getHexString(details.transactionHash),
+      fundingAddressId: details.fundingAddressId,
     });
   };
 

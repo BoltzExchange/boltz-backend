@@ -37,6 +37,7 @@ import type Database from '../../../../lib/db/Database';
 import ChainSwap from '../../../../lib/db/models/ChainSwap';
 import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
 import ChannelCreation from '../../../../lib/db/models/ChannelCreation';
+import Commitment from '../../../../lib/db/models/Commitment';
 import LightningPayment from '../../../../lib/db/models/LightningPayment';
 import Pair from '../../../../lib/db/models/Pair';
 import ReverseRoutingHint from '../../../../lib/db/models/ReverseRoutingHint';
@@ -44,6 +45,7 @@ import ReverseSwap from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
+import CommitmentRepository from '../../../../lib/db/repositories/CommitmentRepository';
 import PairRepository from '../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
@@ -58,6 +60,7 @@ import type { Currency } from '../../../../lib/wallet/WalletManager';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import ContractHandler from '../../../../lib/wallet/ethereum/contracts/ContractHandler';
+import { computeLockupHash } from '../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import Contracts, {
   Feature,
 } from '../../../../lib/wallet/ethereum/contracts/Contracts';
@@ -68,8 +71,12 @@ import { bitcoinClient, bitcoinLndClient, clnClient } from '../../Nodes';
 import { sidecar, startSidecar } from '../../sidecar/Utils';
 import type { EthereumSetup } from '../../wallet/EthereumTools';
 import {
+  erc20SwapCommitTypes,
+  etherSwapCommitTypes,
   fundSignerWallet,
   getContracts,
+  getErc20SwapDomain,
+  getEtherSwapDomain,
   getSigner,
 } from '../../wallet/EthereumTools';
 
@@ -302,6 +309,69 @@ describe('DeferredClaimer', () => {
     return { swap, preimage: getHexBuffer(swap.preimage!) };
   };
 
+  const lockupEtherCommitment = async (nonce: number) => {
+    const zeroPreimageHash = Buffer.alloc(32);
+    const preimage = randomBytes(32);
+    const preimageHash = crypto.sha256(preimage);
+    const amount = 100_000n;
+
+    const swap = {
+      pair: 'RBTC/BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      version: SwapVersion.Taproot,
+      id: generateSwapId(SwapVersion.Taproot),
+      preimage: getHexString(preimage),
+      preimageHash: getHexString(preimageHash),
+      timeoutBlockHeight:
+        (await ethereumSetup.provider.getBlockNumber()) + 21_21_21,
+    } as Partial<Swap> as Swap;
+
+    const tx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
+      zeroPreimageHash,
+      await ethereumSetup.signer.getAddress(),
+      swap.timeoutBlockHeight,
+      {
+        nonce,
+        value: amount,
+      },
+    );
+    await tx.wait(1);
+
+    const claimAddress = await ethereumSetup.signer.getAddress();
+
+    const signatureRaw = await ethereumSetup.signer.signTypedData(
+      await getEtherSwapDomain(ethereumSetup.provider, contracts.etherSwap),
+      etherSwapCommitTypes,
+      {
+        preimageHash: preimageHash,
+        amount: amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: swap.timeoutBlockHeight,
+      },
+    );
+
+    const lockupHash = await computeLockupHash(contracts.etherSwap, {
+      preimageHash: zeroPreimageHash,
+      amount,
+      claimAddress,
+      refundAddress: claimAddress,
+      timelock: BigInt(swap.timeoutBlockHeight),
+    });
+
+    await CommitmentRepository.create({
+      swapId: swap.id,
+      lockupHash,
+      transactionHash: tx.hash,
+      signature: getHexBuffer(signatureRaw.slice(2)),
+    });
+
+    swap.lockupTransactionId = tx.hash;
+    swap.update = jest.fn().mockResolvedValue(swap);
+    return { swap, preimage };
+  };
+
   const lockupEtherChainSwap = async (nonce: number) => {
     const { swap, preimage } = await lockupEther(nonce);
 
@@ -367,6 +437,85 @@ describe('DeferredClaimer', () => {
     swap.update = jest.fn().mockResolvedValue(swap);
 
     return { swap, preimage: getHexBuffer(swap.preimage!) };
+  };
+
+  const lockupTokenCommitment = async (nonce: number) => {
+    const zeroPreimageHash = Buffer.alloc(32);
+    const preimage = randomBytes(32);
+    const preimageHash = crypto.sha256(preimage);
+    const amount = 100_000n;
+
+    const swap = {
+      pair: 'TRC/BTC',
+      type: SwapType.Submarine,
+      orderSide: OrderSide.SELL,
+      version: SwapVersion.Taproot,
+      id: generateSwapId(SwapVersion.Taproot),
+      preimage: getHexString(preimage),
+      preimageHash: getHexString(preimageHash),
+      timeoutBlockHeight:
+        (await ethereumSetup.provider.getBlockNumber()) + 21_21_21,
+    } as Partial<Swap> as Swap;
+
+    const approveTx = await contracts.token.approve(
+      await contracts.erc20Swap.getAddress(),
+      amount,
+      {
+        nonce,
+      },
+    );
+    await approveTx.wait(1);
+
+    const tx = await contracts.erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ](
+      zeroPreimageHash,
+      amount,
+      await contracts.token.getAddress(),
+      await ethereumSetup.signer.getAddress(),
+      swap.timeoutBlockHeight,
+      {
+        nonce: nonce + 1,
+      },
+    );
+    await tx.wait(1);
+
+    const claimAddress = await ethereumSetup.signer.getAddress();
+    const tokenAddress = await contracts.token.getAddress();
+
+    const signatureRaw = await ethereumSetup.signer.signTypedData(
+      await getErc20SwapDomain(ethereumSetup.provider, contracts.erc20Swap),
+      erc20SwapCommitTypes,
+      {
+        preimageHash: preimageHash,
+        amount: amount,
+        tokenAddress,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: swap.timeoutBlockHeight,
+      },
+    );
+
+    const lockupHash = await computeLockupHash(contracts.erc20Swap, {
+      preimageHash: zeroPreimageHash,
+      amount,
+      claimAddress,
+      refundAddress: claimAddress,
+      timelock: BigInt(swap.timeoutBlockHeight),
+      tokenAddress,
+    });
+
+    await CommitmentRepository.create({
+      swapId: swap.id,
+      lockupHash,
+      transactionHash: tx.hash,
+      signature: getHexBuffer(signatureRaw.slice(2)),
+    });
+
+    swap.lockupTransactionId = tx.hash;
+    swap.update = jest.fn().mockResolvedValue(swap);
+
+    return { swap, preimage };
   };
 
   const lockupTokenChainSwap = async (nonce: number) => {
@@ -435,6 +584,7 @@ describe('DeferredClaimer', () => {
     contractHandler.init(
       new Set<Feature>([Feature.BatchClaim]),
       ethereumSetup.provider,
+      ethereumSetup.signer,
       contracts.etherSwap,
       contracts.erc20Swap,
     );
@@ -508,6 +658,7 @@ describe('DeferredClaimer', () => {
     await ReverseRoutingHint.drop();
     await ReverseSwap.drop();
     await Pair.drop();
+    await Commitment.destroy({ truncate: true });
 
     claimer.close();
     sidecar.disconnect();
@@ -962,6 +1113,217 @@ describe('DeferredClaimer', () => {
 
       await claimer.sweepSymbol('TRC');
       // Wait for confirmation
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.erc20Swap.queryFilter(
+            contracts.erc20Swap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      // One event for the token transfer
+      expect(claimReceipt!.logs).toHaveLength(swaps.length + 1);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'TRC',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+
+      ChainSwapRepository.setTransactionClaimPending =
+        originalSetTransactionClaimPending;
+      ChainSwapRepository.setClaimMinerFee = originalSetClaimMinerFee;
+    });
+
+    test('should sweep Ether with commitment swaps', async () => {
+      const originalSetTransactionClaimPending =
+        ChainSwapRepository.setTransactionClaimPending;
+      const originalSetClaimMinerFee = ChainSwapRepository.setClaimMinerFee;
+
+      ChainSwapRepository.setTransactionClaimPending = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+      ChainSwapRepository.setClaimMinerFee = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [
+        await lockupEtherCommitment(nonce),
+        await lockupEtherCommitment(nonce + 1),
+      ];
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      await wait(150);
+
+      await claimer.sweepSymbol('RBTC');
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.etherSwap.queryFilter(
+            contracts.etherSwap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      expect(claimReceipt!.logs).toHaveLength(swaps.length);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'ETH',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+
+      ChainSwapRepository.setTransactionClaimPending =
+        originalSetTransactionClaimPending;
+      ChainSwapRepository.setClaimMinerFee = originalSetClaimMinerFee;
+    });
+
+    test('should sweep ERC20 with commitment swaps', async () => {
+      const originalSetTransactionClaimPending =
+        ChainSwapRepository.setTransactionClaimPending;
+      const originalSetClaimMinerFee = ChainSwapRepository.setClaimMinerFee;
+
+      ChainSwapRepository.setTransactionClaimPending = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+      ChainSwapRepository.setClaimMinerFee = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [
+        await lockupTokenCommitment(nonce),
+        await lockupTokenCommitment(nonce + 2),
+      ];
+
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      await wait(150);
+
+      await claimer.sweepSymbol('TRC');
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.erc20Swap.queryFilter(
+            contracts.erc20Swap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      expect(claimReceipt!.logs).toHaveLength(swaps.length + 1);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'TRC',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+
+      ChainSwapRepository.setTransactionClaimPending =
+        originalSetTransactionClaimPending;
+      ChainSwapRepository.setClaimMinerFee = originalSetClaimMinerFee;
+    });
+
+    test('should sweep Ether with mixed normal and commitment swaps', async () => {
+      const originalSetTransactionClaimPending =
+        ChainSwapRepository.setTransactionClaimPending;
+      const originalSetClaimMinerFee = ChainSwapRepository.setClaimMinerFee;
+
+      ChainSwapRepository.setTransactionClaimPending = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+      ChainSwapRepository.setClaimMinerFee = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [
+        await lockupEther(nonce),
+        await lockupEtherCommitment(nonce + 1),
+      ];
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      await wait(150);
+
+      await claimer.sweepSymbol('RBTC');
+      await wait(150);
+
+      const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(
+        (
+          await contracts.etherSwap.queryFilter(
+            contracts.etherSwap.filters.Claim(
+              getHexBuffer(swaps[0].swap.preimageHash),
+            ),
+          )
+        )[0].transactionHash,
+      );
+      expect(claimReceipt!.status).toEqual(1);
+      expect(claimReceipt!.logs).toHaveLength(swaps.length);
+
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledTimes(1);
+      expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
+        claimReceipt!.hash,
+        'ETH',
+        `Batch claim of Swaps ${swaps.map((s) => s.swap.id).join(', ')}`,
+      );
+
+      ChainSwapRepository.setTransactionClaimPending =
+        originalSetTransactionClaimPending;
+      ChainSwapRepository.setClaimMinerFee = originalSetClaimMinerFee;
+    });
+
+    test('should sweep ERC20 with mixed normal and commitment swaps', async () => {
+      const originalSetTransactionClaimPending =
+        ChainSwapRepository.setTransactionClaimPending;
+      const originalSetClaimMinerFee = ChainSwapRepository.setClaimMinerFee;
+
+      ChainSwapRepository.setTransactionClaimPending = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+      ChainSwapRepository.setClaimMinerFee = jest
+        .fn()
+        .mockImplementation((swap: ChainSwapInfo) => Promise.resolve(swap));
+
+      TransactionLabelRepository.addLabel = jest.fn();
+
+      const nonce = await ethereumSetup.signer.getNonce();
+      const swaps = [
+        await lockupToken(nonce),
+        await lockupTokenCommitment(nonce + 2),
+      ];
+
+      for (const { swap, preimage } of swaps) {
+        await claimer.deferClaim(swap, preimage);
+      }
+
+      await wait(150);
+
+      await claimer.sweepSymbol('TRC');
       await wait(150);
 
       const claimReceipt = await ethereumSetup.provider.getTransactionReceipt(

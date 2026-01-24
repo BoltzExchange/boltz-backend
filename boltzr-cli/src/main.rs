@@ -182,6 +182,11 @@ enum ToolsCommands {
         #[arg(value_parser = parsers::parse_hex)]
         input: parsers::HexBytes,
     },
+    #[command(
+        about = "Prints the preimage hash used for commitment lockups",
+        alias = "cph"
+    )]
+    CommitmentPreimageHash,
 }
 
 #[derive(Clone, Subcommand)]
@@ -317,6 +322,15 @@ enum EvmCommands {
         start_height: u64,
         #[arg(short, long, default_value_t = 10_000)]
         scan_interval: u64,
+    },
+    #[command(about = "Signs a commitment for a swap by parsing the logs of a lockup transaction")]
+    SignCommitment {
+        #[arg(help = "Preimage hash to commit to")]
+        #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
+        preimage_hash: alloy::primitives::FixedBytes<32>,
+        #[arg(help = "Transaction hash of the lockup transaction")]
+        #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
+        lockup_tx_hash: alloy::primitives::FixedBytes<32>,
     },
 }
 
@@ -563,6 +577,20 @@ async fn run_command(cli: Cli) -> Result<()> {
                     evm::scan_locked_in_contract(&rpc_url, contract, *start_height, *scan_interval)
                         .await?;
                 }
+                EvmCommands::SignCommitment {
+                    preimage_hash,
+                    lockup_tx_hash,
+                } => {
+                    let signature = evm::sign_commitment_from_tx(
+                        &rpc_url,
+                        keys,
+                        contract,
+                        *preimage_hash,
+                        *lockup_tx_hash,
+                    )
+                    .await?;
+                    println!("{}", signature);
+                }
             }
         }
         Commands::Ark {
@@ -616,6 +644,9 @@ async fn run_command(cli: Cli) -> Result<()> {
             ToolsCommands::HashHash160 { input } => {
                 let hash = bitcoin_hashes::Hash160::hash(&input.0);
                 println!("{}", alloy::hex::encode(hash));
+            }
+            ToolsCommands::CommitmentPreimageHash => {
+                println!("{}", alloy::hex::encode([0u8; 32]));
             }
         },
         Commands::GetInfo {} => {

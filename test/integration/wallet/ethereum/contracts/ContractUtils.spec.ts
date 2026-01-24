@@ -4,13 +4,15 @@ import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { MaxUint256 } from 'ethers';
 import type {
+  AnySwap,
   ERC20SwapValues,
   EtherSwapValues,
 } from '../../../../../lib/consts/Types';
+import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentRepository';
+import Errors from '../../../../../lib/wallet/ethereum/Errors';
 import {
-  queryERC20SwapValues,
+  computeLockupHash,
   queryERC20SwapValuesFromLock,
-  queryEtherSwapValues,
   queryEtherSwapValuesFromLock,
 } from '../../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import type { EthereumSetup } from '../../EthereumTools';
@@ -25,11 +27,20 @@ describe('ContractUtils', () => {
   const preimage = randomBytes(32);
   const preimageHash = crypto.sha256(preimage);
 
+  const swap = {
+    id: 'test-swap-id',
+    preimageHash: preimageHash.toString('hex'),
+  } as unknown as AnySwap;
+
   let etherSwapValues: EtherSwapValues;
   let etherSwapLockTransactionHash: string;
+  let etherSwapLockupHash: string;
 
   let erc20SwapValues: ERC20SwapValues;
   let erc20SwapLockTransactionHash: string;
+  let erc20SwapLockupHash: string;
+
+  const getBySwapIdSpy = jest.spyOn(CommitmentRepository, 'getBySwapId');
 
   beforeAll(async () => {
     setup = await getSigner();
@@ -38,7 +49,6 @@ describe('ContractUtils', () => {
     etherSwap = contracts.etherSwap;
     erc20Swap = contracts.erc20Swap;
 
-    // EtherSwap
     etherSwapValues = {
       preimageHash,
       timelock: 1,
@@ -58,7 +68,6 @@ describe('ContractUtils', () => {
 
     etherSwapLockTransactionHash = etherSwapLock.hash;
 
-    // ERC20Swap
     erc20SwapValues = {
       preimageHash,
       timelock: 2,
@@ -82,38 +91,194 @@ describe('ContractUtils', () => {
     erc20SwapLockTransactionHash = erc20SwapLock.hash;
 
     await Promise.all([erc20SwapLock.wait(1), etherSwapLock.wait(1)]);
+
+    etherSwapLockupHash = await computeLockupHash(etherSwap, {
+      preimageHash: etherSwapValues.preimageHash,
+      amount: etherSwapValues.amount,
+      claimAddress: etherSwapValues.claimAddress,
+      refundAddress: etherSwapValues.refundAddress,
+      timelock: BigInt(etherSwapValues.timelock),
+    });
+
+    erc20SwapLockupHash = await computeLockupHash(erc20Swap, {
+      preimageHash: erc20SwapValues.preimageHash,
+      amount: erc20SwapValues.amount,
+      claimAddress: erc20SwapValues.claimAddress,
+      refundAddress: erc20SwapValues.refundAddress,
+      timelock: BigInt(erc20SwapValues.timelock),
+      tokenAddress: erc20SwapValues.tokenAddress,
+    });
   });
 
-  test('should query EtherSwap values from lock transaction hash', async () => {
-    expect(
-      await queryEtherSwapValuesFromLock(
-        setup.provider,
-        etherSwap,
-        etherSwapLockTransactionHash,
-      ),
-    ).toEqual(etherSwapValues);
+  beforeEach(() => {
+    getBySwapIdSpy.mockReset();
   });
 
-  test('should query ERC20Swap values from lock transaction hash', async () => {
-    expect(
-      await queryERC20SwapValuesFromLock(
-        setup.provider,
-        erc20Swap,
-        erc20SwapLockTransactionHash,
-      ),
-    ).toEqual(erc20SwapValues);
+  describe('with preimageHash identifier', () => {
+    beforeEach(() => {
+      getBySwapIdSpy.mockResolvedValue(null as any);
+    });
+
+    test('should query EtherSwap values from lock transaction hash', async () => {
+      expect(
+        await queryEtherSwapValuesFromLock(
+          swap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+        ),
+      ).toEqual(etherSwapValues);
+
+      expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(swap.id);
+    });
+
+    test('should query ERC20Swap values from lock transaction hash', async () => {
+      expect(
+        await queryERC20SwapValuesFromLock(
+          swap,
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+        ),
+      ).toEqual(erc20SwapValues);
+
+      expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(swap.id);
+    });
+
+    test('should throw when preimageHash does not match', async () => {
+      const wrongSwap = {
+        id: 'wrong-swap-id',
+        preimageHash: randomBytes(32).toString('hex'),
+      } as unknown as AnySwap;
+
+      await expect(
+        queryEtherSwapValuesFromLock(
+          wrongSwap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+        ),
+      ).rejects.toEqual(
+        Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
+      );
+    });
   });
 
-  test('should query EtherSwap values from preimage hash', async () => {
-    expect(
-      await queryEtherSwapValues(etherSwap, etherSwapValues.preimageHash),
-    ).toEqual(etherSwapValues);
+  describe('with lockupHash identifier', () => {
+    test('should query EtherSwap values by lockupHash', async () => {
+      getBySwapIdSpy.mockResolvedValue({
+        lockupHash: etherSwapLockupHash,
+      } as any);
+
+      expect(
+        await queryEtherSwapValuesFromLock(
+          swap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+        ),
+      ).toEqual(etherSwapValues);
+
+      expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(swap.id);
+    });
+
+    test('should query ERC20Swap values by lockupHash', async () => {
+      getBySwapIdSpy.mockResolvedValue({
+        lockupHash: erc20SwapLockupHash,
+      } as any);
+
+      expect(
+        await queryERC20SwapValuesFromLock(
+          swap,
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+        ),
+      ).toEqual(erc20SwapValues);
+
+      expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(swap.id);
+    });
+
+    test('should throw when lockupHash does not match any lockup event', async () => {
+      getBySwapIdSpy.mockResolvedValue({
+        lockupHash: '0x' + '00'.repeat(32),
+      } as any);
+
+      await expect(
+        queryEtherSwapValuesFromLock(
+          swap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+        ),
+      ).rejects.toEqual(
+        Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
+      );
+    });
   });
 
-  test('should query ERC20Swap values from preimage hash', async () => {
-    expect(
-      await queryERC20SwapValues(erc20Swap, erc20SwapValues.preimageHash),
-    ).toEqual(erc20SwapValues);
+  describe('computeLockupHash', () => {
+    test('should compute correct hash for EtherSwap', async () => {
+      const hash = await computeLockupHash(etherSwap, {
+        preimageHash: etherSwapValues.preimageHash,
+        amount: etherSwapValues.amount,
+        claimAddress: etherSwapValues.claimAddress,
+        refundAddress: etherSwapValues.refundAddress,
+        timelock: BigInt(etherSwapValues.timelock),
+      });
+
+      const expectedHash = await etherSwap.hashValues(
+        etherSwapValues.preimageHash,
+        etherSwapValues.amount,
+        etherSwapValues.claimAddress,
+        etherSwapValues.refundAddress,
+        etherSwapValues.timelock,
+      );
+
+      expect(hash).toEqual(expectedHash);
+    });
+
+    test('should compute correct hash for ERC20Swap', async () => {
+      const hash = await computeLockupHash(erc20Swap, {
+        preimageHash: erc20SwapValues.preimageHash,
+        amount: erc20SwapValues.amount,
+        claimAddress: erc20SwapValues.claimAddress,
+        refundAddress: erc20SwapValues.refundAddress,
+        timelock: BigInt(erc20SwapValues.timelock),
+        tokenAddress: erc20SwapValues.tokenAddress,
+      });
+
+      const expectedHash = await erc20Swap.hashValues(
+        erc20SwapValues.preimageHash,
+        erc20SwapValues.amount,
+        erc20SwapValues.tokenAddress!,
+        erc20SwapValues.claimAddress,
+        erc20SwapValues.refundAddress,
+        erc20SwapValues.timelock,
+      );
+
+      expect(hash).toEqual(expectedHash);
+    });
+
+    test('should compute different hashes for different parameters', async () => {
+      const hash1 = await computeLockupHash(etherSwap, {
+        preimageHash: etherSwapValues.preimageHash,
+        amount: etherSwapValues.amount,
+        claimAddress: etherSwapValues.claimAddress,
+        refundAddress: etherSwapValues.refundAddress,
+        timelock: BigInt(etherSwapValues.timelock),
+      });
+
+      const hash2 = await computeLockupHash(etherSwap, {
+        preimageHash: etherSwapValues.preimageHash,
+        amount: etherSwapValues.amount + 1n,
+        claimAddress: etherSwapValues.claimAddress,
+        refundAddress: etherSwapValues.refundAddress,
+        timelock: BigInt(etherSwapValues.timelock),
+      });
+
+      expect(hash1).not.toEqual(hash2);
+    });
   });
 
   afterAll(() => {

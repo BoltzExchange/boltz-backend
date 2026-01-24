@@ -7,93 +7,122 @@ import type {
   LockupEvent as EtherSwapLockupEvent,
 } from 'boltz-core/typechain/EtherSwap';
 import type { Provider, Result } from 'ethers';
-import type { ERC20SwapValues, EtherSwapValues } from '../../../consts/Types';
+import { getHexBuffer } from '../../../Utils';
+import type {
+  AnySwap,
+  ERC20SwapValues,
+  EtherSwapValues,
+} from '../../../consts/Types';
+import CommitmentRepository from '../../../db/repositories/CommitmentRepository';
 import Errors from '../Errors';
 import { parseBuffer } from '../EthereumUtils';
 
-// TODO: what happens if the hash doesn't exist or the transaction isn't confirmed yet?
+export type LockupIdentifier =
+  | { preimageHash: Buffer }
+  | { lockupHash: string };
+
+export type LockupHashParams = {
+  preimageHash: Buffer | string;
+  amount: bigint;
+  claimAddress: string;
+  refundAddress: string;
+  timelock: bigint;
+  tokenAddress?: string;
+};
+
+export const computeLockupHash = async (
+  contract: EtherSwap | ERC20Swap,
+  params: LockupHashParams,
+): Promise<string> => {
+  if (params.tokenAddress !== undefined) {
+    return await (contract as ERC20Swap).hashValues(
+      params.preimageHash,
+      params.amount,
+      params.tokenAddress,
+      params.claimAddress,
+      params.refundAddress,
+      params.timelock,
+    );
+  }
+
+  return await (contract as EtherSwap).hashValues(
+    params.preimageHash,
+    params.amount,
+    params.claimAddress,
+    params.refundAddress,
+    params.timelock,
+  );
+};
+
+const querySwapValuesFromLock = async <T extends { preimageHash: Buffer }>(
+  provider: Provider,
+  contract: EtherSwap | ERC20Swap,
+  lockTransactionHash: string,
+  identifier: LockupIdentifier,
+  formatValues: (args: Result) => T,
+): Promise<T> => {
+  const lockTransactionReceipt =
+    await provider.getTransactionReceipt(lockTransactionHash);
+
+  const topicHash = contract.filters.Lockup().fragment.topicHash;
+
+  if (lockTransactionReceipt) {
+    for (const log of lockTransactionReceipt.logs) {
+      if (log.topics[0] !== topicHash) {
+        continue;
+      }
+
+      const event = contract.interface.parseLog(log as any);
+      const values = formatValues(event!.args);
+
+      if ('preimageHash' in identifier) {
+        if (!values.preimageHash.equals(identifier.preimageHash)) {
+          continue;
+        }
+      } else if ('lockupHash' in identifier) {
+        const computedHash = await computeLockupHash(
+          contract,
+          event!.args as unknown as LockupHashParams,
+        );
+        if (computedHash !== identifier.lockupHash) {
+          continue;
+        }
+      }
+
+      return values;
+    }
+  }
+
+  throw Errors.INVALID_LOCKUP_TRANSACTION(lockTransactionHash);
+};
 
 export const queryEtherSwapValuesFromLock = async (
+  swap: AnySwap,
   provider: Provider,
   etherSwap: EtherSwap,
   lockTransactionHash: string,
-): Promise<EtherSwapValues> => {
-  const lockTransactionReceipt =
-    await provider.getTransactionReceipt(lockTransactionHash);
-
-  const topicHash = etherSwap.filters.Lockup().fragment.topicHash;
-
-  if (lockTransactionReceipt) {
-    for (const log of lockTransactionReceipt.logs) {
-      if (log.topics[0] === topicHash) {
-        const event = etherSwap.interface.parseLog(log as any);
-        return formatEtherSwapValues(event!.args);
-      }
-    }
-  }
-
-  throw Errors.INVALID_LOCKUP_TRANSACTION(lockTransactionHash);
-};
+): Promise<EtherSwapValues> =>
+  querySwapValuesFromLock(
+    provider,
+    etherSwap,
+    lockTransactionHash,
+    await getIdentifier(swap),
+    formatEtherSwapValues,
+  );
 
 export const queryERC20SwapValuesFromLock = async (
+  swap: AnySwap,
   provider: Provider,
   erc20Swap: ERC20Swap,
   lockTransactionHash: string,
-): Promise<ERC20SwapValues> => {
-  const lockTransactionReceipt =
-    await provider.getTransactionReceipt(lockTransactionHash);
-
-  const topicHash = erc20Swap.filters.Lockup().fragment.topicHash;
-
-  if (lockTransactionReceipt) {
-    for (const log of lockTransactionReceipt.logs) {
-      if (log.topics[0] === topicHash) {
-        const event = erc20Swap.interface.parseLog(log as any);
-        return formatERC20SwapValues(event!.args);
-      }
-    }
-  }
-
-  throw Errors.INVALID_LOCKUP_TRANSACTION(lockTransactionHash);
-};
-
-export const queryEtherSwapValues = async (
-  etherSwap: EtherSwap,
-  preimageHash: Buffer,
-  startHeight?: number,
-): Promise<EtherSwapValues> => {
-  const events = await etherSwap.queryFilter(
-    etherSwap.filters.Lockup(preimageHash),
-    startHeight,
+): Promise<ERC20SwapValues> =>
+  querySwapValuesFromLock(
+    provider,
+    erc20Swap,
+    lockTransactionHash,
+    await getIdentifier(swap),
+    formatERC20SwapValues,
   );
-
-  if (events.length === 0) {
-    throw Errors.NO_LOCKUP_FOUND();
-  }
-
-  const event = events[0];
-
-  return formatEtherSwapValues(event.args!);
-};
-
-export const queryERC20SwapValues = async (
-  erc20Swap: ERC20Swap,
-  preimageHash: Buffer,
-  startHeight?: number,
-): Promise<ERC20SwapValues> => {
-  const events = await erc20Swap.queryFilter(
-    erc20Swap.filters.Lockup(preimageHash),
-    startHeight,
-  );
-
-  if (events.length === 0) {
-    throw Errors.NO_LOCKUP_FOUND();
-  }
-
-  const event = events[0];
-
-  return formatERC20SwapValues(event.args!);
-};
 
 export const formatEtherSwapValues = (
   args: Result | EtherSwapLockupEvent.OutputObject,
@@ -118,4 +147,14 @@ export const formatERC20SwapValues = (
     timelock: Number(args.timelock),
     preimageHash: parseBuffer(args.preimageHash),
   };
+};
+
+const getIdentifier = async (swap: AnySwap): Promise<LockupIdentifier> => {
+  // When there is a commitment, we use the lockup hash
+  const commitment = await CommitmentRepository.getBySwapId(swap.id);
+  if (commitment !== null && commitment !== undefined) {
+    return { lockupHash: commitment.lockupHash };
+  }
+
+  return { preimageHash: getHexBuffer(swap.preimageHash) };
 };

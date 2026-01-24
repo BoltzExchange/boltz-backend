@@ -51,7 +51,9 @@ describe('Contracts', () => {
       expect(contracts.version).toEqual(
         await setupContracts.etherSwap.version(),
       );
-      expect(contracts.features).toEqual(new Set([Feature.BatchClaim]));
+      expect(contracts.features).toEqual(
+        new Set([Feature.BatchClaim, Feature.CommitmentSwap]),
+      );
 
       expect(contracts.etherSwap).toBeDefined();
       expect(contracts.erc20Swap).toBeDefined();

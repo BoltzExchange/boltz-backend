@@ -8,6 +8,7 @@ import {
   getChainCurrency,
   getHexBuffer,
   getHexString,
+  mapConcurrent,
   splitPairId,
 } from '../../Utils';
 import ArkClient from '../../chain/ArkClient';
@@ -19,16 +20,13 @@ import {
   currencyTypeToString,
   swapTypeToPrettyString,
 } from '../../consts/Enums';
-import type {
-  AnySwap,
-  ERC20SwapValues,
-  EtherSwapValues,
-} from '../../consts/Types';
+import type { AnySwap } from '../../consts/Types';
 import type ChannelCreation from '../../db/models/ChannelCreation';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
+import CommitmentRepository from '../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import type RateProvider from '../../rates/RateProvider';
 import type Sidecar from '../../sidecar/Sidecar';
@@ -52,6 +50,7 @@ import ScheduledAmountTrigger from './triggers/ScheduledAmountTrigger';
 import type SweepTrigger from './triggers/SweepTrigger';
 
 const MAX_BATCH_CLAIM_CHUNK = 250;
+const RPC_LOOKUP_CONCURRENCY = 16;
 
 type AnySwapWithPreimage<T extends AnySwap> = SwapToClaim<T> & {
   preimage: Buffer;
@@ -480,32 +479,43 @@ class DeferredClaimer extends CoopSignerBase<{
         const manager = this.getEthereumManager(symbol);
         const contracts = manager.highestContractsVersion();
 
-        const swapValues: EtherSwapValues[] = [];
-        for (const swap of swaps) {
-          const transactionId =
-            swap.swap.type === SwapType.Submarine
-              ? (swap.swap as Swap).lockupTransactionId!
-              : (swap.swap as ChainSwapInfo).receivingData.lockupTransactionId!;
+        const swapValues = await mapConcurrent(
+          swaps,
+          async (swap) => {
+            const transactionId =
+              swap.swap.type === SwapType.Submarine
+                ? (swap.swap as Swap).lockupTransactionId!
+                : (swap.swap as ChainSwapInfo).receivingData
+                    .lockupTransactionId!;
 
-          swapValues.push(
-            await queryEtherSwapValuesFromLock(
+            return await queryEtherSwapValuesFromLock(
+              swap.swap,
               manager.provider,
               contracts.etherSwap,
               transactionId,
-            ),
-          );
-        }
+            );
+          },
+          RPC_LOOKUP_CONCURRENCY,
+        );
+
+        const commitments = await CommitmentRepository.getBySwapIds(
+          swaps.map((s) => s.swap.id),
+        );
 
         const tx = await contracts.contractHandler.claimBatchEther(
           swaps.map((s) => s.swap.id),
-          swaps
-            .map((s, i) => ({ swap: s, values: swapValues[i] }))
-            .map(({ swap, values }) => ({
-              amount: values.amount,
-              preimage: swap.preimage,
-              timelock: values.timelock,
-              refundAddress: values.refundAddress,
-            })),
+          swaps.map((s, i) => {
+            const sig = commitments.get(s.swap.id)?.signatureEthers;
+            return {
+              amount: swapValues[i].amount,
+              preimage: s.preimage,
+              timelock: swapValues[i].timelock,
+              refundAddress: swapValues[i].refundAddress,
+              commitmentSignature: sig
+                ? { v: sig.v, r: sig.r, s: sig.s }
+                : undefined,
+            };
+          }),
         );
 
         claimTransactionId = tx.hash;
@@ -518,34 +528,45 @@ class DeferredClaimer extends CoopSignerBase<{
         const manager = this.getEthereumManager(symbol);
         const contracts = manager.highestContractsVersion();
 
-        const swapValues: ERC20SwapValues[] = [];
-        for (const swap of swaps) {
-          const transactionId =
-            swap.swap.type === SwapType.Submarine
-              ? (swap.swap as Swap).lockupTransactionId!
-              : (swap.swap as ChainSwapInfo).receivingData.lockupTransactionId!;
+        const swapValues = await mapConcurrent(
+          swaps,
+          async (swap) => {
+            const transactionId =
+              swap.swap.type === SwapType.Submarine
+                ? (swap.swap as Swap).lockupTransactionId!
+                : (swap.swap as ChainSwapInfo).receivingData
+                    .lockupTransactionId!;
 
-          swapValues.push(
-            await queryERC20SwapValuesFromLock(
+            return await queryERC20SwapValuesFromLock(
+              swap.swap,
               manager.provider,
               contracts.erc20Swap,
               transactionId,
-            ),
-          );
-        }
+            );
+          },
+          RPC_LOOKUP_CONCURRENCY,
+        );
+
+        const commitments = await CommitmentRepository.getBySwapIds(
+          swaps.map((s) => s.swap.id),
+        );
 
         const tx = await contracts.contractHandler.claimBatchToken(
           swaps.map((s) => s.swap.id),
           this.walletManager.wallets.get(symbol)!
             .walletProvider as ERC20WalletProvider,
-          swaps
-            .map((s, i) => ({ swap: s, values: swapValues[i] }))
-            .map(({ swap, values }) => ({
-              amount: values.amount,
-              preimage: swap.preimage,
-              timelock: values.timelock,
-              refundAddress: values.refundAddress,
-            })),
+          swaps.map((s, i) => {
+            const sig = commitments.get(s.swap.id)?.signatureEthers;
+            return {
+              amount: swapValues[i].amount,
+              preimage: s.preimage,
+              timelock: swapValues[i].timelock,
+              refundAddress: swapValues[i].refundAddress,
+              commitmentSignature: sig
+                ? { v: sig.v, r: sig.r, s: sig.s }
+                : undefined,
+            };
+          }),
         );
 
         claimTransactionId = tx.hash;

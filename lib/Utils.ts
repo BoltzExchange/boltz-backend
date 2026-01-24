@@ -662,6 +662,23 @@ export const arrayToChunks = <T>(array: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
+export const mapConcurrent = async <T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  concurrency: number,
+): Promise<R[]> => {
+  const results: R[] = [];
+
+  for (const chunk of arrayToChunks(items, concurrency)) {
+    const chunkResults = await Promise.all(
+      chunk.map((item, chunkIndex) => fn(item, results.length + chunkIndex)),
+    );
+    results.push(...chunkResults);
+  }
+
+  return results;
+};
+
 export const bigIntMax = (a: bigint, b: bigint) => (a > b ? a : b);
 
 export const roundToDecimals = (value: number, decimals: number): number =>

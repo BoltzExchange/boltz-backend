@@ -1041,7 +1041,7 @@
         }
       },
       "post": {
-        "description": "Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return",
+        "description": "Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return. If client claimed already, only providing \"signature\" is required and an empty object is returned.",
         "tags": [
           "Chain Swap"
         ],
@@ -1072,7 +1072,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PartialSignature"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PartialSignature"
+                    },
+                    {
+                      "type": "object"
+                    }
+                  ]
                 }
               }
             }

@@ -534,4 +534,94 @@ describe('Utils', () => {
   `('should remove hex prefix', ({ hex, expected }) => {
     expect(utils.removeHexPrefix(hex)).toEqual(expected);
   });
+
+  describe('mapConcurrent', () => {
+    test('should return empty array for empty input', async () => {
+      const fn = jest.fn(async (x: number) => x * 2);
+      const result = await utils.mapConcurrent([], fn, 5);
+      expect(result).toEqual([]);
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    test('should map all items and preserve order', async () => {
+      const items = [1, 2, 3, 4, 5];
+      const result = await utils.mapConcurrent(items, async (x) => x * 2, 10);
+      expect(result).toEqual([2, 4, 6, 8, 10]);
+    });
+
+    test('should pass correct index to callback', async () => {
+      const items = ['a', 'b', 'c'];
+      const indices: number[] = [];
+      await utils.mapConcurrent(
+        items,
+        async (_, index) => {
+          indices.push(index);
+        },
+        10,
+      );
+      expect(indices.sort()).toEqual([0, 1, 2]);
+    });
+
+    test('should limit concurrency', async () => {
+      let concurrentCount = 0;
+      let maxConcurrent = 0;
+
+      const items = [1, 2, 3, 4, 5, 6, 7, 8];
+      const concurrency = 3;
+
+      await utils.mapConcurrent(
+        items,
+        async (x) => {
+          concurrentCount++;
+          maxConcurrent = Math.max(maxConcurrent, concurrentCount);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          concurrentCount--;
+          return x;
+        },
+        concurrency,
+      );
+
+      expect(maxConcurrent).toBeLessThanOrEqual(concurrency);
+    });
+
+    test('should process in batches sequentially', async () => {
+      const executionOrder: number[] = [];
+      const items = [1, 2, 3, 4, 5];
+      const concurrency = 2;
+
+      await utils.mapConcurrent(
+        items,
+        async (x) => {
+          executionOrder.push(x);
+          return x;
+        },
+        concurrency,
+      );
+
+      const indexOf1 = executionOrder.indexOf(1);
+      const indexOf2 = executionOrder.indexOf(2);
+      const indexOf3 = executionOrder.indexOf(3);
+      const indexOf4 = executionOrder.indexOf(4);
+      const indexOf5 = executionOrder.indexOf(5);
+
+      expect(Math.max(indexOf1, indexOf2)).toBeLessThan(
+        Math.min(indexOf3, indexOf4),
+      );
+      expect(Math.max(indexOf3, indexOf4)).toBeLessThan(indexOf5);
+    });
+
+    test('should propagate errors', async () => {
+      const items = [1, 2, 3];
+      await expect(
+        utils.mapConcurrent(
+          items,
+          async (x) => {
+            if (x === 2) throw new Error('test error');
+            return x;
+          },
+          2,
+        ),
+      ).rejects.toThrow('test error');
+    });
+  });
 });

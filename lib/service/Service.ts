@@ -99,7 +99,10 @@ import SwapOutputType from '../swap/SwapOutputType';
 import type Wallet from '../wallet/Wallet';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
-import type { ContractAddresses } from '../wallet/ethereum/EthereumManager';
+import type {
+  ContractAddresses,
+  ContractAddressesWithFeatures,
+} from '../wallet/ethereum/EthereumManager';
 import BalanceCheck from './BalanceCheck';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
@@ -117,7 +120,7 @@ type NetworkContracts = {
     name?: string;
   };
   swapContracts: ContractAddresses;
-  supportedContracts: Map<number, ContractAddresses>;
+  supportedContracts: Map<number, ContractAddressesWithFeatures>;
   tokens: Map<string, string>;
 };
 

@@ -9,6 +9,7 @@ import ChainSwap from './models/ChainSwap';
 import ChainSwapData from './models/ChainSwapData';
 import ChainTip from './models/ChainTip';
 import ChannelCreation from './models/ChannelCreation';
+import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import ExtraFee from './models/ExtraFee';
 import KeyProvider from './models/KeyProvider';
@@ -105,6 +106,7 @@ class Database {
       ChainTip.sync(),
       Referral.sync(),
       ExtraFee.sync(),
+      Commitment.sync(),
       KeyProvider.sync(),
       Rebroadcast.sync(),
       DatabaseVersion.sync(),
@@ -165,6 +167,7 @@ class Database {
     Rebroadcast.load(Database.sequelize);
     RefundTransaction.load(Database.sequelize);
     ScriptPubKey.load(Database.sequelize);
+    Commitment.load(Database.sequelize);
 
     TransactionLabelRepository.setLogger(this.logger);
   };

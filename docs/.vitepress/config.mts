@@ -24,6 +24,7 @@ export default defineConfig({
           { text: '🤖 REST API v2', link: '/api-v2' },
           { text: '🔁 Swap Types & States', link: '/lifecycle' },
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },
+          { text: '🔐 Commitment Swaps', link: '/commitment-swaps' },
           { text: '🛟 Swap Restore', link: '/swap-restore' },
           { text: '⚠️ Common Mistakes', link: '/common-mistakes' },
           { text: "🚫 Don't trust. Verify!", link: '/dont-trust-verify' },

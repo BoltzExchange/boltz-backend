@@ -4,6 +4,7 @@ import type Service from '../../service/Service';
 import type SwapInfos from '../SwapInfos';
 import { apiPrefix } from './Consts';
 import ChainRouter from './routers/ChainRouter';
+import CommitmentRouter from './routers/CommitmentRouter';
 import InfoRouter from './routers/InfoRouter';
 import NodesRouter from './routers/NodesRouter';
 import ReferralRouter from './routers/ReferralRouter';
@@ -22,6 +23,7 @@ class ApiV2 {
       new InfoRouter(this.logger, service),
       new SwapRouter(this.logger, service, swapInfos),
       new ChainRouter(this.logger, service),
+      new CommitmentRouter(this.logger, service),
       new NodesRouter(this.logger, service),
       new ReferralRouter(this.logger),
     ];

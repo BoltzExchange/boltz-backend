@@ -38,6 +38,7 @@ describe('EthereumManager', () => {
 
   const oldContracts = {
     version: 1,
+    features: new Set(),
     etherSwap: {
       getAddress: jest
         .fn()
@@ -133,6 +134,7 @@ describe('EthereumManager', () => {
     expect(details.supportedContracts.get(1)).toEqual({
       EtherSwap: await oldContracts.etherSwap.getAddress(),
       ERC20Swap: await oldContracts.erc20Swap.getAddress(),
+      features: [],
     });
 
     const highestContracts = manager.highestContractsVersion();
@@ -141,6 +143,7 @@ describe('EthereumManager', () => {
     expect(details.supportedContracts.get(highestVersion)).toEqual({
       EtherSwap: await highestContracts.etherSwap.getAddress(),
       ERC20Swap: await highestContracts.erc20Swap.getAddress(),
+      features: ['BatchClaim', 'CommitmentSwap'],
     });
   });
 

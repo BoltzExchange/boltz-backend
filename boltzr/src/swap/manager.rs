@@ -14,6 +14,8 @@ use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatab
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::{SomeSwap, SwapType};
+use crate::grpc::service::boltzr::ClaimBatchResponse;
+use crate::service::funding_address_claimer::FundingAddressClaimer;
 use crate::swap::AssetRescueConfig;
 use crate::swap::FundingAddressNursery;
 use crate::swap::asset_rescue::AssetRescue;
@@ -61,7 +63,7 @@ pub trait SwapManager {
 
     fn get_asset_rescue(&self) -> Arc<AssetRescue>;
 
-    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)>;
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<ClaimBatchResponse>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
     fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
@@ -95,6 +97,7 @@ pub struct Manager {
 
     utxo_nursery: UtxoNursery,
     asset_rescue: Arc<AssetRescue>,
+    funding_address_claimer: Arc<FundingAddressClaimer>,
 }
 
 impl Manager {
@@ -135,14 +138,18 @@ impl Manager {
                     Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
                     Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
                 ),
-                Arc::new(ChainTipHelperDatabase::new(pool)),
+                Arc::new(ChainTipHelperDatabase::new(pool.clone())),
             ),
             asset_rescue: Arc::new(AssetRescue::new(
                 asset_rescue_config,
                 cache,
-                currencies,
+                currencies.clone(),
                 swap_repo,
                 chain_swap_repo,
+            )),
+            funding_address_claimer: Arc::new(FundingAddressClaimer::new(
+                Arc::new(FundingAddressHelperDatabase::new(pool)),
+                currencies,
             )),
         })
     }
@@ -248,7 +255,7 @@ impl SwapManager for Manager {
     }
 
     #[instrument(name = "SwapManager::claim_batch", skip_all)]
-    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<(Transaction, u64)> {
+    async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<ClaimBatchResponse> {
         info!("Batch claiming swaps: {}", swap_ids.join(", "));
 
         let submarines = self.swap_repo.get_all(Box::new(
@@ -262,11 +269,13 @@ impl SwapManager for Manager {
             Vec::with_capacity(submarines.len() + chain_swaps.len());
         swaps.extend(
             submarines
+                .clone()
                 .into_iter()
                 .map(|s| Box::new(s) as Box<dyn SomeSwap + Send>),
         );
         swaps.extend(
             chain_swaps
+                .clone()
                 .into_iter()
                 .map(|s| Box::new(s) as Box<dyn SomeSwap + Send>),
         );
@@ -295,7 +304,6 @@ impl SwapManager for Manager {
         {
             return Err(anyhow!("all swaps must have the same claim symbol"));
         }
-
         let currency = self
             .get_currency(&claim_symbol)
             .ok_or_else(|| anyhow!("currency not found"))?;
@@ -304,18 +312,34 @@ impl SwapManager for Manager {
             .ok_or_else(|| anyhow!("chain client not found"))?;
         let wallet = currency.wallet.ok_or_else(|| anyhow!("wallet not found"))?;
 
-        let inputs: Vec<InputDetail> = futures::stream::iter(swaps)
-            .map(|swap| {
-                let wallet = wallet.clone();
-                let client = client.clone();
-                async move { swap.claim_details(&wallet, &client).await }
-            })
-            .boxed()
-            // Elements inputs need to fetch chain data to prepare the input and
-            // we don't want to overwhelm the node
-            .buffered(16)
-            .try_collect::<Vec<_>>()
+        let claimable = self
+            .funding_address_claimer
+            .funding_claimable_swaps(submarines, chain_swaps)
             .await?;
+
+        let funding_claimable_ids: HashSet<String> =
+            claimable.iter().map(|c| c.id.clone()).collect();
+
+        let (mut txids, mut total_fee) =
+            self.funding_address_claimer.batch_claim(&claimable).await?;
+
+        let inputs: Vec<InputDetail> = futures::stream::iter(
+            swaps
+                .into_iter()
+                .filter(|swap| !funding_claimable_ids.contains(&swap.id()))
+                .collect::<Vec<_>>(),
+        )
+        .map(|swap| {
+            let wallet = wallet.clone();
+            let client = client.clone();
+            async move { swap.claim_details(&wallet, &client).await }
+        })
+        .boxed()
+        // Elements inputs need to fetch chain data to prepare the input and
+        // we don't want to overwhelm the node
+        .buffered(16)
+        .try_collect::<Vec<_>>()
+        .await?;
 
         let fee = client.estimate_fee().await?;
         let address = boltz_core::Address::try_from(
@@ -330,7 +354,7 @@ impl SwapManager for Manager {
                 .as_str(),
         )?;
 
-        match client.chain_type() {
+        let (tx, fee) = match client.chain_type() {
             Type::Bitcoin => {
                 let inputs = inputs
                     .into_iter()
@@ -364,7 +388,15 @@ impl SwapManager for Manager {
 
                 boltz_core::wrapper::construct_tx(&params)
             }
-        }
+        }?;
+
+        total_fee += fee;
+        txids.push(tx.txid());
+
+        Ok(ClaimBatchResponse {
+            transaction_ids: txids,
+            fee: total_fee,
+        })
     }
 
     async fn rescan_chains(
@@ -551,7 +583,7 @@ pub mod test {
                 sending: &str,
                 swap_type: SwapType,
             ) -> Result<(u64, u64)>;
-            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
+            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<ClaimBatchResponse>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
@@ -611,6 +643,10 @@ pub mod test {
                 currencies.clone(),
                 Arc::new(SwapHelperDatabase::new(pool.clone())),
                 Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
+            )),
+            funding_address_claimer: Arc::new(FundingAddressClaimer::new(
+                Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
+                currencies.clone(),
             )),
         };
 

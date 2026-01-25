@@ -289,7 +289,9 @@ class Sidecar extends BaseClient<
     >('createWebHook', req);
   };
 
-  public claimBatch = async (swapIds: string[]) => {
+  public claimBatch = async (
+    swapIds: string[],
+  ): Promise<sidecarrpc.ClaimBatchResponse.AsObject> => {
     const req = new sidecarrpc.ClaimBatchRequest();
     req.setSwapIdsList(swapIds);
 
@@ -298,11 +300,7 @@ class Sidecar extends BaseClient<
       sidecarrpc.ClaimBatchResponse
     >('claimBatch', req, false);
 
-    return {
-      transaction: Buffer.from(res.getTransaction_asU8()),
-      transactionId: res.getTransactionId(),
-      fee: res.getFee(),
-    };
+    return res.toObject();
   };
 
   public signEvmRefund = async (

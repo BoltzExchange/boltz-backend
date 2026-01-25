@@ -18,6 +18,7 @@ use tracing::warn;
 
 mod country_codes;
 mod funding_address;
+pub mod funding_address_claimer;
 mod funding_address_signer;
 #[cfg(test)]
 mod funding_address_test_utils;

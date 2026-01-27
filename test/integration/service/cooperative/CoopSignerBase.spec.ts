@@ -124,7 +124,7 @@ describe('CoopSignerBase', () => {
   };
 
   beforeAll(async () => {
-    await Promise.all([setup(), bitcoinClient.connect()]);
+    await setup();
     await bitcoinClient.generate(1);
 
     wallet.initKeyProvider(

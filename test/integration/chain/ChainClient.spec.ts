@@ -22,7 +22,6 @@ describe('ChainClient', () => {
   });
 
   test('should init', async () => {
-    await bitcoinClient.connect();
     await bitcoinClient.generate(1);
   });
 

@@ -17,11 +17,7 @@ describe('Utils', () => {
   let ethSetup: Awaited<ReturnType<typeof getSigner>>;
 
   beforeAll(async () => {
-    await Promise.all([
-      bitcoinClient.connect(),
-      elementsClient.connect(),
-      bitcoinLndClient.connect(false),
-    ]);
+    await bitcoinLndClient.connect(false);
 
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 

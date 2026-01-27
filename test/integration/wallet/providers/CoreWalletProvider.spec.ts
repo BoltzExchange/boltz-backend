@@ -74,10 +74,7 @@ describe('CoreWalletProvider', () => {
 
   beforeAll(async () => {
     initEccLib(ecc);
-    await Promise.all([
-      bitcoinClient.connect(),
-      bitcoinLndClient.connect(false),
-    ]);
+    await bitcoinLndClient.connect(false);
   });
 
   afterAll(() => {

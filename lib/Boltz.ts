@@ -405,8 +405,6 @@ class Boltz {
     const service = `${client.symbol} chain`;
 
     try {
-      await client.connect();
-
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();
 

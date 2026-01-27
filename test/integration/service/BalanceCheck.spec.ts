@@ -14,7 +14,6 @@ describe('BalanceCheck', () => {
   } as unknown as WalletManager);
 
   beforeAll(async () => {
-    await bitcoinClient.connect();
     await balanceCheck.init();
   });
 

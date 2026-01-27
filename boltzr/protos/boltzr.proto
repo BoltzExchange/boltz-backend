@@ -26,6 +26,7 @@ service BoltzR {
 
   rpc RescanChains (RescanChainsRequest) returns (RescanChainsResponse);
   rpc CheckTransaction (CheckTransactionRequest) returns (CheckTransactionResponse);
+  rpc EstimateFee (EstimateFeeRequest) returns (EstimateFeeResponse);
 
   rpc BlockAdded (BlockAddedRequest) returns (stream Block);
   rpc TransactionFound (RelevantTransactionRequest) returns (stream RelevantTransaction);
@@ -273,6 +274,15 @@ message CheckTransactionRequest {
   string id = 2;
 }
 message CheckTransactionResponse {}
+
+message EstimateFeeRequest {
+  string symbol = 1;
+}
+
+message EstimateFeeResponse {
+  // Fee estimate in sat/vbyte
+  double estimate = 1;
+}
 
 message BlockAddedRequest {}
 message Block {

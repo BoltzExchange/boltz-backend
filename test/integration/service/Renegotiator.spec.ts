@@ -164,8 +164,6 @@ describe('Renegotiator', () => {
 
     contracts.etherSwap = etherSwap;
     contracts.erc20Swap = erc20Swap;
-
-    await bitcoinClient.connect();
   });
 
   beforeEach(() => {

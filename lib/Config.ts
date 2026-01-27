@@ -50,9 +50,6 @@ type ChainConfig = {
   // API endpoint of a MempoolSpace instance running on the chain of the configured client
   // Comma separated for multiple endpoints
   mempoolSpace?: string;
-
-  // Minimum fee rate in sat/vbyte used as floor for fee estimation
-  feeFloor?: number;
 };
 
 type LiquidChainConfig = ChainConfig & {

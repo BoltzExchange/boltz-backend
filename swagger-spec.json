@@ -2480,7 +2480,7 @@
                 },
                 "examples": {
                   "json": {
-                    "value": "{\"rsk\":{\"network\":{\"chainId\":31337},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"},\"supportedContracts\":{\"3\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"}},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"}}}"
+                    "value": "{\"rsk\":{\"network\":{\"chainId\":31337},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"},\"supportedContracts\":{\"3\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"features\":[]}},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"}}}"
                   }
                 }
               }
@@ -2758,7 +2758,7 @@
                 },
                 "examples": {
                   "json": {
-                    "value": "{\"network\":{\"chainId\":31337},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"},\"supportedContracts\":{\"3\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"}},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"}}"
+                    "value": "{\"network\":{\"chainId\":31337},\"swapContracts\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"},\"supportedContracts\":{\"3\":{\"EtherSwap\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"ERC20Swap\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"features\":[]}},\"tokens\":{\"USDT\":\"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0\"}}"
                   }
                 }
               }
@@ -3106,6 +3106,126 @@
                   "json": {
                     "value": "{\"BTC\":{\"LND\":{\"capacity\":5806395450,\"channels\":1052,\"peers\":2199,\"oldestChannel\":1553900632},\"CLN\":{\"capacity\":1062157049,\"channels\":79,\"peers\":124,\"oldestChannel\":1692910360},\"total\":{\"capacity\":6868552499,\"channels\":1131,\"peers\":2323,\"oldestChannel\":1553900632}}}"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/commitment/{currency}/details": {
+      "get": {
+        "tags": [
+          "Commitment"
+        ],
+        "description": "Get lockup details for commitment swaps on an EVM chain",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the chain to get lockup details for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lockup details for commitment swaps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitmentLockupDetails"
+                },
+                "examples": {
+                  "json": {
+                    "value": "{\"contract\":\"0x5FbDB2315678afecb367f032d93F642f64180aa3\",\"claimAddress\":\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\"timelock\":20160}"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/commitment/{currency}": {
+      "post": {
+        "tags": [
+          "Commitment"
+        ],
+        "description": "Submit a commitment for a swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Currency of the commitment"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "swapId",
+                  "signature",
+                  "transactionHash"
+                ],
+                "properties": {
+                  "swapId": {
+                    "type": "string",
+                    "description": "ID of the swap"
+                  },
+                  "signature": {
+                    "type": "string",
+                    "description": "Signature authorizing the claim"
+                  },
+                  "transactionHash": {
+                    "type": "string",
+                    "description": "Transaction hash of the lockup transaction"
+                  },
+                  "logIndex": {
+                    "type": "number",
+                    "description": "Log index of the lockup event if there are multiple in the transaction"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Commitment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5188,12 +5308,13 @@
           },
           "supportedContracts": {
             "type": "object",
-            "description": "Mapping of contract version numbers to their swap contract addresses",
+            "description": "Mapping of contract version numbers to their swap contract addresses and supported features",
             "additionalProperties": {
               "type": "object",
               "required": [
                 "EtherSwap",
-                "ERC20Swap"
+                "ERC20Swap",
+                "features"
               ],
               "properties": {
                 "EtherSwap": {
@@ -5203,6 +5324,17 @@
                 "ERC20Swap": {
                   "type": "string",
                   "description": "Address of the ERC20Swap contract for this version"
+                },
+                "features": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "BatchClaim",
+                      "CommitmentSwap"
+                    ]
+                  },
+                  "description": "Features supported by this contract version"
                 }
               }
             }
@@ -5298,6 +5430,28 @@
           }
         }
       },
+      "CommitmentLockupDetails": {
+        "type": "object",
+        "required": [
+          "contract",
+          "claimAddress",
+          "timelock"
+        ],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "description": "Address of the swap contract to lock funds in"
+          },
+          "claimAddress": {
+            "type": "string",
+            "description": "Address that will claim the locked funds"
+          },
+          "timelock": {
+            "type": "number",
+            "description": "Block height until which the funds should be locked"
+          }
+        }
+      },
       "ErrorResponse": {
         "type": "object",
         "required": [
@@ -5356,6 +5510,10 @@
     {
       "name": "Nodes",
       "description": "Lightning nodes"
+    },
+    {
+      "name": "Commitment",
+      "description": "Commitment swap related endpoints"
     },
     {
       "name": "Referral",

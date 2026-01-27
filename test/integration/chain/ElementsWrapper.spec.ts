@@ -1,7 +1,7 @@
 import Logger from '../../../lib/Logger';
 import { sleep } from '../../../lib/PromiseUtils';
 import ElementsWrapper from '../../../lib/chain/ElementsWrapper';
-import { ClientStatus, CurrencyType } from '../../../lib/consts/Enums';
+import { CurrencyType } from '../../../lib/consts/Enums';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { elementsConfig } from '../Nodes';
 
@@ -21,10 +21,6 @@ describe('ElementsWrapper', () => {
       lowball: elementsConfig,
     },
   );
-
-  beforeAll(async () => {
-    await wrapper.connect();
-  });
 
   beforeEach(() => {
     wrapper.removeAllListeners();
@@ -87,17 +83,6 @@ describe('ElementsWrapper', () => {
     expect(mockSendRawTransaction).toHaveBeenCalledWith(
       await wrapper.getRawTransaction(txId),
     );
-  });
-
-  test('should bubble up status change of public client', () => {
-    expect.assertions(1);
-
-    const newStatus = ClientStatus.Connected;
-
-    wrapper.on('status.changed', (status) => {
-      expect(status).toEqual(newStatus);
-    });
-    wrapper['publicClient']()['setClientStatus'](newStatus);
   });
 
   describe('sendRawTransaction', () => {
@@ -177,8 +162,6 @@ describe('ElementsWrapper', () => {
         'liquidRegtest',
         elementsConfig,
       );
-      await oneWrapper.connect();
-
       const res = await oneWrapper[name]();
 
       expect(res).toEqual({

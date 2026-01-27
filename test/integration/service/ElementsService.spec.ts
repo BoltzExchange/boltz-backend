@@ -44,7 +44,6 @@ describe('ElementsService', () => {
 
   beforeAll(async () => {
     await setup();
-    await Promise.all([bitcoinClient, elementsClient].map((c) => c.connect()));
     await Promise.all(
       [bitcoinClient, elementsClient].map((c) => c.generate(1)),
     );

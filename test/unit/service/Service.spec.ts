@@ -1585,8 +1585,6 @@ describe('Service', () => {
     );
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(3);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
-
     expect(mockGetFeeData).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency
@@ -1595,15 +1593,6 @@ describe('Service', () => {
     );
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(4);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(4, 2);
-
-    // Get fee estimation for a single currency for a specified amount of blocks
-    expect(await service.getFeeEstimation('BTC', 5)).toEqual(
-      new Map<string, number>([['BTC', 2]]),
-    );
-
-    expect(mockEstimateFee).toHaveBeenCalledTimes(5);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(5, 5);
 
     // Get fee estimation for an ERC20 token
     expect(await service.getFeeEstimation('USDT')).toEqual(

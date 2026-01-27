@@ -24,7 +24,6 @@ describe('TransactionFetcher', () => {
   const fetcher = new TransactionFetcher(currencies);
 
   beforeAll(async () => {
-    await bitcoinClient.connect();
     await bitcoinClient.generate(1);
     currencies.set('BTC', {
       symbol: 'BTC',

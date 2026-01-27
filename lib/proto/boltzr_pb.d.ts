@@ -1193,6 +1193,46 @@ export namespace CheckTransactionResponse {
     }
 }
 
+export class EstimateFeeRequest extends jspb.Message { 
+    getSymbol(): string;
+    setSymbol(value: string): EstimateFeeRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EstimateFeeRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: EstimateFeeRequest): EstimateFeeRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EstimateFeeRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EstimateFeeRequest;
+    static deserializeBinaryFromReader(message: EstimateFeeRequest, reader: jspb.BinaryReader): EstimateFeeRequest;
+}
+
+export namespace EstimateFeeRequest {
+    export type AsObject = {
+        symbol: string,
+    }
+}
+
+export class EstimateFeeResponse extends jspb.Message { 
+    getEstimate(): number;
+    setEstimate(value: number): EstimateFeeResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EstimateFeeResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: EstimateFeeResponse): EstimateFeeResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EstimateFeeResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EstimateFeeResponse;
+    static deserializeBinaryFromReader(message: EstimateFeeResponse, reader: jspb.BinaryReader): EstimateFeeResponse;
+}
+
+export namespace EstimateFeeResponse {
+    export type AsObject = {
+        estimate: number,
+    }
+}
+
 export class BlockAddedRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;

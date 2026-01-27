@@ -8,15 +8,15 @@ use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, Tra
 use crate::grpc::service::boltzr::{
     Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
-    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
-    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
-    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
-    decode_invoice_or_offer_response,
+    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse,
+    EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest, GetInfoResponse,
+    GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel,
+    RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse,
+    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
+    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
+    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
+    TransactionStatus, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -708,6 +708,28 @@ where
         {
             Ok(_) => Ok(Response::new(CheckTransactionResponse {})),
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
+        }
+    }
+
+    #[instrument(name = "grpc::estimate_fee", skip_all)]
+    async fn estimate_fee(
+        &self,
+        request: Request<EstimateFeeRequest>,
+    ) -> Result<Response<EstimateFeeResponse>, Status> {
+        let params = request.into_inner();
+
+        match self.manager.get_currency(&params.symbol) {
+            Some(currency) => match currency.chain {
+                Some(client) => Ok(client
+                    .estimate_fee()
+                    .await
+                    .map(|estimate| Response::new(EstimateFeeResponse { estimate }))
+                    .map_err(|err| {
+                        Status::new(Code::Internal, format!("estimating fees failed: {err}"))
+                    })?),
+                None => Err(Status::new(Code::NotFound, "currency has no chain client")),
+            },
+            None => Err(Status::new(Code::NotFound, "currency not found")),
         }
     }
 

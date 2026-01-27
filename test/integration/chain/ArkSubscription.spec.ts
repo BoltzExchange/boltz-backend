@@ -11,7 +11,6 @@ TransactionLabelRepository.addLabel = jest.fn();
 
 describe('ArkSubscription', () => {
   beforeAll(async () => {
-    await bitcoinClient.connect();
     await arkClient.connect(bitcoinClient);
   });
 

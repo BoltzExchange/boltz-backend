@@ -27,8 +27,6 @@ interface IElementsClient extends IChainClient {
 class ElementsClient extends ChainClient implements IElementsClient {
   public static readonly symbol = liquidSymbol;
 
-  private static readonly elementsFeeFloor = 0.1;
-
   constructor(
     logger: Logger,
     sidecar: Sidecar,
@@ -42,16 +40,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
       );
     }
 
-    super(
-      logger,
-      sidecar,
-      network,
-      {
-        ...config,
-        feeFloor: config.feeFloor ?? ElementsClient.elementsFeeFloor,
-      },
-      ElementsClient.symbol,
-    );
+    super(logger, sidecar, network, config, ElementsClient.symbol);
     this.currencyType = CurrencyType.Liquid;
   }
 
@@ -64,7 +53,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
     return (
       confidential.confidentialValueToSatoshi(feeOutput.value) /
         tx.virtualSize(true) <
-      ElementsClient.elementsFeeFloor
+      0.1
     );
   };
 
@@ -120,10 +109,6 @@ class ElementsClient extends ChainClient implements IElementsClient {
       ],
       true,
     );
-  };
-
-  public override estimateFee = async (): Promise<number> => {
-    return this.feeFloor;
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {

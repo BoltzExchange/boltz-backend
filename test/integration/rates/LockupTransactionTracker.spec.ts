@@ -41,7 +41,6 @@ describe('LockupTransactionTracker', () => {
   let tracker: LockupTransactionTracker;
 
   beforeAll(async () => {
-    await Promise.all([bitcoinClient.connect(), elementsClient.connect()]);
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     SwapRepository.getSwaps = jest.fn().mockResolvedValue([]);

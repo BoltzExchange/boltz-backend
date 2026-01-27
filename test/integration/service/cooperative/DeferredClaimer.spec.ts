@@ -420,7 +420,7 @@ describe('DeferredClaimer', () => {
     ethereumSetup = await getSigner();
     contracts = await getContracts(ethereumSetup.signer);
 
-    await Promise.all([setup(), bitcoinClient.connect()]);
+    await setup();
 
     await Promise.all([
       bitcoinClient.generate(1),

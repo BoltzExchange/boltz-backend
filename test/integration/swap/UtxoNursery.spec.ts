@@ -166,8 +166,6 @@ describe('UtxoNursery', () => {
       }),
     });
 
-    await bitcoinClient.connect();
-    await elementsClient.connect();
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     await Promise.all([

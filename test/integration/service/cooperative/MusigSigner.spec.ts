@@ -88,7 +88,6 @@ describe('MusigSigner', () => {
   beforeAll(async () => {
     await Promise.all([
       setup(),
-      bitcoinClient.connect(),
       clnClient.connect(),
       bitcoinLndClient.connect(true),
       bitcoinLndClient2.connect(true),

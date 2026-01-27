@@ -22,33 +22,26 @@ describe('ChainClient', () => {
     password: 'password',
   };
 
-  describe('feeFloor config parsing', () => {
-    test('should use default feeFloor when not provided in config', () => {
+  test.each`
+    network      | expectedIsRegtest
+    ${'mainnet'} | ${false}
+    ${'testnet'} | ${false}
+    ${'signet'}  | ${false}
+    ${'regtest'} | ${true}
+  `(
+    'should construct with network $network',
+    ({ network, expectedIsRegtest }) => {
+      const symbol = 'BTC';
       const client = new ChainClient(
         Logger.disabledLogger,
         mockSidecar,
-        'mainnet',
+        network,
         baseConfig,
-        'BTC',
+        symbol,
       );
 
-      expect(client.feeFloor).toEqual(0.2);
-    });
-
-    test('should use custom feeFloor when provided in config', () => {
-      const customFeeFloor = 1.0;
-      const client = new ChainClient(
-        Logger.disabledLogger,
-        mockSidecar,
-        'mainnet',
-        {
-          ...baseConfig,
-          feeFloor: customFeeFloor,
-        },
-        'BTC',
-      );
-
-      expect(client.feeFloor).toEqual(customFeeFloor);
-    });
-  });
+      expect(client.symbol).toEqual(symbol);
+      expect(client.isRegtest).toEqual(expectedIsRegtest);
+    },
+  );
 });

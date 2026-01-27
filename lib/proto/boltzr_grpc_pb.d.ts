@@ -23,6 +23,7 @@ interface IBoltzRService extends grpc.ServiceDefinition<grpc.UntypedServiceImple
     isMarked: IBoltzRService_IIsMarked;
     rescanChains: IBoltzRService_IRescanChains;
     checkTransaction: IBoltzRService_ICheckTransaction;
+    estimateFee: IBoltzRService_IEstimateFee;
     blockAdded: IBoltzRService_IBlockAdded;
     transactionFound: IBoltzRService_ITransactionFound;
 }
@@ -162,6 +163,15 @@ interface IBoltzRService_ICheckTransaction extends grpc.MethodDefinition<boltzr_
     responseSerialize: grpc.serialize<boltzr_pb.CheckTransactionResponse>;
     responseDeserialize: grpc.deserialize<boltzr_pb.CheckTransactionResponse>;
 }
+interface IBoltzRService_IEstimateFee extends grpc.MethodDefinition<boltzr_pb.EstimateFeeRequest, boltzr_pb.EstimateFeeResponse> {
+    path: "/boltzr.BoltzR/EstimateFee";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<boltzr_pb.EstimateFeeRequest>;
+    requestDeserialize: grpc.deserialize<boltzr_pb.EstimateFeeRequest>;
+    responseSerialize: grpc.serialize<boltzr_pb.EstimateFeeResponse>;
+    responseDeserialize: grpc.deserialize<boltzr_pb.EstimateFeeResponse>;
+}
 interface IBoltzRService_IBlockAdded extends grpc.MethodDefinition<boltzr_pb.BlockAddedRequest, boltzr_pb.Block> {
     path: "/boltzr.BoltzR/BlockAdded";
     requestStream: false;
@@ -199,6 +209,7 @@ export interface IBoltzRServer extends grpc.UntypedServiceImplementation {
     isMarked: grpc.handleUnaryCall<boltzr_pb.IsMarkedRequest, boltzr_pb.IsMarkedResponse>;
     rescanChains: grpc.handleUnaryCall<boltzr_pb.RescanChainsRequest, boltzr_pb.RescanChainsResponse>;
     checkTransaction: grpc.handleUnaryCall<boltzr_pb.CheckTransactionRequest, boltzr_pb.CheckTransactionResponse>;
+    estimateFee: grpc.handleUnaryCall<boltzr_pb.EstimateFeeRequest, boltzr_pb.EstimateFeeResponse>;
     blockAdded: grpc.handleServerStreamingCall<boltzr_pb.BlockAddedRequest, boltzr_pb.Block>;
     transactionFound: grpc.handleServerStreamingCall<boltzr_pb.RelevantTransactionRequest, boltzr_pb.RelevantTransaction>;
 }
@@ -247,6 +258,9 @@ export interface IBoltzRClient {
     checkTransaction(request: boltzr_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    estimateFee(request: boltzr_pb.EstimateFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
+    estimateFee(request: boltzr_pb.EstimateFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
+    estimateFee(request: boltzr_pb.EstimateFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
     blockAdded(request: boltzr_pb.BlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     blockAdded(request: boltzr_pb.BlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     transactionFound(request: boltzr_pb.RelevantTransactionRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.RelevantTransaction>;
@@ -297,6 +311,9 @@ export class BoltzRClient extends grpc.Client implements IBoltzRClient {
     public checkTransaction(request: boltzr_pb.CheckTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     public checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
     public checkTransaction(request: boltzr_pb.CheckTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.CheckTransactionResponse) => void): grpc.ClientUnaryCall;
+    public estimateFee(request: boltzr_pb.EstimateFeeRequest, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
+    public estimateFee(request: boltzr_pb.EstimateFeeRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
+    public estimateFee(request: boltzr_pb.EstimateFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzr_pb.EstimateFeeResponse) => void): grpc.ClientUnaryCall;
     public blockAdded(request: boltzr_pb.BlockAddedRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     public blockAdded(request: boltzr_pb.BlockAddedRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.Block>;
     public transactionFound(request: boltzr_pb.RelevantTransactionRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<boltzr_pb.RelevantTransaction>;

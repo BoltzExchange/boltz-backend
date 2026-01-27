@@ -97,9 +97,6 @@ describe('Core', () => {
     );
     initWallet(walletLiquid);
 
-    await bitcoinClient.connect();
-    await elementsClient.connect();
-
     // To have a blinded output in the Elements wallet
     await elementsClient.sendToAddress(
       await elementsClient.getNewAddress(''),

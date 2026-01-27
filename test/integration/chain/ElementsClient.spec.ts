@@ -3,10 +3,6 @@ import { elementsClient } from '../Nodes';
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ElementsClient', () => {
-  beforeAll(async () => {
-    await elementsClient.connect();
-  });
-
   afterAll(() => {
     elementsClient.disconnect();
   });

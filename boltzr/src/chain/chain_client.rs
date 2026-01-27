@@ -69,6 +69,7 @@ impl ChainClient {
             Type::Elements => Self::DEFAULT_FEE_FLOOR_ELEMENTS,
         };
         let fee_floor = config.fee_floor.unwrap_or(default_floor);
+        debug!("Using {symbol} fee floor: {fee_floor:0.2}");
 
         let client = Self {
             cache,
@@ -219,7 +220,7 @@ impl ChainClient {
 
         match self
             .client
-            .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(1)]))
+            .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(2)]))
             .await
             .map(|fee| fee.feerate)
         {

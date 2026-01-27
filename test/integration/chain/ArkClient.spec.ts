@@ -12,7 +12,6 @@ jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ArkClient', () => {
   beforeAll(async () => {
-    await bitcoinClient.connect();
     await arkClient.connect(bitcoinClient);
   });
 

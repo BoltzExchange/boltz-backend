@@ -1273,9 +1273,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           `Using prepay minerfee for lockup of Reverse Swap ${swap.id}: ${feePerVbyte} sat/vbyte`,
         );
       } else {
-        feePerVbyte = await chainClient.estimateFee(
-          SwapNursery.reverseSwapMempoolEta,
-        );
+        feePerVbyte = await chainClient.estimateFee();
       }
 
       const onchainAmount =

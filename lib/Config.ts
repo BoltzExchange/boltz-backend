@@ -89,9 +89,6 @@ type CurrencyConfig = BaseCurrencyConfig & {
   noRoute?: string[];
   routingOffsetExceptions?: RoutingOffsetException[];
 
-  // Max fee ratio for LND's sendPayment
-  maxPaymentFeeRatio?: number;
-
   minLocalBalance: number;
   minRemoteBalance: number;
 };

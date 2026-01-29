@@ -1028,7 +1028,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/reverse/expiry:
      *   get:
-     *     description: Allowed invoice expiry range per Reverse Swap pair
+     *     description: Allowed invoice expiry range in seconds per Reverse Swap pair
      *     tags: [Reverse Swap]
      *     responses:
      *       '200':

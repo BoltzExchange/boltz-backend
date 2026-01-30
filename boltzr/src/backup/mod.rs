@@ -52,11 +52,15 @@ impl Backup {
     ) -> anyhow::Result<Self> {
         let mut s3_providers: Vec<Box<dyn BackupProvider + Send + Sync>> = Vec::new();
 
-        for (index, provider_config) in config.simple_storage.into_iter().enumerate() {
+        for provider_config in config.simple_storage.into_iter() {
             match providers::s3::S3::new(&provider_config).await {
                 Ok(provider) => s3_providers.push(Box::new(provider)),
                 Err(e) => {
-                    error!("Failed to initialize S3 provider {}: {}", index, e);
+                    error!(
+                        "Failed to initialize S3 provider {}: {}",
+                        providers::s3::S3::name(&provider_config),
+                        e
+                    );
                 }
             }
         }

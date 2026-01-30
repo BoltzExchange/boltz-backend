@@ -41,18 +41,7 @@ pub struct S3 {
 impl S3 {
     #[instrument(name = "S3::new", skip_all)]
     pub async fn new(config: &Config) -> anyhow::Result<Self> {
-        let mut endpoint = format!(
-            "{}://{}",
-            if config.use_ssl.unwrap_or(true) {
-                "https"
-            } else {
-                "http"
-            },
-            config.endpoint
-        );
-        if let Some(port) = config.port {
-            endpoint += format!(":{port}").as_str();
-        }
+        let endpoint = Self::endpoint(config);
         debug!("Using bucket {} at {}", config.bucket, endpoint);
 
         let credentials =
@@ -81,6 +70,10 @@ impl S3 {
             bucket: config.bucket.clone(),
             endpoint,
         })
+    }
+
+    pub fn name(config: &Config) -> String {
+        Self::format_name(&config.bucket, &Self::endpoint(config))
     }
 
     async fn multipart_upload(
@@ -216,12 +209,33 @@ impl S3 {
 
         Ok(parts)
     }
+
+    fn format_name(bucket: &str, endpoint: &str) -> String {
+        format!("S3:{}@{}", bucket, endpoint)
+    }
+
+    fn endpoint(config: &Config) -> String {
+        let mut endpoint = format!(
+            "{}://{}",
+            if config.use_ssl.unwrap_or(true) {
+                "https"
+            } else {
+                "http"
+            },
+            config.endpoint
+        );
+        if let Some(port) = config.port {
+            endpoint += format!(":{port}").as_str();
+        }
+
+        endpoint
+    }
 }
 
 #[async_trait]
 impl BackupProvider for S3 {
     fn name(&self) -> String {
-        format!("S3:{}@{}", self.bucket, self.endpoint)
+        Self::format_name(&self.bucket, &self.endpoint)
     }
 
     #[instrument(name = "S3::put", skip(self, data))]

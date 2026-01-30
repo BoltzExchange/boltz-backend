@@ -43,16 +43,6 @@ class ElementsWrapper
 
   public serviceName = () => 'ElementsWrapper';
 
-  public get feeFloor(): number {
-    return this.walletClient().feeFloor;
-  }
-
-  public connect = async () => {
-    await Promise.all(this.clients.map((c) => c.connect()));
-
-    this.publicClient().on('status.changed', this.setClientStatus);
-  };
-
   public disconnect = () => this.clients.forEach((c) => c.disconnect());
 
   public getBlockchainInfo = () =>

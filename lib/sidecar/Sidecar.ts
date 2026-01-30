@@ -598,6 +598,17 @@ class Sidecar extends BaseClient<
     >('checkTransaction', req);
   };
 
+  public estimateFee = async (symbol: string) => {
+    const req = new sidecarrpc.EstimateFeeRequest();
+    req.setSymbol(symbol);
+
+    const res = await this.unaryNodeCall<
+      sidecarrpc.EstimateFeeRequest,
+      sidecarrpc.EstimateFeeResponse.AsObject
+    >('estimateFee', req);
+    return res.estimate;
+  };
+
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
     const req = new sidecarrpc.SendWebHookRequest();
     req.setId(swapId);

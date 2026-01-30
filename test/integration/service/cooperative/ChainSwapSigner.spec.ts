@@ -101,11 +101,7 @@ describe('ChainSwapSigner', () => {
   let signer: ChainSwapSigner;
 
   beforeAll(async () => {
-    await Promise.all([
-      setup(),
-      bitcoinClient.connect(),
-      elementsClient.connect(),
-    ]);
+    await setup();
     await Promise.all([bitcoinClient.generate(1), elementsClient.generate(1)]);
 
     const initWallet = (w: Wallet) => {

@@ -4,7 +4,6 @@ import { SwapTreeSerializer, detectPreimage, detectSwap } from 'boltz-core';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import {
-  calculateTransactionFee,
   createMusig,
   getOutputValue,
   parseTransaction,
@@ -793,26 +792,6 @@ class UtxoNursery extends TypedEventEmitter<{
 
     if (await this.transactionSignalsRbf(chainClient, transaction)) {
       return Errors.LOCKUP_TRANSACTION_SIGNALS_RBF().message;
-    }
-
-    // Check if the transaction has a fee high enough to be confirmed in a timely manner
-    const [feeEstimation, absoluteTransactionFee] = await Promise.all([
-      chainClient.estimateFee(),
-      calculateTransactionFee(chainClient, transaction),
-    ]);
-
-    const transactionFeePerVbyte =
-      absoluteTransactionFee / transaction.virtualSize(true);
-
-    // If the transaction fee is less than 80% of the estimation, Boltz will wait for a confirmation
-    //
-    // Special case: if the fee estimation is at the lowest possible (fee floor),
-    // every fee paid by the transaction will be accepted
-    if (
-      transactionFeePerVbyte / feeEstimation < 0.8 &&
-      feeEstimation !== chainClient.feeFloor
-    ) {
-      return Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message;
     }
 
     // Make sure all clients accept the transaction

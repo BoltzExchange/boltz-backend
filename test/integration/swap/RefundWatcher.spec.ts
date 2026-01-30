@@ -26,7 +26,6 @@ describe('RefundWatcher', () => {
   let setup: Awaited<ReturnType<typeof getSigner>>;
 
   beforeAll(async () => {
-    await bitcoinClient.connect();
     setup = await getSigner();
     await fundSignerWallet(setup.signer, setup.etherBase);
 

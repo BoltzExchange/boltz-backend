@@ -82,8 +82,6 @@ describe('TimeoutDeltaProvider', () => {
         {} as any,
         false,
       ),
-      bitcoinClient.connect(),
-      elementsClient.connect(),
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);

@@ -82,10 +82,6 @@ export default {
     message: 'transaction or one of its unconfirmed ancestors signals RBF',
     code: concatErrorCode(ErrorCodePrefix.Swap, 15),
   }),
-  LOCKUP_TRANSACTION_FEE_TOO_LOW: (): Error => ({
-    message: 'transaction fee is too low',
-    code: concatErrorCode(ErrorCodePrefix.Swap, 16),
-  }),
   LIGHTNING_CLIENT_CALL_TIMEOUT: (): Error => ({
     message: 'lightning client call timeout',
     code: concatErrorCode(ErrorCodePrefix.Swap, 17),

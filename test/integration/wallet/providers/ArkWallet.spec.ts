@@ -10,7 +10,6 @@ describe('ArkWallet', () => {
   const wallet = new ArkWallet(Logger.disabledLogger, arkClient);
 
   beforeAll(async () => {
-    await bitcoinClient.connect();
     await arkClient.connect(bitcoinClient);
   });
 

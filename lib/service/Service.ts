@@ -836,18 +836,15 @@ class Service {
    */
   public getFeeEstimation = async (
     symbol?: string,
-    blocks?: number,
   ): Promise<Map<string, number>> => {
     const map = new Map<string, number>();
-
-    const numBlocks = blocks === undefined ? 2 : blocks;
 
     const estimateFeeForProvider = async (provider: Provider) =>
       Number(await this.getGasPrice(provider)) / Number(gweiDecimals);
 
     const estimateFee = async (currency: Currency): Promise<number> => {
       if (currency.chainClient) {
-        return currency.chainClient.estimateFee(numBlocks);
+        return currency.chainClient.estimateFee();
       } else if (currency.provider) {
         return estimateFeeForProvider(currency.provider);
       } else if (currency.arkNode) {

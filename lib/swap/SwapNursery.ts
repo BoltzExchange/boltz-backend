@@ -297,6 +297,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             return;
           }
 
+          if (
+            swap.status === SwapUpdateEvent.TransactionClaimPending ||
+            SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)
+          ) {
+            this.logger.debug(
+              `Not acting on lockup of Submarine Swap ${swap.id} because it succeeded already`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             swap,
             confirmed,

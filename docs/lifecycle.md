@@ -32,11 +32,17 @@ When a Normal Submarine Swap is created, it passes through the following states:
    `/createswap` request.
    [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) is an example
    for a client that sets the invoice with `/createswap` already.
-2. `transaction.mempool`: a transaction that sends bitcoin to the chain address
-   is found in the mempool, meaning user sent funds to the lockup chain address.
-3. `transaction.confirmed`: the lockup transaction was included in a block. For
-   mainchain swaps, Boltz always waits for one confirmation before continuing
-   with the swap. The [`getpairs`](api-v1.md#supported-pairs) call provides
+2. `transaction.mempool` or `transaction.zeroconf.rejected`: a transaction that
+   sends bitcoin to the chain address is found in the mempool, meaning user sent
+   funds to the lockup chain address. `transaction.mempool` is set when 0-conf
+   is accepted and the swap proceeds immediately.
+   `transaction.zeroconf.rejected` is set when 0-conf is not accepted (e.g.,
+   amount exceeds 0-conf limits, transaction signals RBF, or pair doesn't
+   support 0-conf), requiring the swap to wait for confirmation before
+   proceeding.
+3. `transaction.confirmed`: the lockup transaction was included in a block.
+   Boltz waits for one confirmation before continuing with the swap when 0-conf
+   was rejected. The [`getpairs`](api-v1.md#supported-pairs) call provides
    amount limits for which Boltz accepts [0-conf](0-conf.md) per pair.
 4. `invoice.set`: if the invoice was _not_ set as part of the `/createswap`
    request, this state confirms that an invoice with the correct amount and hash
@@ -152,11 +158,14 @@ details about this can be found in the
 A Chain Swap has the following states:
 
 1. `swap.created`: initial state of the swap
-2. `transaction.mempool`: the lockup transaction of the client was found in the
-   mempool
+2. `transaction.mempool` or `transaction.zeroconf.rejected`: the lockup
+   transaction of the client was found in the mempool. `transaction.mempool` is
+   set when 0-conf is accepted. `transaction.zeroconf.rejected` is set when
+   0-conf is not accepted (e.g., amount exceeds 0-conf limits, transaction
+   signals RBF, or pair doesn't support 0-conf).
 3. `transaction.confirmed`: the lockup transaction of the client was confirmed
-   in a block. When the server accepts 0-conf, for the lockup transaction, this
-   state is skipped
+   in a block. This state is skipped when 0-conf is accepted
+   (`transaction.mempool`)
 4. `transaction.server.mempool`: the lockup transaction of the server has been
    broadcast
 5. `transaction.server.confirmed`: the lockup transaction of the server has been

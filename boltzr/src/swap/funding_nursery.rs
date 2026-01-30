@@ -138,7 +138,7 @@ impl FundingAddressNursery {
             // Delink the funding address from the swap and clear the presigned tx
             // Status stays the same
             self.funding_address_helper
-                .set_presigned_tx(funding_address_id, None, None)?;
+                .set_presigned_tx(funding_address_id, None)?;
         }
 
         self.send_update(funding_address_id)?;
@@ -197,7 +197,7 @@ impl FundingAddressNursery {
                     .ok_or(anyhow::anyhow!("funding address not found".to_string()))?;
 
                 // If a unconfirmed transaction is replaced, forcing a new signing flow.
-                if let Some(previous_tx_id) = (&funding_address.lockup_transaction_id)
+                let is_rbf = if let Some(previous_tx_id) = &funding_address.lockup_transaction_id
                     && previous_tx_id != &tx_id
                 {
                     // if the funding address is not at transaction.mempool (confirmed or claimed)
@@ -209,13 +209,10 @@ impl FundingAddressNursery {
                         );
                         continue;
                     }
-
-                    self.funding_address_helper.set_presigned_tx(
-                        funding_address_id.as_str(),
-                        None,
-                        None,
-                    )?;
-                }
+                    true
+                } else {
+                    false
+                };
 
                 let (vout, value) =
                     self.find_output(&relevant_tx.tx, &funding_address.symbol, script_pubkey)?;
@@ -231,6 +228,7 @@ impl FundingAddressNursery {
                     }
                     .to_string()
                     .as_str(),
+                    is_rbf,
                 )?;
                 self.send_update(funding_address_id.as_str())?;
             }
@@ -530,11 +528,15 @@ mod test {
 
         mock_helper
             .expect_set_transaction()
-            .withf(move |id, _, vout, amount, status| {
-                id == "test_id" && *vout == 0 && *amount == 100_000 && status == expected_status
+            .withf(move |id, _, vout, amount, status, delink| {
+                id == "test_id"
+                    && *vout == 0
+                    && *amount == 100_000
+                    && status == expected_status
+                    && !*delink
             })
             .times(1)
-            .returning(|_, _, _, _, _| Ok(1));
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -576,14 +578,9 @@ mod test {
             .returning(move |_| Ok(Some(fa_clone.clone())));
 
         mock_helper
-            .expect_set_presigned_tx()
-            .with(eq("test_id"), eq(None), eq(None))
-            .returning(|_, _, _| Ok(1));
-
-        mock_helper
             .expect_set_transaction()
-            .withf(|_, _, _, _, status| status == "transaction.mempool")
-            .returning(|_, _, _, _, _| Ok(1));
+            .withf(|_, _, _, _, status, delink| status == "transaction.mempool" && *delink)
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -625,14 +622,11 @@ mod test {
             .returning(move |_| Ok(Some(fa_clone.clone())));
 
         mock_helper
-            .expect_set_presigned_tx()
-            .with(eq("test_id"), eq(None), eq(None))
-            .returning(|_, _, _| Ok(1));
-
-        mock_helper
             .expect_set_transaction()
-            .withf(|_, _, _, amount, status| *amount == 200_000 && status == "transaction.mempool")
-            .returning(|_, _, _, _, _| Ok(1));
+            .withf(|_, _, _, amount, status, delink| {
+                *amount == 200_000 && status == "transaction.mempool" && *delink
+            })
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -677,12 +671,10 @@ mod test {
             .times(2)
             .returning(move |_| Ok(Some(fa_clone.clone())));
 
-        mock_helper.expect_set_presigned_tx().times(0);
-
         mock_helper
             .expect_set_transaction()
-            .withf(|_, _, _, _, status| status == "transaction.confirmed")
-            .returning(|_, _, _, _, _| Ok(1));
+            .withf(|_, _, _, _, status, delink| status == "transaction.confirmed" && !*delink)
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -727,7 +719,6 @@ mod test {
             .returning(move |_| Ok(Some(funding_address.clone())));
 
         mock_helper.expect_set_transaction().times(0);
-        mock_helper.expect_set_presigned_tx().times(0);
 
         let test = TestNursery::new(
             mock_helper,
@@ -854,8 +845,9 @@ mod test {
 
         mock_helper
             .expect_set_transaction()
+            .withf(|_, _, _, _, _, delink| !*delink)
             .times(2)
-            .returning(|_, _, _, _, _| Ok(1));
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -948,8 +940,8 @@ mod test {
 
         mock_helper
             .expect_set_presigned_tx()
-            .with(eq("fa_id"), eq(None), eq(None))
-            .returning(|_, _, _| Ok(1));
+            .with(eq("fa_id"), eq(None))
+            .returning(|_, _| Ok(1));
 
         mock_helper
             .expect_get_by_id()
@@ -1074,17 +1066,11 @@ mod test {
             .times(2)
             .returning(move |_| Ok(Some(fa_clone.clone())));
 
-        // RBF should delink (clear presigned tx and swap)
-        mock_helper
-            .expect_set_presigned_tx()
-            .with(eq("test_id"), eq(None), eq(None))
-            .returning(|_, _, _| Ok(1));
-
-        // Status should be transaction.confirmed based on TxStatus::Confirmed
+        // RBF should delink (clear presigned tx and swap) and set status to confirmed
         mock_helper
             .expect_set_transaction()
-            .withf(|_, _, _, _, status| status == "transaction.confirmed")
-            .returning(|_, _, _, _, _| Ok(1));
+            .withf(|_, _, _, _, status, delink| status == "transaction.confirmed" && *delink)
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,
@@ -1121,13 +1107,14 @@ mod test {
 
         mock_helper
             .expect_set_transaction()
-            .withf(|id, _, vout, amount, status| {
+            .withf(|id, _, vout, amount, status, delink| {
                 id == "test_id"
                     && *vout == 0
                     && *amount == 100_000
                     && status == "transaction.mempool"
+                    && !*delink
             })
-            .returning(|_, _, _, _, _| Ok(1));
+            .returning(|_, _, _, _, _, _| Ok(1));
 
         let test = TestNursery::new(
             mock_helper,

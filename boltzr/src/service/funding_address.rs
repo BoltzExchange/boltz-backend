@@ -4,7 +4,7 @@ use crate::chain::types::Type;
 use crate::chain::utils::encode_address;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
-use crate::db::helpers::funding_address::FundingAddressHelper;
+use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
 use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
 use crate::db::helpers::swap::SwapHelper;
@@ -252,8 +252,10 @@ impl FundingAddressService {
             .await?;
         self.funding_address_helper.set_presigned_tx(
             &funding_address.id,
-            Some(signed_tx.serialize().to_vec()),
-            Some(swap_id),
+            Some(SwapTxInfo {
+                swap_id,
+                presigned_tx: signed_tx.serialize().to_vec(),
+            }),
         )?;
         Ok(funding_address)
     }

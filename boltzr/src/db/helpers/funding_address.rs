@@ -8,6 +8,12 @@ use diesel::{
     insert_into,
 };
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwapTxInfo {
+    pub swap_id: String,
+    pub presigned_tx: Vec<u8>,
+}
+
 pub trait FundingAddressHelper {
     fn insert(
         &self,
@@ -15,13 +21,10 @@ pub trait FundingAddressHelper {
         script_pubkey: &ScriptPubKey,
     ) -> QueryResponse<usize>;
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
-    fn set_presigned_tx(
-        &self,
-        id: &str,
-        presigned_tx: Option<Vec<u8>>,
-        swap_id: Option<String>,
-    ) -> QueryResponse<usize>;
+    /// Sets or clears the swap_id and presigned_tx for a funding address.
+    fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
     fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
+    /// If `delink` is true, also clears the swap_id and presigned_tx in a transaction.
     fn set_transaction(
         &self,
         id: &str,
@@ -29,6 +32,7 @@ pub trait FundingAddressHelper {
         vout: i32,
         value: i64,
         status: &str,
+        delink: bool,
     ) -> QueryResponse<usize>;
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
 }
@@ -77,12 +81,11 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
         Ok(Some(res[0].clone()))
     }
 
-    fn set_presigned_tx(
-        &self,
-        id: &str,
-        presigned_tx: Option<Vec<u8>>,
-        swap_id: Option<String>,
-    ) -> QueryResponse<usize> {
+    fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize> {
+        let (presigned_tx, swap_id) = match swap_tx_info {
+            Some(info) => (Some(info.presigned_tx), Some(info.swap_id)),
+            None => (None, None),
+        };
         Ok(update(funding_addresses::dsl::funding_addresses)
             .set((
                 funding_addresses::dsl::presigned_tx.eq(presigned_tx),
@@ -112,16 +115,32 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
         vout: i32,
         value: i64,
         status: &str,
+        delink: bool,
     ) -> QueryResponse<usize> {
-        Ok(update(funding_addresses::dsl::funding_addresses)
-            .set((
-                funding_addresses::dsl::lockup_transaction_id.eq(transaction_id),
-                funding_addresses::dsl::lockup_transaction_vout.eq(vout),
-                funding_addresses::dsl::lockup_amount.eq(value),
-                funding_addresses::dsl::status.eq(status.to_string()),
-            ))
-            .filter(funding_addresses::dsl::id.eq(id))
-            .execute(&mut self.pool.get()?)?)
+        let mut conn = self.pool.get()?;
+
+        conn.transaction(|conn| {
+            if delink {
+                update(funding_addresses::dsl::funding_addresses)
+                    .set((
+                        funding_addresses::dsl::presigned_tx.eq(None::<Vec<u8>>),
+                        funding_addresses::dsl::swap_id.eq(None::<String>),
+                    ))
+                    .filter(funding_addresses::dsl::id.eq(id))
+                    .execute(conn)?;
+            }
+
+            update(funding_addresses::dsl::funding_addresses)
+                .set((
+                    funding_addresses::dsl::lockup_transaction_id.eq(transaction_id),
+                    funding_addresses::dsl::lockup_transaction_vout.eq(vout),
+                    funding_addresses::dsl::lockup_amount.eq(value),
+                    funding_addresses::dsl::status.eq(status.to_string()),
+                ))
+                .filter(funding_addresses::dsl::id.eq(id))
+                .execute(conn)
+        })
+        .map_err(|e| anyhow!("failed to set transaction: {}", e))
     }
 
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize> {
@@ -143,7 +162,7 @@ pub mod test {
         impl FundingAddressHelper for FundingAddressHelper {
             fn insert(&self, funding_address: &FundingAddress, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
-            fn set_presigned_tx(&self, id: &str, presigned_tx: Option<Vec<u8>>, swap_id: Option<String>) -> QueryResponse<usize>;
+            fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
             fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
             fn set_transaction(
                 &self,
@@ -151,7 +170,8 @@ pub mod test {
                 transaction_id: &str,
                 vout: i32,
                 value: i64,
-                status: &str
+                status: &str,
+                delink: bool,
             ) -> QueryResponse<usize>;
             fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
         }

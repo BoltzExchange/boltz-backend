@@ -1,9 +1,14 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import type { ContractTransactionResponse, Provider } from 'ethers';
+import {
+  type ContractTransactionResponse,
+  type Provider,
+  type Signer,
+} from 'ethers';
 import { ethereumPrepayMinerFeeGasLimit } from '../../../consts/Consts';
 import { swapTypeToPrettyString } from '../../../consts/Enums';
 import type { AnySwap } from '../../../consts/Types';
+import CommitmentRepository from '../../../db/repositories/CommitmentRepository';
 import TransactionLabelRepository from '../../../db/repositories/TransactionLabelRepository';
 import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
 import Errors from '../Errors';
@@ -16,10 +21,22 @@ export type BatchClaimValues = {
   amount: bigint;
   refundAddress: string;
   timelock: number;
+  commitmentSignature?: {
+    v: number;
+    r: string;
+    s: string;
+  };
+};
+
+const emptySignature = {
+  v: 0,
+  r: '0x' + '0'.repeat(64),
+  s: '0x' + '0'.repeat(64),
 };
 
 class ContractHandler {
   private provider!: Provider;
+  private signer!: Signer;
 
   public etherSwap!: EtherSwap;
   public erc20Swap!: ERC20Swap;
@@ -31,11 +48,13 @@ class ContractHandler {
   public init = (
     features: Set<Feature>,
     provider: Provider,
+    signer: Signer,
     etherSwap: EtherSwap,
     erc20Swap: ERC20Swap,
   ): void => {
     this.features = features;
     this.provider = provider;
+    this.signer = signer;
     this.etherSwap = etherSwap;
     this.erc20Swap = erc20Swap;
   };
@@ -106,15 +125,40 @@ class ContractHandler {
     this.annotateLabel(
       TransactionLabelRepository.claimLabel(swap),
       this.networkDetails.symbol,
-      this.etherSwap['claim(bytes32,uint256,address,uint256)'](
-        preimage,
-        amount,
-        refundAddress,
-        timelock,
-        {
-          ...(await getGasPrices(this.provider)),
-        },
-      ),
+      async () => {
+        const gasPrices = await getGasPrices(this.provider);
+        const commitment = await CommitmentRepository.getBySwapId(swap.id);
+
+        if (commitment !== null && commitment !== undefined) {
+          const sig = commitment.signatureEthers;
+
+          return this.etherSwap[
+            'claim(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)'
+          ](
+            preimage,
+            amount,
+            await this.signer.getAddress(),
+            refundAddress,
+            timelock,
+            sig.v,
+            sig.r,
+            sig.s,
+            {
+              ...gasPrices,
+            },
+          );
+        } else {
+          return this.etherSwap['claim(bytes32,uint256,address,uint256)'](
+            preimage,
+            amount,
+            refundAddress,
+            timelock,
+            {
+              ...gasPrices,
+            },
+          );
+        }
+      },
     );
 
   public claimBatchEther = async (
@@ -128,15 +172,38 @@ class ContractHandler {
     return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       this.networkDetails.symbol,
-      this.etherSwap['claimBatch(bytes32[],uint256[],address[],uint256[])'](
-        values.map((v) => v.preimage),
-        values.map((v) => v.amount),
-        values.map((v) => v.refundAddress),
-        values.map((v) => v.timelock),
-        {
-          ...(await getGasPrices(this.provider)),
-        },
-      ),
+      async () => {
+        const gasPrices = await getGasPrices(this.provider);
+        const hasCommitments = values.some(
+          (v) => v.commitmentSignature !== undefined,
+        );
+
+        // Use cheaper format when there are no commitments
+        if (!hasCommitments) {
+          return this.etherSwap[
+            'claimBatch(bytes32[],uint256[],address[],uint256[])'
+          ](
+            values.map((v) => v.preimage),
+            values.map((v) => v.amount),
+            values.map((v) => v.refundAddress),
+            values.map((v) => v.timelock),
+            { ...gasPrices },
+          );
+        }
+
+        return this.etherSwap[
+          'claimBatch((bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])'
+        ](
+          values.map((v) => ({
+            preimage: v.preimage,
+            amount: v.amount,
+            refundAddress: v.refundAddress,
+            timelock: v.timelock,
+            ...(v.commitmentSignature ?? emptySignature),
+          })),
+          { ...gasPrices },
+        );
+      },
     );
   };
 
@@ -233,16 +300,37 @@ class ContractHandler {
     this.annotateLabel(
       TransactionLabelRepository.claimLabel(swap),
       token.symbol,
-      this.erc20Swap['claim(bytes32,uint256,address,address,uint256)'](
-        preimage,
-        amount,
-        token.tokenAddress,
-        refundAddress,
-        timeLock,
-        {
-          ...(await getGasPrices(this.provider)),
-        },
-      ),
+      async () => {
+        const gasPrices = await getGasPrices(this.provider);
+        const commitment = await CommitmentRepository.getBySwapId(swap.id);
+
+        if (commitment !== null && commitment !== undefined) {
+          const sig = commitment.signatureEthers;
+
+          return this.erc20Swap[
+            'claim(bytes32,uint256,address,address,address,uint256,uint8,bytes32,bytes32)'
+          ](
+            preimage,
+            amount,
+            token.tokenAddress,
+            await this.signer.getAddress(),
+            refundAddress,
+            timeLock,
+            sig.v,
+            sig.r,
+            sig.s,
+            {
+              ...gasPrices,
+            },
+          );
+        } else {
+          return this.erc20Swap[
+            'claim(bytes32,uint256,address,address,uint256)'
+          ](preimage, amount, token.tokenAddress, refundAddress, timeLock, {
+            ...gasPrices,
+          });
+        }
+      },
     );
 
   public claimBatchToken = async (
@@ -257,18 +345,40 @@ class ContractHandler {
     return this.annotateLabel(
       TransactionLabelRepository.claimBatchLabel(swapsIds),
       token.symbol,
-      this.erc20Swap[
-        'claimBatch(address,bytes32[],uint256[],address[],uint256[])'
-      ](
-        token.tokenAddress,
-        values.map((v) => v.preimage),
-        values.map((v) => v.amount),
-        values.map((v) => v.refundAddress),
-        values.map((v) => v.timelock),
-        {
-          ...(await getGasPrices(this.provider)),
-        },
-      ),
+      async () => {
+        const gasPrices = await getGasPrices(this.provider);
+        const hasCommitments = values.some(
+          (v) => v.commitmentSignature !== undefined,
+        );
+
+        // Use cheaper format when there are no commitments
+        if (!hasCommitments) {
+          return this.erc20Swap[
+            'claimBatch(address,bytes32[],uint256[],address[],uint256[])'
+          ](
+            token.tokenAddress,
+            values.map((v) => v.preimage),
+            values.map((v) => v.amount),
+            values.map((v) => v.refundAddress),
+            values.map((v) => v.timelock),
+            { ...gasPrices },
+          );
+        }
+
+        return this.erc20Swap[
+          'claimBatch(address,(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)[])'
+        ](
+          token.tokenAddress,
+          values.map((v) => ({
+            preimage: v.preimage,
+            amount: v.amount,
+            refundAddress: v.refundAddress,
+            timelock: v.timelock,
+            ...(v.commitmentSignature ?? emptySignature),
+          })),
+          { ...gasPrices },
+        );
+      },
     );
   };
 
@@ -298,9 +408,11 @@ class ContractHandler {
   private annotateLabel = async (
     label: string,
     symbol: string,
-    tx: Promise<ContractTransactionResponse>,
+    tx:
+      | Promise<ContractTransactionResponse>
+      | (() => Promise<ContractTransactionResponse>),
   ): Promise<ContractTransactionResponse> => {
-    const res = await tx;
+    const res = typeof tx === 'function' ? await tx() : await tx;
     await TransactionLabelRepository.addLabel(res.hash, symbol, label);
     return res;
   };

@@ -15,6 +15,7 @@ import ContractHandler from './ContractHandler';
 
 enum Feature {
   BatchClaim,
+  CommitmentSwap,
 }
 
 type DecodedClaim = { token?: string; preimage: string; amount: bigint };
@@ -30,7 +31,7 @@ class Contracts {
     () => new Set(),
     [
       [4n, new Set([Feature.BatchClaim])],
-      [5n, new Set([Feature.BatchClaim])],
+      [5n, new Set([Feature.BatchClaim, Feature.CommitmentSwap])],
     ],
   );
 
@@ -100,6 +101,7 @@ class Contracts {
     this.contractHandler.init(
       this.features,
       provider,
+      signer,
       this.etherSwap,
       this.erc20Swap,
     );

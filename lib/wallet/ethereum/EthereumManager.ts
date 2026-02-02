@@ -23,7 +23,8 @@ import EthereumTransactionTracker from './EthereumTransactionTracker';
 import { type NetworkDetails, networks } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
 import SequentialSigner from './SequentialSigner';
-import Contracts from './contracts/Contracts';
+import Commitments from './contracts/Commitments';
+import Contracts, { Feature } from './contracts/Contracts';
 
 type Network = {
   name: string;
@@ -35,9 +36,14 @@ export type ContractAddresses = {
   ERC20Swap: string;
 };
 
+export type ContractAddressesWithFeatures = ContractAddresses & {
+  features: string[];
+};
+
 class EthereumManager {
   public readonly provider: InjectedProvider;
   public readonly contractEventHandler = new ConsolidatedEventHandler();
+  public readonly commitments: Commitments;
 
   public signer!: Signer;
   public address!: string;
@@ -83,6 +89,13 @@ class EthereumManager {
         `${this.networkDetails.name} network name not configured`,
       );
     }
+
+    this.commitments = new Commitments(
+      this.logger,
+      this.networkDetails,
+      this.contractEventHandler,
+      this.config.commitmentTimelock,
+    );
   }
 
   public init = async (mnemonic: string): Promise<Map<string, Wallet>> => {
@@ -92,7 +105,7 @@ class EthereumManager {
     const network = await this.provider.getNetwork();
     this.network = {
       chainId: network.chainId,
-      name: this.config.networkName || network.name,
+      name: this.config.networkName || this.networkDetails.name,
     };
 
     this.signer = new SequentialSigner(
@@ -236,6 +249,8 @@ class EthereumManager {
       }
     }
 
+    this.commitments.init(this.provider, this.signer, this.contracts, wallets);
+
     return wallets;
   };
 
@@ -256,7 +271,7 @@ class EthereumManager {
         EtherSwap: await bestContracts.etherSwap.getAddress(),
         ERC20Swap: await bestContracts.erc20Swap.getAddress(),
       },
-      supportedContracts: new Map<number, ContractAddresses>(
+      supportedContracts: new Map<number, ContractAddressesWithFeatures>(
         await Promise.all(
           this.contracts.map(
             async (c) =>
@@ -265,8 +280,9 @@ class EthereumManager {
                 {
                   EtherSwap: await c.etherSwap.getAddress(),
                   ERC20Swap: await c.erc20Swap.getAddress(),
+                  features: Array.from(c.features).map((f) => Feature[f]),
                 },
-              ] satisfies [number, ContractAddresses],
+              ] satisfies [number, ContractAddressesWithFeatures],
           ),
         ),
       ),

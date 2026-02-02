@@ -894,6 +894,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           contracts,
           swap,
           await queryEtherSwapValuesFromLock(
+            swap,
             manager.provider,
             contracts.etherSwap,
             txToClaim!,
@@ -918,6 +919,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           contracts.contractHandler,
           swap,
           await queryERC20SwapValuesFromLock(
+            swap,
             manager.provider,
             contracts.erc20Swap,
             txToClaim!,
@@ -2011,6 +2013,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         : (swap as ChainSwapInfo).sendingData.transactionId;
 
     const etherSwapValues = await queryEtherSwapValuesFromLock(
+      swap,
       nursery.ethereumManager!.provider,
       contracts.etherSwap,
       lockupTransactionId!,
@@ -2064,6 +2067,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         : (swap as ChainSwapInfo).sendingData.transactionId;
 
     const erc20SwapValues = await queryERC20SwapValuesFromLock(
+      swap,
       nursery.ethereumManager.provider,
       contracts.erc20Swap,
       lockupTransactionId!,

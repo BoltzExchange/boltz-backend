@@ -3,13 +3,12 @@ import { Op } from 'sequelize';
 import type Logger from '../../Logger';
 import {
   getChainCurrency,
-  getHexBuffer,
   getHexString,
   getLightningCurrency,
   splitPairId,
 } from '../../Utils';
-import { etherDecimals } from '../../consts/Consts';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
+import type { ERC20SwapValues } from '../../consts/Types';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
@@ -17,7 +16,10 @@ import SwapRepository from '../../db/repositories/SwapRepository';
 import type Sidecar from '../../sidecar/Sidecar';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
-import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
+import {
+  queryERC20SwapValuesFromLock,
+  queryEtherSwapValuesFromLock,
+} from '../../wallet/ethereum/contracts/ContractUtils';
 import Errors from '../Errors';
 import MusigSigner from './MusigSigner';
 
@@ -67,12 +69,12 @@ class EipSigner {
 
       const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
 
-      const onchainAmount =
+      const lockupTransactionId =
         swap.type === SwapType.Submarine
-          ? (swap as Swap).onchainAmount
-          : (swap as ChainSwapInfo).receivingData.amount;
+          ? (swap as Swap).lockupTransactionId
+          : (swap as ChainSwapInfo).receivingData.lockupTransactionId;
 
-      if (onchainAmount === null || onchainAmount === undefined) {
+      if (lockupTransactionId === undefined || lockupTransactionId === null) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           'no coins were locked up',
         );
@@ -83,20 +85,36 @@ class EipSigner {
           ? (swap as Swap).lockupAddress
           : (swap as ChainSwapInfo).receivingData.lockupAddress;
 
+      const contracts = await manager.contractsForAddress(contractAddress);
+      if (contracts === undefined) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('contract not found');
+      }
+
+      // Query actual lockup values from the chain
+      // This handles commitment swaps automatically via logIndex lookup
+      const lockupValues = isEtherSwap
+        ? await queryEtherSwapValuesFromLock(
+            swap,
+            manager.provider,
+            contracts.etherSwap,
+            lockupTransactionId,
+          )
+        : await queryERC20SwapValuesFromLock(
+            swap,
+            manager.provider,
+            contracts.erc20Swap,
+            lockupTransactionId,
+          );
+
       const sidecarRes = await this.sidecar.signEvmRefund(
         manager.networkDetails.symbol,
         contractAddress,
-        getHexBuffer(swap.preimageHash),
+        lockupValues.preimageHash,
+        lockupValues.amount,
         isEtherSwap
-          ? BigInt(onchainAmount!) * etherDecimals
-          : (
-              this.walletManager.wallets.get(chainSymbol)!
-                .walletProvider as ERC20WalletProvider
-            ).formatTokenAmount(onchainAmount!),
-        isEtherSwap ? undefined : manager.tokenAddresses.get(chainSymbol),
-        swap.type === SwapType.Submarine
-          ? (swap as Swap).timeoutBlockHeight
-          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight,
+          ? undefined
+          : (lockupValues as ERC20SwapValues).tokenAddress,
+        lockupValues.timelock,
       );
 
       if (swap.type === SwapType.Chain) {

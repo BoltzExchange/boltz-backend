@@ -3,8 +3,49 @@ import { ContractABIs } from 'boltz-core/dist/lib/ABIs';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import type { Signer } from 'ethers';
+import type { Provider, Signer } from 'ethers';
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
+
+export const etherSwapCommitTypes = {
+  Commit: [
+    { name: 'preimageHash', type: 'bytes32' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'claimAddress', type: 'address' },
+    { name: 'refundAddress', type: 'address' },
+    { name: 'timelock', type: 'uint256' },
+  ],
+};
+
+export const erc20SwapCommitTypes = {
+  Commit: [
+    { name: 'preimageHash', type: 'bytes32' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'tokenAddress', type: 'address' },
+    { name: 'claimAddress', type: 'address' },
+    { name: 'refundAddress', type: 'address' },
+    { name: 'timelock', type: 'uint256' },
+  ],
+};
+
+export const getEtherSwapDomain = async (
+  provider: Provider,
+  etherSwap: EtherSwap,
+) => ({
+  name: 'EtherSwap',
+  version: (await etherSwap.version()).toString(),
+  chainId: (await provider.getNetwork()).chainId,
+  verifyingContract: await etherSwap.getAddress(),
+});
+
+export const getErc20SwapDomain = async (
+  provider: Provider,
+  erc20Swap: ERC20Swap,
+) => ({
+  name: 'ERC20Swap',
+  version: (await erc20Swap.version()).toString(),
+  chainId: (await provider.getNetwork()).chainId,
+  verifyingContract: await erc20Swap.getAddress(),
+});
 
 export type EthereumSetup = {
   mnemonic: string;

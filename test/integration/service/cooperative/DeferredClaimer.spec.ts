@@ -97,7 +97,11 @@ describe('DeferredClaimer', () => {
   const btcWallet = new Wallet(
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
-    new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    new CoreWalletProvider(
+      Logger.disabledLogger,
+      bitcoinClient,
+      Networks.bitcoinRegtest,
+    ),
     Networks.bitcoinRegtest,
   );
 

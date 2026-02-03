@@ -1,4 +1,4 @@
-use crate::utils::Type;
+use crate::utils::Chain;
 use crate::{target_fee::FeeTarget, utils::Destination};
 use anyhow::Result;
 use bitcoin::{Address as BitcoinAddress, Transaction as BitcoinTransaction};
@@ -83,13 +83,13 @@ impl Transaction {
         }
     }
 
-    pub fn parse(transaction_type: &Type, transaction: &[u8]) -> anyhow::Result<Transaction> {
+    pub fn parse(transaction_type: &Chain, transaction: &[u8]) -> anyhow::Result<Transaction> {
         match transaction_type {
-            Type::Bitcoin => {
+            Chain::Bitcoin => {
                 let tx = bitcoin::consensus::deserialize(transaction)?;
                 Ok(Transaction::Bitcoin(tx))
             }
-            Type::Elements => {
+            Chain::Elements => {
                 let tx = elements::encode::deserialize(transaction)?;
                 Ok(Transaction::Elements(tx))
             }

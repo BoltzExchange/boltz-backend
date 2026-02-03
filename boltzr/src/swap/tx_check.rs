@@ -109,14 +109,16 @@ impl TxChecker {
                 for tx in txs {
                     let entry = map.entry((**tx).clone()).or_default();
 
+                    let script_pubkey = pubkey.script_pubkey.clone();
                     let id = match (&pubkey.swap_id, &pubkey.funding_address_id) {
                         (Some(swap_id), None) => RelevantId::Swap(swap_id.clone()),
                         (None, Some(funding_address_id)) => {
                             RelevantId::FundingAddress(funding_address_id.clone())
                         }
                         _ => {
+                            let pubkey_hex = alloy::hex::encode(&script_pubkey);
                             error!(
-                                "script pubkey {pubkey:?} for symbol {symbol} has both swap_id and funding_address_id",
+                                "Script pubkey {pubkey_hex} for symbol {symbol} has both swap_id and funding_address_id",
                             );
                             continue;
                         }
@@ -129,7 +131,7 @@ impl TxChecker {
                         symbol,
                         tx.txid_hex()
                     );
-                    entry.push((id, TxDetails::Output(pubkey.script_pubkey.clone())));
+                    entry.push((id, TxDetails::Output(script_pubkey)));
                 }
             }
         }

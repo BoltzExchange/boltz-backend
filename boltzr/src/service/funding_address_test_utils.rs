@@ -12,7 +12,7 @@ pub mod test {
     use bitcoin::{TapTweakHash, hex::FromHex};
     use boltz_core::PublicNonce;
     use boltz_core::musig::Musig;
-    use boltz_core::utils::Type;
+    use boltz_core::utils::Chain;
     use std::str::FromStr;
     use std::sync::Arc;
 
@@ -31,7 +31,7 @@ pub mod test {
             status: FundingAddressStatus::Created.to_string(),
             key_index: 10,
             their_public_key: their_public_key.to_vec(),
-            tree: None,
+            tree: String::new(),
             timeout_block_height: 1000,
             lockup_transaction_id: None,
             lockup_transaction_vout: None,
@@ -39,7 +39,7 @@ pub mod test {
             swap_id: None,
             presigned_tx: None,
         };
-        fa.tree = fa.tree_json().ok();
+        fa.tree = fa.tree_json().unwrap();
         fa
     }
 
@@ -56,7 +56,7 @@ pub mod test {
             lockup_amount: Some(amount),
             ..test_funding_address(id, their_public_key)
         };
-        fa.tree = fa.tree_json().ok();
+        fa.tree = fa.tree_json().unwrap();
         fa
     }
 
@@ -125,10 +125,10 @@ pub mod test {
             bitcoin::XOnlyPublicKey::from_slice(&musig.agg_pk().serialize()).unwrap();
 
         let secp = Secp256k1::new();
-        let tree_json = funding_address.tree.clone().unwrap();
+        let tree_json = funding_address.tree.clone();
 
-        let tweak = match Type::from_str(&funding_address.symbol).unwrap() {
-            Type::Bitcoin => {
+        let tweak = match Chain::from_str(&funding_address.symbol).unwrap() {
+            Chain::Bitcoin => {
                 let tree =
                     serde_json::from_str::<boltz_core::bitcoin::FundingTree>(&tree_json).unwrap();
                 let taproot_spend_info = tree
@@ -142,7 +142,7 @@ pub mod test {
                 )
                 .to_scalar()
             }
-            Type::Elements => {
+            Chain::Elements => {
                 let tree =
                     serde_json::from_str::<boltz_core::elements::FundingTree>(&tree_json).unwrap();
                 let taproot_spend_info = tree

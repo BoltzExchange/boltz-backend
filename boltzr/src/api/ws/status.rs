@@ -1,6 +1,5 @@
 use crate::api::ws::Config;
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
-use crate::api::ws::status_subscriptions::StatusSubscriptions;
 use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, UpdateSender};
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
@@ -17,7 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use super::{FundingAddressSubscriptions, OfferSubscriptions};
+use super::{FundingAddressSubscriptions, OfferSubscriptions, StatusSubscriptions};
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -603,7 +602,8 @@ where
                 let leftover_subscriptions = match unsub.channel {
                     SubscriptionChannel::SwapUpdate => self
                         .status_subscriptions
-                        .subscription_removed(connection_id, unsub.args.clone()),
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                     SubscriptionChannel::InvoiceRequest => {
                         match self
                             .offer_subscriptions
@@ -619,7 +619,8 @@ where
                     }
                     SubscriptionChannel::FundingAddressUpdate => self
                         .funding_address_subscriptions
-                        .subscription_removed(connection_id, unsub.args.clone()),
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                 };
 
                 Ok(Some(WsResponse::Unsubscribe(UnsubscribeResponse {

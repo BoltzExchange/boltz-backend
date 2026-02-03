@@ -5,18 +5,16 @@ CREATE TABLE IF NOT EXISTS funding_addresses
     status                  TEXT                     NOT NULL,
     key_index               INTEGER                  NOT NULL,
     their_public_key        BYTEA                    NOT NULL,
-    tree                    TEXT,
+    tree                    TEXT                     NOT NULL,
     timeout_block_height    INTEGER                  NOT NULL,
     lockup_transaction_id   VARCHAR(255),
     lockup_transaction_vout INTEGER,
     lockup_amount           BIGINT,
-    swap_id                 VARCHAR(255),
+    swap_id                 VARCHAR(255) UNIQUE,
     presigned_tx            BYTEA,
     created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX funding_addresses_swap_id_idx ON funding_addresses (swap_id);
 
 CREATE TRIGGER update_funding_addresses_modified_time
     BEFORE UPDATE
@@ -24,7 +22,8 @@ CREATE TRIGGER update_funding_addresses_modified_time
     FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();
 
-ALTER TABLE script_pubkeys ADD COLUMN IF NOT EXISTS funding_address_id TEXT;
+ALTER TABLE script_pubkeys ADD COLUMN IF NOT EXISTS funding_address_id TEXT
+    REFERENCES funding_addresses (id);
 ALTER TABLE script_pubkeys ALTER COLUMN swap_id DROP NOT NULL;
 ALTER TABLE script_pubkeys ADD CONSTRAINT script_pubkeys_exclusive_id
     CHECK (

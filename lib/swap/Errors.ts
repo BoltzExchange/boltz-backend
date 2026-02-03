@@ -150,23 +150,4 @@ export default {
     message: 'incorrect asset was sent',
     code: concatErrorCode(ErrorCodePrefix.Swap, 31),
   }),
-  FUNDING_ADDRESS_NOT_FOUND: (id: string): Error => ({
-    message: `funding address ${id} not found`,
-    code: concatErrorCode(ErrorCodePrefix.Swap, 32),
-  }),
-  FUNDING_ADDRESS_NO_LOCKUP_TRANSACTION: (id: string): Error => ({
-    message: `funding address ${id} has no lockup transaction`,
-    code: concatErrorCode(ErrorCodePrefix.Swap, 33),
-  }),
-  FUNDING_ADDRESS_USED: (id: string, swapId: string): Error => ({
-    message: `funding address ${id} is already used for swap: ${swapId}`,
-    code: concatErrorCode(ErrorCodePrefix.Swap, 34),
-  }),
-  FUNDING_ADDRESS_AMOUNT_MISMATCH: (
-    id: string,
-    expectedAmount: number,
-  ): Error => ({
-    message: `funding address ${id} amount mismatch: expected ${expectedAmount}`,
-    code: concatErrorCode(ErrorCodePrefix.Swap, 35),
-  }),
 };

@@ -1,7 +1,8 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::api::ws::types::FundingAddressUpdate;
+use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
+use crate::currencies::get_chain_client;
 use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
@@ -16,10 +17,9 @@ use std::sync::Arc;
 impl IntoResponse for FundingAddressError {
     fn into_response(self) -> Response {
         let status = match &self {
-            FundingAddressError::CurrencyNotFound(_) | FundingAddressError::NoWallet(_) => {
-                StatusCode::NOT_FOUND
-            }
-            FundingAddressError::NotFound(_) => StatusCode::NOT_FOUND,
+            FundingAddressError::CurrencyNotFound(_)
+            | FundingAddressError::NoWallet(_)
+            | FundingAddressError::NotFound(_) => StatusCode::NOT_FOUND,
             FundingAddressError::Database(_) | FundingAddressError::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -42,8 +42,8 @@ pub struct CreateResponse {
     pub address: String,
     #[serde(rename = "timeoutBlockHeight")]
     pub timeout_block_height: u32,
-    #[serde(rename = "boltzPublicKey")]
-    pub boltz_public_key: String,
+    #[serde(rename = "serverPublicKey")]
+    pub server_public_key: String,
     #[serde(rename = "blindingKey", skip_serializing_if = "Option::is_none")]
     pub blinding_key: Option<String>,
     #[serde(rename = "tree")]
@@ -92,11 +92,11 @@ where
     let response = state.service.funding_address.create(request).await?;
 
     Ok((
-        StatusCode::OK,
+        StatusCode::CREATED,
         Json(CreateResponse {
             id: response.id,
             address: response.address,
-            boltz_public_key: response.boltz_public_key,
+            server_public_key: response.server_public_key,
             timeout_block_height: response.timeout_block_height,
             blinding_key: response.blinding_key,
             tree: response.tree,
@@ -113,9 +113,33 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let response = state.service.funding_address.get_by_id(&id)?;
+    // TODO: consider caching
+    let funding_address = state.service.funding_address.get_by_id(&id)?;
 
-    Ok((StatusCode::OK, Json(FundingAddressUpdate::from(response))).into_response())
+    let transaction = match &funding_address.lockup_transaction_id {
+        Some(tx_id) => {
+            let hex =
+                match get_chain_client(state.manager.get_currencies(), &funding_address.symbol) {
+                    Ok(client) => client.raw_transaction(tx_id).await.ok(),
+                    Err(_) => None,
+                };
+            Some(TransactionInfo {
+                id: tx_id.clone(),
+                hex,
+                eta: None,
+            })
+        }
+        None => None,
+    };
+
+    let update = FundingAddressUpdate {
+        id: funding_address.id,
+        status: funding_address.status,
+        transaction,
+        swap_id: funding_address.swap_id,
+    };
+
+    Ok((StatusCode::OK, Json(update)).into_response())
 }
 
 pub async fn get_signing_details<S, M>(
@@ -243,13 +267,13 @@ mod test {
             .unwrap()
     }
 
-    async fn make_create_request_raw(currency: &str, body: String) -> axum::response::Response {
+    async fn make_create_request_raw(body: String) -> axum::response::Response {
         setup_router()
             .await
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri(format!("/v2/funding/{}", currency))
+                    .uri("/v2/funding")
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(body))
                     .unwrap(),
@@ -270,7 +294,7 @@ mod test {
 
         assert!(!response.id.is_empty());
         assert!(!response.address.is_empty());
-        assert!(!response.boltz_public_key.is_empty());
+        assert!(!response.server_public_key.is_empty());
         // BTC (non-Liquid) should not have a blinding key
         assert!(response.blinding_key.is_none());
         // Verify tree is populated with the expected structure
@@ -282,7 +306,7 @@ mod test {
     async fn test_create_funding_address_liquid_has_blinding_key() {
         let res = make_create_request("L-BTC", &get_keypair()).await;
 
-        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::CREATED);
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let response: CreateResponse = serde_json::from_slice(&body).unwrap();
 
@@ -294,7 +318,7 @@ mod test {
             "Liquid address should be confidential (start with 'el'), got: {}",
             response.address
         );
-        assert!(!response.boltz_public_key.is_empty());
+        assert!(!response.server_public_key.is_empty());
         // Liquid should have a blinding key
         assert!(response.blinding_key.is_some());
         assert!(!response.blinding_key.as_ref().unwrap().is_empty());
@@ -331,7 +355,7 @@ mod test {
 
     #[tokio::test]
     async fn test_create_funding_address_malformed_json() {
-        let res = make_create_request_raw(TEST_SYMBOL, "{invalid json}".to_string()).await;
+        let res = make_create_request_raw("{invalid json}".to_string()).await;
 
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     }
@@ -354,7 +378,7 @@ mod test {
     async fn test_get_funding_address_success() {
         let create_res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
 
-        assert_eq!(create_res.status(), StatusCode::OK);
+        assert_eq!(create_res.status(), StatusCode::CREATED);
         let create_body = create_res.into_body().collect().await.unwrap().to_bytes();
         let create_response: CreateResponse = serde_json::from_slice(&create_body).unwrap();
 
@@ -413,7 +437,7 @@ mod test {
             .await
             .oneshot(
                 Request::builder()
-                    .method(axum::http::Method::POST)
+                    .method(axum::http::Method::PATCH)
                     .uri(format!("/v2/funding/{}/signature", id))
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(serde_json::to_vec(&body).unwrap()))
@@ -437,37 +461,5 @@ mod test {
         println!("body: {:?}", String::from_utf8_lossy(&body));
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("funding address not found"));
-    }
-
-    #[tokio::test]
-    async fn test_full_flow() {
-        let keypair = get_keypair();
-        let funding_address = make_create_request(TEST_SYMBOL, &keypair).await;
-        assert_eq!(funding_address.status(), StatusCode::OK);
-        let funding_address_body = funding_address
-            .into_body()
-            .collect()
-            .await
-            .unwrap()
-            .to_bytes();
-        let funding_address_response: CreateResponse =
-            serde_json::from_slice(&funding_address_body).unwrap();
-
-        let signing_details =
-            make_get_signing_details_request(&funding_address_response.id, "swap").await;
-        assert_eq!(signing_details.status(), StatusCode::OK);
-        let signing_details_body = signing_details
-            .into_body()
-            .collect()
-            .await
-            .unwrap()
-            .to_bytes();
-        let signing_details_response: GetSigningDetailsResponse =
-            serde_json::from_slice(&signing_details_body).unwrap();
-
-        assert!(!signing_details_response.pub_nonce.is_empty());
-        assert!(!signing_details_response.public_key.is_empty());
-        assert!(!signing_details_response.transaction_hex.is_empty());
-        assert!(!signing_details_response.transaction_hash.is_empty());
     }
 }

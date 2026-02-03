@@ -75,7 +75,7 @@ impl FundingAddressSigner {
         format!("session:{}", funding_address_id)
     }
 
-    fn is_eligible(&self, funding_address: &FundingAddress) -> Result<()> {
+    fn can_link_swap(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
         if status == FundingAddressStatus::TransactionClaimed {
             return Err(anyhow!("funding address has already been claimed"));
@@ -95,7 +95,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         swap_id: &str,
     ) -> Result<CooperativeDetails> {
-        self.is_eligible(funding_address)?;
+        self.can_link_swap(funding_address)?;
 
         let (tx, msg) = self
             .create_presigning_tx(funding_address, key_pair, swap_id)
@@ -138,7 +138,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &SetSignatureRequest,
     ) -> Result<(Transaction, String)> {
-        self.is_eligible(funding_address)?;
+        self.can_link_swap(funding_address)?;
 
         // Retrieve and remove the stored signing session from cache
         let session = self
@@ -177,7 +177,7 @@ impl FundingAddressSigner {
         let raw_tx = hex::decode(&session.transaction)?;
         let sig_bytes = sig.to_byte_array().to_vec();
         let mut tx = Transaction::parse(
-            &boltz_core::utils::Type::from_str(&funding_address.symbol)?,
+            &boltz_core::utils::Chain::from_str(&funding_address.symbol)?,
             &raw_tx,
         )?;
         match &mut tx {
@@ -535,7 +535,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         // Generate the funding address and send funds
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
@@ -772,7 +772,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         // Generate and fund the address
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
@@ -863,7 +863,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
         let funding_address_str = Address::from_bitcoin_script(

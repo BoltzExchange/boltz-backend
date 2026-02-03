@@ -100,7 +100,7 @@ pyroscope_pprofrs = { version = "0.2.10", optional = true }
 csv = "1.4.0"
 axum-extra = { version = "0.12.5", features = ["typed-header"] }
 redis = { version = "1.0.3", features = ["tokio-comp", "r2d2"] }
-bytes = "1.11.0"
+bytes = "1.11.1"
 elements-miniscript = "0.4.0"
 rand = { workspace = true }
 tokio-stream = "0.1.18"

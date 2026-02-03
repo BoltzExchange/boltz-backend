@@ -23,6 +23,8 @@ export default defineConfig({
           { text: '📙 Clients, SDKs & Libraries', link: '/libraries' },
           { text: '🤖 REST API v2', link: '/api-v2' },
           { text: '🔁 Swap Types & States', link: '/lifecycle' },
+          { text: '💰 Swap Limits & Fees', link: '/swap-limits-and-fees' },
+          { text: '♻️ Renegotiating Swaps', link: '/renegotiating' },
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },
           { text: '🔐 Commitment Swaps', link: '/commitment-swaps' },
           { text: '🛟 Swap Restore', link: '/swap-restore' },

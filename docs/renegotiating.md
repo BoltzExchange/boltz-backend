@@ -1,18 +1,20 @@
 # ♻️ Renegotiating Chain Swaps
 
 Renegotiation allows Chain Swaps that failed due to an incorrect lockup amount
-to be salvaged instead of requiring a refund.
+to be salvaged instead of requiring a refund. It applies only to Chain Swaps,
+not Submarine or Reverse Swaps.
 
 ## What is Renegotiation?
 
-Renegotiation enables Chain Swaps that entered the `transaction.lockupFailed`
-state due to incorrect payment amounts to continue. Instead of refunding the
-locked funds and creating a new swap, the client can request a new quote from
-Boltz based on the actual amount sent, and if accepted, the swap proceeds as
-normal.
+Renegotiation enables Chain Swaps that entered `transaction.lockupFailed`
+because the lockup amount was incorrect to continue.
+
+Instead of refunding the locked funds and creating a new swap, the client can
+request a new quote from Boltz based on the actual amount sent, and if accepted,
+the swap proceeds as normal.
 
 A Chain Swap becomes eligible for renegotiation when the user sends **less** or
-**more** than the expected amount. In both cases, the swap enters
+**more** than the expected amount. In both cases, the swap enters the
 `transaction.lockupFailed` status because the locked amount doesn't match what
 was originally quoted. Renegotiation allows Boltz to recalculate the appropriate
 amount to lock on the destination chain based on the actual amount received,
@@ -22,7 +24,7 @@ rather than failing the swap entirely.
 
 Renegotiation offers several advantages over refunding and creating a new swap:
 
-- **Lower fees**: Avoids additional onchain transaction fees for refund
+- **Lower fees**: Avoids additional on-chain transaction fees by avoiding refund
   transactions
 - **Simpler workflow**: No need to generate new preimages or derive new keys
 - **Better UX**: Users can recover from mistakes without starting over

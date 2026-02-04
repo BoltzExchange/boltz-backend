@@ -10,7 +10,7 @@ import path from 'path';
 import { parseTransaction, setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString, getPairId } from '../../../lib/Utils';
+import { getHexBuffer, getPairId } from '../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
@@ -660,12 +660,12 @@ describe('UtxoNursery', () => {
         () => {},
       );
 
-      // Create a funding address for this swap
       const fundingAddress = await FundingAddressRepository.addFundingAddress({
         id: `funding_${created.id}`,
+        status: 'created',
         symbol: elementsClient.symbol,
         keyIndex: 0,
-        theirPublicKey: getHexString(refundPublicKey),
+        theirPublicKey: refundPublicKey,
         timeoutBlockHeight: created.timeoutBlockHeight!,
         lockupAmount: expectedAmount,
         lockupTransactionVout: 0,

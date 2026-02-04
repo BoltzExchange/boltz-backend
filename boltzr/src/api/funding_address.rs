@@ -209,7 +209,6 @@ mod test {
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
-    use crate::db::helpers::script_pubkey::test::create_script_pubkeys_table;
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
@@ -294,18 +293,14 @@ mod test {
     async fn test_create_funding_address_success() {
         let res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
 
-        //assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.status(), StatusCode::CREATED);
         let body = res.into_body().collect().await.unwrap().to_bytes();
-        println!("body: {:?}", String::from_utf8_lossy(&body));
         let response: CreateResponse = serde_json::from_slice(&body).unwrap();
-        //println!("response: {:?}", response);
 
         assert!(!response.id.is_empty());
         assert!(!response.address.is_empty());
         assert!(!response.server_public_key.is_empty());
-        // BTC (non-Liquid) should not have a blinding key
         assert!(response.blinding_key.is_none());
-        // Verify tree is populated with the expected structure
         assert!(!response.tree.is_empty());
         assert!(response.tree.contains("refundLeaf"));
     }
@@ -320,17 +315,14 @@ mod test {
 
         assert!(!response.id.is_empty());
         assert!(!response.address.is_empty());
-        // Liquid confidential address should start with "el" for regtest
         assert!(
             response.address.starts_with("el"),
             "Liquid address should be confidential (start with 'el'), got: {}",
             response.address
         );
         assert!(!response.server_public_key.is_empty());
-        // Liquid should have a blinding key
         assert!(response.blinding_key.is_some());
         assert!(!response.blinding_key.as_ref().unwrap().is_empty());
-        // Verify tree is populated with the expected structure
         assert!(!response.tree.is_empty());
         assert!(response.tree.contains("refundLeaf"));
     }
@@ -463,10 +455,9 @@ mod test {
             "304402200000000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000000",
         )
         .await;
-        //assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
         let body = res.into_body().collect().await.unwrap().to_bytes();
-        println!("body: {:?}", String::from_utf8_lossy(&body));
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("funding address not found"));
     }

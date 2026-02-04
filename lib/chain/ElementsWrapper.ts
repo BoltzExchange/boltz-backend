@@ -88,6 +88,12 @@ class ElementsWrapper
       this.clients.map((c) => c.getRawTransactionVerbose(transactionId)),
     );
 
+  public getWalletTransaction = (transactionId: string) =>
+    this.walletClient().getWalletTransaction(transactionId);
+
+  public saveRebroadcast = (rawTransaction: string) =>
+    this.walletClient().saveRebroadcast(rawTransaction);
+
   public testMempoolAccept = (
     transactionsHex: string[],
   ): Promise<MempoolAcceptResult[]> =>

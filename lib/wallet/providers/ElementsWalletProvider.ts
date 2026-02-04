@@ -1,21 +1,24 @@
-import { parseTransaction } from '../../Core';
+import { Transaction, address as addressLib } from 'liquidjs-lib';
+import type { Network } from 'liquidjs-lib/src/networks';
 import type Logger from '../../Logger';
 import { getHexBuffer } from '../../Utils';
 import ChainClient from '../../chain/ChainClient';
 import type { IElementsClient } from '../../chain/ElementsClient';
-import { CurrencyType } from '../../consts/Enums';
+import type NotificationClient from '../../notifications/NotificationClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
+import { checkMempoolAndSaveRebroadcast } from './WalletProviderInterface';
 
 class ElementsWalletProvider implements WalletProviderInterface {
   public static readonly assetLabel = 'bitcoin';
-  public static readonly feeOutputType = 'fee';
 
   public readonly symbol: string;
 
   constructor(
     public logger: Logger,
     public chainClient: IElementsClient,
+    private readonly network: Network,
+    private readonly notifications?: NotificationClient,
   ) {
     this.symbol = chainClient.symbol;
 
@@ -84,29 +87,32 @@ class ElementsWalletProvider implements WalletProviderInterface {
     transactionId: string,
     address: string,
   ): Promise<SentTransaction> => {
-    const [addressInfo, transactionVerbose] = await Promise.all([
-      this.chainClient.getAddressInfo(address),
-      this.chainClient.getRawTransactionVerbose(transactionId),
-    ]);
+    const walletTransaction =
+      await this.chainClient.getWalletTransaction(transactionId);
 
-    const decodedAddress = addressInfo.unconfidential;
-    return {
+    await checkMempoolAndSaveRebroadcast(
+      this.logger,
+      this.notifications,
+      this.chainClient,
       transactionId,
-      transaction: parseTransaction(
-        CurrencyType.Liquid,
-        transactionVerbose.hex,
-      ),
-      vout: transactionVerbose.vout.find(
-        (output) =>
-          output.scriptPubKey.address === decodedAddress ||
-          output.scriptPubKey.addresses?.includes(decodedAddress),
-      )?.n,
-      fee: Math.ceil(
-        transactionVerbose.vout.find(
-          (output) =>
-            output.scriptPubKey.type === ElementsWalletProvider.feeOutputType,
-        )!.value * ChainClient.decimals,
-      ),
+      walletTransaction.hex,
+    );
+
+    const rawTransaction = Transaction.fromHex(walletTransaction.hex);
+    const targetScriptPubKey = addressLib.toOutputScript(address, this.network);
+
+    const vout = rawTransaction.outs.findIndex((output) =>
+      output.script.equals(targetScriptPubKey),
+    );
+    if (vout === -1) {
+      throw new Error('output not found in transaction');
+    }
+
+    return {
+      vout,
+      transactionId,
+      transaction: rawTransaction,
+      fee: Math.round(Math.abs(walletTransaction.fee * ChainClient.decimals)),
     };
   };
 

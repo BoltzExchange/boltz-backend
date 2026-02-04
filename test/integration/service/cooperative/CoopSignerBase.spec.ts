@@ -54,7 +54,11 @@ describe('CoopSignerBase', () => {
   const wallet = new Wallet(
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
-    new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    new CoreWalletProvider(
+      Logger.disabledLogger,
+      bitcoinClient,
+      Networks.bitcoinRegtest,
+    ),
     Networks.bitcoinRegtest,
   );
   const walletManager = {

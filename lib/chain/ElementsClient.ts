@@ -5,6 +5,7 @@ import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
 import type { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
 import { liquidSymbol } from '../consts/LiquidTypes';
+import type { WalletTransaction } from '../consts/Types';
 import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, IChainClient } from './ChainClient';
 import ChainClient from './ChainClient';
@@ -84,6 +85,28 @@ class ElementsClient extends ChainClient implements IElementsClient {
     type: AddressType | LiquidAddressType = LiquidAddressType.Blech32,
   ): Promise<string> => {
     return this.client.request<string>('getnewaddress', [label, type], true);
+  };
+
+  public override getWalletTransaction = async (
+    id: string,
+  ): Promise<WalletTransaction> => {
+    const res = await this.client.request<WalletTransaction>(
+      'gettransaction',
+      [id],
+      true,
+    );
+    if (res.fee && typeof res.fee === 'object' && 'bitcoin' in res.fee) {
+      res.fee = (res.fee as { bitcoin: number }).bitcoin;
+    }
+    if (
+      res.amount &&
+      typeof res.amount === 'object' &&
+      'bitcoin' in res.amount
+    ) {
+      res.amount = (res.amount as { bitcoin: number }).bitcoin;
+    }
+
+    return res;
   };
 
   public override sendToAddress = (

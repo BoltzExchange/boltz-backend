@@ -22,6 +22,7 @@ import PairRepository from '../../../lib/db/repositories/PairRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import type ClnPendingPaymentTracker from '../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
+import type NotificationClient from '../../../lib/notifications/NotificationClient';
 import LockupTransactionTracker from '../../../lib/rates/LockupTransactionTracker';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import type TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
@@ -60,6 +61,10 @@ const emitTransaction = (
   });
 };
 
+const mockNotificationClient = {
+  sendMessage: jest.fn(),
+} as unknown as NotificationClient;
+
 describe('UtxoNursery', () => {
   let db: Database;
 
@@ -86,8 +91,10 @@ describe('UtxoNursery', () => {
   ] as Currency[];
 
   const mnemonicPath = path.join(__dirname, 'seed.dat');
+
   const walletManager = new WalletManager(
     Logger.disabledLogger,
+    mockNotificationClient,
     mnemonicPath,
     mnemonicPath,
     currencies,

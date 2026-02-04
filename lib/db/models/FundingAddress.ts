@@ -17,18 +17,18 @@ type FundingAddressType = {
 };
 
 class FundingAddress extends Model implements FundingAddressType {
-  public id!: string;
-  public status!: string;
-  public symbol!: string;
-  public keyIndex!: number;
-  public theirPublicKey!: Buffer;
-  public tree?: string;
-  public timeoutBlockHeight!: number;
-  public lockupTransactionId?: string;
-  public lockupTransactionVout?: number;
-  public lockupAmount?: number;
-  public swapId?: string;
-  public presignedTx?: Buffer;
+  declare id: string;
+  declare status: string;
+  declare symbol: string;
+  declare keyIndex: number;
+  declare theirPublicKey: Buffer;
+  declare tree?: string;
+  declare timeoutBlockHeight: number;
+  declare lockupTransactionId?: string;
+  declare lockupTransactionVout?: number;
+  declare lockupAmount?: number;
+  declare swapId?: string;
+  declare presignedTx?: Buffer;
 
   public static load = (sequelize: Sequelize): void => {
     FundingAddress.init(

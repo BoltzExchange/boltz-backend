@@ -696,6 +696,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions on chains that were not configured', async () => {
       const swap = {
+        id: 'swap',
         pair: 'L-BTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -707,6 +708,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of legacy swaps', async () => {
       const swap = {
+        id: 'swap',
         pair: 'BTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -719,6 +721,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of swaps to outdated contracts', async () => {
       const swap = {
+        id: 'swap',
         pair: 'RBTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -733,6 +736,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of ARK swaps', async () => {
       const swap = {
+        id: 'swap',
         pair: 'ARK/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -787,11 +791,10 @@ describe('DeferredClaimer', () => {
       const spy = jest.spyOn(claimer, 'sweepSymbol');
       await expect(claimer.sweep()).resolves.toEqual(new Map());
 
-      expect(spy).toHaveBeenCalledTimes(5);
-      expect(spy).toHaveBeenCalledWith('BTC');
-      expect(spy).toHaveBeenCalledWith('RBTC');
-      expect(spy).toHaveBeenCalledWith('DOGE');
-      expect(spy).toHaveBeenCalledWith('ARK');
+      expect(spy).toHaveBeenCalledTimes(claimer['currencies'].size);
+      for (const symbol of claimer['currencies'].keys()) {
+        expect(spy).toHaveBeenCalledWith(symbol);
+      }
     });
 
     test('should keep pending swaps in map when claim fails', async () => {

@@ -483,23 +483,23 @@ mod test {
     use alloy::{network::AnyNetwork, providers::ProviderBuilder};
     use std::str::FromStr;
 
-    const FACTORY: &str = "0xaF37EC98A00FD63689CF3060BF3B6784E00caD82";
-    const QUOTER: &str = "0xb51727C996c68E60f598a923A5006853Cd2fEB31";
-    const ROUTER: &str = "0x244f68E77357f86A8522323EbF80B5FC2f814d3E";
+    const FACTORY: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+    const QUOTER: &str = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e";
+    const ROUTER: &str = "0xa51afafe0263b40edaef0df8781ea9aa03e381a3";
 
-    const WRBTC: &str = "0x542fda317318ebf1d3deaf76e0b632741a7e677d";
-    const USDT: &str = "0x779ded0c9e1022225f8e0630b35a9b54be713736";
+    const WETH: &str = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
+    const USDT: &str = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 
     fn get_provider() -> impl Provider<AnyNetwork> + Clone + 'static {
         ProviderBuilder::new()
             .network::<AnyNetwork>()
-            .connect_http("https://public-node.rsk.co".parse().unwrap())
+            .connect_http("https://arbitrum-one-rpc.publicnode.com".parse().unwrap())
     }
 
     #[test]
     fn test_data_reverse_empty_hops() {
         let data = Data {
-            token_in: WRBTC.parse().unwrap(),
+            token_in: WETH.parse().unwrap(),
             hops: vec![],
         };
 
@@ -509,7 +509,7 @@ mod test {
 
     #[test]
     fn test_data_reverse_single_hop() {
-        let token_a: Address = WRBTC.parse().unwrap();
+        let token_a: Address = WETH.parse().unwrap();
         let token_b: Address = USDT.parse().unwrap();
 
         let data = Data {
@@ -568,7 +568,7 @@ mod test {
 
     #[test]
     fn test_data_reverse_twice_is_identity() {
-        let token_a: Address = WRBTC.parse().unwrap();
+        let token_a: Address = WETH.parse().unwrap();
         let token_b: Address = USDT.parse().unwrap();
         let token_c: Address = "0x0000000000000000000000000000000000000003"
             .parse()
@@ -592,14 +592,13 @@ mod test {
         assert_eq!(reversed_twice, data);
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_quote_input() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -612,7 +611,7 @@ mod test {
 
         let (quote, data) = quoter
             .quote_input(
-                WRBTC.parse().unwrap(),
+                WETH.parse().unwrap(),
                 USDT.parse().unwrap(),
                 U256::from_str_radix("100000000000", 10).unwrap(),
             )
@@ -622,7 +621,7 @@ mod test {
         assert!(!quote.is_zero());
         match data {
             QuoterData::UniswapV3(Data { token_in, hops }) => {
-                assert_eq!(token_in, Address::from_str(WRBTC).unwrap());
+                assert_eq!(token_in, Address::from_str(WETH).unwrap());
                 assert_eq!(hops.len(), 1);
                 assert_eq!(hops[0].token, Address::from_str(USDT).unwrap());
                 assert!(hops[0].fee > 0);
@@ -630,14 +629,13 @@ mod test {
         };
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_quote_input_select_best() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -648,7 +646,7 @@ mod test {
         .await
         .unwrap();
 
-        let token_in: Address = WRBTC.parse().unwrap();
+        let token_in: Address = WETH.parse().unwrap();
         let token_out: Address = USDT.parse().unwrap();
         let amount_in = U256::from_str_radix("100000000000", 10).unwrap();
 
@@ -694,10 +692,10 @@ mod test {
     #[tokio::test]
     async fn test_quote_input_fail() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -726,14 +724,13 @@ mod test {
         assert_eq!(err.to_string(), "no results");
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_quote_output() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -746,7 +743,7 @@ mod test {
 
         let (quote, data) = quoter
             .quote_output(
-                WRBTC.parse().unwrap(),
+                WETH.parse().unwrap(),
                 USDT.parse().unwrap(),
                 U256::from_str_radix("100000000", 10).unwrap(),
             )
@@ -756,7 +753,7 @@ mod test {
         assert!(!quote.is_zero());
         match data {
             QuoterData::UniswapV3(Data { token_in, hops }) => {
-                assert_eq!(token_in, Address::from_str(WRBTC).unwrap());
+                assert_eq!(token_in, Address::from_str(WETH).unwrap());
                 assert_eq!(hops.len(), 1);
                 assert_eq!(hops[0].token, Address::from_str(USDT).unwrap());
                 assert!(hops[0].fee > 0);
@@ -764,14 +761,13 @@ mod test {
         };
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_quote_output_select_best() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -782,7 +778,7 @@ mod test {
         .await
         .unwrap();
 
-        let token_in: Address = WRBTC.parse().unwrap();
+        let token_in: Address = WETH.parse().unwrap();
         let token_out: Address = USDT.parse().unwrap();
         let amount_out = U256::from_str_radix("100000000", 10).unwrap();
 
@@ -828,10 +824,10 @@ mod test {
     #[tokio::test]
     async fn test_quote_output_fail() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -860,14 +856,13 @@ mod test {
         assert_eq!(err.to_string(), "no results");
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_quote_roundtrip_input_then_output() {
         let quoter = UniswapV3::new(
-            "RBTC".to_string(),
+            "ARB".to_string(),
             Cache::Memory(MemCache::new()),
             get_provider(),
-            WRBTC.parse().unwrap(),
+            WETH.parse().unwrap(),
             Config {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
@@ -878,7 +873,7 @@ mod test {
         .await
         .unwrap();
 
-        let token_in: Address = WRBTC.parse().unwrap();
+        let token_in: Address = WETH.parse().unwrap();
         let token_out: Address = USDT.parse().unwrap();
         let original_amount_in = U256::from_str_radix("100000000000", 10).unwrap();
 

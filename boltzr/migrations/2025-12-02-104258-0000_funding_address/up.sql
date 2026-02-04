@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS funding_addresses (
   lockup_amount BIGINT,
   swap_id VARCHAR(255) UNIQUE,
   presigned_tx BYTEA,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE TRIGGER update_funding_addresses_modified_time BEFORE

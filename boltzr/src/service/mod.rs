@@ -107,6 +107,7 @@ pub mod test {
     use crate::db::helpers::keys::KeysHelperDatabase;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::prometheus::test::MockPrometheus;
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use std::collections::HashMap;
@@ -186,7 +187,7 @@ pub mod test {
                 .expect_get_by_id()
                 .returning(|_| Ok(Default::default()));
 
-            let pool = crate::db::helpers::web_hook::test::get_pool();
+            let pool = get_pool();
             let currencies = currencies.unwrap_or_default();
             Self {
                 swap_rescue: SwapRescue::new(

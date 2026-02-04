@@ -133,6 +133,11 @@ async fn main() {
         std::process::exit(1);
     });
 
+    db::run_migrations(&db_pool).unwrap_or_else(|err| {
+        error!("Could not run migrations: {}", err);
+        std::process::exit(1);
+    });
+
     let cache = if let Some(config) = config.cache {
         match cache::Redis::new(&config).await {
             Ok(cache) => Cache::Redis(cache),

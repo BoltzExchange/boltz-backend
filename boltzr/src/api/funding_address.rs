@@ -209,6 +209,8 @@ mod test {
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
+    use crate::db::helpers::script_pubkey::test::create_script_pubkeys_table;
+    use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
     use crate::swap::manager::test::MockManager;
@@ -232,6 +234,12 @@ mod test {
 
     async fn setup_router() -> Router {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
+        let currencies = get_test_currencies().await;
+        let pool = get_pool();
+        crate::db::helpers::keys::test::create_keys_table(
+            &pool,
+            currencies.keys().cloned().collect::<Vec<String>>(),
+        );
         Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
             ServerState {
                 manager: Arc::new(MockManager::new()),

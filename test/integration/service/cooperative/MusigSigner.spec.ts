@@ -29,6 +29,7 @@ import { RefundStatus } from '../../../../lib/db/models/RefundTransaction';
 import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../../../../lib/db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
@@ -57,6 +58,10 @@ jest.mock('../../../../lib/db/repositories/ReverseSwapRepository');
 
 jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
   getSwap: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => ({
+  getBySwapId: jest.fn().mockResolvedValue(null),
 }));
 
 describe('MusigSigner', () => {
@@ -689,6 +694,23 @@ describe('MusigSigner', () => {
           version: SwapVersion.Taproot,
         } as any),
       ).resolves.toEqual(RefundRejectionReason.StatusNotEligible);
+    });
+
+    test('should not be eligible when swap has a funding address', async () => {
+      FundingAddressRepository.getBySwapId = jest.fn().mockResolvedValue({
+        id: 'fundingAddr123',
+        swapId: 'swapWithFundingAddress',
+      });
+
+      await expect(
+        MusigSigner.refundNonEligibilityReason({
+          id: 'swapWithFundingAddress',
+          version: SwapVersion.Taproot,
+          status: SwapUpdateEvent.InvoiceFailedToPay,
+        } as Swap),
+      ).resolves.toEqual(RefundRejectionReason.FundingAddress);
+
+      FundingAddressRepository.getBySwapId = jest.fn().mockResolvedValue(null);
     });
 
     describe('LND', () => {

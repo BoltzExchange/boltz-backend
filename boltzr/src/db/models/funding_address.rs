@@ -6,7 +6,6 @@ use bitcoin::{
     TapTweakHash,
     absolute::LockTime,
     key::{Keypair, Secp256k1, TweakedPublicKey},
-    secp256k1::PublicKey,
 };
 use boltz_core::{
     Musig,
@@ -67,7 +66,7 @@ impl FundingAddress {
     }
 
     pub fn script_pubkey(&self, our_key_pair: &Keypair) -> Result<Vec<u8>> {
-        let tweaked_key = self.musig(&our_key_pair)?.agg_pk().serialize();
+        let tweaked_key = self.musig(our_key_pair)?.agg_pk().serialize();
         match self.symbol_type()? {
             Type::Bitcoin => Ok(bitcoin::ScriptBuf::new_p2tr_tweaked(
                 TweakedPublicKey::dangerous_assume_tweaked(bitcoin::XOnlyPublicKey::from_slice(

@@ -813,7 +813,6 @@ mod test {
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
     use crate::db::helpers::keys::test::MockKeysHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
-    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
@@ -1099,7 +1098,6 @@ mod test {
                         },
                     )])),
                     Arc::new(MockFundingAddressHelper::new()),
-                    Arc::new(MockScriptPubKeyHelper::new()),
                     Arc::new(MockKeysHelper::new()),
                     None,
                     None,

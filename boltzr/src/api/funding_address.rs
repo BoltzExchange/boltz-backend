@@ -258,7 +258,7 @@ mod test {
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri(format!("/v2/funding"))
+                    .uri("/v2/funding")
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(serde_json::to_vec(&body).unwrap()))
                     .unwrap(),

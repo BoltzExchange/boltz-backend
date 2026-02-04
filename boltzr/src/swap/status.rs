@@ -76,9 +76,10 @@ pub fn serialize_swap_updates(
     status.iter().map(|status| status.to_string())
 }
 
-#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug)]
+#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug, Default)]
 pub enum FundingAddressStatus {
     #[strum(serialize = "created")]
+    #[default]
     Created,
     #[strum(serialize = "expired")]
     Expired,
@@ -93,12 +94,6 @@ pub enum FundingAddressStatus {
 
     // In case we cannot parse a string
     Unknown,
-}
-
-impl Default for FundingAddressStatus {
-    fn default() -> Self {
-        FundingAddressStatus::Created
-    }
 }
 
 impl FundingAddressStatus {

@@ -6,6 +6,7 @@ use diesel::insert_into;
 use diesel::prelude::*;
 use tracing::instrument;
 
+#[allow(dead_code)]
 pub trait ScriptPubKeyHelper {
     fn get_by_scripts(&self, symbol: &str, scripts: &[Vec<u8>])
     -> QueryResponse<Vec<ScriptPubKey>>;

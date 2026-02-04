@@ -163,7 +163,7 @@ enum WsResponse {
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
     Update(UpdateResponse<SwapStatus>),
-    #[serde(rename = "update")]
+    #[serde(rename = "update", skip_deserializing)]
     FundingUpdate(UpdateResponse<FundingAddressUpdate>),
     #[serde(rename = "request")]
     InvoiceRequest(UpdateResponse<InvoiceRequest>),

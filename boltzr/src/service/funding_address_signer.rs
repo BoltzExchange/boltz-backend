@@ -115,7 +115,7 @@ impl FundingAddressSigner {
                 &Self::cache_field(&funding_address.id),
                 &PendingSigningSession {
                     sec_nonce: hex::encode(sec_nonce),
-                    pub_nonce: hex::encode(&pub_nonce),
+                    pub_nonce: hex::encode(pub_nonce),
                     sighash: hex::encode(msg),
                     swap_id: swap_id.to_string(),
                     transaction: tx_hex.clone(),
@@ -293,7 +293,7 @@ impl FundingAddressSigner {
                             as u64,
                     ),
                 },
-                keys: key_pair.clone(),
+                keys: *key_pair,
             }))),
             Type::Elements => {
                 let chain_client = get_chain_client(&self.currencies, symbol)?;
@@ -311,7 +311,7 @@ impl FundingAddressSigner {
                     output_type: OutputType::Taproot(None),
                     outpoint: elements::OutPoint::new(tx_id.parse()?, vout),
                     tx_out,
-                    keys: key_pair.clone(),
+                    keys: *key_pair,
                     blinding_key: Some(Keypair::from_seckey_slice(&secp, &blinding_key)?),
                 })))
             }

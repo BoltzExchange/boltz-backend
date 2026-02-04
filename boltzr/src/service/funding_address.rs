@@ -6,7 +6,6 @@ use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
 use crate::db::helpers::keys::KeysHelper;
-use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
@@ -61,7 +60,6 @@ impl std::error::Error for FundingAddressError {}
 pub struct FundingAddressService {
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
     keys_helper: Arc<dyn KeysHelper + Sync + Send>,
-    script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
     signer: FundingAddressSigner,
     currencies: Currencies,
 }
@@ -88,7 +86,6 @@ impl FundingAddressService {
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
-        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
         currencies: Currencies,
         cache: Cache,
     ) -> Self {
@@ -97,7 +94,6 @@ impl FundingAddressService {
         Self {
             funding_address_helper,
             keys_helper,
-            script_pubkey_helper,
             signer,
             currencies,
         }
@@ -282,7 +278,6 @@ mod test {
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
     use crate::db::helpers::keys::test::MockKeysHelper;
-    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::test::get_test_currencies;
     use crate::wallet::Network;
@@ -297,7 +292,6 @@ mod test {
     struct TestContext {
         funding_helper: MockFundingAddressHelper,
         keys_helper: MockKeysHelper,
-        script_pubkey_helper: MockScriptPubKeyHelper,
         currencies: Option<Currencies>,
     }
 
@@ -306,7 +300,6 @@ mod test {
             Self {
                 funding_helper: MockFundingAddressHelper::new(),
                 keys_helper: MockKeysHelper::new(),
-                script_pubkey_helper: MockScriptPubKeyHelper::new(),
                 currencies: None,
             }
         }
@@ -350,11 +343,6 @@ mod test {
             self
         }
 
-        fn with_script_pubkey_success(mut self) -> Self {
-            self.script_pubkey_helper.expect_add().returning(|_| Ok(1));
-            self
-        }
-
         fn with_get_by_id_result(mut self, result: Option<FundingAddress>) -> Self {
             self.funding_helper
                 .expect_get_by_id()
@@ -395,7 +383,6 @@ mod test {
                 Arc::new(self.keys_helper),
                 Arc::new(MockSwapHelper::new()),
                 Arc::new(MockChainSwapHelper::new()),
-                Arc::new(self.script_pubkey_helper),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
                 Cache::Memory(crate::cache::MemCache::new()),
             )
@@ -431,7 +418,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(10)
                 .with_insert_success()
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();
@@ -451,7 +437,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(10)
                 .with_insert_success()
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();
@@ -472,7 +457,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(expected)
                 .with_insert_validator(move |fa, _| fa.key_index == expected)
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();

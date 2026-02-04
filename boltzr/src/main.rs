@@ -5,7 +5,6 @@ use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
 use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::keys::KeysHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
-use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::{Manager, SwapManager};
@@ -195,7 +194,6 @@ async fn main() {
         Arc::new(ReverseSwapHelperDatabase::new(db_pool.clone())),
         currencies.clone(),
         Arc::new(FundingAddressHelperDatabase::new(db_pool.clone())),
-        Arc::new(ScriptPubKeyHelperDatabase::new(db_pool.clone())),
         Arc::new(KeysHelperDatabase::new(db_pool.clone())),
         config.marking,
         config.historical,

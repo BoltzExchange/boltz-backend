@@ -131,11 +131,13 @@ pub struct SignRawTransactionResponse {
     pub complete: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubmitPackageTxFees {
     pub base: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubmitPackageTxResult {
     pub txid: String,
@@ -144,6 +146,7 @@ pub struct SubmitPackageTxResult {
     pub error: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubmitPackageResponse {
     pub package_msg: String,

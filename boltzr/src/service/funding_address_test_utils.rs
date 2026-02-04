@@ -33,11 +33,7 @@ pub mod test {
             their_public_key: their_public_key.to_vec(),
             tree: String::new(),
             timeout_block_height: 1000,
-            lockup_transaction_id: None,
-            lockup_transaction_vout: None,
-            lockup_amount: None,
-            swap_id: None,
-            presigned_tx: None,
+            ..Default::default()
         };
         fa.tree = fa.tree_json().unwrap();
         fa
@@ -170,7 +166,7 @@ pub mod test {
         );
 
         let musig = musig.generate_nonce(&mut Musig::rng());
-        let client_nonce = musig.pub_nonce().clone();
+        let client_nonce = *musig.pub_nonce();
 
         let musig = musig
             .aggregate_nonces(vec![(

@@ -159,17 +159,18 @@ class Boltz {
 
     const walletCurrencies = Array.from(this.currencies.values());
 
+    const notificationClient = new NotificationClient(
+      this.logger,
+      this.sidecar,
+    );
+
     this.walletManager = new WalletManager(
       this.logger,
+      notificationClient,
       this.config.mnemonicpath,
       this.config.mnemonicpathEvm,
       walletCurrencies,
       this.ethereumManagers,
-    );
-
-    const notificationClient = new NotificationClient(
-      this.logger,
-      this.sidecar,
     );
 
     try {

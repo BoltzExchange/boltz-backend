@@ -78,12 +78,20 @@ describe('ChainSwapSigner', () => {
   const btcWallet = new Wallet(
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
-    new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    new CoreWalletProvider(
+      Logger.disabledLogger,
+      bitcoinClient,
+      Networks.bitcoinRegtest,
+    ),
     Networks.bitcoinRegtest,
   );
   const liquidWallet = new WalletLiquid(
     Logger.disabledLogger,
-    new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
+    new ElementsWalletProvider(
+      Logger.disabledLogger,
+      elementsClient,
+      LiquidNetworks.liquidRegtest,
+    ),
     slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
     LiquidNetworks.liquidRegtest,
   );

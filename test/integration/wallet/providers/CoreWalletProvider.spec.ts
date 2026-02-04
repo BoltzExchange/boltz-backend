@@ -13,7 +13,11 @@ jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 const testAddress = 'bcrt1q54g5dyexre4dg78ymnzz2y8h9xfptjrtxxakn6';
 
 describe('CoreWalletProvider', () => {
-  const provider = new CoreWalletProvider(Logger.disabledLogger, bitcoinClient);
+  const provider = new CoreWalletProvider(
+    Logger.disabledLogger,
+    bitcoinClient,
+    Networks.bitcoinRegtest,
+  );
 
   const verifySentTransaction = async (
     sentTransaction: SentTransaction,

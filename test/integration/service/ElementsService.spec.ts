@@ -23,7 +23,11 @@ const slip77 = SLIP77Factory(ecc);
 describe('ElementsService', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
-    new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
+    new ElementsWalletProvider(
+      Logger.disabledLogger,
+      elementsClient,
+      networks.regtest,
+    ),
     slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
     networks.regtest,
   );
@@ -89,7 +93,11 @@ describe('ElementsService', () => {
   test('should unblind outputs that were blinded by unknown keys', async () => {
     const secondWallet = new WalletLiquid(
       Logger.disabledLogger,
-      new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
+      new ElementsWalletProvider(
+        Logger.disabledLogger,
+        elementsClient,
+        networks.regtest,
+      ),
       slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
       networks.regtest,
     );

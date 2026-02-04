@@ -50,6 +50,8 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   ): Promise<string>;
   getRawTransaction(transactionId: string): Promise<string>;
   getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
+  getWalletTransaction(transactionId: string): Promise<WalletTransaction>;
+  saveRebroadcast(rawTransaction: string): Promise<void>;
   testMempoolAccept(transactionsHex: string[]): Promise<MempoolAcceptResult[]>;
 
   estimateFee(confTarget?: number): Promise<number>;
@@ -180,6 +182,10 @@ class ChainClient extends BaseClient implements IChainClient {
 
   public getWalletTransaction = (id: string): Promise<WalletTransaction> => {
     return this.client.request<WalletTransaction>('gettransaction', [id], true);
+  };
+
+  public saveRebroadcast = (rawTransaction: string): Promise<void> => {
+    return this.rebroadcaster.save(rawTransaction);
   };
 
   public getRawMempool = async () => {

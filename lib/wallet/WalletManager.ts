@@ -18,6 +18,7 @@ import type { KeyProviderType } from '../db/models/KeyProvider';
 import KeyRepository from '../db/repositories/KeyRepository';
 import type LndClient from '../lightning/LndClient';
 import type ClnClient from '../lightning/cln/ClnClient';
+import type NotificationClient from '../notifications/NotificationClient';
 import Errors from './Errors';
 import Wallet from './Wallet';
 import WalletLiquid from './WalletLiquid';
@@ -69,10 +70,11 @@ class WalletManager {
   private readonly derivationPath = 'm/0';
 
   constructor(
-    private logger: Logger,
+    private readonly logger: Logger,
+    private readonly notificationClient: NotificationClient,
     mnemonicPath: string,
     mnemonicPathEvm: string,
-    private currencies: Currency[],
+    private readonly currencies: Currency[],
     public ethereumManagers: EthereumManager[],
   ) {
     this.logger.debug(`Loading mnemonic from: ${mnemonicPath}`);
@@ -110,11 +112,15 @@ class WalletManager {
         walletProvider = new CoreWalletProvider(
           this.logger,
           currency.chainClient!,
+          currency.network!,
+          this.notificationClient,
         );
       } else {
         walletProvider = new ElementsWalletProvider(
           this.logger,
           currency.chainClient! as IElementsClient,
+          currency.network! as LiquidNetwork,
+          this.notificationClient,
         );
       }
 

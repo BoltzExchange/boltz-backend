@@ -1,3 +1,4 @@
+import { Networks } from 'boltz-core';
 import Logger from '../../../lib/Logger';
 import BalanceCheck from '../../../lib/service/BalanceCheck';
 import Errors from '../../../lib/service/Errors';
@@ -8,7 +9,11 @@ import { bitcoinClient } from '../Nodes';
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('BalanceCheck', () => {
-  const wallet = new CoreWalletProvider(Logger.disabledLogger, bitcoinClient);
+  const wallet = new CoreWalletProvider(
+    Logger.disabledLogger,
+    bitcoinClient,
+    Networks.bitcoinRegtest,
+  );
   const balanceCheck = new BalanceCheck(Logger.disabledLogger, {
     wallets: new Map<string, any>([['BTC', wallet]]),
   } as unknown as WalletManager);

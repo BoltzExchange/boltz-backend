@@ -28,6 +28,7 @@ export default defineConfig({
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },
           { text: '🔐 Commitment Swaps', link: '/commitment-swaps' },
           { text: '🛟 Swap Restore', link: '/swap-restore' },
+          { text: '⛑️ Asset Rescue', link: '/asset-rescue' },
           { text: '⚠️ Common Mistakes', link: '/common-mistakes' },
           { text: "🚫 Don't trust. Verify!", link: '/dont-trust-verify' },
           { text: '🪄 Magic Routing Hints', link: '/magic-routing-hints' },

@@ -1,5 +1,4 @@
-CREATE OR REPLACE FUNCTION check_invoice_update()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION check_invoice_update () RETURNS TRIGGER AS $$
 BEGIN
     IF OLD.invoice IS NOT NULL AND OLD.invoice != NEW.invoice THEN
         RAISE EXCEPTION 'INVOICE_ALREADY_SET';
@@ -9,6 +8,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_check_invoice_update
-BEFORE UPDATE ON swaps
-FOR EACH ROW EXECUTE FUNCTION check_invoice_update();
+CREATE TRIGGER trigger_check_invoice_update BEFORE
+UPDATE ON swaps FOR EACH ROW
+EXECUTE FUNCTION check_invoice_update ();

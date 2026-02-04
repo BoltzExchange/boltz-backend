@@ -1,6 +1,9 @@
 {
-  "plugins": ["@trivago/prettier-plugin-sort-imports"],
-  "importOrder": ["^./Tracing$" ,"<THIRD_PARTY_MODULES>", "^[../]", "^[./]"],
+  "plugins": [
+    "@trivago/prettier-plugin-sort-imports",
+    "prettier-plugin-sql"
+  ],
+  "importOrder": ["^./Tracing$", "<THIRD_PARTY_MODULES>", "^[../]", "^[./]"],
   "importOrderSeparation": false,
   "importOrderSortSpecifiers": true,
   "importOrderParserPlugins": ["typescript"],
@@ -11,5 +14,17 @@
   "endOfLine": "lf",
   "arrowParens": "always",
   "bracketSpacing": true,
-  "proseWrap": "always"
+  "proseWrap": "always",
+  "overrides": [
+    {
+      "files": "*.sql",
+      "options": {
+        "parser": "sql",
+        "language": "postgresql",
+        "keywordCase": "upper",
+        "dataTypeCase": "upper",
+        "functionCase": "upper"
+      }
+    }
+  ]
 }

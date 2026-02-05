@@ -388,11 +388,7 @@ where
         }
 
         match self.manager.claim_batch(swaps).await {
-            Ok((tx, fee)) => Ok(Response::new(ClaimBatchResponse {
-                transaction: tx.serialize(),
-                transaction_id: tx.txid(),
-                fee,
-            })),
+            Ok(result) => Ok(Response::new(result)),
             Err(err) => Err(Status::new(Code::Internal, err.to_string())),
         }
     }

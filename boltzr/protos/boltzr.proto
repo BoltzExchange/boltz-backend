@@ -132,9 +132,8 @@ message ClaimBatchRequest {
 }
 
 message ClaimBatchResponse {
-  bytes transaction = 1;
-  string transaction_id = 2;
-  uint64 fee = 3;
+  repeated string transaction_ids = 1;
+  uint64 fee = 2;
 }
 
 message SignEvmRefundRequest {

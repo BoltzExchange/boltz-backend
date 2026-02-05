@@ -81,7 +81,7 @@ pub fn construct_raw<C: Signing + Verification>(
     };
 
     let mut tx = Transaction {
-        version: Version::TWO,
+        version: Version(3),
         lock_time: if let Some(lock_time) = inputs
             .iter()
             .filter_map(|input| match input.input_type {

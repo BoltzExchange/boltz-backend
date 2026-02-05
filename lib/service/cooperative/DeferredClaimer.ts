@@ -7,7 +7,6 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
-  getHexString,
   splitPairId,
 } from '../../Utils';
 import ArkClient from '../../chain/ArkClient';
@@ -464,21 +463,18 @@ class DeferredClaimer extends CoopSignerBase<{
     swaps: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[],
   ) => {
     let transactionFee: number;
-    let claimTransactionId: string;
+    let transactionIds: string[];
 
     const currency = this.currencies.get(symbol)!;
 
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const res = await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
-        transactionFee = res.fee;
-        claimTransactionId = res.transactionId;
-
-        await currency!.chainClient!.sendRawTransaction(
-          getHexString(res.transaction),
-          true,
+        const { transactionIdsList, fee } = await this.sidecar.claimBatch(
+          swaps.map((s) => s.swap.id),
         );
+        transactionIds = transactionIdsList;
+        transactionFee = fee;
         break;
       }
 
@@ -514,7 +510,7 @@ class DeferredClaimer extends CoopSignerBase<{
             })),
         );
 
-        claimTransactionId = tx.hash;
+        transactionIds = [tx.hash];
         transactionFee = calculateEthereumTransactionFee(tx);
 
         break;
@@ -554,7 +550,7 @@ class DeferredClaimer extends CoopSignerBase<{
             })),
         );
 
-        claimTransactionId = tx.hash;
+        transactionIds = [tx.hash];
         transactionFee = calculateEthereumTransactionFee(tx);
 
         break;
@@ -570,7 +566,7 @@ class DeferredClaimer extends CoopSignerBase<{
     this.logger.info(
       `Claimed ${symbol} of Swaps ${swaps
         .map((toClaim) => toClaim.swap.id)
-        .join(', ')} in: ${claimTransactionId}`,
+        .join(', ')} in: ${transactionIds.join(', ')}`,
     );
 
     const transactionFeePerSwap = Math.ceil(transactionFee / swaps.length);

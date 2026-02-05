@@ -553,7 +553,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inject_updates_sends_empty_vec_when_no_matching_swaps() {
+    async fn test_inject_updates_sends_nothing_when_no_matching_swaps() {
         let (subscriptions, _, _) = create_status_subscriptions();
         let connection_id = 1;
         let mut rx = subscriptions.connection_added(connection_id);
@@ -564,8 +564,7 @@ mod tests {
 
         subscriptions.inject_updates(connection_id, updates).await;
 
-        let received = rx.recv().await.unwrap();
-        assert_eq!(received.len(), 0);
+        assert!(rx.try_recv().is_err());
     }
 
     #[test]

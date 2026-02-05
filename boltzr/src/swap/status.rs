@@ -76,10 +76,9 @@ pub fn serialize_swap_updates(
     status.iter().map(|status| status.to_string())
 }
 
-#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug, Default)]
+#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug)]
 pub enum FundingAddressStatus {
     #[strum(serialize = "created")]
-    #[default]
     Created,
     #[strum(serialize = "expired")]
     Expired,

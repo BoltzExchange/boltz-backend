@@ -204,7 +204,7 @@ where
             )
             .route(
                 "/v2/funding/{id}/signature",
-                post(funding_address::set_signature::<S, M>),
+                patch(funding_address::set_signature::<S, M>),
             )
             // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))

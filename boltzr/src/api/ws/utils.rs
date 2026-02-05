@@ -5,7 +5,6 @@ use tracing::{trace, warn};
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Sends updates through an mpsc channel with a timeout to prevent blocking.
-/// Returns silently on error (channel closed) or timeout, logging warnings as appropriate.
 pub async fn send_with_timeout<T: Send + 'static>(tx: mpsc::Sender<Vec<T>>, updates: Vec<T>) {
     if updates.is_empty() {
         return;

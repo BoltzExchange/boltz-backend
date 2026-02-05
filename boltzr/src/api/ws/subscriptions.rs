@@ -1,7 +1,7 @@
 use super::utils::send_with_timeout;
 use crate::api::ws::{
     offer_subscriptions::ConnectionId,
-    types::{SwapStatus, UpdateSender},
+    types::{FundingAddressUpdate, SubscriptionUpdate, SwapStatus, UpdateSender},
 };
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -10,22 +10,25 @@ use tokio_util::sync::CancellationToken;
 
 const SUBSCRIPTION_BUFFER: usize = 16;
 
-type Subscriptions = (Vec<String>, mpsc::Sender<Vec<SwapStatus>>);
+type SubscriptionEntry<T> = (Vec<String>, mpsc::Sender<Vec<T>>);
 
 #[derive(Debug, Clone)]
-pub struct StatusSubscriptions {
-    swaps: Arc<DashMap<String, Vec<ConnectionId>>>,
-    subscriptions: Arc<DashMap<ConnectionId, Subscriptions>>,
+pub struct Subscriptions<T: SubscriptionUpdate> {
+    entities: Arc<DashMap<String, Vec<ConnectionId>>>,
+    subscriptions: Arc<DashMap<ConnectionId, SubscriptionEntry<T>>>,
 }
 
-impl StatusSubscriptions {
-    pub fn new(cancellation_token: CancellationToken, status_tx: UpdateSender<SwapStatus>) -> Self {
+pub type StatusSubscriptions = Subscriptions<SwapStatus>;
+pub type FundingAddressSubscriptions = Subscriptions<FundingAddressUpdate>;
+
+impl<T: SubscriptionUpdate> Subscriptions<T> {
+    pub fn new(cancellation_token: CancellationToken, update_tx: UpdateSender<T>) -> Self {
         let subscriptions = Self {
-            swaps: Arc::new(DashMap::new()),
+            entities: Arc::new(DashMap::new()),
             subscriptions: Arc::new(DashMap::new()),
         };
 
-        subscriptions.forward_updates(cancellation_token, status_tx);
+        subscriptions.forward_updates(cancellation_token, update_tx);
         subscriptions
     }
 
@@ -33,7 +36,7 @@ impl StatusSubscriptions {
         self.subscriptions.contains_key(&connection)
     }
 
-    pub fn connection_added(&self, connection: ConnectionId) -> mpsc::Receiver<Vec<SwapStatus>> {
+    pub fn connection_added(&self, connection: ConnectionId) -> mpsc::Receiver<Vec<T>> {
         let (tx, rx) = mpsc::channel(SUBSCRIPTION_BUFFER);
         self.subscriptions
             .entry(connection)
@@ -41,15 +44,15 @@ impl StatusSubscriptions {
         rx
     }
 
-    pub fn subscription_added(&self, connection: ConnectionId, swap_ids: Vec<String>) {
+    pub fn subscription_added(&self, connection: ConnectionId, ids: Vec<String>) {
         if let Some(mut sub) = self.subscriptions.get_mut(&connection) {
-            for swap_id in swap_ids {
-                if !sub.0.contains(&swap_id) {
-                    sub.0.push(swap_id.clone());
+            for id in ids {
+                if !sub.0.contains(&id) {
+                    sub.0.push(id.clone());
                 }
 
-                self.swaps
-                    .entry(swap_id)
+                self.entities
+                    .entry(id)
                     .and_modify(|connections| {
                         if !connections.contains(&connection) {
                             connections.push(connection);
@@ -63,93 +66,91 @@ impl StatusSubscriptions {
     pub fn subscription_removed(
         &self,
         connection: ConnectionId,
-        swap_ids: Vec<String>,
-    ) -> Vec<String> {
-        if let Some(mut sub) = self.subscriptions.get_mut(&connection) {
-            sub.0.retain(|id| !swap_ids.contains(id));
+        ids: Vec<String>,
+    ) -> Option<Vec<String>> {
+        let mut sub = self.subscriptions.get_mut(&connection)?;
+        sub.0.retain(|id| !ids.contains(id));
 
-            for swap_id in &swap_ids {
-                if let Some(mut connections) = self.swaps.get_mut(swap_id) {
-                    connections.retain(|id| *id != connection);
-                }
+        for id in &ids {
+            if let Some(mut connections) = self.entities.get_mut(id) {
+                connections.retain(|c| *c != connection);
             }
-
-            self.swaps.retain(|_, connections| !connections.is_empty());
-
-            sub.0.clone()
-        } else {
-            Vec::new()
         }
+
+        self.entities
+            .retain(|_, connections| !connections.is_empty());
+
+        Some(sub.0.clone())
     }
 
     pub fn connection_dropped(&self, connection: ConnectionId) {
         self.subscriptions.remove(&connection);
-        self.swaps.retain(|_, connections| {
-            connections.retain(|id| *id != connection);
+        self.entities.retain(|_, connections| {
+            connections.retain(|c| *c != connection);
             !connections.is_empty()
         });
     }
 
-    pub async fn inject_updates(&self, connection: ConnectionId, updates: Vec<SwapStatus>) {
+    pub async fn inject_updates(&self, connection: ConnectionId, updates: Vec<T>) {
         let to_send = self
             .subscriptions
             .get(&connection)
-            .map(|sender| (sender.1.clone(), Self::filter_swaps(&sender.0, &updates)));
+            .map(|sender| (sender.1.clone(), Self::filter_updates(&sender.0, &updates)));
 
         if let Some((tx, filtered)) = to_send {
             tokio::spawn(send_with_timeout(tx, filtered));
         }
     }
 
-    fn forward_updates(
-        &self,
-        cancellation_token: CancellationToken,
-        status_tx: UpdateSender<SwapStatus>,
-    ) {
-        let mut status_tx = status_tx.subscribe();
+    fn forward_updates(&self, cancellation_token: CancellationToken, update_tx: UpdateSender<T>) {
+        let mut update_rx = update_tx.subscribe();
 
-        let swaps = self.swaps.clone();
+        let entities = self.entities.clone();
         let subscriptions = self.subscriptions.clone();
 
         tokio::spawn(async move {
             loop {
-                let (connection, updates) = tokio::select! {
-                    msg = status_tx.recv() => {
+                let (connection_filter, updates) = tokio::select! {
+                    msg = update_rx.recv() => {
                         match msg {
                             Ok(msg) => msg,
                             Err(err) => {
-                                tracing::error!("Error receiving status update: {}", err);
+                                tracing::error!("Error receiving update: {}", err);
                                 continue;
                             }
                         }
                     }
                     _ = cancellation_token.cancelled() => {
-                        tracing::debug!("Stopping status subscriptions forward loop");
+                        tracing::debug!("Stopping subscriptions forward loop");
                         break;
                     }
                 };
 
                 // When a specific connection requested that data, only forward to it
-                if let Some(connection) = connection {
+                if let Some(connection) = connection_filter {
                     if let Some(sender) = subscriptions.get(&connection) {
-                        let filtered = Self::filter_swaps(&sender.0, &updates);
+                        let filtered = Self::filter_updates(&sender.0, &updates);
                         let tx = sender.1.clone();
                         tokio::spawn(send_with_timeout(tx, filtered));
                     }
                     continue;
                 }
 
-                let mut relevant_ids = updates
+                let mut relevant_connections = updates
                     .iter()
-                    .flat_map(|update| swaps.get(&update.id).map(|connections| connections.clone()))
+                    .flat_map(|update| {
+                        entities
+                            .get(update.id())
+                            .map(|connections| connections.clone())
+                    })
                     .flatten()
                     .collect::<Vec<_>>();
-                relevant_ids.sort_unstable();
-                relevant_ids.dedup();
+                relevant_connections.sort_unstable();
+                relevant_connections.dedup();
 
-                for connection in relevant_ids {
+                for connection in relevant_connections {
                     if let Some(sender) = subscriptions.get(&connection) {
-                        let filtered = Self::filter_swaps(&sender.0, &updates);
+                        let filtered = Self::filter_updates(&sender.0, &updates);
                         let tx = sender.1.clone();
                         tokio::spawn(send_with_timeout(tx, filtered));
                     }
@@ -158,10 +159,10 @@ impl StatusSubscriptions {
         });
     }
 
-    fn filter_swaps(ids: &[String], updates: &[SwapStatus]) -> Vec<SwapStatus> {
+    fn filter_updates(ids: &[String], updates: &[T]) -> Vec<T> {
         updates
             .iter()
-            .filter(|update| ids.contains(&update.id))
+            .filter(|update| ids.contains(&update.id().to_string()))
             .cloned()
             .collect()
     }
@@ -175,8 +176,8 @@ mod tests {
     use tokio::sync::broadcast;
 
     type StatusSubscription = (
-        StatusSubscriptions,
-        UpdateSender<SwapStatus>,
+        Subscriptions<SwapStatus>,
+        broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         CancellationToken,
     );
 
@@ -193,14 +194,14 @@ mod tests {
     fn create_status_subscriptions() -> StatusSubscription {
         let (status_tx, _) = broadcast::channel(16);
         let cancellation_token = CancellationToken::new();
-        let subscriptions = StatusSubscriptions::new(cancellation_token.clone(), status_tx.clone());
+        let subscriptions = Subscriptions::new(cancellation_token.clone(), status_tx.clone());
         (subscriptions, status_tx, cancellation_token)
     }
 
     #[tokio::test]
     async fn test_new() {
         let (subscriptions, _, _) = create_status_subscriptions();
-        assert_eq!(subscriptions.swaps.len(), 0);
+        assert_eq!(subscriptions.entities.len(), 0);
         assert_eq!(subscriptions.subscriptions.len(), 0);
     }
 
@@ -353,8 +354,9 @@ mod tests {
         ];
         subscriptions.subscription_added(connection_id, swap_ids);
 
-        let remaining =
-            subscriptions.subscription_removed(connection_id, vec!["swap2".to_string()]);
+        let remaining = subscriptions
+            .subscription_removed(connection_id, vec!["swap2".to_string()])
+            .unwrap();
 
         assert_eq!(remaining.len(), 2);
         assert!(remaining.contains(&"swap1".to_string()));
@@ -372,12 +374,14 @@ mod tests {
             connection_id,
             vec!["swap1".to_string(), "swap2".to_string()],
         );
-        let remaining = subscriptions.subscription_removed(
-            connection_id,
-            vec!["swap1".to_string(), "swap2".to_string()],
-        );
+        let remaining = subscriptions
+            .subscription_removed(
+                connection_id,
+                vec!["swap1".to_string(), "swap2".to_string()],
+            )
+            .unwrap();
 
-        assert_eq!(remaining.len(), 0);
+        assert!(remaining.is_empty());
     }
 
     #[tokio::test]
@@ -388,7 +392,7 @@ mod tests {
         let remaining =
             subscriptions.subscription_removed(connection_id, vec!["swap1".to_string()]);
 
-        assert_eq!(remaining.len(), 0);
+        assert!(remaining.is_none());
     }
 
     #[tokio::test]
@@ -429,11 +433,11 @@ mod tests {
 
         subscriptions.subscription_added(connection_id, vec!["swap1".to_string()]);
 
-        assert!(subscriptions.swaps.contains_key("swap1"));
+        assert!(subscriptions.entities.contains_key("swap1"));
 
         subscriptions.subscription_removed(connection_id, vec!["swap1".to_string()]);
 
-        assert!(!subscriptions.swaps.contains_key("swap1"));
+        assert!(!subscriptions.entities.contains_key("swap1"));
     }
 
     #[tokio::test]
@@ -447,7 +451,7 @@ mod tests {
         subscriptions.subscription_added(connection_id_1, vec!["swap1".to_string()]);
         subscriptions.subscription_added(connection_id_2, vec!["swap1".to_string()]);
 
-        let connections = subscriptions.swaps.get("swap1").unwrap();
+        let connections = subscriptions.entities.get("swap1").unwrap();
         assert_eq!(connections.len(), 2);
         assert!(connections.contains(&connection_id_1));
         assert!(connections.contains(&connection_id_2));
@@ -455,7 +459,7 @@ mod tests {
 
         subscriptions.subscription_removed(connection_id_1, vec!["swap1".to_string()]);
 
-        let connections = subscriptions.swaps.get("swap1").unwrap();
+        let connections = subscriptions.entities.get("swap1").unwrap();
         assert_eq!(connections.len(), 1);
         assert!(connections.contains(&connection_id_2));
         assert!(!connections.contains(&connection_id_1));
@@ -463,7 +467,7 @@ mod tests {
 
         subscriptions.subscription_removed(connection_id_2, vec!["swap1".to_string()]);
 
-        assert!(!subscriptions.swaps.contains_key("swap1"));
+        assert!(!subscriptions.entities.contains_key("swap1"));
     }
 
     #[tokio::test]
@@ -486,12 +490,12 @@ mod tests {
         let _ = subscriptions.connection_added(connection_id_2);
 
         subscriptions
-            .swaps
+            .entities
             .insert("swap1".to_string(), vec![connection_id_1, connection_id_2]);
 
         subscriptions.connection_dropped(connection_id_1);
 
-        let swap_connections = subscriptions.swaps.get("swap1").unwrap();
+        let swap_connections = subscriptions.entities.get("swap1").unwrap();
         assert_eq!(swap_connections.len(), 1);
         assert!(swap_connections.contains(&connection_id_2));
         assert!(!swap_connections.contains(&connection_id_1));
@@ -504,12 +508,12 @@ mod tests {
         let _ = subscriptions.connection_added(connection_id);
 
         subscriptions
-            .swaps
+            .entities
             .insert("swap1".to_string(), vec![connection_id]);
 
         subscriptions.connection_dropped(connection_id);
 
-        assert!(!subscriptions.swaps.contains_key("swap1"));
+        assert!(!subscriptions.entities.contains_key("swap1"));
     }
 
     #[tokio::test]
@@ -549,7 +553,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inject_updates_sends_empty_vec_when_no_matching_swaps() {
+    async fn test_inject_updates_sends_nothing_when_no_matching_swaps() {
         let (subscriptions, _, _) = create_status_subscriptions();
         let connection_id = 1;
         let mut rx = subscriptions.connection_added(connection_id);
@@ -560,8 +564,7 @@ mod tests {
 
         subscriptions.inject_updates(connection_id, updates).await;
 
-        let received = rx.recv().await.unwrap();
-        assert_eq!(received.len(), 0);
+        assert!(rx.try_recv().is_err());
     }
 
     #[test]
@@ -573,7 +576,7 @@ mod tests {
             create_swap_status("swap3", "swap.created"),
         ];
 
-        let filtered = StatusSubscriptions::filter_swaps(&ids, &updates);
+        let filtered = Subscriptions::<SwapStatus>::filter_updates(&ids, &updates);
 
         assert_eq!(filtered.len(), 2);
         assert!(filtered.iter().any(|s| s.id == "swap1"));
@@ -589,7 +592,7 @@ mod tests {
             create_swap_status("swap3", "transaction.confirmed"),
         ];
 
-        let filtered = StatusSubscriptions::filter_swaps(&ids, &updates);
+        let filtered = Subscriptions::<SwapStatus>::filter_updates(&ids, &updates);
 
         assert_eq!(filtered.len(), 0);
     }
@@ -602,7 +605,7 @@ mod tests {
             create_swap_status("swap2", "transaction.confirmed"),
         ];
 
-        let filtered = StatusSubscriptions::filter_swaps(&ids, &updates);
+        let filtered = Subscriptions::<SwapStatus>::filter_updates(&ids, &updates);
 
         assert_eq!(filtered.len(), 0);
     }
@@ -612,7 +615,7 @@ mod tests {
         let ids = vec!["swap1".to_string()];
         let updates = vec![];
 
-        let filtered = StatusSubscriptions::filter_swaps(&ids, &updates);
+        let filtered = Subscriptions::<SwapStatus>::filter_updates(&ids, &updates);
 
         assert_eq!(filtered.len(), 0);
     }

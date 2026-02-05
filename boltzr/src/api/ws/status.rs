@@ -1,7 +1,6 @@
 use crate::api::ws::Config;
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
-use crate::api::ws::status_subscriptions::StatusSubscriptions;
-use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, UpdateSender};
+use crate::api::ws::types::{FundingAddressUpdate, StatusUpdate, SwapStatus, UpdateSender};
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
@@ -17,7 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use super::{FundingAddressSubscriptions, OfferSubscriptions};
+use super::{FundingAddressSubscriptions, OfferSubscriptions, StatusSubscriptions};
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -163,9 +162,7 @@ enum WsResponse {
     #[serde(rename = "unsubscribe")]
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
-    Update(UpdateResponse<SwapStatus>),
-    #[serde(rename = "update")]
-    FundingUpdate(UpdateResponse<FundingAddressUpdate>),
+    Update(UpdateResponse<StatusUpdate>),
     #[serde(rename = "request")]
     InvoiceRequest(UpdateResponse<InvoiceRequest>),
     #[serde(rename = "error")]
@@ -356,7 +353,7 @@ where
                             let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
                                 timestamp,
                                 channel: SubscriptionChannel::SwapUpdate,
-                                args: updates,
+                                args: updates.into_iter().map(StatusUpdate::from).collect(),
                             })) {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -424,10 +421,10 @@ where
                                 }
                             };
 
-                            let msg = match serde_json::to_string(&WsResponse::FundingUpdate(UpdateResponse {
+                            let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
                                 timestamp,
                                 channel: SubscriptionChannel::FundingAddressUpdate,
-                                args: updates,
+                                args: updates.into_iter().map(StatusUpdate::from).collect(),
                             })) {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -603,7 +600,8 @@ where
                 let leftover_subscriptions = match unsub.channel {
                     SubscriptionChannel::SwapUpdate => self
                         .status_subscriptions
-                        .subscription_removed(connection_id, unsub.args.clone()),
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                     SubscriptionChannel::InvoiceRequest => {
                         match self
                             .offer_subscriptions
@@ -619,7 +617,8 @@ where
                     }
                     SubscriptionChannel::FundingAddressUpdate => self
                         .funding_address_subscriptions
-                        .subscription_removed(connection_id, unsub.args.clone()),
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                 };
 
                 Ok(Some(WsResponse::Unsubscribe(UnsubscribeResponse {
@@ -662,7 +661,7 @@ mod status_test {
     use crate::api::ws::status::{
         ErrorResponse, FundingAddressInfos, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
-    use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, SwapStatusNoId};
+    use crate::api::ws::types::{FundingAddressUpdate, StatusUpdate, SwapStatus, SwapStatusNoId};
     use crate::api::ws::{Config, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
@@ -885,8 +884,14 @@ mod status_test {
                         assert_eq!(
                             res.args,
                             vec![
-                                SwapStatus::default("some".into(), "swap.created".into()),
-                                SwapStatus::default("ids".into(), "swap.created".into()),
+                                StatusUpdate::Swap(SwapStatus::default(
+                                    "some".into(),
+                                    "swap.created".into()
+                                )),
+                                StatusUpdate::Swap(SwapStatus::default(
+                                    "ids".into(),
+                                    "swap.created".into()
+                                )),
                             ]
                         );
                         assert!(
@@ -959,7 +964,10 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![StatusUpdate::Swap(SwapStatus::default(
+                            "ids".into(),
+                            "invoice.set".into()
+                        ))]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -1037,7 +1045,10 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![StatusUpdate::Swap(SwapStatus::default(
+                            "ids".into(),
+                            "invoice.set".into()
+                        ))]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -1188,10 +1199,15 @@ mod status_test {
         let (funding_address_update_tx, _funding_address_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
 
-        let cached_updates = vec![
+        let cached_swap_statuses = vec![
             SwapStatus::default("cached1".into(), "swap.created".into()),
             SwapStatus::default("cached2".into(), "invoice.set".into()),
         ];
+        let expected_updates: Vec<StatusUpdate> = cached_swap_statuses
+            .iter()
+            .cloned()
+            .map(StatusUpdate::from)
+            .collect();
 
         let status = Status::new(
             cancel.clone(),
@@ -1200,7 +1216,7 @@ mod status_test {
                 host: "127.0.0.1".to_string(),
             },
             CacheFetcher {
-                updates: cached_updates.clone(),
+                updates: cached_swap_statuses.clone(),
             },
             status_tx.clone(),
             funding_address_update_tx,
@@ -1255,7 +1271,7 @@ mod status_test {
                 }
                 WsResponse::Update(res) => {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
-                    assert_eq!(res.args, cached_updates);
+                    assert_eq!(res.args, expected_updates);
                     received_update = true;
                     break;
                 }

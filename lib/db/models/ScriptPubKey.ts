@@ -30,6 +30,7 @@ class ScriptPubKey extends Model implements ScriptPubKeyType {
           type: new DataTypes.STRING(255),
           allowNull: true,
         },
+        // Foreign key constraint is created in the Rust migration for funding addresses
         funding_address_id: {
           type: new DataTypes.STRING(255),
           allowNull: true,

@@ -160,16 +160,13 @@ diesel::table! {
         status -> Text,
         key_index -> Integer,
         their_public_key -> Binary,
-        tree -> Nullable<Text>,
+        tree -> Text,
         timeout_block_height -> Integer,
         lockup_transaction_id -> Nullable<Text>,
-        lockup_confirmed -> Bool,
         lockup_amount -> Nullable<BigInt>,
         lockup_transaction_vout -> Nullable<Integer>,
         swap_id -> Nullable<Text>,
         presigned_tx -> Nullable<Binary>,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
     }
 }
 

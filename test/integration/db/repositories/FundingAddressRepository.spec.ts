@@ -25,6 +25,7 @@ describe('FundingAddressRepository', () => {
   beforeAll(async () => {
     database = getPostgresDatabase();
     await database.init();
+    await FundingAddress.sync();
   });
 
   beforeEach(async () => {

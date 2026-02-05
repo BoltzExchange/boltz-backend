@@ -4,7 +4,6 @@ use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::FundingAddressHelper;
 use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
-use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::service::country_codes::CountryCodes;
 use crate::service::funding_address::FundingAddressService;
@@ -44,13 +43,13 @@ pub struct Service {
 }
 
 impl Service {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Sync + Send>,
         currencies: Currencies,
         funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
-        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
@@ -69,7 +68,6 @@ impl Service {
                 keys_helper,
                 swap_helper.clone(),
                 chain_swap_helper.clone(),
-                script_pubkey_helper,
                 currencies.clone(),
                 cache.clone(),
             ),
@@ -108,8 +106,8 @@ pub mod test {
     use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
     use crate::db::helpers::keys::KeysHelperDatabase;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
-    use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
     use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::prometheus::test::MockPrometheus;
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use std::collections::HashMap;
@@ -189,7 +187,7 @@ pub mod test {
                 .expect_get_by_id()
                 .returning(|_| Ok(Default::default()));
 
-            let pool = crate::db::helpers::web_hook::test::get_pool();
+            let pool = get_pool();
             let currencies = currencies.unwrap_or_default();
             Self {
                 swap_rescue: SwapRescue::new(
@@ -204,7 +202,6 @@ pub mod test {
                     Arc::new(KeysHelperDatabase::new(pool.clone())),
                     Arc::new(funding_swap_helper),
                     Arc::new(MockChainSwapHelper::new()),
-                    Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
                     currencies.clone(),
                     Cache::Memory(MemCache::new()),
                 ),

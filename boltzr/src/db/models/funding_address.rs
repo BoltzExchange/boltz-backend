@@ -6,7 +6,6 @@ use bitcoin::{
     TapTweakHash,
     absolute::LockTime,
     key::{Keypair, Secp256k1, TweakedPublicKey},
-    secp256k1::PublicKey,
 };
 use boltz_core::{
     Musig,
@@ -27,7 +26,7 @@ pub struct FundingAddress {
     pub status: String,
     pub key_index: i32,
     pub their_public_key: Vec<u8>,
-    pub tree: Option<String>,
+    pub tree: String,
     pub timeout_block_height: i32,
     pub lockup_transaction_id: Option<String>,
     pub lockup_transaction_vout: Option<i32>,
@@ -44,13 +43,10 @@ impl FundingAddress {
     pub fn tree_json(&self) -> Result<String> {
         match self.symbol_type()? {
             Type::Bitcoin => Ok(serde_json::to_string(&FundingTree::new(
-                &PublicKey::from_slice(&self.their_public_key)?
-                    .x_only_public_key()
-                    .0,
+                &self.their_public_key()?.to_x_only_pubkey(),
                 LockTime::from_height(self.timeout_block_height as u32)?,
             ))?),
             Type::Elements => {
-                // Convert compressed public key to x-only (same as Bitcoin branch)
                 let pubkey =
                     elements::secp256k1_zkp::PublicKey::from_slice(&self.their_public_key)?;
                 let x_only_key = elements::secp256k1_zkp::XOnlyPublicKey::from(pubkey);
@@ -70,7 +66,7 @@ impl FundingAddress {
     }
 
     pub fn script_pubkey(&self, our_key_pair: &Keypair) -> Result<Vec<u8>> {
-        let tweaked_key = self.musig(&our_key_pair)?.agg_pk().serialize();
+        let tweaked_key = self.musig(our_key_pair)?.agg_pk().serialize();
         match self.symbol_type()? {
             Type::Bitcoin => Ok(bitcoin::ScriptBuf::new_p2tr_tweaked(
                 TweakedPublicKey::dangerous_assume_tweaked(bitcoin::XOnlyPublicKey::from_slice(
@@ -98,16 +94,10 @@ impl FundingAddress {
 
         let internal_key = bitcoin::XOnlyPublicKey::from_slice(&musig.agg_pk().serialize())?;
         let secp = Secp256k1::new();
-        let raw_tree = self
-            .tree
-            .clone()
-            .ok_or_else(|| anyhow::anyhow!("tree not found"))?;
 
         let tweak = match self.symbol_type()? {
             Type::Bitcoin => {
-                let tree = serde_json::from_str::<boltz_core::bitcoin::FundingTree>(
-                    &self.tree.clone().unwrap(),
-                )?;
+                let tree = serde_json::from_str::<boltz_core::bitcoin::FundingTree>(&self.tree)?;
                 let taproot_spend_info = tree
                     .build()?
                     .finalize(&secp, internal_key)
@@ -117,7 +107,7 @@ impl FundingAddress {
                     .to_scalar()
             }
             Type::Elements => {
-                let tree = serde_json::from_str::<boltz_core::elements::FundingTree>(&raw_tree)?;
+                let tree = serde_json::from_str::<boltz_core::elements::FundingTree>(&self.tree)?;
                 let taproot_spend_info = tree
                     .build()?
                     .finalize(&secp, internal_key)

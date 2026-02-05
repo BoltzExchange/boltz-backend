@@ -140,7 +140,7 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
                 .filter(funding_addresses::dsl::id.eq(id))
                 .execute(conn)
         })
-        .map_err(|e| anyhow!("failed to set transaction: {}", e))
+        .map_err(|e| anyhow!("failed to set funding address transaction: {}", e))
     }
 
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize> {

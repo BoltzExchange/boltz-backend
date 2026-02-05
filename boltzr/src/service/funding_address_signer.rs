@@ -75,7 +75,7 @@ impl FundingAddressSigner {
         format!("session:{}", funding_address_id)
     }
 
-    fn is_eligible(&self, funding_address: &FundingAddress) -> Result<()> {
+    fn can_link_swap(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
         if status == FundingAddressStatus::TransactionClaimed {
             return Err(anyhow!("funding address has already been claimed"));
@@ -95,7 +95,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         swap_id: &str,
     ) -> Result<CooperativeDetails> {
-        self.is_eligible(funding_address)?;
+        self.can_link_swap(funding_address)?;
 
         let (tx, msg) = self
             .create_presigning_tx(funding_address, key_pair, swap_id)
@@ -115,7 +115,7 @@ impl FundingAddressSigner {
                 &Self::cache_field(&funding_address.id),
                 &PendingSigningSession {
                     sec_nonce: hex::encode(sec_nonce),
-                    pub_nonce: hex::encode(&pub_nonce),
+                    pub_nonce: hex::encode(pub_nonce),
                     sighash: hex::encode(msg),
                     swap_id: swap_id.to_string(),
                     transaction: tx_hex.clone(),
@@ -138,7 +138,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &SetSignatureRequest,
     ) -> Result<(Transaction, String)> {
-        self.is_eligible(funding_address)?;
+        self.can_link_swap(funding_address)?;
 
         // Retrieve and remove the stored signing session from cache
         let session = self
@@ -177,7 +177,7 @@ impl FundingAddressSigner {
         let raw_tx = hex::decode(&session.transaction)?;
         let sig_bytes = sig.to_byte_array().to_vec();
         let mut tx = Transaction::parse(
-            &boltz_core::utils::Type::from_str(&funding_address.symbol)?,
+            &boltz_core::utils::Chain::from_str(&funding_address.symbol)?,
             &raw_tx,
         )?;
         match &mut tx {
@@ -293,7 +293,7 @@ impl FundingAddressSigner {
                             as u64,
                     ),
                 },
-                keys: key_pair.clone(),
+                keys: *key_pair,
             }))),
             Type::Elements => {
                 let chain_client = get_chain_client(&self.currencies, symbol)?;
@@ -311,7 +311,7 @@ impl FundingAddressSigner {
                     output_type: OutputType::Taproot(None),
                     outpoint: elements::OutPoint::new(tx_id.parse()?, vout),
                     tx_out,
-                    keys: key_pair.clone(),
+                    keys: *key_pair,
                     blinding_key: Some(Keypair::from_seckey_slice(&secp, &blinding_key)?),
                 })))
             }
@@ -535,7 +535,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         // Generate the funding address and send funds
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
@@ -772,7 +772,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         // Generate and fund the address
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
@@ -863,7 +863,7 @@ mod test {
             ..Default::default()
         };
         // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
 
         let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
         let funding_address_str = Address::from_bitcoin_script(

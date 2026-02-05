@@ -7,16 +7,17 @@ import fs from 'fs';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { networks as liquidNetworks } from 'liquidjs-lib';
 import path from 'path';
-import { parseTransaction, setup } from '../../../lib/Core';
+import { parseTransaction, setup, toOutputScript } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, getHexString, getPairId } from '../../../lib/Utils';
+import { getHexBuffer, getPairId } from '../../../lib/Utils';
 import {
   CurrencyType,
   OrderSide,
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import Database from '../../../lib/db/Database';
+import FundingAddress from '../../../lib/db/models/FundingAddress';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import FundingAddressRepository from '../../../lib/db/repositories/FundingAddressRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
@@ -159,6 +160,8 @@ describe('UtxoNursery', () => {
 
     db = new Database(Logger.disabledLogger, Database.memoryDatabase);
     await db.init();
+    // funding address table is normally created in rust - not available here
+    await FundingAddress.sync();
     await PairRepository.addPair({
       base: elementsClient.symbol,
       quote: bitcoinClient.symbol,
@@ -660,15 +663,39 @@ describe('UtxoNursery', () => {
         () => {},
       );
 
-      // Create a funding address for this swap
+      const fundingAddressAddr =
+        await elementsClient.getNewAddress('funding_test');
+      const txId = await elementsClient.sendToAddress(
+        fundingAddressAddr,
+        expectedAmount,
+        1,
+        false,
+        '',
+      );
+      const tx = parseTransaction<LiquidTransaction>(
+        CurrencyType.Liquid,
+        await elementsClient.getRawTransaction(txId),
+      );
+
+      const fundingAddressScript = toOutputScript(
+        CurrencyType.Liquid,
+        fundingAddressAddr,
+        liquidNetworks.regtest,
+      );
+      const vout = tx.outs.findIndex((out) =>
+        out.script.equals(fundingAddressScript),
+      );
+
       const fundingAddress = await FundingAddressRepository.addFundingAddress({
         id: `funding_${created.id}`,
+        status: 'created',
         symbol: elementsClient.symbol,
         keyIndex: 0,
-        theirPublicKey: getHexString(refundPublicKey),
+        theirPublicKey: refundPublicKey,
         timeoutBlockHeight: created.timeoutBlockHeight!,
         lockupAmount: expectedAmount,
-        lockupTransactionVout: 0,
+        lockupTransactionVout: vout,
+        lockupTransactionId: txId,
         swapId: created.id,
       });
 
@@ -677,11 +704,12 @@ describe('UtxoNursery', () => {
         refundKeys,
         expectedAmount,
         fundingAddress,
+        tx,
       };
     };
 
     test('should emit swap.lockup when transaction is sent to funding address', async () => {
-      const { created, expectedAmount, fundingAddress } =
+      const { created, fundingAddress, tx } =
         await createSubmarineWithFundingAddress(true);
 
       const emitPromise = new Promise<void>((resolve) => {
@@ -692,17 +720,6 @@ describe('UtxoNursery', () => {
         });
       });
 
-      const txId = await elementsClient.sendToAddress(
-        created.address,
-        expectedAmount,
-        2,
-        false,
-        '',
-      );
-      const tx = parseTransaction<LiquidTransaction>(
-        CurrencyType.Liquid,
-        await elementsClient.getRawTransaction(txId),
-      );
       emitFundingAddressTransaction(elementsClient.symbol, tx, [
         fundingAddress.id,
       ]);
@@ -711,7 +728,7 @@ describe('UtxoNursery', () => {
     });
 
     test('should emit swap.lockup with confirmed true when transaction is confirmed', async () => {
-      const { created, expectedAmount, fundingAddress } =
+      const { created, fundingAddress, tx } =
         await createSubmarineWithFundingAddress(true);
 
       const emitPromise = new Promise<void>((resolve) => {
@@ -722,17 +739,6 @@ describe('UtxoNursery', () => {
         });
       });
 
-      const txId = await elementsClient.sendToAddress(
-        created.address,
-        expectedAmount,
-        2,
-        false,
-        '',
-      );
-      const tx = parseTransaction<LiquidTransaction>(
-        CurrencyType.Liquid,
-        await elementsClient.getRawTransaction(txId),
-      );
       emitFundingAddressTransaction(
         elementsClient.symbol,
         tx,
@@ -744,7 +750,7 @@ describe('UtxoNursery', () => {
     });
 
     test('should reject 0-conf when swap does not accept it via funding address', async () => {
-      const { created, expectedAmount, fundingAddress } =
+      const { created, fundingAddress, tx } =
         await createSubmarineWithFundingAddress(false);
 
       const emitPromise = new Promise<void>((resolve) => {
@@ -756,18 +762,6 @@ describe('UtxoNursery', () => {
           resolve();
         });
       });
-
-      const txId = await elementsClient.sendToAddress(
-        created.address,
-        expectedAmount,
-        2,
-        false,
-        '',
-      );
-      const tx = parseTransaction<LiquidTransaction>(
-        CurrencyType.Liquid,
-        await elementsClient.getRawTransaction(txId),
-      );
       emitFundingAddressTransaction(elementsClient.symbol, tx, [
         fundingAddress.id,
       ]);

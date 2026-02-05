@@ -6,7 +6,6 @@ use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
 use crate::db::helpers::keys::KeysHelper;
-use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
@@ -61,7 +60,6 @@ impl std::error::Error for FundingAddressError {}
 pub struct FundingAddressService {
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
     keys_helper: Arc<dyn KeysHelper + Sync + Send>,
-    script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
     signer: FundingAddressSigner,
     currencies: Currencies,
 }
@@ -77,7 +75,7 @@ pub struct CreateResponse {
     pub id: String,
     pub address: String,
     pub timeout_block_height: u32,
-    pub boltz_public_key: String,
+    pub server_public_key: String,
     pub blinding_key: Option<String>,
     pub tree: String,
 }
@@ -88,7 +86,6 @@ impl FundingAddressService {
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
-        script_pubkey_helper: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
         currencies: Currencies,
         cache: Cache,
     ) -> Self {
@@ -97,7 +94,6 @@ impl FundingAddressService {
         Self {
             funding_address_helper,
             keys_helper,
-            script_pubkey_helper,
             signer,
             currencies,
         }
@@ -147,8 +143,6 @@ impl FundingAddressService {
                 .increment_highest_used_index(&request.symbol)
                 .map_err(|e| FundingAddressError::Database(e.to_string()))? as u32;
 
-        debug!("Using key index {} for funding address", key_index);
-
         // TODO: config
         let default_delta = 1000;
         let timeout_block_height = get_chain_client(&self.currencies, &request.symbol)?
@@ -161,6 +155,7 @@ impl FundingAddressService {
         let mut funding_address = FundingAddress {
             id: id.clone(),
             symbol: request.symbol.clone(),
+            status: FundingAddressStatus::Created.to_string(),
             key_index: key_index as i32,
             their_public_key: request.refund_public_key.to_bytes(),
             timeout_block_height: timeout_block_height as i32,
@@ -168,14 +163,14 @@ impl FundingAddressService {
         };
 
         // Store the serialized tree JSON
-        funding_address.tree = Some(funding_address.tree_json().map_err(|e| {
+        funding_address.tree = funding_address.tree_json().map_err(|e| {
             FundingAddressError::Internal(format!("failed to serialize tree: {}", e))
-        })?);
+        })?;
 
-        let our_key_pair = self.key_pair(&funding_address)?;
+        let server_key_pair = self.key_pair(&funding_address)?;
         let script_pubkey = ScriptPubKey {
             symbol: request.symbol.clone(),
-            script_pubkey: funding_address.script_pubkey(&our_key_pair)?,
+            script_pubkey: funding_address.script_pubkey(&server_key_pair)?,
             funding_address_id: Some(id.clone()),
             swap_id: None,
         };
@@ -217,11 +212,9 @@ impl FundingAddressService {
             id: funding_address.id.clone(),
             address,
             timeout_block_height: funding_address.timeout_block_height as u32,
-            boltz_public_key: our_key_pair.public_key().to_string(),
+            server_public_key: server_key_pair.public_key().to_string(),
             blinding_key,
-            tree: funding_address
-                .tree
-                .ok_or_else(|| FundingAddressError::Internal("tree not set".to_string()))?,
+            tree: funding_address.tree.clone(),
         })
     }
 
@@ -232,31 +225,48 @@ impl FundingAddressService {
             .ok_or(FundingAddressError::NotFound(id.to_string()))
     }
 
-    pub async fn get_signing_details(&self, id: &str, swap_id: &str) -> Result<CooperativeDetails> {
+    pub async fn get_signing_details(
+        &self,
+        id: &str,
+        swap_id: &str,
+    ) -> Result<CooperativeDetails, FundingAddressError> {
         let funding_address = self.get_by_id(id)?;
-        let key_pair = self.key_pair(&funding_address)?;
+        let key_pair = self
+            .key_pair(&funding_address)
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
         self.signer
             .get_signing_details(&funding_address, &key_pair, swap_id)
             .await
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))
     }
 
-    pub async fn set_signature(&self, request: SetSignatureRequest) -> Result<FundingAddress> {
+    pub async fn set_signature(
+        &self,
+        request: SetSignatureRequest,
+    ) -> Result<FundingAddress, FundingAddressError> {
         let funding_address = self.get_by_id(&request.id)?;
         if funding_address.status == FundingAddressStatus::TransactionClaimed.to_string() {
-            return Err(anyhow::anyhow!("funding address has already been claimed"));
+            return Err(FundingAddressError::Internal(
+                "funding address has already been claimed".to_string(),
+            ));
         }
-        let key_pair = self.key_pair(&funding_address)?;
+        let key_pair = self
+            .key_pair(&funding_address)
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
         let (signed_tx, swap_id) = self
             .signer
             .set_signature(&funding_address, &key_pair, &request)
-            .await?;
-        self.funding_address_helper.set_presigned_tx(
-            &funding_address.id,
-            Some(SwapTxInfo {
-                swap_id,
-                presigned_tx: signed_tx.serialize().to_vec(),
-            }),
-        )?;
+            .await
+            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+        self.funding_address_helper
+            .set_presigned_tx(
+                &funding_address.id,
+                Some(SwapTxInfo {
+                    swap_id,
+                    presigned_tx: signed_tx.serialize().to_vec(),
+                }),
+            )
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
         Ok(funding_address)
     }
 }
@@ -268,7 +278,6 @@ mod test {
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
     use crate::db::helpers::keys::test::MockKeysHelper;
-    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::test::get_test_currencies;
     use crate::wallet::Network;
@@ -283,7 +292,6 @@ mod test {
     struct TestContext {
         funding_helper: MockFundingAddressHelper,
         keys_helper: MockKeysHelper,
-        script_pubkey_helper: MockScriptPubKeyHelper,
         currencies: Option<Currencies>,
     }
 
@@ -292,7 +300,6 @@ mod test {
             Self {
                 funding_helper: MockFundingAddressHelper::new(),
                 keys_helper: MockKeysHelper::new(),
-                script_pubkey_helper: MockScriptPubKeyHelper::new(),
                 currencies: None,
             }
         }
@@ -336,11 +343,6 @@ mod test {
             self
         }
 
-        fn with_script_pubkey_success(mut self) -> Self {
-            self.script_pubkey_helper.expect_add().returning(|_| Ok(1));
-            self
-        }
-
         fn with_get_by_id_result(mut self, result: Option<FundingAddress>) -> Self {
             self.funding_helper
                 .expect_get_by_id()
@@ -381,7 +383,6 @@ mod test {
                 Arc::new(self.keys_helper),
                 Arc::new(MockSwapHelper::new()),
                 Arc::new(MockChainSwapHelper::new()),
-                Arc::new(self.script_pubkey_helper),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
                 Cache::Memory(crate::cache::MemCache::new()),
             )
@@ -405,7 +406,7 @@ mod test {
             ..Default::default()
         };
         // Add the serialized tree
-        funding_address.tree = funding_address.tree_json().ok();
+        funding_address.tree = funding_address.tree_json().unwrap();
         funding_address
     }
 
@@ -417,7 +418,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(10)
                 .with_insert_success()
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();
@@ -428,7 +428,7 @@ mod test {
                 response.address.starts_with("el"),
                 "expected confidential address"
             );
-            assert!(!response.boltz_public_key.is_empty());
+            assert!(!response.server_public_key.is_empty());
             assert!(response.blinding_key.is_some_and(|k| !k.is_empty()));
         }
 
@@ -437,7 +437,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(10)
                 .with_insert_success()
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();
@@ -448,7 +447,7 @@ mod test {
                 response.address.starts_with("bcrt1"),
                 "expected regtest address"
             );
-            assert!(!response.boltz_public_key.is_empty());
+            assert!(!response.server_public_key.is_empty());
             assert!(response.blinding_key.is_none());
         }
 
@@ -458,7 +457,6 @@ mod test {
             let service = TestContext::new()
                 .with_key_index(expected)
                 .with_insert_validator(move |fa, _| fa.key_index == expected)
-                .with_script_pubkey_success()
                 .with_currencies()
                 .await
                 .build();

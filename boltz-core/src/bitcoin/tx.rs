@@ -2,7 +2,7 @@ use crate::{
     bitcoin::InputDetail,
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
-    utils::{Destination, InputType, OutputType},
+    utils::{COOPERATIVE_INPUT_ERROR, Destination, InputType, OutputType},
 };
 use anyhow::Result;
 use bitcoin::{
@@ -137,7 +137,7 @@ pub fn construct_raw<C: Signing + Verification>(
                     }
                     InputType::Cooperative => {
                         return Err(anyhow::anyhow!(
-                            "cooperative input spend cant be used for legacy outputs"
+                            "legacy outputs cannot be spent cooperatively"
                         ));
                     }
                 };
@@ -167,7 +167,7 @@ pub fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => &uncooperative.tree.refund_leaf,
                     InputType::Cooperative => {
                         return Err(anyhow::anyhow!(
-                            "cooperative input has to be spent from a key-path"
+                            "legacy outputs cannot be spent cooperatively"
                         ));
                     }
                 };
@@ -242,9 +242,7 @@ pub fn construct_raw<C: Signing + Verification>(
                         witness.push(PREIMAGE_DUMMY);
                     }
                     InputType::Cooperative => {
-                        return Err(anyhow::anyhow!(
-                            "cooperative input has to be spent from a key-path"
-                        ));
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
                     }
                 };
 

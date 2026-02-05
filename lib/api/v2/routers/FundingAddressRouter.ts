@@ -58,6 +58,9 @@
  *             id:
  *               type: string
  *               description: ID of the lockup transaction
+ *             hex:
+ *               type: string
+ *               description: Raw lockup transaction encoded as HEX
  *         swapId:
  *           type: string
  *           description: ID of the swap associated with the funding address
@@ -69,7 +72,7 @@
  *   schemas:
  *     FundingAddressResponse:
  *       type: object
- *       required: ["id", "address", "timeoutBlockHeight", "boltzPublicKey", "tree"]
+ *       required: ["id", "address", "timeoutBlockHeight", "serverPublicKey", "tree"]
  *       properties:
  *         id:
  *           type: string
@@ -80,7 +83,7 @@
  *         timeoutBlockHeight:
  *           type: number
  *           description: Block height at which the funding address times out
- *         boltzPublicKey:
+ *         serverPublicKey:
  *           type: string
  *           description: Public key of Boltz used in the funding address encoded as HEX
  *         blindingKey:
@@ -125,7 +128,7 @@
  *           schema:
  *             $ref: '#/components/schemas/FundingAddressRequest'
  *     responses:
- *       '200':
+ *       '201':
  *         description: The created funding address
  *         content:
  *           application/json:
@@ -216,7 +219,7 @@
 /**
  * @openapi
  * /funding/{id}/signature:
- *   post:
+ *   patch:
  *     tags: [Funding Address]
  *     description: Submit a partial signature for a funding address transaction
  *     parameters:

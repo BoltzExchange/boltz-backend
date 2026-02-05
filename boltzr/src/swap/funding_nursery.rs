@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, UpdateReceiver, UpdateSender};
+use crate::api::ws::types::{
+    FundingAddressUpdate, SwapStatus, TransactionInfo, UpdateReceiver, UpdateSender,
+};
 use crate::chain::utils::Transaction;
-use crate::currencies::{Currencies, get_wallet};
-use crate::db::helpers::chain_swap::ChainSwapHelper;
+use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
-use crate::db::helpers::swap::SwapHelper;
 use crate::swap::tx_check::{RelevantId, TxDetails};
 use crate::swap::{FundingAddressStatus, RelevantTx, SwapUpdate, TxStatus};
 use anyhow::Result;
@@ -20,8 +20,6 @@ use tracing::{debug, error, info};
 pub struct FundingAddressNursery {
     funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
     funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
-    swap_helper: Arc<dyn SwapHelper + Send + Sync>,
-    chain_swap_helper: Arc<dyn ChainSwapHelper + Send + Sync>,
     currencies: Currencies,
 }
 
@@ -29,15 +27,11 @@ impl FundingAddressNursery {
     pub fn new(
         funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
         funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
-        swap_helper: Arc<dyn SwapHelper + Send + Sync>,
-        chain_swap_helper: Arc<dyn ChainSwapHelper + Send + Sync>,
         currencies: Currencies,
     ) -> Self {
         Self {
             funding_address_helper,
             funding_address_update_tx,
-            swap_helper,
-            chain_swap_helper,
             currencies,
         }
     }
@@ -141,7 +135,7 @@ impl FundingAddressNursery {
                 .set_presigned_tx(funding_address_id, None)?;
         }
 
-        self.send_update(funding_address_id)?;
+        self.send_update(funding_address_id, None).await?;
         Ok(())
     }
 
@@ -196,7 +190,7 @@ impl FundingAddressNursery {
                     .get_by_id(funding_address_id.as_str())?
                     .ok_or(anyhow::anyhow!("funding address not found".to_string()))?;
 
-                // If a unconfirmed transaction is replaced, forcing a new signing flow.
+                // If an unconfirmed transaction is replaced, forcing a new signing flow.
                 let is_rbf = if let Some(previous_tx_id) = &funding_address.lockup_transaction_id
                     && previous_tx_id != &tx_id
                 {
@@ -230,19 +224,46 @@ impl FundingAddressNursery {
                     .as_str(),
                     is_rbf,
                 )?;
-                self.send_update(funding_address_id.as_str())?;
+                let tx_hex = alloy::hex::encode(relevant_tx.tx.serialize());
+                self.send_update(funding_address_id.as_str(), Some(tx_hex))
+                    .await?;
             }
         }
         Ok(())
     }
 
-    fn send_update(&self, id: &str) -> Result<()> {
+    async fn send_update(&self, id: &str, tx_hex: Option<String>) -> Result<()> {
         let funding_address = self
             .funding_address_helper
             .get_by_id(id)?
             .ok_or(anyhow::anyhow!("funding address not found"))?;
-        self.funding_address_update_tx
-            .send((None, vec![funding_address.into()]))?;
+
+        let transaction = match &funding_address.lockup_transaction_id {
+            Some(tx_id) => {
+                let hex = match tx_hex {
+                    Some(hex) => Some(hex),
+                    None => get_chain_client(&self.currencies, &funding_address.symbol)?
+                        .raw_transaction(tx_id)
+                        .await
+                        .ok(),
+                };
+                Some(TransactionInfo {
+                    id: tx_id.clone(),
+                    hex,
+                    eta: None,
+                })
+            }
+            None => None,
+        };
+
+        let update = FundingAddressUpdate {
+            id: funding_address.id,
+            status: funding_address.status,
+            transaction,
+            swap_id: funding_address.swap_id,
+        };
+
+        self.funding_address_update_tx.send((None, vec![update]))?;
         Ok(())
     }
 }
@@ -251,11 +272,8 @@ impl FundingAddressNursery {
 mod test {
     use super::*;
     use crate::api::ws::types::SwapStatusNoId;
-    use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
-    use crate::db::helpers::swap::test::MockSwapHelper;
-    use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, FundingAddress, Swap};
-    use crate::utils::pair::OrderSide;
+    use crate::db::models::FundingAddress;
     use bitcoin::absolute::LockTime;
     use bitcoin::hashes::Hash;
     use bitcoin::transaction::Version;
@@ -319,15 +337,11 @@ mod test {
                 "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc",
             )
             .unwrap(),
-            tree: None,
+            tree: String::new(),
             timeout_block_height: 1000000,
-            lockup_transaction_id: None,
-            lockup_transaction_vout: Some(0),
-            lockup_amount: None,
-            swap_id: None,
-            presigned_tx: None,
+            ..Default::default()
         };
-        fa.tree = fa.tree_json().ok();
+        fa.tree = fa.tree_json().unwrap();
         fa
     }
 
@@ -375,21 +389,23 @@ mod test {
     }
 
     impl TestNursery {
-        fn new(
+        fn new(funding_helper: MockFundingAddressHelper) -> Self {
+            Self::new_with_currencies(funding_helper, Arc::new(HashMap::new()))
+        }
+
+        fn new_with_currencies(
             funding_helper: MockFundingAddressHelper,
-            swap_helper: MockSwapHelper,
-            chain_swap_helper: MockChainSwapHelper,
+            currencies: Currencies,
         ) -> Self {
             let (tx, rx) = broadcast::channel(16);
-            let currencies: Currencies = Arc::new(HashMap::new());
-            let nursery = FundingAddressNursery::new(
-                Arc::new(funding_helper),
-                tx,
-                Arc::new(swap_helper),
-                Arc::new(chain_swap_helper),
-                currencies,
-            );
+            let nursery = FundingAddressNursery::new(Arc::new(funding_helper), tx, currencies);
             Self { nursery, rx }
+        }
+
+        #[allow(dead_code)]
+        async fn new_with_test_currencies(funding_helper: MockFundingAddressHelper) -> Self {
+            use crate::service::test::get_test_currencies;
+            Self::new_with_currencies(funding_helper, get_test_currencies().await)
         }
     }
 
@@ -397,11 +413,7 @@ mod test {
 
     #[test]
     fn find_output_returns_matching_output() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let script = test_script(0);
         let tx = test_bitcoin_tx(vec![(script.clone(), 100_000)]);
 
@@ -416,11 +428,7 @@ mod test {
 
     #[test]
     fn find_output_returns_error_when_not_found() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let tx = test_bitcoin_tx(vec![(test_script(0), 100_000)]);
 
         let result = test
@@ -432,11 +440,7 @@ mod test {
 
     #[test]
     fn find_output_finds_correct_output_among_multiple() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let script1 = test_script(0);
         let script2 = test_script(1);
         let tx = test_bitcoin_tx(vec![(script1, 100_000), (script2.clone(), 200_000)]);
@@ -452,11 +456,7 @@ mod test {
 
     #[test]
     fn find_output_returns_matching_output_lbtc() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let script = test_elements_script(0);
         let tx = test_elements_tx(vec![(script.clone(), 100_000)]);
 
@@ -471,11 +471,7 @@ mod test {
 
     #[test]
     fn find_output_returns_error_when_not_found_lbtc() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let tx = test_elements_tx(vec![(test_elements_script(0), 100_000)]);
 
         let result = test
@@ -487,11 +483,7 @@ mod test {
 
     #[test]
     fn find_output_finds_correct_output_among_multiple_lbtc() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let script1 = test_elements_script(0);
         let script2 = test_elements_script(1);
         let tx = test_elements_tx(vec![(script1, 100_000), (script2.clone(), 200_000)]);
@@ -538,11 +530,7 @@ mod test {
             .times(1)
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -582,11 +570,7 @@ mod test {
             .withf(|_, _, _, _, status, delink| status == "transaction.mempool" && *delink)
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -628,11 +612,7 @@ mod test {
             })
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -676,11 +656,7 @@ mod test {
             .withf(|_, _, _, _, status, delink| status == "transaction.confirmed" && !*delink)
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
 
         let relevant_tx = RelevantTx {
             symbol: "BTC".to_string(),
@@ -720,11 +696,7 @@ mod test {
 
         mock_helper.expect_set_transaction().times(0);
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -746,11 +718,7 @@ mod test {
 
         mock_helper.expect_get_by_id().returning(|_| Ok(None));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -780,11 +748,7 @@ mod test {
             .expect_get_by_id()
             .returning(|_| Ok(Some(test_funding_address("test_id"))));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
 
         let relevant_tx = RelevantTx {
             symbol: "BTC".to_string(),
@@ -802,11 +766,7 @@ mod test {
 
     #[tokio::test]
     async fn handle_relevant_tx_ignores_non_funding_address_entries() {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -849,11 +809,7 @@ mod test {
             .times(2)
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script1 = test_script(0);
         let script2 = test_script(1);
 
@@ -905,11 +861,7 @@ mod test {
             .with(eq("fa_id"))
             .returning(move |_| Ok(Some(fa_updated.clone())));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new_with_test_currencies(mock_helper).await;
 
         test.nursery
             .handle_swap_status_update(&test_swap_status("swap_123", status))
@@ -948,11 +900,7 @@ mod test {
             .with(eq("fa_id"))
             .returning(move |_| Ok(Some(fa_updated.clone())));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new_with_test_currencies(mock_helper).await;
 
         test.nursery
             .handle_swap_status_update(&test_swap_status("swap_123", status))
@@ -969,11 +917,7 @@ mod test {
         mock_helper.expect_set_status().times(0);
         mock_helper.expect_set_presigned_tx().times(0);
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
 
         test.nursery
             .handle_swap_status_update(&test_swap_status(
@@ -992,11 +936,7 @@ mod test {
     #[case(SwapUpdate::TransactionClaimPending)]
     #[tokio::test]
     async fn handle_swap_status_update_ignores_non_terminal_events(#[case] status: SwapUpdate) {
-        let test = TestNursery::new(
-            MockFundingAddressHelper::new(),
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(MockFundingAddressHelper::new());
 
         test.nursery
             .handle_swap_status_update(&test_swap_status("any_swap", status))
@@ -1006,8 +946,8 @@ mod test {
 
     // send_update tests
 
-    #[test]
-    fn send_update_broadcasts_to_channel() {
+    #[tokio::test]
+    async fn send_update_broadcasts_to_channel() {
         let mut mock_helper = MockFundingAddressHelper::new();
         let funding_address = test_funding_address("test_id");
 
@@ -1016,29 +956,21 @@ mod test {
             .with(eq("test_id"))
             .returning(move |_| Ok(Some(funding_address.clone())));
 
-        let mut test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let mut test = TestNursery::new(mock_helper);
 
-        test.nursery.send_update("test_id").unwrap();
+        test.nursery.send_update("test_id", None).await.unwrap();
         assert!(test.rx.try_recv().is_ok());
     }
 
-    #[test]
-    fn send_update_returns_error_when_funding_address_not_found() {
+    #[tokio::test]
+    async fn send_update_returns_error_when_funding_address_not_found() {
         let mut mock_helper = MockFundingAddressHelper::new();
 
         mock_helper.expect_get_by_id().returning(|_| Ok(None));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
 
-        let result = test.nursery.send_update("nonexistent");
+        let result = test.nursery.send_update("nonexistent", None).await;
         assert!(
             result
                 .unwrap_err()
@@ -1072,11 +1004,7 @@ mod test {
             .withf(|_, _, _, _, status, delink| status == "transaction.confirmed" && *delink)
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_script(0);
 
         let relevant_tx = RelevantTx {
@@ -1116,11 +1044,7 @@ mod test {
             })
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(
-            mock_helper,
-            MockSwapHelper::new(),
-            MockChainSwapHelper::new(),
-        );
+        let test = TestNursery::new(mock_helper);
         let script = test_elements_script(0);
 
         let relevant_tx = RelevantTx {

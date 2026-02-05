@@ -95,12 +95,6 @@ pub enum FundingAddressStatus {
     Unknown,
 }
 
-impl Default for FundingAddressStatus {
-    fn default() -> Self {
-        FundingAddressStatus::Created
-    }
-}
-
 impl FundingAddressStatus {
     pub fn parse(value: &str) -> Self {
         FundingAddressStatus::try_from(value).unwrap_or(FundingAddressStatus::Unknown)

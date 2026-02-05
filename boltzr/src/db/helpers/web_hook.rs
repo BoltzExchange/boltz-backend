@@ -146,9 +146,10 @@ impl HookState<WebHook> for WebHookHelperDatabase {
 
 #[cfg(test)]
 pub mod test {
+    use crate::db::helpers::script_pubkey::test::create_script_pubkeys_table;
     use crate::db::helpers::web_hook::{WebHookHelper, WebHookHelperDatabase};
     use crate::db::models::{WebHook, WebHookState};
-    use crate::db::{Config, Pool, connect};
+    use crate::db::{Config, Pool, connect, run_migrations};
     use crate::webhook::caller::HookState;
     use crate::webhook::{SwapUpdateCallData, WebHookCallData};
     use rand::distributions::{Alphanumeric, DistString};
@@ -158,16 +159,18 @@ pub mod test {
     pub fn get_pool() -> Pool {
         static POOL: OnceLock<Mutex<Pool>> = OnceLock::new();
         POOL.get_or_init(|| {
-            Mutex::new(
-                connect(Config {
-                    host: "127.0.0.1".to_string(),
-                    port: 5432,
-                    database: "boltz_test".to_string(),
-                    username: "boltz".to_string(),
-                    password: "boltz".to_string(),
-                })
-                .unwrap(),
-            )
+            let pool = connect(Config {
+                host: "127.0.0.1".to_string(),
+                port: 5432,
+                database: "boltz_test".to_string(),
+                username: "boltz".to_string(),
+                password: "boltz".to_string(),
+            })
+            .unwrap();
+            create_script_pubkeys_table(&pool);
+
+            run_migrations(&pool).unwrap();
+            Mutex::new(pool.clone())
         })
         .lock()
         .unwrap()

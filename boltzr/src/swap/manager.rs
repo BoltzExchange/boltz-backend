@@ -98,6 +98,7 @@ pub struct Manager {
 }
 
 impl Manager {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cancellation_token: CancellationToken,
         asset_rescue_config: Option<AssetRescueConfig>,
@@ -175,8 +176,6 @@ impl Manager {
         let funding_address_nursery = FundingAddressNursery::new(
             Arc::new(FundingAddressHelperDatabase::new(self.pool.clone())),
             self.funding_address_update_tx.clone(),
-            self.swap_repo.clone(),
-            self.chain_swap_repo.clone(),
             self.currencies.clone(),
         );
 

@@ -71,6 +71,7 @@ pub trait BaseClient {
     async fn connect(&mut self) -> Result<()>;
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub trait Client: BaseClient {
     fn chain_type(&self) -> Type;

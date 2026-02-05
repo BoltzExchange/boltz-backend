@@ -1,5 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
+pub const COOPERATIVE_INPUT_ERROR: &str = "cooperative input has to be spent via key-path";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputType<U, S> {
     Taproot(U),
@@ -41,24 +43,28 @@ pub trait TxIn {
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Type {
+pub enum Chain {
     Bitcoin,
     Elements,
 }
 
-impl FromStr for Type {
+impl FromStr for Chain {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "BTC" => Ok(Type::Bitcoin),
-            "L-BTC" => Ok(Type::Elements),
+            "BTC" => Ok(Chain::Bitcoin),
+            "L-BTC" | "LBTC" => Ok(Chain::Elements),
             _ => Err(anyhow::anyhow!("unknown symbol {}", s)),
         }
     }
 }
-impl Display for Type {
+
+impl Display for Chain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Chain::Bitcoin => write!(f, "BTC"),
+            Chain::Elements => write!(f, "L-BTC"),
+        }
     }
 }

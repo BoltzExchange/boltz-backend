@@ -3523,7 +3523,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "The created funding address",
             "content": {
               "application/json": {
@@ -3656,7 +3656,7 @@
           }
         }
       },
-      "post": {
+      "patch": {
         "tags": [
           "Funding Address"
         ],
@@ -5545,6 +5545,10 @@
               "id": {
                 "type": "string",
                 "description": "ID of the lockup transaction"
+              },
+              "hex": {
+                "type": "string",
+                "description": "Raw lockup transaction encoded as HEX"
               }
             }
           },
@@ -5560,7 +5564,7 @@
           "id",
           "address",
           "timeoutBlockHeight",
-          "boltzPublicKey",
+          "serverPublicKey",
           "tree"
         ],
         "properties": {
@@ -5576,7 +5580,7 @@
             "type": "number",
             "description": "Block height at which the funding address times out"
           },
-          "boltzPublicKey": {
+          "serverPublicKey": {
             "type": "string",
             "description": "Public key of Boltz used in the funding address encoded as HEX"
           },

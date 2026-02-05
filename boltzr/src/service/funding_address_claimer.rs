@@ -112,11 +112,10 @@ impl FundingAddressClaimer {
     }
 
     pub async fn batch_claim(&self, swaps: &[SwapInfo]) -> Result<(Vec<String>, u64)> {
-        let symbol = swaps
-            .first()
-            .ok_or(anyhow!("no swaps provided"))?
-            .symbol
-            .as_str();
+        let symbol = match swaps.first().map(|swap| swap.symbol.as_str()) {
+            Some(symbol) => symbol,
+            None => return Ok((Vec::new(), 0)),
+        };
         let wallet = get_wallet(&self.currencies, symbol)?;
         let chain = get_chain_client(&self.currencies, symbol)?;
         let label = wallet.label_batch_claim(

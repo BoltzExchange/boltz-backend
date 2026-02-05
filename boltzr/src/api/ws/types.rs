@@ -83,6 +83,27 @@ impl SubscriptionUpdate for FundingAddressUpdate {
     }
 }
 
+/// Enum representing the different types of update data that can be sent via WebSocket.
+/// The `channel` field in `UpdateResponse` indicates which variant is contained.
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum StatusUpdate {
+    Swap(SwapStatus),
+    FundingAddress(FundingAddressUpdate),
+}
+
+impl From<SwapStatus> for StatusUpdate {
+    fn from(status: SwapStatus) -> Self {
+        StatusUpdate::Swap(status)
+    }
+}
+
+impl From<FundingAddressUpdate> for StatusUpdate {
+    fn from(update: FundingAddressUpdate) -> Self {
+        StatusUpdate::FundingAddress(update)
+    }
+}
+
 impl From<swap_update::TransactionInfo> for TransactionInfo {
     fn from(value: swap_update::TransactionInfo) -> Self {
         TransactionInfo {

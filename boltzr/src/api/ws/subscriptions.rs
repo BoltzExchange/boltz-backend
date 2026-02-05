@@ -126,6 +126,7 @@ impl<T: SubscriptionUpdate> Subscriptions<T> {
                     }
                 };
 
+                // When a specific connection requested that data, only forward to it
                 if let Some(connection) = connection_filter {
                     if let Some(sender) = subscriptions.get(&connection) {
                         let filtered = Self::filter_updates(&sender.0, &updates);

@@ -118,14 +118,12 @@ where
 
     let transaction = match &funding_address.lockup_transaction_id {
         Some(tx_id) => {
-            let hex =
-                match get_chain_client(state.manager.get_currencies(), &funding_address.symbol) {
-                    Ok(client) => client.raw_transaction(tx_id).await.ok(),
-                    Err(_) => None,
-                };
+            let hex = get_chain_client(state.manager.get_currencies(), &funding_address.symbol)?
+                .raw_transaction(tx_id)
+                .await?;
             Some(TransactionInfo {
                 id: tx_id.clone(),
-                hex,
+                hex: Some(hex),
                 eta: None,
             })
         }

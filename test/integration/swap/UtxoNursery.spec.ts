@@ -7,7 +7,7 @@ import fs from 'fs';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { networks as liquidNetworks } from 'liquidjs-lib';
 import path from 'path';
-import { parseTransaction, setup } from '../../../lib/Core';
+import { parseTransaction, setup, toOutputScript } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getPairId } from '../../../lib/Utils';
@@ -677,14 +677,14 @@ describe('UtxoNursery', () => {
         await elementsClient.getRawTransaction(txId),
       );
 
-      const vout = tx.outs.findIndex((out) => {
-        try {
-          const address = (elementsClient as any).encodeAddress(out.script);
-          return address === fundingAddressAddr;
-        } catch {
-          return false;
-        }
-      });
+      const fundingAddressScript = toOutputScript(
+        CurrencyType.Liquid,
+        fundingAddressAddr,
+        liquidNetworks.regtest,
+      );
+      const vout = tx.outs.findIndex((out) =>
+        out.script.equals(fundingAddressScript),
+      );
 
       const fundingAddress = await FundingAddressRepository.addFundingAddress({
         id: `funding_${created.id}`,

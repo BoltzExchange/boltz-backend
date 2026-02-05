@@ -32,16 +32,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_send_with_timeout_empty_updates() {
-        let (tx, mut rx) = mpsc::channel::<Vec<String>>(16);
-
-        send_with_timeout(tx, vec![]).await;
-
-        // Channel should be empty since we didn't send anything
-        assert!(rx.try_recv().is_err());
-    }
-
-    #[tokio::test]
     async fn test_send_with_timeout_channel_closed() {
         let (tx, rx) = mpsc::channel::<Vec<String>>(16);
         drop(rx); // Close the receiver

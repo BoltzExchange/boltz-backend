@@ -513,9 +513,7 @@ class DeferredClaimer extends CoopSignerBase<{
         const ethFeePerSwap = Math.ceil(
           calculateEthereumTransactionFee(tx) / swaps.length,
         );
-        feesPerSwap = new Map(
-          swaps.map((s) => [s.swap.id, ethFeePerSwap]),
-        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, ethFeePerSwap]));
 
         break;
       }
@@ -558,9 +556,7 @@ class DeferredClaimer extends CoopSignerBase<{
         const erc20FeePerSwap = Math.ceil(
           calculateEthereumTransactionFee(tx) / swaps.length,
         );
-        feesPerSwap = new Map(
-          swaps.map((s) => [s.swap.id, erc20FeePerSwap]),
-        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, erc20FeePerSwap]));
 
         break;
       }

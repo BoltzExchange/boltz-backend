@@ -15,9 +15,9 @@ pub mod test {
     use bitcoin::key::Keypair;
     use bitcoin::secp256k1::{Secp256k1, rand};
     use bitcoin::{TapTweakHash, hex::FromHex};
-    use boltz_core::PublicNonce;
     use boltz_core::musig::Musig;
     use boltz_core::utils::Chain;
+    use boltz_core::{Network, PublicNonce};
     use std::str::FromStr;
     use std::sync::Arc;
 
@@ -282,10 +282,7 @@ pub mod test {
         chain_type: Chain,
         swap_tree_json: &str,
         internal_key: &bitcoin::XOnlyPublicKey,
-        network: crate::wallet::Network,
     ) -> String {
-        use crate::wallet::Network;
-
         let secp = Secp256k1::new();
 
         match chain_type {
@@ -298,14 +295,7 @@ pub mod test {
                     .unwrap();
                 let output_key = taproot_spend_info.output_key();
 
-                let btc_network = match network {
-                    Network::Mainnet => bitcoin::Network::Bitcoin,
-                    Network::Testnet => bitcoin::Network::Testnet,
-                    Network::Signet => bitcoin::Network::Signet,
-                    Network::Regtest => bitcoin::Network::Regtest,
-                };
-
-                bitcoin::Address::p2tr_tweaked(output_key, btc_network).to_string()
+                bitcoin::Address::p2tr_tweaked(output_key, bitcoin::Network::Regtest).to_string()
             }
             Chain::Elements => {
                 let tree: boltz_core::elements::Tree =
@@ -320,18 +310,16 @@ pub mod test {
                     .unwrap();
                 let output_key = taproot_spend_info.output_key();
 
-                let elements_params = match network {
-                    Network::Mainnet => &elements::AddressParams::LIQUID,
-                    _ => &elements::AddressParams::ELEMENTS,
-                };
-
-                elements::Address::p2tr_tweaked(output_key, None, elements_params).to_string()
+                elements::Address::p2tr_tweaked(
+                    output_key,
+                    None,
+                    &elements::AddressParams::ELEMENTS,
+                )
+                .to_string()
             }
         }
     }
 
-    /// Fund a funding address via RPC and return (tx_id, vout, amount)
-    /// Also mines a block to confirm the funding transaction.
     pub async fn fund_address(
         chain_client: &Arc<dyn Client + Send + Sync>,
         symbol: &str,
@@ -354,15 +342,11 @@ pub mod test {
             .unwrap()
             .to_string();
 
-        // Mine a block to confirm the funding transaction
         let _ = chain_client
             .request_wallet(
                 None,
                 "generatetoaddress",
-                Some(&[
-                    RpcParam::Int(1),
-                    RpcParam::Str(address), // Use same address for simplicity
-                ]),
+                Some(&[RpcParam::Int(1), RpcParam::Str(address)]),
             )
             .await;
 
@@ -404,18 +388,13 @@ pub mod test {
         tx.serialize().to_vec()
     }
 
-    /// Compute preimage hash (HASH160) from a 32-byte preimage
     pub fn compute_preimage_hash(preimage: &[u8; 32]) -> [u8; 20] {
         bitcoin::hashes::hash160::Hash::hash(preimage).to_byte_array()
     }
 
-    /// Encode a script pubkey as an address string
-    pub fn encode_funding_address(
-        symbol: &str,
-        script_pubkey: Vec<u8>,
-        network: crate::wallet::Network,
-    ) -> String {
+    pub fn encode_funding_address(symbol: &str, script_pubkey: Vec<u8>) -> String {
         let chain_type = crate::chain::types::Type::from_str(symbol).unwrap();
-        crate::chain::utils::encode_address(chain_type, script_pubkey, None, network).unwrap()
+        crate::chain::utils::encode_address(chain_type, script_pubkey, None, Network::Regtest)
+            .unwrap()
     }
 }

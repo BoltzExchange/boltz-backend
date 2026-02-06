@@ -164,13 +164,11 @@ impl FundingAddressClaimer {
                 }))?;
 
                 // Distribute the claim transaction fee evenly across swaps
-                let claim_fee_per_swap =
-                    (claim_fee as f64 / swaps.len() as f64).ceil() as u64;
+                let claim_fee_per_swap = (claim_fee as f64 / swaps.len() as f64).ceil() as u64;
                 for swap in swaps {
                     *swap_fees.entry(swap.id.clone()).or_insert(0) += claim_fee_per_swap;
                 }
 
-                // Broadcast the claim transaction
                 let claim_txid = chain.send_raw_transaction(&tx.serialize().to_hex()).await?;
                 txids.push(claim_txid);
             }
@@ -367,7 +365,6 @@ mod test {
         let swaps = vec![test_swap("bcrt1qtest")];
         let result = claimer.funding_claimable_swaps(swaps, vec![]).await;
 
-        // Swaps without funding addresses are now skipped (not an error)
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }
@@ -378,13 +375,11 @@ mod test {
         let claimer = create_claimer_with_mock(currencies);
 
         let client_keypair = get_keypair();
-        // Use test_funding_address from test_utils (default symbol is BTC)
         let funding_address = test_funding_address(
             "test_missing_presigned",
             &client_keypair.public_key().serialize(),
         );
 
-        // No presigned_tx set - use VALID_SWAP_TREE for the tree field
         let swap_info = SwapInfo {
             id: "test".to_string(),
             symbol: "BTC".to_string(),
@@ -421,14 +416,12 @@ mod test {
         let chain_client = currency.chain.as_ref().expect("chain client not found");
         let wallet = currency.wallet.as_ref().expect("wallet not found");
 
-        // Setup keypairs
         let client_keypair = get_keypair();
         let server_keypair = wallet
             .derive_keys(10)
             .unwrap()
             .to_keypair(&bitcoin::secp256k1::Secp256k1::new());
 
-        // Create funding address
         let mut funding_address = test_funding_address_for_symbol(
             funding_address_id,
             symbol,
@@ -436,10 +429,8 @@ mod test {
             100000,
         );
 
-        // Generate and fund the address
         let script_pubkey = funding_address.script_pubkey(&server_keypair).unwrap();
-        let funding_address_str =
-            encode_funding_address(symbol, script_pubkey.clone(), currency.network);
+        let funding_address_str = encode_funding_address(symbol, script_pubkey.clone());
         let (tx_id, vout, amount) =
             fund_address(chain_client, symbol, &funding_address_str, &script_pubkey).await;
 
@@ -447,7 +438,6 @@ mod test {
         funding_address.lockup_transaction_vout = Some(vout);
         funding_address.lockup_amount = Some(amount);
 
-        // Create swap tree and compute lockup address
         let preimage = "0000000000000000000000000000000000000000000000000000000000000001";
         let preimage_bytes: [u8; 32] = alloy::hex::decode(preimage).unwrap().try_into().unwrap();
         let preimage_hash = compute_preimage_hash(&preimage_bytes);
@@ -461,7 +451,6 @@ mod test {
             100000,
         );
 
-        // Compute the internal key (aggregate of server and client keys)
         let internal_key = Musig::setup(
             Musig::convert_keypair(server_keypair.secret_key().secret_bytes()).unwrap(),
             vec![
@@ -474,14 +463,9 @@ mod test {
         let internal_key_xonly =
             bitcoin::XOnlyPublicKey::from_slice(&internal_key.serialize()).unwrap();
 
-        let swap_lockup_address = compute_swap_lockup_address(
-            chain_type,
-            &swap_tree_json,
-            &internal_key_xonly,
-            currency.network,
-        );
+        let swap_lockup_address =
+            compute_swap_lockup_address(chain_type, &swap_tree_json, &internal_key_xonly);
 
-        // Create signer with mocks
         let mut swap_helper = MockSwapHelper::new();
         let lockup_addr = swap_lockup_address.clone();
         swap_helper
@@ -495,7 +479,6 @@ mod test {
 
         let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone());
 
-        // Create presigned transaction
         let presigned_tx = create_presigned_tx(
             &signer,
             &mut funding_address,
@@ -506,7 +489,6 @@ mod test {
         .await;
         funding_address.presigned_tx = Some(presigned_tx);
 
-        // Create swap info and run batch claim
         let swap_info = SwapInfo {
             id: "test_swap_claim".to_string(),
             symbol: symbol.to_string(),
@@ -530,11 +512,7 @@ mod test {
         assert!(!txids.is_empty());
         assert!(!swap_fees.is_empty(), "Expected non-empty swap fees");
         for (swap_id, fee) in &swap_fees {
-            assert!(
-                *fee > 0,
-                "Expected non-zero fee for swap {}",
-                swap_id
-            );
+            assert!(*fee > 0, "Expected non-zero fee for swap {}", swap_id);
         }
         assert!(
             swap_fees.contains_key("test_swap_claim"),

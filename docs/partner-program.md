@@ -1,7 +1,7 @@
-# 🤝 Referral Program
+# 🤝 Partner Program
 
-Boltz operates a referral program which provides eligible partners with rewards
-for impactful, high quality integrations of Boltz API
+The Boltz Partner Program provides eligible partners with rewards for impactful,
+high quality integrations of Boltz API
 
 ## Who Is Eligible
 
@@ -27,7 +27,7 @@ Not eligible for the partner program are for instance:
 
 ::: info
 
-Boltz reserves all rights to change conditions of the referral program at any
+Boltz reserves all rights to change conditions of the partner program at any
 time and to sovereignly decide which integrations to onboard and, in some cases,
 which to offboard.
 

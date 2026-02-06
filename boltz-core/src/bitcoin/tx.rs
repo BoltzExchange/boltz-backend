@@ -306,12 +306,6 @@ mod tests {
     const FUNDING_AMOUNT: u64 = 100_000;
 
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
-        node.request::<serde_json::Value>(
-            "generatetoaddress",
-            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
-        )
-        .unwrap();
-
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
@@ -321,6 +315,12 @@ mod tests {
                 ]),
             )
             .unwrap();
+
+        node.request::<serde_json::Value>(
+            "generatetoaddress",
+            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
+        )
+        .unwrap();
 
         let tx = node
             .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&funding_tx)]))

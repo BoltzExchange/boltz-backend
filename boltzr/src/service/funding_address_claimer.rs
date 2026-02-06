@@ -16,6 +16,7 @@ use boltz_core::wrapper::{
 use boltz_core::{Address, Destination, FeeTarget, Musig};
 use elements::hex::ToHex;
 use elements::{AssetId, OutPoint as ElementsOutPoint};
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -111,10 +112,13 @@ impl FundingAddressClaimer {
         }
     }
 
-    pub async fn batch_claim(&self, swaps: &[SwapInfo]) -> Result<(Vec<String>, u64)> {
+    pub async fn batch_claim(
+        &self,
+        swaps: &[SwapInfo],
+    ) -> Result<(Vec<String>, HashMap<String, u64>)> {
         let symbol = match swaps.first().map(|swap| swap.symbol.as_str()) {
             Some(symbol) => symbol,
-            None => return Ok((Vec::new(), 0)),
+            None => return Ok((Vec::new(), HashMap::new())),
         };
         let wallet = get_wallet(&self.currencies, symbol)?;
         let chain = get_chain_client(&self.currencies, symbol)?;
@@ -127,15 +131,16 @@ impl FundingAddressClaimer {
 
         let address = wallet.get_address(None, &label).await?;
         let address = Address::try_from(address.as_str())?;
-        let mut total_fee = 0;
+        let mut swap_fees: HashMap<String, u64> = HashMap::new();
         let mut txids = Vec::new();
 
         match chain.chain_type() {
             Type::Elements => {
                 // Broadcast all presigned transactions first
                 for swap in swaps {
-                    let (txid, fee) = self.broadcast_presigned_tx(&swap.funding_address).await?;
-                    total_fee += fee;
+                    let (txid, presigned_fee) =
+                        self.broadcast_presigned_tx(&swap.funding_address).await?;
+                    swap_fees.insert(swap.id.clone(), presigned_fee);
                     txids.push(txid);
                 }
 
@@ -151,13 +156,19 @@ impl FundingAddressClaimer {
                     })
                     .collect::<Result<Vec<ElementsInputDetail>>>()?;
                 let inputs_refs: Vec<&ElementsInputDetail> = elements_inputs.iter().collect();
-                let (tx, fee) = construct_tx(&Params::Elements(ElementsParams {
+                let (tx, claim_fee) = construct_tx(&Params::Elements(ElementsParams {
                     genesis_hash,
                     inputs: &inputs_refs,
                     destination: &Destination::Single(&address.try_into()?),
                     fee: FeeTarget::Relative(fee_rate),
                 }))?;
-                total_fee += fee;
+
+                // Distribute the claim transaction fee evenly across swaps
+                let claim_fee_per_swap =
+                    (claim_fee as f64 / swaps.len() as f64).ceil() as u64;
+                for swap in swaps {
+                    *swap_fees.entry(swap.id.clone()).or_insert(0) += claim_fee_per_swap;
+                }
 
                 // Broadcast the claim transaction
                 let claim_txid = chain.send_raw_transaction(&tx.serialize().to_hex()).await?;
@@ -194,7 +205,7 @@ impl FundingAddressClaimer {
 
                     params.fee = FeeTarget::Absolute(package_fee);
                     let (tx, _) = construct_tx(&Params::Bitcoin(params))?;
-                    total_fee += package_fee;
+                    swap_fees.insert(swap.id.clone(), package_fee);
                     let presigned_hex = presigned_bytes.to_hex();
                     let tx_hex = tx.serialize().to_hex();
 
@@ -215,7 +226,7 @@ impl FundingAddressClaimer {
             }
         }
 
-        Ok((txids, total_fee))
+        Ok((txids, swap_fees))
     }
 
     /// Broadcasts the presigned transaction of a funding address to the chain.
@@ -515,8 +526,19 @@ mod test {
             result.err()
         );
 
-        let (txids, total_fee) = result.unwrap();
+        let (txids, swap_fees) = result.unwrap();
         assert!(!txids.is_empty());
-        assert!(total_fee > 0, "Expected non-zero fee");
+        assert!(!swap_fees.is_empty(), "Expected non-empty swap fees");
+        for (swap_id, fee) in &swap_fees {
+            assert!(
+                *fee > 0,
+                "Expected non-zero fee for swap {}",
+                swap_id
+            );
+        }
+        assert!(
+            swap_fees.contains_key("test_swap_claim"),
+            "Expected fee for test_swap_claim"
+        );
     }
 }

@@ -133,7 +133,7 @@ message ClaimBatchRequest {
 
 message ClaimBatchResponse {
   repeated string transaction_ids = 1;
-  uint64 fee = 2;
+  map<string, uint64> fees_per_swap = 3;
 }
 
 message SignEvmRefundRequest {

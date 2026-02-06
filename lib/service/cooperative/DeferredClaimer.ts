@@ -462,19 +462,18 @@ class DeferredClaimer extends CoopSignerBase<{
     symbol: string,
     swaps: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[],
   ) => {
-    let transactionFee: number;
     let transactionIds: string[];
+    let feesPerSwap: Map<string, number>;
 
     const currency = this.currencies.get(symbol)!;
 
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const { transactionIdsList, fee } = await this.sidecar.claimBatch(
-          swaps.map((s) => s.swap.id),
-        );
+        const { transactionIdsList, feesPerSwapMap } =
+          await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
         transactionIds = transactionIdsList;
-        transactionFee = fee;
+        feesPerSwap = new Map(feesPerSwapMap);
         break;
       }
 
@@ -511,7 +510,12 @@ class DeferredClaimer extends CoopSignerBase<{
         );
 
         transactionIds = [tx.hash];
-        transactionFee = calculateEthereumTransactionFee(tx);
+        const ethFeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(
+          swaps.map((s) => [s.swap.id, ethFeePerSwap]),
+        );
 
         break;
       }
@@ -551,7 +555,12 @@ class DeferredClaimer extends CoopSignerBase<{
         );
 
         transactionIds = [tx.hash];
-        transactionFee = calculateEthereumTransactionFee(tx);
+        const erc20FeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(
+          swaps.map((s) => [s.swap.id, erc20FeePerSwap]),
+        );
 
         break;
       }
@@ -569,20 +578,20 @@ class DeferredClaimer extends CoopSignerBase<{
         .join(', ')} in: ${transactionIds.join(', ')}`,
     );
 
-    const transactionFeePerSwap = Math.ceil(transactionFee / swaps.length);
-
     for (const toClaim of swaps) {
+      const swapFee = feesPerSwap.get(toClaim.swap.id) ?? 0;
+
       let updatedSwap: Swap | ChainSwapInfo;
       if (toClaim.swap.type === SwapType.Submarine) {
         updatedSwap = await SwapRepository.setMinerFee(
           toClaim.swap as Swap,
-          transactionFeePerSwap,
+          swapFee,
         );
       } else {
         updatedSwap = await ChainSwapRepository.setClaimMinerFee(
           toClaim.swap as ChainSwapInfo,
           toClaim.preimage,
-          transactionFeePerSwap,
+          swapFee,
         );
       }
 

@@ -544,10 +544,9 @@ export class ClaimBatchResponse extends jspb.Message {
     getTransactionIdsList(): Array<string>;
     setTransactionIdsList(value: Array<string>): ClaimBatchResponse;
     addTransactionIds(value: string, index?: number): string;
-    getTransactionId(): string;
-    setTransactionId(value: string): ClaimBatchResponse;
-    getFee(): number;
-    setFee(value: number): ClaimBatchResponse;
+
+    getFeesPerSwapMap(): jspb.Map<string, number>;
+    clearFeesPerSwapMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClaimBatchResponse.AsObject;
@@ -562,8 +561,8 @@ export class ClaimBatchResponse extends jspb.Message {
 export namespace ClaimBatchResponse {
     export type AsObject = {
         transactionIdsList: Array<string>,
-        transactionId: string,
-        fee: number,
+
+        feesPerSwapMap: Array<[string, number]>,
     }
 }
 

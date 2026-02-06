@@ -194,6 +194,7 @@ mod server_test {
     use crate::db::models::{WebHook, WebHookState};
     use crate::evm::RefundSigner;
     use crate::grpc::server::{Config, Server};
+    use crate::grpc::service::boltzr::ClaimBatchResponse;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
@@ -264,7 +265,7 @@ mod server_test {
                 swap_type: crate::db::models::SwapType,
             ) -> anyhow::Result<(u64, u64)>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
-            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
+            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<ClaimBatchResponse>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             fn funding_address_update_sender(&self) -> crate::api::ws::types::UpdateSender<crate::api::ws::types::FundingAddressUpdate>;
             async fn rescan_chains(

@@ -342,13 +342,8 @@ mod test {
         let claimer = create_claimer_with_mock(currencies);
 
         let result = claimer.batch_claim(&[]).await;
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("no swaps provided")
-        );
+        assert!(result.is_ok());
+        assert!(result.unwrap().0.is_empty());
     }
 
     #[tokio::test]

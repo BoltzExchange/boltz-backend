@@ -338,11 +338,15 @@ pub mod test {
         address: &str,
         script_pubkey: &[u8],
     ) -> (String, i32, i64) {
+        let amount = 100_000i64;
         let tx_id = chain_client
             .request_wallet(
                 None,
                 "sendtoaddress",
-                Some(&[RpcParam::Str(address), RpcParam::Float(0.001)]),
+                Some(&[
+                    RpcParam::Str(address),
+                    RpcParam::Float(amount as f64 / 100_000_000.0),
+                ]),
             )
             .await
             .unwrap()
@@ -365,7 +369,6 @@ pub mod test {
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
         let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
         let vout = find_vout(symbol, &raw_tx, &script_pubkey.to_vec());
-        let amount = 100_000_000i64;
 
         (tx_id, vout, amount)
     }

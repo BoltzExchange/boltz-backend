@@ -37,7 +37,7 @@ export default defineConfig({
           { text: '✨ BOLT12', link: '/bolt12' },
           { text: '🏅 Pro', link: '/pro' },
           { text: '📜 Claim Covenants', link: '/claim-covenants' },
-          { text: '🤝 Referral Program', link: '/referral-program' },
+          { text: '🤝 Partner Program', link: '/partner-program' },
           { text: '🐳 Backend Development', link: '/backend-development' },
           { text: '🤖 REST API v1 (deprecated)', link: '/api-v1' },
           { text: '🏠 Docs Home', link: docsRoot, target: '_self' },

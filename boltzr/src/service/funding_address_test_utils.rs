@@ -275,9 +275,6 @@ pub mod test {
         }
     }
 
-    /// Compute the swap lockup address from a swap tree and internal key.
-    /// This is the actual address where the swap lockup output should be sent.
-    /// Works for both Bitcoin and Elements/Liquid based on the `chain_type` parameter.
     pub fn compute_swap_lockup_address(
         chain_type: Chain,
         swap_tree_json: &str,

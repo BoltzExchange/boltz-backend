@@ -295,12 +295,10 @@ class Sidecar extends BaseClient<
     const req = new sidecarrpc.ClaimBatchRequest();
     req.setSwapIdsList(swapIds);
 
-    const res = await this.unaryNodeCall<
+    return await this.unaryNodeCall<
       sidecarrpc.ClaimBatchRequest,
-      sidecarrpc.ClaimBatchResponse
-    >('claimBatch', req, false);
-
-    return res.toObject();
+      sidecarrpc.ClaimBatchResponse.AsObject
+    >('claimBatch', req);
   };
 
   public signEvmRefund = async (

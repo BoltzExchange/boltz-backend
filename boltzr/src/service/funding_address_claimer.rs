@@ -3,7 +3,7 @@ use crate::currencies::{get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
 use crate::db::models::{ChainSwapInfo, LightningSwap, SomeSwap, Swap};
 use crate::{currencies::Currencies, db::models::FundingAddress};
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use bitcoin::OutPoint as BitcoinOutPoint;
 use boltz_core::bitcoin::{InputDetail as BitcoinInputDetail, UncooperativeDetails};
 use boltz_core::elements::{
@@ -90,38 +90,34 @@ impl FundingAddressClaimer {
                     internal_key: bitcoin::XOnlyPublicKey::from_slice(&internal_key)?,
                 })),
                 outpoint: BitcoinOutPoint::new(tx.compute_txid(), 0),
-                tx_out: tx.output[0].clone(),
+                tx_out: tx.output.first().context("missing bitcoin output")?.clone(),
                 keys,
             }))),
-            Transaction::Elements(tx) => Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
-                input_type,
-                output_type: OutputType::Taproot(Some(ElementsUncooperativeDetails {
-                    tree: serde_json::from_str(swap.tree.as_str())?,
-                    internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
-                        &internal_key,
-                    )?,
-                })),
-                outpoint: ElementsOutPoint::new(tx.txid(), 0),
-                tx_out: tx.output[0].clone(),
-                keys,
-                blinding_key: Some(bitcoin::secp256k1::Keypair::from_seckey_slice(
+            Transaction::Elements(tx) => {
+                let tx_out = tx.output.first().context("missing liquid output")?.clone();
+                let blinding_key = Some(bitcoin::secp256k1::Keypair::from_seckey_slice(
                     &secp,
-                    &wallet.derive_blinding_key(tx.output[0].script_pubkey.to_bytes())?,
-                )?),
-            }))),
+                    &wallet.derive_blinding_key(tx_out.script_pubkey.to_bytes())?,
+                )?);
+                Ok(InputDetail::Elements(Box::new(ElementsInputDetail {
+                    input_type,
+                    output_type: OutputType::Taproot(Some(ElementsUncooperativeDetails {
+                        tree: serde_json::from_str(swap.tree.as_str())?,
+                        internal_key: elements::secp256k1_zkp::XOnlyPublicKey::from_slice(
+                            &internal_key,
+                        )?,
+                    })),
+                    outpoint: ElementsOutPoint::new(tx.txid(), 0),
+                    tx_out,
+                    keys,
+                    blinding_key,
+                })))
+            }
         }
     }
 
-    pub async fn batch_claim(
-        &self,
-        swaps: &[SwapInfo],
-    ) -> Result<(Vec<String>, HashMap<String, u64>)> {
-        let symbol = match swaps.first().map(|swap| swap.symbol.as_str()) {
-            Some(symbol) => symbol,
-            None => return Ok((Vec::new(), HashMap::new())),
-        };
+    pub async fn get_claim_address(&self, symbol: &str, swaps: &[SwapInfo]) -> Result<Address> {
         let wallet = get_wallet(&self.currencies, symbol)?;
-        let chain = get_chain_client(&self.currencies, symbol)?;
         let label = wallet.label_batch_claim(
             &swaps
                 .iter()
@@ -130,17 +126,29 @@ impl FundingAddressClaimer {
         );
 
         let address = wallet.get_address(None, &label).await?;
-        let address = Address::try_from(address.as_str())?;
-        let mut swap_fees: HashMap<String, u64> = HashMap::new();
-        let mut txids = Vec::new();
+        Address::try_from(address.as_str())
+    }
 
+    pub async fn claim_batch(
+        &self,
+        swaps: &[SwapInfo],
+        fees_per_swap: &mut HashMap<String, u64>,
+        txids: &mut Vec<String>,
+    ) -> Result<()> {
+        // Return early with empty results if swaps are empty
+        let symbol = match swaps.first() {
+            Some(swap) => swap.symbol.as_str(),
+            None => return Ok(()),
+        };
+
+        let chain = get_chain_client(&self.currencies, symbol)?;
         match chain.chain_type() {
             Type::Elements => {
                 // Broadcast all presigned transactions first
                 for swap in swaps {
                     let (txid, presigned_fee) =
                         self.broadcast_presigned_tx(&swap.funding_address).await?;
-                    swap_fees.insert(swap.id.clone(), presigned_fee);
+                    fees_per_swap.insert(swap.id.clone(), presigned_fee);
                     txids.push(txid);
                 }
 
@@ -156,6 +164,8 @@ impl FundingAddressClaimer {
                     })
                     .collect::<Result<Vec<ElementsInputDetail>>>()?;
                 let inputs_refs: Vec<&ElementsInputDetail> = elements_inputs.iter().collect();
+                let address = self.get_claim_address(symbol, swaps).await?;
+
                 let (tx, claim_fee) = construct_tx(&Params::Elements(ElementsParams {
                     genesis_hash,
                     inputs: &inputs_refs,
@@ -166,15 +176,20 @@ impl FundingAddressClaimer {
                 // Distribute the claim transaction fee evenly across swaps
                 let claim_fee_per_swap = (claim_fee as f64 / swaps.len() as f64).ceil() as u64;
                 for swap in swaps {
-                    *swap_fees.entry(swap.id.clone()).or_insert(0) += claim_fee_per_swap;
+                    *fees_per_swap.entry(swap.id.clone()).or_insert(0) += claim_fee_per_swap;
                 }
 
                 let claim_txid = chain.send_raw_transaction(&tx.serialize().to_hex()).await?;
                 txids.push(claim_txid);
             }
             Type::Bitcoin => {
+                let fee_rate = chain.estimate_fee().await?;
+
                 for swap in swaps {
-                    let fee_rate = chain.estimate_fee().await?;
+                    let address = self
+                        .get_claim_address(symbol, std::slice::from_ref(swap))
+                        .await?;
+
                     let presigned_bytes = swap
                         .funding_address
                         .presigned_tx
@@ -191,27 +206,21 @@ impl FundingAddressClaimer {
                     };
                     let (tx, _) = construct_tx(&Params::Bitcoin(params.clone()))?;
 
-                    let btc_tx = match tx {
-                        Transaction::Bitcoin(tx) => tx,
-                        Transaction::Elements(_) => {
-                            return Err(anyhow!("expected Bitcoin transaction"));
-                        }
-                    };
-                    let claim_vsize = btc_tx.vsize() as u64;
+                    let claim_vsize = tx.vsize();
                     let total_vsize = presigned_vsize + claim_vsize;
                     let package_fee = ((total_vsize as f64) * fee_rate).ceil() as u64;
 
                     params.fee = FeeTarget::Absolute(package_fee);
                     let (tx, _) = construct_tx(&Params::Bitcoin(params))?;
-                    swap_fees.insert(swap.id.clone(), package_fee);
+                    fees_per_swap.insert(swap.id.clone(), package_fee);
                     let presigned_hex = presigned_bytes.to_hex();
                     let tx_hex = tx.serialize().to_hex();
 
                     let response = chain.submit_package(&[&presigned_hex, &tx_hex]).await?;
                     if response.package_msg != "success" {
                         error!(
-                            "failed to submit package: {} - tx_results: {:?}",
-                            response.package_msg, response.tx_results
+                            "Failed to submit package for claiming swap {}: {} - tx_results: {:?}",
+                            swap.id, response.package_msg, response.tx_results
                         );
                         return Err(anyhow!(
                             "failed to submit package: {}",
@@ -224,16 +233,22 @@ impl FundingAddressClaimer {
             }
         }
 
-        Ok((txids, swap_fees))
+        Ok(())
     }
 
-    /// Broadcasts the presigned transaction of a funding address to the chain.
-    /// Returns the transaction ID if successful.
+    // Broadcasts the presigned transaction of a funding address to the chain.
+    // Should only be used for liquid swaps - bitcoin swaps use zero-fee transactions which have
+    // to be broadcast as a package with a fee-paying child.
     pub async fn broadcast_presigned_tx(
         &self,
         funding_address: &FundingAddress,
     ) -> Result<(String, u64)> {
         let chain = get_chain_client(&self.currencies, funding_address.symbol.as_str())?;
+        if funding_address.symbol_type()? != Type::Elements {
+            return Err(anyhow!(
+                "broadcast_presigned_tx can only be used for liquid swaps"
+            ));
+        }
         let presigned_bytes = funding_address
             .presigned_tx
             .as_ref()
@@ -256,7 +271,7 @@ impl FundingAddressClaimer {
         ))
     }
 
-    pub async fn funding_claimable_swaps(
+    pub async fn prepare_claimable_swaps(
         &self,
         swaps: Vec<Swap>,
         chain_swaps: Vec<ChainSwapInfo>,
@@ -346,31 +361,34 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_batch_claim_empty_swaps() {
+    async fn test_claim_batch_empty_swaps() {
         let currencies = get_test_currencies().await;
         let claimer = create_claimer_with_mock(currencies);
+        let mut swap_fees = HashMap::new();
+        let mut txids = Vec::new();
 
-        let result = claimer.batch_claim(&[]).await;
+        let result = claimer.claim_batch(&[], &mut swap_fees, &mut txids).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().0.is_empty());
+        assert!(txids.is_empty());
+        assert!(swap_fees.is_empty());
     }
 
     #[tokio::test]
-    async fn test_funding_claimable_swaps_skips_unlinked() {
+    async fn test_prepare_claimable_swaps_skips_unlinked() {
         let currencies = get_test_currencies().await;
         let mut mock = MockFundingAddressHelper::new();
         mock.expect_get_by_swap_id().returning(|_| Ok(None));
         let claimer = create_claimer(mock, currencies);
 
         let swaps = vec![test_swap("bcrt1qtest")];
-        let result = claimer.funding_claimable_swaps(swaps, vec![]).await;
+        let result = claimer.prepare_claimable_swaps(swaps, vec![]).await;
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
     }
 
     #[tokio::test]
-    async fn test_input_detail_missing_presigned_tx() {
+    async fn test_prepare_claimable_swaps_missing_presigned_tx() {
         let currencies = get_test_currencies().await;
         let claimer = create_claimer_with_mock(currencies);
 
@@ -500,7 +518,11 @@ mod test {
         };
 
         let claimer = create_claimer_with_mock(currencies);
-        let result = claimer.batch_claim(&[swap_info]).await;
+        let mut swap_fees = HashMap::new();
+        let mut txids = Vec::new();
+        let result = claimer
+            .claim_batch(&[swap_info], &mut swap_fees, &mut txids)
+            .await;
         assert!(
             result.is_ok(),
             "{} batch_claim failed: {:?}",
@@ -508,15 +530,17 @@ mod test {
             result.err()
         );
 
-        let (txids, swap_fees) = result.unwrap();
         assert!(!txids.is_empty());
         assert!(!swap_fees.is_empty(), "Expected non-empty swap fees");
-        for (swap_id, fee) in &swap_fees {
-            assert!(*fee > 0, "Expected non-zero fee for swap {}", swap_id);
-        }
-        assert!(
-            swap_fees.contains_key("test_swap_claim"),
-            "Expected fee for test_swap_claim"
+        let swap_fee = swap_fees
+            .get("test_swap_claim")
+            .copied()
+            .expect("Expected fee for test_swap_claim");
+        assert!(swap_fee > 0, "Expected non-zero fee for test_swap_claim");
+        assert_eq!(
+            txids.len(),
+            2,
+            "Expected presigned + claim txids for Liquid"
         );
     }
 }

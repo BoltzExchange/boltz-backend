@@ -31,7 +31,7 @@ use diesel::ExpressionMethods;
 use elements::hex::ToHex;
 use futures_util::future::try_join_all;
 use futures_util::{StreamExt, TryStreamExt};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
@@ -210,6 +210,105 @@ impl Manager {
         .await
         .unwrap();
     }
+
+    async fn claim_regular_swaps(
+        &self,
+        claim_symbol: &str,
+        regular_swaps: Vec<Box<dyn SomeSwap + Send>>,
+        txids: &mut Vec<String>,
+        fees_per_swap: &mut HashMap<String, u64>,
+    ) -> Result<()> {
+        let currency = self
+            .get_currency(claim_symbol)
+            .ok_or_else(|| anyhow!("currency not found"))?;
+        let client = currency
+            .chain
+            .ok_or_else(|| anyhow!("chain client not found"))?;
+        let wallet = currency.wallet.ok_or_else(|| anyhow!("wallet not found"))?;
+
+        let regular_swap_ids: Vec<String> = regular_swaps.iter().map(|s| s.id()).collect();
+        let inputs: Vec<InputDetail> = futures::stream::iter(regular_swaps)
+            .map(|swap| {
+                let wallet = wallet.clone();
+                let client = client.clone();
+                async move { swap.claim_details(&wallet, &client).await }
+            })
+            .boxed()
+            // Elements inputs need to fetch chain data to prepare the input and
+            // we don't want to overwhelm the node
+            .buffered(16)
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        if inputs.is_empty() {
+            return Ok(());
+        }
+
+        let fee = client.estimate_fee().await?;
+        let address = boltz_core::Address::try_from(
+            wallet
+                .get_address(
+                    None,
+                    &wallet.label_batch_claim(
+                        &regular_swap_ids
+                            .iter()
+                            .map(|id| id.as_str())
+                            .collect::<Vec<_>>(),
+                    ),
+                )
+                .await?
+                .as_str(),
+        )?;
+
+        let (tx, fee) = match client.chain_type() {
+            Type::Bitcoin => {
+                let inputs = inputs
+                    .into_iter()
+                    .map(|input| input.try_into())
+                    .collect::<Result<Vec<boltz_core::bitcoin::InputDetail>>>()?;
+                let inputs = inputs.iter().collect::<Vec<_>>();
+
+                let params =
+                    boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
+                        inputs: &inputs,
+                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        fee: fee.into(),
+                    });
+
+                boltz_core::wrapper::construct_tx(&params)
+            }
+            Type::Elements => {
+                let inputs = inputs
+                    .into_iter()
+                    .map(|input| input.try_into())
+                    .collect::<Result<Vec<boltz_core::elements::InputDetail>>>()?;
+                let inputs = inputs.iter().collect::<Vec<_>>();
+
+                let params =
+                    boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {
+                        genesis_hash: client.network().liquid_genesis_hash()?,
+                        inputs: &inputs,
+                        destination: &boltz_core::Destination::Single(&address.try_into()?),
+                        fee: fee.into(),
+                    });
+
+                boltz_core::wrapper::construct_tx(&params)
+            }
+        }?;
+
+        let tx_hex = tx.serialize().to_hex();
+        let txid = client.send_raw_transaction(&tx_hex).await?;
+
+        // Distribute the batch claim fee evenly across regular (non-funding-address) swaps
+        let fee_per_swap = (fee as f64 / regular_swap_ids.len() as f64).ceil() as u64;
+        for id in &regular_swap_ids {
+            fees_per_swap.insert(id.clone(), fee_per_swap);
+        }
+
+        txids.push(txid);
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -303,107 +402,28 @@ impl SwapManager for Manager {
         {
             return Err(anyhow!("all swaps must have the same claim symbol"));
         }
-        let currency = self
-            .get_currency(&claim_symbol)
-            .ok_or_else(|| anyhow!("currency not found"))?;
-        let client = currency
-            .chain
-            .ok_or_else(|| anyhow!("chain client not found"))?;
-        let wallet = currency.wallet.ok_or_else(|| anyhow!("wallet not found"))?;
-
         let claimable = self
             .funding_address_claimer
-            .funding_claimable_swaps(submarines, chain_swaps)
+            .prepare_claimable_swaps(submarines, chain_swaps)
             .await?;
 
         let funding_claimable_ids: HashSet<String> =
             claimable.iter().map(|c| c.id.clone()).collect();
 
-        let (mut txids, mut fees_per_swap) =
-            self.funding_address_claimer.batch_claim(&claimable).await?;
+        let mut fees_per_swap: HashMap<String, u64> = HashMap::new();
+        let mut txids = Vec::new();
+
+        self.funding_address_claimer
+            .claim_batch(&claimable, &mut fees_per_swap, &mut txids)
+            .await?;
 
         let regular_swaps: Vec<_> = swaps
             .into_iter()
             .filter(|swap| !funding_claimable_ids.contains(&swap.id()))
             .collect();
 
-        let regular_swap_ids: Vec<String> = regular_swaps.iter().map(|s| s.id()).collect();
-
-        let inputs: Vec<InputDetail> = futures::stream::iter(regular_swaps)
-            .map(|swap| {
-                let wallet = wallet.clone();
-                let client = client.clone();
-                async move { swap.claim_details(&wallet, &client).await }
-            })
-            .boxed()
-            // Elements inputs need to fetch chain data to prepare the input and
-            // we don't want to overwhelm the node
-            .buffered(16)
-            .try_collect::<Vec<_>>()
+        self.claim_regular_swaps(&claim_symbol, regular_swaps, &mut txids, &mut fees_per_swap)
             .await?;
-
-        if !inputs.is_empty() {
-            let fee = client.estimate_fee().await?;
-            let address = boltz_core::Address::try_from(
-                wallet
-                    .get_address(
-                        None,
-                        &wallet.label_batch_claim(
-                            &swap_ids.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
-                        ),
-                    )
-                    .await?
-                    .as_str(),
-            )?;
-
-            let (tx, fee) = match client.chain_type() {
-                Type::Bitcoin => {
-                    let inputs = inputs
-                        .into_iter()
-                        .map(|input| input.try_into())
-                        .collect::<Result<Vec<boltz_core::bitcoin::InputDetail>>>()?;
-                    let inputs = inputs.iter().collect::<Vec<_>>();
-
-                    let params =
-                        boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
-                            inputs: &inputs,
-                            destination: &boltz_core::Destination::Single(&address.try_into()?),
-                            fee: fee.into(),
-                        });
-
-                    boltz_core::wrapper::construct_tx(&params)
-                }
-                Type::Elements => {
-                    let inputs = inputs
-                        .into_iter()
-                        .map(|input| input.try_into())
-                        .collect::<Result<Vec<boltz_core::elements::InputDetail>>>()?;
-                    let inputs = inputs.iter().collect::<Vec<_>>();
-
-                    let params = boltz_core::wrapper::Params::Elements(
-                        boltz_core::wrapper::ElementsParams {
-                            genesis_hash: client.network().liquid_genesis_hash()?,
-                            inputs: &inputs,
-                            destination: &boltz_core::Destination::Single(&address.try_into()?),
-                            fee: fee.into(),
-                        },
-                    );
-
-                    boltz_core::wrapper::construct_tx(&params)
-                }
-            }?;
-
-            let tx_hex = tx.serialize().to_hex();
-            let txid = client.send_raw_transaction(&tx_hex).await?;
-
-            // Distribute the batch claim fee evenly across regular (non-funding-address) swaps
-            let fee_per_swap = (fee as f64 / regular_swap_ids.len() as f64).ceil() as u64;
-            for id in &regular_swap_ids {
-                fees_per_swap.insert(id.clone(), fee_per_swap);
-            }
-
-            txids.push(txid);
-        }
 
         Ok(ClaimBatchResponse {
             transaction_ids: txids,

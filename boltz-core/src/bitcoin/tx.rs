@@ -81,6 +81,8 @@ pub fn construct_raw<C: Signing + Verification>(
     };
 
     let mut tx = Transaction {
+        // Use V3 transactions to enable zero-fee presigned funding-address transactions
+        // that can be spent by a fee-paying child transaction via TRUC relay.
         version: Version(3),
         lock_time: if let Some(lock_time) = inputs
             .iter()

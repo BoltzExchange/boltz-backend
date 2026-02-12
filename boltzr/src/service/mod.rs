@@ -62,6 +62,7 @@ impl Service {
                 swap_helper.clone(),
                 chain_swap_helper.clone(),
                 reverse_swap_helper,
+                funding_address_helper.clone(),
                 currencies.clone(),
             ),
             funding_address: FundingAddressService::new(
@@ -196,6 +197,7 @@ pub mod test {
                     Arc::new(swap_helper),
                     Arc::new(chain_swap_helper),
                     Arc::new(reverse_swap_helper),
+                    Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
                     currencies.clone(),
                 ),
                 funding_address: FundingAddressService::new(

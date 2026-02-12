@@ -167,6 +167,7 @@ diesel::table! {
         lockup_transaction_vout -> Nullable<Integer>,
         swap_id -> Nullable<Text>,
         presigned_tx -> Nullable<Binary>,
+        created_at -> Timestamptz,
     }
 }
 

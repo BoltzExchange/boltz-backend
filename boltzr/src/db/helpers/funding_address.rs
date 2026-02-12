@@ -21,6 +21,7 @@ pub trait FundingAddressHelper {
         script_pubkey: &ScriptPubKey,
     ) -> QueryResponse<usize>;
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
+    fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>>;
     /// Sets or clears the swap_id and presigned_tx for a funding address.
     fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
     fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
@@ -79,6 +80,14 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
         }
 
         Ok(Some(res[0].clone()))
+    }
+
+    fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>> {
+        funding_addresses::dsl::funding_addresses
+            .select(FundingAddress::as_select())
+            .filter(funding_addresses::dsl::their_public_key.eq_any(public_keys))
+            .load(&mut self.pool.get()?)
+            .map_err(Into::into)
     }
 
     fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize> {
@@ -162,6 +171,7 @@ pub mod test {
         impl FundingAddressHelper for FundingAddressHelper {
             fn insert(&self, funding_address: &FundingAddress, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
+            fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>>;
             fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
             fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
             fn set_transaction(

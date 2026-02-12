@@ -554,7 +554,7 @@ mod test {
 
         let funding_address =
             make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
-        assert_eq!(funding_address.status(), StatusCode::OK);
+        assert_eq!(funding_address.status(), StatusCode::CREATED);
         let funding_address_body = funding_address
             .into_body()
             .collect()
@@ -592,7 +592,7 @@ mod test {
 
         let funding_address =
             make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
-        assert_eq!(funding_address.status(), StatusCode::OK);
+        assert_eq!(funding_address.status(), StatusCode::CREATED);
         let funding_address_body = funding_address
             .into_body()
             .collect()
@@ -632,7 +632,7 @@ mod test {
     async fn test_full_flow() {
         let keypair = get_keypair();
         let funding_address = make_create_request(TEST_SYMBOL, &keypair).await;
-        assert_eq!(funding_address.status(), StatusCode::OK);
+        assert_eq!(funding_address.status(), StatusCode::CREATED);
         let funding_address_body = funding_address
             .into_body()
             .collect()

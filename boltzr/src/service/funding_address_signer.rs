@@ -114,7 +114,7 @@ impl FundingAddressSigner {
         format!("session:{}", funding_address_id)
     }
 
-    fn can_link_swap(&self, funding_address: &FundingAddress) -> Result<()> {
+    fn can_spend(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
         if status == FundingAddressStatus::TransactionClaimed {
             return Err(anyhow!(FundingAddressEligibilityError(
@@ -140,7 +140,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         swap_id: &str,
     ) -> Result<CooperativeDetails> {
-        self.can_link_swap(funding_address)?;
+        self.can_spend(funding_address)?;
 
         // Get swap info and validate timeout buffer before creating presigned tx
         let swap_info = self.get_swap_info(swap_id)?;
@@ -187,7 +187,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &SetSignatureRequest,
     ) -> Result<(Transaction, String)> {
-        self.can_link_swap(funding_address)?;
+        self.can_spend(funding_address)?;
 
         // Retrieve and remove the stored signing session from cache
         let session = self
@@ -246,7 +246,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &ClaimSignatureRequest,
     ) -> Result<PartialSignatureResponse> {
-        self.can_link_swap(funding_address)?;
+        self.can_spend(funding_address)?;
 
         let msg: [u8; 32] = hex::decode(&request.transaction_hash)?
             .try_into()

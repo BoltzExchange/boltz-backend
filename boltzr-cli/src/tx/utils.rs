@@ -332,27 +332,42 @@ fn handle_legacy_output_elements(
 fn generate_internal_keys(
     privkey: [u8; 32],
     our_pubkey: [u8; 33],
-    their_pubkeys: [[u8; 32]; 2],
+    tree_pubkeys: [[u8; 32]; 2],
 ) -> impl Iterator<Item = Result<boltz_core::musig::XOnlyPublicKey>> {
-    their_pubkeys.into_iter().flat_map(move |their_pubkey| {
-        [0x02u8, 0x03u8]
-            .into_iter()
-            .flat_map(move |tie_breaker| {
-                [
-                    [our_pubkey, prepend_tie_breaker(&their_pubkey, tie_breaker)],
-                    [prepend_tie_breaker(&their_pubkey, tie_breaker), our_pubkey],
-                ]
-            })
-            .map(move |keys| {
-                Ok(Musig::setup(
-                    Musig::convert_keypair(privkey)?,
-                    keys.iter()
-                        .map(|key| Musig::convert_pub_key(key))
-                        .collect::<Result<Vec<_>>>()?,
-                )?
-                .agg_pk())
-            })
-    })
+    let our_x_only = &our_pubkey[1..];
+
+    if !tree_pubkeys.iter().any(|key| key.as_slice() == our_x_only) {
+        return vec![Err(anyhow::anyhow!(
+            "our pubkey does not match either tree pubkey"
+        ))]
+        .into_iter();
+    }
+    let Some(their_pubkey) = tree_pubkeys.into_iter().find(|key| *key != our_x_only) else {
+        return vec![Err(anyhow::anyhow!(
+            "could not find counterparty pubkey in tree"
+        ))]
+        .into_iter();
+    };
+
+    [0x02u8, 0x03u8]
+        .into_iter()
+        .flat_map(move |tie_breaker| {
+            [
+                [our_pubkey, prepend_tie_breaker(&their_pubkey, tie_breaker)],
+                [prepend_tie_breaker(&their_pubkey, tie_breaker), our_pubkey],
+            ]
+        })
+        .map(move |keys| {
+            Ok(Musig::setup(
+                Musig::convert_keypair(privkey)?,
+                keys.iter()
+                    .map(|key| Musig::convert_pub_key(key))
+                    .collect::<Result<Vec<_>>>()?,
+            )?
+            .agg_pk())
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
 }
 
 fn prepend_tie_breaker(key: &[u8; 32], tie_breaker: u8) -> [u8; 33] {

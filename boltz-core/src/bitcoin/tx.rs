@@ -81,7 +81,9 @@ pub fn construct_raw<C: Signing + Verification>(
     };
 
     let mut tx = Transaction {
-        version: Version::TWO,
+        // Use V3 transactions to enable zero-fee presigned funding-address transactions
+        // that can be spent by a fee-paying child transaction via TRUC relay.
+        version: Version(3),
         lock_time: if let Some(lock_time) = inputs
             .iter()
             .filter_map(|input| match input.input_type {
@@ -306,12 +308,6 @@ mod tests {
     const FUNDING_AMOUNT: u64 = 100_000;
 
     fn fund_address(node: &RpcClient, address: &Address) -> (Transaction, usize) {
-        node.request::<serde_json::Value>(
-            "generatetoaddress",
-            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
-        )
-        .unwrap();
-
         let funding_tx = node
             .request::<String>(
                 "sendtoaddress",
@@ -321,6 +317,12 @@ mod tests {
                 ]),
             )
             .unwrap();
+
+        node.request::<serde_json::Value>(
+            "generatetoaddress",
+            Some(&[RpcParam::Int(1), RpcParam::Str(&address.to_string())]),
+        )
+        .unwrap();
 
         let tx = node
             .request::<String>("getrawtransaction", Some(&[RpcParam::Str(&funding_tx)]))

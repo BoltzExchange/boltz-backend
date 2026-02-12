@@ -7,7 +7,6 @@ import {
   formatError,
   getChainCurrency,
   getHexBuffer,
-  getHexString,
   splitPairId,
 } from '../../Utils';
 import ArkClient from '../../chain/ArkClient';
@@ -463,22 +462,18 @@ class DeferredClaimer extends CoopSignerBase<{
     symbol: string,
     swaps: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[],
   ) => {
-    let transactionFee: number;
-    let claimTransactionId: string;
+    let transactionIds: string[];
+    let feesPerSwap: Map<string, number>;
 
     const currency = this.currencies.get(symbol)!;
 
     switch (currency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid: {
-        const res = await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
-        transactionFee = res.fee;
-        claimTransactionId = res.transactionId;
-
-        await currency!.chainClient!.sendRawTransaction(
-          getHexString(res.transaction),
-          true,
-        );
+        const { transactionIdsList, feesPerSwapMap } =
+          await this.sidecar.claimBatch(swaps.map((s) => s.swap.id));
+        transactionIds = transactionIdsList;
+        feesPerSwap = new Map(feesPerSwapMap);
         break;
       }
 
@@ -514,8 +509,11 @@ class DeferredClaimer extends CoopSignerBase<{
             })),
         );
 
-        claimTransactionId = tx.hash;
-        transactionFee = calculateEthereumTransactionFee(tx);
+        transactionIds = [tx.hash];
+        const ethFeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, ethFeePerSwap]));
 
         break;
       }
@@ -554,8 +552,11 @@ class DeferredClaimer extends CoopSignerBase<{
             })),
         );
 
-        claimTransactionId = tx.hash;
-        transactionFee = calculateEthereumTransactionFee(tx);
+        transactionIds = [tx.hash];
+        const erc20FeePerSwap = Math.ceil(
+          calculateEthereumTransactionFee(tx) / swaps.length,
+        );
+        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, erc20FeePerSwap]));
 
         break;
       }
@@ -570,23 +571,23 @@ class DeferredClaimer extends CoopSignerBase<{
     this.logger.info(
       `Claimed ${symbol} of Swaps ${swaps
         .map((toClaim) => toClaim.swap.id)
-        .join(', ')} in: ${claimTransactionId}`,
+        .join(', ')} in: ${transactionIds.join(', ')}`,
     );
 
-    const transactionFeePerSwap = Math.ceil(transactionFee / swaps.length);
-
     for (const toClaim of swaps) {
+      const swapFee = feesPerSwap.get(toClaim.swap.id) ?? 0;
+
       let updatedSwap: Swap | ChainSwapInfo;
       if (toClaim.swap.type === SwapType.Submarine) {
         updatedSwap = await SwapRepository.setMinerFee(
           toClaim.swap as Swap,
-          transactionFeePerSwap,
+          swapFee,
         );
       } else {
         updatedSwap = await ChainSwapRepository.setClaimMinerFee(
           toClaim.swap as ChainSwapInfo,
           toClaim.preimage,
-          transactionFeePerSwap,
+          swapFee,
         );
       }
 

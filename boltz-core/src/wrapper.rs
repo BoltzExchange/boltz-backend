@@ -95,6 +95,13 @@ impl Transaction {
             }
         }
     }
+
+    pub fn vsize(&self) -> u64 {
+        match self {
+            Transaction::Bitcoin(tx) => tx.vsize() as u64,
+            Transaction::Elements(tx) => tx.discount_vsize() as u64,
+        }
+    }
 }
 
 pub fn construct_tx(params: &Params) -> Result<(Transaction, u64)> {

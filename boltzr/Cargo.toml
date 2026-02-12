@@ -108,6 +108,7 @@ rapidfuzz = "0.5.0"
 zeromq = { version = "0.4.1", features = ["tokio-runtime", "tcp-transport"] }
 tonic-prost = { workspace = true }
 boltz-core = { path = "../boltz-core" }
+boltz-evm = { path = "../boltz-evm" }
 bip39 = "2.2.2"
 tower-http = { version = "0.6.8", optional = true, features = ["trace"] }
 rustls = { version = "0.23.36", default-features = false, features = [

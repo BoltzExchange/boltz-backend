@@ -52,6 +52,15 @@ struct ReferralStats {
     stats: serde_json::Value,
 }
 
+#[derive(Serialize)]
+struct SignatureVrs {
+    signature: String,
+    recovery_id: u8,
+    v: u8,
+    r: String,
+    s: String,
+}
+
 #[derive(Clone, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -331,6 +340,29 @@ enum EvmCommands {
         #[arg(help = "Transaction hash of the lockup transaction")]
         #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
         lockup_tx_hash: alloy::primitives::FixedBytes<32>,
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Output split signature fields (v, r, s)"
+        )]
+        vrs: bool,
+    },
+    #[command(
+        about = "Signs a cooperative refund for a swap by parsing the logs of a lockup transaction"
+    )]
+    SignRefund {
+        #[arg(help = "Preimage hash to sign the refund for")]
+        #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
+        preimage_hash: alloy::primitives::FixedBytes<32>,
+        #[arg(help = "Transaction hash of the lockup transaction")]
+        #[arg(value_parser = parsers::parse_hex_fixed_bytes)]
+        lockup_tx_hash: alloy::primitives::FixedBytes<32>,
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Output split signature fields (v, r, s)"
+        )]
+        vrs: bool,
     },
 }
 
@@ -580,6 +612,7 @@ async fn run_command(cli: Cli) -> Result<()> {
                 EvmCommands::SignCommitment {
                     preimage_hash,
                     lockup_tx_hash,
+                    vrs,
                 } => {
                     let signature = evm::sign_commitment_from_tx(
                         &rpc_url,
@@ -589,7 +622,22 @@ async fn run_command(cli: Cli) -> Result<()> {
                         *lockup_tx_hash,
                     )
                     .await?;
-                    println!("{}", signature);
+                    print_signature(signature, *vrs)?;
+                }
+                EvmCommands::SignRefund {
+                    preimage_hash,
+                    lockup_tx_hash,
+                    vrs,
+                } => {
+                    let signature = evm::sign_refund_from_tx(
+                        &rpc_url,
+                        keys,
+                        contract,
+                        *preimage_hash,
+                        *lockup_tx_hash,
+                    )
+                    .await?;
+                    print_signature(signature, *vrs)?;
                 }
             }
         }
@@ -924,4 +972,29 @@ async fn get_grpc_client(cli: &Cli) -> Result<grpc::BoltzClient> {
 fn print_pretty<T: Serialize>(value: &T) -> Result<()> {
     println!("{}", serde_json::to_string_pretty(value)?);
     Ok(())
+}
+
+fn print_signature(signature: alloy::signers::Signature, split_vrs: bool) -> Result<()> {
+    let signature_bytes = signature.as_bytes();
+    let encoded = format!("0x{}", alloy::hex::encode(signature_bytes));
+
+    if !split_vrs {
+        println!("{}", encoded);
+        return Ok(());
+    }
+
+    let recovery_id = signature.v() as u8;
+    print_pretty(&SignatureVrs {
+        signature: encoded,
+        recovery_id,
+        v: recovery_id + 27,
+        r: format!(
+            "0x{}",
+            alloy::hex::encode(signature.r().to_be_bytes::<32>())
+        ),
+        s: format!(
+            "0x{}",
+            alloy::hex::encode(signature.s().to_be_bytes::<32>())
+        ),
+    })
 }

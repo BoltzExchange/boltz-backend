@@ -191,6 +191,14 @@ impl FundingAddressNursery {
             return Ok(());
         }
 
+        info!(
+            "Expired {} funding address(es) for {} at block height {}: {:?}",
+            expired_ids.len(),
+            symbol,
+            height,
+            expired_ids,
+        );
+
         for id in expired_ids {
             match self.send_update(id.as_str(), None).await {
                 Ok(()) => (),

@@ -15,7 +15,7 @@ use anyhow::{Result, anyhow};
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::Serializer};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
@@ -214,15 +214,25 @@ pub struct SwapBase {
     pub created_at: u64,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-#[serde(untagged)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum RescueType {
     Swap(SwapType),
-    #[serde(rename = "funding")]
     Funding,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+impl Serialize for RescueType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            RescueType::Swap(swap) => swap.serialize(serializer),
+            RescueType::Funding => serializer.serialize_str("funding"),
+        }
+    }
+}
+
+#[derive(Serialize, PartialEq, Clone, Debug)]
 pub struct RescueBase {
     pub id: String,
     #[serde(rename = "type")]
@@ -441,7 +451,7 @@ impl TryFrom<(&ChainSwapInfo, u32, String, Option<String>)> for ClaimDetails {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, PartialEq, Clone, Debug)]
 pub struct Restorable {
     #[serde(flatten)]
     pub base: RescueBase,

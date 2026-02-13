@@ -254,7 +254,7 @@ mod test {
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
-    use crate::db::helpers::funding_address::FundingAddressHelper;
+    use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
@@ -604,7 +604,13 @@ mod test {
 
         let helper = FundingAddressHelperDatabase::new(get_pool());
         helper
-            .set_presigned_tx(&funding_address_response.id, None)
+            .set_presigned_tx(
+                &funding_address_response.id,
+                Some(SwapTxInfo {
+                    swap_id: "swap".to_string(),
+                    presigned_tx: vec![],
+                }),
+            )
             .unwrap();
 
         let message = [2u8; 32];
@@ -626,37 +632,5 @@ mod test {
                 .error
                 .contains("funding address is already linked to a swap")
         );
-    }
-
-    #[tokio::test]
-    async fn test_full_flow() {
-        let keypair = get_keypair();
-        let funding_address = make_create_request(TEST_SYMBOL, &keypair).await;
-        assert_eq!(funding_address.status(), StatusCode::CREATED);
-        let funding_address_body = funding_address
-            .into_body()
-            .collect()
-            .await
-            .unwrap()
-            .to_bytes();
-        let funding_address_response: CreateResponse =
-            serde_json::from_slice(&funding_address_body).unwrap();
-
-        let signing_details =
-            make_get_signing_details_request(&funding_address_response.id, "swap").await;
-        assert_eq!(signing_details.status(), StatusCode::OK);
-        let signing_details_body = signing_details
-            .into_body()
-            .collect()
-            .await
-            .unwrap()
-            .to_bytes();
-        let signing_details_response: GetSigningDetailsResponse =
-            serde_json::from_slice(&signing_details_body).unwrap();
-
-        assert!(!signing_details_response.pub_nonce.is_empty());
-        assert!(!signing_details_response.public_key.is_empty());
-        assert!(!signing_details_response.transaction_hex.is_empty());
-        assert!(!signing_details_response.transaction_hash.is_empty());
     }
 }

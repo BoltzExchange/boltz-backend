@@ -2006,6 +2006,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "boltz-evm"
+version = "3.12.1"
+dependencies = [
+ "alloy",
+ "anyhow",
+]
+
+[[package]]
 name = "boltzr"
 version = "3.12.1"
 dependencies = [
@@ -2024,6 +2032,7 @@ dependencies = [
  "bitcoin",
  "bitcoin_hashes 0.19.0",
  "boltz-core",
+ "boltz-evm",
  "built",
  "bytes",
  "chrono",
@@ -2098,6 +2107,7 @@ dependencies = [
  "bitcoin",
  "bitcoin_hashes 0.19.0",
  "boltz-core",
+ "boltz-evm",
  "clap",
  "dirs",
  "elements 0.26.1",

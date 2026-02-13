@@ -7,10 +7,8 @@ use alloy::providers::network::AnyNetwork;
 use alloy::signers::Signer;
 use alloy::signers::local::PrivateKeySigner;
 use anyhow::anyhow;
+use boltz_evm::{MAX_CONTRACT_VERSION, MIN_CONTRACT_VERSION};
 use tracing::info;
-
-const MIN_VERSION: u8 = 3;
-const MAX_VERSION: u8 = 5;
 
 pub struct LocalRefundSigner {
     version: u8,
@@ -38,7 +36,9 @@ impl LocalRefundSigner {
             ));
         }
 
-        if ether_swap.version() < MIN_VERSION || ether_swap.version() > MAX_VERSION {
+        if ether_swap.version() < MIN_CONTRACT_VERSION
+            || ether_swap.version() > MAX_CONTRACT_VERSION
+        {
             return Err(anyhow::anyhow!(
                 "unsupported contract version {}",
                 ether_swap.version()
@@ -85,7 +85,7 @@ impl LocalRefundSigner {
                 token_address,
                 signer.address(),
                 U256::from(timeout),
-            )
+            )?
         } else {
             self.ether_swap.refund_hash(
                 self.ether_swap.eip712_domain(),
@@ -94,7 +94,7 @@ impl LocalRefundSigner {
                 Address::ZERO,
                 signer.address(),
                 U256::from(timeout),
-            )
+            )?
         };
 
         Ok(signer.sign_hash(&hash).await?)

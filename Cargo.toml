@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["boltz-core", "boltzr", "boltzr-cli"]
+members = ["boltz-core", "boltzr", "boltzr-cli", "boltz-evm"]
 exclude = ["hold"]
 
 [workspace.package]

@@ -1,10 +1,11 @@
 use crate::evm::contracts::SwapContract;
 use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
 use crate::evm::utils::check_contract_exists;
+use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::Provider;
 use alloy::sol;
-use alloy::sol_types::{Eip712Domain, SolStruct};
+use boltz_evm::{SwapType, SwapValues, eip712_domain};
 use tracing::{debug, info};
 
 sol!(
@@ -12,28 +13,6 @@ sol!(
     #[sol(rpc)]
     EtherSwap,
     "../node_modules/boltz-core/dist/out/EtherSwap.sol/EtherSwap.json"
-);
-
-mod v4 {
-    use alloy::sol;
-
-    sol!(
-        struct Refund {
-            bytes32 preimageHash;
-            uint256 amount;
-            address claimAddress;
-            uint256 timeout;
-        }
-    );
-}
-
-sol!(
-    struct Refund {
-        bytes32 preimageHash;
-        uint256 amount;
-        address claimAddress;
-        uint256 timelock;
-    }
 );
 
 pub const NAME: &str = "EtherSwap";
@@ -66,13 +45,7 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
         Ok(EtherSwapContract {
             version,
             contract: ether_swap,
-            eip712domain: Eip712Domain::new(
-                Some(NAME.into()),
-                Some(version.to_string().into()),
-                Some(U256::from(chain_id)),
-                Some(address),
-                None,
-            ),
+            eip712domain: eip712_domain(SwapType::Ether, version, chain_id, address)?,
         })
     }
 }
@@ -97,24 +70,19 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> Sw
         _token_address: Address,
         claim_address: Address,
         timelock: U256,
-    ) -> FixedBytes<32> {
-        if self.version <= 4 {
-            v4::Refund {
-                preimageHash: preimage_hash,
+    ) -> anyhow::Result<FixedBytes<32>> {
+        boltz_evm::refund::hash(
+            self.version,
+            domain,
+            &SwapValues {
+                swap_type: SwapType::Ether,
+                preimage_hash,
                 amount,
-                claimAddress: claim_address,
-                timeout: timelock,
-            }
-            .eip712_signing_hash(domain)
-        } else {
-            Refund {
-                preimageHash: preimage_hash,
-                amount,
-                claimAddress: claim_address,
+                token_address: None,
+                claim_address,
                 timelock,
-            }
-            .eip712_signing_hash(domain)
-        }
+            },
+        )
     }
 
     fn eip712_domain(&self) -> &Eip712Domain {

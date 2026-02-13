@@ -16,6 +16,6 @@ pub trait SwapContract {
         token_address: Address,
         claim_address: Address,
         timelock: U256,
-    ) -> FixedBytes<32>;
+    ) -> anyhow::Result<FixedBytes<32>>;
     fn eip712_domain(&self) -> &Eip712Domain;
 }

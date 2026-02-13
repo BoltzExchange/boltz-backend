@@ -10,7 +10,7 @@ use alloy::{
 use anyhow::{Result, anyhow};
 use boltz_evm::{SwapType, SwapValues, eip712_domain};
 
-pub async fn sign_commitment_from_tx(
+pub async fn sign_refund_from_tx(
     rpc_url: &str,
     keys: Keys,
     contract: Address,
@@ -25,7 +25,6 @@ pub async fn sign_commitment_from_tx(
         .ok_or_else(|| anyhow!("transaction receipt not found"))?;
 
     let lockup = parse_lockup_from_receipt(contract, receipt.inner.logs())?;
-    let refund_address = signer.address();
     let chain_id = provider.get_chain_id().await?;
 
     let (swap_type, contract_version, token_address) = match lockup.token_address {
@@ -43,6 +42,14 @@ pub async fn sign_commitment_from_tx(
         }
     };
 
+    if lockup.claim_address != signer.address() {
+        return Err(anyhow!(
+            "claim address {} does not match signer address {}",
+            lockup.claim_address,
+            signer.address(),
+        ));
+    }
+
     let values = SwapValues {
         swap_type,
         preimage_hash,
@@ -53,7 +60,7 @@ pub async fn sign_commitment_from_tx(
     };
 
     let domain = eip712_domain(swap_type, contract_version, chain_id, contract)?;
-    let signature = boltz_evm::commitment::sign(&signer, &domain, &values, refund_address).await?;
+    let signature = boltz_evm::refund::sign(&signer, contract_version, &domain, &values).await?;
 
     Ok(signature)
 }

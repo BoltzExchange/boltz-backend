@@ -192,11 +192,11 @@ impl FundingAddressNursery {
         }
 
         info!(
-            "Expired {} funding address(es) for {} at block height {}: {:?}",
+            "Expired {} funding address(es) for {} at block height {}: {}",
             expired_ids.len(),
             symbol,
             height,
-            expired_ids,
+            expired_ids.join(", "),
         );
 
         for id in expired_ids {

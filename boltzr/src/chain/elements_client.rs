@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{
@@ -10,6 +9,7 @@ use crate::chain::{BaseClient, Client, LiquidConfig, Transactions};
 use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
@@ -249,11 +249,11 @@ impl Client for ElementsClient {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache;
     use crate::chain::elements_client::ElementsClient;
     use crate::chain::types::{RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{Config, LiquidConfig};
+    use boltz_cache::{Cache, MemCache};
     use mockall::mock;
     use rstest::rstest;
     use serial_test::serial;
@@ -284,7 +284,7 @@ pub mod test {
                     ElementsClient::new(
                         CancellationToken::new(),
                         Network::Regtest,
-                        cache::Cache::Memory(cache::MemCache::new()),
+                        Cache::Memory(MemCache::new()),
                         LiquidConfig {
                             base: config.clone(),
                             lowball: Some(config.clone()),
@@ -369,7 +369,7 @@ pub mod test {
         let client = ElementsClient::new(
             cancellation_token.clone(),
             Network::Regtest,
-            cache::Cache::Memory(cache::MemCache::new()),
+            Cache::Memory(MemCache::new()),
             LiquidConfig {
                 base: config.clone(),
                 lowball: None,
@@ -385,7 +385,7 @@ pub mod test {
         let client = ElementsClient::new(
             cancellation_token.clone(),
             Network::Regtest,
-            cache::Cache::Memory(cache::MemCache::new()),
+            Cache::Memory(MemCache::new()),
             LiquidConfig {
                 base: config,
                 lowball: Some(config_lowball),

@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
@@ -12,6 +11,7 @@ use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
@@ -710,11 +710,11 @@ impl Client for ChainClient {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache;
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
+    use boltz_cache::{Cache, MemCache};
     use mockall::mock;
     use rstest::rstest;
     use serde::Deserialize;
@@ -740,7 +740,7 @@ pub mod test {
     pub async fn get_client() -> ChainClient {
         ChainClient::new(
             CancellationToken::new(),
-            cache::Cache::Memory(cache::MemCache::new()),
+            Cache::Memory(MemCache::new()),
             Type::Bitcoin,
             Network::Regtest,
             "BTC".to_string(),

@@ -1,4 +1,4 @@
-use crate::cache::CacheConfig;
+use crate::CacheConfig;
 use anyhow::Result;
 use redis::Client;
 use redis::aio::MultiplexedConnection;

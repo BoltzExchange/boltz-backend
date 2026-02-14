@@ -1,3 +1,4 @@
+use boltz_cache::CacheConfig;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
@@ -66,7 +67,7 @@ pub struct GlobalConfig {
     #[serde(rename = "marking")]
     pub marking: Option<crate::service::MarkingsConfig>,
 
-    pub cache: Option<crate::cache::CacheConfig>,
+    pub cache: Option<CacheConfig>,
     pub historical: Option<crate::service::HistoricalConfig>,
 
     pub backup: Option<crate::backup::Config>,

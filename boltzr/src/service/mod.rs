@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
@@ -9,6 +8,7 @@ use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
 use crate::service::rescue::SwapRescue;
 use anyhow::Result;
+use boltz_cache::Cache;
 use std::sync::Arc;
 use tracing::warn;
 
@@ -79,7 +79,6 @@ impl Service {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::{Cache, MemCache};
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapDataNullableCondition};
     use crate::db::helpers::reverse_swap::{
@@ -89,6 +88,7 @@ pub mod test {
     use crate::db::models::{ChainSwapInfo, ReverseRoutingHint, ReverseSwap, Swap};
     use crate::service::prometheus::test::MockPrometheus;
     use crate::swap::SwapUpdate;
+    use boltz_cache::{Cache, MemCache};
     use mockall::mock;
     use std::collections::HashMap;
 

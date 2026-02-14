@@ -1,7 +1,6 @@
 use super::PairConfig;
 use super::timeout_delta::TimeoutDeltaProvider;
 use crate::api::ws::types::SwapStatus;
-use crate::cache::Cache;
 use crate::chain::mrh_watcher::MrhWatcher;
 use crate::chain::types::Type;
 use crate::currencies::{Currencies, Currency};
@@ -22,6 +21,7 @@ use crate::swap::utxo_nursery::{RelevantTx, UtxoNursery};
 use crate::utils::pair::{OrderSide, concat_pair};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use boltz_core::wrapper::InputDetail;
 use boltz_core::wrapper::Transaction;
 use diesel::ExpressionMethods;
@@ -497,11 +497,11 @@ impl SwapManager for Manager {
 pub mod test {
     use super::*;
     use crate::api::ws::types::SwapStatus;
-    use crate::cache::MemCache;
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::swap::{AssetRescue, timeout_delta::PairTimeoutBlockDelta};
     use anyhow::Result;
     use async_trait::async_trait;
+    use boltz_cache::MemCache;
     use mockall::mock;
     use std::collections::HashMap;
 

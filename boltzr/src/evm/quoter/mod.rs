@@ -1,10 +1,10 @@
-use crate::cache::Cache;
 use crate::evm::utils::check_contract_exists;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::providers::network::Network;
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;

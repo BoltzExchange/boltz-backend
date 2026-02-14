@@ -1,6 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["boltz-core", "boltzr", "boltzr-cli", "boltz-evm"]
+members = [
+	"boltz-core",
+	"boltz-utils",
+	"boltz-cache",
+	"boltz-evm",
+	"boltzr",
+	"boltzr-cli",
+]
 exclude = ["hold"]
 
 [workspace.package]
@@ -53,3 +60,6 @@ tonic-prost-build = "0.14.3"
 tonic-prost = "0.14.3"
 prost = "0.14.3"
 dirs = "6.0.0"
+dashmap = "6.1.0"
+tracing = "0.1.44"
+redis = { version = "1.0.3", features = ["tokio-comp", "r2d2"] }

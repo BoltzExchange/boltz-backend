@@ -101,7 +101,7 @@ impl Lnd {
         let intercepted = InterceptedService::new(
             client,
             MacaroonInterceptor {
-                macaroon: MetadataValue::from_str(&alloy::hex::encode(
+                macaroon: MetadataValue::from_str(&hex::encode(
                     tokio::fs::read(&config.macaroonpath).await.map_err(|e| {
                         anyhow::anyhow!(
                             "failed to read macaroon from {}: {}",

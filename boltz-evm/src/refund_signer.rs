@@ -1,13 +1,13 @@
-use crate::evm::contracts::erc20_swap::ERC20SwapContract;
-use crate::evm::contracts::ether_swap::EtherSwapContract;
-use crate::evm::contracts::{SwapContract, erc20_swap, ether_swap};
+use crate::contracts::erc20_swap::ERC20SwapContract;
+use crate::contracts::ether_swap::EtherSwapContract;
+use crate::contracts::{SwapContract, erc20_swap, ether_swap};
+use crate::{MAX_CONTRACT_VERSION, MIN_CONTRACT_VERSION};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::DynProvider;
 use alloy::providers::network::AnyNetwork;
 use alloy::signers::Signer;
 use alloy::signers::local::PrivateKeySigner;
 use anyhow::anyhow;
-use boltz_evm::{MAX_CONTRACT_VERSION, MIN_CONTRACT_VERSION};
 use tracing::info;
 
 pub struct LocalRefundSigner {
@@ -20,7 +20,7 @@ pub struct LocalRefundSigner {
 impl LocalRefundSigner {
     pub async fn new(
         provider: DynProvider<AnyNetwork>,
-        config: &crate::evm::ContractAddresses,
+        config: &crate::ContractAddresses,
     ) -> anyhow::Result<Self> {
         let (ether_swap, erc20_swap) = match tokio::try_join!(
             EtherSwapContract::new(config.ether_swap.parse()?, provider.clone()),
@@ -103,25 +103,19 @@ impl LocalRefundSigner {
 
 #[cfg(test)]
 pub mod test {
-    use crate::evm::ContractAddresses;
-    use crate::evm::contracts::SwapContract;
-    use crate::evm::contracts::erc20_swap::ERC20Swap;
-    use crate::evm::contracts::ether_swap::EtherSwap;
-    use crate::evm::refund_signer::LocalRefundSigner;
-    use alloy::primitives::{Address, FixedBytes, U256};
+    use crate::ContractAddresses;
+    use crate::contracts::SwapContract;
+    use crate::contracts::erc20_swap::ERC20Swap;
+    use crate::contracts::ether_swap::EtherSwap;
+    use crate::refund_signer::LocalRefundSigner;
+    use crate::test_utils::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
+    use crate::{Address, English, FixedBytes, MnemonicBuilder, PrivateKeySigner, U256};
     use alloy::providers::network::{AnyNetwork, EthereumWallet, ReceiptResponse};
     use alloy::providers::{DynProvider, Provider, ProviderBuilder};
-    use alloy::signers::local::coins_bip39::English;
-    use alloy::signers::local::{MnemonicBuilder, PrivateKeySigner};
     use alloy::sol;
     use rand::Rng;
     use serial_test::serial;
 
-    pub const MNEMONIC: &str = "test test test test test test test test test test test junk";
-    pub const PROVIDER: &str = "http://127.0.0.1:8545";
-
-    pub const ETHER_SWAP_ADDRESS: &str = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-    pub const ERC20_SWAP_ADDRESS: &str = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
     const TOKEN_ADDRESS: &str = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
 
     sol!(

@@ -85,7 +85,6 @@ mod test {
     use super::*;
     use crate::chain::elements_client::test::get_client;
     use crate::wallet::keys::test::get_seed;
-    use alloy::hex;
     use bitcoin::key::Secp256k1;
     use rstest::*;
 

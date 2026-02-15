@@ -1,7 +1,6 @@
 #[cfg(test)]
 pub mod tests {
     use crate::db::helpers::web_hook::test::get_pool;
-    use alloy::hex;
     use diesel::RunQueryDsl;
     use diesel::result::Error as DieselError;
     use diesel::sql_query;

@@ -195,13 +195,10 @@ impl TimeoutDeltaProvider {
 mod tests {
     use super::*;
     use crate::currencies::Currency;
-    use crate::evm::{
-        Config, ContractAddresses, ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
-        TokenConfig, manager::Manager,
-    };
     use crate::wallet::Network;
-    use alloy::signers::local::{MnemonicBuilder, coins_bip39::English};
     use boltz_cache::{Cache, MemCache};
+    use boltz_evm::test_utils::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
+    use boltz_evm::{Config, ContractAddresses, English, Manager, MnemonicBuilder, TokenConfig};
     use rstest::rstest;
     use std::sync::Arc;
 

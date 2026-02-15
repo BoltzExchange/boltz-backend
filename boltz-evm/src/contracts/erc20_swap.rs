@@ -1,40 +1,40 @@
-use crate::evm::contracts::SwapContract;
-use crate::evm::contracts::ether_swap::EtherSwap::EtherSwapInstance;
-use crate::evm::utils::check_contract_exists;
+use crate::contracts::SwapContract;
+use crate::contracts::erc20_swap::ERC20Swap::ERC20SwapInstance;
+use crate::utils::check_contract_exists;
+use crate::{SwapType, SwapValues, eip712_domain};
 use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::Provider;
 use alloy::sol;
-use boltz_evm::{SwapType, SwapValues, eip712_domain};
 use tracing::{debug, info};
 
 sol!(
     #[allow(clippy::too_many_arguments)]
     #[sol(rpc)]
-    EtherSwap,
-    "../node_modules/boltz-core/dist/out/EtherSwap.sol/EtherSwap.json"
+    ERC20Swap,
+    "../node_modules/boltz-core/dist/out/ERC20Swap.sol/ERC20Swap.json"
 );
 
-pub const NAME: &str = "EtherSwap";
+pub const NAME: &str = "ERC20Swap";
 
-pub struct EtherSwapContract<P, N> {
+pub struct ERC20SwapContract<P, N> {
     #[allow(dead_code)]
-    contract: EtherSwapInstance<P, N>,
+    contract: ERC20SwapInstance<P, N>,
 
     version: u8,
     eip712domain: Eip712Domain,
 }
 
 impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
-    EtherSwapContract<P, N>
+    ERC20SwapContract<P, N>
 {
     pub async fn new(address: Address, provider: P) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
         check_contract_exists(&provider, address).await?;
 
-        let ether_swap = EtherSwap::new(address, provider.clone());
+        let erc20_swap = ERC20Swap::new(address, provider.clone());
         let chain_id = provider.get_chain_id().await?;
-        let version = ether_swap.version().call().await?;
+        let version = erc20_swap.version().call().await?;
         info!(
             "Found {} ({}) version: {}",
             NAME,
@@ -42,16 +42,16 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network>
             version
         );
 
-        Ok(EtherSwapContract {
+        Ok(ERC20SwapContract {
             version,
-            contract: ether_swap,
-            eip712domain: eip712_domain(SwapType::Ether, version, chain_id, address)?,
+            contract: erc20_swap,
+            eip712domain: eip712_domain(SwapType::ERC20, version, chain_id, address)?,
         })
     }
 }
 
 impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> SwapContract
-    for EtherSwapContract<P, N>
+    for ERC20SwapContract<P, N>
 {
     fn address(&self) -> &Address {
         self.contract.address()
@@ -66,19 +66,18 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> Sw
         domain: &Eip712Domain,
         preimage_hash: FixedBytes<32>,
         amount: U256,
-        // Needed for interface compatibility, but not used for EtherSwap
-        _token_address: Address,
+        token_address: Address,
         claim_address: Address,
         timelock: U256,
     ) -> anyhow::Result<FixedBytes<32>> {
-        boltz_evm::refund::hash(
+        crate::refund::hash(
             self.version,
             domain,
             &SwapValues {
-                swap_type: SwapType::Ether,
+                swap_type: SwapType::ERC20,
                 preimage_hash,
                 amount,
-                token_address: None,
+                token_address: Some(token_address),
                 claim_address,
                 timelock,
             },
@@ -92,28 +91,29 @@ impl<P: Provider<N> + Clone + 'static, N: alloy::providers::network::Network> Sw
 
 #[cfg(test)]
 mod test {
-    use crate::evm::contracts::SwapContract;
-    use crate::evm::contracts::ether_swap::EtherSwapContract;
-    use crate::evm::refund_signer::test::ETHER_SWAP_ADDRESS;
+    use crate::contracts::SwapContract;
+    use crate::contracts::erc20_swap::ERC20SwapContract;
+    use crate::refund_signer::test::setup;
+    use crate::test_utils::ERC20_SWAP_ADDRESS;
     use alloy::primitives::Address;
 
     #[tokio::test]
     async fn test_address() {
-        let (_, _, _, provider) = crate::evm::refund_signer::test::setup().await;
-        let contract = EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider)
+        let (_, _, _, provider) = setup().await;
+        let contract = ERC20SwapContract::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider)
             .await
             .unwrap();
 
         assert_eq!(
             contract.address(),
-            &ETHER_SWAP_ADDRESS.parse::<Address>().unwrap()
+            &ERC20_SWAP_ADDRESS.parse::<Address>().unwrap()
         );
     }
 
     #[tokio::test]
     async fn test_version() {
-        let (_, _, _, provider) = crate::evm::refund_signer::test::setup().await;
-        let contract = EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider)
+        let (_, _, _, provider) = setup().await;
+        let contract = ERC20SwapContract::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider)
             .await
             .unwrap();
 
@@ -125,15 +125,15 @@ mod test {
 
     #[tokio::test]
     async fn test_eip712_domain() {
-        let (_, _, _, provider) = crate::evm::refund_signer::test::setup().await;
-        let contract = EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider)
+        let (_, _, _, provider) = setup().await;
+        let contract = ERC20SwapContract::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider)
             .await
             .unwrap();
 
         let hash = contract.eip712_domain().hash_struct();
         assert_eq!(
             hash,
-            contract.contract.DOMAIN_SEPARATOR().call().await.unwrap().0
+            contract.contract.DOMAIN_SEPARATOR().call().await.unwrap()
         );
     }
 }

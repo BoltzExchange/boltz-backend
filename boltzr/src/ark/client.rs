@@ -61,7 +61,7 @@ impl BaseClient for ArkClient {
     #[instrument(name = "ArkClient::connect", skip_all)]
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.get_info().await?;
-        let pubkey = secp256k1::PublicKey::from_slice(&alloy::hex::decode(&info.pubkey)?)?;
+        let pubkey = secp256k1::PublicKey::from_slice(&hex::decode(&info.pubkey)?)?;
         let mut pubkey_guard = self
             .pubkey
             .write()

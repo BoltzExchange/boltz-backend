@@ -1,7 +1,6 @@
 use crate::backup::providers::BackupProvider;
 use crate::currencies::Currencies;
 use crate::lightning::lnd::Lnd;
-use alloy::hex;
 use bytes::Bytes;
 use chrono::{Datelike, Timelike, Utc};
 use dashmap::DashSet;

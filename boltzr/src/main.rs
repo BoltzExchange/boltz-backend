@@ -23,7 +23,6 @@ mod chain;
 mod config;
 mod currencies;
 mod db;
-mod evm;
 mod grpc;
 mod lightning;
 mod notifications;

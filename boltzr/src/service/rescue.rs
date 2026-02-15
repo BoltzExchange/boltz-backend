@@ -7,7 +7,6 @@ use crate::db::models::{
 };
 use crate::service::pubkey_iterator::{Pagination, PubkeyIterator};
 use crate::wallet::Wallet;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;

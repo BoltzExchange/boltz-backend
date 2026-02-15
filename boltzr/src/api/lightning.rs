@@ -2,7 +2,6 @@ use crate::api::ServerState;
 use crate::api::errors::{ApiError, AxumError};
 use crate::api::ws::status::SwapInfos;
 use crate::swap::manager::SwapManager;
-use alloy::hex;
 use anyhow::Result;
 use axum::extract::Path;
 use axum::extract::Query;
@@ -181,7 +180,7 @@ mod test {
         "03a7ee82c3c7fc4c796d26e513676d445d49b9c62004a47f2e813695a439a8fd0102",
         "not a public key"
     )]
-    #[case("asdf", "invalid character 's' at position 1")]
+    #[case("asdf", "Invalid character 's' at position 1")]
     #[tokio::test]
     async fn test_decode_node_err(#[case] node: &str, #[case] expected: &str) {
         let res = decode_node(node).err().unwrap();

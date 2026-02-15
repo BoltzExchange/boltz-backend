@@ -140,7 +140,7 @@ where
         }))?;
 
         self.chain_client
-            .send_raw_transaction(&alloy::hex::encode(tx.serialize()))
+            .send_raw_transaction(&hex::encode(tx.serialize()))
             .await?;
 
         let tx_id = tx.txid();

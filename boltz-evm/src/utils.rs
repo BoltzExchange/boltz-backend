@@ -45,7 +45,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::evm::utils::{ParseError, parse_wei};
+    use crate::utils::{ParseError, parse_wei};
     use alloy::primitives::U256;
 
     #[test]

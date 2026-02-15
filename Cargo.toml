@@ -62,4 +62,9 @@ prost = "0.14.3"
 dirs = "6.0.0"
 dashmap = "6.1.0"
 tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 redis = { version = "1.0.3", features = ["tokio-comp", "r2d2"] }
+hex = { version = "0.4.3", features = ["serde"] }
+async-trait = "0.1.89"
+tower = { version = "0.5.3", features = ["util"] }
+futures = "0.3.31"

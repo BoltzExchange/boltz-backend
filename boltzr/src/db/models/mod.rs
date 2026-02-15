@@ -39,7 +39,7 @@ macro_rules! aggregate_musig_key {
             boltz_core::musig::Musig::convert_keypair($keys.secret_key().secret_bytes())?,
             vec![
                 boltz_core::musig::Musig::convert_pub_key(&$keys.public_key().serialize())?,
-                boltz_core::musig::Musig::convert_pub_key(&alloy::hex::decode($refund_pub_key)?)?,
+                boltz_core::musig::Musig::convert_pub_key(&hex::decode($refund_pub_key)?)?,
             ],
         )?
         .agg_pk()

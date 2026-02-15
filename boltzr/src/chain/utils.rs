@@ -1,6 +1,5 @@
 use crate::chain::Client;
 use crate::{chain::types::Type, wallet::Network};
-use alloy::hex;
 use bitcoin::ScriptBuf;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
@@ -116,7 +115,7 @@ impl Transaction {
                                 .raw_transaction(&input.previous_output.txid.to_hex())
                                 .await?;
                             let input_tx: bitcoin::Transaction =
-                                bitcoin::consensus::deserialize(&alloy::hex::decode(input_tx)?)?;
+                                bitcoin::consensus::deserialize(&hex::decode(input_tx)?)?;
 
                             match input_tx.output.get(input.previous_output.vout as usize) {
                                 Some(output) => Ok(output.value.to_sat()),
@@ -240,7 +239,6 @@ mod test {
     use crate::chain::elements_client::test as elements_test;
     use crate::chain::types::Type;
     use crate::chain::utils::{Block, Outpoint, Transaction};
-    use alloy::hex;
     use serial_test::serial;
     use std::sync::Arc;
 

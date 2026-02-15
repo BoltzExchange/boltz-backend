@@ -10,7 +10,6 @@ use crate::lightning::cln::cln_rpc::{
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
 use crate::{utils, wallet};
-use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

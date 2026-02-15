@@ -79,8 +79,8 @@ pub struct GlobalConfig {
     pub pairs: Option<Vec<crate::swap::PairConfig>>,
     pub currencies: Option<Vec<CurrencyConfig>>,
     pub liquid: Option<LiquidConfig>,
-    pub rsk: Option<crate::evm::Config>,
-    pub arbitrum: Option<crate::evm::Config>,
+    pub rsk: Option<boltz_evm::Config>,
+    pub arbitrum: Option<boltz_evm::Config>,
     pub ark: Option<crate::ark::Config>,
 }
 
@@ -268,10 +268,10 @@ providerEndpoint = "http://127.0.0.1:8545"
 
         assert_eq!(
             config.rsk.unwrap(),
-            crate::evm::Config {
+            boltz_evm::Config {
                 provider_endpoint: Some("http://127.0.0.1:8545".to_string()),
                 providers: None,
-                contracts: vec![crate::evm::ContractAddresses {
+                contracts: vec![boltz_evm::ContractAddresses {
                     ether_swap: "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string(),
                     erc20_swap: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),
                 }],

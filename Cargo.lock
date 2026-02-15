@@ -2033,6 +2033,17 @@ version = "3.12.1"
 dependencies = [
  "alloy",
  "anyhow",
+ "async-trait",
+ "boltz-cache",
+ "futures",
+ "hex",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "tokio",
+ "tower",
+ "tracing",
 ]
 
 [[package]]
@@ -2043,7 +2054,6 @@ version = "3.12.1"
 name = "boltzr"
 version = "3.12.1"
 dependencies = [
- "alloy",
  "anyhow",
  "async-stream",
  "async-trait",
@@ -2079,6 +2089,7 @@ dependencies = [
  "flate2",
  "futures",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper-rustls 0.27.7",
  "hyper-util",
@@ -3790,6 +3801,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex-conservative"

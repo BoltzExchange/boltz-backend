@@ -1,6 +1,6 @@
-use crate::evm::quoter::Call;
-use crate::evm::quoter::uniswap_v3::router::IUniversalRouter::IUniversalRouterInstance;
-use crate::evm::quoter::uniswap_v3::{Data, Hop};
+use crate::quoter::Call;
+use crate::quoter::uniswap_v3::router::IUniversalRouter::IUniversalRouterInstance;
+use crate::quoter::uniswap_v3::{Data, Hop};
 use alloy::dyn_abi::DynSolValue;
 use alloy::primitives::{Address, Bytes, U256};
 use alloy::providers::Provider;
@@ -11,10 +11,10 @@ use anyhow::Result;
 
 sol!(
     #[sol(rpc)]
-    "./src/evm/quoter/uniswap_v3/abis/IUniversalRouter.sol"
+    "./src/quoter/uniswap_v3/abis/IUniversalRouter.sol"
 );
 
-sol!("./src/evm/quoter/uniswap_v3/abis/IERC20.sol");
+sol!("./src/quoter/uniswap_v3/abis/IERC20.sol");
 
 #[derive(Debug, Clone)]
 pub struct Router<P, N> {

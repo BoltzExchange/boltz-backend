@@ -8,7 +8,6 @@ use crate::{
     swap::SwapUpdate,
     wallet::Wallet,
 };
-use alloy::hex;
 use anyhow::{Context, Result};
 use bitcoin::Amount;
 use boltz_cache::Cache;
@@ -125,14 +124,14 @@ impl AssetRescue {
 
         let (currency, chain, wallet) = self.get_node(&symbol)?;
 
-        let tx: Transaction = elements::encode::deserialize(&alloy::hex::decode(
+        let tx: Transaction = elements::encode::deserialize(&hex::decode(
             &chain.raw_transaction(transaction_id).await?,
         )?)?;
 
         let funding_utxo = self
             .find_funding_utxo(&symbol, swap_id, &currency.network, &chain)
             .await?;
-        let funding_tx: Transaction = elements::encode::deserialize(&alloy::hex::decode(
+        let funding_tx: Transaction = elements::encode::deserialize(&hex::decode(
             &chain.raw_transaction(&funding_utxo.txid).await?,
         )?)?;
 
@@ -459,7 +458,7 @@ impl AssetRescue {
                 let swap_rescue_details = AssetRescueDetails {
                     lockup_address: swap.lockupAddress.clone(),
                     key_index: swap.keyIndex.context("key index not defined")? as u64,
-                    their_public_key: alloy::hex::decode(
+                    their_public_key: hex::decode(
                         swap.refundPublicKey
                             .as_deref()
                             .context("refund public key not found")?,
@@ -479,7 +478,7 @@ impl AssetRescue {
                     let swap_rescue_details = AssetRescueDetails {
                         lockup_address: receiving.lockupAddress.clone(),
                         key_index: receiving.keyIndex.context("key index not defined")? as u64,
-                        their_public_key: alloy::hex::decode(
+                        their_public_key: hex::decode(
                             receiving
                                 .theirPublicKey
                                 .as_deref()
@@ -1120,7 +1119,7 @@ mod tests {
             .to_keypair(&bitcoin::secp256k1::Secp256k1::new());
         let their_keys = Keypair::from_seckey_slice(
             &secp,
-            &alloy::hex::decode("767c5a824fe77eaad79e0c0b9b4271b1b846764d478f54ace3f87f1474a1da0d")
+            &hex::decode("767c5a824fe77eaad79e0c0b9b4271b1b846764d478f54ace3f87f1474a1da0d")
                 .unwrap(),
         )
         .unwrap();

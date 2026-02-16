@@ -92,6 +92,14 @@ rejected.
 Each pair has limits that define acceptable swap amounts. Check the pair
 endpoints for current limits.
 
+Limits are enforced on the following amounts:
+
+| Swap Type     | Enforced On      |
+| ------------- | ---------------- |
+| **Submarine** | Invoice amount   |
+| **Reverse**   | Invoice amount   |
+| **Chain**     | User lock amount |
+
 ### Minimum Amount
 
 The minimum ensures the swap covers miner fees with sufficient margin. Minimums

@@ -1,8 +1,9 @@
+use crate::api::ws::status::SwapInfos;
 use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::grpc::service::boltzr::SwapUpdateResponse;
-use crate::{api::ws::status::SwapInfos, cache::Cache};
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use dashmap::DashMap;
 use std::cell::Cell;
 use std::sync::Arc;
@@ -106,9 +107,9 @@ impl SwapInfos for StatusFetcher {
 #[cfg(test)]
 mod test {
     use crate::api::ws::status::SwapInfos;
-    use crate::cache::{Cache, MemCache};
     use crate::grpc::service::boltzr::SwapUpdateResponse;
     use crate::grpc::status_fetcher::{CACHE_KEY_SWAP_UPDATE, StatusFetcher};
+    use boltz_cache::{Cache, MemCache};
     use tokio::sync::mpsc;
 
     #[tokio::test]

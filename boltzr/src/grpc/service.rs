@@ -811,7 +811,6 @@ where
 #[cfg(test)]
 mod test {
     use crate::api::ws;
-    use crate::cache::{Cache, MemCache};
     use crate::currencies::Currency;
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{
@@ -839,6 +838,7 @@ mod test {
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
     use alloy::primitives::FixedBytes;
+    use boltz_cache::{Cache, MemCache};
     use mockall::mock;
     use rand::Rng;
     use std::collections::HashMap;

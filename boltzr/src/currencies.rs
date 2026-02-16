@@ -1,6 +1,5 @@
 use crate::api::ws::OfferSubscriptions;
 use crate::ark::Config as ArkConfig;
-use crate::cache::Cache;
 use crate::chain::{
     BaseClient,
     bumper::{Bumper, RefundTransactionHandler},
@@ -21,6 +20,7 @@ use crate::lightning::{cln::Cln, lnd::Lnd};
 use crate::wallet::{self, Wallet};
 use anyhow::anyhow;
 use bip39::Mnemonic;
+use boltz_cache::Cache;
 use std::collections::HashMap;
 use std::{fs, str::FromStr, sync::Arc};
 use tokio::time::{Duration, timeout};

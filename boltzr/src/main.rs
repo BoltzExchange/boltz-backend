@@ -1,4 +1,3 @@
-use crate::cache::{Cache, MemCache};
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
@@ -8,6 +7,7 @@ use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws::{self};
+use boltz_cache::{Cache, MemCache, Redis};
 use clap::Parser;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -19,7 +19,6 @@ use tracing::{debug, error, info, trace, warn};
 mod api;
 mod ark;
 mod backup;
-mod cache;
 mod chain;
 mod config;
 mod currencies;
@@ -133,7 +132,7 @@ async fn main() {
     });
 
     let cache = if let Some(config) = config.cache {
-        match cache::Redis::new(&config).await {
+        match Redis::new(&config).await {
             Ok(cache) => Cache::Redis(cache),
             Err(err) => {
                 error!("Could not connect to cache: {}", err);

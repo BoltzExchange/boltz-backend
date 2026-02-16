@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
@@ -12,6 +11,7 @@ use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;
+use boltz_cache::Cache;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -976,7 +976,6 @@ impl SwapRescue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cache::MemCache;
     use crate::currencies::Currency;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
@@ -985,6 +984,7 @@ mod test {
     use crate::service::{SingleKeyIterator, XpubIterator};
     use crate::wallet::{Elements, Network};
     use bitcoin::{PublicKey, bip32::Xpub};
+    use boltz_cache::MemCache;
     use std::str::FromStr;
 
     fn get_liquid_wallet() -> Arc<dyn Wallet + Send + Sync> {

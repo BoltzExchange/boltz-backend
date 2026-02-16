@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::evm::quoter::uniswap_v3::IQuoterV2::IQuoterV2Instance;
 use crate::evm::quoter::uniswap_v3::IUniswapV3Factory::IUniswapV3FactoryInstance;
 use crate::evm::quoter::uniswap_v3::router::PathEncoder;
@@ -11,6 +10,7 @@ use alloy::providers::network::Network;
 use alloy::sol;
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use router::Router;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
@@ -479,8 +479,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cache::MemCache;
     use alloy::{network::AnyNetwork, providers::ProviderBuilder};
+    use boltz_cache::MemCache;
     use std::str::FromStr;
 
     const FACTORY: &str = "0x1F98431c8aD98523631AE4a59f267346ea31F984";

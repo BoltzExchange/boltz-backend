@@ -1,5 +1,4 @@
 use crate::{
-    cache::Cache,
     chain::{Client, types::UnspentOutput},
     currencies::{Currencies, Currency},
     db::{
@@ -12,6 +11,7 @@ use crate::{
 use alloy::hex;
 use anyhow::{Context, Result};
 use bitcoin::Amount;
+use boltz_cache::Cache;
 use boltz_core::{
     FeeTarget, Musig, Network,
     elements::{AssetPair, Tree as ElementsTree, construct_asset_rescue},
@@ -543,7 +543,6 @@ impl AssetRescue {
 mod tests {
     use super::*;
     use crate::{
-        cache::MemCache,
         chain::{elements_client::test::get_client, types::RpcParam, utils::Outpoint},
         db::{
             helpers::{
@@ -556,6 +555,7 @@ mod tests {
     };
     use async_trait::async_trait;
     use bitcoin::hashes::Hash;
+    use boltz_cache::MemCache;
     use boltz_core::{Musig, elements::swap_tree, wrapper::InputDetail};
     use elements::{LockTime, hashes::hash160};
     use mockall::mock;

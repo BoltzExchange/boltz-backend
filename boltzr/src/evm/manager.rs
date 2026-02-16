@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::evm::RefundSigner;
 use crate::evm::log_layer::LoggingLayer;
 use crate::evm::quoter::QuoteAggregator;
@@ -18,6 +17,7 @@ use alloy::transports::{
 };
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use std::collections::HashMap;
 use tower::ServiceBuilder;
 use tracing::{debug, info, instrument, warn};
@@ -199,7 +199,6 @@ impl RefundSigner for Manager {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::MemCache;
     use crate::evm::manager::Manager;
     use crate::evm::refund_signer::test::{
         ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
@@ -208,6 +207,7 @@ pub mod test {
     use alloy::primitives::{Address, FixedBytes};
     use alloy::signers::local::MnemonicBuilder;
     use alloy::signers::local::coins_bip39::English;
+    use boltz_cache::MemCache;
     use serial_test::serial;
     use std::fs;
     use std::path::Path;

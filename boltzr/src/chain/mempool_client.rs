@@ -1,5 +1,5 @@
-use crate::utils::defer;
 use async_tungstenite::tungstenite::Message;
+use boltz_utils::defer;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use tokio::time::{Duration, timeout};

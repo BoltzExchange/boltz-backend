@@ -1,4 +1,4 @@
-use crate::utils::{DropGuard, defer};
+use boltz_utils::{DropGuard, defer};
 use dashmap::DashMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,12 @@ pub struct MemCache {
 struct CacheValue<V> {
     value: V,
     expires_at: Option<u64>,
+}
+
+impl Default for MemCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemCache {

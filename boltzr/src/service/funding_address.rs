@@ -285,13 +285,6 @@ impl FundingAddressService {
     ) -> Result<FundingAddress, FundingAddressError> {
         let signer = self.signer.lock().await;
         let funding_address = self.get_by_id(&request.id)?;
-        if funding_address.status == FundingAddressStatus::TransactionClaimed.to_string()
-            || funding_address.status == FundingAddressStatus::TransactionRefunded.to_string()
-        {
-            return Err(FundingAddressError::Internal(
-                "funding address has already been spent".to_string(),
-            ));
-        }
         let key_pair = self.key_pair(&funding_address)?;
         let (signed_tx, swap_id) = signer
             .set_signature(&funding_address, &key_pair, &request)

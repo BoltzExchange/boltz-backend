@@ -116,9 +116,7 @@ impl FundingAddressSigner {
 
     fn can_spend(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
-        if status == FundingAddressStatus::TransactionClaimed
-            || status == FundingAddressStatus::TransactionRefunded
-        {
+        if status == FundingAddressStatus::TransactionClaimed {
             return Err(anyhow!(FundingAddressEligibilityError(
                 "funding address has already been spent".to_string(),
             )));

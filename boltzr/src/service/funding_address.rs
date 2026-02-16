@@ -10,8 +10,7 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
     CooperativeDetails, FundingAddressEligibilityError, FundingAddressSigner,
-    PartialSignatureResponse, RefundSignatureRequest as SignerRefundSignatureRequest,
-    SetSignatureRequest,
+    PartialSignatureResponse, RefundSignatureRequest, SetSignatureRequest,
 };
 use crate::swap::{FundingAddressStatus, TimeoutDeltaProvider};
 use crate::utils::generate_id;
@@ -103,13 +102,6 @@ pub struct CreateResponse {
     pub server_public_key: String,
     pub blinding_key: Option<String>,
     pub tree: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct RefundSignatureRequest {
-    pub id: String,
-    pub pub_nonce: String,
-    pub transaction_hash: String,
 }
 
 impl FundingAddressService {
@@ -281,10 +273,11 @@ impl FundingAddressService {
 
     pub async fn set_signature(
         &self,
+        id: &str,
         request: SetSignatureRequest,
     ) -> Result<FundingAddress, FundingAddressError> {
         let signer = self.signer.lock().await;
-        let funding_address = self.get_by_id(&request.id)?;
+        let funding_address = self.get_by_id(id)?;
         let key_pair = self.key_pair(&funding_address)?;
         let (signed_tx, swap_id) = signer
             .set_signature(&funding_address, &key_pair, &request)
@@ -304,20 +297,14 @@ impl FundingAddressService {
 
     pub async fn sign_refund(
         &self,
+        id: &str,
         request: RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse, FundingAddressError> {
         let signer = self.signer.lock().await;
-        let funding_address = self.get_by_id(&request.id)?;
+        let funding_address = self.get_by_id(id)?;
         let key_pair = self.key_pair(&funding_address)?;
         let response = signer
-            .sign_refund(
-                &funding_address,
-                &key_pair,
-                &SignerRefundSignatureRequest {
-                    pub_nonce: request.pub_nonce,
-                    transaction_hash: request.transaction_hash,
-                },
-            )
+            .sign_refund(&funding_address, &key_pair, &request)
             .await
             .map_err(|err| {
                 if err

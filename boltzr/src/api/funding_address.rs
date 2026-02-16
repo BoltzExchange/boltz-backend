@@ -3,8 +3,9 @@ use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
 use crate::currencies::get_chain_client;
-use crate::service::funding_address::RefundSignatureRequest;
-use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
+use crate::service::{
+    CreateFundingAddressRequest, FundingAddressError, RefundSignatureRequest, SetSignatureRequest,
+};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
 use anyhow::Result;
@@ -68,30 +69,6 @@ pub struct GetSigningDetailsResponse {
 pub struct GetSigningDetailsQuery {
     #[serde(rename = "swapId")]
     pub swap_id: String,
-}
-
-#[derive(Deserialize)]
-pub struct SetSignatureRequestBody {
-    #[serde(rename = "pubNonce")]
-    pub pub_nonce: String,
-    #[serde(rename = "partialSignature")]
-    pub partial_signature: String,
-}
-
-#[derive(Deserialize)]
-pub struct RefundRequestBody {
-    #[serde(rename = "pubNonce")]
-    pub pub_nonce: String,
-    #[serde(rename = "transactionHash")]
-    pub transaction_hash: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PartialSignatureResponse {
-    #[serde(rename = "pubNonce")]
-    pub pub_nonce: String,
-    #[serde(rename = "partialSignature")]
-    pub partial_signature: String,
 }
 
 pub async fn create<S, M>(
@@ -188,19 +165,17 @@ where
 pub async fn set_signature<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-    Json(body): Json<SetSignatureRequestBody>,
+    Json(body): Json<SetSignatureRequest>,
 ) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let request = SetSignatureRequest {
-        id,
-        pub_nonce: body.pub_nonce,
-        partial_signature: body.partial_signature,
-    };
-
-    let funding_address = state.service.funding_address.set_signature(request).await?;
+    let funding_address = state
+        .service
+        .funding_address
+        .set_signature(&id, body)
+        .await?;
 
     state
         .manager
@@ -221,30 +196,15 @@ where
 pub async fn refund<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-    Json(body): Json<RefundRequestBody>,
+    Json(body): Json<RefundSignatureRequest>,
 ) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let response = state
-        .service
-        .funding_address
-        .sign_refund(RefundSignatureRequest {
-            id,
-            pub_nonce: body.pub_nonce,
-            transaction_hash: body.transaction_hash,
-        })
-        .await?;
+    let response = state.service.funding_address.sign_refund(&id, body).await?;
 
-    Ok((
-        StatusCode::OK,
-        Json(PartialSignatureResponse {
-            pub_nonce: response.pub_nonce,
-            partial_signature: response.partial_signature,
-        }),
-    )
-        .into_response())
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 #[cfg(test)]
@@ -256,6 +216,7 @@ mod test {
     use crate::api::{Server, ServerState};
     use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
     use crate::db::helpers::web_hook::test::get_pool;
+    use crate::service::PartialSignatureResponse;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
     use crate::swap::manager::test::MockManager;

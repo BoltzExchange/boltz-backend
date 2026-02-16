@@ -18,6 +18,7 @@ use boltz_core::musig::Musig;
 use boltz_core::utils::{Destination, InputType, OutputType};
 use boltz_core::wrapper::{BitcoinParams, InputDetail, Params, Transaction, construct_tx};
 use elements::hex::ToHex;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -74,22 +75,27 @@ pub struct CooperativeDetails {
     pub transaction_hash: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetSignatureRequest {
-    pub id: String,
+    #[serde(rename = "pubNonce")]
     pub pub_nonce: String,
+    #[serde(rename = "partialSignature")]
     pub partial_signature: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefundSignatureRequest {
+    #[serde(rename = "pubNonce")]
     pub pub_nonce: String,
+    #[serde(rename = "transactionHash")]
     pub transaction_hash: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartialSignatureResponse {
+    #[serde(rename = "pubNonce")]
     pub pub_nonce: String,
+    #[serde(rename = "partialSignature")]
     pub partial_signature: String,
 }
 
@@ -790,7 +796,6 @@ mod test {
         );
 
         let request = SetSignatureRequest {
-            id: funding_address_with_lockup.id.clone(),
             pub_nonce: client_nonce,
             partial_signature: client_sig,
         };
@@ -1090,7 +1095,6 @@ mod test {
         );
 
         let request = SetSignatureRequest {
-            id: funding_address.id.clone(),
             pub_nonce: "test_pub_nonce".to_string(),
             partial_signature: "test_sig".to_string(),
         };

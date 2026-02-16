@@ -370,7 +370,6 @@ pub mod test {
             client_sign(client_keypair, server_keypair, funding_address, &details);
 
         let request = SetSignatureRequest {
-            id: funding_address.id.clone(),
             pub_nonce: client_nonce,
             partial_signature: client_sig,
         };

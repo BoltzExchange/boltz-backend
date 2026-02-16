@@ -1997,6 +1997,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "boltz-backup"
+version = "3.12.1"
+dependencies = [
+ "anyhow",
+ "aws-sdk-s3",
+ "boltz-utils",
+ "bytes",
+ "chrono",
+ "cron",
+ "dashmap",
+ "flate2",
+ "futures",
+ "hex",
+ "serde",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "boltz-cache"
 version = "3.12.1"
 dependencies = [
@@ -2058,7 +2078,6 @@ dependencies = [
  "async-stream",
  "async-trait",
  "async-tungstenite",
- "aws-sdk-s3",
  "axum",
  "axum-extra",
  "axum-prometheus",
@@ -2067,6 +2086,7 @@ dependencies = [
  "bip39",
  "bitcoin",
  "bitcoin_hashes 0.19.0",
+ "boltz-backup",
  "boltz-cache",
  "boltz-core",
  "boltz-evm",
@@ -2075,7 +2095,6 @@ dependencies = [
  "bytes",
  "chrono",
  "clap",
- "cron",
  "crossbeam-channel",
  "csv",
  "ctrlc",
@@ -2086,7 +2105,6 @@ dependencies = [
  "elements 0.26.1",
  "elements-miniscript",
  "eventsource-client",
- "flate2",
  "futures",
  "futures-util",
  "hex",
@@ -2146,6 +2164,7 @@ dependencies = [
  "bitcoin_hashes 0.19.0",
  "boltz-core",
  "boltz-evm",
+ "boltz-utils",
  "clap",
  "dirs",
  "elements 0.26.1",

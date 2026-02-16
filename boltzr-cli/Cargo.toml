@@ -13,6 +13,7 @@ bitcoin = { workspace = true }
 bitcoin_hashes = { workspace = true }
 boltz-core = { path = "../boltz-core" }
 boltz-evm = { path = "../boltz-evm" }
+boltz-utils = { path = "../boltz-utils" }
 clap = { workspace = true }
 elements = { workspace = true }
 rand = { workspace = true }

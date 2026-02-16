@@ -1,0 +1,22 @@
+[package]
+name = "boltz-backup"
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+boltz-utils = { path = "../boltz-utils" }
+aws-sdk-s3 = "1.123.0"
+bytes = { workspace = true }
+chrono = { workspace = true }
+cron = "0.15.0"
+dashmap = { workspace = true }
+flate2 = "1.1.9"
+futures = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }

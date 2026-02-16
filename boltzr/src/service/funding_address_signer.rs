@@ -308,7 +308,7 @@ impl FundingAddressSigner {
 
         if swap_timeout > required_max_swap_timeout {
             return Err(anyhow!(FundingAddressEligibilityError(format!(
-                "swap timeout to close to funding address timeout: difference must be at least {timeout_buffer_blocks} blocks",
+                "swap timeout too close to funding address timeout: difference must be at least {timeout_buffer_blocks} blocks",
             ))));
         }
 
@@ -643,14 +643,13 @@ mod test {
         }
     }
 
-    // symbol, is_chain_swap, swap_timeout, buffer_minutes (None = default 1440), should_pass
     #[rstest]
-    #[case("BTC", false, 990, Some(100), true)] // BTC: 10 min blocks, 100 min = 10 blocks buffer, limit = 990
-    #[case("BTC", false, 991, Some(100), false)] // 1 block over limit
-    #[case("L-BTC", false, 940, Some(60), true)] // L-BTC: 1 min blocks, 60 min = 60 blocks buffer, limit = 940
-    #[case("L-BTC", false, 941, Some(60), false)] // 1 block over limit
-    #[case("BTC", true, 856, Some(1440), true)] // chain swap: 24h = 144 blocks, limit = 856
-    #[case("BTC", false, 856, None, true)] // default buffer (1440 min = 144 blocks)
+    #[case::btc_within_buffer("BTC", false, 990, Some(100), true)]
+    #[case::btc_exceeds_buffer("BTC", false, 991, Some(100), false)]
+    #[case::lbtc_within_buffer("L-BTC", false, 940, Some(60), true)]
+    #[case::lbtc_exceeds_buffer("L-BTC", false, 941, Some(60), false)]
+    #[case::chain_swap_within_buffer("BTC", true, 856, Some(1440), true)]
+    #[case::default_buffer("BTC", false, 856, None, true)]
     #[tokio::test]
     async fn test_validate_timeout_buffer(
         #[case] symbol: &str,

@@ -3203,6 +3203,12 @@
                   "logIndex": {
                     "type": "number",
                     "description": "Log index of the lockup event if there are multiple in the transaction"
+                  },
+                  "maxOverpaymentPercentage": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "description": "Maximum accepted overpayment percentage for this commitment"
                   }
                 }
               }

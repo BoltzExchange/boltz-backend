@@ -138,7 +138,12 @@ class Boltz {
     ]
       .map(({ network, config }) => {
         try {
-          return new EthereumManager(this.logger, network, config!);
+          return new EthereumManager(
+            this.logger,
+            network,
+            config!,
+            this.config.swap.overpayment,
+          );
         } catch (error) {
           this.logger.warn(
             `Disabled ${network.name} integration because: ${formatError(error)}`,

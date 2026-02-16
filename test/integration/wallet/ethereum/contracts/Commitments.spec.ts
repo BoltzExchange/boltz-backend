@@ -881,6 +881,134 @@ describe('Commitments', () => {
       );
     });
 
+    test('should create commitment when lockup amount has extra precision', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 1;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const lockupAmount = BigInt(expectedAmount) * etherDecimals + 1n;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: lockupAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: lockupAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).not.toBeNull();
+      expect(commitment!.swapId).toEqual(id);
+      expect(commitment!.transactionHash).toEqual(tx.hash);
+    });
+
+    test('should throw when lockup amount is below expected amount', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 2;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const insufficientAmount = BigInt(expectedAmount) * etherDecimals - 1n;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: insufficientAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: insufficientAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await expect(
+        commitments.commit(networks.Ethereum.symbol, id, signature, tx.hash),
+      ).rejects.toThrow('insufficient amount:');
+    });
+
+    test('should throw when lockup amount is unacceptable overpay', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 100;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const overpaidAmount = BigInt(expectedAmount * 3) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: overpaidAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: overpaidAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await expect(
+        commitments.commit(networks.Ethereum.symbol, id, signature, tx.hash),
+      ).rejects.toThrow('overpaid amount:');
+    });
+
     test('should throw when swap not found', async () => {
       const commitments = createInitializedCommitments();
 
@@ -1114,7 +1242,7 @@ describe('Commitments', () => {
       ).rejects.toThrow('contract not found for address:');
     });
 
-    test('should throw when lockup amount does not match expected swap amount', async () => {
+    test('should throw when signed amount does not match lockup event amount', async () => {
       const commitments = createInitializedCommitments();
       const etherSwapAddress = await etherSwap.getAddress();
 
@@ -1128,7 +1256,7 @@ describe('Commitments', () => {
       );
 
       const expectedAmountWei = BigInt(expectedAmount) * etherDecimals;
-      const lockedAmount = BigInt(expectedAmount + 1) * etherDecimals;
+      const lockedAmount = expectedAmountWei + 1n;
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         zeroPreimageHash,
@@ -1152,7 +1280,7 @@ describe('Commitments', () => {
 
       await expect(
         commitments.commit(networks.Ethereum.symbol, id, signature, tx.hash),
-      ).rejects.toThrow('expected amount mismatch:');
+      ).rejects.toThrow('invalid signature');
     });
   });
 });

@@ -1,6 +1,7 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Signature, type Signer } from 'ethers';
+import type { OverPaymentConfig } from '../../../Config';
 import type Logger from '../../../Logger';
 import { formatError, getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
@@ -16,6 +17,7 @@ import ChainSwapRepository, {
 import CommitmentRepository from '../../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../service/TimeoutDeltaProvider';
+import { overpaymentDefaultConfig } from '../../../swap/OverpaymentProtector';
 import type Wallet from '../../Wallet';
 import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
 import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
@@ -45,15 +47,20 @@ class Commitments {
   private contracts!: Contracts[];
 
   private readonly commitmentTimelockMinutes: number;
+  private readonly maxOverpaymentPercentage: number;
 
   constructor(
     private readonly logger: Logger,
     private readonly network: NetworkDetails,
     private readonly eventHandler: ConsolidatedEventHandler,
     commitmentTimelockMinutes?: number,
+    overPaymentConfig?: OverPaymentConfig,
   ) {
     this.commitmentTimelockMinutes =
       commitmentTimelockMinutes ?? Commitments.defaultCommitmentTimelockMinutes;
+    this.maxOverpaymentPercentage =
+      (overPaymentConfig?.maxPercentage ??
+        overpaymentDefaultConfig.maxPercentage) / 100;
 
     if (this.commitmentTimelockMinutes <= 0) {
       throw new Error('commitment timelock must be greater than 0');
@@ -111,6 +118,7 @@ class Commitments {
     signature: string,
     transactionHash: string,
     logIndex?: number,
+    maxOverpaymentPercentage?: number,
   ) => {
     let swap: Swap | ChainSwapInfo | null = await SwapRepository.getSwap({
       id: swapId,
@@ -182,14 +190,30 @@ class Commitments {
     }
 
     let signatureValid: boolean;
-    let expectedAmount: bigint;
+
+    if (
+      maxOverpaymentPercentage !== undefined &&
+      (!Number.isFinite(maxOverpaymentPercentage) ||
+        maxOverpaymentPercentage < 0)
+    ) {
+      throw new Error('invalid maxOverpaymentPercentage');
+    }
+
+    const allowedOverpaymentPercentage =
+      maxOverpaymentPercentage === undefined
+        ? this.maxOverpaymentPercentage
+        : maxOverpaymentPercentage / 100;
 
     if (currency === this.network.symbol) {
-      expectedAmount = BigInt(swapAmount) * etherDecimals;
+      this.checkAcceptedAmount(
+        swapAmount,
+        Math.floor(Number(event.amount / etherDecimals)),
+        allowedOverpaymentPercentage,
+      );
 
       signatureValid = await (contract as EtherSwap).checkCommitmentSignature(
         getHexBuffer(swap.preimageHash),
-        expectedAmount,
+        event.amount,
         claimAddress,
         event.refundAddress,
         event.timelock,
@@ -212,11 +236,15 @@ class Commitments {
         throw new Error('token address mismatch');
       }
 
-      expectedAmount = erc20Wallet.formatTokenAmount(swapAmount);
+      this.checkAcceptedAmount(
+        swapAmount,
+        erc20Wallet.normalizeTokenAmount(event.amount),
+        allowedOverpaymentPercentage,
+      );
 
       signatureValid = await (contract as ERC20Swap).checkCommitmentSignature(
         getHexBuffer(swap.preimageHash),
-        expectedAmount,
+        event.amount,
         erc20Wallet.tokenAddress,
         claimAddress,
         event.refundAddress,
@@ -229,12 +257,6 @@ class Commitments {
 
     if (!signatureValid) {
       throw new Error('invalid signature');
-    }
-
-    if (expectedAmount !== event.amount) {
-      throw new Error(
-        `expected amount mismatch: ${expectedAmount} !== ${event.amount}`,
-      );
     }
 
     this.logger.info(
@@ -279,6 +301,25 @@ class Commitments {
           tokenAddress: event.tokenAddress!,
         },
       });
+    }
+  };
+
+  private checkAcceptedAmount = (
+    expectedAmount: number,
+    actualAmount: number,
+    allowedOverpaymentPercentage: number,
+  ) => {
+    if (actualAmount < expectedAmount) {
+      throw new Error(
+        `insufficient amount: ${actualAmount} < ${expectedAmount}`,
+      );
+    }
+
+    if (
+      actualAmount - expectedAmount >
+      expectedAmount * allowedOverpaymentPercentage
+    ) {
+      throw new Error(`overpaid amount: ${actualAmount} > ${expectedAmount}`);
     }
   };
 

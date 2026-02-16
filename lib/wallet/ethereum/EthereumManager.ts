@@ -8,7 +8,11 @@ import {
   Transaction,
   getAddress,
 } from 'ethers';
-import type { ArbitrumConfig, EthereumConfig } from '../../Config';
+import type {
+  ArbitrumConfig,
+  EthereumConfig,
+  OverPaymentConfig,
+} from '../../Config';
 import type Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
@@ -57,6 +61,7 @@ class EthereumManager {
     private readonly logger: Logger,
     public readonly networkDetails: NetworkDetails,
     private readonly config: EthereumConfig | ArbitrumConfig,
+    private readonly overPaymentConfig?: OverPaymentConfig,
   ) {
     if (
       config === null ||
@@ -95,6 +100,7 @@ class EthereumManager {
       this.networkDetails,
       this.contractEventHandler,
       this.config.commitmentTimelock,
+      this.overPaymentConfig,
     );
   }
 

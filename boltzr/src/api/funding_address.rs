@@ -245,6 +245,7 @@ mod test {
     use http_body_util::BodyExt;
     use rstest::*;
     use std::sync::Arc;
+    use std::time::Duration;
     use tower::ServiceExt;
 
     const TEST_SYMBOL: &str = "BTC";
@@ -256,28 +257,46 @@ mod test {
             .to_string()
     }
 
-    async fn setup_router() -> Router {
+    async fn setup_router_with_funding_updates() -> (
+        Router,
+        tokio::sync::broadcast::Receiver<(Option<u64>, Vec<FundingAddressUpdate>)>,
+    ) {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
+        let (funding_address_update_tx, _) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(1);
+        let funding_address_update_rx = funding_address_update_tx.subscribe();
         let currencies = get_test_currencies().await;
         let pool = get_pool();
         crate::db::helpers::keys::test::create_keys_table(
             &pool,
             currencies.keys().cloned().collect::<Vec<String>>(),
         );
-        Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
-            ServerState {
-                manager: Arc::new(MockManager::new()),
-                service: Arc::new(Service::new_mocked(
-                    false,
-                    Some(get_test_currencies().await),
-                )),
-                swap_status_update_tx: status_tx.clone(),
-                swap_infos: Fetcher { status_tx },
-            },
-        )))
+        let mut manager = MockManager::new();
+        manager
+            .expect_funding_address_update_sender()
+            .returning(move || funding_address_update_tx.clone());
+        (
+            Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
+                ServerState {
+                    manager: Arc::new(manager),
+                    service: Arc::new(Service::new_mocked(
+                        false,
+                        Some(get_test_currencies().await),
+                    )),
+                    swap_status_update_tx: status_tx.clone(),
+                    swap_infos: Fetcher { status_tx },
+                },
+            ))),
+            funding_address_update_rx,
+        )
     }
 
-    async fn make_create_request(
+    async fn setup_router() -> Router {
+        setup_router_with_funding_updates().await.0
+    }
+
+    async fn make_create_request_with_router(
+        router: Router,
         currency: &str,
         refund_public_key: &str,
     ) -> axum::response::Response {
@@ -285,8 +304,7 @@ mod test {
             "symbol": currency,
             "refundPublicKey": refund_public_key
         });
-        setup_router()
-            .await
+        router
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
@@ -297,6 +315,36 @@ mod test {
             )
             .await
             .unwrap()
+    }
+
+    async fn make_refund_request_with_router(
+        router: Router,
+        id: &str,
+        pub_nonce: &str,
+        transaction_hash: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "pubNonce": pub_nonce,
+            "transactionHash": transaction_hash
+        });
+        router
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri(format!("/v2/funding/{}/refund", id))
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_create_request(
+        currency: &str,
+        refund_public_key: &str,
+    ) -> axum::response::Response {
+        make_create_request_with_router(setup_router().await, currency, refund_public_key).await
     }
 
     async fn make_create_request_raw(body: String) -> axum::response::Response {
@@ -314,6 +362,64 @@ mod test {
             .unwrap()
     }
 
+    async fn make_get_request(id: &str) -> axum::response::Response {
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::GET)
+                    .uri(format!("/v2/funding/{}", id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_get_signing_details_request(id: &str, swap_id: &str) -> axum::response::Response {
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::GET)
+                    .uri(format!("/v2/funding/{}/signature?swapId={}", id, swap_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_set_signature_request(
+        id: &str,
+        pub_nonce: &str,
+        partial_signature: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "pubNonce": pub_nonce,
+            "partialSignature": partial_signature
+        });
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::PATCH)
+                    .uri(format!("/v2/funding/{}/signature", id))
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_refund_request(
+        id: &str,
+        pub_nonce: &str,
+        transaction_hash: &str,
+    ) -> axum::response::Response {
+        make_refund_request_with_router(setup_router().await, id, pub_nonce, transaction_hash).await
+    }
     #[tokio::test]
     async fn test_create_funding_address_success() {
         let res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
@@ -385,20 +491,6 @@ mod test {
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     }
 
-    async fn make_get_request(id: &str) -> axum::response::Response {
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::GET)
-                    .uri(format!("/v2/funding/{}", id))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_get_funding_address_success() {
         let create_res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
@@ -425,20 +517,6 @@ mod test {
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
-    async fn make_get_signing_details_request(id: &str, swap_id: &str) -> axum::response::Response {
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::GET)
-                    .uri(format!("/v2/funding/{}/signature?swapId={}", id, swap_id))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_get_signing_details_not_found() {
         let res = make_get_signing_details_request("nonexistent_id", "nonexistent_swap_id").await;
@@ -447,52 +525,6 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("funding address not found"));
-    }
-
-    async fn make_set_signature_request(
-        id: &str,
-        pub_nonce: &str,
-        partial_signature: &str,
-    ) -> axum::response::Response {
-        let body = serde_json::json!({
-            "pubNonce": pub_nonce,
-            "partialSignature": partial_signature
-        });
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::PATCH)
-                    .uri(format!("/v2/funding/{}/signature", id))
-                    .header(axum::http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
-    async fn make_refund_request(
-        id: &str,
-        pub_nonce: &str,
-        transaction_hash: &str,
-    ) -> axum::response::Response {
-        let body = serde_json::json!({
-            "pubNonce": pub_nonce,
-            "transactionHash": transaction_hash
-        });
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::POST)
-                    .uri(format!("/v2/funding/{}/refund", id))
-                    .header(axum::http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
     }
 
     fn create_pub_nonce_hex(keypair: &Keypair, message: [u8; 32]) -> String {
@@ -527,11 +559,16 @@ mod test {
 
     #[tokio::test]
     async fn test_refund_funding_address_success() {
+        let (router, mut funding_address_update_rx) = setup_router_with_funding_updates().await;
         let secp = Secp256k1::new();
         let keypair = Keypair::new(&secp, &mut rand::thread_rng());
 
-        let funding_address =
-            make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
+        let funding_address = make_create_request_with_router(
+            router.clone(),
+            TEST_SYMBOL,
+            &keypair.public_key().to_string(),
+        )
+        .await;
         assert_eq!(funding_address.status(), StatusCode::CREATED);
         let funding_address_body = funding_address
             .into_body()
@@ -546,7 +583,8 @@ mod test {
         let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
         let transaction_hash = alloy::hex::encode(message);
 
-        let response = make_refund_request(
+        let response = make_refund_request_with_router(
+            router,
             &funding_address_response.id,
             &pub_nonce_hex,
             &transaction_hash,
@@ -558,6 +596,15 @@ mod test {
 
         assert!(!response.pub_nonce.is_empty());
         assert!(!response.partial_signature.is_empty());
+
+        let (_, updates) =
+            tokio::time::timeout(Duration::from_secs(1), funding_address_update_rx.recv())
+                .await
+                .expect("expected funding address update broadcast")
+                .expect("broadcast channel closed unexpectedly");
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].id, funding_address_response.id);
+        assert_eq!(updates[0].status, "transaction.refunded");
     }
 
     #[tokio::test]

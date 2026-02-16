@@ -15,6 +15,7 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::trace;
 
 impl IntoResponse for FundingAddressError {
     fn into_response(self) -> Response {
@@ -203,6 +204,22 @@ where
     M: SwapManager + Send + Sync + 'static,
 {
     let response = state.service.funding_address.sign_refund(&id, body).await?;
+
+    let funding_address = state.service.funding_address.get_by_id(&id)?;
+    let update = FundingAddressUpdate {
+        id: funding_address.id,
+        status: funding_address.status,
+        transaction: None,
+        swap_id: funding_address.swap_id,
+    };
+
+    if let Err(err) = state
+        .manager
+        .funding_address_update_sender()
+        .send((None, vec![update]))
+    {
+        trace!("Could not send funding address update: {err}");
+    }
 
     Ok((StatusCode::OK, Json(response)).into_response())
 }

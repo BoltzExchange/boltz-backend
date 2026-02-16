@@ -134,7 +134,7 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
                         .execute(conn)?;
                 }
 
-                update(funding_addresses::dsl::funding_addresses)
+                let updated_rows = update(funding_addresses::dsl::funding_addresses)
                     .set((
                         funding_addresses::dsl::lockup_transaction_id.eq(transaction_id),
                         funding_addresses::dsl::lockup_transaction_vout.eq(vout),
@@ -146,7 +146,13 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
                         funding_addresses::dsl::status
                             .ne(&FundingAddressStatus::Expired.to_string()),
                     )
-                    .execute(conn)
+                    .execute(conn)?;
+
+                if updated_rows == 0 {
+                    Err(anyhow!("no rows updated"))
+                } else {
+                    Ok(updated_rows)
+                }
             })
             .map_err(|e| anyhow!("failed to set funding address transaction: {}", e))
     }
@@ -167,7 +173,7 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .serializable()
             .run(|conn| {
                 update(funding_addresses::dsl::funding_addresses)
-                    .set((funding_addresses::dsl::status.eq(&expired_status),))
+                    .set(funding_addresses::dsl::status.eq(&expired_status))
                     .filter(funding_addresses::dsl::symbol.eq(symbol))
                     .filter(funding_addresses::dsl::timeout_block_height.le(height))
                     .filter(funding_addresses::dsl::status.ne(&claimed_status))

@@ -43,7 +43,7 @@ toml = "1.0.1"
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-tokio-util = "0.7.18"
+tokio-util = { workspace = true }
 tracing-loki = { version = "0.2.6", optional = true }
 futures = { workspace = true }
 metrics-process = { version = "2.4.3", optional = true }
@@ -92,15 +92,12 @@ bech32 = "0.11.1"
 bitcoin = { workspace = true }
 elements = { workspace = true }
 base64 = { workspace = true }
-aws-sdk-s3 = "1.123.0"
-cron = "0.15.0"
-chrono = "0.4.43"
-flate2 = "1.1.9"
+chrono = { workspace = true }
 pyroscope = { version = "0.5.8", optional = true }
 pyroscope_pprofrs = { version = "0.2.10", optional = true }
 csv = "1.4.0"
 axum-extra = { version = "0.12.5", features = ["typed-header"] }
-bytes = "1.11.1"
+bytes = { workspace = true }
 elements-miniscript = "0.4.0"
 rand = { workspace = true }
 tokio-stream = "0.1.18"
@@ -109,6 +106,7 @@ zeromq = { version = "0.5.0", features = ["tokio-runtime", "tcp-transport"] }
 tonic-prost = { workspace = true }
 boltz-core = { path = "../boltz-core" }
 boltz-evm = { path = "../boltz-evm" }
+boltz-backup = { path = "../boltz-backup" }
 bip39 = "2.2.2"
 tower-http = { version = "0.6.8", optional = true, features = ["trace"] }
 rustls = { version = "0.23.36", default-features = false, features = [

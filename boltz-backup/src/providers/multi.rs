@@ -1,7 +1,6 @@
-use crate::backup::providers::BackupProvider;
-use crate::utils::mb_to_bytes;
+use crate::providers::{BackupFuture, BackupProvider};
 use anyhow::anyhow;
-use async_trait::async_trait;
+use boltz_utils::mb_to_bytes;
 use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::error;
@@ -11,15 +10,12 @@ const STREAM_BUFFER_SIZE: usize = mb_to_bytes(16);
 const NO_PROVIDERS_ERROR: &str = "no backup providers configured";
 const ALL_PROVIDERS_FAILED_ERROR: &str = "all backup providers failed";
 
-#[derive(Debug)]
 pub struct MultiProvider {
-    providers: Vec<Box<dyn BackupProvider + Send + Sync>>,
+    providers: Vec<Box<dyn BackupProvider>>,
 }
 
 impl MultiProvider {
-    pub async fn new(
-        providers: Vec<Box<dyn BackupProvider + Send + Sync>>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(providers: Vec<Box<dyn BackupProvider>>) -> anyhow::Result<Self> {
         if providers.is_empty() {
             return Err(anyhow!(NO_PROVIDERS_ERROR));
         }
@@ -28,7 +24,7 @@ impl MultiProvider {
     }
 
     fn handle_results(
-        results: Vec<(&(dyn BackupProvider + Send + Sync), anyhow::Result<()>)>,
+        results: Vec<(&dyn BackupProvider, anyhow::Result<()>)>,
     ) -> anyhow::Result<()> {
         let (successes, failures): (Vec<_>, Vec<_>) =
             results.into_iter().partition(|(_, result)| result.is_ok());
@@ -49,90 +45,93 @@ impl MultiProvider {
     }
 }
 
-#[async_trait]
 impl BackupProvider for MultiProvider {
     fn name(&self) -> String {
         "multi".to_string()
     }
 
-    async fn put(&self, path: &str, data: Bytes) -> anyhow::Result<()> {
-        let results = futures::future::join_all(self.providers.iter().map(|provider| {
-            let data = data.clone();
-            async move {
-                match provider.put(path, data).await {
-                    Ok(_) => (provider.as_ref(), Ok(())),
-                    Err(e) => (provider.as_ref(), Err(e)),
+    fn put<'a>(&'a self, path: &'a str, data: Bytes) -> BackupFuture<'a, anyhow::Result<()>> {
+        Box::pin(async move {
+            let results = futures::future::join_all(self.providers.iter().map(|provider| {
+                let data = data.clone();
+                async move {
+                    match provider.put(path, data).await {
+                        Ok(_) => (provider.as_ref(), Ok(())),
+                        Err(e) => (provider.as_ref(), Err(e)),
+                    }
                 }
-            }
-        }))
-        .await;
+            }))
+            .await;
 
-        Self::handle_results(results)
+            Self::handle_results(results)
+        })
     }
 
-    async fn put_stream(
-        &self,
-        path: &str,
-        reader: &mut (dyn tokio::io::AsyncRead + Unpin + Send),
-    ) -> anyhow::Result<()> {
-        let mut writers = Vec::new();
-        let mut upload_futures = Vec::new();
+    fn put_stream<'a>(
+        &'a self,
+        path: &'a str,
+        reader: &'a mut (dyn tokio::io::AsyncRead + Unpin + Send),
+    ) -> BackupFuture<'a, anyhow::Result<()>> {
+        Box::pin(async move {
+            let mut writers = Vec::new();
+            let mut upload_futures = Vec::new();
 
-        for provider in &self.providers {
-            let (mut duplex_read, duplex_write) = tokio::io::duplex(STREAM_BUFFER_SIZE * 2);
-            writers.push(duplex_write);
+            for provider in &self.providers {
+                let (mut duplex_read, duplex_write) = tokio::io::duplex(STREAM_BUFFER_SIZE * 2);
+                writers.push(duplex_write);
 
-            upload_futures.push(async move {
-                match provider.put_stream(path, &mut duplex_read).await {
-                    Ok(_) => (provider.as_ref(), Ok(())),
-                    Err(e) => (provider.as_ref(), Err(e)),
-                }
-            });
-        }
+                upload_futures.push(async move {
+                    match provider.put_stream(path, &mut duplex_read).await {
+                        Ok(_) => (provider.as_ref(), Ok(())),
+                        Err(e) => (provider.as_ref(), Err(e)),
+                    }
+                });
+            }
 
-        let copy_task = async move {
-            let mut buf = vec![0u8; STREAM_BUFFER_SIZE];
-            let mut active_writers = writers;
+            let copy_task = async move {
+                let mut buf = vec![0u8; STREAM_BUFFER_SIZE];
+                let mut active_writers = writers;
 
-            loop {
-                let n = reader.read(&mut buf).await?;
-                if n == 0 {
-                    break;
-                }
+                loop {
+                    let n = reader.read(&mut buf).await?;
+                    if n == 0 {
+                        break;
+                    }
 
-                let mut failed_indices = Vec::new();
-                for (i, writer) in active_writers.iter_mut().enumerate() {
-                    if let Err(e) = writer.write_all(&buf[..n]).await {
-                        error!("Failed to write to backup provider: {}", e);
-                        failed_indices.push(i);
+                    let mut failed_indices = Vec::new();
+                    for (i, writer) in active_writers.iter_mut().enumerate() {
+                        if let Err(e) = writer.write_all(&buf[..n]).await {
+                            error!("Failed to write to backup provider: {}", e);
+                            failed_indices.push(i);
+                        }
+                    }
+
+                    for i in failed_indices.iter().rev() {
+                        let writer = active_writers.remove(*i);
+                        drop(writer);
+                    }
+
+                    if active_writers.is_empty() {
+                        return Err(anyhow!("All backup providers failed during streaming"));
                     }
                 }
 
-                for i in failed_indices.iter().rev() {
-                    let writer = active_writers.remove(*i);
-                    drop(writer);
+                for mut writer in active_writers {
+                    writer.shutdown().await?;
                 }
 
-                if active_writers.is_empty() {
-                    return Err(anyhow!("All backup providers failed during streaming"));
-                }
+                Ok::<(), anyhow::Error>(())
+            };
+
+            let (copy_res, results) =
+                tokio::join!(copy_task, futures::future::join_all(upload_futures));
+
+            if let Err(e) = copy_res {
+                return Err(anyhow!("Failed to copy data to providers: {}", e));
             }
 
-            for mut writer in active_writers.into_iter() {
-                writer.shutdown().await?;
-            }
-
-            Ok::<(), anyhow::Error>(())
-        };
-
-        let (copy_res, results) =
-            tokio::join!(copy_task, futures::future::join_all(upload_futures));
-
-        if let Err(e) = copy_res {
-            return Err(anyhow!("Failed to copy data to providers: {}", e));
-        }
-
-        Self::handle_results(results)
+            Self::handle_results(results)
+        })
     }
 }
 
@@ -161,48 +160,52 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl BackupProvider for TestBackupProvider {
         fn name(&self) -> String {
             "test".to_string()
         }
 
-        async fn put(&self, _path: &str, data: Bytes) -> anyhow::Result<()> {
-            if self.should_fail.load(Ordering::SeqCst) {
-                Err(anyhow!("Test backup provider failure"))
-            } else {
-                let mut stored = self.stored_data.lock().await;
-                *stored = data;
-                Ok(())
-            }
+        fn put<'a>(&'a self, _path: &'a str, data: Bytes) -> BackupFuture<'a, anyhow::Result<()>> {
+            Box::pin(async move {
+                if self.should_fail.load(Ordering::SeqCst) {
+                    Err(anyhow!("Test backup provider failure"))
+                } else {
+                    let mut stored = self.stored_data.lock().await;
+                    *stored = data;
+                    Ok(())
+                }
+            })
         }
 
-        async fn put_stream(
-            &self,
-            path: &str,
-            reader: &mut (dyn tokio::io::AsyncRead + Unpin + Send),
-        ) -> anyhow::Result<()> {
-            let mut data = Vec::new();
-            tokio::io::copy(reader, &mut data).await?;
-            self.put(path, Bytes::from(data)).await
+        fn put_stream<'a>(
+            &'a self,
+            path: &'a str,
+            reader: &'a mut (dyn tokio::io::AsyncRead + Unpin + Send),
+        ) -> BackupFuture<'a, anyhow::Result<()>> {
+            Box::pin(async move {
+                let mut data = Vec::new();
+                tokio::io::copy(reader, &mut data).await?;
+                self.put(path, Bytes::from(data)).await
+            })
         }
     }
 
     #[tokio::test]
     async fn test_multi_provider_creation_with_empty_providers() {
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> = vec![];
-        let result = MultiProvider::new(providers).await;
+        let providers: Vec<Box<dyn BackupProvider>> = vec![];
+        let result = MultiProvider::new(providers);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), NO_PROVIDERS_ERROR);
+        let err = result.err().expect("expected provider creation to fail");
+        assert_eq!(err.to_string(), NO_PROVIDERS_ERROR);
     }
 
     #[tokio::test]
     async fn test_multi_provider_creation_with_single_provider() {
         let test_provider = TestBackupProvider::new(false);
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> = vec![Box::new(test_provider)];
+        let providers: Vec<Box<dyn BackupProvider>> = vec![Box::new(test_provider)];
 
-        let result = MultiProvider::new(providers).await;
+        let result = MultiProvider::new(providers);
 
         assert!(result.is_ok());
         let multi_provider = result.unwrap();
@@ -213,10 +216,10 @@ mod tests {
     async fn test_multi_provider_creation_with_multiple_providers() {
         let test_provider1 = TestBackupProvider::new(false);
         let test_provider2 = TestBackupProvider::new(false);
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(test_provider1), Box::new(test_provider2)];
 
-        let result = MultiProvider::new(providers).await;
+        let result = MultiProvider::new(providers);
 
         assert!(result.is_ok());
         let multi_provider = result.unwrap();
@@ -228,9 +231,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(false);
         let prov2 = TestBackupProvider::new(false);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = Bytes::from_static(b"test-data");
 
@@ -246,9 +249,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(false);
         let prov2 = TestBackupProvider::new(true);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = Bytes::from_static(b"test-data");
 
@@ -264,9 +267,9 @@ mod tests {
         let test_provider1 = TestBackupProvider::new(true);
         let test_provider2 = TestBackupProvider::new(true);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(test_provider1), Box::new(test_provider2)];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = Bytes::from_static(b"test-data");
 
@@ -280,9 +283,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(false);
         let prov2 = TestBackupProvider::new(false);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = Bytes::from_static(b"test-stream-data");
         let mut reader = &data[..];
@@ -299,9 +302,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(false);
         let prov2 = TestBackupProvider::new(true);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = Bytes::from_static(b"test-stream-data");
         let mut reader = &data[..];
@@ -318,9 +321,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(true);
         let prov2 = TestBackupProvider::new(true);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         let data = b"test-stream-data";
         let mut reader = &data[..];
@@ -338,9 +341,9 @@ mod tests {
         let prov1 = TestBackupProvider::new(false);
         let prov2 = TestBackupProvider::new(false);
 
-        let providers: Vec<Box<dyn BackupProvider + Send + Sync>> =
+        let providers: Vec<Box<dyn BackupProvider>> =
             vec![Box::new(prov1.clone()), Box::new(prov2.clone())];
-        let multi_provider = MultiProvider::new(providers).await.unwrap();
+        let multi_provider = MultiProvider::new(providers).unwrap();
 
         const TOTAL_SIZE: usize = mb_to_bytes(32);
         const PATTERN_SIZE: usize = 4096;

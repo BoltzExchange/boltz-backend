@@ -1,9 +1,9 @@
 use crate::ark::client::ark_rpc::{GetInfoRequest, GetInfoResponse};
 use crate::chain::BaseClient;
-use crate::utils::mb_to_bytes;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use bitcoin::secp256k1;
+use boltz_utils::mb_to_bytes;
 use std::sync::{Arc, RwLock};
 use tonic::transport::Channel;
 use tracing::{info, instrument};

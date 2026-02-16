@@ -1,18 +1,18 @@
-use crate::backup::providers::BackupProvider;
+use crate::providers::{BackupFuture, BackupProvider};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use aws_sdk_s3::{
     Client,
     config::{BehaviorVersion, Credentials, Region},
     primitives::ByteStream,
     types::{CompletedMultipartUpload, CompletedPart},
 };
+use boltz_utils::mb_to_bytes;
 use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt};
-use tracing::{debug, instrument, trace};
+use tracing::{Instrument, debug, debug_span, instrument, trace};
 
-const PART_SIZE: usize = 16 * 1024 * 1024;
+const PART_SIZE: usize = mb_to_bytes(16);
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 pub struct Config {
@@ -44,8 +44,13 @@ impl S3 {
         let endpoint = Self::endpoint(config);
         debug!("Using bucket {} at {}", config.bucket, endpoint);
 
-        let credentials =
-            Credentials::new(&config.access_key, &config.secret_key, None, None, "boltzr");
+        let credentials = Credentials::new(
+            &config.access_key,
+            &config.secret_key,
+            None,
+            None,
+            "boltz-backup",
+        );
 
         let sdk_config = aws_sdk_s3::config::Builder::new()
             .behavior_version(BehaviorVersion::latest())
@@ -232,30 +237,42 @@ impl S3 {
     }
 }
 
-#[async_trait]
 impl BackupProvider for S3 {
     fn name(&self) -> String {
         Self::format_name(&self.bucket, &self.endpoint)
     }
 
-    #[instrument(name = "S3::put", skip(self, data))]
-    async fn put(&self, path: &str, data: Bytes) -> anyhow::Result<()> {
-        self.client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(path)
-            .body(ByteStream::from(data))
-            .send()
-            .await?;
-        Ok(())
+    fn put<'a>(&'a self, path: &'a str, data: Bytes) -> BackupFuture<'a, anyhow::Result<()>> {
+        let span = debug_span!(
+            "S3::put",
+            path = %path,
+            bucket = %self.bucket,
+        );
+        Box::pin(
+            async move {
+                self.client
+                    .put_object()
+                    .bucket(&self.bucket)
+                    .key(path)
+                    .body(ByteStream::from(data))
+                    .send()
+                    .await?;
+                Ok(())
+            }
+            .instrument(span),
+        )
     }
 
-    #[instrument(name = "S3::put_stream", skip(self, reader))]
-    async fn put_stream(
-        &self,
-        path: &str,
-        reader: &mut (dyn AsyncRead + Unpin + Send),
-    ) -> anyhow::Result<()> {
-        self.multipart_upload(path, reader).await
+    fn put_stream<'a>(
+        &'a self,
+        path: &'a str,
+        reader: &'a mut (dyn AsyncRead + Unpin + Send),
+    ) -> BackupFuture<'a, anyhow::Result<()>> {
+        let span = debug_span!(
+            "S3::put_stream",
+            path = %path,
+            bucket = %self.bucket,
+        );
+        Box::pin(async move { self.multipart_upload(path, reader).await }.instrument(span))
     }
 }

@@ -1,6 +1,7 @@
-use crate::{chain::BaseClient, utils::mb_to_bytes};
+use crate::chain::BaseClient;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_utils::mb_to_bytes;
 use lnd_rpc::{ChanBackupExportRequest, ChannelBackupSubscription, GetInfoRequest};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

@@ -1,3 +1,4 @@
+use boltz_backup::Config as BackupConfig;
 use boltz_cache::CacheConfig;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -70,7 +71,7 @@ pub struct GlobalConfig {
     pub cache: Option<CacheConfig>,
     pub historical: Option<crate::service::HistoricalConfig>,
 
-    pub backup: Option<crate::backup::Config>,
+    pub backup: Option<BackupConfig>,
     pub notification: Option<crate::notifications::Config>,
 
     pub sidecar: Config,

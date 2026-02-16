@@ -29,7 +29,7 @@ use tracing::debug;
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct FundingAddressConfig {
     #[serde(rename = "timeoutDelta")]
-    pub timeout_delta: u32,
+    pub timeout_delta: u64,
 
     #[serde(rename = "swapTimeoutBuffer")]
     pub swap_timeout_buffer: u64,
@@ -183,15 +183,13 @@ impl FundingAddressService {
                 .increment_highest_used_index(&request.symbol)
                 .map_err(|e| FundingAddressError::Database(e.to_string()))? as u32;
 
-        let timeout_delta = TimeoutDeltaProvider::calculate_blocks(
-            &request.symbol,
-            self.config.timeout_delta as u64,
-        )? as u32;
+        let timeout_delta =
+            TimeoutDeltaProvider::calculate_blocks(&request.symbol, self.config.timeout_delta)?;
         let timeout_block_height = get_chain_client(&self.currencies, &request.symbol)?
             .blockchain_info()
             .await?
             .blocks
-            + u64::from(timeout_delta);
+            + timeout_delta;
         let id = generate_id(None);
 
         let mut funding_address = FundingAddress {

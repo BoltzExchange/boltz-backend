@@ -14,7 +14,6 @@ use boltz_core::{
 };
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use elements::schnorr::TapTweak;
-
 use elements_miniscript::ToPublicKey;
 
 use crate::chain::types::Type;

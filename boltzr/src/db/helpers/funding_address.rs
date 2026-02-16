@@ -2,6 +2,7 @@ use crate::db::helpers::QueryResponse;
 use crate::db::models::FundingAddress;
 use crate::db::schema::{funding_addresses, script_pubkeys};
 use crate::db::{Pool, models::ScriptPubKey};
+use crate::swap::FundingAddressStatus;
 use anyhow::anyhow;
 use diesel::{
     Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, dsl::update,
@@ -35,6 +36,7 @@ pub trait FundingAddressHelper {
         delink: bool,
     ) -> QueryResponse<usize>;
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
+    fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>>;
 }
 
 #[derive(Clone, Debug)]
@@ -119,28 +121,40 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
     ) -> QueryResponse<usize> {
         let mut conn = self.pool.get()?;
 
-        conn.transaction(|conn| {
-            if delink {
-                update(funding_addresses::dsl::funding_addresses)
+        conn.build_transaction()
+            .serializable()
+            .run(|conn| {
+                if delink {
+                    update(funding_addresses::dsl::funding_addresses)
+                        .set((
+                            funding_addresses::dsl::presigned_tx.eq(None::<Vec<u8>>),
+                            funding_addresses::dsl::swap_id.eq(None::<String>),
+                        ))
+                        .filter(funding_addresses::dsl::id.eq(id))
+                        .execute(conn)?;
+                }
+
+                let updated_rows = update(funding_addresses::dsl::funding_addresses)
                     .set((
-                        funding_addresses::dsl::presigned_tx.eq(None::<Vec<u8>>),
-                        funding_addresses::dsl::swap_id.eq(None::<String>),
+                        funding_addresses::dsl::lockup_transaction_id.eq(transaction_id),
+                        funding_addresses::dsl::lockup_transaction_vout.eq(vout),
+                        funding_addresses::dsl::lockup_amount.eq(value),
+                        funding_addresses::dsl::status.eq(status.to_string()),
                     ))
                     .filter(funding_addresses::dsl::id.eq(id))
+                    .filter(
+                        funding_addresses::dsl::status
+                            .ne(&FundingAddressStatus::Expired.to_string()),
+                    )
                     .execute(conn)?;
-            }
 
-            update(funding_addresses::dsl::funding_addresses)
-                .set((
-                    funding_addresses::dsl::lockup_transaction_id.eq(transaction_id),
-                    funding_addresses::dsl::lockup_transaction_vout.eq(vout),
-                    funding_addresses::dsl::lockup_amount.eq(value),
-                    funding_addresses::dsl::status.eq(status.to_string()),
-                ))
-                .filter(funding_addresses::dsl::id.eq(id))
-                .execute(conn)
-        })
-        .map_err(|e| anyhow!("failed to set funding address transaction: {}", e))
+                if updated_rows == 0 {
+                    Err(anyhow!("no rows updated"))
+                } else {
+                    Ok(updated_rows)
+                }
+            })
+            .map_err(|e| anyhow!("failed to set funding address transaction: {}", e))
     }
 
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize> {
@@ -148,6 +162,26 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .set(funding_addresses::dsl::status.eq(status.to_string()))
             .filter(funding_addresses::dsl::id.eq(id))
             .execute(&mut self.pool.get()?)?)
+    }
+
+    fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>> {
+        let mut conn = self.pool.get()?;
+        let expired_status = FundingAddressStatus::Expired.to_string();
+        let claimed_status = FundingAddressStatus::TransactionClaimed.to_string();
+
+        conn.build_transaction()
+            .serializable()
+            .run(|conn| {
+                update(funding_addresses::dsl::funding_addresses)
+                    .set(funding_addresses::dsl::status.eq(&expired_status))
+                    .filter(funding_addresses::dsl::symbol.eq(symbol))
+                    .filter(funding_addresses::dsl::timeout_block_height.le(height))
+                    .filter(funding_addresses::dsl::status.ne(&claimed_status))
+                    .filter(funding_addresses::dsl::status.ne(&expired_status))
+                    .returning(funding_addresses::dsl::id)
+                    .get_results(conn)
+            })
+            .map_err(|e| anyhow!("failed to expire funding addresses: {}", e))
     }
 }
 
@@ -174,6 +208,7 @@ pub mod test {
                 delink: bool,
             ) -> QueryResponse<usize>;
             fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize>;
+            fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>>;
         }
     }
 }

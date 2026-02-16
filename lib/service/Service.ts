@@ -1344,6 +1344,8 @@ class Service {
       BaseFeeType.NormalClaim,
     );
 
+    await this.verifySubmarineOnchainMinimum(swap, swap.onchainAmount);
+
     const invoiceAmount = SwapManager.calculateInvoiceAmount(
       swap.orderSide,
       rate,
@@ -1360,6 +1362,7 @@ class Service {
       swap.version,
       SwapType.Submarine,
       swap.referral,
+      false,
     );
 
     return {
@@ -1386,6 +1389,14 @@ class Service {
 
     if (swap.invoice) {
       throw Errors.SWAP_HAS_INVOICE_ALREADY(id);
+    }
+
+    const onchainMinimumValidation =
+      swap.onchainAmount !== undefined && swap.onchainAmount !== null;
+
+    if (onchainMinimumValidation) {
+      this.checkWholeNumber(swap.onchainAmount!);
+      await this.verifySubmarineOnchainMinimum(swap, swap.onchainAmount!);
     }
 
     const { base, quote } = splitPairId(swap.pair);
@@ -1424,7 +1435,14 @@ class Service {
       throw SwapErrors.NO_ROUTE_FOUND();
     }
 
-    return this.setSwapInvoice(swap, invoice, true, pairHash, extraFees);
+    return this.setSwapInvoice(
+      swap,
+      invoice,
+      true,
+      pairHash,
+      extraFees,
+      !onchainMinimumValidation,
+    );
   };
 
   /**
@@ -1436,6 +1454,7 @@ class Service {
     canBeRouted: boolean,
     pairHash?: string,
     extraFees?: ExtraFees,
+    verifyInvoiceMinimum = true,
   ): Promise<{
     bip21: string;
     expectedAmount: number;
@@ -1506,6 +1525,7 @@ class Service {
       swap.version,
       SwapType.Submarine,
       swap.referral,
+      verifyInvoiceMinimum,
     );
 
     const fees = this.rateProvider.feeProvider.getFees(
@@ -2464,6 +2484,29 @@ class Service {
   };
 
   /**
+   * Verifies that a submarine swap onchain amount is above the minimal limit
+   */
+  private verifySubmarineOnchainMinimum = async (
+    swap: Pick<Swap, 'pair' | 'orderSide' | 'version' | 'referral'>,
+    onchainAmount: number,
+  ) => {
+    const { limits } = await this.getPair(
+      swap.pair,
+      swap.orderSide,
+      swap.version,
+      SwapType.Submarine,
+      swap.referral,
+    );
+    const minimal =
+      (limits as SubmarinePairTypeTaproot['limits']).minimalBatched ||
+      limits.minimal;
+
+    if (Math.ceil(onchainAmount) < minimal) {
+      throw Errors.BENEATH_MINIMAL_AMOUNT(onchainAmount, minimal);
+    }
+  };
+
+  /**
    * Verifies that the requested amount is neither above the maximal nor beneath the minimal
    */
   private verifyAmount = async (
@@ -2474,6 +2517,7 @@ class Service {
     version: SwapVersion,
     type: SwapType,
     referralId?: string,
+    verifyMinimal = true,
   ) => {
     if (
       (type === SwapType.Submarine && orderSide === OrderSide.BUY) ||
@@ -2497,7 +2541,7 @@ class Service {
 
       if (Math.floor(amount) > limits.maximal) {
         throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
-      } else if (Math.ceil(amount) < minimal) {
+      } else if (verifyMinimal && Math.ceil(amount) < minimal) {
         throw Errors.BENEATH_MINIMAL_AMOUNT(amount, minimal);
       }
     } else {

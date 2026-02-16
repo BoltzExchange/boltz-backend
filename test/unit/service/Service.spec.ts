@@ -2048,6 +2048,7 @@ describe('Service', () => {
       rate: 1,
       pair: 'BTC/BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       onchainAmount: 1000000,
     };
 
@@ -2062,6 +2063,33 @@ describe('Service', () => {
         ),
       },
     });
+
+    // Validate minimal with onchain amount and allow derived invoice below minimal
+    mockGetSwapResult = {
+      rate: 1,
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
+      onchainAmount: 321,
+    };
+    await expect(service.getSwapRates(id)).resolves.toEqual({
+      onchainAmount: 321,
+      submarineSwap: {
+        invoiceAmount: 0,
+      },
+    });
+
+    // Throw if onchain amount is below pair minimal
+    mockGetSwapResult = {
+      rate: 1,
+      pair: 'test/pair',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
+      onchainAmount: 4,
+    };
+    await expect(service.getSwapRates(id)).rejects.toEqual(
+      Errors.BENEATH_MINIMAL_AMOUNT(4, 5),
+    );
 
     // Throw if onchain amount is not set
     mockGetSwapResult = {};
@@ -2153,14 +2181,44 @@ describe('Service', () => {
       service.setInvoice(mockGetSwapResult.id, invoice, ''),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
-    // Throw if a swap doesn't respect the limits
-    const invoiceLimit =
+    const invoiceBelowMinimal =
       'lnbcrt1p0xdz2epp59nrc7lqcnw37suzed83e8s33sxl9p0hk4xu6gya9rcxfmnzd8jfsdqqcqzpgsp5228z07nxfghfzf3p2lu7vc03zss8cgklql845yjr990zsa3nj2hq9qy9qsqqpw8n4s5v3w7t9rryccz46f5v0542td098dun4yzfru4saxhd5apcxl5clxn8a70afn7j3e6avvk3s9gn3ypt2revyuh47aftft3kpcpek9lma';
-    const invoiceLimitAmount = 0;
+    const invoiceAboveMaximalAmount = 1_000_001;
+    const invoiceAboveMaximal = createInvoice(
+      undefined,
+      undefined,
+      undefined,
+      invoiceAboveMaximalAmount,
+    );
 
+    // Still throw if invoice amount exceeds maximal
     await expect(
-      service.setInvoice(mockGetSwapResult.id, invoiceLimit),
-    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceLimitAmount, 1));
+      service.setInvoice(mockGetSwapResult.id, invoiceAboveMaximal),
+    ).rejects.toEqual(
+      Errors.EXCEED_MAXIMAL_AMOUNT(invoiceAboveMaximalAmount, 1_000_000),
+    );
+
+    // Throw if invoice amount is below minimal and no onchain amount is set
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoiceBelowMinimal),
+    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(0, 1));
+
+    // Enforce minimal based on locked onchain amount
+    mockGetSwapResult.onchainAmount = 0;
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(0, 1));
+
+    // Be lenient on invoice minimum in this path when onchain minimum is met
+    mockGetSwapResult.onchainAmount = 1;
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoiceBelowMinimal),
+    ).resolves.toEqual({
+      acceptZeroConf: true,
+      expectedAmount: 100002,
+      bip21:
+        'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning',
+    });
 
     // Throw if swap with id does not exist
     mockGetSwapResult = undefined;

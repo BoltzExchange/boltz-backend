@@ -783,6 +783,8 @@ class SwapManager {
         }
       }
 
+      const statusBeforeUpdate = swap.status;
+
       await SwapRepository.setInvoice(
         swap,
         invoice,
@@ -796,11 +798,11 @@ class SwapManager {
       // to emit it before trying to claim the swap
       emitSwapInvoiceSet(updatedSwap.id);
 
-      // If the onchain coins were sent already and 0-conf can be accepted or
-      // the lockup transaction is confirmed the swap should be settled directly
+      // If the onchain coins were sent already and the lockup transaction is confirmed
+      // the swap should be settled directly
       if (
         updatedSwap.lockupTransactionId &&
-        updatedSwap.status === SwapUpdateEvent.TransactionConfirmed &&
+        statusBeforeUpdate === SwapUpdateEvent.TransactionConfirmed &&
         swap.expectedAmount === swap.onchainAmount &&
         updatedSwap.expectedAmount === updatedSwap.onchainAmount
       ) {

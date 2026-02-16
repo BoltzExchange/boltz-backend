@@ -82,7 +82,7 @@ pub struct SetSignatureRequest {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClaimSignatureRequest {
+pub struct RefundSignatureRequest {
     pub pub_nonce: String,
     pub transaction_hash: String,
 }
@@ -116,9 +116,11 @@ impl FundingAddressSigner {
 
     fn can_spend(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
-        if status == FundingAddressStatus::TransactionClaimed {
+        if status == FundingAddressStatus::TransactionClaimed
+            || status == FundingAddressStatus::TransactionRefunded
+        {
             return Err(anyhow!(FundingAddressEligibilityError(
-                "funding address has already been claimed".to_string(),
+                "funding address has already been spent".to_string(),
             )));
         }
         if status == FundingAddressStatus::Expired {
@@ -240,11 +242,11 @@ impl FundingAddressSigner {
         Ok((tx, session.swap_id))
     }
 
-    pub async fn sign_claim(
+    pub async fn sign_refund(
         &self,
         funding_address: &FundingAddress,
         key_pair: &Keypair,
-        request: &ClaimSignatureRequest,
+        request: &RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse> {
         self.can_spend(funding_address)?;
 
@@ -695,14 +697,12 @@ mod test {
     }
 
     #[rstest]
-    #[case("BTC", "test_funding_set_sig_btc")]
-    #[case("L-BTC", "test_funding_set_sig_lbtc")]
+    #[case("BTC")]
+    #[case("L-BTC")]
     #[tokio::test]
     #[serial]
-    async fn test_set_signature_with_real_lockup(
-        #[case] symbol: &str,
-        #[case] funding_address_id: &str,
-    ) {
+    async fn test_set_signature_with_real_lockup(#[case] symbol: &str) {
+        let funding_address_id = "test_funding";
         let currencies = get_test_currencies().await;
         let chain_client = currencies
             .get(symbol)
@@ -845,7 +845,7 @@ mod test {
         assert!(cached_session.is_none());
     }
 
-    async fn build_claim_tx(
+    async fn build_refund_tx(
         signer: &FundingAddressSigner,
         funding_address: &FundingAddress,
         key_pair: &Keypair,
@@ -904,14 +904,12 @@ mod test {
     }
 
     #[rstest]
-    #[case("BTC", "test_funding_claim_btc")]
-    #[case("L-BTC", "test_funding_claim_lbtc")]
+    #[case("BTC")]
+    #[case("L-BTC")]
     #[tokio::test]
     #[serial]
-    async fn test_sign_claim_with_real_lockup(
-        #[case] symbol: &str,
-        #[case] funding_address_id: &str,
-    ) {
+    async fn test_sign_refund_with_real_lockup(#[case] symbol: &str) {
+        let funding_address_id = "test_funding";
         let currencies = get_test_currencies().await;
         let chain_client = currencies
             .get(symbol)
@@ -962,7 +960,7 @@ mod test {
             .await
             .unwrap();
 
-        let (mut tx, input_detail, msg) = build_claim_tx(
+        let (mut tx, input_detail, msg) = build_refund_tx(
             &signer,
             &funding_address,
             &server_key_pair,
@@ -1023,10 +1021,10 @@ mod test {
         let client_pub_nonce = musig.pub_nonce().serialize();
 
         let response = signer
-            .sign_claim(
+            .sign_refund(
                 &funding_address,
                 &server_key_pair,
-                &ClaimSignatureRequest {
+                &RefundSignatureRequest {
                     pub_nonce: hex::encode(client_pub_nonce),
                     transaction_hash: hex::encode(msg),
                 },

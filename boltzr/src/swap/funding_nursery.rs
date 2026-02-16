@@ -194,7 +194,7 @@ impl FundingAddressNursery {
                 let is_rbf = if let Some(previous_tx_id) = &funding_address.lockup_transaction_id
                     && previous_tx_id != &tx_id
                 {
-                    // if the funding address is not at transaction.mempool (confirmed or claimed)
+                    // if the funding address is not at transaction.mempool (confirmed or claimed/refunded)
                     // it is actually a new unrelated transaction, so we ignore it.
                     let status = FundingAddressStatus::parse(&funding_address.status);
                     if status != FundingAddressStatus::TransactionMempool {
@@ -674,6 +674,7 @@ mod test {
     #[rstest]
     #[case("transaction.confirmed")]
     #[case("transaction.claimed")]
+    #[case("transaction.refunded")]
     #[case("created")]
     #[tokio::test]
     async fn handle_relevant_tx_ignores_rbf_when_not_at_mempool_status(

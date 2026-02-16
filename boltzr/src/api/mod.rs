@@ -207,8 +207,8 @@ where
                 patch(funding_address::set_signature::<S, M>),
             )
             .route(
-                "/v2/funding/{id}/claim",
-                post(funding_address::claim::<S, M>),
+                "/v2/funding/{id}/refund",
+                post(funding_address::refund::<S, M>),
             )
             // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))

@@ -90,6 +90,8 @@ pub enum FundingAddressStatus {
     TransactionConfirmed,
     #[strum(serialize = "transaction.claimed")]
     TransactionClaimed,
+    #[strum(serialize = "transaction.refunded")]
+    TransactionRefunded,
 
     // In case we cannot parse a string
     Unknown,
@@ -173,6 +175,7 @@ mod test {
     #[case(FundingAddressStatus::TransactionMempool)]
     #[case(FundingAddressStatus::TransactionConfirmed)]
     #[case(FundingAddressStatus::TransactionClaimed)]
+    #[case(FundingAddressStatus::TransactionRefunded)]
     fn test_funding_address_status_parse(#[case] status: FundingAddressStatus) {
         assert_eq!(
             FundingAddressStatus::parse(status.to_string().as_str()),

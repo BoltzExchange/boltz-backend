@@ -9,8 +9,8 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
-    ClaimSignatureRequest as SignerClaimSignatureRequest, CooperativeDetails,
-    FundingAddressEligibilityError, FundingAddressSigner, PartialSignatureResponse,
+    CooperativeDetails, FundingAddressEligibilityError, FundingAddressSigner,
+    PartialSignatureResponse, RefundSignatureRequest as SignerRefundSignatureRequest,
     SetSignatureRequest,
 };
 use crate::swap::{FundingAddressStatus, TimeoutDeltaProvider};
@@ -106,7 +106,7 @@ pub struct CreateResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClaimSignatureRequest {
+pub struct RefundSignatureRequest {
     pub id: String,
     pub pub_nonce: String,
     pub transaction_hash: String,
@@ -287,9 +287,11 @@ impl FundingAddressService {
     ) -> Result<FundingAddress, FundingAddressError> {
         let signer = self.signer.lock().await;
         let funding_address = self.get_by_id(&request.id)?;
-        if funding_address.status == FundingAddressStatus::TransactionClaimed.to_string() {
+        if funding_address.status == FundingAddressStatus::TransactionClaimed.to_string()
+            || funding_address.status == FundingAddressStatus::TransactionRefunded.to_string()
+        {
             return Err(FundingAddressError::Internal(
-                "funding address has already been claimed".to_string(),
+                "funding address has already been spent".to_string(),
             ));
         }
         let key_pair = self.key_pair(&funding_address)?;
@@ -309,18 +311,18 @@ impl FundingAddressService {
         Ok(funding_address)
     }
 
-    pub async fn sign_claim(
+    pub async fn sign_refund(
         &self,
-        request: ClaimSignatureRequest,
+        request: RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse, FundingAddressError> {
         let signer = self.signer.lock().await;
         let funding_address = self.get_by_id(&request.id)?;
         let key_pair = self.key_pair(&funding_address)?;
         let response = signer
-            .sign_claim(
+            .sign_refund(
                 &funding_address,
                 &key_pair,
-                &SignerClaimSignatureRequest {
+                &SignerRefundSignatureRequest {
                     pub_nonce: request.pub_nonce,
                     transaction_hash: request.transaction_hash,
                 },
@@ -340,7 +342,7 @@ impl FundingAddressService {
         self.funding_address_helper
             .set_status(
                 &funding_address.id,
-                &FundingAddressStatus::TransactionClaimed.to_string(),
+                &FundingAddressStatus::TransactionRefunded.to_string(),
             )
             .map_err(|e| FundingAddressError::Database(e.to_string()))?;
 

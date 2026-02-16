@@ -3,7 +3,7 @@ use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
 use crate::currencies::get_chain_client;
-use crate::service::funding_address::ClaimSignatureRequest;
+use crate::service::funding_address::RefundSignatureRequest;
 use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
@@ -79,7 +79,7 @@ pub struct SetSignatureRequestBody {
 }
 
 #[derive(Deserialize)]
-pub struct ClaimRequestBody {
+pub struct RefundRequestBody {
     #[serde(rename = "pubNonce")]
     pub pub_nonce: String,
     #[serde(rename = "transactionHash")]
@@ -218,10 +218,10 @@ where
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
-pub async fn claim<S, M>(
+pub async fn refund<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-    Json(body): Json<ClaimRequestBody>,
+    Json(body): Json<RefundRequestBody>,
 ) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
@@ -230,7 +230,7 @@ where
     let response = state
         .service
         .funding_address
-        .sign_claim(ClaimSignatureRequest {
+        .sign_refund(RefundSignatureRequest {
             id,
             pub_nonce: body.pub_nonce,
             transaction_hash: body.transaction_hash,
@@ -494,7 +494,7 @@ mod test {
             .unwrap()
     }
 
-    async fn make_claim_request(
+    async fn make_refund_request(
         id: &str,
         pub_nonce: &str,
         transaction_hash: &str,
@@ -508,7 +508,7 @@ mod test {
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
-                    .uri(format!("/v2/funding/{}/claim", id))
+                    .uri(format!("/v2/funding/{}/refund", id))
                     .header(axum::http::header::CONTENT_TYPE, "application/json")
                     .body(Body::from(serde_json::to_vec(&body).unwrap()))
                     .unwrap(),
@@ -548,7 +548,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_claim_funding_address_success() {
+    async fn test_refund_funding_address_success() {
         let secp = Secp256k1::new();
         let keypair = Keypair::new(&secp, &mut rand::thread_rng());
 
@@ -568,7 +568,7 @@ mod test {
         let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
         let transaction_hash = alloy::hex::encode(message);
 
-        let response = make_claim_request(
+        let response = make_refund_request(
             &funding_address_response.id,
             &pub_nonce_hex,
             &transaction_hash,
@@ -583,7 +583,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_claim_funding_address_swap_linked() {
+    async fn test_refund_funding_address_swap_linked() {
         use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
         use crate::db::helpers::web_hook::test::get_pool;
 
@@ -617,7 +617,7 @@ mod test {
         let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
         let transaction_hash = alloy::hex::encode(message);
 
-        let response = make_claim_request(
+        let response = make_refund_request(
             &funding_address_response.id,
             &pub_nonce_hex,
             &transaction_hash,

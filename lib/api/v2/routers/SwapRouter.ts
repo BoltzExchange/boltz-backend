@@ -2103,29 +2103,29 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
-     *     RestorableSwap:
+     *     Restorable:
      *       type: object
      *       required: ["id", "type", "status", "createdAt", "from", "to"]
      *       properties:
      *         id:
      *           type: string
-     *           description: ID of the Swap
+     *           description: ID of the Swap or Funding Address
      *         type:
      *           type: string
      *           enum: ["submarine", "reverse", "chain", "funding"]
-     *           description: Rescue entity type (swap type or funding address)
+     *           description: Swap type or funding address
      *         status:
      *           type: string
-     *           description: Status of the Swap
+     *           description: Status
      *         createdAt:
      *           type: number
-     *           description: UNIX timestamp of the creation of the Swap
+     *           description: UNIX timestamp of the creation
      *         from:
      *           type: string
-     *           description: Asset the client is supposed to send
+     *           description: Asset the client is supposed to send or the chain of the funding address
      *         to:
      *           type: string
-     *           description: Asset the client is supposed to receive
+     *           description: Asset the client is supposed to receive - only set for swaps
      *         preimageHash:
      *           type: string
      *           description: Hash of the preimage required to claim the swap; empty for funding addresses
@@ -2203,13 +2203,13 @@ class SwapRouter extends RouterBase {
      *             $ref: '#/components/schemas/RescueRequest'
      *     responses:
      *       '200':
-     *         description: List of rescue entities (swaps and funding addresses) that can be restored
+     *         description: List of restorable swaps and funding addresses
      *         content:
      *           application/json:
      *             schema:
      *               type: array
      *               items:
-     *                 $ref: '#/components/schemas/RestorableSwap'
+     *                 $ref: '#/components/schemas/Restorable'
      */
 
     /**

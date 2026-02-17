@@ -1493,13 +1493,13 @@
         },
         "responses": {
           "200": {
-            "description": "List of rescue entities (swaps and funding addresses) that can be restored",
+            "description": "List of restorable swaps and funding addresses",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RestorableSwap"
+                    "$ref": "#/components/schemas/Restorable"
                   }
                 }
               }
@@ -5007,7 +5007,7 @@
           }
         }
       },
-      "RestorableSwap": {
+      "Restorable": {
         "type": "object",
         "required": [
           "id",
@@ -5020,7 +5020,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "ID of the Swap"
+            "description": "ID of the Swap or Funding Address"
           },
           "type": {
             "type": "string",
@@ -5030,23 +5030,23 @@
               "chain",
               "funding"
             ],
-            "description": "Rescue entity type (swap type or funding address)"
+            "description": "Swap type or funding address"
           },
           "status": {
             "type": "string",
-            "description": "Status of the Swap"
+            "description": "Status"
           },
           "createdAt": {
             "type": "number",
-            "description": "UNIX timestamp of the creation of the Swap"
+            "description": "UNIX timestamp of the creation"
           },
           "from": {
             "type": "string",
-            "description": "Asset the client is supposed to send"
+            "description": "Asset the client is supposed to send or the chain of the funding address"
           },
           "to": {
             "type": "string",
-            "description": "Asset the client is supposed to receive"
+            "description": "Asset the client is supposed to receive - only set for swaps"
           },
           "preimageHash": {
             "type": "string",

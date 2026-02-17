@@ -1077,7 +1077,7 @@ impl SwapRescue {
         Ok(Restorable {
             base: (&f).into(),
             from: f.symbol.clone(),
-            to: f.symbol.clone(),
+            to: "".to_string(),
             preimage_hash: String::new(),
             claim_details: None,
             refund_details: None,
@@ -1864,15 +1864,7 @@ mod test {
                 restored.claim_details.is_none(),
                 restored.refund_details.is_none(),
             ),
-            (
-                &RescueType::Funding,
-                "funding",
-                "BTC",
-                "BTC",
-                "",
-                true,
-                true,
-            )
+            (&RescueType::Funding, "funding", "BTC", "", "", true, true,)
         );
 
         let details = restored.funding_address_details.as_ref().unwrap();

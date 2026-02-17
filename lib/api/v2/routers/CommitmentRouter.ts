@@ -109,6 +109,11 @@ class CommitmentRouter extends RouterBase {
      *               logIndex:
      *                 type: number
      *                 description: Log index of the lockup event if there are multiple in the transaction
+     *               maxOverpaymentPercentage:
+     *                 type: number
+     *                 minimum: 0
+     *                 maximum: 10
+     *                 description: Maximum accepted overpayment percentage for this commitment
      *     responses:
      *       '201':
      *         description: Commitment created successfully
@@ -142,18 +147,34 @@ class CommitmentRouter extends RouterBase {
     const { currency } = validateRequest(req.params, [
       { name: 'currency', type: 'string' },
     ]);
-    const { swapId, signature, transactionHash, logIndex } = validateRequest(
-      req.body,
-      [
-        { name: 'swapId', type: 'string' },
-        { name: 'signature', type: 'string' },
-        { name: 'transactionHash', type: 'string' },
-        { name: 'logIndex', type: 'number', optional: true },
-      ],
-    );
+    const {
+      swapId,
+      signature,
+      transactionHash,
+      logIndex,
+      maxOverpaymentPercentage,
+    } = validateRequest(req.body, [
+      { name: 'swapId', type: 'string' },
+      { name: 'signature', type: 'string' },
+      { name: 'transactionHash', type: 'string' },
+      { name: 'logIndex', type: 'number', optional: true },
+      { name: 'maxOverpaymentPercentage', type: 'number', optional: true },
+    ]);
 
-    if (logIndex !== undefined && logIndex < 0) {
+    if (
+      logIndex !== undefined &&
+      (!Number.isInteger(logIndex) || logIndex < 0)
+    ) {
       throw Errors.INVALID_PARAMETER('logIndex');
+    }
+
+    if (
+      maxOverpaymentPercentage !== undefined &&
+      (!Number.isFinite(maxOverpaymentPercentage) ||
+        maxOverpaymentPercentage < 0 ||
+        maxOverpaymentPercentage > 10)
+    ) {
+      throw Errors.INVALID_PARAMETER('maxOverpaymentPercentage');
     }
 
     const manager = this.getManager(currency);
@@ -163,6 +184,7 @@ class CommitmentRouter extends RouterBase {
       signature,
       transactionHash,
       logIndex,
+      maxOverpaymentPercentage,
     );
     createdResponse(res, {});
   };

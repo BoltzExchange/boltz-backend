@@ -125,17 +125,23 @@ describe('CommitmentRouter', () => {
 
   describe('POST /:currency', () => {
     test.each`
-      error                                     | params                  | body
-      ${'undefined parameter: currency'}        | ${{}}                   | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
-      ${'invalid parameter: currency'}          | ${{ currency: 123 }}    | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
-      ${'undefined parameter: swapId'}          | ${{ currency: 'RBTC' }} | ${{ signature: 'sig', transactionHash: 'tx' }}
-      ${'invalid parameter: swapId'}            | ${{ currency: 'RBTC' }} | ${{ swapId: 123, signature: 'sig', transactionHash: 'tx' }}
-      ${'undefined parameter: signature'}       | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', transactionHash: 'tx' }}
-      ${'invalid parameter: signature'}         | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 123, transactionHash: 'tx' }}
-      ${'undefined parameter: transactionHash'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig' }}
-      ${'invalid parameter: transactionHash'}   | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 123 }}
-      ${'invalid parameter: logIndex'}          | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: 'invalid' }}
-      ${'invalid parameter: logIndex'}          | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: -1 }}
+      error                                            | params                  | body
+      ${'undefined parameter: currency'}               | ${{}}                   | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
+      ${'invalid parameter: currency'}                 | ${{ currency: 123 }}    | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
+      ${'undefined parameter: swapId'}                 | ${{ currency: 'RBTC' }} | ${{ signature: 'sig', transactionHash: 'tx' }}
+      ${'invalid parameter: swapId'}                   | ${{ currency: 'RBTC' }} | ${{ swapId: 123, signature: 'sig', transactionHash: 'tx' }}
+      ${'undefined parameter: signature'}              | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', transactionHash: 'tx' }}
+      ${'invalid parameter: signature'}                | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 123, transactionHash: 'tx' }}
+      ${'undefined parameter: transactionHash'}        | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig' }}
+      ${'invalid parameter: transactionHash'}          | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 123 }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: 'invalid' }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: -1 }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: 1.5 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: 'invalid' }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: -1 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: 11 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: Infinity }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: NaN }}
     `(
       'should not post commitment with invalid parameters ($error)',
       async ({ params, body, error }) => {
@@ -180,6 +186,7 @@ describe('CommitmentRouter', () => {
         signature,
         transactionHash,
         undefined,
+        undefined,
       );
 
       expect(res.status).toHaveBeenCalledWith(201);
@@ -211,6 +218,39 @@ describe('CommitmentRouter', () => {
         signature,
         transactionHash,
         logIndex,
+        undefined,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    test('should post commitment with custom maxOverpaymentPercentage', async () => {
+      const currency = 'RBTC';
+      const swapId = 'swap123';
+      const signature = '0xsignature';
+      const transactionHash = '0xtxhash';
+      const maxOverpaymentPercentage = 3.5;
+
+      const res = mockResponse();
+      await commitmentRouter['postCommitment'](
+        mockRequest(
+          { swapId, signature, transactionHash, maxOverpaymentPercentage },
+          undefined,
+          { currency },
+        ),
+        res,
+      );
+
+      expect(
+        service.walletManager.ethereumManagers[0].commitments.commit,
+      ).toHaveBeenCalledWith(
+        currency,
+        swapId,
+        signature,
+        transactionHash,
+        undefined,
+        maxOverpaymentPercentage,
       );
 
       expect(res.status).toHaveBeenCalledWith(201);

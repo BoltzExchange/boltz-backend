@@ -438,6 +438,7 @@ impl MempoolSpace {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use boltz_utils::ensure_rustls_crypto_provider;
     use serial_test::serial;
 
     const MEMPOOL_API: &str = "https://mempool.space/api";
@@ -448,6 +449,8 @@ pub mod test {
         #[tokio::test]
         #[serial(MempoolSpace)]
         async fn test_get_latest() {
+            ensure_rustls_crypto_provider();
+
             let cancellation_token = CancellationToken::new();
             let client = Client::new(
                 cancellation_token.clone(),
@@ -609,6 +612,8 @@ pub mod test {
         #[tokio::test]
         #[serial(MempoolSpace)]
         async fn test_get_fees() {
+            ensure_rustls_crypto_provider();
+
             let cancellation_token = CancellationToken::new();
             let mempool_space = MempoolSpace::new(
                 cancellation_token.clone(),

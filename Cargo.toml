@@ -46,6 +46,12 @@ clap = { version = "4.5.58", features = ["derive"] }
 elements = "0.26.1"
 rand = "0.8.5"
 reqwest = { version = "0.13.2", features = ["json"] }
+rustls = { version = "0.23.36", default-features = false, features = [
+	"std",
+	"tls12",
+	"aws-lc-rs",
+	"prefer-post-quantum",
+] }
 rstest = "0.26.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

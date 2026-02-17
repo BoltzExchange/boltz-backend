@@ -1,4 +1,3 @@
-use alloy::hex;
 use anyhow::Result;
 use bitcoin::{
     PublicKey,

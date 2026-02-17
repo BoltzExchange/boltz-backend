@@ -1,6 +1,7 @@
-use crate::{chain::BaseClient, utils::mb_to_bytes};
+use crate::chain::BaseClient;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_utils::mb_to_bytes;
 use lnd_rpc::{ChanBackupExportRequest, ChannelBackupSubscription, GetInfoRequest};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -101,7 +102,7 @@ impl Lnd {
         let intercepted = InterceptedService::new(
             client,
             MacaroonInterceptor {
-                macaroon: MetadataValue::from_str(&alloy::hex::encode(
+                macaroon: MetadataValue::from_str(&hex::encode(
                     tokio::fs::read(&config.macaroonpath).await.map_err(|e| {
                         anyhow::anyhow!(
                             "failed to read macaroon from {}: {}",

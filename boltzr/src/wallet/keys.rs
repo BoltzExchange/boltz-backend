@@ -30,7 +30,6 @@ impl Keys {
 #[cfg(test)]
 pub mod test {
     use crate::wallet::keys::Keys;
-    use alloy::hex;
     use bip39::Mnemonic;
     use rstest::rstest;
     use std::str::FromStr;

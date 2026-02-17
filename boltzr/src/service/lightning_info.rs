@@ -2,7 +2,6 @@ use crate::chain::BaseClient;
 use crate::currencies::Currencies;
 use crate::lightning::cln::Cln;
 use crate::lightning::cln::cln_rpc::ListchannelsChannels;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use boltz_cache::Cache;
@@ -355,7 +354,6 @@ mod test {
     use crate::lightning::cln::test::cln_client;
     use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
     use crate::wallet::{Bitcoin, Network};
-    use alloy::hex;
     use bip39::Mnemonic;
     use boltz_cache::{Cache, MemCache};
     use rstest::rstest;

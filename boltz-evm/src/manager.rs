@@ -1,7 +1,7 @@
-use crate::evm::RefundSigner;
-use crate::evm::log_layer::LoggingLayer;
-use crate::evm::quoter::QuoteAggregator;
-use crate::evm::refund_signer::LocalRefundSigner;
+use crate::RefundSigner;
+use crate::log_layer::LoggingLayer;
+use crate::quoter::QuoteAggregator;
+use crate::refund_signer::LocalRefundSigner;
 use alloy::network::{AnyNetwork, EthereumWallet};
 use alloy::primitives::{Address, FixedBytes, Signature, U256};
 use alloy::providers::{DynProvider, Provider, ProviderBuilder};
@@ -16,7 +16,6 @@ use alloy::transports::{
     ws::WsConnect,
 };
 use anyhow::anyhow;
-use async_trait::async_trait;
 use boltz_cache::Cache;
 use std::collections::HashMap;
 use tower::ServiceBuilder;
@@ -48,7 +47,7 @@ impl Manager {
         symbol: String,
         cache: Cache,
         signer: PrivateKeySigner,
-        config: &crate::evm::Config,
+        config: &crate::Config,
     ) -> anyhow::Result<Self> {
         info!("Using address: {}", signer.address());
 
@@ -108,13 +107,13 @@ impl Manager {
 
     async fn new_provider(
         symbol: String,
-        config: &crate::evm::Config,
+        config: &crate::Config,
         signer: PrivateKeySigner,
     ) -> anyhow::Result<DynProvider<AnyNetwork>> {
         let mut configs = config.providers.clone().unwrap_or_default();
 
         if let Some(endpoint) = config.provider_endpoint.clone() {
-            configs.push(crate::evm::ProviderConfig {
+            configs.push(crate::ProviderConfig {
                 name: endpoint.clone(),
                 endpoint,
             });
@@ -162,7 +161,6 @@ impl Manager {
     }
 }
 
-#[async_trait]
 impl RefundSigner for Manager {
     fn version_for_address(&self, contract_address: &Address) -> anyhow::Result<u8> {
         match self.address_versions.get(contract_address) {
@@ -199,14 +197,9 @@ impl RefundSigner for Manager {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::evm::manager::Manager;
-    use crate::evm::refund_signer::test::{
-        ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER,
-    };
-    use crate::evm::{Config, ContractAddresses, RefundSigner, TokenConfig};
-    use alloy::primitives::{Address, FixedBytes};
-    use alloy::signers::local::MnemonicBuilder;
-    use alloy::signers::local::coins_bip39::English;
+    use crate::test_utils::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
+    use crate::{Address, English, FixedBytes, MnemonicBuilder};
+    use crate::{Config, ContractAddresses, RefundSigner, TokenConfig};
     use boltz_cache::MemCache;
     use serial_test::serial;
     use std::fs;
@@ -250,7 +243,7 @@ pub mod test {
 
     #[tokio::test]
     async fn test_version_for_address() {
-        let manager = new_manager().await;
+        let manager = crate::test_utils::new_manager().await;
 
         let contract_version = 5;
         assert_eq!(
@@ -271,14 +264,14 @@ pub mod test {
 
     #[tokio::test]
     async fn test_sign_cooperative_refund() {
-        let manager = new_manager().await;
+        let manager = crate::test_utils::new_manager().await;
 
         assert!(
             manager
                 .sign_cooperative_refund(
                     5,
                     FixedBytes::<32>::default(),
-                    crate::evm::utils::parse_wei("1").unwrap(),
+                    crate::utils::parse_wei("1").unwrap(),
                     None,
                     1,
                 )
@@ -291,38 +284,13 @@ pub mod test {
                 .sign_cooperative_refund(
                     0,
                     FixedBytes::<32>::default(),
-                    crate::evm::utils::parse_wei("1").unwrap(),
+                    crate::utils::parse_wei("1").unwrap(),
                     None,
                     1,
                 )
                 .await
                 .is_err()
         );
-    }
-
-    pub async fn new_manager() -> Manager {
-        Manager::new(
-            "RBTC".to_string(),
-            Cache::Memory(MemCache::new()),
-            MnemonicBuilder::<English>::default()
-                .phrase(MNEMONIC)
-                .index(0)
-                .unwrap()
-                .build()
-                .unwrap(),
-            &Config {
-                provider_endpoint: Some(PROVIDER.to_string()),
-                providers: None,
-                contracts: vec![ContractAddresses {
-                    ether_swap: ETHER_SWAP_ADDRESS.to_string(),
-                    erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
-                }],
-                tokens: None,
-                quoters: None,
-            },
-        )
-        .await
-        .unwrap()
     }
 
     #[tokio::test]

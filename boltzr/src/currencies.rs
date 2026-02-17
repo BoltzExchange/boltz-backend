@@ -15,12 +15,12 @@ use crate::db::{
         reverse_swap::ReverseSwapHelperDatabase,
     },
 };
-use crate::evm::manager::Manager;
 use crate::lightning::{cln::Cln, lnd::Lnd};
 use crate::wallet::{self, Wallet};
 use anyhow::anyhow;
 use bip39::Mnemonic;
 use boltz_cache::Cache;
+use boltz_evm::Manager;
 use std::collections::HashMap;
 use std::{fs, str::FromStr, sync::Arc};
 use tokio::time::{Duration, timeout};
@@ -56,7 +56,7 @@ pub async fn connect_nodes<K: KeysHelper>(
     db: Pool,
     cache: Cache,
     evm_mnemonic_path: String,
-    evm_configs: HashMap<&'static str, Option<crate::evm::Config>>,
+    evm_configs: HashMap<&'static str, Option<boltz_evm::Config>>,
     webhook_block_list: Option<Vec<String>>,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {

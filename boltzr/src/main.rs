@@ -7,6 +7,7 @@ use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws::{self};
+use boltz_backup::{Backup, DatabaseConfig};
 use boltz_cache::{Cache, MemCache, Redis};
 use clap::Parser;
 use serde::Serialize;
@@ -18,12 +19,11 @@ use tracing::{debug, error, info, trace, warn};
 
 mod api;
 mod ark;
-mod backup;
+mod backup_adapter;
 mod chain;
 mod config;
 mod currencies;
 mod db;
-mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
@@ -207,14 +207,17 @@ async fn main() {
     }
 
     let backup_client = if let Some(backup_config) = config.backup {
+        let db_backup_config: DatabaseConfig = config.postgres.clone().into();
+        let channel_backup_sources = backup_adapter::from_currencies(&currencies);
+
         create_with_timeout(
             INIT_TIMEOUT,
             "backup client",
-            backup::Backup::new(
+            Backup::new(
                 cancellation_token.clone(),
                 backup_config,
-                config.postgres,
-                currencies.clone(),
+                db_backup_config,
+                channel_backup_sources,
             ),
         )
         .await

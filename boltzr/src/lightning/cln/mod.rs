@@ -10,9 +10,9 @@ use crate::lightning::cln::cln_rpc::{
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
 use crate::{utils, wallet};
-use alloy::hex;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_utils::mb_to_bytes;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::str::FromStr;
@@ -91,7 +91,7 @@ impl Cln {
                 .connect()
                 .await?;
         let cln = cln_rpc::node_client::NodeClient::new(channel)
-            .max_decoding_message_size(utils::mb_to_bytes(1024));
+            .max_decoding_message_size(mb_to_bytes(1024));
 
         Ok(Self {
             symbol: symbol.to_string(),

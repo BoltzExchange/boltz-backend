@@ -1,14 +1,14 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::evm::quoter::{Call, Data as QuoterData, QuoteAggregator};
 use crate::swap::manager::SwapManager;
-use alloy::primitives::{Address, U256};
 use anyhow::{Result, anyhow};
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
+use boltz_evm::quoter::{Call, Data as QuoterData, QuoteAggregator};
+use boltz_evm::{Address, U256};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -45,7 +45,7 @@ pub struct QuoteOutputParams {
 
 #[derive(Serialize)]
 pub struct QuoteResponse {
-    #[serde(serialize_with = "crate::utils::serde::u256::serialize")]
+    #[serde(serialize_with = "boltz_evm::serde_utils::u256::serialize")]
     pub quote: U256,
     pub data: QuoterData,
 }

@@ -1,4 +1,4 @@
-use crate::evm::utils::check_contract_exists;
+use crate::utils::check_contract_exists;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::providers::network::Network;
@@ -52,9 +52,9 @@ impl Data {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Call {
     pub to: Address,
-    #[serde(serialize_with = "crate::utils::serde::u256::serialize")]
+    #[serde(serialize_with = "crate::serde_utils::u256::serialize")]
     pub value: U256,
-    #[serde(serialize_with = "crate::utils::serde::hex::serialize")]
+    #[serde(serialize_with = "crate::serde_utils::hex::serialize")]
     pub data: Vec<u8>,
 }
 

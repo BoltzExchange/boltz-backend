@@ -163,7 +163,7 @@ impl Hold {
             ));
         }
 
-        let signer_hex = alloy::hex::encode(&signer);
+        let signer_hex = hex::encode(&signer);
         self.offer_helper.insert(&Offer {
             signer,
             // Needed when we lookup if we know an offer when fetching
@@ -191,7 +191,7 @@ impl Hold {
         self.offer_helper.update(&signer, &url)?;
         debug!(
             "Updated offer of {} to {}",
-            alloy::hex::encode(signer),
+            hex::encode(signer),
             match url {
                 Some(url) => format!("webhook: {}", url),
                 None => "no webhook".to_string(),
@@ -211,7 +211,7 @@ impl Hold {
         }
 
         self.offer_helper.delete(&signer)?;
-        info!("Deleted offer of {}", alloy::hex::encode(signer));
+        info!("Deleted offer of {}", hex::encode(signer));
         Ok(())
     }
 
@@ -530,7 +530,6 @@ impl BaseClient for Hold {
 mod test {
     use super::*;
     use crate::lightning::cln::test::cln_client;
-    use alloy::hex;
     use bitcoin::key::Keypair;
     use mockall::predicate::eq;
 

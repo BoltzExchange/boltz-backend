@@ -67,7 +67,7 @@ impl SomeSwap for ReverseSwap {
         if let Some(id) = &self.transactionId
             && let Some(vout) = self.transactionVout
         {
-            let mut hash = alloy::hex::decode(id)?;
+            let mut hash = hex::decode(id)?;
             hash.reverse();
 
             Ok(Some(Outpoint {
@@ -108,7 +108,7 @@ impl SomeSwap for ReverseSwap {
 
             let output_type = match SwapVersion::try_from(self.version)? {
                 SwapVersion::Legacy => {
-                    OutputType::SegwitV0(bitcoin::ScriptBuf::from_bytes(alloy::hex::decode(
+                    OutputType::SegwitV0(bitcoin::ScriptBuf::from_bytes(hex::decode(
                         self.redeemScript
                             .clone()
                             .context("redeem script not found")?,
@@ -161,9 +161,9 @@ impl SomeSwap for ReverseSwap {
                 .transactionVout
                 .context("lockup transaction vout not found")? as u32;
 
-            let lockup_tx: elements::Transaction = elements::encode::deserialize(
-                &alloy::hex::decode(&client.raw_transaction(&tx_id).await?)?,
-            )?;
+            let lockup_tx: elements::Transaction = elements::encode::deserialize(&hex::decode(
+                &client.raw_transaction(&tx_id).await?,
+            )?)?;
 
             let output_type = match SwapVersion::try_from(self.version)? {
                 SwapVersion::Legacy => OutputType::SegwitV0(

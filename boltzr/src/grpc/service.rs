@@ -1,7 +1,6 @@
 use crate::api::ws::types::SwapStatus;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
-use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
@@ -26,7 +25,7 @@ use crate::swap::TxStatus;
 use crate::swap::manager::{RescanChainOptions, SwapManager};
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
-use alloy::primitives::{Address, FixedBytes};
+use boltz_evm::{Address, FixedBytes, RefundSigner};
 use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
 use lightning::offers::offer::Amount;
@@ -427,7 +426,7 @@ where
                 ));
             }
         };
-        let amount = match crate::evm::utils::parse_wei(&params.amount) {
+        let amount = match boltz_evm::utils::parse_wei(&params.amount) {
             Ok(res) => res,
             Err(err) => {
                 return Err(Status::new(
@@ -837,8 +836,8 @@ mod test {
     use crate::swap::SwapUpdate;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::FixedBytes;
     use boltz_cache::{Cache, MemCache};
+    use boltz_evm::FixedBytes;
     use mockall::mock;
     use rand::Rng;
     use std::collections::HashMap;
@@ -1141,7 +1140,8 @@ mod test {
         let (status_tx, _) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1);
 
-        let evm_manager = Arc::new(crate::evm::manager::test::new_manager().await);
+        let evm_manager: Arc<boltz_evm::Manager> =
+            Arc::new(boltz_evm::test_utils::new_manager().await);
 
         (
             token.clone(),
@@ -1203,7 +1203,7 @@ mod test {
         hook_helper
     }
 
-    fn make_mock_manager(evm_manager: Option<Arc<crate::evm::manager::Manager>>) -> MockManager {
+    fn make_mock_manager(evm_manager: Option<Arc<boltz_evm::Manager>>) -> MockManager {
         let mut manager = MockManager::new();
         let evm_manager_clone = evm_manager.clone();
         manager

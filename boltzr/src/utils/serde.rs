@@ -8,13 +8,12 @@ use std::str::FromStr;
 
 pub mod hex {
     use super::*;
-    use alloy::hex;
 
     pub fn serialize<S>(data: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&hex::encode(data))
+        serializer.serialize_str(&::hex::encode(data))
     }
 }
 
@@ -100,8 +99,8 @@ impl<'de> Deserialize<'de> for PublicKeyDeserialize {
             where
                 E: serde::de::Error,
             {
-                let bytes = alloy::hex::decode(value)
-                    .map_err(|err| E::custom(format!("invalid hex: {err}")))?;
+                let bytes =
+                    ::hex::decode(value).map_err(|err| E::custom(format!("invalid hex: {err}")))?;
                 match PublicKey::from_slice(&bytes) {
                     Ok(pubkey) => Ok(PublicKeyDeserialize(pubkey)),
                     Err(err) => Err(E::custom(format!("invalid public key: {err}"))),
@@ -141,7 +140,7 @@ impl<'de> Deserialize<'de> for PublicKeyVecDeserialize {
                         )));
                     }
 
-                    let bytes = alloy::hex::decode(&value)
+                    let bytes = ::hex::decode(&value)
                         .map_err(|err| serde::de::Error::custom(format!("invalid hex: {err}")))?;
                     let pubkey = PublicKey::from_slice(&bytes).map_err(|err| {
                         serde::de::Error::custom(format!("invalid public key: {err}"))
@@ -157,23 +156,10 @@ impl<'de> Deserialize<'de> for PublicKeyVecDeserialize {
     }
 }
 
-pub mod u256 {
-    use super::*;
-    use alloy::primitives::U256;
-
-    pub fn serialize<S>(data: &U256, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&data.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde::Serialize;
-    use std::str::FromStr;
 
     mod hex {
         use super::*;
@@ -202,57 +188,6 @@ mod tests {
         }
     }
 
-    mod u256 {
-        use super::*;
-        use alloy::primitives::U256;
-
-        #[derive(Serialize)]
-        struct U256Wrapper {
-            #[serde(serialize_with = "super::super::u256::serialize")]
-            value: U256,
-        }
-
-        #[test]
-        fn test_serialize_zero() {
-            let wrapper = U256Wrapper { value: U256::ZERO };
-            assert_eq!(
-                serde_json::to_string(&wrapper).unwrap(),
-                "{\"value\":\"0\"}"
-            );
-        }
-
-        #[test]
-        fn test_serialize_small_number() {
-            let wrapper = U256Wrapper {
-                value: U256::from(42),
-            };
-            assert_eq!(
-                serde_json::to_string(&wrapper).unwrap(),
-                "{\"value\":\"42\"}"
-            );
-        }
-
-        #[test]
-        fn test_serialize_large_number() {
-            let wrapper = U256Wrapper {
-                value: U256::from_str("1000000000000000000").unwrap(),
-            };
-            assert_eq!(
-                serde_json::to_string(&wrapper).unwrap(),
-                "{\"value\":\"1000000000000000000\"}"
-            );
-        }
-
-        #[test]
-        fn test_serialize_max_value() {
-            let wrapper = U256Wrapper { value: U256::MAX };
-            assert_eq!(
-                serde_json::to_string(&wrapper).unwrap(),
-                "{\"value\":\"115792089237316195423570985008687907853269984665640564039457584007913129639935\"}"
-            );
-        }
-    }
-
     mod public_key {
         use bitcoin::secp256k1::Secp256k1;
         use serde::Deserialize;
@@ -268,7 +203,7 @@ mod tests {
             let secp = Secp256k1::new();
             let secret_key = bitcoin::PrivateKey::generate(bitcoin::Network::Regtest);
             let public_key = secret_key.public_key(&secp);
-            let hex = alloy::hex::encode(public_key.inner.serialize());
+            let hex = ::hex::encode(public_key.inner.serialize());
 
             let json = format!(r#"{{"publicKey":"{}"}}"#, hex);
             let wrapper: PublicKeyWrapper = serde_json::from_str(&json).unwrap();
@@ -279,7 +214,7 @@ mod tests {
         fn test_deserialize_valid_public_key_parsed() {
             let pubkey = "02440ad87b11738cb0c76f5fc48372d27ed9132112b2fc76eac83fbd544918d0b9";
             let public_key =
-                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey).unwrap()).unwrap();
+                bitcoin::PublicKey::from_slice(&::hex::decode(pubkey).unwrap()).unwrap();
             let wrapper: PublicKeyWrapper =
                 serde_json::from_str(&format!(r#"{{"publicKey":"{}"}}"#, pubkey)).unwrap();
             assert_eq!(wrapper.public_key.0, public_key);
@@ -323,8 +258,7 @@ mod tests {
             let json = format!(r#"{{"publicKeys":["{}"]}}"#, pubkey);
             let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
             assert_eq!(wrapper.public_keys.0.len(), 1);
-            let expected =
-                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey).unwrap()).unwrap();
+            let expected = bitcoin::PublicKey::from_slice(&::hex::decode(pubkey).unwrap()).unwrap();
             assert_eq!(wrapper.public_keys.0[0], expected);
         }
 
@@ -336,9 +270,9 @@ mod tests {
             let wrapper: PublicKeyVecWrapper = serde_json::from_str(&json).unwrap();
             assert_eq!(wrapper.public_keys.0.len(), 2);
             let expected1 =
-                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey1).unwrap()).unwrap();
+                bitcoin::PublicKey::from_slice(&::hex::decode(pubkey1).unwrap()).unwrap();
             let expected2 =
-                bitcoin::PublicKey::from_slice(&alloy::hex::decode(pubkey2).unwrap()).unwrap();
+                bitcoin::PublicKey::from_slice(&::hex::decode(pubkey2).unwrap()).unwrap();
             assert_eq!(wrapper.public_keys.0[0], expected1);
             assert_eq!(wrapper.public_keys.0[1], expected2);
         }

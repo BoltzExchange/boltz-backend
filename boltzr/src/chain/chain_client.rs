@@ -168,7 +168,7 @@ impl ChainClient {
                                         continue;
                                     }
 
-                                    let block_hash = alloy::hex::encode(block.block_hash());
+                                    let block_hash = hex::encode(block.block_hash());
                                     let block_info = match client.get_block_info(&block_hash).await {
                                         Ok(block_info) => block_info,
                                         Err(e) => {
@@ -929,7 +929,7 @@ pub mod test {
         let tx_id = tx.txid_hex();
 
         let raw_tx = client.raw_transaction(&tx_id).await.unwrap();
-        assert_eq!(raw_tx, alloy::hex::encode(tx.serialize()));
+        assert_eq!(raw_tx, hex::encode(tx.serialize()));
 
         let (key, field) = client.cache_key_raw_tx(&tx_id);
         let cached_tx = client.cache.get(&key, field).await.unwrap();
@@ -973,7 +973,7 @@ pub mod test {
         let tx = send_transaction(&client).await;
 
         let tx_id = client
-            .send_raw_transaction(&alloy::hex::encode(tx.serialize()))
+            .send_raw_transaction(&hex::encode(tx.serialize()))
             .await
             .unwrap();
 

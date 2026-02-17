@@ -1,8 +1,8 @@
-use crate::evm::quoter::uniswap_v3::IQuoterV2::IQuoterV2Instance;
-use crate::evm::quoter::uniswap_v3::IUniswapV3Factory::IUniswapV3FactoryInstance;
-use crate::evm::quoter::uniswap_v3::router::PathEncoder;
-use crate::evm::quoter::{Call, Data as QuoterData, Quoter, QuoterType};
-use crate::evm::utils::check_contract_exists;
+use crate::quoter::uniswap_v3::IQuoterV2::IQuoterV2Instance;
+use crate::quoter::uniswap_v3::IUniswapV3Factory::IUniswapV3FactoryInstance;
+use crate::quoter::uniswap_v3::router::PathEncoder;
+use crate::quoter::{Call, Data as QuoterData, Quoter, QuoterType};
+use crate::utils::check_contract_exists;
 use alloy::primitives::aliases::U24;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
@@ -87,12 +87,12 @@ const CACHE_TTL_SECS: u64 = Duration::from_mins(60).as_secs();
 
 sol!(
     #[sol(rpc)]
-    "./src/evm/quoter/uniswap_v3/abis/IQuoterV2.sol"
+    "./src/quoter/uniswap_v3/abis/IQuoterV2.sol"
 );
 
 sol!(
     #[sol(rpc)]
-    "./src/evm/quoter/uniswap_v3/abis/IUniswapV3Factory.sol"
+    "./src/quoter/uniswap_v3/abis/IUniswapV3Factory.sol"
 );
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]

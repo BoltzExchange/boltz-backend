@@ -1,7 +1,6 @@
 use crate::types;
 use crate::utils::TimeoutMap;
 use crate::webhook::invoice_caller::InvoiceHook;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::secp256k1::schnorr::Signature;
 use bitcoin::secp256k1::{Message, PublicKey, Secp256k1};
@@ -318,7 +317,7 @@ mod test {
             )
             .unwrap_err()
             .to_string(),
-            "invalid signature: odd number of digits"
+            "invalid signature: Odd number of digits"
         );
         assert!(subs.all_offers.is_empty());
 

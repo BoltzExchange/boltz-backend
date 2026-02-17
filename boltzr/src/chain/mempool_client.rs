@@ -2,6 +2,7 @@ use async_tungstenite::tungstenite::Message;
 use boltz_utils::defer;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
+use tokio::sync::Notify;
 use tokio::time::{Duration, timeout};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
@@ -10,6 +11,7 @@ use tracing::{debug, error, info, instrument, warn};
 const WEBSOCKET_RECONNECT_INTERVAL_SECONDS: u64 = 10;
 const WEBSOCKET_PING_INTERVAL_SECONDS: u64 = 30;
 const WEBSOCKET_TIMEOUT_SECONDS: u64 = 120;
+const FEES_WAIT_TIMEOUT_SECONDS: u64 = 5;
 
 #[derive(Serialize, Debug, Clone)]
 enum DataType {
@@ -60,6 +62,8 @@ struct ResponseBlock {
 #[derive(Debug, Clone)]
 pub struct Client {
     cancellation_token: CancellationToken,
+    ready_notify: Arc<Notify>,
+
     url: String,
     symbol: String,
 
@@ -69,12 +73,17 @@ pub struct Client {
 
 impl Client {
     #[instrument(name = "MempoolClient::new", skip(cancellation_token))]
-    pub fn new(cancellation_token: CancellationToken, symbol: String, url: String) -> Self {
-        debug!("Initializing mempool.space client");
+    pub fn new(
+        cancellation_token: CancellationToken,
+        ready_notify: Arc<Notify>,
+        symbol: String,
+        url: String,
+    ) -> Self {
         Self {
             url,
             symbol,
             cancellation_token,
+            ready_notify,
             last_block: Arc::new(RwLock::new(None)),
             last_fees: Arc::new(RwLock::new(None)),
         }
@@ -134,6 +143,7 @@ impl Client {
     async fn connect_websocket(&mut self, url: &str) -> anyhow::Result<()> {
         let self_fees = self.last_fees.clone();
         let self_block = self.last_block.clone();
+
         let _guard = defer(move || {
             match self_fees.write() {
                 Ok(mut last_fees) => *last_fees = None,
@@ -222,6 +232,7 @@ impl Client {
                 .write()
                 .map_err(|err| anyhow::anyhow!("failed to write to last_fees: {}", err))?
                 .replace(msg.fees);
+            self.notify_waiters_if_ready();
         }
 
         Ok(())
@@ -251,6 +262,9 @@ impl Client {
             }
 
             state.replace(best_parsed);
+            drop(state);
+
+            self.notify_waiters_if_ready();
         }
 
         Ok(())
@@ -260,26 +274,48 @@ impl Client {
         // We just ignore messages we cannot parse
         serde_json::from_slice::<T>(msg).ok()
     }
+
+    fn notify_waiters_if_ready(&self) {
+        let has_fees = self
+            .last_fees
+            .read()
+            .map(|fees| fees.is_some())
+            .unwrap_or(false);
+        let has_block = self
+            .last_block
+            .read()
+            .map(|block| block.is_some())
+            .unwrap_or(false);
+
+        if has_fees && has_block {
+            // Wake all concurrent waiters when this client has both fees and block height
+            self.ready_notify.notify_waiters();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MempoolSpace {
     clients: Vec<Client>,
+    ready_notify: Arc<Notify>,
 }
 
 impl MempoolSpace {
     pub fn new(cancellation_token: CancellationToken, symbol: String, urls: String) -> Self {
+        let ready_notify = Arc::new(Notify::new());
         Self {
             clients: urls
                 .split(",")
                 .map(|url| {
                     Client::new(
                         cancellation_token.clone(),
+                        ready_notify.clone(),
                         symbol.clone(),
                         url.trim().to_string(),
                     )
                 })
                 .collect(),
+            ready_notify,
         }
     }
 
@@ -293,7 +329,50 @@ impl MempoolSpace {
         Ok(())
     }
 
-    pub fn get_fees(&self) -> Option<f64> {
+    pub async fn get_fees(&self) -> Option<f64> {
+        if let Some(fees) = self.collect_best_fees() {
+            return Some(fees);
+        }
+
+        let wait_for_fees = async {
+            loop {
+                // Register interest before checking the condition to avoid
+                // a race where notify_waiters() fires between our check and
+                // the await — which would lose the notification.
+                let notified = self.ready_notify.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+
+                if let Some(fees) = self.collect_best_fees() {
+                    return Some(fees);
+                }
+
+                notified.await;
+            }
+        };
+
+        match timeout(
+            Duration::from_secs(FEES_WAIT_TIMEOUT_SECONDS),
+            wait_for_fees,
+        )
+        .await
+        {
+            Ok(fees) => fees,
+            Err(_) => {
+                warn!(
+                    "{} mempool.space did not provide initial fees within {} seconds",
+                    self.clients
+                        .first()
+                        .map(|client| client.symbol.clone())
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    FEES_WAIT_TIMEOUT_SECONDS
+                );
+                None
+            }
+        }
+    }
+
+    fn collect_best_fees(&self) -> Option<f64> {
         let fees = self
             .clients
             .iter()
@@ -301,7 +380,7 @@ impl MempoolSpace {
             .filter_map(|(client, fee)| match fee {
                 Ok((height, fee)) => Some((client, height, fee)),
                 Err(err) => {
-                    error!(
+                    debug!(
                         "Failed to get fees for {} {}: {}",
                         client.symbol, client.url, err
                     );
@@ -372,6 +451,7 @@ pub mod test {
             let cancellation_token = CancellationToken::new();
             let client = Client::new(
                 cancellation_token.clone(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -401,6 +481,7 @@ pub mod test {
         fn test_get_latest_empty() {
             let client = Client::new(
                 CancellationToken::new(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -411,6 +492,7 @@ pub mod test {
         fn test_handle_fees() {
             let mut client = Client::new(
                 CancellationToken::new(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -431,6 +513,7 @@ pub mod test {
         fn test_handle_blocks_multiple_blocks() {
             let mut client = Client::new(
                 CancellationToken::new(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -455,6 +538,7 @@ pub mod test {
         fn test_handle_blocks_single_block() {
             let mut client = Client::new(
                 CancellationToken::new(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -474,6 +558,7 @@ pub mod test {
         fn test_handle_blocks_stale() {
             let mut client = Client::new(
                 CancellationToken::new(),
+                Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
             );
@@ -505,6 +590,7 @@ pub mod test {
 
     mod mempool_space {
         use super::*;
+        use std::sync::Arc;
 
         #[test]
         fn test_parse_urls() {
@@ -531,20 +617,13 @@ pub mod test {
             );
             mempool_space.connect().await.unwrap();
 
-            for _ in 0..50 {
-                if mempool_space.get_fees().is_some() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-
-            let fees = mempool_space.get_fees().unwrap();
+            let fees = mempool_space.get_fees().await.unwrap();
             assert!(fees > 0.9);
             cancellation_token.cancel();
         }
 
-        #[test]
-        fn test_get_fees_out_of_sync() {
+        #[tokio::test]
+        async fn test_get_fees_out_of_sync() {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
@@ -573,8 +652,144 @@ pub mod test {
                 .unwrap()
                 .replace(Fees { fastest: 100.0 });
 
-            let fees = mempool_space.get_fees().unwrap();
+            let fees = mempool_space.get_fees().await.unwrap();
             assert_eq!(fees, 100.0);
+        }
+
+        #[tokio::test]
+        async fn test_get_fees_wakes_multiple_waiters() {
+            let mempool_space = Arc::new(MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+            ));
+
+            let mut waiters = Vec::new();
+            for _ in 0..5 {
+                let mempool_space = mempool_space.clone();
+                waiters.push(tokio::spawn(async move {
+                    let fees =
+                        tokio::time::timeout(Duration::from_secs(5), mempool_space.get_fees())
+                            .await
+                            .expect("get_fees waiter timed out");
+                    fees.expect("expected fees once notify_waiters is triggered")
+                }));
+            }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert!(waiters.iter().all(|waiter| !waiter.is_finished()));
+
+            let fees = 3.0;
+
+            mempool_space.clients[0]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(21_021);
+            mempool_space.clients[0]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(Fees { fastest: fees });
+            mempool_space.clients[0].notify_waiters_if_ready();
+
+            for waiter in waiters {
+                assert_eq!(waiter.await.unwrap(), fees);
+            }
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn test_get_fees_timeout() {
+            let mempool_space = MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+            );
+
+            assert!(mempool_space.get_fees().await.is_none());
+        }
+
+        #[tokio::test]
+        async fn test_get_fees_no_notify_on_partial_readiness() {
+            let mempool_space = Arc::new(MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+            ));
+
+            let ms = mempool_space.clone();
+            let waiter = tokio::spawn(async move { ms.get_fees().await });
+
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(!waiter.is_finished());
+
+            let fees = 5.0;
+
+            // Set only fees — should not wake the waiter
+            mempool_space.clients[0]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(Fees { fastest: fees });
+            mempool_space.clients[0].notify_waiters_if_ready();
+
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(!waiter.is_finished());
+
+            // Now set block too — should wake the waiter
+            mempool_space.clients[0]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(21_021);
+            mempool_space.clients[0].notify_waiters_if_ready();
+
+            let res = tokio::time::timeout(Duration::from_secs(2), waiter)
+                .await
+                .expect("waiter timed out")
+                .unwrap();
+            assert_eq!(res, Some(fees));
+        }
+
+        #[tokio::test]
+        async fn test_get_fees_wakes_via_handle_methods() {
+            let mempool_space = Arc::new(MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+            ));
+
+            let ms = mempool_space.clone();
+            let waiter = tokio::spawn(async move { ms.get_fees().await });
+
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(!waiter.is_finished());
+
+            let fees = 7.0;
+
+            let fees_msg = serde_json::to_string(&ResponseFees {
+                fees: Fees { fastest: fees },
+            })
+            .unwrap();
+
+            let mut client = mempool_space.clients[0].clone();
+
+            client.handle_fees(fees_msg.as_bytes()).unwrap();
+
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(!waiter.is_finished());
+
+            let block_msg = serde_json::to_string(&ResponseBlock {
+                block: Block { height: 900_000 },
+            })
+            .unwrap();
+            client.handle_blocks(block_msg.as_bytes()).unwrap();
+
+            let res = tokio::time::timeout(Duration::from_secs(2), waiter)
+                .await
+                .expect("waiter timed out")
+                .unwrap();
+            assert_eq!(res, Some(fees));
         }
 
         #[test]

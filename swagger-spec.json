@@ -3709,9 +3709,9 @@
         }
       }
     },
-    "/funding/{id}/claim": {
+    "/funding/{id}/refund": {
       "post": {
-        "description": "Requests a partial signature for a funding address claim transaction",
+        "description": "Requests a partial signature for a funding address refund transaction",
         "tags": [
           "Funding Address"
         ],
@@ -3731,7 +3731,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FundingAddressClaimRequest"
+                "$ref": "#/components/schemas/FundingAddressRefundRequest"
               }
             }
           }
@@ -5681,7 +5681,7 @@
           }
         }
       },
-      "FundingAddressClaimRequest": {
+      "FundingAddressRefundRequest": {
         "type": "object",
         "required": [
           "pubNonce",

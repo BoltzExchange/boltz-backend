@@ -119,7 +119,7 @@
  * @openapi
  * components:
  *   schemas:
- *     FundingAddressClaimRequest:
+ *     FundingAddressRefundRequest:
  *       type: object
  *       required: ["pubNonce", "transactionHash"]
  *       properties:
@@ -270,9 +270,9 @@
 
 /**
  * @openapi
- * /funding/{id}/claim:
+ * /funding/{id}/refund:
  *   post:
- *     description: Requests a partial signature for a funding address claim transaction
+ *     description: Requests a partial signature for a funding address refund transaction
  *     tags: [Funding Address]
  *     parameters:
  *       - in: path
@@ -286,7 +286,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/FundingAddressClaimRequest'
+ *             $ref: '#/components/schemas/FundingAddressRefundRequest'
  *     responses:
  *       '200':
  *         description: A partial signature

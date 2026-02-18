@@ -2104,16 +2104,28 @@ class SwapRouter extends RouterBase {
      *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
      *     Restorable:
+     *       oneOf:
+     *         - $ref: '#/components/schemas/RestorableSwap'
+     *         - $ref: '#/components/schemas/RestorableFundingAddress'
+     *       discriminator:
+     *         propertyName: type
+     *         mapping:
+     *           submarine: '#/components/schemas/RestorableSwap'
+     *           reverse: '#/components/schemas/RestorableSwap'
+     *           chain: '#/components/schemas/RestorableSwap'
+     *           funding: '#/components/schemas/RestorableFundingAddress'
+     *
+     *     RestorableSwap:
      *       type: object
-     *       required: ["id", "type", "status", "createdAt", "from", "to"]
+     *       required: ["id", "type", "status", "createdAt", "from", "to", "preimageHash"]
      *       properties:
      *         id:
      *           type: string
-     *           description: ID of the Swap or Funding Address
+     *           description: ID of the Swap
      *         type:
      *           type: string
-     *           enum: ["submarine", "reverse", "chain", "funding"]
-     *           description: Swap type or funding address
+     *           enum: ["submarine", "reverse", "chain"]
+     *           description: Swap type
      *         status:
      *           type: string
      *           description: Status
@@ -2122,19 +2134,54 @@ class SwapRouter extends RouterBase {
      *           description: UNIX timestamp of the creation
      *         from:
      *           type: string
-     *           description: Asset the client is supposed to send or the chain of the funding address
+     *           description: Asset the client is supposed to send
      *         to:
      *           type: string
-     *           description: Asset the client is supposed to receive - only set for swaps
+     *           description: Asset the client is supposed to receive
      *         preimageHash:
      *           type: string
-     *           description: Hash of the preimage required to claim the swap; empty for funding addresses
+     *           description: Hash of the preimage required to claim the swap
      *         claimDetails:
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:
      *           $ref: '#/components/schemas/RestoreRefundDetails'
-     *         fundingAddressDetails:
-     *           $ref: '#/components/schemas/FundingAddressDetails'
+     *
+     *     RestorableFundingAddress:
+     *       type: object
+     *       required: ["id", "type", "status", "createdAt", "chain", "tree", "keyIndex", "serverPublicKey", "timeoutBlockHeight"]
+     *       properties:
+     *         id:
+     *           type: string
+     *           description: ID of the Funding Address
+     *         type:
+     *           type: string
+     *           enum: ["funding"]
+     *           description: Funding address entity type
+     *         status:
+     *           type: string
+     *           description: Status
+     *         createdAt:
+     *           type: number
+     *           description: UNIX timestamp of the creation
+     *         chain:
+     *           type: string
+     *           description: Chain of the funding address
+     *         tree:
+     *           $ref: '#/components/schemas/FundingAddressTree'
+     *         keyIndex:
+     *           type: number
+     *           description: Derivation index for the refund key used in the funding address
+     *         transaction:
+     *           $ref: '#/components/schemas/Transaction'
+     *         serverPublicKey:
+     *           type: string
+     *           description: Public key of the server
+     *         timeoutBlockHeight:
+     *           type: number
+     *           description: Block height at which the funding address refund path becomes spendable
+     *         blindingKey:
+     *           type: string
+     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
      *
      *     FundingAddressTree:
      *       type: object

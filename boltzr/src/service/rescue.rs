@@ -214,7 +214,7 @@ pub struct SwapBase {
     pub created_at: u64,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RescueType {
     Swap(SwapType),
     Funding,
@@ -400,21 +400,6 @@ impl TryFrom<&str> for FundingAddressTree {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct FundingAddressDetails {
-    pub tree: FundingAddressTree,
-    #[serde(rename = "keyIndex")]
-    pub key_index: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transaction: Option<Transaction>,
-    #[serde(rename = "serverPublicKey")]
-    pub server_public_key: String,
-    #[serde(rename = "timeoutBlockHeight")]
-    pub timeout_block_height: u64,
-    #[serde(rename = "blindingKey", skip_serializing_if = "Option::is_none")]
-    pub blinding_key: Option<String>,
-}
-
 impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for ClaimDetails {
     type Error = anyhow::Error;
 
@@ -452,7 +437,7 @@ impl TryFrom<(&ChainSwapInfo, u32, String, Option<String>)> for ClaimDetails {
 }
 
 #[derive(Serialize, PartialEq, Clone, Debug)]
-pub struct Restorable {
+pub struct RestorableSwap {
     #[serde(flatten)]
     pub base: RescueBase,
     pub from: String,
@@ -463,20 +448,81 @@ pub struct Restorable {
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
     pub refund_details: Option<SwapDetailsBase>,
-    #[serde(
-        rename = "fundingAddressDetails",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub funding_address_details: Option<FundingAddressDetails>,
+}
+
+#[derive(Serialize, PartialEq, Clone, Debug)]
+pub struct RestorableFundingAddress {
+    #[serde(flatten)]
+    pub base: RescueBase,
+    pub chain: String,
+    pub tree: FundingAddressTree,
+    #[serde(rename = "keyIndex")]
+    pub key_index: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction: Option<Transaction>,
+    #[serde(rename = "serverPublicKey")]
+    pub server_public_key: String,
+    #[serde(rename = "timeoutBlockHeight")]
+    pub timeout_block_height: u64,
+    #[serde(rename = "blindingKey", skip_serializing_if = "Option::is_none")]
+    pub blinding_key: Option<String>,
+}
+
+#[derive(Serialize, PartialEq, Clone, Debug)]
+#[serde(untagged)]
+pub enum Restorable {
+    Swap(RestorableSwap),
+    FundingAddress(RestorableFundingAddress),
+}
+
+impl Restorable {
+    fn base(&self) -> &RescueBase {
+        match self {
+            Restorable::Swap(swap) => &swap.base,
+            Restorable::FundingAddress(funding) => &funding.base,
+        }
+    }
+
+    fn sort_key_index(&self) -> Option<u32> {
+        match self {
+            Restorable::Swap(swap) => swap
+                .refund_details
+                .as_ref()
+                .map(|refund| refund.key_index)
+                .or_else(|| {
+                    swap.claim_details
+                        .as_ref()
+                        .map(|claim| claim.base.key_index)
+                }),
+            Restorable::FundingAddress(funding) => Some(funding.key_index),
+        }
+    }
+
+    fn highest_key_index(&self) -> Option<u32> {
+        match self {
+            Restorable::Swap(swap) => match (
+                swap.refund_details.as_ref().map(|refund| refund.key_index),
+                swap.claim_details
+                    .as_ref()
+                    .map(|claim| claim.base.key_index),
+            ) {
+                (Some(refund), Some(claim)) => Some(std::cmp::max(refund, claim)),
+                (Some(refund), None) => Some(refund),
+                (None, Some(claim)) => Some(claim),
+                (None, None) => None,
+            },
+            Restorable::FundingAddress(funding) => Some(funding.key_index),
+        }
+    }
 }
 
 impl Identifiable for Restorable {
     fn id(&self) -> &str {
-        &self.base.id
+        &self.base().id
     }
 
     fn created_at(&self) -> u64 {
-        self.base.created_at
+        self.base().created_at
     }
 }
 
@@ -486,15 +532,14 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for Restorable {
     fn try_from(
         (s, key_index, server_public_key, blinding_key): (&Swap, u32, String, Option<String>),
     ) -> Result<Self> {
-        Ok(Restorable {
+        Ok(Restorable::Swap(RestorableSwap {
             base: s.into(),
             from: s.chain_symbol()?,
             to: s.lightning_symbol()?,
             preimage_hash: s.preimageHash.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
-            funding_address_details: None,
-        })
+        }))
     }
 }
 
@@ -509,15 +554,14 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for Restorable {
             Option<String>,
         ),
     ) -> Result<Self> {
-        Ok(Restorable {
+        Ok(Restorable::Swap(RestorableSwap {
             base: s.into(),
             from: s.lightning_symbol()?,
             to: s.chain_symbol()?,
             preimage_hash: s.preimageHash.clone(),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
-            funding_address_details: None,
-        })
+        }))
     }
 }
 
@@ -587,16 +631,8 @@ impl SwapRescue {
         )?;
 
         restorable.sort_by(|a, b| {
-            fn get_key_index(swap: &Restorable) -> Option<u32> {
-                swap.refund_details
-                    .as_ref()
-                    .map(|r| r.key_index)
-                    .or_else(|| swap.claim_details.as_ref().map(|c| c.base.key_index))
-                    .or_else(|| swap.funding_address_details.as_ref().map(|d| d.key_index))
-            }
-
-            get_key_index(a)
-                .cmp(&get_key_index(b))
+            a.sort_key_index()
+                .cmp(&b.sort_key_index())
                 .then(a.created_at().cmp(&b.created_at()))
         });
 
@@ -629,17 +665,7 @@ impl SwapRescue {
 
         let highest_index = restorable
             .iter()
-            .filter_map(|swap| {
-                match (
-                    swap.refund_details.as_ref().map(|r| r.key_index),
-                    swap.claim_details.as_ref().map(|c| c.base.key_index),
-                ) {
-                    (Some(refund), Some(claim)) => Some(std::cmp::max(refund, claim)),
-                    (Some(refund), None) => Some(refund),
-                    (None, Some(claim)) => Some(claim),
-                    (None, None) => swap.funding_address_details.as_ref().map(|d| d.key_index),
-                }
-            })
+            .filter_map(Restorable::highest_key_index)
             .max();
 
         if let Some(highest_index) = highest_index {
@@ -1000,7 +1026,7 @@ impl SwapRescue {
             None
         };
 
-        Ok(Restorable {
+        Ok(Restorable::Swap(RestorableSwap {
             base: (&s).into(),
             preimage_hash: s.swap.preimageHash.clone(),
             from: s.receiving().symbol.clone(),
@@ -1026,8 +1052,7 @@ impl SwapRescue {
                 )
                     .try_into()?,
             ),
-            funding_address_details: None,
-        })
+        }))
     }
 
     fn create_restorable_reverse_swap(
@@ -1074,22 +1099,16 @@ impl SwapRescue {
             _ => None,
         };
 
-        Ok(Restorable {
+        Ok(Restorable::FundingAddress(RestorableFundingAddress {
             base: (&f).into(),
-            from: f.symbol.clone(),
-            to: "".to_string(),
-            preimage_hash: String::new(),
-            claim_details: None,
-            refund_details: None,
-            funding_address_details: Some(FundingAddressDetails {
-                tree: f.tree.as_str().try_into()?,
-                key_index,
-                transaction,
-                server_public_key,
-                timeout_block_height: f.timeout_block_height as u64,
-                blinding_key,
-            }),
-        })
+            chain: f.symbol.clone(),
+            tree: f.tree.as_str().try_into()?,
+            key_index,
+            transaction,
+            server_public_key,
+            timeout_block_height: f.timeout_block_height as u64,
+            blinding_key,
+        }))
     }
 
     fn get_wallet(&self, symbol: &str) -> Result<Arc<dyn Wallet + Send + Sync>> {
@@ -1546,7 +1565,7 @@ mod test {
 
         assert_eq!(
             res[0],
-            Restorable {
+            Restorable::Swap(RestorableSwap {
                 base: RescueBase {
                     id: swap.id,
                     kind: RescueType::Swap(SwapType::Submarine),
@@ -1575,13 +1594,12 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
-                funding_address_details: None,
-            }
+            })
         );
 
         assert_eq!(
             res[1],
-            Restorable {
+            Restorable::Swap(RestorableSwap {
                 base: RescueBase {
                     id: reverse_swap.id(),
                     kind: RescueType::Swap(SwapType::Reverse),
@@ -1615,13 +1633,12 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-                funding_address_details: None,
-            }
+            })
         );
 
         assert_eq!(
             res[2],
-            Restorable {
+            Restorable::Swap(RestorableSwap {
                 base: RescueBase {
                     id: chain_swap.id(),
                     kind: RescueType::Swap(SwapType::Chain),
@@ -1681,8 +1698,7 @@ mod test {
                     ),
                     timeout_block_height: 13_211,
                 }),
-                funding_address_details: None,
-            }
+            })
         );
     }
 
@@ -1755,7 +1771,7 @@ mod test {
         assert_eq!(res.len(), 1);
         assert_eq!(
             res[0],
-            Restorable {
+            Restorable::Swap(RestorableSwap {
                 base: RescueBase {
                     id: reverse_swap.id(),
                     kind: RescueType::Swap(SwapType::Reverse),
@@ -1789,8 +1805,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-                funding_address_details: None,
-            }
+            })
         );
     }
 
@@ -1854,25 +1869,23 @@ mod test {
 
         assert_eq!(res.len(), 1);
         let restored = &res[0];
+        let Restorable::FundingAddress(restored) = restored else {
+            panic!("expected funding address variant");
+        };
         assert_eq!(
             (
                 &restored.base.kind,
                 restored.base.id.as_str(),
-                restored.from.as_str(),
-                restored.to.as_str(),
-                restored.preimage_hash.as_str(),
-                restored.claim_details.is_none(),
-                restored.refund_details.is_none(),
+                restored.chain.as_str(),
             ),
-            (&RescueType::Funding, "funding", "BTC", "", "", true, true,)
+            (&RescueType::Funding, "funding", "BTC")
         );
 
-        let details = restored.funding_address_details.as_ref().unwrap();
         assert_eq!(
             (
-                details.key_index,
-                details.timeout_block_height,
-                details.transaction.as_ref().map(|tx| tx.vout),
+                restored.key_index,
+                restored.timeout_block_height,
+                restored.transaction.as_ref().map(|tx| tx.vout),
             ),
             (0, 654, Some(3))
         );

@@ -85,7 +85,8 @@ pub struct FundingAddressService {
     config: FundingAddressConfig,
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
     keys_helper: Arc<dyn KeysHelper + Sync + Send>,
-    signer: Mutex<FundingAddressSigner>,
+    signer: FundingAddressSigner,
+    signing_lock: Mutex<()>,
     currencies: Currencies,
     funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
 }
@@ -129,7 +130,8 @@ impl FundingAddressService {
             config: config.unwrap_or_default(),
             funding_address_helper,
             keys_helper,
-            signer: Mutex::new(signer),
+            signer,
+            signing_lock: Mutex::new(()),
             currencies,
             funding_address_update_tx,
         }
@@ -266,10 +268,10 @@ impl FundingAddressService {
         id: &str,
         swap_id: &str,
     ) -> Result<CooperativeDetails, FundingAddressError> {
-        let signer = self.signer.lock().await;
+        let _signing_lock = self.signing_lock.lock().await;
         let funding_address = self.get_by_id(id)?;
         let key_pair = self.key_pair(&funding_address)?;
-        signer
+        self.signer
             .get_signing_details(&funding_address, &key_pair, swap_id)
             .await
             .map_err(|e| FundingAddressError::Internal(e.to_string()))
@@ -280,10 +282,11 @@ impl FundingAddressService {
         id: &str,
         request: SetSignatureRequest,
     ) -> Result<FundingAddress, FundingAddressError> {
-        let signer = self.signer.lock().await;
+        let _signing_lock = self.signing_lock.lock().await;
         let funding_address = self.get_by_id(id)?;
         let key_pair = self.key_pair(&funding_address)?;
-        let (signed_tx, swap_id) = signer
+        let (signed_tx, swap_id) = self
+            .signer
             .set_signature(&funding_address, &key_pair, &request)
             .await
             .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
@@ -304,12 +307,13 @@ impl FundingAddressService {
         id: &str,
         request: RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse, FundingAddressError> {
-        let signer = self.signer.lock().await;
+        let _signing_lock = self.signing_lock.lock().await;
         let funding_address = self.get_by_id(id)?;
         let new_status = FundingAddressStatus::TransactionRefunded.to_string();
         let should_notify = funding_address.status != new_status;
         let key_pair = self.key_pair(&funding_address)?;
-        let response = signer
+        let response = self
+            .signer
             .sign_refund(&funding_address, &key_pair, &request)
             .await
             .map_err(|err| {

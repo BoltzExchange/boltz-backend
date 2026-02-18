@@ -5,6 +5,7 @@ use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::FundingAddress;
 use crate::swap::FundingAddressStatus;
+use crate::swap::TimeoutDeltaProvider;
 use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::hashes::Hash;
@@ -22,8 +23,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
-
-use crate::swap::TimeoutDeltaProvider;
 
 /// Short TTL so that clients can't hold sessions for too long
 const CACHE_TTL: u64 = 60;

@@ -1071,6 +1071,10 @@ mod test {
         let token = CancellationToken::new();
         let (status_tx, _) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1);
+        let (funding_address_update_tx, _) = tokio::sync::broadcast::channel::<(
+            Option<u64>,
+            Vec<ws::types::FundingAddressUpdate>,
+        )>(1);
 
         let evm_manager = Arc::new(crate::evm::manager::test::new_manager().await);
 
@@ -1099,6 +1103,7 @@ mod test {
                     None,
                     None,
                     Cache::Memory(MemCache::new()),
+                    funding_address_update_tx,
                 )),
                 Arc::new(make_mock_manager(Some(evm_manager))),
                 StatusFetcher::new(Cache::Memory(MemCache::new())),

@@ -15,7 +15,6 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::trace;
 
 impl IntoResponse for FundingAddressError {
     fn into_response(self) -> Response {
@@ -205,22 +204,6 @@ where
 {
     let response = state.service.funding_address.sign_refund(&id, body).await?;
 
-    let funding_address = state.service.funding_address.get_by_id(&id)?;
-    let update = FundingAddressUpdate {
-        id: funding_address.id,
-        status: funding_address.status,
-        transaction: None,
-        swap_id: funding_address.swap_id,
-    };
-
-    if let Err(err) = state
-        .manager
-        .funding_address_update_sender()
-        .send((None, vec![update]))
-    {
-        trace!("Could not send funding address update: {err}");
-    }
-
     Ok((StatusCode::OK, Json(response)).into_response())
 }
 
@@ -271,17 +254,14 @@ mod test {
             &pool,
             currencies.keys().cloned().collect::<Vec<String>>(),
         );
-        let mut manager = MockManager::new();
-        manager
-            .expect_funding_address_update_sender()
-            .returning(move || funding_address_update_tx.clone());
         (
             Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
                 ServerState {
-                    manager: Arc::new(manager),
-                    service: Arc::new(Service::new_mocked(
+                    manager: Arc::new(MockManager::new()),
+                    service: Arc::new(Service::new_mocked_with_funding_updates(
                         false,
                         Some(get_test_currencies().await),
+                        funding_address_update_tx.clone(),
                     )),
                     swap_status_update_tx: status_tx.clone(),
                     swap_infos: Fetcher { status_tx },

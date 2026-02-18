@@ -1,3 +1,4 @@
+use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
 use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
@@ -56,6 +57,7 @@ impl Service {
         historical_config: Option<HistoricalConfig>,
         funding_address_config: Option<FundingAddressConfig>,
         cache: Cache,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
         Self {
             swap_rescue: SwapRescue::new(
@@ -73,6 +75,7 @@ impl Service {
                 chain_swap_helper.clone(),
                 currencies.clone(),
                 cache.clone(),
+                funding_address_update_tx,
             ),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
@@ -168,7 +171,11 @@ pub mod test {
     }
 
     impl Service {
-        pub fn new_mocked(with_pair_stats: bool, currencies: Option<Currencies>) -> Self {
+        pub fn new_mocked_with_funding_updates(
+            with_pair_stats: bool,
+            currencies: Option<Currencies>,
+            funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
+        ) -> Self {
             let mut swap_helper = MockSwapHelper::new();
             swap_helper
                 .expect_get_all_nullable()
@@ -208,6 +215,7 @@ pub mod test {
                     Arc::new(MockChainSwapHelper::new()),
                     currencies.clone(),
                     Cache::Memory(MemCache::new()),
+                    funding_address_update_tx,
                 ),
                 lightning_info: Box::new(ClnLightningInfo::new(
                     Cache::Memory(MemCache::new()),
@@ -223,6 +231,16 @@ pub mod test {
                     None
                 },
             }
+        }
+
+        pub fn new_mocked(with_pair_stats: bool, currencies: Option<Currencies>) -> Self {
+            let (funding_address_update_tx, _) =
+                tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
+            Self::new_mocked_with_funding_updates(
+                with_pair_stats,
+                currencies,
+                funding_address_update_tx,
+            )
         }
 
         pub fn new_mocked_prometheus(with_pair_stats: bool) -> Self {

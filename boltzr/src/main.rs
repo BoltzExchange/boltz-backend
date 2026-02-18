@@ -7,7 +7,7 @@ use crate::db::helpers::keys::KeysHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
-use crate::swap::manager::{Manager, SwapManager};
+use crate::swap::manager::Manager;
 use api::ws::{self, types::UpdateSender};
 use clap::Parser;
 use serde::Serialize;
@@ -152,6 +152,12 @@ async fn main() {
     };
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let (swap_status_update_tx, _swap_status_update_rx): (UpdateSender<ws::types::SwapStatus>, _) =
+        tokio::sync::broadcast::channel(1024);
+    let (funding_address_update_tx, _funding_address_update_rx): (
+        UpdateSender<ws::types::FundingAddressUpdate>,
+        _,
+    ) = tokio::sync::broadcast::channel(1024);
 
     #[cfg(feature = "metrics")]
     let mut metrics_server =
@@ -204,6 +210,7 @@ async fn main() {
         config.historical,
         config.funding_address,
         cache.clone(),
+        funding_address_update_tx.clone(),
     ));
     {
         let service = service.clone();
@@ -264,9 +271,6 @@ async fn main() {
         })
     });
 
-    let (swap_status_update_tx, _swap_status_update_rx): (UpdateSender<ws::types::SwapStatus>, _) =
-        tokio::sync::broadcast::channel(1024);
-
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
         config.sidecar.asset_rescue,
@@ -275,6 +279,7 @@ async fn main() {
         db_pool.clone(),
         network,
         &config.pairs.unwrap_or_default(),
+        funding_address_update_tx.clone(),
         swap_status_update_tx.clone(),
     ) {
         Ok(swap_manager) => Arc::new(swap_manager),
@@ -324,7 +329,7 @@ async fn main() {
         config.sidecar.ws,
         grpc_server.status_fetcher(),
         swap_status_update_tx,
-        swap_manager.funding_address_update_sender(),
+        funding_address_update_tx,
         offer_subscriptions,
     );
 

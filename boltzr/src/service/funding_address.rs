@@ -1,3 +1,4 @@
+use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
 use crate::cache::Cache;
 use crate::chain::elements_client::SYMBOL as ELEMENTS_SYMBOL;
 use crate::chain::types::Type;
@@ -23,7 +24,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::debug;
+use tracing::{debug, trace};
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct FundingAddressConfig {
@@ -86,6 +87,7 @@ pub struct FundingAddressService {
     keys_helper: Arc<dyn KeysHelper + Sync + Send>,
     signer: Mutex<FundingAddressSigner>,
     currencies: Currencies,
+    funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +115,7 @@ impl FundingAddressService {
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
         cache: Cache,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
         let cfg = config.clone().unwrap_or_default();
         let signer = FundingAddressSigner::new(
@@ -128,6 +131,7 @@ impl FundingAddressService {
             keys_helper,
             signer: Mutex::new(signer),
             currencies,
+            funding_address_update_tx,
         }
     }
 
@@ -302,6 +306,8 @@ impl FundingAddressService {
     ) -> Result<PartialSignatureResponse, FundingAddressError> {
         let signer = self.signer.lock().await;
         let funding_address = self.get_by_id(id)?;
+        let new_status = FundingAddressStatus::TransactionRefunded.to_string();
+        let should_notify = funding_address.status != new_status;
         let key_pair = self.key_pair(&funding_address)?;
         let response = signer
             .sign_refund(&funding_address, &key_pair, &request)
@@ -318,11 +324,21 @@ impl FundingAddressService {
             })?;
 
         self.funding_address_helper
-            .set_status(
-                &funding_address.id,
-                &FundingAddressStatus::TransactionRefunded.to_string(),
-            )
+            .set_status(&funding_address.id, &new_status)
             .map_err(|e| FundingAddressError::Database(e.to_string()))?;
+
+        if should_notify {
+            let update = FundingAddressUpdate {
+                id: funding_address.id.clone(),
+                status: new_status.to_string(),
+                transaction: None,
+                swap_id: funding_address.swap_id.clone(),
+            };
+
+            if let Err(err) = self.funding_address_update_tx.send((None, vec![update])) {
+                trace!("Could not send funding address update: {err}");
+            }
+        }
 
         Ok(response)
     }
@@ -435,6 +451,8 @@ mod test {
         }
 
         fn build(self) -> FundingAddressService {
+            let (funding_address_update_tx, _) =
+                tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
             FundingAddressService::new(
                 None,
                 Arc::new(self.funding_helper),
@@ -443,6 +461,7 @@ mod test {
                 Arc::new(MockChainSwapHelper::new()),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
                 Cache::Memory(crate::cache::MemCache::new()),
+                funding_address_update_tx,
             )
         }
     }

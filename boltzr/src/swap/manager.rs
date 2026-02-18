@@ -66,7 +66,6 @@ pub trait SwapManager {
     async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<ClaimBatchResponse>;
 
     fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
-    fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
 
     async fn rescan_chains(
         &self,
@@ -110,11 +109,10 @@ impl Manager {
         pool: Pool,
         network: crate::wallet::Network,
         pairs: &[PairConfig],
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
         swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Result<Self> {
         let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
-        let (funding_address_update_tx, _): (UpdateSender<FundingAddressUpdate>, _) =
-            broadcast::channel(128);
 
         let swap_repo = Arc::new(SwapHelperDatabase::new(pool.clone()));
         let chain_swap_repo = Arc::new(ChainSwapHelperDatabase::new(pool.clone()));
@@ -346,10 +344,6 @@ impl SwapManager for Manager {
 
     fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
         self.update_tx.subscribe()
-    }
-
-    fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate> {
-        self.funding_address_update_tx.clone()
     }
 
     #[instrument(name = "SwapManager::claim_batch", skip_all)]
@@ -618,7 +612,6 @@ pub mod test {
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<ClaimBatchResponse>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
-            fn funding_address_update_sender(&self) -> UpdateSender<FundingAddressUpdate>;
             async fn rescan_chains(
                 &self,
                 options: Option<Vec<RescanChainOptions>>,

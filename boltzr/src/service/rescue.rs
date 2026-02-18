@@ -471,8 +471,8 @@ pub struct RestorableFundingAddress {
 #[derive(Serialize, PartialEq, Clone, Debug)]
 #[serde(untagged)]
 pub enum Restorable {
-    Swap(RestorableSwap),
-    FundingAddress(RestorableFundingAddress),
+    Swap(Box<RestorableSwap>),
+    FundingAddress(Box<RestorableFundingAddress>),
 }
 
 impl Restorable {
@@ -532,14 +532,14 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for Restorable {
     fn try_from(
         (s, key_index, server_public_key, blinding_key): (&Swap, u32, String, Option<String>),
     ) -> Result<Self> {
-        Ok(Restorable::Swap(RestorableSwap {
+        Ok(Restorable::Swap(Box::new(RestorableSwap {
             base: s.into(),
             from: s.chain_symbol()?,
             to: s.lightning_symbol()?,
             preimage_hash: s.preimageHash.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
-        }))
+        })))
     }
 }
 
@@ -554,14 +554,14 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for Restorable {
             Option<String>,
         ),
     ) -> Result<Self> {
-        Ok(Restorable::Swap(RestorableSwap {
+        Ok(Restorable::Swap(Box::new(RestorableSwap {
             base: s.into(),
             from: s.lightning_symbol()?,
             to: s.chain_symbol()?,
             preimage_hash: s.preimageHash.clone(),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
-        }))
+        })))
     }
 }
 
@@ -1026,7 +1026,7 @@ impl SwapRescue {
             None
         };
 
-        Ok(Restorable::Swap(RestorableSwap {
+        Ok(Restorable::Swap(Box::new(RestorableSwap {
             base: (&s).into(),
             preimage_hash: s.swap.preimageHash.clone(),
             from: s.receiving().symbol.clone(),
@@ -1052,7 +1052,7 @@ impl SwapRescue {
                 )
                     .try_into()?,
             ),
-        }))
+        })))
     }
 
     fn create_restorable_reverse_swap(
@@ -1099,16 +1099,18 @@ impl SwapRescue {
             _ => None,
         };
 
-        Ok(Restorable::FundingAddress(RestorableFundingAddress {
-            base: (&f).into(),
-            chain: f.symbol.clone(),
-            tree: f.tree.as_str().try_into()?,
-            key_index,
-            transaction,
-            server_public_key,
-            timeout_block_height: f.timeout_block_height as u64,
-            blinding_key,
-        }))
+        Ok(Restorable::FundingAddress(Box::new(
+            RestorableFundingAddress {
+                base: (&f).into(),
+                chain: f.symbol.clone(),
+                tree: f.tree.as_str().try_into()?,
+                key_index,
+                transaction,
+                server_public_key,
+                timeout_block_height: f.timeout_block_height as u64,
+                blinding_key,
+            },
+        )))
     }
 
     fn get_wallet(&self, symbol: &str) -> Result<Arc<dyn Wallet + Send + Sync>> {
@@ -1565,7 +1567,7 @@ mod test {
 
         assert_eq!(
             res[0],
-            Restorable::Swap(RestorableSwap {
+            Restorable::Swap(Box::new(RestorableSwap {
                 base: RescueBase {
                     id: swap.id,
                     kind: RescueType::Swap(SwapType::Submarine),
@@ -1594,12 +1596,12 @@ mod test {
                     ),
                     timeout_block_height: 321,
                 }),
-            })
+            }))
         );
 
         assert_eq!(
             res[1],
-            Restorable::Swap(RestorableSwap {
+            Restorable::Swap(Box::new(RestorableSwap {
                 base: RescueBase {
                     id: reverse_swap.id(),
                     kind: RescueType::Swap(SwapType::Reverse),
@@ -1633,12 +1635,12 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-            })
+            }))
         );
 
         assert_eq!(
             res[2],
-            Restorable::Swap(RestorableSwap {
+            Restorable::Swap(Box::new(RestorableSwap {
                 base: RescueBase {
                     id: chain_swap.id(),
                     kind: RescueType::Swap(SwapType::Chain),
@@ -1698,7 +1700,7 @@ mod test {
                     ),
                     timeout_block_height: 13_211,
                 }),
-            })
+            }))
         );
     }
 
@@ -1771,7 +1773,7 @@ mod test {
         assert_eq!(res.len(), 1);
         assert_eq!(
             res[0],
-            Restorable::Swap(RestorableSwap {
+            Restorable::Swap(Box::new(RestorableSwap {
                 base: RescueBase {
                     id: reverse_swap.id(),
                     kind: RescueType::Swap(SwapType::Reverse),
@@ -1805,7 +1807,7 @@ mod test {
                     preimage_hash: reverse_swap.preimageHash.clone(),
                 }),
                 refund_details: None,
-            })
+            }))
         );
     }
 

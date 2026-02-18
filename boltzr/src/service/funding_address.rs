@@ -108,6 +108,7 @@ pub struct CreateResponse {
 }
 
 impl FundingAddressService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: Option<FundingAddressConfig>,
         funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,

@@ -46,7 +46,7 @@ export type ContractAddressesWithFeatures = ContractAddresses & {
 
 class EthereumManager {
   public readonly provider: InjectedProvider;
-  public readonly contractEventHandler = new ConsolidatedEventHandler();
+  public readonly contractEventHandler: ConsolidatedEventHandler;
   public readonly commitments: Commitments;
 
   public signer!: Signer;
@@ -85,6 +85,13 @@ class EthereumManager {
         this.config,
       );
     }
+
+    this.contractEventHandler = new ConsolidatedEventHandler(
+      this.logger,
+      this.networkDetails,
+      this.provider,
+      this.config.requiredConfirmations,
+    );
 
     if (
       this.config.networkName === undefined ||

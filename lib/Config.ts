@@ -119,6 +119,7 @@ type EthereumConfig = {
 
   // Suggested timelock for commitment swaps in minutes
   commitmentTimelock?: number;
+  requiredConfirmations?: number;
 
   contracts: ContractsConfig[];
 
@@ -411,6 +412,7 @@ class Config {
 
       ethereum: {
         providerEndpoint: '',
+        requiredConfirmations: 1,
 
         contracts: [],
 

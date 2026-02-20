@@ -9,6 +9,7 @@ use crate::swap::manager::Manager;
 use api::ws::{self};
 use boltz_backup::{Backup, DatabaseConfig};
 use boltz_cache::{Cache, MemCache, Redis};
+use boltz_utils::ensure_rustls_crypto_provider;
 use clap::Parser;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -80,9 +81,7 @@ async fn create_with_timeout<T, E: std::fmt::Display>(
 
 #[tokio::main]
 async fn main() {
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .expect("Failed to install default crypto provider");
+    ensure_rustls_crypto_provider();
 
     let args = Args::parse();
 

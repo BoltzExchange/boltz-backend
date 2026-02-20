@@ -212,9 +212,9 @@ impl ChainClient {
 
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
         if let Some(mempool_space) = &self.mempool_space {
-            match mempool_space.get_fees() {
+            match mempool_space.get_fees().await {
                 Some(fee) => return Ok(fee),
-                None => debug!("No fees from {} mempool.space", self.symbol()),
+                None => error!("No fees from {} mempool.space", self.symbol()),
             }
         }
 

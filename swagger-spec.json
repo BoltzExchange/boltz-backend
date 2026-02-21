@@ -1487,7 +1487,7 @@
         "tags": [
           "Swap"
         ],
-        "description": "Restore swaps by searching with an XPUB, a single public key, or multiple public keys. Returns full swap details needed to resume, claim, or refund swaps when information was lost",
+        "description": "Restore swaps and funding addresses by searching with an XPUB, a single public key, or multiple public keys. Returns details needed to resume, claim, or refund when information was lost",
         "requestBody": {
           "required": true,
           "content": {
@@ -1500,13 +1500,13 @@
         },
         "responses": {
           "200": {
-            "description": "List of swaps that can be restored",
+            "description": "List of restorable swaps and funding addresses",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RestorableSwap"
+                    "$ref": "#/components/schemas/Restorable"
                   }
                 }
               }
@@ -3638,6 +3638,270 @@
           }
         }
       }
+    },
+    "/funding": {
+      "post": {
+        "description": "Create a new funding address for pre-funding swaps",
+        "tags": [
+          "Funding Address"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundingAddressRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created funding address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingAddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the funding address creation to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the currency is not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/funding/{id}": {
+      "get": {
+        "tags": [
+          "Funding Address"
+        ],
+        "description": "Get the status of a funding address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the funding address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status of the funding address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingAddressUpdate"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the funding address is not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/funding/{id}/signature": {
+      "get": {
+        "tags": [
+          "Funding Address"
+        ],
+        "description": "Get the signing details for a funding address to create a swap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the funding address"
+          },
+          {
+            "in": "query",
+            "name": "swapId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the swap to fund with this funding address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Signing details for the funding transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingAddressSigningDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the funding address is not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Funding Address"
+        ],
+        "description": "Submit a partial signature for a funding address transaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the funding address"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartialSignature"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Signature was accepted and transaction broadcast"
+          },
+          "400": {
+            "description": "Error that caused the signature submission to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the funding address is not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/funding/{id}/refund": {
+      "post": {
+        "description": "Requests a partial signature for a funding address refund transaction",
+        "tags": [
+          "Funding Address"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the funding address"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundingAddressRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A partial signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartialSignature"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "When the funding address is not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4055,6 +4319,10 @@
           "transactionHash": {
             "type": "string",
             "description": "Hash of the transaction that should be signed"
+          },
+          "fundingAddressId": {
+            "type": "string",
+            "description": "ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction."
           }
         }
       },
@@ -4611,6 +4879,10 @@
           "transactionHash": {
             "type": "string",
             "description": "Transaction hash which should be signed, encoded as HEX"
+          },
+          "fundingAddressId": {
+            "type": "string",
+            "description": "ID of the funding address that was used for the Swap, whose keys have to be used to sign the transaction."
           }
         }
       },
@@ -4947,6 +5219,25 @@
           }
         }
       },
+      "Restorable": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RestorableSwap"
+          },
+          {
+            "$ref": "#/components/schemas/RestorableFundingAddress"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "submarine": "#/components/schemas/RestorableSwap",
+            "reverse": "#/components/schemas/RestorableSwap",
+            "chain": "#/components/schemas/RestorableSwap",
+            "funding": "#/components/schemas/RestorableFundingAddress"
+          }
+        }
+      },
       "RestorableSwap": {
         "type": "object",
         "required": [
@@ -4955,7 +5246,8 @@
           "status",
           "createdAt",
           "from",
-          "to"
+          "to",
+          "preimageHash"
         ],
         "properties": {
           "id": {
@@ -4969,15 +5261,15 @@
               "reverse",
               "chain"
             ],
-            "description": "Type of the Swap"
+            "description": "Swap type"
           },
           "status": {
             "type": "string",
-            "description": "Status of the Swap"
+            "description": "Status"
           },
           "createdAt": {
             "type": "number",
-            "description": "UNIX timestamp of the creation of the Swap"
+            "description": "UNIX timestamp of the creation"
           },
           "from": {
             "type": "string",
@@ -4996,6 +5288,111 @@
           },
           "refundDetails": {
             "$ref": "#/components/schemas/RestoreRefundDetails"
+          }
+        }
+      },
+      "RestorableFundingAddress": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "createdAt",
+          "chain",
+          "tree",
+          "keyIndex",
+          "serverPublicKey",
+          "timeoutBlockHeight"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID of the Funding Address"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "funding"
+            ],
+            "description": "Funding address entity type"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status"
+          },
+          "createdAt": {
+            "type": "number",
+            "description": "UNIX timestamp of the creation"
+          },
+          "chain": {
+            "type": "string",
+            "description": "Chain of the funding address"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/FundingAddressTree"
+          },
+          "keyIndex": {
+            "type": "number",
+            "description": "Derivation index for the refund key used in the funding address"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/Transaction"
+          },
+          "serverPublicKey": {
+            "type": "string",
+            "description": "Public key of the server"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "description": "Block height at which the funding address refund path becomes spendable"
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "Blinding key of the lockup address. Only set when the chain is Liquid"
+          }
+        }
+      },
+      "FundingAddressTree": {
+        "type": "object",
+        "required": [
+          "refundLeaf"
+        ],
+        "properties": {
+          "refundLeaf": {
+            "$ref": "#/components/schemas/SwapTreeLeaf"
+          }
+        }
+      },
+      "FundingAddressDetails": {
+        "type": "object",
+        "required": [
+          "tree",
+          "keyIndex",
+          "serverPublicKey",
+          "timeoutBlockHeight"
+        ],
+        "properties": {
+          "tree": {
+            "$ref": "#/components/schemas/FundingAddressTree"
+          },
+          "keyIndex": {
+            "type": "number",
+            "description": "Derivation index for the refund key used in the funding address"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/Transaction"
+          },
+          "serverPublicKey": {
+            "type": "string",
+            "description": "Public key of the server"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "description": "Block height at which the funding address refund path becomes spendable"
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "Blinding key of the lockup address. Only set when the chain is Liquid"
           }
         }
       },
@@ -5469,6 +5866,147 @@
             "description": "Description of the error that caused the request to fail"
           }
         }
+      },
+      "FundingTree": {
+        "type": "object",
+        "required": [
+          "refundLeaf"
+        ],
+        "properties": {
+          "refundLeaf": {
+            "$ref": "#/components/schemas/SwapTreeLeaf"
+          }
+        }
+      },
+      "FundingAddressRequest": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "refundPublicKey"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Currency symbol for the funding address (e.g. BTC, L-BTC)"
+          },
+          "refundPublicKey": {
+            "type": "string",
+            "description": "Public key with which the funding address can be refunded encoded as HEX"
+          }
+        }
+      },
+      "FundingAddressUpdate": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID of the funding address"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current status of the funding address"
+          },
+          "transaction": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "ID of the lockup transaction"
+              },
+              "hex": {
+                "type": "string",
+                "description": "Raw lockup transaction encoded as HEX"
+              }
+            }
+          },
+          "swapId": {
+            "type": "string",
+            "description": "ID of the swap associated with the funding address"
+          }
+        }
+      },
+      "FundingAddressResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "address",
+          "timeoutBlockHeight",
+          "serverPublicKey",
+          "tree"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID of the created funding address"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address to which funds should be sent"
+          },
+          "timeoutBlockHeight": {
+            "type": "number",
+            "description": "Block height at which the funding address times out"
+          },
+          "serverPublicKey": {
+            "type": "string",
+            "description": "Public key of Boltz used in the funding address encoded as HEX"
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "Liquid blinding private key encoded as HEX. Only set for Liquid funding addresses"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/FundingTree"
+          }
+        }
+      },
+      "FundingAddressSigningDetails": {
+        "type": "object",
+        "required": [
+          "pubNonce",
+          "publicKey",
+          "transactionHex",
+          "transactionHash"
+        ],
+        "properties": {
+          "pubNonce": {
+            "type": "string",
+            "description": "Public nonce of Boltz for the signing session encoded as HEX"
+          },
+          "publicKey": {
+            "type": "string",
+            "description": "Public key of Boltz encoded as HEX"
+          },
+          "transactionHex": {
+            "type": "string",
+            "description": "Transaction to be signed encoded as HEX"
+          },
+          "transactionHash": {
+            "type": "string",
+            "description": "Hash of the transaction to be signed encoded as HEX"
+          }
+        }
+      },
+      "FundingAddressRefundRequest": {
+        "type": "object",
+        "required": [
+          "pubNonce",
+          "transactionHash"
+        ],
+        "properties": {
+          "pubNonce": {
+            "type": "string",
+            "description": "Public nonce of the client for the session encoded as HEX"
+          },
+          "transactionHash": {
+            "type": "string",
+            "description": "Hash of the transaction to be signed encoded as HEX"
+          }
+        }
       }
     }
   },
@@ -5524,6 +6062,10 @@
     {
       "name": "Referral",
       "description": "Referral related endpoints"
+    },
+    {
+      "name": "Funding Address",
+      "description": "Funding address related endpoints for pre-funding swap addresses"
     }
   ],
   "servers": [

@@ -1,3 +1,4 @@
+mod funding;
 mod introspection;
 mod reverse_script;
 mod reverse_tree;
@@ -6,6 +7,7 @@ mod swap_tree;
 mod tree;
 mod utils;
 
+pub use funding::*;
 pub use reverse_script::reverse_script;
 pub use reverse_tree::reverse_tree;
 pub use swap_script::swap_script;

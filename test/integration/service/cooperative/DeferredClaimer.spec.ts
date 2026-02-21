@@ -174,6 +174,8 @@ describe('DeferredClaimer', () => {
       ),
     );
 
+    await bitcoinClient.generate(1);
+
     const id = generateSwapId(SwapVersion.Taproot);
 
     await SwapRepository.addSwap({
@@ -272,6 +274,8 @@ describe('DeferredClaimer', () => {
     });
 
     const chainSwap = (await ChainSwapRepository.getChainSwap({ id }))!;
+
+    await bitcoinClient.generate(1);
 
     return {
       preimage,
@@ -851,6 +855,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions on chains that were not configured', async () => {
       const swap = {
+        id: 'swap',
         pair: 'L-BTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -862,6 +867,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of legacy swaps', async () => {
       const swap = {
+        id: 'swap',
         pair: 'BTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -874,6 +880,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of swaps to outdated contracts', async () => {
       const swap = {
+        id: 'swap',
         pair: 'RBTC/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -888,6 +895,7 @@ describe('DeferredClaimer', () => {
 
     test('should not defer claim transactions of ARK swaps', async () => {
       const swap = {
+        id: 'swap',
         pair: 'ARK/BTC',
         type: SwapType.Submarine,
         orderSide: OrderSide.SELL,
@@ -942,19 +950,16 @@ describe('DeferredClaimer', () => {
       const spy = jest.spyOn(claimer, 'sweepSymbol');
       await expect(claimer.sweep()).resolves.toEqual(new Map());
 
-      expect(spy).toHaveBeenCalledTimes(5);
-      expect(spy).toHaveBeenCalledWith('BTC');
-      expect(spy).toHaveBeenCalledWith('RBTC');
-      expect(spy).toHaveBeenCalledWith('DOGE');
-      expect(spy).toHaveBeenCalledWith('ARK');
+      expect(spy).toHaveBeenCalledTimes(claimer['currencies'].size);
+      for (const symbol of claimer['currencies'].keys()) {
+        expect(spy).toHaveBeenCalledWith(symbol);
+      }
     });
 
     test('should keep pending swaps in map when claim fails', async () => {
       const rejection = 'no good';
-      const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
-      btcCurrency.chainClient!.sendRawTransaction = jest
-        .fn()
-        .mockRejectedValue(rejection);
+      const claimBatch = sidecar.claimBatch;
+      sidecar.claimBatch = jest.fn().mockRejectedValue(rejection);
 
       const { swap, preimage } = await createClaimableOutput();
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
@@ -968,15 +973,13 @@ describe('DeferredClaimer', () => {
         swap,
       });
 
-      btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
+      sidecar.claimBatch = claimBatch;
     });
 
     test('should keep pending chain swaps in map when claim fails', async () => {
       const rejection = 'no good';
-      const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
-      btcCurrency.chainClient!.sendRawTransaction = jest
-        .fn()
-        .mockRejectedValue(rejection);
+      const claimBatch = sidecar.claimBatch;
+      sidecar.claimBatch = jest.fn().mockRejectedValue(rejection);
 
       const { swap, preimage } = await createClaimableChainSwapOutput();
       await expect(claimer.deferClaim(swap, preimage)).resolves.toEqual(true);
@@ -990,7 +993,7 @@ describe('DeferredClaimer', () => {
         swap,
       });
 
-      btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
+      sidecar.claimBatch = claimBatch;
     });
   });
 
@@ -1398,8 +1401,8 @@ describe('DeferredClaimer', () => {
         emittedEvents.push(event);
       });
 
-      const sendRawTransaction = btcCurrency.chainClient!.sendRawTransaction;
-      btcCurrency.chainClient!.sendRawTransaction = jest
+      const claimBatch = sidecar.claimBatch;
+      sidecar.claimBatch = jest
         .fn()
         .mockRejectedValue(new Error('bad-txns-inputs-missingorspent'));
 
@@ -1415,7 +1418,7 @@ describe('DeferredClaimer', () => {
 
       expect(claimer['swapsToClaim'].get('BTC')!.has(swap.id)).toBe(true);
 
-      btcCurrency.chainClient!.sendRawTransaction = sendRawTransaction;
+      sidecar.claimBatch = claimBatch;
     });
   });
 

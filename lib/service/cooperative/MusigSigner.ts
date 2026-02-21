@@ -20,6 +20,7 @@ import {
 import { RefundStatus } from '../../db/models/RefundTransaction';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
@@ -48,6 +49,7 @@ enum RefundRejectionReason {
   StatusNotEligible = 'status not eligible',
   LightningPaymentPending = 'lightning payment still in progress, try again in a couple minutes',
   RefundNotConfirmed = 'refund not confirmed',
+  FundingAddress = 'swap uses a funding address, refund via funding address instead',
 }
 
 // TODO: Should we verify what we are signing? And if so, how strict should we be?
@@ -300,6 +302,11 @@ class MusigSigner {
 
     if (!FailedSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)) {
       return RefundRejectionReason.StatusNotEligible;
+    }
+
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress !== null) {
+      return RefundRejectionReason.FundingAddress;
     }
 
     if (

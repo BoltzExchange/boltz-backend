@@ -12,6 +12,7 @@ import ChannelCreation from './models/ChannelCreation';
 import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import ExtraFee from './models/ExtraFee';
+import FundingAddress from './models/FundingAddress';
 import KeyProvider from './models/KeyProvider';
 import LightningPayment from './models/LightningPayment';
 import MarkedSwap from './models/MarkedSwap';
@@ -159,6 +160,7 @@ class Database {
     ReverseSwap.load(Database.sequelize);
     MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
+    FundingAddress.load(Database.sequelize);
     ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
     ReverseRoutingHint.load(Database.sequelize);

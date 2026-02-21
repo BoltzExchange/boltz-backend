@@ -1,4 +1,4 @@
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{SwapStatus, UpdateSender};
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::grpc::service::BoltzService;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
@@ -61,7 +61,7 @@ pub struct Server<M, W, N> {
     notification_client: Option<Arc<N>>,
 
     status_fetcher: StatusFetcher,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 
     cancellation_token: CancellationToken,
 }
@@ -80,7 +80,7 @@ where
         log_reload_handler: ReloadHandler,
         service: Arc<Service>,
         manager: Arc<M>,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
         web_hook_helper: Box<W>,
         web_hook_status_caller: StatusCaller,
         notification_client: Option<Arc<N>>,
@@ -192,6 +192,7 @@ mod server_test {
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
     use crate::grpc::server::{Config, Server};
+    use crate::grpc::service::boltzr::ClaimBatchResponse;
     use crate::grpc::service::boltzr::GetInfoRequest;
     use crate::grpc::service::boltzr::boltz_r_client::BoltzRClient;
     use crate::notifications::commands::Commands;
@@ -263,7 +264,7 @@ mod server_test {
                 swap_type: crate::db::models::SwapType,
             ) -> anyhow::Result<(u64, u64)>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
-            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<(boltz_core::wrapper::Transaction, u64)>;
+            async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<ClaimBatchResponse>;
             fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(
                 &self,

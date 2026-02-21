@@ -5,9 +5,28 @@ use bitcoin::{Address as BitcoinAddress, Transaction as BitcoinTransaction};
 use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
 use elements::{Address as ElementsAddress, BlockHash, Transaction as ElementsTransaction};
+use serde::{Deserialize, Serialize as SerdeSerialize};
 
+pub use crate::bitcoin::FundingTree as BitcoinFundingTree;
 pub use crate::bitcoin::InputDetail as BitcoinInputDetail;
+pub use crate::elements::FundingTree as ElementsFundingTree;
 pub use crate::elements::InputDetail as ElementsInputDetail;
+
+#[derive(Debug, Clone, PartialEq, Eq, SerdeSerialize, Deserialize)]
+#[serde(untagged)]
+pub enum FundingTree {
+    Bitcoin(BitcoinFundingTree),
+    Elements(ElementsFundingTree),
+}
+
+impl FundingTree {
+    pub fn parse(chain: Chain, tree: &str) -> Result<Self> {
+        match chain {
+            Chain::Bitcoin => Ok(FundingTree::Bitcoin(serde_json::from_str(tree)?)),
+            Chain::Elements => Ok(FundingTree::Elements(serde_json::from_str(tree)?)),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputDetail {

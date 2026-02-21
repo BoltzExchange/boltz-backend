@@ -9,8 +9,8 @@ use bitcoin::{
 };
 use boltz_core::{
     Musig,
-    bitcoin::FundingTree,
     musig::{MusigBuilder, NoMessage, Unsigned},
+    wrapper::FundingTree,
 };
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use elements::schnorr::TapTweak;
@@ -41,12 +41,18 @@ impl FundingAddress {
         Type::from_str(&self.symbol)
     }
 
+    pub fn parse_tree(&self) -> Result<FundingTree> {
+        FundingTree::parse(self.symbol.parse()?, &self.tree)
+    }
+
     pub fn tree_json(&self) -> Result<String> {
         match self.symbol_type()? {
-            Type::Bitcoin => Ok(serde_json::to_string(&FundingTree::new(
-                &self.their_public_key()?.to_x_only_pubkey(),
-                LockTime::from_height(self.timeout_block_height as u32)?,
-            ))?),
+            Type::Bitcoin => Ok(serde_json::to_string(
+                &boltz_core::bitcoin::FundingTree::new(
+                    &self.their_public_key()?.to_x_only_pubkey(),
+                    LockTime::from_height(self.timeout_block_height as u32)?,
+                ),
+            )?),
             Type::Elements => {
                 let pubkey =
                     elements::secp256k1_zkp::PublicKey::from_slice(&self.their_public_key)?;
@@ -96,9 +102,8 @@ impl FundingAddress {
         let internal_key = bitcoin::XOnlyPublicKey::from_slice(&musig.agg_pk().serialize())?;
         let secp = Secp256k1::new();
 
-        let tweak = match self.symbol_type()? {
-            Type::Bitcoin => {
-                let tree = serde_json::from_str::<boltz_core::bitcoin::FundingTree>(&self.tree)?;
+        let tweak = match self.parse_tree()? {
+            FundingTree::Bitcoin(tree) => {
                 let taproot_spend_info = tree
                     .build()?
                     .finalize(&secp, internal_key)
@@ -107,8 +112,7 @@ impl FundingAddress {
                 TapTweakHash::from_key_and_tweak(internal_key, taproot_spend_info.merkle_root())
                     .to_scalar()
             }
-            Type::Elements => {
-                let tree = serde_json::from_str::<boltz_core::elements::FundingTree>(&self.tree)?;
+            FundingTree::Elements(tree) => {
                 let taproot_spend_info = tree
                     .build()?
                     .finalize(&secp, internal_key)
@@ -155,7 +159,7 @@ mod test {
     fn test_tree_json() {
         let funding_address = create_funding_address();
         let tree_json = funding_address.tree_json().unwrap();
-        let tree: FundingTree = serde_json::from_str(&tree_json).unwrap();
+        let tree: boltz_core::bitcoin::FundingTree = serde_json::from_str(&tree_json).unwrap();
         // The refund pubkey is the x-only version of the compressed public key
         assert_eq!(
             tree.refund_pubkey().unwrap().to_string(),
@@ -167,7 +171,7 @@ mod test {
     fn test_tree_json_round_trip() {
         let funding_address = create_funding_address();
         let tree_json = funding_address.tree_json().unwrap();
-        let tree: FundingTree = serde_json::from_str(&tree_json).unwrap();
+        let tree: boltz_core::bitcoin::FundingTree = serde_json::from_str(&tree_json).unwrap();
 
         // The refund pubkey is the x-only version of the compressed public key
         assert_eq!(

@@ -14,6 +14,7 @@ use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;
+use boltz_core::wrapper::FundingTree;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use serde::{Deserialize, Serialize, ser::Serializer};
 use std::collections::HashMap;
@@ -385,21 +386,6 @@ pub struct ClaimDetails {
     pub preimage_hash: String,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
-pub struct FundingAddressTree {
-    #[serde(rename = "refundLeaf")]
-    pub refund_leaf: TreeLeaf,
-}
-
-impl TryFrom<&str> for FundingAddressTree {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self> {
-        let tree = serde_json::from_str(value)?;
-        Ok(tree)
-    }
-}
-
 impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for ClaimDetails {
     type Error = anyhow::Error;
 
@@ -455,7 +441,7 @@ pub struct RestorableFundingAddress {
     #[serde(flatten)]
     pub base: RescueBase,
     pub chain: String,
-    pub tree: FundingAddressTree,
+    pub tree: FundingTree,
     #[serde(rename = "keyIndex")]
     pub key_index: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1103,7 +1089,7 @@ impl SwapRescue {
             RestorableFundingAddress {
                 base: (&f).into(),
                 chain: f.symbol.clone(),
-                tree: f.tree.as_str().try_into()?,
+                tree: f.parse_tree()?,
                 key_index,
                 transaction,
                 server_public_key,

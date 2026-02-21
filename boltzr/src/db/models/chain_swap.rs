@@ -133,7 +133,7 @@ impl SomeSwap for ChainSwapInfo {
         if let Some(id) = &self.sending().transactionId
             && let Some(vout) = self.sending().transactionVout
         {
-            let mut hash = alloy::hex::decode(id)?;
+            let mut hash = hex::decode(id)?;
             hash.reverse();
 
             Ok(Some(Outpoint {
@@ -156,7 +156,7 @@ impl SomeSwap for ChainSwapInfo {
     ) -> Result<InputDetail> {
         let receiving = self.receiving();
         let input_type = InputType::Claim(
-            alloy::hex::decode(self.swap.preimage.as_ref().context("preimage not found")?)?
+            hex::decode(self.swap.preimage.as_ref().context("preimage not found")?)?
                 .as_slice()
                 .try_into()?,
         );
@@ -231,9 +231,8 @@ async fn create_input_detail(
             .transactionVout
             .context("lockup transaction vout not found")? as u32;
 
-        let lockup_tx: elements::Transaction = elements::encode::deserialize(&alloy::hex::decode(
-            &client.raw_transaction(&tx_id).await?,
-        )?)?;
+        let lockup_tx: elements::Transaction =
+            elements::encode::deserialize(&hex::decode(&client.raw_transaction(&tx_id).await?)?)?;
 
         let output_type = OutputType::Taproot(Some(boltz_core::elements::UncooperativeDetails {
             tree: serde_json::from_str(data.swapTree.as_ref().context("swap tree not found")?)?,

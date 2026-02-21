@@ -1,11 +1,10 @@
-use crate::cache::Cache;
 use crate::chain::BaseClient;
 use crate::currencies::Currencies;
 use crate::lightning::cln::Cln;
 use crate::lightning::cln::cln_rpc::ListchannelsChannels;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use rapidfuzz::distance::jaro_winkler;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -351,13 +350,12 @@ impl LightningInfo for ClnLightningInfo {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::lightning::cln::test::cln_client;
     use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
     use crate::wallet::{Bitcoin, Network};
-    use alloy::hex;
     use bip39::Mnemonic;
+    use boltz_cache::{Cache, MemCache};
     use rstest::rstest;
     use std::collections::HashMap;
     use std::str::FromStr;

@@ -27,7 +27,7 @@ describe('Utils', () => {
   } as unknown as Currency;
 
   beforeAll(async () => {
-    await Promise.all([setup(), bitcoinClient.connect()]);
+    await setup();
   });
 
   afterAll(() => {

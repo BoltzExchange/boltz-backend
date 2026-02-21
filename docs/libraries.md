@@ -10,8 +10,8 @@ clients, SDKs, or libraries listed below instead.
 
 **If the libraries below do not serve your needs and you are absolutely
 committed to the task, do not integrate Boltz API directly without first
-contacting us via [Email](mailto:hi@bol.tz), [Telegram](https://t.me/boltzhq),
-or [Discord](https://discord.gg/QBvZGcW).**
+contacting us via [Support Chat](https://boltz.exchange/) or
+[Email](mailto:hi@bol.tz).**
 
 **We do not provide support for custom integrations that we were not involved
 with.**

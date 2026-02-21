@@ -106,10 +106,10 @@ class ChainRouter extends RouterBase {
      *               description: Address of the ERC20Swap contract
      *         supportedContracts:
      *           type: object
-     *           description: Mapping of contract version numbers to their swap contract addresses
+     *           description: Mapping of contract version numbers to their swap contract addresses and supported features
      *           additionalProperties:
      *             type: object
-     *             required: ["EtherSwap", "ERC20Swap"]
+     *             required: ["EtherSwap", "ERC20Swap", "features"]
      *             properties:
      *               EtherSwap:
      *                 type: string
@@ -117,6 +117,12 @@ class ChainRouter extends RouterBase {
      *               ERC20Swap:
      *                 type: string
      *                 description: Address of the ERC20Swap contract for this version
+     *               features:
+     *                 type: array
+     *                 items:
+     *                   type: string
+     *                   enum: ["BatchClaim", "CommitmentSwap"]
+     *                 description: Features supported by this contract version
      *         tokens:
      *           type: object
      *           description: Mapping of the symbol of tokens to their address
@@ -142,7 +148,7 @@ class ChainRouter extends RouterBase {
      *                 $ref: '#/components/schemas/Contracts'
      *             examples:
      *               json:
-     *                 value: '{"rsk":{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}}'
+     *                 value: '{"rsk":{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512","features":[]}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}}'
      *       '400':
      *         description: Error that caused the request to fail
      *         content:
@@ -336,7 +342,7 @@ class ChainRouter extends RouterBase {
      *               $ref: '#/components/schemas/Contracts'
      *             examples:
      *               json:
-     *                 value: '{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}'
+     *                 value: '{"network":{"chainId":31337},"swapContracts":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"},"supportedContracts":{"3":{"EtherSwap":"0x5FbDB2315678afecb367f032d93F642f64180aa3","ERC20Swap":"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512","features":[]}},"tokens":{"USDT":"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"}}'
      *       '400':
      *         description: Error that caused the query for the transaction to fail
      *         content:

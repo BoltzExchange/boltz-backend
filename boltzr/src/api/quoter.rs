@@ -1,16 +1,18 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::evm::quoter::{Call, Data as QuoterData, QuoteAggregator};
 use crate::swap::manager::SwapManager;
-use alloy::primitives::{Address, U256};
 use anyhow::{Result, anyhow};
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{Extension, Json};
+use boltz_evm::quoter::{Call, Data as QuoterData, QuoteAggregator};
+use boltz_evm::{Address, U256};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+const NO_QUOTES_FOUND: &str = "no quotes found";
 
 #[derive(Deserialize)]
 pub struct QuotePath {
@@ -43,7 +45,7 @@ pub struct QuoteOutputParams {
 
 #[derive(Serialize)]
 pub struct QuoteResponse {
-    #[serde(serialize_with = "crate::utils::serde::u256::serialize")]
+    #[serde(serialize_with = "boltz_evm::serde_utils::u256::serialize")]
     pub quote: U256,
     pub data: QuoterData,
 }
@@ -83,6 +85,13 @@ where
         .map(|(quote, data)| QuoteResponse { quote, data })
         .collect::<Vec<_>>();
 
+    if quotes.is_empty() {
+        return Err(AxumError::new(
+            StatusCode::NOT_FOUND,
+            anyhow!(NO_QUOTES_FOUND),
+        ));
+    }
+
     // Descending order
     quotes.sort_by(|a, b| b.quote.cmp(&a.quote));
 
@@ -108,6 +117,13 @@ where
         .into_iter()
         .map(|(quote, data)| QuoteResponse { quote, data })
         .collect::<Vec<_>>();
+
+    if quotes.is_empty() {
+        return Err(AxumError::new(
+            StatusCode::NOT_FOUND,
+            anyhow!(NO_QUOTES_FOUND),
+        ));
+    }
 
     // Ascending order
     quotes.sort_by(|a, b| a.quote.cmp(&b.quote));

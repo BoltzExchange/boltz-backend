@@ -19,9 +19,10 @@ const options = {
     './lib/api/v2/routers/ChainRouter.ts',
     './lib/api/v2/routers/QuoteRouter.ts',
     './lib/api/v2/routers/NodesRouter.ts',
+    './lib/api/v2/routers/CommitmentRouter.ts',
     './lib/api/v2/routers/ReferralRouter.ts',
     './lib/api/v2/routers/RouterBase.ts',
-    './lib/api/v2/routers/*.ts',
+    './lib/api/v2/routers/FundingAddressRouter.ts',
   ],
   failOnErrors: true,
 };

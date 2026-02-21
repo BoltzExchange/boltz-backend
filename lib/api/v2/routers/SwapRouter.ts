@@ -1031,7 +1031,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/reverse/expiry:
      *   get:
-     *     description: Allowed invoice expiry range per Reverse Swap pair
+     *     description: Allowed invoice expiry range in seconds per Reverse Swap pair
      *     tags: [Reverse Swap]
      *     responses:
      *       '200':
@@ -1235,7 +1235,7 @@ class SwapRouter extends RouterBase {
      *           description: Exchange rate of the pair
      *         limits:
      *           type: object
-     *           required: ["minimal", "maximal"]
+     *           required: ["minimal", "maximal", "maximalZeroConf"]
      *           properties:
      *             minimal:
      *               type: number
@@ -1243,6 +1243,9 @@ class SwapRouter extends RouterBase {
      *             maximal:
      *               type: number
      *               description: Maximal amount that can be swapped in satoshis
+     *             maximalZeroConf:
+     *               type: number
+     *               description: Maximal amount that will be accepted 0-conf in satoshis
      *         fees:
      *           type: object
      *           required: ["percentage", "minerFees"]
@@ -1252,14 +1255,21 @@ class SwapRouter extends RouterBase {
      *               description: Relative fee that will be charged in percent
      *             minerFees:
      *               type: object
-     *               required: ["lockup", "claim"]
+     *               required: ["server", "user"]
      *               properties:
-     *                 lockup:
+     *                 server:
      *                   type: number
-     *                   description: Absolute miner fee that will be charged in satoshis
-     *                 claim:
-     *                   type: number
-     *                   description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     *                   description: Absolute miner fee that Boltz charges
+     *                 user:
+     *                   type: object
+     *                   required: ["claim", "lockup"]
+     *                   properties:
+     *                     claim:
+     *                       type: number
+     *                       description: Absolute miner fee that we estimate for the claim transaction in satoshis
+     *                     lockup:
+     *                       type: number
+     *                       description: Absolute miner fee that we estimate for the user lockup in satoshis
      */
 
     /**
@@ -1582,7 +1592,7 @@ class SwapRouter extends RouterBase {
      * @openapi
      * /swap/chain/{id}/claim:
      *   post:
-     *     description: Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return
+     *     description: Send Boltz a partial signature for its claim transaction and get a partial signature for the clients claim in return. If client claimed already, only providing "signature" is required and an empty object is returned.
      *     tags: [Chain Swap]
      *     parameters:
      *       - in: path
@@ -1603,7 +1613,9 @@ class SwapRouter extends RouterBase {
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/PartialSignature'
+     *               oneOf:
+     *                 - $ref: '#/components/schemas/PartialSignature'
+     *                 - type: object
      *       '404':
      *         description: When no Chain Swap with the ID could be found
      *         content:

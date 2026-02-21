@@ -1,7 +1,7 @@
-use crate::cache::Cache;
 use crate::db::models::SwapType;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -182,7 +182,7 @@ fn format_kind(kind: SwapType) -> String {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::{Cache, MemCache};
+    use boltz_cache::{Cache, MemCache};
     use rstest::rstest;
 
     #[derive(Clone, Debug)]

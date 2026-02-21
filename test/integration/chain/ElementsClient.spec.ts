@@ -3,10 +3,6 @@ import { elementsClient } from '../Nodes';
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
 describe('ElementsClient', () => {
-  beforeAll(async () => {
-    await elementsClient.connect();
-  });
-
   afterAll(() => {
     elementsClient.disconnect();
   });
@@ -33,6 +29,26 @@ describe('ElementsClient', () => {
       const { comment } =
         await elementsClient.getWalletTransaction(transactionId);
       expect(comment).toEqual(label);
+    });
+  });
+
+  describe('getWalletTransaction', () => {
+    test('should return wallet transaction with normalized fee and amount', async () => {
+      const transactionId = await elementsClient.sendToAddress(
+        await elementsClient.getNewAddress(''),
+        50_000,
+        undefined,
+        false,
+        'test wallet tx',
+      );
+
+      const result = await elementsClient.getWalletTransaction(transactionId);
+
+      expect(result.hex).toBeDefined();
+      expect(result.comment).toEqual('test wallet tx');
+      // Fee and amount should be normalized to numbers (not { bitcoin: number } objects)
+      expect(typeof result.fee).toEqual('number');
+      expect(typeof result.amount).toEqual('number');
     });
   });
 });

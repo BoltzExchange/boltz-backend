@@ -62,7 +62,11 @@ describe('CoopSignerBase', () => {
   const wallet = new Wallet(
     Logger.disabledLogger,
     CurrencyType.BitcoinLike,
-    new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+    new CoreWalletProvider(
+      Logger.disabledLogger,
+      bitcoinClient,
+      Networks.bitcoinRegtest,
+    ),
     Networks.bitcoinRegtest,
   );
   const walletManager = {
@@ -132,7 +136,7 @@ describe('CoopSignerBase', () => {
   };
 
   beforeAll(async () => {
-    await Promise.all([setup(), bitcoinClient.connect()]);
+    await setup();
     await bitcoinClient.generate(1);
 
     wallet.initKeyProvider(

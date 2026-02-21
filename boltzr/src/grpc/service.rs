@@ -1,22 +1,21 @@
 use crate::api::ws::types::{SwapStatus, UpdateSender};
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
-use crate::evm::RefundSigner;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
 use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
     Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
-    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse, Feature,
-    GetInfoRequest, GetInfoResponse, GetMessagesRequest, GetMessagesResponse, IsMarkedRequest,
-    IsMarkedResponse, LogLevel, RelevantTransaction, RelevantTransactionRequest,
-    RescanChainsRequest, RescanChainsResponse, SendMessageRequest, SendMessageResponse,
-    SendSwapUpdateRequest, SendSwapUpdateResponse, SendWebHookRequest, SendWebHookResponse,
-    SetLogLevelRequest, SetLogLevelResponse, SignEvmRefundRequest, SignEvmRefundResponse,
-    StartWebHookRetriesRequest, StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest,
-    SwapUpdateResponse, TransactionStatus, bolt11_invoice, bolt12_invoice,
-    decode_invoice_or_offer_response,
+    CreateWebHookResponse, DecodeInvoiceOrOfferRequest, DecodeInvoiceOrOfferResponse,
+    EstimateFeeRequest, EstimateFeeResponse, Feature, GetInfoRequest, GetInfoResponse,
+    GetMessagesRequest, GetMessagesResponse, IsMarkedRequest, IsMarkedResponse, LogLevel,
+    RelevantTransaction, RelevantTransactionRequest, RescanChainsRequest, RescanChainsResponse,
+    SendMessageRequest, SendMessageResponse, SendSwapUpdateRequest, SendSwapUpdateResponse,
+    SendWebHookRequest, SendWebHookResponse, SetLogLevelRequest, SetLogLevelResponse,
+    SignEvmRefundRequest, SignEvmRefundResponse, StartWebHookRetriesRequest,
+    StartWebHookRetriesResponse, SwapUpdate, SwapUpdateRequest, SwapUpdateResponse,
+    TransactionStatus, bolt11_invoice, bolt12_invoice, decode_invoice_or_offer_response,
 };
 use crate::grpc::status_fetcher::StatusFetcher;
 use crate::lightning::invoice::Invoice;
@@ -26,7 +25,7 @@ use crate::swap::manager::{RescanChainOptions, SwapManager};
 use crate::swap::{RelevantId, TxStatus};
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
-use alloy::primitives::{Address, FixedBytes};
+use boltz_evm::{Address, FixedBytes, RefundSigner};
 use futures::StreamExt;
 use lightning::blinded_path::IntroductionNode;
 use lightning::offers::offer::Amount;
@@ -423,7 +422,7 @@ where
                 ));
             }
         };
-        let amount = match crate::evm::utils::parse_wei(&params.amount) {
+        let amount = match boltz_evm::utils::parse_wei(&params.amount) {
             Ok(res) => res,
             Err(err) => {
                 return Err(Status::new(
@@ -707,6 +706,28 @@ where
         }
     }
 
+    #[instrument(name = "grpc::estimate_fee", skip_all)]
+    async fn estimate_fee(
+        &self,
+        request: Request<EstimateFeeRequest>,
+    ) -> Result<Response<EstimateFeeResponse>, Status> {
+        let params = request.into_inner();
+
+        match self.manager.get_currency(&params.symbol) {
+            Some(currency) => match currency.chain {
+                Some(client) => Ok(client
+                    .estimate_fee()
+                    .await
+                    .map(|estimate| Response::new(EstimateFeeResponse { estimate }))
+                    .map_err(|err| {
+                        Status::new(Code::Internal, format!("estimating fees failed: {err}"))
+                    })?),
+                None => Err(Status::new(Code::NotFound, "currency has no chain client")),
+            },
+            None => Err(Status::new(Code::NotFound, "currency not found")),
+        }
+    }
+
     type BlockAddedStream = Pin<Box<dyn Stream<Item = Result<Block, Status>> + Send>>;
 
     async fn block_added(
@@ -802,7 +823,6 @@ where
 #[cfg(test)]
 mod test {
     use crate::api::ws;
-    use crate::cache::{Cache, MemCache};
     use crate::currencies::Currency;
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
@@ -825,7 +845,8 @@ mod test {
     use crate::service::Service;
     use crate::swap::manager::test::MockManager;
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::FixedBytes;
+    use boltz_cache::{Cache, MemCache};
+    use boltz_evm::FixedBytes;
     use mockall::mock;
     use rand::Rng;
     use std::collections::HashMap;
@@ -1076,7 +1097,8 @@ mod test {
             Vec<ws::types::FundingAddressUpdate>,
         )>(1);
 
-        let evm_manager = Arc::new(crate::evm::manager::test::new_manager().await);
+        let evm_manager: Arc<boltz_evm::Manager> =
+            Arc::new(boltz_evm::test_utils::new_manager().await);
 
         (
             token.clone(),
@@ -1142,7 +1164,7 @@ mod test {
         hook_helper
     }
 
-    fn make_mock_manager(evm_manager: Option<Arc<crate::evm::manager::Manager>>) -> MockManager {
+    fn make_mock_manager(evm_manager: Option<Arc<boltz_evm::Manager>>) -> MockManager {
         let mut manager = MockManager::new();
         let evm_manager_clone = evm_manager.clone();
         manager

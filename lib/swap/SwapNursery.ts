@@ -298,6 +298,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             return;
           }
 
+          if (
+            swap.status === SwapUpdateEvent.TransactionClaimPending ||
+            SuccessSwapUpdateEvents.includes(swap.status as SwapUpdateEvent)
+          ) {
+            this.logger.debug(
+              `Not acting on lockup of Submarine Swap ${swap.id} because it succeeded already`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             swap,
             confirmed,
@@ -922,6 +932,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           contracts,
           swap,
           await queryEtherSwapValuesFromLock(
+            swap,
             manager.provider,
             contracts.etherSwap,
             txToClaim!,
@@ -946,6 +957,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           contracts.contractHandler,
           swap,
           await queryERC20SwapValuesFromLock(
+            swap,
             manager.provider,
             contracts.erc20Swap,
             txToClaim!,
@@ -1312,9 +1324,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
       } else {
         await this.checkFundingAddress(swap as ChainSwapInfo);
-        feePerVbyte = await chainClient.estimateFee(
-          SwapNursery.reverseSwapMempoolEta,
-        );
+        feePerVbyte = await chainClient.estimateFee();
       }
 
       const onchainAmount =
@@ -2042,6 +2052,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         : (swap as ChainSwapInfo).sendingData.transactionId;
 
     const etherSwapValues = await queryEtherSwapValuesFromLock(
+      swap,
       nursery.ethereumManager!.provider,
       contracts.etherSwap,
       lockupTransactionId!,
@@ -2095,6 +2106,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         : (swap as ChainSwapInfo).sendingData.transactionId;
 
     const erc20SwapValues = await queryERC20SwapValuesFromLock(
+      swap,
       nursery.ethereumManager.provider,
       contracts.erc20Swap,
       lockupTransactionId!,

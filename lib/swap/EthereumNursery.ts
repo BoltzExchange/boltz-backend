@@ -203,7 +203,9 @@ class EthereumNursery extends TypedEventEmitter<{
       swap.type === SwapType.Submarine
         ? (swap as Swap).timeoutBlockHeight
         : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
-    if (etherSwapValues.timelock !== timeoutBlockHeight) {
+
+    // Commitment swaps can have timelocks longer than the swap timeout
+    if (etherSwapValues.timelock < timeoutBlockHeight) {
       this.emit('lockup.failed', {
         swap,
         reason: Errors.INVALID_TIMELOCK(
@@ -343,7 +345,9 @@ class EthereumNursery extends TypedEventEmitter<{
       swap.type === SwapType.Submarine
         ? (swap as Swap).timeoutBlockHeight
         : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight;
-    if (erc20SwapValues.timelock !== timeoutBlockHeight) {
+
+    // Commitment swaps can have timelocks longer than the swap timeout
+    if (erc20SwapValues.timelock < timeoutBlockHeight) {
       this.emit('lockup.failed', {
         swap,
         reason: Errors.INVALID_TIMELOCK(

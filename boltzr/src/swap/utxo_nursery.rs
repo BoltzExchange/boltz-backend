@@ -220,7 +220,7 @@ impl UtxoNursery {
             "Adding {} block {}: {}",
             symbol,
             height,
-            alloy::hex::encode(block.block_hash())
+            hex::encode(block.block_hash())
         );
         self.chain_tip_helper.set_height(symbol, height as i32)?;
 

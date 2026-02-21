@@ -1,35 +1,7 @@
 import { Transaction } from 'liquidjs-lib';
-import Logger from '../../../lib/Logger';
 import ElementsClient from '../../../lib/chain/ElementsClient';
-import type Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('ElementsClient', () => {
-  test.each`
-    lowball  | expected
-    ${false} | ${0.1}
-    ${true}  | ${0.1}
-  `(
-    'should set estimate sat/vbyte fee of $expected for lowball ($lowball)',
-    async ({ lowball, expected }) => {
-      const client = new ElementsClient(
-        Logger.disabledLogger,
-        {
-          on: jest.fn(),
-        } as unknown as Sidecar,
-        'liquidRegtest',
-        {
-          host: '127.0.0.1',
-          port: 123,
-          user: 'good',
-          password: 'morning',
-        },
-        lowball,
-      );
-
-      await expect(client.estimateFee()).resolves.toEqual(expected);
-    },
-  );
-
   describe('needsLowball', () => {
     test.each`
       expected | transactionHex

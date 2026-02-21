@@ -1,9 +1,9 @@
 use crate::api::ws::status::{FundingAddressInfos, SwapInfos};
 use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, SwapStatusNoId};
-use crate::cache::Cache;
 use crate::grpc::service::boltzr::SwapUpdateResponse;
 use anyhow::Result;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use dashmap::DashMap;
 use std::cell::Cell;
 use std::sync::Arc;
@@ -121,9 +121,9 @@ impl FundingAddressInfos for StatusFetcher {
 #[cfg(test)]
 mod test {
     use crate::api::ws::status::SwapInfos;
-    use crate::cache::{Cache, MemCache};
     use crate::grpc::service::boltzr::SwapUpdateResponse;
     use crate::grpc::status_fetcher::{CACHE_KEY_SWAP_UPDATE, StatusFetcher};
+    use boltz_cache::{Cache, MemCache};
     use tokio::sync::mpsc;
 
     #[tokio::test]

@@ -1,4 +1,3 @@
-use crate::cache::{Cache, MemCache};
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
@@ -9,6 +8,9 @@ use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
 use api::ws::{self, types::UpdateSender};
+use boltz_backup::{Backup, DatabaseConfig};
+use boltz_cache::{Cache, MemCache, Redis};
+use boltz_utils::ensure_rustls_crypto_provider;
 use clap::Parser;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -19,13 +21,11 @@ use tracing::{debug, error, info, trace, warn};
 
 mod api;
 mod ark;
-mod backup;
-mod cache;
+mod backup_adapter;
 mod chain;
 mod config;
 mod currencies;
 mod db;
-mod evm;
 mod grpc;
 mod lightning;
 mod notifications;
@@ -82,9 +82,7 @@ async fn create_with_timeout<T, E: std::fmt::Display>(
 
 #[tokio::main]
 async fn main() {
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .expect("Failed to install default crypto provider");
+    ensure_rustls_crypto_provider();
 
     let args = Args::parse();
 
@@ -139,7 +137,7 @@ async fn main() {
     });
 
     let cache = if let Some(config) = config.cache {
-        match cache::Redis::new(&config).await {
+        match Redis::new(&config).await {
             Ok(cache) => Cache::Redis(cache),
             Err(err) => {
                 error!("Could not connect to cache: {}", err);
@@ -224,14 +222,17 @@ async fn main() {
     }
 
     let backup_client = if let Some(backup_config) = config.backup {
+        let db_backup_config: DatabaseConfig = config.postgres.clone().into();
+        let channel_backup_sources = backup_adapter::from_currencies(&currencies);
+
         create_with_timeout(
             INIT_TIMEOUT,
             "backup client",
-            backup::Backup::new(
+            Backup::new(
                 cancellation_token.clone(),
                 backup_config,
-                config.postgres,
-                currencies.clone(),
+                db_backup_config,
+                channel_backup_sources,
             ),
         )
         .await

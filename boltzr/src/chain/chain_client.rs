@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
@@ -13,6 +12,7 @@ use crate::db::helpers::chain_tip::ChainTipHelper;
 use crate::wallet::Network;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use boltz_cache::Cache;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
@@ -38,6 +38,7 @@ pub struct ChainClient {
     network: Network,
     cache: Cache,
     client_type: Type,
+    fee_floor: f64,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transactions, bool)>,
@@ -53,6 +54,9 @@ impl PartialEq for ChainClient {
 }
 
 impl ChainClient {
+    const DEFAULT_FEE_FLOOR_BTC: f64 = 0.2;
+    const DEFAULT_FEE_FLOOR_ELEMENTS: f64 = 0.1;
+
     pub fn new(
         cancellation_token: CancellationToken,
         cache: Cache,
@@ -61,9 +65,17 @@ impl ChainClient {
         symbol: String,
         config: Config,
     ) -> anyhow::Result<Self> {
+        let default_floor = match client_type {
+            Type::Bitcoin => Self::DEFAULT_FEE_FLOOR_BTC,
+            Type::Elements => Self::DEFAULT_FEE_FLOOR_ELEMENTS,
+        };
+        let fee_floor = config.fee_floor.unwrap_or(default_floor);
+        debug!("Using {symbol} fee floor: {fee_floor:0.2}");
+
         let client = Self {
             cache,
             network,
+            fee_floor,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
             mempool_space: config
@@ -157,7 +169,7 @@ impl ChainClient {
                                         continue;
                                     }
 
-                                    let block_hash = alloy::hex::encode(block.block_hash());
+                                    let block_hash = hex::encode(block.block_hash());
                                     let block_info = match client.get_block_info(&block_hash).await {
                                         Ok(block_info) => block_info,
                                         Err(e) => {
@@ -194,21 +206,28 @@ impl ChainClient {
             .await
     }
 
+    fn round_to_3_decimal_places(x: f64) -> f64 {
+        let factor = 1000.0; // 10^3 for 3 decimal places
+        (x * factor).round() / factor
+    }
+
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
         if let Some(mempool_space) = &self.mempool_space {
-            match mempool_space.get_fees() {
+            match mempool_space.get_fees().await {
                 Some(fee) => return Ok(fee),
-                None => debug!("No fees from {} mempool.space", self.symbol()),
+                None => error!("No fees from {} mempool.space", self.symbol()),
             }
         }
 
         match self
             .client
-            .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(1)]))
+            .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(2)]))
             .await
             .map(|fee| fee.feerate)
         {
-            Ok(fee) => Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64),
+            Ok(fee) => Ok(Self::round_to_3_decimal_places(
+                fee * BTC_KVB_SAT_VBYTE_FACTOR as f64,
+            )),
             // On regtest estimatesmartfee can fail
             Err(_) => Ok(floor),
         }
@@ -567,11 +586,10 @@ impl Client for ChainClient {
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        let floor = match self.client_type {
-            crate::chain::types::Type::Bitcoin => 2.0,
-            crate::chain::types::Type::Elements => 0.1,
-        };
-        Ok(f64::max(self.estimate_fee_raw(floor).await?, floor))
+        Ok(f64::max(
+            self.estimate_fee_raw(self.fee_floor).await?,
+            self.fee_floor,
+        ))
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
@@ -712,11 +730,11 @@ impl Client for ChainClient {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache;
     use crate::chain::chain_client::ChainClient;
     use crate::chain::types::{RawMempool, RpcParam, Type};
     use crate::chain::utils::Transaction;
     use crate::chain::{BaseClient, Client, Config};
+    use boltz_cache::{Cache, MemCache};
     use mockall::mock;
     use rstest::rstest;
     use serde::Deserialize;
@@ -742,7 +760,7 @@ pub mod test {
     pub async fn get_client() -> ChainClient {
         ChainClient::new(
             CancellationToken::new(),
-            cache::Cache::Memory(cache::MemCache::new()),
+            Cache::Memory(MemCache::new()),
             Type::Bitcoin,
             Network::Regtest,
             "BTC".to_string(),
@@ -919,7 +937,7 @@ pub mod test {
     async fn test_get_fees_smart_fee() {
         let client = get_client().await;
         let fees = client.estimate_fee().await.unwrap();
-        assert_eq!(fees, 2.0);
+        assert!(fees >= ChainClient::DEFAULT_FEE_FLOOR_BTC);
     }
 
     #[tokio::test]
@@ -931,7 +949,7 @@ pub mod test {
         let tx_id = tx.txid_hex();
 
         let raw_tx = client.raw_transaction(&tx_id).await.unwrap();
-        assert_eq!(raw_tx, alloy::hex::encode(tx.serialize()));
+        assert_eq!(raw_tx, hex::encode(tx.serialize()));
 
         let (key, field) = client.cache_key_raw_tx(&tx_id);
         let cached_tx = client.cache.get(&key, field).await.unwrap();
@@ -975,7 +993,7 @@ pub mod test {
         let tx = send_transaction(&client).await;
 
         let tx_id = client
-            .send_raw_transaction(&alloy::hex::encode(tx.serialize()))
+            .send_raw_transaction(&hex::encode(tx.serialize()))
             .await
             .unwrap();
 

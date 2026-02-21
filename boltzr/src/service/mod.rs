@@ -1,5 +1,4 @@
 use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
-use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::FundingAddressHelper;
@@ -13,6 +12,7 @@ use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
 use crate::service::rescue::SwapRescue;
 use anyhow::Result;
+use boltz_cache::Cache;
 use std::sync::Arc;
 use tracing::warn;
 
@@ -107,7 +107,6 @@ impl Service {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
@@ -117,6 +116,7 @@ pub mod test {
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::service::prometheus::test::MockPrometheus;
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
+    use boltz_cache::{Cache, MemCache};
     use std::collections::HashMap;
 
     pub use pair_stats::PairStats;

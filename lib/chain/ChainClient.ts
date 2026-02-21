@@ -18,7 +18,6 @@ import type {
   WalletTransaction,
 } from '../consts/Types';
 import type Sidecar from '../sidecar/Sidecar';
-import MempoolSpace from './MempoolSpace';
 import Rebroadcaster from './Rebroadcaster';
 import RpcClient from './RpcClient';
 
@@ -40,8 +39,6 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   get symbol(): string;
   get currencyType(): CurrencyType;
 
-  connect(): Promise<void>;
-
   getBlockchainInfo(): Promise<BlockchainInfo>;
   getNetworkInfo(): Promise<NetworkInfo>;
 
@@ -54,9 +51,11 @@ interface IChainClient extends TypedEventEmitter<ChainClientEvents> {
   ): Promise<string>;
   getRawTransaction(transactionId: string): Promise<string>;
   getRawTransactionVerbose(transactionId: string): Promise<RawTransaction>;
+  getWalletTransaction(transactionId: string): Promise<WalletTransaction>;
+  saveRebroadcast(rawTransaction: string): Promise<void>;
   testMempoolAccept(transactionsHex: string[]): Promise<MempoolAcceptResult[]>;
 
-  estimateFee(confTarget?: number): Promise<number>;
+  estimateFee(): Promise<number>;
 
   listUnspent(minimalConfirmations?: number): Promise<UnspentUtxo[]>;
   getNewAddress(label: string, type: AddressType): Promise<string>;
@@ -77,14 +76,12 @@ class ChainClient extends BaseClient implements IChainClient {
   public isRegtest = false;
 
   protected client: RpcClient;
-  protected feeFloor = 2;
 
-  private readonly mempoolSpace?: MempoolSpace;
   private readonly rebroadcaster: Rebroadcaster;
 
   constructor(
     logger: Logger,
-    sidecar: Sidecar,
+    protected readonly sidecar: Sidecar,
     network: string,
     private readonly config: ChainConfig,
     symbol: string,
@@ -94,24 +91,10 @@ class ChainClient extends BaseClient implements IChainClient {
     this.client = new RpcClient(logger, symbol, this.config);
     this.isRegtest = network.toLowerCase().includes('regtest');
     this.rebroadcaster = new Rebroadcaster(this.logger, sidecar, this);
-
-    if (this.config.mempoolSpace && this.config.mempoolSpace !== '') {
-      this.mempoolSpace = new MempoolSpace(
-        this.logger,
-        this.symbol,
-        this.config.mempoolSpace,
-      );
-    }
   }
 
   public serviceName = (): string => {
     return ChainClient.serviceName;
-  };
-
-  public connect = async (): Promise<void> => {
-    if (this.mempoolSpace) {
-      await this.mempoolSpace.init();
-    }
   };
 
   public disconnect = (): void => {
@@ -186,12 +169,16 @@ class ChainClient extends BaseClient implements IChainClient {
     return this.client.request<WalletTransaction>('gettransaction', [id], true);
   };
 
+  public saveRebroadcast = (rawTransaction: string): Promise<void> => {
+    return this.rebroadcaster.save(rawTransaction);
+  };
+
   public getRawMempool = async () => {
     return this.client.request<string[]>('getrawmempool');
   };
 
-  public estimateFee = async (confTarget = 2): Promise<number> => {
-    return this.estimateFeeWithFloor(confTarget);
+  public estimateFee = async (): Promise<number> => {
+    return await this.sidecar.estimateFee(this.symbol);
   };
 
   public sendToAddress = (
@@ -244,43 +231,6 @@ class ChainClient extends BaseClient implements IChainClient {
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {
     return this.client.request<AddressInfo>('getaddressinfo', [address], true);
-  };
-
-  protected estimateFeeWithFloor = async (confTarget: number) => {
-    const mempoolFee = this.mempoolSpace?.latestFee();
-
-    const estimation =
-      mempoolFee !== undefined
-        ? mempoolFee
-        : await this.estimateFeeChainClient(confTarget);
-
-    return Math.max(estimation, this.feeFloor);
-  };
-
-  private estimateFeeChainClient = async (confTarget = 1) => {
-    try {
-      const response = await this.client.request<any>('estimatesmartfee', [
-        confTarget,
-      ]);
-
-      if (response.feerate) {
-        const feePerKb = response.feerate * ChainClient.decimals;
-        return Math.max(Math.round(feePerKb / 1000), 2);
-      }
-
-      return this.feeFloor;
-    } catch (error) {
-      if ((error as any).message === 'Method not found') {
-        // TODO: use estimatefee for outdated node versions
-        this.logger.warn(
-          `'estimatesmartfee' method not found on ${this.symbol} chain`,
-        );
-
-        return 2;
-      }
-
-      throw error;
-    }
   };
 
   private formatGetTransactionError = (id: string, error: any): string => {

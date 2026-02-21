@@ -86,9 +86,6 @@ type CurrencyConfig = BaseCurrencyConfig & {
   noRoute?: string[];
   routingOffsetExceptions?: RoutingOffsetException[];
 
-  // Max fee ratio for LND's sendPayment
-  maxPaymentFeeRatio?: number;
-
   minLocalBalance: number;
   minRemoteBalance: number;
 };
@@ -119,6 +116,10 @@ type EthereumConfig = {
 
   providerEndpoint?: string;
   providers?: ProviderConfig[];
+
+  // Suggested timelock for commitment swaps in minutes
+  commitmentTimelock?: number;
+  requiredConfirmations?: number;
 
   contracts: ContractsConfig[];
 
@@ -411,6 +412,7 @@ class Config {
 
       ethereum: {
         providerEndpoint: '',
+        requiredConfirmations: 1,
 
         contracts: [],
 

@@ -61,6 +61,7 @@ class TimeoutDeltaProvider {
     [networks.Rootstock.symbol, 25 / 60],
     ['ARK', 10],
     [networks.Ethereum.symbol, 0.2],
+    // Arbitrum block.number is the one of the L1 chain
     [networks.Arbitrum.symbol, 0.2],
     [ElementsClient.symbol, 1],
   ]);

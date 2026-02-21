@@ -32,7 +32,7 @@ impl WebHookHelperDatabase {
         }
 
         let hash = bitcoin_hashes::Sha256::hash(id.as_bytes());
-        alloy::hex::encode(hash.as_byte_array())
+        hex::encode(hash.as_byte_array())
     }
 }
 

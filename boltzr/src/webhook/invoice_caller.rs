@@ -4,7 +4,6 @@ use crate::types;
 use crate::webhook::WebHookCallData;
 use crate::webhook::caller::{CallResult, Caller, Config, Hook, HookState};
 use crate::webhook::types::InvoiceRequestCallData;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use dashmap::DashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};

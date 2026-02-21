@@ -99,7 +99,10 @@ import SwapOutputType from '../swap/SwapOutputType';
 import type Wallet from '../wallet/Wallet';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
-import type { ContractAddresses } from '../wallet/ethereum/EthereumManager';
+import type {
+  ContractAddresses,
+  ContractAddressesWithFeatures,
+} from '../wallet/ethereum/EthereumManager';
 import BalanceCheck from './BalanceCheck';
 import ElementsService from './ElementsService';
 import Errors from './Errors';
@@ -117,7 +120,7 @@ type NetworkContracts = {
     name?: string;
   };
   swapContracts: ContractAddresses;
-  supportedContracts: Map<number, ContractAddresses>;
+  supportedContracts: Map<number, ContractAddressesWithFeatures>;
   tokens: Map<string, string>;
 };
 
@@ -836,18 +839,15 @@ class Service {
    */
   public getFeeEstimation = async (
     symbol?: string,
-    blocks?: number,
   ): Promise<Map<string, number>> => {
     const map = new Map<string, number>();
-
-    const numBlocks = blocks === undefined ? 2 : blocks;
 
     const estimateFeeForProvider = async (provider: Provider) =>
       Number(await this.getGasPrice(provider)) / Number(gweiDecimals);
 
     const estimateFee = async (currency: Currency): Promise<number> => {
       if (currency.chainClient) {
-        return currency.chainClient.estimateFee(numBlocks);
+        return currency.chainClient.estimateFee();
       } else if (currency.provider) {
         return estimateFeeForProvider(currency.provider);
       } else if (currency.arkNode) {
@@ -1344,6 +1344,8 @@ class Service {
       BaseFeeType.NormalClaim,
     );
 
+    await this.verifySubmarineOnchainMinimum(swap, swap.onchainAmount);
+
     const invoiceAmount = SwapManager.calculateInvoiceAmount(
       swap.orderSide,
       rate,
@@ -1360,6 +1362,7 @@ class Service {
       swap.version,
       SwapType.Submarine,
       swap.referral,
+      false,
     );
 
     return {
@@ -1386,6 +1389,14 @@ class Service {
 
     if (swap.invoice) {
       throw Errors.SWAP_HAS_INVOICE_ALREADY(id);
+    }
+
+    const onchainMinimumValidation =
+      swap.onchainAmount !== undefined && swap.onchainAmount !== null;
+
+    if (onchainMinimumValidation) {
+      this.checkWholeNumber(swap.onchainAmount!);
+      await this.verifySubmarineOnchainMinimum(swap, swap.onchainAmount!);
     }
 
     const { base, quote } = splitPairId(swap.pair);
@@ -1424,7 +1435,14 @@ class Service {
       throw SwapErrors.NO_ROUTE_FOUND();
     }
 
-    return this.setSwapInvoice(swap, invoice, true, pairHash, extraFees);
+    return this.setSwapInvoice(
+      swap,
+      invoice,
+      true,
+      pairHash,
+      extraFees,
+      !onchainMinimumValidation,
+    );
   };
 
   /**
@@ -1436,6 +1454,7 @@ class Service {
     canBeRouted: boolean,
     pairHash?: string,
     extraFees?: ExtraFees,
+    verifyInvoiceMinimum = true,
   ): Promise<{
     bip21: string;
     expectedAmount: number;
@@ -1506,6 +1525,7 @@ class Service {
       swap.version,
       SwapType.Submarine,
       swap.referral,
+      verifyInvoiceMinimum,
     );
 
     const fees = this.rateProvider.feeProvider.getFees(
@@ -2418,25 +2438,25 @@ class Service {
   /**
    * Sends coins to a specified address
    */
-  public sendCoins = (args: {
-    symbol: string;
-    address: string;
-    amount: number;
-    label: string;
-    sendAll?: boolean;
-    fee?: number;
-  }): Promise<{
+  public sendCoins = (
+    symbol: string,
+    address: string,
+    amount: number,
+    label: string,
+    sendAll?: boolean,
+    fee?: number,
+  ): Promise<{
     vout?: number;
     transactionId: string;
   }> => {
-    const wallet = this.walletManager.wallets.get(args.symbol);
+    const wallet = this.walletManager.wallets.get(symbol);
     if (wallet === undefined) {
-      throw Errors.CURRENCY_NOT_FOUND(args.symbol);
+      throw Errors.CURRENCY_NOT_FOUND(symbol);
     }
 
-    return args.sendAll
-      ? wallet.sweepWallet(args.address, args.fee, args.label)
-      : wallet.sendToAddress(args.address, args.amount, args.fee, args.label);
+    return sendAll
+      ? wallet.sweepWallet(address, fee, label)
+      : wallet.sendToAddress(address, amount, fee, label);
   };
 
   private getGasPrice = async (provider: Provider) => {
@@ -2466,6 +2486,29 @@ class Service {
   };
 
   /**
+   * Verifies that a submarine swap onchain amount is above the minimal limit
+   */
+  private verifySubmarineOnchainMinimum = async (
+    swap: Pick<Swap, 'pair' | 'orderSide' | 'version' | 'referral'>,
+    onchainAmount: number,
+  ) => {
+    const { limits } = await this.getPair(
+      swap.pair,
+      swap.orderSide,
+      swap.version,
+      SwapType.Submarine,
+      swap.referral,
+    );
+    const minimal =
+      (limits as SubmarinePairTypeTaproot['limits']).minimalBatched ||
+      limits.minimal;
+
+    if (Math.ceil(onchainAmount) < minimal) {
+      throw Errors.BENEATH_MINIMAL_AMOUNT(onchainAmount, minimal);
+    }
+  };
+
+  /**
    * Verifies that the requested amount is neither above the maximal nor beneath the minimal
    */
   private verifyAmount = async (
@@ -2476,6 +2519,7 @@ class Service {
     version: SwapVersion,
     type: SwapType,
     referralId?: string,
+    verifyMinimal = true,
   ) => {
     if (
       (type === SwapType.Submarine && orderSide === OrderSide.BUY) ||
@@ -2499,7 +2543,7 @@ class Service {
 
       if (Math.floor(amount) > limits.maximal) {
         throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
-      } else if (Math.ceil(amount) < minimal) {
+      } else if (verifyMinimal && Math.ceil(amount) < minimal) {
         throw Errors.BENEATH_MINIMAL_AMOUNT(amount, minimal);
       }
     } else {

@@ -138,7 +138,12 @@ class Boltz {
     ]
       .map(({ network, config }) => {
         try {
-          return new EthereumManager(this.logger, network, config!);
+          return new EthereumManager(
+            this.logger,
+            network,
+            config!,
+            this.config.swap.overpayment,
+          );
         } catch (error) {
           this.logger.warn(
             `Disabled ${network.name} integration because: ${formatError(error)}`,
@@ -160,17 +165,18 @@ class Boltz {
 
     const walletCurrencies = Array.from(this.currencies.values());
 
+    const notificationClient = new NotificationClient(
+      this.logger,
+      this.sidecar,
+    );
+
     this.walletManager = new WalletManager(
       this.logger,
+      notificationClient,
       this.config.mnemonicpath,
       this.config.mnemonicpathEvm,
       walletCurrencies,
       this.ethereumManagers,
-    );
-
-    const notificationClient = new NotificationClient(
-      this.logger,
-      this.sidecar,
     );
 
     try {
@@ -405,8 +411,6 @@ class Boltz {
     const service = `${client.symbol} chain`;
 
     try {
-      await client.connect();
-
       const blockchainInfo = await client.getBlockchainInfo();
       const networkInfo = await client.getNetworkInfo();
 

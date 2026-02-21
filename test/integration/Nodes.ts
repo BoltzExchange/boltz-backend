@@ -13,6 +13,7 @@ import { sidecar } from './sidecar/Utils';
 const mockSidecar = {
   on: jest.fn(),
   removeListener: jest.fn(),
+  estimateFee: jest.fn().mockResolvedValue(1),
 } as unknown as Sidecar;
 
 const host = process.platform === 'win32' ? '192.168.99.100' : '127.0.0.1';

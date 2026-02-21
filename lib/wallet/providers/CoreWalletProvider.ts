@@ -1,10 +1,13 @@
-import { Transaction } from 'bitcoinjs-lib';
+import type { Network } from 'bitcoinjs-lib';
+import { Transaction, address as addressLib } from 'bitcoinjs-lib';
 import type Logger from '../../Logger';
-import { isTxConfirmed, transactionHashToId } from '../../Utils';
+import { isTxConfirmed } from '../../Utils';
 import type { IChainClient } from '../../chain/ChainClient';
 import ChainClient, { AddressType } from '../../chain/ChainClient';
+import type NotificationClient from '../../notifications/NotificationClient';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
+import { checkMempoolAndSaveRebroadcast } from './WalletProviderInterface';
 
 class CoreWalletProvider implements WalletProviderInterface {
   public readonly symbol: string;
@@ -12,6 +15,8 @@ class CoreWalletProvider implements WalletProviderInterface {
   constructor(
     public logger: Logger,
     public chainClient: IChainClient,
+    private readonly network: Network,
+    private readonly notifications?: NotificationClient,
   ) {
     this.symbol = chainClient.symbol;
 
@@ -87,57 +92,32 @@ class CoreWalletProvider implements WalletProviderInterface {
     transactionId: string,
     address: string,
   ): Promise<SentTransaction> => {
-    const rawTransactionVerbose =
-      await this.chainClient.getRawTransactionVerbose(transactionId);
-    const rawTransaction = Transaction.fromHex(rawTransactionVerbose.hex);
+    const walletTransaction =
+      await this.chainClient.getWalletTransaction(transactionId);
 
-    let vout = 0;
-    let outputSum = BigInt(0);
+    await checkMempoolAndSaveRebroadcast(
+      this.logger,
+      this.notifications,
+      this.chainClient,
+      transactionId,
+      walletTransaction.hex,
+    );
 
-    for (let i = 0; i < rawTransaction.outs.length; i += 1) {
-      outputSum += BigInt(rawTransaction.outs[i].value);
+    const rawTransaction = Transaction.fromHex(walletTransaction.hex);
+    const targetScriptPubKey = addressLib.toOutputScript(address, this.network);
 
-      const scriptPubKey = rawTransactionVerbose.vout[i].scriptPubKey;
-
-      if (
-        scriptPubKey.address === address ||
-        (scriptPubKey.addresses && scriptPubKey.addresses.includes(address))
-      ) {
-        vout = i;
-      }
-    }
-
-    // Fetch all input transactions before processing them to avoid fetching one twice
-    const fetchedTransaction = new Map<string, string>();
-
-    for (const input of rawTransactionVerbose.vin) {
-      if (!fetchedTransaction.has(input.txid)) {
-        fetchedTransaction.set(
-          input.txid,
-          await this.chainClient.getRawTransaction(input.txid),
-        );
-      }
-    }
-
-    let inputSum = BigInt(0);
-
-    for (const input of rawTransaction.ins) {
-      const inputTransactionId = transactionHashToId(input.hash);
-
-      const inputTransaction = Transaction.fromHex(
-        fetchedTransaction.get(inputTransactionId)!,
-      );
-      const inputVout = inputTransaction.outs[input.index];
-
-      inputSum += BigInt(inputVout.value);
+    const vout = rawTransaction.outs.findIndex((output) =>
+      output.script.equals(targetScriptPubKey),
+    );
+    if (vout === -1) {
+      throw new Error('output not found in transaction');
     }
 
     return {
       vout,
       transactionId,
-
       transaction: rawTransaction,
-      fee: Math.ceil(Number(inputSum - outputSum)),
+      fee: Math.round(Math.abs(walletTransaction.fee * ChainClient.decimals)),
     };
   };
 

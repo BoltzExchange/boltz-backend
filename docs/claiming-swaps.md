@@ -262,9 +262,9 @@ refer to the [Swap Restore documentation](./swap-restore.md).
 
 If a user lost all refund information but still has access to the lightning
 invoice and can extract the preimage, this can be used to claim the locked
-bitcoin back to a user-controlled address. Feel free to
-[contact us](https://discord.gg/QBvZGcW) should you be in such a situation. We
-are happy to help!
+bitcoin back to a user-controlled address. Feel free to contact us via
+[Support Chat](https://boltz.exchange/) or [Email](mailto:hi@bol.tz) should you
+be in such a situation. We are happy to help!
 
 ### EVM Chains
 

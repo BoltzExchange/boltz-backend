@@ -1,0 +1,65 @@
+name: 'Setup Build Environment'
+description: 'Setup common build environment for Boltz backend'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: true
+
+  rust-version:
+    description: 'Rust version to use'
+    required: true
+
+  cache-prefix:
+    description: 'Prefix for Rust build cache key'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'Free disk space'
+      uses: endersonmenezes/free-disk-space@v3
+      with:
+        remove_android: true
+        remove_dotnet: true
+        remove_haskell: true
+
+    - name: Install build dependencies
+      shell: bash
+      run:
+        sudo apt-get update && sudo apt-get -y install protobuf-compiler
+        libsqlite3-dev
+
+    - name: Use Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+
+    - name: Use Rust toolchain
+      shell: bash
+      run:
+        rustup update ${{ inputs.rust-version }} && rustup default ${{
+        inputs.rust-version }}
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+
+    - name: Install Node.js dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Rust build cache
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key:
+          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{ inputs.rust-version
+          }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.cache-prefix }}-${{ inputs.rust-version }}-

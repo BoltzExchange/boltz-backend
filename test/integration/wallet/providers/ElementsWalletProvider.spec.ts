@@ -1,5 +1,5 @@
 import secp256k1 from '@vulpemventures/secp256k1-zkp';
-import { Transaction, address, confidential } from 'liquidjs-lib';
+import { Transaction, address, confidential, networks } from 'liquidjs-lib';
 import Logger from '../../../../lib/Logger';
 import { getHexBuffer } from '../../../../lib/Utils';
 import ElementsWalletProvider from '../../../../lib/wallet/providers/ElementsWalletProvider';
@@ -17,6 +17,7 @@ describe('ElementsWalletProvider', () => {
   const provider = new ElementsWalletProvider(
     Logger.disabledLogger,
     elementsClient,
+    networks.regtest,
   );
 
   const verifySentTransaction = async (

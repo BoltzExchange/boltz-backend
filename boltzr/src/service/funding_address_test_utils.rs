@@ -1,6 +1,5 @@
 #[cfg(test)]
 pub mod test {
-    use crate::cache::Cache;
     use crate::chain::Client;
     use crate::chain::types::RpcParam;
     use crate::currencies::Currencies;
@@ -15,6 +14,7 @@ pub mod test {
     use bitcoin::key::Keypair;
     use bitcoin::secp256k1::{Secp256k1, rand};
     use bitcoin::{TapTweakHash, hex::FromHex};
+    use boltz_cache::{Cache, MemCache};
     use boltz_core::musig::Musig;
     use boltz_core::utils::Chain;
     use boltz_core::{Network, PublicNonce};
@@ -127,7 +127,7 @@ pub mod test {
             Arc::new(swap_helper),
             Arc::new(chain_swap_helper),
             currencies,
-            Cache::Memory(crate::cache::MemCache::new()),
+            Cache::Memory(MemCache::new()),
             timeout_buffer_minutes.unwrap_or(60 * 3), // 3 hours
         )
     }
@@ -346,7 +346,7 @@ pub mod test {
             .await;
 
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
         let vout = find_vout(symbol, &raw_tx, &script_pubkey.to_vec());
 
         (tx_id, vout, amount)

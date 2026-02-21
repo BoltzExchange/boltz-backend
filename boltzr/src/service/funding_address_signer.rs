@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::chain::types::Type;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
@@ -6,12 +5,12 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::FundingAddress;
 use crate::swap::FundingAddressStatus;
 use crate::swap::TimeoutDeltaProvider;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::hashes::Hash;
 use bitcoin::key::{Keypair, Secp256k1};
 use bitcoin::sighash::{Prevouts, SighashCache};
 use bitcoin::{Amount, OutPoint, TxOut, Witness};
+use boltz_cache::Cache;
 use boltz_core::Address;
 use boltz_core::bitcoin::InputDetail as BitcoinInputDetail;
 use boltz_core::elements::InputDetail as ElementsInputDetail;
@@ -416,7 +415,7 @@ impl FundingAddressSigner {
                 let chain_client = get_chain_client(&self.currencies, symbol)?;
                 let raw_lockup_tx = chain_client.raw_transaction(&tx_id).await?;
                 let lockup_tx: elements::Transaction =
-                    elements::encode::deserialize(&alloy::hex::decode(&raw_lockup_tx)?)?;
+                    elements::encode::deserialize(&hex::decode(&raw_lockup_tx)?)?;
                 let tx_out = lockup_tx.output[vout as usize].clone();
 
                 let wallet = get_wallet(&self.currencies, symbol)?;
@@ -773,7 +772,7 @@ mod test {
 
         // Find the actual vout by inspecting the transaction
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
         let vout = find_vout(symbol, &raw_tx, &script_pubkey);
 
         let mut funding_address_with_lockup = funding_address.clone();
@@ -1217,7 +1216,7 @@ mod test {
 
         // Find the actual vout by inspecting the transaction
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
         let tx: bitcoin::Transaction = bitcoin::consensus::deserialize(&raw_tx).unwrap();
         let vout = tx
             .output
@@ -1307,7 +1306,7 @@ mod test {
 
         // Find the actual vout by inspecting the transaction
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = alloy::hex::decode(&raw_tx_hex).unwrap();
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
         let tx: bitcoin::Transaction = bitcoin::consensus::deserialize(&raw_tx).unwrap();
         let vout = tx
             .output

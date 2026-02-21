@@ -116,7 +116,7 @@ impl TxChecker {
                             RelevantId::FundingAddress(funding_address_id.clone())
                         }
                         _ => {
-                            let pubkey_hex = alloy::hex::encode(&script_pubkey);
+                            let pubkey_hex = hex::encode(&script_pubkey);
                             error!(
                                 "Script pubkey {pubkey_hex} for symbol {symbol} has both swap_id and funding_address_id",
                             );
@@ -157,7 +157,7 @@ impl TxChecker {
                 .cloned()
                 .map(|mut o| {
                     o.hash.reverse();
-                    alloy::hex::encode(o.hash)
+                    hex::encode(o.hash)
                 })
                 .collect::<Vec<_>>();
 
@@ -387,7 +387,7 @@ mod test {
         let input_txid = {
             let mut txid = input_outpoint.hash.clone();
             txid.reverse();
-            alloy::hex::encode(txid)
+            hex::encode(txid)
         };
         let input_vout = input_outpoint.vout as i32;
 
@@ -450,7 +450,7 @@ mod test {
         let input_txid = {
             let mut txid = input_outpoint.hash.clone();
             txid.reverse();
-            alloy::hex::encode(txid)
+            hex::encode(txid)
         };
         let input_vout = input_outpoint.vout as i32;
 
@@ -585,7 +585,7 @@ mod test {
         let input_txid = {
             let mut txid = input_outpoint.hash.clone();
             txid.reverse();
-            alloy::hex::encode(txid)
+            hex::encode(txid)
         };
         let input_vout = input_outpoint.vout as i32;
 

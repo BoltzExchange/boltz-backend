@@ -1,4 +1,5 @@
 use anyhow::Result;
+use boltz_utils::mb_to_bytes;
 use std::fs;
 use std::path::PathBuf;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
@@ -11,10 +12,6 @@ mod boltzr {
 
 mod boltz_rpc {
     tonic::include_proto!("boltzrpc");
-}
-
-const fn mb_to_bytes(mb: usize) -> usize {
-    mb * 1024 * 1024
 }
 
 const MAX_DECODING_MESSAGE_SIZE: usize = mb_to_bytes(32);
@@ -247,7 +244,7 @@ impl BoltzClient {
         address: String,
         amount: crate::parsers::AmountOrAll,
         label: String,
-        fee: u32,
+        fee: Option<u32>,
     ) -> Result<boltz_rpc::SendCoinsResponse> {
         let response = self
             .client

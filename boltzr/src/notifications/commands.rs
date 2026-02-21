@@ -1,7 +1,7 @@
-use crate::backup::Backup;
 use crate::db::Pool;
 use crate::db::helpers::offer::OfferHelper;
 use async_trait::async_trait;
+use boltz_backup::Backup;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;

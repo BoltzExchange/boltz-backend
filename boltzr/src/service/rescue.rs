@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::funding_address::FundingAddressHelper;
@@ -10,10 +9,10 @@ use crate::db::models::{
 };
 use crate::service::pubkey_iterator::{Pagination, PubkeyIterator};
 use crate::wallet::Wallet;
-use alloy::hex;
 use anyhow::{Result, anyhow};
 use bitcoin::secp256k1;
 use bitcoin::secp256k1::Secp256k1;
+use boltz_cache::Cache;
 use boltz_core::wrapper::FundingTree;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use serde::{Deserialize, Serialize, ser::Serializer};
@@ -1173,7 +1172,6 @@ impl SwapRescue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cache::MemCache;
     use crate::currencies::Currency;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
@@ -1185,6 +1183,7 @@ mod test {
     use crate::service::{SingleKeyIterator, XpubIterator};
     use crate::wallet::{Elements, Network};
     use bitcoin::{PublicKey, bip32::Xpub};
+    use boltz_cache::MemCache;
     use std::str::FromStr;
 
     fn get_liquid_wallet() -> Arc<dyn Wallet + Send + Sync> {
@@ -1265,7 +1264,7 @@ mod test {
             symbol: "BTC".to_string(),
             status: "transaction.lockup".to_string(),
             key_index: 1,
-            their_public_key: alloy::hex::decode(
+            their_public_key: hex::decode(
                 "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0",
             )
             .unwrap(),

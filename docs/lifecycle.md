@@ -161,7 +161,12 @@ A Chain Swap has the following states:
    broadcast
 5. `transaction.server.confirmed`: the lockup transaction of the server has been
    included in a block
-6. `transaction.claimed`: the server claimed the coins that the client locked
+6. `transaction.claim.pending`: Boltz is ready to cooperatively sign for a key
+   path spend. This state is entered once Boltz knows the preimage, which it
+   learns when the client claims non-cooperatively on-chain. If the client does
+   not provide a cooperative signature, Boltz will eventually claim via the
+   script path in a batch transaction.
+7. `transaction.claimed`: the server claimed the coins that the client locked
 
 If the user doesn't send chain bitcoin and the swap expires, Boltz will set the
 state of the swap to `swap.expired`, which means that it was cancelled and chain

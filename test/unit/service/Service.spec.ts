@@ -1585,8 +1585,6 @@ describe('Service', () => {
     );
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(3);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(1, 2);
-
     expect(mockGetFeeData).toHaveBeenCalledTimes(2);
 
     // Get fee estimation for a single currency
@@ -1595,15 +1593,6 @@ describe('Service', () => {
     );
 
     expect(mockEstimateFee).toHaveBeenCalledTimes(4);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(4, 2);
-
-    // Get fee estimation for a single currency for a specified amount of blocks
-    expect(await service.getFeeEstimation('BTC', 5)).toEqual(
-      new Map<string, number>([['BTC', 2]]),
-    );
-
-    expect(mockEstimateFee).toHaveBeenCalledTimes(5);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(5, 5);
 
     // Get fee estimation for an ERC20 token
     expect(await service.getFeeEstimation('USDT')).toEqual(
@@ -2059,6 +2048,7 @@ describe('Service', () => {
       rate: 1,
       pair: 'BTC/BTC',
       orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
       onchainAmount: 1000000,
     };
 
@@ -2073,6 +2063,33 @@ describe('Service', () => {
         ),
       },
     });
+
+    // Validate minimal with onchain amount and allow derived invoice below minimal
+    mockGetSwapResult = {
+      rate: 1,
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
+      onchainAmount: 321,
+    };
+    await expect(service.getSwapRates(id)).resolves.toEqual({
+      onchainAmount: 321,
+      submarineSwap: {
+        invoiceAmount: 0,
+      },
+    });
+
+    // Throw if onchain amount is below pair minimal
+    mockGetSwapResult = {
+      rate: 1,
+      pair: 'test/pair',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Legacy,
+      onchainAmount: 4,
+    };
+    await expect(service.getSwapRates(id)).rejects.toEqual(
+      Errors.BENEATH_MINIMAL_AMOUNT(4, 5),
+    );
 
     // Throw if onchain amount is not set
     mockGetSwapResult = {};
@@ -2164,14 +2181,44 @@ describe('Service', () => {
       service.setInvoice(mockGetSwapResult.id, invoice, ''),
     ).rejects.toEqual(Errors.INVALID_PAIR_HASH());
 
-    // Throw if a swap doesn't respect the limits
-    const invoiceLimit =
+    const invoiceBelowMinimal =
       'lnbcrt1p0xdz2epp59nrc7lqcnw37suzed83e8s33sxl9p0hk4xu6gya9rcxfmnzd8jfsdqqcqzpgsp5228z07nxfghfzf3p2lu7vc03zss8cgklql845yjr990zsa3nj2hq9qy9qsqqpw8n4s5v3w7t9rryccz46f5v0542td098dun4yzfru4saxhd5apcxl5clxn8a70afn7j3e6avvk3s9gn3ypt2revyuh47aftft3kpcpek9lma';
-    const invoiceLimitAmount = 0;
+    const invoiceAboveMaximalAmount = 1_000_001;
+    const invoiceAboveMaximal = createInvoice(
+      undefined,
+      undefined,
+      undefined,
+      invoiceAboveMaximalAmount,
+    );
 
+    // Still throw if invoice amount exceeds maximal
     await expect(
-      service.setInvoice(mockGetSwapResult.id, invoiceLimit),
-    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceLimitAmount, 1));
+      service.setInvoice(mockGetSwapResult.id, invoiceAboveMaximal),
+    ).rejects.toEqual(
+      Errors.EXCEED_MAXIMAL_AMOUNT(invoiceAboveMaximalAmount, 1_000_000),
+    );
+
+    // Throw if invoice amount is below minimal and no onchain amount is set
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoiceBelowMinimal),
+    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(0, 1));
+
+    // Enforce minimal based on locked onchain amount
+    mockGetSwapResult.onchainAmount = 0;
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoice),
+    ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(0, 1));
+
+    // Be lenient on invoice minimum in this path when onchain minimum is met
+    mockGetSwapResult.onchainAmount = 1;
+    await expect(
+      service.setInvoice(mockGetSwapResult.id, invoiceBelowMinimal),
+    ).resolves.toEqual({
+      acceptZeroConf: true,
+      expectedAmount: 100002,
+      bip21:
+        'bitcoin:bcrt1qae5nuz2cv7gu2dpps8rwrhsfv6tjkyvpd8hqsu?amount=0.00100002&label=Send%20to%20BTC%20lightning',
+    });
 
     // Throw if swap with id does not exist
     mockGetSwapResult = undefined;
@@ -3219,13 +3266,7 @@ describe('Service', () => {
       const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
 
       await expect(
-        service.sendCoins({
-          fee,
-          label,
-          amount,
-          symbol,
-          address,
-        }),
+        service.sendCoins(symbol, address, amount, label, undefined, fee),
       ).resolves.toEqual({
         vout: mockTransaction.vout,
         transaction: expect.anything(),
@@ -3249,14 +3290,7 @@ describe('Service', () => {
       const address = 'bcrt1qmv7axanlc090h2j79ufg530eaw88w8rfglnjl3';
 
       await expect(
-        service.sendCoins({
-          fee,
-          label,
-          amount,
-          symbol,
-          address,
-          sendAll: true,
-        }),
+        service.sendCoins(symbol, address, amount, label, true, fee),
       ).resolves.toEqual({
         vout: mockTransaction.vout,
         transaction: expect.anything(),
@@ -3274,13 +3308,14 @@ describe('Service', () => {
       const label = 'send some WEI';
       const address = '0x0000000000000000000000000000000000000000';
 
-      const response = await service.sendCoins({
-        fee,
-        label,
-        amount,
+      const response = await service.sendCoins(
         symbol,
         address,
-      });
+        amount,
+        label,
+        undefined,
+        fee,
+      );
 
       expect(response).toEqual({
         transactionId: etherTransaction.transactionId,
@@ -3297,13 +3332,14 @@ describe('Service', () => {
       const label = 'send some tokens';
       const address = '0x0000000000000000000000000000000000000000';
 
-      const response = await service.sendCoins({
-        fee,
-        label,
-        amount,
+      const response = await service.sendCoins(
         symbol,
         address,
-      });
+        amount,
+        label,
+        undefined,
+        fee,
+      );
 
       expect(response).toEqual({
         transactionId: tokenTransaction.transactionId,
@@ -3316,16 +3352,9 @@ describe('Service', () => {
     test('should throw of currency to send cannot be found', async () => {
       const notFound = 'notFound';
 
-      expect(() =>
-        service.sendCoins({
-          fee: 0,
-          amount: 0,
-          label: 'no',
-          address: '',
-          sendAll: false,
-          symbol: notFound,
-        }),
-      ).toThrow(Errors.CURRENCY_NOT_FOUND(notFound).message);
+      expect(() => service.sendCoins(notFound, '', 0, 'no', false, 0)).toThrow(
+        Errors.CURRENCY_NOT_FOUND(notFound).message,
+      );
     });
   });
 

@@ -66,7 +66,7 @@ impl SomeSwap for Swap {
     ) -> Result<InputDetail> {
         let keys = wallet.derive_keys(self.keyIndex.context("key index not found")? as u64)?;
         let input_type = InputType::Claim(
-            alloy::hex::decode(self.preimage.as_ref().context("preimage not found")?)?
+            hex::decode(self.preimage.as_ref().context("preimage not found")?)?
                 .as_slice()
                 .try_into()?,
         );
@@ -76,7 +76,7 @@ impl SomeSwap for Swap {
 
             let output_type = match SwapVersion::try_from(self.version)? {
                 SwapVersion::Legacy => {
-                    OutputType::Compatibility(bitcoin::ScriptBuf::from_bytes(alloy::hex::decode(
+                    OutputType::Compatibility(bitcoin::ScriptBuf::from_bytes(hex::decode(
                         self.redeemScript
                             .clone()
                             .context("redeem script not found")?,
@@ -131,9 +131,9 @@ impl SomeSwap for Swap {
                 .lockupTransactionVout
                 .context("lockup transaction vout not found")? as u32;
 
-            let lockup_tx: elements::Transaction = elements::encode::deserialize(
-                &alloy::hex::decode(&client.raw_transaction(&tx_id).await?)?,
-            )?;
+            let lockup_tx: elements::Transaction = elements::encode::deserialize(&hex::decode(
+                &client.raw_transaction(&tx_id).await?,
+            )?)?;
 
             let output_type = match SwapVersion::try_from(self.version)? {
                 SwapVersion::Legacy => OutputType::SegwitV0(

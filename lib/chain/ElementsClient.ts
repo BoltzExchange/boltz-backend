@@ -5,9 +5,12 @@ import type Logger from '../Logger';
 import { CurrencyType } from '../consts/Enums';
 import type { AddressInfo, LiquidBalances } from '../consts/LiquidTypes';
 import { liquidSymbol } from '../consts/LiquidTypes';
+import type { WalletTransaction } from '../consts/Types';
 import type Sidecar from '../sidecar/Sidecar';
 import type { AddressType, IChainClient } from './ChainClient';
 import ChainClient from './ChainClient';
+
+const LOWBALL_FEE_THRESHOLD_SAT_PER_VBYTE = 0.1;
 
 enum LiquidAddressType {
   Blech32 = 'blech32',
@@ -26,7 +29,6 @@ interface IElementsClient extends IChainClient {
 
 class ElementsClient extends ChainClient implements IElementsClient {
   public static readonly symbol = liquidSymbol;
-  private static readonly feeFloor = 0.1;
 
   constructor(
     logger: Logger,
@@ -42,7 +44,6 @@ class ElementsClient extends ChainClient implements IElementsClient {
     }
 
     super(logger, sidecar, network, config, ElementsClient.symbol);
-    this.feeFloor = ElementsClient.feeFloor;
     this.currencyType = CurrencyType.Liquid;
   }
 
@@ -55,7 +56,7 @@ class ElementsClient extends ChainClient implements IElementsClient {
     return (
       confidential.confidentialValueToSatoshi(feeOutput.value) /
         tx.virtualSize(true) <
-      ElementsClient.feeFloor
+      LOWBALL_FEE_THRESHOLD_SAT_PER_VBYTE
     );
   };
 
@@ -86,6 +87,28 @@ class ElementsClient extends ChainClient implements IElementsClient {
     return this.client.request<string>('getnewaddress', [label, type], true);
   };
 
+  public override getWalletTransaction = async (
+    id: string,
+  ): Promise<WalletTransaction> => {
+    const res = await this.client.request<WalletTransaction>(
+      'gettransaction',
+      [id],
+      true,
+    );
+    if (res.fee && typeof res.fee === 'object' && 'bitcoin' in res.fee) {
+      res.fee = (res.fee as { bitcoin: number }).bitcoin;
+    }
+    if (
+      res.amount &&
+      typeof res.amount === 'object' &&
+      'bitcoin' in res.amount
+    ) {
+      res.amount = (res.amount as { bitcoin: number }).bitcoin;
+    }
+
+    return res;
+  };
+
   public override sendToAddress = (
     address: string,
     amount: number,
@@ -111,10 +134,6 @@ class ElementsClient extends ChainClient implements IElementsClient {
       ],
       true,
     );
-  };
-
-  public override estimateFee = async (): Promise<number> => {
-    return this.feeFloor;
   };
 
   public getAddressInfo = (address: string): Promise<AddressInfo> => {

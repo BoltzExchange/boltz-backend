@@ -1158,6 +1158,12 @@ describe('SwapManager', () => {
 
     const mockAttemptSettleSwap = jest.fn().mockResolvedValue(undefined);
     manager.nursery.attemptSettleSwap = mockAttemptSettleSwap;
+    SwapRepository.setInvoice = jest
+      .fn()
+      .mockImplementation(async (updatedSwap: Swap) => {
+        updatedSwap.status = SwapUpdateEvent.InvoiceSet;
+        return updatedSwap;
+      }) as any;
 
     mockGetRawTransactionResult =
       '020000000001018542307f1f57326e533123327f6a7e5729241c9cf468bca7897c47c0019a21010100000000fdffffff0298560b0000000000160014c99fd000fb30137ae03fd2b28f52878e9b29194f2e020000000000001976a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac02473044022034deabdeb0d1d4d2fe2cf450f5ef27c1e5709670b87dbe3b8e175ac094fb935802207630148ec8e73c24e284af700ac1f34e8058735a8852e8fd4c81ad04233b12230121031f6fa906bb52f3e1bdc59156a5659ce1aa251eaf26f411413c76409360ef7205bcaf0900';

@@ -156,7 +156,12 @@ class GrpcService {
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
       const { vout, transactionId } = await this.service.sendCoins(
-        call.request.toObject(),
+        call.request.getSymbol(),
+        call.request.getAddress(),
+        call.request.getAmount(),
+        call.request.getLabel(),
+        call.request.getSendAll(),
+        call.request.hasFee() ? call.request.getFee() : undefined,
       );
 
       const response = new boltzrpc.SendCoinsResponse();

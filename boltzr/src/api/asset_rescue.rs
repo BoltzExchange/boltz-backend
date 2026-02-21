@@ -4,7 +4,6 @@ use crate::api::ws::status::SwapInfos;
 use crate::chain::elements_client::SYMBOL as ELEMENTS_SYMBOL;
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::ElementsAddressDeserialize;
-use alloy::hex;
 use anyhow::Result;
 use axum::extract::Path;
 use axum::response::IntoResponse;

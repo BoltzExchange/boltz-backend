@@ -5,7 +5,6 @@ use crate::api::ws::status::SwapInfos;
 use crate::db::models::SwapType;
 use crate::lightning::cln::OfferError;
 use crate::swap::manager::SwapManager;
-use alloy::hex;
 use anyhow::Result;
 use async_tungstenite::tungstenite::http::StatusCode;
 use axum::body::Body;

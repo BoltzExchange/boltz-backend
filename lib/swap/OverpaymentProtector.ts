@@ -2,24 +2,26 @@ import type { OverPaymentConfig } from '../Config';
 import type Logger from '../Logger';
 import { SwapType } from '../consts/Enums';
 
+export const overpaymentDefaultConfig: Required<OverPaymentConfig> = {
+  exemptAmount: 10_000,
+  maxPercentage: 2,
+};
+
 class OverpaymentProtector {
-  private static readonly defaultConfig = {
-    exemptAmount: 10_000,
-    maxPercentage: 2,
-  };
+  private static readonly defaultConfig = overpaymentDefaultConfig;
 
   private readonly overPaymentExemptAmount: number;
   private readonly overPaymentMaxPercentage: number;
 
   constructor(logger: Logger, config?: OverPaymentConfig) {
     this.overPaymentExemptAmount =
-      config?.exemptAmount || OverpaymentProtector.defaultConfig.exemptAmount;
+      config?.exemptAmount ?? OverpaymentProtector.defaultConfig.exemptAmount;
     logger.debug(
       `Onchain payment overpayment exempt amount: ${this.overPaymentExemptAmount}`,
     );
 
     this.overPaymentMaxPercentage =
-      (config?.maxPercentage ||
+      (config?.maxPercentage ??
         OverpaymentProtector.defaultConfig.maxPercentage) / 100;
     logger.debug(
       `Maximal accepted onchain overpayment: ${this.overPaymentMaxPercentage * 100}%`,

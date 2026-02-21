@@ -368,10 +368,15 @@ mod tests {
         let asset = issue_asset(&client).unwrap();
         let balance_asset_before = get_balance(&client).unwrap()[&asset];
 
-        let (asset_tx, asset_vout) = fund_address(&client, &asset_address, Some(&asset));
+        let (asset_tx, asset_vout) = fund_address(
+            &client,
+            &asset_address,
+            Some(&asset),
+            Some(blinded_asset_input),
+        );
 
         let lbtc_address = get_destination(&client, true, Some(address_type));
-        let (lbtc_tx, lbtc_vout) = fund_address(&client, &lbtc_address, None);
+        let (lbtc_tx, lbtc_vout) = fund_address(&client, &lbtc_address, None, Some(true));
 
         let fee_target = 0.1;
         let (mut rescue_tx, fee) = construct_asset_rescue(

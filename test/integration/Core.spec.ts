@@ -85,21 +85,26 @@ describe('Core', () => {
     wallet = new Wallet(
       Logger.disabledLogger,
       CurrencyType.BitcoinLike,
-      new CoreWalletProvider(Logger.disabledLogger, bitcoinClient),
+      new CoreWalletProvider(
+        Logger.disabledLogger,
+        bitcoinClient,
+        Networks.bitcoinRegtest,
+      ),
       Networks.bitcoinRegtest,
     );
     initWallet(wallet);
 
     walletLiquid = new WalletLiquid(
       Logger.disabledLogger,
-      new ElementsWalletProvider(Logger.disabledLogger, elementsClient),
+      new ElementsWalletProvider(
+        Logger.disabledLogger,
+        elementsClient,
+        networks.regtest,
+      ),
       slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
       networks.regtest,
     );
     initWallet(walletLiquid);
-
-    await bitcoinClient.connect();
-    await elementsClient.connect();
 
     // To have a blinded output in the Elements wallet
     await elementsClient.sendToAddress(

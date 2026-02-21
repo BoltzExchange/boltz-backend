@@ -6,7 +6,6 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{LightningSwap, SomeSwap};
 use crate::swap::status::{SwapUpdate, serialize_swap_updates};
 use crate::wallet::Wallet;
-use alloy::hex;
 use anyhow::Result;
 use diesel::{BoolExpressionMethods, ExpressionMethods};
 use std::collections::{HashMap, HashSet};
@@ -237,7 +236,6 @@ mod test {
         decode_script, get_currency, get_input_output_filters, parse_transaction_id,
     };
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
-    use alloy::hex;
     use bip39::Mnemonic;
     use std::collections::HashMap;
     use std::str::FromStr;

@@ -63,9 +63,8 @@ const sampleRedeemScript = getHexBuffer(
   'a9146575342754627fcff96fe4d186e497d88e52ebd78763210263f5775d4e5688f51f4c2fa03f75d1eee1deff2b1bc6e266dedb16c00aba160c6703d8791cb17521033b6a33a6e88da8bb44737b844b48626e5061aff2a5573167ad841d7187aac97168ac',
 );
 
-let mockEstimateFeeResult = 2;
 const mockEstimateFee = jest.fn().mockImplementation(async () => {
-  return mockEstimateFeeResult;
+  return 2;
 });
 
 const mockGetRawTransaction = jest
@@ -536,46 +535,6 @@ describe('UtxoNursery', () => {
     expect(mockGetSwap).toHaveBeenCalledTimes(1);
     expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
     expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-
-    jest.clearAllMocks();
-
-    // Should reject 0-conf non RBF lockup transactions if their fee is too low
-    eventEmitted = false;
-
-    mockEstimateFeeResult = 123;
-
-    nursery.once('swap.lockup.zeroconf.rejected', (args) => {
-      expect(args.swap).toEqual(mockGetSwapResult);
-      expect(args.transaction).toEqual(transaction);
-      expect(args.reason).toEqual(
-        Errors.LOCKUP_TRANSACTION_FEE_TOO_LOW().message,
-      );
-
-      eventEmitted = true;
-    });
-
-    await checkSwapOutputs(
-      btcChainClient,
-      btcWallet,
-      transaction,
-      TransactionStatus.ZeroConfSafe,
-    );
-
-    expect(eventEmitted).toEqual(true);
-
-    expect(mockGetSwap).toHaveBeenCalledTimes(1);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(1);
-    expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
-    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-    expect(mockGetRawTransaction).toHaveBeenCalledTimes(2);
-    expect(mockGetRawTransaction).toHaveBeenNthCalledWith(
-      1,
-      'a21b0b3763a64ce2e5da23c52e3496c70c2b3268a37633653e21325ba64d4056',
-    );
-    expect(mockGetRawTransaction).toHaveBeenNthCalledWith(
-      2,
-      '62af53c6dcda51c4ebac3309b85ce2ca043a912f127250c51e19b1de82299730',
-    );
   });
 
   test('should reject 0-conf transactions when the lockup transaction tracker does not allow for 0-conf', async () => {

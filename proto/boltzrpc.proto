@@ -186,7 +186,7 @@ message SendCoinsRequest {
   uint64 amount = 3;
 
   // sat/vbyte for UTXO based chains or gas price in GWEI for account based ones
-  uint32 fee = 4;
+  optional uint32 fee = 4;
   bool send_all = 5;
   string label = 6;
 }

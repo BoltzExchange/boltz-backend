@@ -1,5 +1,4 @@
 use crate::api::ws::types::{SwapStatus, UpdateSender};
-use crate::cache::Cache;
 use crate::db::helpers::web_hook::WebHookHelper;
 use crate::grpc::service::BoltzService;
 use crate::grpc::service::boltzr::boltz_r_server::BoltzRServer;
@@ -10,6 +9,7 @@ use crate::service::Service;
 use crate::swap::manager::SwapManager;
 use crate::tracing_setup::ReloadHandler;
 use crate::webhook::status_caller::StatusCaller;
+use boltz_cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::error::Error;
@@ -187,12 +187,10 @@ where
 mod server_test {
     use crate::api::ws;
     use crate::api::ws::types::SwapStatus;
-    use crate::cache::{Cache, MemCache};
     use crate::currencies::{Currencies, Currency};
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::web_hook::WebHookHelper;
     use crate::db::models::{WebHook, WebHookState};
-    use crate::evm::RefundSigner;
     use crate::grpc::server::{Config, Server};
     use crate::grpc::service::boltzr::ClaimBatchResponse;
     use crate::grpc::service::boltzr::GetInfoRequest;
@@ -201,8 +199,10 @@ mod server_test {
     use crate::swap::manager::{RescanChainOptions, RescanChainResult, SwapManager};
     use crate::swap::{AssetRescue, RelevantTx};
     use crate::tracing_setup::ReloadHandler;
-    use alloy::primitives::{Address, FixedBytes, Signature, U256};
     use async_trait::async_trait;
+    use boltz_cache::{Cache, MemCache};
+    use boltz_evm::RefundSigner;
+    use boltz_evm::{Address, FixedBytes, Signature, U256};
     use mockall::{mock, predicate::*};
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -231,7 +231,6 @@ mod server_test {
     mock! {
         RefundSigner {}
 
-        #[async_trait]
         impl RefundSigner for RefundSigner {
             fn version_for_address(&self, contract_address: &Address) -> anyhow::Result<u8>;
 

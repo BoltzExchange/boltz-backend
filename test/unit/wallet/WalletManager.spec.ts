@@ -8,6 +8,7 @@ import { CurrencyType } from '../../../lib/consts/Enums';
 import Database from '../../../lib/db/Database';
 import KeyRepository from '../../../lib/db/repositories/KeyRepository';
 import LndClient from '../../../lib/lightning/LndClient';
+import type NotificationClient from '../../../lib/notifications/NotificationClient';
 import WalletErrors from '../../../lib/wallet/Errors';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
@@ -64,6 +65,10 @@ describe('WalletManager', () => {
   const mnemonicPathEvm = 'seedEvm.dat';
 
   const database = new Database(Logger.disabledLogger, ':memory:');
+
+  const mockNotificationClient = {
+    sendMessage: jest.fn(),
+  } as unknown as NotificationClient;
 
   const btcClient = mockedChainClient();
   btcClient['symbol' as any] = 'BTC';
@@ -135,6 +140,7 @@ describe('WalletManager', () => {
   test('should initialize with a new menmonic and write it to the disk', () => {
     new WalletManager(
       Logger.disabledLogger,
+      mockNotificationClient,
       mnemonicPath,
       mnemonicPathEvm,
       currencies,
@@ -154,6 +160,7 @@ describe('WalletManager', () => {
 
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
+      mockNotificationClient,
       mnemonicPath,
       mnemonicPathEvm,
       currenciesNoLnd,
@@ -180,6 +187,7 @@ describe('WalletManager', () => {
 
     const noLndWalletManager = new WalletManager(
       Logger.disabledLogger,
+      mockNotificationClient,
       mnemonicPath,
       mnemonicPathEvm,
       currenciesNoLnd,
@@ -195,6 +203,7 @@ describe('WalletManager', () => {
   test('should initialize with an existing mnemonic', async () => {
     walletManager = new WalletManager(
       Logger.disabledLogger,
+      mockNotificationClient,
       mnemonicPath,
       mnemonicPathEvm,
       currencies,
@@ -244,6 +253,7 @@ describe('WalletManager', () => {
       () =>
         new WalletManager(
           Logger.disabledLogger,
+          mockNotificationClient,
           mnemonicPath,
           mnemonicPathEvm,
           [],

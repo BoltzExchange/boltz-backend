@@ -121,6 +121,8 @@ type RskConfig = {
 
   alchemy: EthProviderServiceConfig;
 
+  requiredConfirmations?: number;
+
   contracts: ContractsConfig[];
 
   tokens: TokenConfig[];
@@ -410,6 +412,7 @@ class Config {
 
       ethereum: {
         providerEndpoint: '',
+        requiredConfirmations: 1,
 
         infura: {
           apiKey: '',

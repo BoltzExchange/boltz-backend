@@ -37,7 +37,7 @@ export type ContractAddresses = {
 
 class EthereumManager {
   public readonly provider: InjectedProvider;
-  public readonly contractEventHandler = new ConsolidatedEventHandler();
+  public readonly contractEventHandler: ConsolidatedEventHandler;
 
   public signer!: Signer;
   public address!: string;
@@ -67,6 +67,13 @@ class EthereumManager {
       this.logger,
       this.networkDetails,
       this.config,
+    );
+
+    this.contractEventHandler = new ConsolidatedEventHandler(
+      this.logger,
+      this.networkDetails,
+      this.provider,
+      this.config.requiredConfirmations,
     );
 
     if (

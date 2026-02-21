@@ -119,7 +119,7 @@ impl FundingAddressService {
         cache: Cache,
         funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
-        let cfg = config.clone().unwrap_or_default();
+        let cfg = config.unwrap_or_default();
         let signer = FundingAddressSigner::new(
             swap_helper,
             chain_swap_helper,
@@ -128,7 +128,7 @@ impl FundingAddressService {
             cfg.swap_timeout_buffer,
         );
         Self {
-            config: config.unwrap_or_default(),
+            config: cfg,
             funding_address_helper,
             keys_helper,
             signer,

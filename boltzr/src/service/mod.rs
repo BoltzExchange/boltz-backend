@@ -1,3 +1,4 @@
+use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
 use crate::cache::Cache;
 use crate::currencies::Currencies;
 use crate::db::helpers::chain_swap::ChainSwapHelper;
@@ -6,7 +7,7 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::service::country_codes::CountryCodes;
-use crate::service::funding_address::FundingAddressService;
+use crate::service::funding_address::{FundingAddressConfig, FundingAddressService};
 use crate::service::lightning_info::{ClnLightningInfo, LightningInfo};
 use crate::service::pair_stats::PairStatsFetcher;
 use crate::service::prometheus::{CachedPrometheusClient, RawPrometheusClient};
@@ -54,7 +55,9 @@ impl Service {
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         markings_config: Option<MarkingsConfig>,
         historical_config: Option<HistoricalConfig>,
+        funding_address_config: Option<FundingAddressConfig>,
         cache: Cache,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
         Self {
             swap_rescue: SwapRescue::new(
@@ -65,12 +68,14 @@ impl Service {
                 currencies.clone(),
             ),
             funding_address: FundingAddressService::new(
+                funding_address_config,
                 funding_address_helper,
                 keys_helper,
                 swap_helper.clone(),
                 chain_swap_helper.clone(),
                 currencies.clone(),
                 cache.clone(),
+                funding_address_update_tx,
             ),
             country_codes: CountryCodes::new(markings_config),
             lightning_info: Box::new(ClnLightningInfo::new(cache.clone(), currencies)),
@@ -166,7 +171,11 @@ pub mod test {
     }
 
     impl Service {
-        pub fn new_mocked(with_pair_stats: bool, currencies: Option<Currencies>) -> Self {
+        pub fn new_mocked_with_funding_updates(
+            with_pair_stats: bool,
+            currencies: Option<Currencies>,
+            funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
+        ) -> Self {
             let mut swap_helper = MockSwapHelper::new();
             swap_helper
                 .expect_get_all_nullable()
@@ -199,12 +208,14 @@ pub mod test {
                     currencies.clone(),
                 ),
                 funding_address: FundingAddressService::new(
+                    None,
                     Arc::new(FundingAddressHelperDatabase::new(pool.clone())),
                     Arc::new(KeysHelperDatabase::new(pool.clone())),
                     Arc::new(funding_swap_helper),
                     Arc::new(MockChainSwapHelper::new()),
                     currencies.clone(),
                     Cache::Memory(MemCache::new()),
+                    funding_address_update_tx,
                 ),
                 lightning_info: Box::new(ClnLightningInfo::new(
                     Cache::Memory(MemCache::new()),
@@ -220,6 +231,16 @@ pub mod test {
                     None
                 },
             }
+        }
+
+        pub fn new_mocked(with_pair_stats: bool, currencies: Option<Currencies>) -> Self {
+            let (funding_address_update_tx, _) =
+                tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
+            Self::new_mocked_with_funding_updates(
+                with_pair_stats,
+                currencies,
+                funding_address_update_tx,
+            )
         }
 
         pub fn new_mocked_prometheus(with_pair_stats: bool) -> Self {

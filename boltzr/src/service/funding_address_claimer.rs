@@ -495,7 +495,7 @@ mod test {
             .expect_get_by_id()
             .returning(|_| Err(anyhow!("not found")));
 
-        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone());
+        let signer = create_signer(swap_helper, chain_swap_helper, currencies.clone(), None);
 
         let presigned_tx = create_presigned_tx(
             &signer,

@@ -1,3 +1,4 @@
+use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
 use crate::cache::Cache;
 use crate::chain::elements_client::SYMBOL as ELEMENTS_SYMBOL;
 use crate::chain::types::Type;
@@ -9,18 +10,39 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
-    CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
+    CooperativeDetails, FundingAddressEligibilityError, FundingAddressSigner,
+    PartialSignatureResponse, RefundSignatureRequest, SetSignatureRequest,
 };
-use crate::swap::FundingAddressStatus;
+use crate::swap::{FundingAddressStatus, TimeoutDeltaProvider};
 use crate::utils::generate_id;
 use alloy::hex;
 use anyhow::Result;
 use bitcoin::PublicKey;
 use bitcoin::key::{Keypair, Secp256k1};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::debug;
+use tokio::sync::Mutex;
+use tracing::{debug, trace};
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct FundingAddressConfig {
+    #[serde(rename = "timeoutDelta")]
+    pub timeout_delta: u64,
+
+    #[serde(rename = "swapTimeoutBuffer")]
+    pub swap_timeout_buffer: u64,
+}
+
+impl Default for FundingAddressConfig {
+    fn default() -> Self {
+        Self {
+            timeout_delta: 60 * 24 * 100, // 100 days
+            swap_timeout_buffer: 60 * 3,  // 3 hours
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum FundingAddressError {
@@ -28,6 +50,7 @@ pub enum FundingAddressError {
     NoWallet(String),
     NotFound(String),
     Database(String),
+    InvalidRequest(String),
     Internal(String),
 }
 
@@ -50,6 +73,7 @@ impl Display for FundingAddressError {
                 write!(f, "funding address not found: {}", id)
             }
             FundingAddressError::Database(msg) => write!(f, "database error: {}", msg),
+            FundingAddressError::InvalidRequest(msg) => write!(f, "{}", msg),
             FundingAddressError::Internal(msg) => write!(f, "{}", msg),
         }
     }
@@ -58,10 +82,13 @@ impl Display for FundingAddressError {
 impl std::error::Error for FundingAddressError {}
 
 pub struct FundingAddressService {
+    config: FundingAddressConfig,
     funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
     keys_helper: Arc<dyn KeysHelper + Sync + Send>,
     signer: FundingAddressSigner,
+    signing_lock: Mutex<()>,
     currencies: Currencies,
+    funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,21 +108,33 @@ pub struct CreateResponse {
 }
 
 impl FundingAddressService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        config: Option<FundingAddressConfig>,
         funding_address_helper: Arc<dyn FundingAddressHelper + Sync + Send>,
         keys_helper: Arc<dyn KeysHelper + Sync + Send>,
         swap_helper: Arc<dyn SwapHelper + Sync + Send>,
         chain_swap_helper: Arc<dyn ChainSwapHelper + Sync + Send>,
         currencies: Currencies,
         cache: Cache,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     ) -> Self {
-        let signer =
-            FundingAddressSigner::new(swap_helper, chain_swap_helper, currencies.clone(), cache);
+        let cfg = config.unwrap_or_default();
+        let signer = FundingAddressSigner::new(
+            swap_helper,
+            chain_swap_helper,
+            currencies.clone(),
+            cache,
+            cfg.swap_timeout_buffer,
+        );
         Self {
+            config: cfg,
             funding_address_helper,
             keys_helper,
             signer,
+            signing_lock: Mutex::new(()),
             currencies,
+            funding_address_update_tx,
         }
     }
 
@@ -143,13 +182,13 @@ impl FundingAddressService {
                 .increment_highest_used_index(&request.symbol)
                 .map_err(|e| FundingAddressError::Database(e.to_string()))? as u32;
 
-        // TODO: config
-        let default_delta = 1000;
+        let timeout_delta =
+            TimeoutDeltaProvider::calculate_blocks(&request.symbol, self.config.timeout_delta)?;
         let timeout_block_height = get_chain_client(&self.currencies, &request.symbol)?
             .blockchain_info()
             .await?
             .blocks
-            + default_delta;
+            + timeout_delta;
         let id = generate_id(None);
 
         let mut funding_address = FundingAddress {
@@ -230,10 +269,9 @@ impl FundingAddressService {
         id: &str,
         swap_id: &str,
     ) -> Result<CooperativeDetails, FundingAddressError> {
+        let _signing_lock = self.signing_lock.lock().await;
         let funding_address = self.get_by_id(id)?;
-        let key_pair = self
-            .key_pair(&funding_address)
-            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+        let key_pair = self.key_pair(&funding_address)?;
         self.signer
             .get_signing_details(&funding_address, &key_pair, swap_id)
             .await
@@ -242,17 +280,12 @@ impl FundingAddressService {
 
     pub async fn set_signature(
         &self,
+        id: &str,
         request: SetSignatureRequest,
     ) -> Result<FundingAddress, FundingAddressError> {
-        let funding_address = self.get_by_id(&request.id)?;
-        if funding_address.status == FundingAddressStatus::TransactionClaimed.to_string() {
-            return Err(FundingAddressError::Internal(
-                "funding address has already been claimed".to_string(),
-            ));
-        }
-        let key_pair = self
-            .key_pair(&funding_address)
-            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+        let _signing_lock = self.signing_lock.lock().await;
+        let funding_address = self.get_by_id(id)?;
+        let key_pair = self.key_pair(&funding_address)?;
         let (signed_tx, swap_id) = self
             .signer
             .set_signature(&funding_address, &key_pair, &request)
@@ -268,6 +301,51 @@ impl FundingAddressService {
             )
             .map_err(|e| FundingAddressError::Database(e.to_string()))?;
         Ok(funding_address)
+    }
+
+    pub async fn sign_refund(
+        &self,
+        id: &str,
+        request: RefundSignatureRequest,
+    ) -> Result<PartialSignatureResponse, FundingAddressError> {
+        let _signing_lock = self.signing_lock.lock().await;
+        let funding_address = self.get_by_id(id)?;
+        let new_status = FundingAddressStatus::TransactionRefunded.to_string();
+        let should_notify = funding_address.status != new_status;
+        let key_pair = self.key_pair(&funding_address)?;
+        let response = self
+            .signer
+            .sign_refund(&funding_address, &key_pair, &request)
+            .await
+            .map_err(|err| {
+                if err
+                    .downcast_ref::<FundingAddressEligibilityError>()
+                    .is_some()
+                {
+                    FundingAddressError::InvalidRequest(err.to_string())
+                } else {
+                    FundingAddressError::Internal(err.to_string())
+                }
+            })?;
+
+        self.funding_address_helper
+            .set_status(&funding_address.id, &new_status)
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
+
+        if should_notify {
+            let update = FundingAddressUpdate {
+                id: funding_address.id.clone(),
+                status: new_status.to_string(),
+                transaction: None,
+                swap_id: funding_address.swap_id.clone(),
+            };
+
+            if let Err(err) = self.funding_address_update_tx.send((None, vec![update])) {
+                trace!("Could not send funding address update: {err}");
+            }
+        }
+
+        Ok(response)
     }
 }
 
@@ -378,13 +456,17 @@ mod test {
         }
 
         fn build(self) -> FundingAddressService {
+            let (funding_address_update_tx, _) =
+                tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
             FundingAddressService::new(
+                None,
                 Arc::new(self.funding_helper),
                 Arc::new(self.keys_helper),
                 Arc::new(MockSwapHelper::new()),
                 Arc::new(MockChainSwapHelper::new()),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
                 Cache::Memory(crate::cache::MemCache::new()),
+                funding_address_update_tx,
             )
         }
     }

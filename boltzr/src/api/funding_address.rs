@@ -3,7 +3,9 @@ use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
 use crate::currencies::get_chain_client;
-use crate::service::{CreateFundingAddressRequest, FundingAddressError, SetSignatureRequest};
+use crate::service::{
+    CreateFundingAddressRequest, FundingAddressError, RefundSignatureRequest, SetSignatureRequest,
+};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
 use anyhow::Result;
@@ -20,6 +22,7 @@ impl IntoResponse for FundingAddressError {
             FundingAddressError::CurrencyNotFound(_)
             | FundingAddressError::NoWallet(_)
             | FundingAddressError::NotFound(_) => StatusCode::NOT_FOUND,
+            FundingAddressError::InvalidRequest(_) => StatusCode::BAD_REQUEST,
             FundingAddressError::Database(_) | FundingAddressError::Internal(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -66,14 +69,6 @@ pub struct GetSigningDetailsResponse {
 pub struct GetSigningDetailsQuery {
     #[serde(rename = "swapId")]
     pub swap_id: String,
-}
-
-#[derive(Deserialize)]
-pub struct SetSignatureRequestBody {
-    #[serde(rename = "pubNonce")]
-    pub pub_nonce: String,
-    #[serde(rename = "partialSignature")]
-    pub partial_signature: String,
 }
 
 pub async fn create<S, M>(
@@ -170,19 +165,17 @@ where
 pub async fn set_signature<S, M>(
     Extension(state): Extension<Arc<ServerState<S, M>>>,
     Path(id): Path<String>,
-    Json(body): Json<SetSignatureRequestBody>,
+    Json(body): Json<SetSignatureRequest>,
 ) -> Result<impl IntoResponse, FundingAddressError>
 where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let request = SetSignatureRequest {
-        id,
-        pub_nonce: body.pub_nonce,
-        partial_signature: body.partial_signature,
-    };
-
-    let funding_address = state.service.funding_address.set_signature(request).await?;
+    let funding_address = state
+        .service
+        .funding_address
+        .set_signature(&id, body)
+        .await?;
 
     state
         .manager
@@ -200,6 +193,20 @@ where
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
+pub async fn refund<S, M>(
+    Extension(state): Extension<Arc<ServerState<S, M>>>,
+    Path(id): Path<String>,
+    Json(body): Json<RefundSignatureRequest>,
+) -> Result<impl IntoResponse, FundingAddressError>
+where
+    S: SwapInfos + Send + Sync + Clone + 'static,
+    M: SwapManager + Send + Sync + 'static,
+{
+    let response = state.service.funding_address.sign_refund(&id, body).await?;
+
+    Ok((StatusCode::OK, Json(response)).into_response())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -207,7 +214,9 @@ mod test {
     use crate::api::test::Fetcher;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
+    use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
     use crate::db::helpers::web_hook::test::get_pool;
+    use crate::service::PartialSignatureResponse;
     use crate::service::Service;
     use crate::service::test::get_test_currencies;
     use crate::swap::manager::test::MockManager;
@@ -215,9 +224,11 @@ mod test {
     use axum::http::{Request, StatusCode};
     use axum::{Extension, Router};
     use bitcoin::key::{Keypair, Secp256k1};
+    use boltz_core::musig::Musig;
     use http_body_util::BodyExt;
     use rstest::*;
     use std::sync::Arc;
+    use std::time::Duration;
     use tower::ServiceExt;
 
     const TEST_SYMBOL: &str = "BTC";
@@ -229,28 +240,43 @@ mod test {
             .to_string()
     }
 
-    async fn setup_router() -> Router {
+    async fn setup_router_with_funding_updates() -> (
+        Router,
+        tokio::sync::broadcast::Receiver<(Option<u64>, Vec<FundingAddressUpdate>)>,
+    ) {
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(1);
+        let (funding_address_update_tx, _) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(1);
+        let funding_address_update_rx = funding_address_update_tx.subscribe();
         let currencies = get_test_currencies().await;
         let pool = get_pool();
         crate::db::helpers::keys::test::create_keys_table(
             &pool,
             currencies.keys().cloned().collect::<Vec<String>>(),
         );
-        Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
-            ServerState {
-                manager: Arc::new(MockManager::new()),
-                service: Arc::new(Service::new_mocked(
-                    false,
-                    Some(get_test_currencies().await),
-                )),
-                swap_status_update_tx: status_tx.clone(),
-                swap_infos: Fetcher { status_tx },
-            },
-        )))
+        (
+            Server::<Fetcher, MockManager>::add_routes(Router::new()).layer(Extension(Arc::new(
+                ServerState {
+                    manager: Arc::new(MockManager::new()),
+                    service: Arc::new(Service::new_mocked_with_funding_updates(
+                        false,
+                        Some(get_test_currencies().await),
+                        funding_address_update_tx.clone(),
+                    )),
+                    swap_status_update_tx: status_tx.clone(),
+                    swap_infos: Fetcher { status_tx },
+                },
+            ))),
+            funding_address_update_rx,
+        )
     }
 
-    async fn make_create_request(
+    async fn setup_router() -> Router {
+        setup_router_with_funding_updates().await.0
+    }
+
+    async fn make_create_request_with_router(
+        router: Router,
         currency: &str,
         refund_public_key: &str,
     ) -> axum::response::Response {
@@ -258,8 +284,7 @@ mod test {
             "symbol": currency,
             "refundPublicKey": refund_public_key
         });
-        setup_router()
-            .await
+        router
             .oneshot(
                 Request::builder()
                     .method(axum::http::Method::POST)
@@ -270,6 +295,36 @@ mod test {
             )
             .await
             .unwrap()
+    }
+
+    async fn make_refund_request_with_router(
+        router: Router,
+        id: &str,
+        pub_nonce: &str,
+        transaction_hash: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "pubNonce": pub_nonce,
+            "transactionHash": transaction_hash
+        });
+        router
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::POST)
+                    .uri(format!("/v2/funding/{}/refund", id))
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_create_request(
+        currency: &str,
+        refund_public_key: &str,
+    ) -> axum::response::Response {
+        make_create_request_with_router(setup_router().await, currency, refund_public_key).await
     }
 
     async fn make_create_request_raw(body: String) -> axum::response::Response {
@@ -287,6 +342,64 @@ mod test {
             .unwrap()
     }
 
+    async fn make_get_request(id: &str) -> axum::response::Response {
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::GET)
+                    .uri(format!("/v2/funding/{}", id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_get_signing_details_request(id: &str, swap_id: &str) -> axum::response::Response {
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::GET)
+                    .uri(format!("/v2/funding/{}/signature?swapId={}", id, swap_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_set_signature_request(
+        id: &str,
+        pub_nonce: &str,
+        partial_signature: &str,
+    ) -> axum::response::Response {
+        let body = serde_json::json!({
+            "pubNonce": pub_nonce,
+            "partialSignature": partial_signature
+        });
+        setup_router()
+            .await
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::PATCH)
+                    .uri(format!("/v2/funding/{}/signature", id))
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn make_refund_request(
+        id: &str,
+        pub_nonce: &str,
+        transaction_hash: &str,
+    ) -> axum::response::Response {
+        make_refund_request_with_router(setup_router().await, id, pub_nonce, transaction_hash).await
+    }
     #[tokio::test]
     async fn test_create_funding_address_success() {
         let res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
@@ -358,20 +471,6 @@ mod test {
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     }
 
-    async fn make_get_request(id: &str) -> axum::response::Response {
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::GET)
-                    .uri(format!("/v2/funding/{}", id))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_get_funding_address_success() {
         let create_res = make_create_request(TEST_SYMBOL, &get_keypair()).await;
@@ -398,20 +497,6 @@ mod test {
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
-    async fn make_get_signing_details_request(id: &str, swap_id: &str) -> axum::response::Response {
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::GET)
-                    .uri(format!("/v2/funding/{}/signature?swapId={}", id, swap_id))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_get_signing_details_not_found() {
         let res = make_get_signing_details_request("nonexistent_id", "nonexistent_swap_id").await;
@@ -422,27 +507,19 @@ mod test {
         assert!(error.error.contains("funding address not found"));
     }
 
-    async fn make_set_signature_request(
-        id: &str,
-        pub_nonce: &str,
-        partial_signature: &str,
-    ) -> axum::response::Response {
-        let body = serde_json::json!({
-            "pubNonce": pub_nonce,
-            "partialSignature": partial_signature
-        });
-        setup_router()
-            .await
-            .oneshot(
-                Request::builder()
-                    .method(axum::http::Method::PATCH)
-                    .uri(format!("/v2/funding/{}/signature", id))
-                    .header(axum::http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(serde_json::to_vec(&body).unwrap()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
+    fn create_pub_nonce_hex(keypair: &Keypair, message: [u8; 32]) -> String {
+        let secp = Secp256k1::new();
+        let other_keypair = Keypair::new(&secp, &mut rand::thread_rng());
+        let musig = Musig::setup(
+            Musig::convert_keypair(keypair.secret_key().secret_bytes()).unwrap(),
+            vec![
+                Musig::convert_pub_key(&keypair.public_key().serialize()).unwrap(),
+                Musig::convert_pub_key(&other_keypair.public_key().serialize()).unwrap(),
+            ],
+        )
+        .unwrap();
+        let musig = musig.message(message).generate_nonce(&mut Musig::rng());
+        alloy::hex::encode(musig.pub_nonce().serialize())
     }
 
     #[tokio::test]
@@ -458,5 +535,107 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error: ApiError = serde_json::from_slice(&body).unwrap();
         assert!(error.error.contains("funding address not found"));
+    }
+
+    #[tokio::test]
+    async fn test_refund_funding_address_success() {
+        let (router, mut funding_address_update_rx) = setup_router_with_funding_updates().await;
+        let secp = Secp256k1::new();
+        let keypair = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let funding_address = make_create_request_with_router(
+            router.clone(),
+            TEST_SYMBOL,
+            &keypair.public_key().to_string(),
+        )
+        .await;
+        assert_eq!(funding_address.status(), StatusCode::CREATED);
+        let funding_address_body = funding_address
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let funding_address_response: CreateResponse =
+            serde_json::from_slice(&funding_address_body).unwrap();
+
+        let message = [1u8; 32];
+        let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
+        let transaction_hash = alloy::hex::encode(message);
+
+        let response = make_refund_request_with_router(
+            router,
+            &funding_address_response.id,
+            &pub_nonce_hex,
+            &transaction_hash,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let response_body = response.into_body().collect().await.unwrap().to_bytes();
+        let response: PartialSignatureResponse = serde_json::from_slice(&response_body).unwrap();
+
+        assert!(!response.pub_nonce.is_empty());
+        assert!(!response.partial_signature.is_empty());
+
+        let (_, updates) =
+            tokio::time::timeout(Duration::from_secs(1), funding_address_update_rx.recv())
+                .await
+                .expect("expected funding address update broadcast")
+                .expect("broadcast channel closed unexpectedly");
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].id, funding_address_response.id);
+        assert_eq!(updates[0].status, "transaction.refunded");
+    }
+
+    #[tokio::test]
+    async fn test_refund_funding_address_swap_linked() {
+        use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
+        use crate::db::helpers::web_hook::test::get_pool;
+
+        let secp = Secp256k1::new();
+        let keypair = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let funding_address =
+            make_create_request(TEST_SYMBOL, &keypair.public_key().to_string()).await;
+        assert_eq!(funding_address.status(), StatusCode::CREATED);
+        let funding_address_body = funding_address
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let funding_address_response: CreateResponse =
+            serde_json::from_slice(&funding_address_body).unwrap();
+
+        let helper = FundingAddressHelperDatabase::new(get_pool());
+        helper
+            .set_presigned_tx(
+                &funding_address_response.id,
+                Some(SwapTxInfo {
+                    swap_id: "swap".to_string(),
+                    presigned_tx: vec![],
+                }),
+            )
+            .unwrap();
+
+        let message = [2u8; 32];
+        let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
+        let transaction_hash = alloy::hex::encode(message);
+
+        let response = make_refund_request(
+            &funding_address_response.id,
+            &pub_nonce_hex,
+            &transaction_hash,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let response_body = response.into_body().collect().await.unwrap().to_bytes();
+        let error: ApiError = serde_json::from_slice(&response_body).unwrap();
+        assert!(
+            error
+                .error
+                .contains("funding address is already linked to a swap")
+        );
     }
 }

@@ -87,10 +87,6 @@ pub mod test {
         }
     }
 
-    pub fn test_chain_swap_info(lockup_address: &str) -> ChainSwapInfo {
-        test_chain_swap_info_with_timeout(lockup_address, 500)
-    }
-
     pub fn test_chain_swap_info_with_timeout(
         lockup_address: &str,
         timeout_block_height: i32,
@@ -125,12 +121,14 @@ pub mod test {
         swap_helper: MockSwapHelper,
         chain_swap_helper: MockChainSwapHelper,
         currencies: Currencies,
+        timeout_buffer_minutes: Option<u64>,
     ) -> FundingAddressSigner {
         FundingAddressSigner::new(
             Arc::new(swap_helper),
             Arc::new(chain_swap_helper),
             currencies,
             Cache::Memory(crate::cache::MemCache::new()),
+            timeout_buffer_minutes.unwrap_or(60 * 3), // 3 hours
         )
     }
 
@@ -372,7 +370,6 @@ pub mod test {
             client_sign(client_keypair, server_keypair, funding_address, &details);
 
         let request = SetSignatureRequest {
-            id: funding_address.id.clone(),
             pub_nonce: client_nonce,
             partial_signature: client_sig,
         };

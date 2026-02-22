@@ -40,11 +40,11 @@ ADD CONSTRAINT script_pubkeys_exclusive_id CHECK (
 
 ALTER TABLE script_pubkeys
 ALTER COLUMN "createdAt"
-SET DEFAULT now();
+SET DEFAULT NOW();
 
 ALTER TABLE script_pubkeys
 ALTER COLUMN "updatedAt"
-SET DEFAULT now();
+SET DEFAULT NOW();
 
 CREATE TRIGGER update_script_pubkeys_modified_time BEFORE
 UPDATE ON script_pubkeys FOR EACH ROW

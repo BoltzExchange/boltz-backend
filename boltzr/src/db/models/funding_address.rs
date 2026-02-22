@@ -130,9 +130,9 @@ impl FundingAddress {
     }
 
     pub fn presigned_tx_hex(&self) -> Result<String> {
-        Ok(alloy::hex::encode(self.presigned_tx.clone().ok_or_else(
-            || anyhow::anyhow!("funding address has no presigned transaction"),
-        )?))
+        Ok(hex::encode(self.presigned_tx.clone().ok_or_else(|| {
+            anyhow::anyhow!("funding address has no presigned transaction")
+        })?))
     }
 }
 
@@ -146,7 +146,7 @@ mod test {
             id: "id".to_string(),
             symbol: "BTC".to_string(),
             key_index: 0,
-            their_public_key: alloy::hex::decode(
+            their_public_key: hex::decode(
                 "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc",
             )
             .unwrap(),

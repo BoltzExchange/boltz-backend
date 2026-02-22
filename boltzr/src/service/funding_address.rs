@@ -1,5 +1,4 @@
 use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
-use crate::cache::Cache;
 use crate::chain::elements_client::SYMBOL as ELEMENTS_SYMBOL;
 use crate::chain::types::Type;
 use crate::chain::utils::encode_address;
@@ -15,10 +14,10 @@ use crate::service::funding_address_signer::{
 };
 use crate::swap::{FundingAddressStatus, TimeoutDeltaProvider};
 use crate::utils::generate_id;
-use alloy::hex;
 use anyhow::Result;
 use bitcoin::PublicKey;
 use bitcoin::key::{Keypair, Secp256k1};
+use boltz_cache::Cache;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -465,7 +464,7 @@ mod test {
                 Arc::new(MockSwapHelper::new()),
                 Arc::new(MockChainSwapHelper::new()),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
-                Cache::Memory(crate::cache::MemCache::new()),
+                Cache::Memory(boltz_cache::MemCache::new()),
                 funding_address_update_tx,
             )
         }
@@ -483,7 +482,7 @@ mod test {
             id: id.to_string(),
             symbol: symbol.to_string(),
             key_index: 10,
-            their_public_key: alloy::hex::decode(TEST_PUBKEY).unwrap(),
+            their_public_key: hex::decode(TEST_PUBKEY).unwrap(),
             timeout_block_height: 1000,
             ..Default::default()
         };

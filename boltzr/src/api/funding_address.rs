@@ -519,7 +519,7 @@ mod test {
         )
         .unwrap();
         let musig = musig.message(message).generate_nonce(&mut Musig::rng());
-        alloy::hex::encode(musig.pub_nonce().serialize())
+        hex::encode(musig.pub_nonce().serialize())
     }
 
     #[tokio::test]
@@ -561,7 +561,7 @@ mod test {
 
         let message = [1u8; 32];
         let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
-        let transaction_hash = alloy::hex::encode(message);
+        let transaction_hash = hex::encode(message);
 
         let response = make_refund_request_with_router(
             router,
@@ -620,7 +620,7 @@ mod test {
 
         let message = [2u8; 32];
         let pub_nonce_hex = create_pub_nonce_hex(&keypair, message);
-        let transaction_hash = alloy::hex::encode(message);
+        let transaction_hash = hex::encode(message);
 
         let response = make_refund_request(
             &funding_address_response.id,

@@ -69,13 +69,13 @@ impl FundingAddressClaimer {
             Musig::convert_keypair(keys.secret_key().secret_bytes())?,
             vec![
                 Musig::convert_pub_key(&keys.public_key().serialize())?,
-                Musig::convert_pub_key(alloy::hex::decode(&swap.refund_public_key)?.as_slice())?,
+                Musig::convert_pub_key(hex::decode(&swap.refund_public_key)?.as_slice())?,
             ],
         )?
         .agg_pk()
         .serialize();
 
-        let preimage = alloy::hex::decode(&swap.preimage)?;
+        let preimage = hex::decode(&swap.preimage)?;
         let input_type = InputType::Claim(
             preimage
                 .try_into()
@@ -402,7 +402,7 @@ mod test {
             id: "test".to_string(),
             symbol: "BTC".to_string(),
             key_index: 10,
-            refund_public_key: alloy::hex::encode(client_keypair.public_key().serialize()),
+            refund_public_key: hex::encode(client_keypair.public_key().serialize()),
             preimage: "0000000000000000000000000000000000000000000000000000000000000001"
                 .to_string(),
             funding_address,
@@ -457,7 +457,7 @@ mod test {
         funding_address.lockup_amount = Some(amount);
 
         let preimage = "0000000000000000000000000000000000000000000000000000000000000001";
-        let preimage_bytes: [u8; 32] = alloy::hex::decode(preimage).unwrap().try_into().unwrap();
+        let preimage_bytes: [u8; 32] = hex::decode(preimage).unwrap().try_into().unwrap();
         let preimage_hash = compute_preimage_hash(&preimage_bytes);
         let claim_pubkey = server_keypair.x_only_public_key().0;
         let refund_pubkey = client_keypair.x_only_public_key().0;
@@ -511,7 +511,7 @@ mod test {
             id: "test_swap_claim".to_string(),
             symbol: symbol.to_string(),
             key_index: 10,
-            refund_public_key: alloy::hex::encode(client_keypair.public_key().serialize()),
+            refund_public_key: hex::encode(client_keypair.public_key().serialize()),
             tree: swap_tree_json,
             preimage: preimage.to_string(),
             funding_address: funding_address.clone(),

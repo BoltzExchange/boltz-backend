@@ -116,7 +116,7 @@ impl TxChecker {
                             RelevantId::FundingAddress(funding_address_id.clone())
                         }
                         _ => {
-                            let pubkey_hex = alloy::hex::encode(&script_pubkey);
+                            let pubkey_hex = hex::encode(&script_pubkey);
                             error!(
                                 "Script pubkey {pubkey_hex} for symbol {symbol} has both swap_id and funding_address_id",
                             );

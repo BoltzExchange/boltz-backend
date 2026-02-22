@@ -298,7 +298,7 @@ impl FundingAddressNursery {
                     .as_str(),
                     is_rbf,
                 )?;
-                let tx_hex = alloy::hex::encode(relevant_tx.tx.serialize());
+                let tx_hex = hex::encode(relevant_tx.tx.serialize());
                 self.send_update(funding_address_id.as_str(), Some(tx_hex))
                     .await?;
             }
@@ -407,7 +407,7 @@ mod test {
             symbol: "BTC".to_string(),
             status: "created".to_string(),
             key_index: 0,
-            their_public_key: alloy::hex::decode(
+            their_public_key: hex::decode(
                 "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc",
             )
             .unwrap(),

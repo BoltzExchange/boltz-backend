@@ -34,7 +34,7 @@ class EthereumTransactionTracker {
         transaction.hash,
       );
 
-      if (receipt && (await receipt.confirmations()) > 0) {
+      if (receipt) {
         this.logger.silly(
           `Removing confirmed ${this.networkDetails.name} transaction: ${transaction.hash}`,
         );

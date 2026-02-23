@@ -59,6 +59,7 @@ export const providerEndpoint = 'http://127.0.0.1:8545';
 export const getSigner = async (): Promise<EthereumSetup> => {
   const provider = new JsonRpcProvider(providerEndpoint, undefined, {
     polling: true,
+    cacheTimeout: -1,
   });
   provider.pollingInterval = 500;
   (provider as any).getLocktimeHeight = async () => {

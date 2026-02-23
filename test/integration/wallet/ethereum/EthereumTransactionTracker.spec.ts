@@ -53,6 +53,16 @@ describe('EthereumTransactionTracker', () => {
     transactionTracker.scanPendingTransactions = realScanBlock;
   });
 
+  test('should not remove pending transactions', async () => {
+    mockGetTransactionsResult[0].hash =
+      '0x0000000000000000000000000000000000000000000000000000000000000001';
+
+    await transactionTracker.scanPendingTransactions();
+
+    expect(mockGetTransactions).toHaveBeenCalledTimes(1);
+    expect(mockGetTransactionsResult[0].destroy).not.toHaveBeenCalled();
+  });
+
   test('should scan new blocks', async () => {
     const transaction = await setup.signer.sendTransaction({
       to: await setup.signer.getAddress(),

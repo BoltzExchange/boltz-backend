@@ -20,6 +20,7 @@ pub mod providers;
 
 const DEFAULT_INTERVAL: &str = "0 0 0 * * *";
 const SCB_RETRY_INTERVAL_SECONDS: u64 = 60;
+const PROVIDER_INIT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub type ChannelBackupFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -73,15 +74,34 @@ impl Backup {
     ) -> anyhow::Result<Self> {
         let mut s3_providers: Vec<Box<dyn BackupProvider>> = Vec::new();
 
+        let mut provider_init_tasks = tokio::task::JoinSet::new();
         for provider_config in config.simple_storage.into_iter() {
-            match providers::s3::S3::new(&provider_config).await {
-                Ok(provider) => s3_providers.push(Box::new(provider)),
+            provider_init_tasks.spawn(async move {
+                let name = providers::s3::S3::name(&provider_config);
+                let result = tokio::time::timeout(
+                    PROVIDER_INIT_TIMEOUT,
+                    providers::s3::S3::new(&provider_config),
+                )
+                .await
+                .unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "timed out after {:?}",
+                        PROVIDER_INIT_TIMEOUT
+                    ))
+                });
+
+                (name, result)
+            });
+        }
+
+        while let Some(result) = provider_init_tasks.join_next().await {
+            match result {
+                Ok((_, Ok(provider))) => s3_providers.push(Box::new(provider)),
+                Ok((name, Err(e))) => {
+                    error!("Failed to initialize backup provider {}: {}", name, e);
+                }
                 Err(e) => {
-                    error!(
-                        "Failed to initialize S3 provider {}: {}",
-                        providers::s3::S3::name(&provider_config),
-                        e
-                    );
+                    error!("Failed to initialize backup provider task: {}", e);
                 }
             }
         }

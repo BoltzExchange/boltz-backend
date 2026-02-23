@@ -76,7 +76,7 @@ class Sidecar extends BaseClient<
 
   private static childProcess?: child_process.ChildProcessWithoutNullStreams;
 
-  private static maxConnectRetries = 25;
+  private static maxConnectRetries = 50;
   private static connectRetryTimeout = 500;
 
   private client?: BoltzRClient;

@@ -8,7 +8,7 @@ edition.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 boltz-utils = { path = "../boltz-utils" }
-aws-sdk-s3 = "1.123.0"
+aws-sdk-s3 = "1.124.0"
 bytes = { workspace = true }
 chrono = { workspace = true }
 cron = "0.15.0"

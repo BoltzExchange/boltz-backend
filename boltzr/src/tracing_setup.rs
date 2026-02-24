@@ -221,5 +221,12 @@ fn get_filter<S>(log_level: String) -> (reload::Layer<EnvFilter, S>, Handle<EnvF
 
 fn env_filter(log_level: String) -> EnvFilter {
     EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| format!("{}={}", built_info::PKG_NAME, log_level).into())
+        .unwrap_or_else(|_| {
+            format!(
+                "{}={level},boltz_backup={level},boltz_cache={level},boltz_core={level},boltz_evm={level},boltz_utils={level}",
+                built_info::PKG_NAME,
+                level = log_level
+            )
+            .into()
+        })
 }

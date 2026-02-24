@@ -2179,35 +2179,7 @@ class SwapRouter extends RouterBase {
      *           type: string
      *           description: Chain of the funding address
      *         tree:
-     *           $ref: '#/components/schemas/FundingAddressTree'
-     *         keyIndex:
-     *           type: number
-     *           description: Derivation index for the refund key used in the funding address
-     *         transaction:
-     *           $ref: '#/components/schemas/Transaction'
-     *         serverPublicKey:
-     *           type: string
-     *           description: Public key of the server
-     *         timeoutBlockHeight:
-     *           type: number
-     *           description: Block height at which the funding address refund path becomes spendable
-     *         blindingKey:
-     *           type: string
-     *           description: Blinding key of the lockup address. Only set when the chain is Liquid
-     *
-     *     FundingAddressTree:
-     *       type: object
-     *       required: ["refundLeaf"]
-     *       properties:
-     *         refundLeaf:
-     *           $ref: '#/components/schemas/SwapTreeLeaf'
-     *
-     *     FundingAddressDetails:
-     *       type: object
-     *       required: ["tree", "keyIndex", "serverPublicKey", "timeoutBlockHeight"]
-     *       properties:
-     *         tree:
-     *           $ref: '#/components/schemas/FundingAddressTree'
+     *           $ref: '#/components/schemas/FundingTree'
      *         keyIndex:
      *           type: number
      *           description: Derivation index for the refund key used in the funding address

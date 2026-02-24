@@ -120,14 +120,14 @@ impl FundingAddressSigner {
 
     fn can_spend(&self, funding_address: &FundingAddress) -> Result<()> {
         let status = FundingAddressStatus::parse(&funding_address.status);
-        if status == FundingAddressStatus::TransactionClaimed {
+        if ![
+            FundingAddressStatus::TransactionMempool,
+            FundingAddressStatus::TransactionConfirmed,
+        ]
+        .contains(&status)
+        {
             return Err(anyhow!(FundingAddressEligibilityError(
-                "funding address has already been spent".to_string(),
-            )));
-        }
-        if status == FundingAddressStatus::Expired {
-            return Err(anyhow!(FundingAddressEligibilityError(
-                "funding address has expired".to_string(),
+                "funding address is not in a spendable state".to_string(),
             )));
         }
         if funding_address.swap_id.is_some() {
@@ -241,6 +241,35 @@ impl FundingAddressSigner {
                 tx.input[0].witness.script_witness = vec![sig_bytes];
             }
         }
+
+        let tx_hex = tx.serialize().to_hex();
+        let response = get_chain_client(&self.currencies, &funding_address.symbol)?
+            .test_mempool_accept(&[&tx_hex])
+            .await?;
+        let result = response
+            .first()
+            .ok_or_else(|| anyhow!("testmempoolaccept returned no result"))?;
+
+        let invalid_reason = match Type::from_str(&funding_address.symbol)? {
+            Type::Bitcoin => match result.reject_reason.as_deref() {
+                Some(reason) if reason.contains("min relay fee not met") => None,
+                Some(reason) => Some(reason.to_string()),
+                None => Some("transaction not allowed by mempool".to_string()),
+            },
+            Type::Elements => match result.reject_reason.as_deref() {
+                Some(reason) if !reason.is_empty() => Some(reason.to_string()),
+                _ if result.allowed => None,
+                _ => Some("transaction not allowed by mempool".to_string()),
+            },
+        };
+        if let Some(reason) = invalid_reason {
+            return Err(anyhow!(
+                "presigned tx for funding address {} is not valid: {}",
+                funding_address.id,
+                reason
+            ));
+        }
+
         Ok((tx, session.swap_id))
     }
 
@@ -250,7 +279,14 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse> {
-        self.can_spend(funding_address)?;
+        if funding_address.swap_id.is_some() {
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address is already linked to a swap".to_string(),
+            )));
+        }
+        self.cache
+            .delete(CACHE_KEY, &Self::cache_field(&funding_address.id))
+            .await?;
 
         let msg: [u8; 32] = hex::decode(&request.transaction_hash)?
             .try_into()
@@ -438,8 +474,6 @@ impl FundingAddressSigner {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::chain::types::RpcParam;
-    use crate::chain::utils::encode_address;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::funding_address_test_utils::test::*;
@@ -733,55 +767,19 @@ mod test {
         let client_key_pair = get_keypair();
         let server_key_pair = get_keypair();
 
-        let mut funding_address = FundingAddress {
-            id: funding_address_id.to_string(),
-            symbol: symbol.to_string(),
-            key_index: 10,
-            their_public_key: client_key_pair.public_key().serialize().to_vec(),
-            timeout_block_height: 1000,
-            ..Default::default()
-        };
-        // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().unwrap();
-
-        // Generate the funding address and send funds
-        let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
-        let funding_address_str = encode_address(
-            Type::from_str(symbol).unwrap(),
-            script_pubkey.clone(),
-            None,
-            currencies.get(symbol).unwrap().network,
+        let mut funding_address = setup_funding_address_with_real_lockup(
+            &chain_client,
+            funding_address_id,
+            symbol,
+            &client_key_pair.public_key().serialize(),
+            1000,
+            &server_key_pair,
         )
-        .unwrap();
-
-        let amount = 100_000;
-        let tx_id = chain_client
-            .request_wallet(
-                None,
-                "sendtoaddress",
-                Some(&[
-                    RpcParam::Str(&funding_address_str),
-                    RpcParam::Float(amount as f64 / 100_000_000.0),
-                ]),
-            )
-            .await
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-
-        // Find the actual vout by inspecting the transaction
-        let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
-        let vout = find_vout(symbol, &raw_tx, &script_pubkey);
-
-        let mut funding_address_with_lockup = funding_address.clone();
-        funding_address_with_lockup.lockup_transaction_id = Some(tx_id.clone());
-        funding_address_with_lockup.lockup_transaction_vout = Some(vout);
-        funding_address_with_lockup.lockup_amount = Some(amount);
+        .await;
+        funding_address.status = FundingAddressStatus::TransactionConfirmed.to_string();
 
         let details = signer
-            .get_signing_details(&funding_address_with_lockup, &server_key_pair, TEST_SWAP_ID)
+            .get_signing_details(&funding_address, &server_key_pair, TEST_SWAP_ID)
             .await
             .unwrap();
 
@@ -789,7 +787,7 @@ mod test {
         let (client_nonce, client_sig) = client_sign(
             &client_key_pair,
             &server_key_pair,
-            &funding_address_with_lockup,
+            &funding_address,
             &details,
         );
 
@@ -799,7 +797,7 @@ mod test {
         };
 
         let signed_tx: std::result::Result<(Transaction, String), anyhow::Error> = signer
-            .set_signature(&funding_address_with_lockup, &server_key_pair, &request)
+            .set_signature(&funding_address, &server_key_pair, &request)
             .await;
         assert!(
             signed_tx.is_ok(),
@@ -924,31 +922,15 @@ mod test {
         let client_key_pair = get_keypair();
         let server_key_pair = get_keypair();
 
-        let mut funding_address = FundingAddress {
-            id: funding_address_id.to_string(),
-            symbol: symbol.to_string(),
-            key_index: 10,
-            their_public_key: client_key_pair.public_key().serialize().to_vec(),
-            timeout_block_height: 1000,
-            ..Default::default()
-        };
-        funding_address.tree = funding_address.tree_json().unwrap();
-
-        let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
-        let funding_address_str = encode_address(
-            Type::from_str(symbol).unwrap(),
-            script_pubkey.clone(),
-            None,
-            currencies.get(symbol).unwrap().network,
+        let funding_address = setup_funding_address_with_real_lockup(
+            &chain_client,
+            funding_address_id,
+            symbol,
+            &client_key_pair.public_key().serialize(),
+            1000,
+            &server_key_pair,
         )
-        .unwrap();
-
-        let (tx_id, vout, amount) =
-            fund_address(&chain_client, symbol, &funding_address_str, &script_pubkey).await;
-
-        funding_address.lockup_transaction_id = Some(tx_id);
-        funding_address.lockup_transaction_vout = Some(vout);
-        funding_address.lockup_amount = Some(amount);
+        .await;
 
         let address_type = if symbol == "L-BTC" {
             Some("blech32")
@@ -1110,6 +1092,38 @@ mod test {
     }
 
     #[rstest]
+    #[case(FundingAddressStatus::Created)]
+    #[case(FundingAddressStatus::Expired)]
+    #[case(FundingAddressStatus::TransactionClaimed)]
+    #[tokio::test]
+    async fn test_set_signature_rejects_unspendable_statuses(#[case] status: FundingAddressStatus) {
+        let signer = TestSignerContext::new().with_currencies().await.build();
+        let key_pair = get_keypair();
+
+        let mut funding_address = test_funding_address(
+            "test_funding_unspendable_status",
+            &key_pair.public_key().serialize(),
+        );
+        funding_address.status = status.to_string();
+
+        let request = SetSignatureRequest {
+            pub_nonce: "test_pub_nonce".to_string(),
+            partial_signature: "test_sig".to_string(),
+        };
+
+        let result = signer
+            .set_signature(&funding_address, &key_pair, &request)
+            .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("funding address is not in a spendable state")
+        );
+    }
+
+    #[rstest]
     #[case(
         None,
         None,
@@ -1181,55 +1195,16 @@ mod test {
         let client_key_pair = get_keypair();
         let server_key_pair = get_keypair();
 
-        let mut funding_address = FundingAddress {
-            id: "test_input_detail_btc".to_string(),
-            symbol: TEST_SYMBOL.to_string(),
-            key_index: 10,
-            their_public_key: client_key_pair.public_key().serialize().to_vec(),
-            timeout_block_height: 1000,
-            swap_id: Some(TEST_SWAP_ID.to_string()),
-            ..Default::default()
-        };
-        // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().unwrap();
-
-        // Generate and fund the address
-        let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
-        let funding_address_str = Address::from_bitcoin_script(
-            currencies.get(TEST_SYMBOL).unwrap().network,
-            &script_pubkey,
+        let mut funding_address_with_lockup = setup_funding_address_with_real_lockup(
+            &chain_client,
+            "test_input_detail_btc",
+            TEST_SYMBOL,
+            &client_key_pair.public_key().serialize(),
+            1000,
+            &server_key_pair,
         )
-        .unwrap()
-        .to_string();
-
-        let tx_id = chain_client
-            .request_wallet(
-                None,
-                "sendtoaddress",
-                Some(&[RpcParam::Str(&funding_address_str), RpcParam::Float(0.001)]),
-            )
-            .await
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-
-        // Find the actual vout by inspecting the transaction
-        let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
-        let tx: bitcoin::Transaction = bitcoin::consensus::deserialize(&raw_tx).unwrap();
-        let vout = tx
-            .output
-            .iter()
-            .position(|out| out.script_pubkey.as_bytes() == script_pubkey)
-            .expect("funding address script not found in transaction outputs")
-            as i32;
-
-        let mut funding_address_with_lockup = funding_address.clone();
-        funding_address_with_lockup.lockup_transaction_id = Some(tx_id);
-        funding_address_with_lockup.lockup_transaction_vout = Some(vout);
-        funding_address_with_lockup.lockup_amount =
-            Some(tx.output[vout as usize].value.to_sat() as i64);
+        .await;
+        funding_address_with_lockup.swap_id = Some(TEST_SWAP_ID.to_string());
 
         let result = signer
             .input_detail(&funding_address_with_lockup, &server_key_pair)
@@ -1271,53 +1246,15 @@ mod test {
         let client_key_pair = get_keypair();
         let server_key_pair = get_keypair();
 
-        // Note: swap_id is None
-        let mut funding_address = FundingAddress {
-            id: "test_funding_no_swap_id".to_string(),
-            symbol: TEST_SYMBOL.to_string(),
-            key_index: 10,
-            their_public_key: client_key_pair.public_key().serialize().to_vec(),
-            timeout_block_height: 1000,
-            swap_id: None,
-            ..Default::default()
-        };
-        // Initialize tree for tests that need it
-        funding_address.tree = funding_address.tree_json().unwrap();
-
-        let script_pubkey = funding_address.script_pubkey(&server_key_pair).unwrap();
-        let funding_address_str = Address::from_bitcoin_script(
-            currencies.get(TEST_SYMBOL).unwrap().network,
-            &script_pubkey,
+        let funding_address = setup_funding_address_with_real_lockup(
+            &chain_client,
+            "test_funding_no_swap_id",
+            TEST_SYMBOL,
+            &client_key_pair.public_key().serialize(),
+            1000,
+            &server_key_pair,
         )
-        .unwrap()
-        .to_string();
-
-        let tx_id = chain_client
-            .request_wallet(
-                None,
-                "sendtoaddress",
-                Some(&[RpcParam::Str(&funding_address_str), RpcParam::Float(0.001)]),
-            )
-            .await
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-
-        // Find the actual vout by inspecting the transaction
-        let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
-        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
-        let tx: bitcoin::Transaction = bitcoin::consensus::deserialize(&raw_tx).unwrap();
-        let vout = tx
-            .output
-            .iter()
-            .position(|out| out.script_pubkey.as_bytes() == script_pubkey)
-            .expect("funding address script not found in transaction outputs")
-            as i32;
-
-        funding_address.lockup_transaction_id = Some(tx_id);
-        funding_address.lockup_transaction_vout = Some(vout);
-        funding_address.lockup_amount = Some(tx.output[vout as usize].value.to_sat() as i64);
+        .await;
 
         // Should succeed because funding_address.swap_id is None
         let result = signer

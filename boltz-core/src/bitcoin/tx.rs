@@ -2,7 +2,9 @@ use crate::{
     bitcoin::InputDetail,
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     target_fee::{FeeTarget, target_fee},
-    utils::{COOPERATIVE_INPUT_ERROR, Destination, InputType, OutputType},
+    utils::{
+        COOPERATIVE_INPUT_ERROR, Destination, InputType, LEGACY_COOPERATIVE_INPUT_ERROR, OutputType,
+    },
 };
 use anyhow::Result;
 use bitcoin::{
@@ -138,9 +140,7 @@ pub fn construct_raw<C: Signing + Verification>(
                         script_sig.push_slice(PREIMAGE_DUMMY);
                     }
                     InputType::Cooperative => {
-                        return Err(anyhow::anyhow!(
-                            "legacy outputs cannot be spent cooperatively"
-                        ));
+                        return Err(anyhow::anyhow!(LEGACY_COOPERATIVE_INPUT_ERROR));
                     }
                 };
 
@@ -168,9 +168,7 @@ pub fn construct_raw<C: Signing + Verification>(
                     InputType::Claim(_) => &uncooperative.tree.claim_leaf,
                     InputType::Refund(_) => &uncooperative.tree.refund_leaf,
                     InputType::Cooperative => {
-                        return Err(anyhow::anyhow!(
-                            "legacy outputs cannot be spent cooperatively"
-                        ));
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
                     }
                 };
 

@@ -101,6 +101,14 @@ impl FundingAddressStatus {
     pub fn parse(value: &str) -> Self {
         FundingAddressStatus::try_from(value).unwrap_or(FundingAddressStatus::Unknown)
     }
+
+    pub fn final_statuses() -> Vec<String> {
+        vec![
+            FundingAddressStatus::Expired.to_string(),
+            FundingAddressStatus::TransactionClaimed.to_string(),
+            FundingAddressStatus::TransactionRefunded.to_string(),
+        ]
+    }
 }
 
 #[cfg(test)]

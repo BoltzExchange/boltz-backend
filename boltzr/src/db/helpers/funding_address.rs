@@ -1,19 +1,22 @@
-use crate::db::helpers::QueryResponse;
+use crate::db::helpers::{BoxedCondition, QueryResponse};
 use crate::db::models::FundingAddress;
 use crate::db::schema::{funding_addresses, script_pubkeys};
 use crate::db::{Pool, models::ScriptPubKey};
 use crate::swap::FundingAddressStatus;
 use anyhow::anyhow;
 use diesel::{
-    Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper, dsl::update,
-    insert_into,
+    Connection, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper,
+    dsl::update, insert_into,
 };
+use tracing::instrument;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SwapTxInfo {
     pub swap_id: String,
     pub presigned_tx: Vec<u8>,
 }
+
+pub type FundingAddressCondition = BoxedCondition<funding_addresses::table>;
 
 pub trait FundingAddressHelper {
     fn insert(
@@ -22,7 +25,7 @@ pub trait FundingAddressHelper {
         script_pubkey: &ScriptPubKey,
     ) -> QueryResponse<usize>;
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
-    fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>>;
+    fn get_all(&self, condition: FundingAddressCondition) -> QueryResponse<Vec<FundingAddress>>;
     /// Sets or clears the swap_id and presigned_tx for a funding address.
     fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
     fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
@@ -52,6 +55,11 @@ impl FundingAddressHelperDatabase {
 }
 
 impl FundingAddressHelper for FundingAddressHelperDatabase {
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::insert",
+        skip_all,
+        fields(funding_address = %funding_address.id)
+    )]
     fn insert(
         &self,
         funding_address: &FundingAddress,
@@ -70,28 +78,33 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
         .map_err(|e| anyhow!("failed to insert funding address and script pubkey: {}", e))
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::get_by_id",
+        skip_all,
+        fields(id = %id)
+    )]
     fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>> {
-        let res = funding_addresses::dsl::funding_addresses
+        Ok(funding_addresses::dsl::funding_addresses
             .select(FundingAddress::as_select())
             .filter(funding_addresses::dsl::id.eq(id))
             .limit(1)
-            .load(&mut self.pool.get()?)?;
-
-        if res.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(res[0].clone()))
+            .first(&mut self.pool.get()?)
+            .optional()?)
     }
 
-    fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>> {
-        funding_addresses::dsl::funding_addresses
+    #[instrument(name = "db::FundingAddressHelperDatabase::get_all", skip_all)]
+    fn get_all(&self, condition: FundingAddressCondition) -> QueryResponse<Vec<FundingAddress>> {
+        Ok(funding_addresses::dsl::funding_addresses
             .select(FundingAddress::as_select())
-            .filter(funding_addresses::dsl::their_public_key.eq_any(public_keys))
-            .load(&mut self.pool.get()?)
-            .map_err(Into::into)
+            .filter(condition)
+            .load(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::set_presigned_tx",
+        skip_all,
+        fields(id = %id)
+    )]
     fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize> {
         let (presigned_tx, swap_id) = match swap_tx_info {
             Some(info) => (Some(info.presigned_tx), Some(info.swap_id)),
@@ -106,19 +119,25 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::get_by_swap_id",
+        skip_all,
+        fields(swap_id = %swap_id)
+    )]
     fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>> {
-        let res = funding_addresses::dsl::funding_addresses
+        Ok(funding_addresses::dsl::funding_addresses
             .select(FundingAddress::as_select())
             .filter(funding_addresses::dsl::swap_id.eq(swap_id))
             .limit(1)
-            .load(&mut self.pool.get()?)?;
-        if res.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(res[0].clone()))
+            .first(&mut self.pool.get()?)
+            .optional()?)
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::set_transaction",
+        skip_all,
+        fields(id = %id)
+    )]
     fn set_transaction(
         &self,
         id: &str,
@@ -153,7 +172,7 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
                     .filter(funding_addresses::dsl::id.eq(id))
                     .filter(
                         funding_addresses::dsl::status
-                            .ne(&FundingAddressStatus::Expired.to_string()),
+                            .ne_all(FundingAddressStatus::final_statuses()),
                     )
                     .execute(conn)?;
 
@@ -166,6 +185,11 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .map_err(|e| anyhow!("failed to set funding address transaction: {}", e))
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::set_status",
+        skip_all,
+        fields(id = %id, status = %status)
+    )]
     fn set_status(&self, id: &str, status: &str) -> QueryResponse<usize> {
         Ok(update(funding_addresses::dsl::funding_addresses)
             .set(funding_addresses::dsl::status.eq(status.to_string()))
@@ -173,20 +197,27 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             .execute(&mut self.pool.get()?)?)
     }
 
+    #[instrument(
+        name = "db::FundingAddressHelperDatabase::expire_by_timeout",
+        skip_all,
+        fields(symbol = %symbol, height = %height)
+    )]
     fn expire_by_timeout(&self, symbol: &str, height: i32) -> QueryResponse<Vec<String>> {
         let mut conn = self.pool.get()?;
-        let expired_status = FundingAddressStatus::Expired.to_string();
-        let claimed_status = FundingAddressStatus::TransactionClaimed.to_string();
-
         conn.build_transaction()
             .serializable()
             .run(|conn| {
                 update(funding_addresses::dsl::funding_addresses)
-                    .set(funding_addresses::dsl::status.eq(&expired_status))
+                    .set(
+                        funding_addresses::dsl::status
+                            .eq(&FundingAddressStatus::Expired.to_string()),
+                    )
                     .filter(funding_addresses::dsl::symbol.eq(symbol))
                     .filter(funding_addresses::dsl::timeout_block_height.le(height))
-                    .filter(funding_addresses::dsl::status.ne(&claimed_status))
-                    .filter(funding_addresses::dsl::status.ne(&expired_status))
+                    .filter(
+                        funding_addresses::dsl::status
+                            .ne_all(FundingAddressStatus::final_statuses()),
+                    )
                     .returning(funding_addresses::dsl::id)
                     .get_results(conn)
             })
@@ -205,7 +236,7 @@ pub mod test {
         impl FundingAddressHelper for FundingAddressHelper {
             fn insert(&self, funding_address: &FundingAddress, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
             fn get_by_id(&self, id: &str) -> QueryResponse<Option<FundingAddress>>;
-            fn get_by_public_keys(&self, public_keys: Vec<Vec<u8>>) -> QueryResponse<Vec<FundingAddress>>;
+            fn get_all(&self, condition: FundingAddressCondition) -> QueryResponse<Vec<FundingAddress>>;
             fn set_presigned_tx(&self, id: &str, swap_tx_info: Option<SwapTxInfo>) -> QueryResponse<usize>;
             fn get_by_swap_id(&self, swap_id: &str) -> QueryResponse<Option<FundingAddress>>;
             fn set_transaction(

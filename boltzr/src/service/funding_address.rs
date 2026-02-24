@@ -1,10 +1,12 @@
-use crate::api::ws::types::{FundingAddressUpdate, UpdateSender};
+use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo, UpdateSender};
 use crate::chain::elements_client::SYMBOL as ELEMENTS_SYMBOL;
 use crate::chain::types::Type;
 use crate::chain::utils::encode_address;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
-use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
+use crate::db::helpers::funding_address::{
+    FundingAddressCondition, FundingAddressHelper, SwapTxInfo,
+};
 use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
@@ -18,6 +20,8 @@ use anyhow::Result;
 use bitcoin::PublicKey;
 use bitcoin::key::{Keypair, Secp256k1};
 use boltz_cache::Cache;
+use boltz_core::wrapper::FundingTree;
+use diesel::ExpressionMethods;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -91,19 +95,13 @@ pub struct FundingAddressService {
 }
 
 #[derive(Debug, Clone)]
-pub struct CreateFundingAddressRequest {
-    pub symbol: String,
-    pub refund_public_key: PublicKey,
-}
-
-#[derive(Debug, Clone)]
 pub struct CreateResponse {
     pub id: String,
     pub address: String,
     pub timeout_block_height: u32,
     pub server_public_key: String,
     pub blinding_key: Option<String>,
-    pub tree: String,
+    pub tree: FundingTree,
 }
 
 impl FundingAddressService {
@@ -159,31 +157,30 @@ impl FundingAddressService {
 
     pub async fn create(
         &self,
-        request: CreateFundingAddressRequest,
+        symbol: String,
+        refund_public_key: PublicKey,
     ) -> Result<CreateResponse, FundingAddressError> {
-        debug!("Creating funding address for {}", request.symbol);
+        debug!("Creating funding address for {}", symbol);
 
         // Validate currency exists and has a wallet before incrementing key index
-        let currency =
-            self.currencies
-                .get(&request.symbol)
-                .ok_or(FundingAddressError::CurrencyNotFound(
-                    request.symbol.clone(),
-                ))?;
+        let currency = self
+            .currencies
+            .get(&symbol)
+            .ok_or(FundingAddressError::CurrencyNotFound(symbol.clone()))?;
 
         if currency.wallet.is_none() {
-            return Err(FundingAddressError::NoWallet(request.symbol.clone()));
+            return Err(FundingAddressError::NoWallet(symbol.clone()));
         }
 
         // Get and increment key index
         let key_index =
             self.keys_helper
-                .increment_highest_used_index(&request.symbol)
+                .increment_highest_used_index(&symbol)
                 .map_err(|e| FundingAddressError::Database(e.to_string()))? as u32;
 
         let timeout_delta =
-            TimeoutDeltaProvider::calculate_blocks(&request.symbol, self.config.timeout_delta)?;
-        let timeout_block_height = get_chain_client(&self.currencies, &request.symbol)?
+            TimeoutDeltaProvider::calculate_blocks(&symbol, self.config.timeout_delta)?;
+        let timeout_block_height = get_chain_client(&self.currencies, &symbol)?
             .blockchain_info()
             .await?
             .blocks
@@ -192,37 +189,33 @@ impl FundingAddressService {
 
         let mut funding_address = FundingAddress {
             id: id.clone(),
-            symbol: request.symbol.clone(),
+            symbol: symbol.clone(),
             status: FundingAddressStatus::Created.to_string(),
             key_index: key_index as i32,
-            their_public_key: request.refund_public_key.to_bytes(),
+            their_public_key: refund_public_key.to_bytes(),
             timeout_block_height: timeout_block_height as i32,
             ..Default::default()
         };
 
-        // Store the serialized tree JSON
-        funding_address.tree = funding_address.tree_json().map_err(|e| {
+        // Initialize and store the serialized tree JSON
+        funding_address.init_tree().map_err(|e| {
             FundingAddressError::Internal(format!("failed to serialize tree: {}", e))
         })?;
 
         let server_key_pair = self.key_pair(&funding_address)?;
         let script_pubkey = ScriptPubKey {
-            symbol: request.symbol.clone(),
+            symbol: symbol.clone(),
             script_pubkey: funding_address.script_pubkey(&server_key_pair)?,
             funding_address_id: Some(id.clone()),
             swap_id: None,
         };
 
-        self.funding_address_helper
-            .insert(&funding_address, &script_pubkey)
-            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
-
         let currency = self.currencies.get(&funding_address.symbol).ok_or(
             FundingAddressError::CurrencyNotFound(funding_address.symbol.clone()),
         )?;
 
-        let (blinding_key, blinding_pubkey) = if request.symbol == ELEMENTS_SYMBOL {
-            let wallet = get_wallet(&self.currencies, &request.symbol)?;
+        let (blinding_key, blinding_pubkey) = if symbol == ELEMENTS_SYMBOL {
+            let wallet = get_wallet(&self.currencies, &symbol)?;
             let blinding_privkey =
                 wallet.derive_blinding_key(script_pubkey.script_pubkey.clone())?;
 
@@ -238,11 +231,15 @@ impl FundingAddressService {
         };
 
         let address = encode_address(
-            Type::from_str(&request.symbol)?,
+            Type::from_str(&symbol)?,
             script_pubkey.script_pubkey.clone(),
             blinding_pubkey,
             currency.network,
         )?;
+
+        self.funding_address_helper
+            .insert(&funding_address, &script_pubkey)
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
 
         debug!("Created funding address {}", id);
 
@@ -252,7 +249,9 @@ impl FundingAddressService {
             timeout_block_height: funding_address.timeout_block_height as u32,
             server_public_key: server_key_pair.public_key().to_string(),
             blinding_key,
-            tree: funding_address.tree.clone(),
+            tree: funding_address.parse_tree().map_err(|e| {
+                FundingAddressError::Internal(format!("failed to parse funding tree: {}", e))
+            })?,
         })
     }
 
@@ -261,6 +260,49 @@ impl FundingAddressService {
             .get_by_id(id)
             .map_err(|e| FundingAddressError::Database(e.to_string()))?
             .ok_or(FundingAddressError::NotFound(id.to_string()))
+    }
+
+    pub async fn get_updates(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<Vec<FundingAddressUpdate>, FundingAddressError> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let condition: FundingAddressCondition =
+            Box::new(crate::db::schema::funding_addresses::dsl::id.eq_any(ids));
+        let funding_addresses = self
+            .funding_address_helper
+            .get_all(condition)
+            .map_err(|e| FundingAddressError::Database(e.to_string()))?;
+        let mut updates = Vec::with_capacity(funding_addresses.len());
+        for funding_address in funding_addresses {
+            let transaction = match &funding_address.lockup_transaction_id {
+                Some(tx_id) => {
+                    let hex = Some(
+                        get_chain_client(&self.currencies, &funding_address.symbol)?
+                            .raw_transaction(tx_id)
+                            .await?,
+                    );
+                    Some(TransactionInfo {
+                        id: tx_id.to_string(),
+                        hex,
+                        eta: None,
+                    })
+                }
+                None => None,
+            };
+
+            updates.push(FundingAddressUpdate {
+                id: funding_address.id,
+                status: funding_address.status,
+                transaction,
+                swap_id: funding_address.swap_id,
+            });
+        }
+
+        Ok(updates)
     }
 
     pub async fn get_signing_details(
@@ -470,11 +512,8 @@ mod test {
         }
     }
 
-    fn request(symbol: &str) -> CreateFundingAddressRequest {
-        CreateFundingAddressRequest {
-            symbol: symbol.to_string(),
-            refund_public_key: PublicKey::from_str(TEST_PUBKEY).unwrap(),
-        }
+    fn refund_public_key() -> PublicKey {
+        PublicKey::from_str(TEST_PUBKEY).unwrap()
     }
 
     fn sample_funding_address(id: &str, symbol: &str) -> FundingAddress {
@@ -486,8 +525,8 @@ mod test {
             timeout_block_height: 1000,
             ..Default::default()
         };
-        // Add the serialized tree
-        funding_address.tree = funding_address.tree_json().unwrap();
+        // Initialize the serialized tree
+        funding_address.init_tree().unwrap();
         funding_address
     }
 
@@ -503,7 +542,10 @@ mod test {
                 .await
                 .build();
 
-            let response = service.create(request("L-BTC")).await.unwrap();
+            let response = service
+                .create("L-BTC".to_string(), refund_public_key())
+                .await
+                .unwrap();
 
             assert!(
                 response.address.starts_with("el"),
@@ -522,7 +564,10 @@ mod test {
                 .await
                 .build();
 
-            let response = service.create(request("BTC")).await.unwrap();
+            let response = service
+                .create("BTC".to_string(), refund_public_key())
+                .await
+                .unwrap();
 
             assert!(
                 response.address.starts_with("bcrt1"),
@@ -542,14 +587,22 @@ mod test {
                 .await
                 .build();
 
-            assert!(service.create(request("L-BTC")).await.is_ok());
+            assert!(
+                service
+                    .create("L-BTC".to_string(), refund_public_key())
+                    .await
+                    .is_ok()
+            );
         }
 
         #[tokio::test]
         async fn fails_for_unknown_currency() {
             let service = TestContext::new().with_currencies().await.build();
 
-            let err = service.create(request("INVALID")).await.unwrap_err();
+            let err = service
+                .create("INVALID".to_string(), refund_public_key())
+                .await
+                .unwrap_err();
 
             assert!(err.to_string().contains("currency not found"));
         }
@@ -558,7 +611,10 @@ mod test {
         async fn fails_when_no_wallet() {
             let service = TestContext::new().with_no_wallet("L-BTC").build();
 
-            let err = service.create(request("L-BTC")).await.unwrap_err();
+            let err = service
+                .create("L-BTC".to_string(), refund_public_key())
+                .await
+                .unwrap_err();
 
             assert!(err.to_string().contains("no wallet"));
         }
@@ -572,7 +628,10 @@ mod test {
                 .await
                 .build();
 
-            let err = service.create(request("L-BTC")).await.unwrap_err();
+            let err = service
+                .create("L-BTC".to_string(), refund_public_key())
+                .await
+                .unwrap_err();
 
             assert!(err.to_string().contains("db insert failed"));
         }
@@ -585,7 +644,10 @@ mod test {
                 .await
                 .build();
 
-            let err = service.create(request("L-BTC")).await.unwrap_err();
+            let err = service
+                .create("L-BTC".to_string(), refund_public_key())
+                .await
+                .unwrap_err();
 
             assert!(err.to_string().contains("key error"));
         }

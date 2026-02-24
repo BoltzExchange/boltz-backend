@@ -131,6 +131,13 @@ pub struct SignRawTransactionResponse {
     pub complete: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TestMempoolAcceptResult {
+    pub allowed: bool,
+    #[serde(rename = "reject-reason")]
+    pub reject_reason: Option<String>,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubmitPackageTxFees {
@@ -152,6 +159,4 @@ pub struct SubmitPackageResponse {
     pub package_msg: String,
     #[serde(rename = "tx-results")]
     pub tx_results: std::collections::HashMap<String, SubmitPackageTxResult>,
-    #[serde(rename = "replaced-transactions")]
-    pub replaced_transactions: Option<Vec<String>>,
 }

@@ -1,4 +1,3 @@
-import ChainClient from './chain/ChainClient';
 import LndClient from './lightning/LndClient';
 import ClnClient from './lightning/cln/ClnClient';
 
@@ -69,17 +68,19 @@ class Comparator {
 }
 
 class VersionCheck {
-  private static versionLimits: Record<
-    string,
-    {
-      minimal: string | number;
-      maximal: string | number;
-    }
-  > = {
-    [ChainClient.serviceName]: {
+  private static chainVersionLimits: Record<string, VersionLimits> = {
+    BTC: {
+      // submitpackage/TRUC-related flows require newer Core versions
+      minimal: 300000,
+      maximal: 300200,
+    },
+    'L-BTC': {
       minimal: 230000,
       maximal: 300200,
     },
+  };
+
+  private static versionLimits: Record<string, VersionLimits> = {
     [ClnClient.serviceName]: {
       minimal: '25.05',
       maximal: '25.12.1',
@@ -98,16 +99,12 @@ class VersionCheck {
     symbol: string,
     version: number,
   ): void => {
-    if (
-      !Comparator.versionInBounds(
-        version,
-        VersionCheck.versionLimits[ChainClient.serviceName],
-      )
-    ) {
+    const limits = VersionCheck.chainVersionLimits[symbol];
+    if (!Comparator.versionInBounds(version, limits)) {
       throw VersionCheck.unsupportedVersionError(
         `${symbol} Core`,
         version,
-        VersionCheck.versionLimits[ChainClient.serviceName],
+        limits,
       );
     }
   };

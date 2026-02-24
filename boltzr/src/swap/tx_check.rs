@@ -225,25 +225,13 @@ mod test {
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::chain_swap::{ChainSwapCondition, ChainSwapDataNullableCondition};
     use crate::db::helpers::reverse_swap::{ReverseSwapCondition, ReverseSwapNullableCondition};
+    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
     use crate::db::models::{
         ChainSwap, ChainSwapData, ChainSwapInfo, ReverseRoutingHint, ReverseSwap, ScriptPubKey,
     };
     use mockall::mock;
 
     const BITCOIN_TX_HEX: &str = include_str!("../../fixtures/bitcoin-tx.txt");
-
-    mock! {
-        ScriptPubKeyHelper {}
-
-        impl ScriptPubKeyHelper for ScriptPubKeyHelper {
-            fn get_by_scripts(
-                &self,
-                symbol: &str,
-                script_pubkeys: &[Vec<u8>],
-            ) -> QueryResponse<Vec<ScriptPubKey>>;
-            fn add(&self, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
-        }
-    }
 
     mock! {
         ReverseSwapHelper {}

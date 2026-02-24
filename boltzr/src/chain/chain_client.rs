@@ -2,8 +2,8 @@ use crate::chain::mempool_client::MempoolSpace;
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
     BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
-    SignRawTransactionResponse, SmartFeeEstimate, SubmitPackageResponse, Type, UnspentOutput,
-    ZmqNotification,
+    SignRawTransactionResponse, SmartFeeEstimate, SubmitPackageResponse, TestMempoolAcceptResult,
+    Type, UnspentOutput, ZmqNotification,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::zmq_client::{ZMQ_BLOCK_CHANNEL_SIZE, ZMQ_TX_CHANNEL_SIZE, ZmqClient};
@@ -625,6 +625,18 @@ impl Client for ChainClient {
     async fn send_raw_transaction(&self, tx: &str) -> anyhow::Result<String> {
         self.client
             .request::<String>("sendrawtransaction", Some(&[RpcParam::Str(tx)]))
+            .await
+    }
+
+    async fn test_mempool_accept(
+        &self,
+        txs: &[&str],
+    ) -> anyhow::Result<Vec<TestMempoolAcceptResult>> {
+        self.client
+            .request::<Vec<TestMempoolAcceptResult>>(
+                "testmempoolaccept",
+                Some(&[RpcParam::Array(txs.to_vec())]),
+            )
             .await
     }
 

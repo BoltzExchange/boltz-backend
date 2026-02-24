@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 pub const COOPERATIVE_INPUT_ERROR: &str = "cooperative input has to be spent via key-path";
+pub const LEGACY_COOPERATIVE_INPUT_ERROR: &str = "legacy outputs cannot be spent cooperatively";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputType<U, S> {

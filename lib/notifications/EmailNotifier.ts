@@ -12,7 +12,6 @@ import {
 import { CurrencyType, OrderSide, SwapType } from '../consts/Enums';
 import type { AnySwap } from '../consts/Types';
 import type ChainSwapData from '../db/models/ChainSwapData';
-import type ChannelCreation from '../db/models/ChannelCreation';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
@@ -47,20 +46,17 @@ class EmailNotifier {
 
     this.logger.debug('Subscribing email notifier to service events');
 
-    this.service.eventHandler.on(
-      'swap.success',
-      async ({ swap, channelCreation }) => {
-        try {
-          await this.sendSuccessEmail(swap, channelCreation);
-        } catch (error) {
-          this.logger.error(
-            `Failed to send success email for swap ${swap.id}: ${formatError(
-              error,
-            )}`,
-          );
-        }
-      },
-    );
+    this.service.eventHandler.on('swap.success', async ({ swap }) => {
+      try {
+        await this.sendSuccessEmail(swap);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send success email for swap ${swap.id}: ${formatError(
+            error,
+          )}`,
+        );
+      }
+    });
 
     this.service.eventHandler.on('swap.failure', async ({ swap, reason }) => {
       try {
@@ -237,10 +233,7 @@ class EmailNotifier {
     await this.transporter.sendMail(mailOptions);
   };
 
-  private sendSuccessEmail = async (
-    swapDetails: AnySwap,
-    channelCreation?: ChannelCreation,
-  ): Promise<void> => {
+  private sendSuccessEmail = async (swapDetails: AnySwap): Promise<void> => {
     const { base, quote } = splitPairId(swapDetails.pair);
     const { sending, receiving } = getSendingReceivingCurrency(
       base,
@@ -248,13 +241,8 @@ class EmailNotifier {
       swapDetails.orderSide,
     );
 
-    const hasChannelCreation =
-      channelCreation !== null &&
-      channelCreation !== undefined &&
-      channelCreation.fundingTransactionId !== null;
-
     const subjectPrefix = this.config?.subjectPrefix || '[Boltz]';
-    const title = `Swap ${this.getSwapTitle(swapDetails.type, sending, receiving)}${hasChannelCreation ? ' 🏗️' : ''}`;
+    const title = `Swap ${this.getSwapTitle(swapDetails.type, sending, receiving)}`;
     const subject = `${subjectPrefix} ${title}: ${swapDetails.id}`;
 
     let body =
@@ -269,17 +257,6 @@ class EmailNotifier {
       body += `\nRouting fees: ${
         submarineSwap.routingFee ? submarineSwap.routingFee / 1000 : 'N/A'
       } sats`;
-    }
-
-    if (hasChannelCreation) {
-      body +=
-        '\n\nChannel Creation:\n' +
-        `Private: ${channelCreation!.private}\n` +
-        `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
-        `Node: ${channelCreation!.nodePublicKey}\n` +
-        `Funding: ${channelCreation!.fundingTransactionId}:${
-          channelCreation!.fundingTransactionVout
-        }`;
     }
 
     this.sendEmail(subject, `${body}${EmailNotifier.trailingWhitespace}`);

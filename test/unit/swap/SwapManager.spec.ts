@@ -17,7 +17,6 @@ import {
 } from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
-  ChannelCreationType,
   CurrencyType,
   FinalChainSwapEvents,
   OrderSide,
@@ -29,7 +28,6 @@ import Database from '../../../lib/db/Database';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ScriptPubKeyRepository from '../../../lib/db/repositories/ScriptPubKeyRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -43,7 +41,6 @@ import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
-import type { ChannelCreationInfo } from '../../../lib/swap/SwapManager';
 import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -81,22 +78,6 @@ let mockGetChainSwapsResult: any[] = [];
 const mockGetChainSwaps = jest.fn().mockImplementation(async () => {
   return mockGetChainSwapsResult;
 });
-
-const mockSetNodePublicKey = jest.fn().mockResolvedValue(undefined);
-
-const mockAddChannelCreation = jest.fn().mockResolvedValue(undefined);
-
-let mockGetChannelCreationResult: any = undefined;
-const mockGetChannelCreation = jest.fn().mockImplementation(async () => {
-  return mockGetChannelCreationResult;
-});
-
-const mockGetChannelCreationsResult = [];
-const mockGetChannelCreations = jest.fn().mockImplementation(async () => {
-  return mockGetChannelCreationsResult;
-});
-
-jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
 
 jest.mock('../../../lib/rates/RateProvider', () => {
   return jest.fn().mockImplementation(() => {
@@ -442,11 +423,6 @@ describe('SwapManager', () => {
     ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
 
-    ChannelCreationRepository.setNodePublicKey = mockSetNodePublicKey;
-    ChannelCreationRepository.addChannelCreation = mockAddChannelCreation;
-    ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
-    ChannelCreationRepository.getChannelCreations = mockGetChannelCreations;
-
     ChainSwapRepository.getChainSwaps = mockGetChainSwaps;
 
     if (manager !== undefined && manager.routingHints !== undefined) {
@@ -678,99 +654,6 @@ describe('SwapManager', () => {
       expect.any(Object),
     );
 
-    // Channel Creation
-    const channel = {
-      auto: true,
-      private: true,
-      inboundLiquidity: 25,
-    } as ChannelCreationInfo;
-
-    const swapChannelCreation = await manager.createSwap({
-      channel,
-      orderSide,
-      preimageHash,
-      baseCurrency,
-      quoteCurrency,
-      timeoutBlockDelta,
-      refundPublicKey: refundKey,
-      version: SwapVersion.Legacy,
-    });
-
-    expect(swapChannelCreation).toEqual({
-      id: swapChannelCreation.id,
-      address: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
-      timeoutBlockHeight:
-        mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
-      redeemScript:
-        'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
-    });
-
-    expect(mockGetBlockchainInfo).toHaveBeenCalledTimes(2);
-    expect(mockGetNewKeys).toHaveBeenCalledTimes(2);
-    expect(mockEncodeAddress).toHaveBeenCalledTimes(2);
-
-    expect(ScriptPubKeyRepository.add).toHaveBeenCalledTimes(2);
-    expect(ScriptPubKeyRepository.add).toHaveBeenNthCalledWith(
-      2,
-      swapChannelCreation.id,
-      baseCurrency,
-      getHexBuffer('a9141376abf97f0345aecbda15f95453f4a7446b326287'),
-      expect.any(Object),
-    );
-
-    expect(mockAddSwap).toHaveBeenCalledTimes(2);
-    expect(mockAddSwap).toHaveBeenNthCalledWith(
-      2,
-      {
-        orderSide,
-        id: swapChannelCreation.id,
-        version: SwapVersion.Legacy,
-        status: SwapUpdateEvent.SwapCreated,
-        keyIndex: mockGetNewKeysResult.index,
-        pair: `${baseCurrency}/${quoteCurrency}`,
-        refundPublicKey: getHexString(refundKey),
-        preimageHash: getHexString(preimageHash),
-        lockupAddress: '2Mu28zPUNMkM5w9q3UhVhpw8p2p5zwtv9Ce',
-        timeoutBlockHeight:
-          mockGetBlockchainInfoResult.blocks + timeoutBlockDelta,
-        redeemScript:
-          'a9144631a4007d7e5b0f02f86f3a7f3b5c1442ac98f587632102c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb67020701b1752103f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac268ac',
-        createdRefundSignature: false,
-      },
-      expect.any(Object),
-    );
-
-    expect(mockAddChannelCreation).toHaveBeenCalledTimes(1);
-    expect(mockAddChannelCreation).toHaveBeenCalledWith({
-      private: channel.private,
-      type: ChannelCreationType.Auto,
-      swapId: swapChannelCreation.id,
-      inboundLiquidity: channel.inboundLiquidity,
-    });
-
-    // Manual Channel Creation
-    channel.auto = false;
-    channel.private = false;
-
-    const swapChannelCreationManual = await manager.createSwap({
-      channel,
-      orderSide,
-      preimageHash,
-      baseCurrency,
-      quoteCurrency,
-      timeoutBlockDelta,
-      refundPublicKey: refundKey,
-      version: SwapVersion.Legacy,
-    });
-
-    expect(mockAddChannelCreation).toHaveBeenCalledTimes(2);
-    expect(mockAddChannelCreation).toHaveBeenNthCalledWith(2, {
-      private: channel.private,
-      type: ChannelCreationType.Create,
-      swapId: swapChannelCreationManual.id,
-      inboundLiquidity: channel.inboundLiquidity,
-    });
-
     // No LND client found
     const notFoundSymbol = 'DOGE';
     manager['currencies'].set(notFoundSymbol, {
@@ -860,11 +743,6 @@ describe('SwapManager', () => {
       referral: swap.referral,
       invoice,
       invoiceAmount: invoiceEncode.satoshis!,
-    });
-
-    expect(mockGetChannelCreation).toHaveBeenCalledTimes(1);
-    expect(mockGetChannelCreation).toHaveBeenCalledWith({
-      swapId: swap.id,
     });
 
     expect(mockSetInvoice).toHaveBeenCalledTimes(1);
@@ -983,99 +861,7 @@ describe('SwapManager', () => {
 
     expect(mockAttemptSettleSwap).toHaveBeenCalledTimes(3);
 
-    // Swap with Channel Creation
-    mockGetChannelCreationResult = {
-      some: 'data',
-    };
-
-    await manager.setSwapInvoice(
-      swap,
-      invoice,
-      1,
-      fees,
-      true,
-      emitSwapInvoiceSet,
-    );
-
-    expect(mockGetChannelCreation).toHaveBeenCalledTimes(7);
-    expect(mockSetInvoice).toHaveBeenCalledTimes(5);
-    expect(emitSwapInvoiceSet).toHaveBeenCalledTimes(5);
-
-    // Swap with Channel Creation and invoice that expires too soon
-    swap.timeoutBlockHeight = 1000;
-
     let error: any;
-
-    try {
-      await manager.setSwapInvoice(
-        swap,
-        invoice,
-        1,
-        fees,
-        true,
-        emitSwapInvoiceSet,
-      );
-    } catch (e) {
-      error = e;
-    }
-
-    expect(error.code).toEqual('6.4');
-    expect(
-      error.message.startsWith(
-        `invoice expiry ${bolt11.decode(invoice)
-          .timeExpireDate!} is before Swap timeout: `,
-      ),
-    ).toBeTruthy();
-
-    error = undefined;
-
-    // Swap with Channel Creation and invoice that has no expiry encoded in it
-    const invoiceNoExpiryEncode = bolt11.encode(
-      {
-        satoshis: 200,
-        timestamp: getUnixTime(),
-        payeeNodeKey: getHexString(
-          Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
-        ),
-        tags: [
-          {
-            data: swap.preimageHash,
-            tagName: 'payment_hash',
-          },
-          {
-            data: '',
-            tagName: 'description',
-          },
-        ],
-      },
-      false,
-    );
-    const invoiceNoExpiry = bolt11.sign(
-      invoiceNoExpiryEncode,
-      invoiceSignKeys,
-    ).paymentRequest!;
-
-    try {
-      await manager.setSwapInvoice(
-        swap,
-        invoiceNoExpiry,
-        1,
-        fees,
-        true,
-        emitSwapInvoiceSet,
-      );
-    } catch (e) {
-      error = e;
-    }
-
-    expect(error!.code).toEqual('6.4');
-    expect(
-      error!.message.startsWith(
-        `invoice expiry ${
-          bolt11.decode(invoiceNoExpiry).timestamp! + 3600
-        } is before Swap timeout: `,
-      ),
-    ).toBeTruthy();
 
     // Invoice that expired already
     const invoiceExpired =
@@ -1096,8 +882,6 @@ describe('SwapManager', () => {
 
     expect(error!.code).toEqual('6.13');
     expect(error!.message).toEqual('the provided invoice expired already');
-
-    mockGetChannelCreationResult = undefined;
 
     // Invalid preimage hash
     swap.preimageHash = getHexString(randomBytes(32));

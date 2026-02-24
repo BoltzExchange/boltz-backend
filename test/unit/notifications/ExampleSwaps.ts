@@ -1,12 +1,9 @@
 import {
-  ChannelCreationStatus,
-  ChannelCreationType as ChannelType,
   OrderSide,
   SwapType as SwapTypeEnum,
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../lib/consts/Enums';
-import type { ChannelCreationType } from '../../../lib/db/models/ChannelCreation';
 import type { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type { SwapType } from '../../../lib/db/models/Swap';
@@ -87,46 +84,4 @@ export const pendingReverseSwapExample = {
     '5b2dc635c50a25de79b86be956db2fbc6a17e36d2562f1185aca3522a5a9edf6',
   invoice:
     'lnbcrt1p0xqpt2pp5l34c2393chx7eut4hvlt6h0333nfa562quksdqnx8ymd437dw5msdqqcqzpgsp5f88p6pf23hrn5l7j5sp0q26vtdzzfr838njchzc3lfp6xq2nnj0q9qy9qsq33agd2syjgxjkf6mshm5x482hsu99k2ukrv27wvgtatyzw0lgs83pc0yd3fmwgcn5kcav47h4483qqz9yh4w0vegzlq3cv7zcxssm2sp7l2rck',
-};
-
-export const channelSwapExample = {
-  id: 'channel',
-  version: SwapVersion.Legacy,
-  type: SwapTypeEnum.Submarine,
-
-  fee: 0,
-  orderSide: OrderSide.BUY,
-  keyIndex: 321,
-  minerFee: 306,
-  routingFee: 1,
-  pair: 'LTC/BTC',
-  acceptZeroConf: true,
-  onchainAmount: 1000000,
-  timeoutBlockHeight: 123,
-  status: SwapUpdateEvent.TransactionClaimed,
-  lockupAddress: 'bcrt1q4fgsuxk4q0uhmqm4hlhwz2kv4k374f5ta2dqn2',
-  lockupTransactionId:
-    '6071400d052ffd911f47537aba80500d52f67077a8522ec6915c128228f71a69',
-  preimageHash:
-    '643a079cdd1f85f2014b122000d1b06171c8d7b9d74ba80144837eb0880d8944',
-  invoice:
-    'lnbcrt1p00ruskpp5nhn6srpm9xjv73we0s2yd7wu0gq4j7lklv6zlcgr0fthsklvxqrsdqqcqzpgsp54dvdccmkg0lfcnngr3a2nmhwdusds730laf79tx4dfcw33z8f2jq9qy9qsqjt884q3tqkdy8x4tcmvjhy85tqcasg9k0hvd68ejsx25mfpcsemr3srsaudwcdu3kn2hydknck8perv2mpsyq609gsxyfkzxeddkmxgpapsvez',
-  invoiceAmount: 1,
-  redeemScript:
-    'a91417543b331ad6f253f1632d9c3ded7e03ec2bcd4a87632102ab507fc9eb1a649b8b08124a6eba7dcfe4b274182c8e5f1bdf1aaf26bbccc43a67022001b175210357e57fee8a1adfde4512b01920676b0cbe254ab1f0be8d3aee7c0b7058fd419268ac',
-  createdRefundSignature: false,
-} as SwapType;
-
-export const channelCreationExample: ChannelCreationType = {
-  swapId: 'channel',
-
-  private: true,
-  inboundLiquidity: 50,
-  type: ChannelType.Create,
-  fundingTransactionVout: 1,
-  status: ChannelCreationStatus.Settled,
-  nodePublicKey:
-    '026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2',
-  fundingTransactionId:
-    '60ef1a26c9e75af89df79581db69672f4dd05c32668f2dd9d5289345fed78720',
 };

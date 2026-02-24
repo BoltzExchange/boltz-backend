@@ -10,7 +10,6 @@ import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import type DecodedInvoiceSidecar from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
-import ChannelNursery from '../../../lib/swap/ChannelNursery';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -28,12 +27,6 @@ jest.mock('../../../lib/swap/NodeSwitch', () => {
 });
 
 const MockedNodeSwitch = <jest.Mock<NodeSwitch>>(<any>NodeSwitch);
-
-jest.mock('../../../lib/swap/ChannelNursery', () => {
-  return jest.fn().mockImplementation();
-});
-
-const MockedChannelNursery = <jest.Mock<ChannelNursery>>(<any>ChannelNursery);
 
 let cltvLimit = 100;
 
@@ -100,7 +93,6 @@ describe('PaymentHandler', () => {
     sidecar,
     nodeSwitch,
     new Map<string, Currency>([['BTC', btcCurrency]]),
-    MockedChannelNursery(),
     MockedTimeoutDeltaProvider(),
     {
       sendPayment: jest
@@ -147,7 +139,7 @@ describe('PaymentHandler', () => {
       status: Payment.PaymentStatus.IN_FLIGHT,
     };
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
 
@@ -170,7 +162,7 @@ describe('PaymentHandler', () => {
       status: Payment.PaymentStatus.FAILED,
     };
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
 
@@ -193,7 +185,7 @@ describe('PaymentHandler', () => {
     expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
     expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
     expect(swap.update).toHaveBeenCalledTimes(1);
@@ -214,7 +206,7 @@ describe('PaymentHandler', () => {
     expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
     expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
     expect(swap.update).toHaveBeenCalledTimes(1);
@@ -231,7 +223,7 @@ describe('PaymentHandler', () => {
       status: Payment.PaymentStatus.FAILED,
     };
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
 
@@ -242,7 +234,7 @@ describe('PaymentHandler', () => {
     // Reset MC not called
     const lastCallBefore = handler['lastResetMissionControl'];
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
     expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
@@ -252,7 +244,7 @@ describe('PaymentHandler', () => {
     jest.useFakeTimers();
     jest.advanceTimersByTime(PaymentHandler['resetMissionControlInterval'] + 1);
 
-    await expect(handler.payInvoice(swap, null, undefined)).resolves.toEqual(
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
     expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(2);
@@ -336,7 +328,7 @@ describe('PaymentHandler', () => {
       const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
       settleInvoiceSpy.mockResolvedValue(mockPaymentResponse.preimage);
 
-      const result = await handler.payInvoice(swap, null, undefined);
+      const result = await handler.payInvoice(swap, undefined);
 
       expect(result).toEqual(mockPaymentResponse.preimage);
       expect(
@@ -360,7 +352,7 @@ describe('PaymentHandler', () => {
 
       const settleInvoiceSpy = jest.spyOn(handler as any, 'settleInvoice');
 
-      const result = await handler.payInvoice(swap, null, undefined);
+      const result = await handler.payInvoice(swap, undefined);
 
       expect(result).toBeUndefined();
       expect(
@@ -378,7 +370,7 @@ describe('PaymentHandler', () => {
           result: undefined,
         });
 
-      const result = await handler.payInvoice(swap, null, undefined);
+      const result = await handler.payInvoice(swap, undefined);
 
       expect(
         handler['selfPaymentClient'].handleSelfPayment,
@@ -401,7 +393,7 @@ describe('PaymentHandler', () => {
       const abandonSwapSpy = jest.spyOn(handler as any, 'abandonSwap');
       abandonSwapSpy.mockResolvedValue(undefined);
 
-      const result = await handler.payInvoice(swap, null, undefined);
+      const result = await handler.payInvoice(swap, undefined);
 
       expect(result).toBeUndefined();
       expect(

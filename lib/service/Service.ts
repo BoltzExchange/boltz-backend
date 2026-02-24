@@ -54,7 +54,6 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ExtraFeeRepository from '../db/repositories/ExtraFeeRepository';
 import PairRepository from '../db/repositories/PairRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
@@ -93,7 +92,6 @@ import type Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
 import type { SwapNurseryEvents } from '../swap/PaymentHandler';
-import type { ChannelCreationInfo } from '../swap/SwapManager';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import type Wallet from '../wallet/Wallet';
@@ -165,9 +163,6 @@ class Service {
   private readonly balanceCheck: BalanceCheck;
   private readonly paymentRequestUtils: PaymentRequestUtils;
   private readonly timeoutDeltaProvider: TimeoutDeltaProvider;
-
-  private static MinInboundLiquidity = 10;
-  private static MaxInboundLiquidity = 50;
 
   constructor(
     private logger: Logger,
@@ -1127,7 +1122,6 @@ class Service {
     version: SwapVersion;
     webHook?: WebHookData;
     paymentTimeout?: number;
-    channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
     referralId?: string;
@@ -1212,22 +1206,6 @@ class Service {
       throw SwapErrors.NO_LIGHTNING_SUPPORT(lightningCurrency);
     }
 
-    if (args.channel) {
-      if (args.channel.inboundLiquidity > Service.MaxInboundLiquidity) {
-        throw Errors.EXCEEDS_MAX_INBOUND_LIQUIDITY(
-          args.channel.inboundLiquidity,
-          Service.MaxInboundLiquidity,
-        );
-      }
-
-      if (args.channel.inboundLiquidity < Service.MinInboundLiquidity) {
-        throw Errors.BENEATH_MIN_INBOUND_LIQUIDITY(
-          args.channel.inboundLiquidity,
-          Service.MinInboundLiquidity,
-        );
-      }
-    }
-
     const [timeoutBlockDelta, canBeRouted] =
       await this.timeoutDeltaProvider.getTimeout(
         args.pairId,
@@ -1262,7 +1240,6 @@ class Service {
       baseCurrency: base,
       quoteCurrency: quote,
       version: args.version,
-      channel: args.channel,
       preimageHash: args.preimageHash,
       paymentTimeout: args.paymentTimeout,
       refundPublicKey: args.refundPublicKey,
@@ -1272,11 +1249,6 @@ class Service {
 
     if (args.webHook) {
       await this.addWebHook(id, args.webHook, async () => {
-        await (
-          await ChannelCreationRepository.getChannelCreation({
-            swapId: id,
-          })
-        )?.destroy();
         await (await SwapRepository.getSwap({ id }))?.destroy();
       });
     }
@@ -1576,7 +1548,6 @@ class Service {
     invoice: string,
     pairHash?: string,
     referralId?: string,
-    channel?: ChannelCreationInfo,
     version: SwapVersion = SwapVersion.Legacy,
     paymentTimeout?: number,
     webHook?: WebHookData,
@@ -1621,7 +1592,6 @@ class Service {
 
     const createdSwap = await this.createSwap({
       pairId,
-      channel,
       version,
       invoice,
       webHook,
@@ -1660,12 +1630,6 @@ class Service {
         timeoutBlockHeights: createdSwap.timeoutBlockHeights,
       };
     } catch (error) {
-      const channelCreation =
-        await ChannelCreationRepository.getChannelCreation({
-          swapId: createdSwap.id,
-        });
-      await channelCreation?.destroy();
-
       swap = await SwapRepository.getSwap({
         id: createdSwap.id,
       });

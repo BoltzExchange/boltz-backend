@@ -399,18 +399,6 @@ class Sidecar extends BaseClient<
             update.setFailureDetails(details);
           }
 
-          if (entry.status.channel !== undefined) {
-            const channel = new sidecarrpc.SwapUpdate.ChannelInfo();
-            channel.setFundingTransactionId(
-              entry.status.channel.fundingTransactionId,
-            );
-            channel.setFundingTransactionVout(
-              entry.status.channel.fundingTransactionVout,
-            );
-
-            update.setChannelInfo(channel);
-          }
-
           return update;
         }),
       );

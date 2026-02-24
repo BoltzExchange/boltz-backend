@@ -12,7 +12,6 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ServiceErrors from '../service/Errors';
@@ -97,21 +96,6 @@ class SwapInfos {
     swap: Swap,
   ): Promise<SwapUpdate> => {
     switch (swap.status) {
-      case SwapUpdateEvent.ChannelCreated: {
-        const channelCreation =
-          await ChannelCreationRepository.getChannelCreation({
-            swapId: swap.id,
-          });
-
-        return {
-          status: swap.status,
-          channel: {
-            fundingTransactionId: channelCreation!.fundingTransactionId!,
-            fundingTransactionVout: channelCreation!.fundingTransactionVout!,
-          },
-        };
-      }
-
       case SwapUpdateEvent.TransactionMempool:
       case SwapUpdateEvent.TransactionConfirmed:
       case SwapUpdateEvent.TransactionZeroConfRejected: {

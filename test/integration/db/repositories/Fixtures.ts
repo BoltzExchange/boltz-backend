@@ -28,7 +28,7 @@ export const createSubmarineSwapData = (acceptZeroConf = false) => ({
 });
 
 export const createReverseSwap = async (
-  status = SwapUpdateEvent.ChannelCreated,
+  status = SwapUpdateEvent.SwapCreated,
 ) => {
   return ReverseSwapRepository.addReverseSwap({
     status,

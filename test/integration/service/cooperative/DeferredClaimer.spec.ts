@@ -36,7 +36,6 @@ import {
 import type Database from '../../../../lib/db/Database';
 import ChainSwap from '../../../../lib/db/models/ChainSwap';
 import ChainSwapData from '../../../../lib/db/models/ChainSwapData';
-import ChannelCreation from '../../../../lib/db/models/ChannelCreation';
 import Commitment from '../../../../lib/db/models/Commitment';
 import LightningPayment from '../../../../lib/db/models/LightningPayment';
 import Pair from '../../../../lib/db/models/Pair';
@@ -657,7 +656,6 @@ describe('DeferredClaimer', () => {
     await ChainSwapData.drop();
     await ChainSwap.drop();
     await LightningPayment.drop();
-    await ChannelCreation.drop();
     await Swap.drop();
     await ReverseRoutingHint.drop();
     await ReverseSwap.drop();
@@ -815,7 +813,6 @@ describe('DeferredClaimer', () => {
 
       const updatedSwap = await SwapRepository.getSwap({ id: swap.id });
       expect(args.swap).toEqual(updatedSwap);
-      expect(args.channelCreation).toBeUndefined();
     });
 
     test('should trigger claim when sweepAmountTrigger is reached', async () => {
@@ -842,7 +839,6 @@ describe('DeferredClaimer', () => {
       const args = await emitPromise;
       const updatedSwap = await SwapRepository.getSwap({ id: swap.id });
       expect(args.swap).toEqual(updatedSwap);
-      expect(args.channelCreation).toBeUndefined();
 
       expect(
         claimer.pendingSweeps()[SwapType.Submarine].get('BTC'),
@@ -1567,7 +1563,7 @@ describe('DeferredClaimer', () => {
 
   describe('broadcastCooperative', () => {
     test('should broadcast submarine swaps cooperatively', async () => {
-      expect.assertions(7);
+      expect.assertions(6);
 
       await bitcoinClient.generate(1);
       const { swap, preimage, refundKeys } = await createClaimableOutput();
@@ -1587,10 +1583,9 @@ describe('DeferredClaimer', () => {
       musig.aggregateNonces([[details.publicKey, details.pubNonce]]);
       musig.initializeSession(details.transactionHash);
 
-      claimer.once('claim', ({ swap, channelCreation }) => {
+      claimer.once('claim', ({ swap }) => {
         expect(swap.status).toEqual(SwapUpdateEvent.TransactionClaimed);
         expect((swap as Swap).minerFee).toBeGreaterThan(0);
-        expect(channelCreation).toBeUndefined();
       });
 
       await claimer.broadcastCooperative(

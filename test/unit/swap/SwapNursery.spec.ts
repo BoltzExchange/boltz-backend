@@ -47,9 +47,6 @@ jest.mock('../../../lib/swap/UtxoNursery', () => {
 jest.mock('../../../lib/swap/InvoiceNursery', () =>
   jest.fn().mockImplementation(() => ({ on: jest.fn(), init: jest.fn() })),
 );
-jest.mock('../../../lib/swap/ChannelNursery', () =>
-  jest.fn().mockImplementation(() => ({ on: jest.fn(), init: jest.fn() })),
-);
 jest.mock('../../../lib/swap/EthereumNursery', () =>
   jest.fn().mockImplementation(() => ({ on: jest.fn() })),
 );
@@ -658,7 +655,6 @@ describe('SwapNursery', () => {
         .spyOn(swapNursery as any, 'payInvoice')
         .mockResolvedValue({
           preimage: Buffer.from('preimage'),
-          channelCreation: null,
         });
       mockClaimUtxo = jest
         .spyOn(swapNursery as any, 'claimUtxo')
@@ -706,7 +702,6 @@ describe('SwapNursery', () => {
         mockWallet,
         mockTransaction,
         Buffer.from('preimage'),
-        null,
       );
       expect(mockSetSwapRate).not.toHaveBeenCalled();
     });
@@ -830,7 +825,6 @@ describe('SwapNursery', () => {
         return (
           originalPayInvoice?.(...args) || {
             preimage: Buffer.from('preimage'),
-            channelCreation: null,
           }
         );
       });

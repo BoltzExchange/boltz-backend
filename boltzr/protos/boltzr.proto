@@ -75,11 +75,6 @@ message SwapUpdate {
     uint64 actual = 2;
   }
 
-  message ChannelInfo {
-    string funding_transaction_id = 1;
-    uint64 funding_transaction_vout = 2;
-  }
-
   string id = 1;
   string status = 2;
 
@@ -88,8 +83,6 @@ message SwapUpdate {
 
   optional string failure_reason = 5;
   optional FailureDetails failure_details = 6;
-
-  optional ChannelInfo channel_info = 7;
 }
 
 message SwapUpdateRequest {

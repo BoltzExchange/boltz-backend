@@ -37,7 +37,6 @@ import {
 import type { PairConfig } from '../../../lib/consts/Types';
 import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ExtraFeeRepository from '../../../lib/db/repositories/ExtraFeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
@@ -97,17 +96,6 @@ jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
       .mockImplementation(async () => mockGetReverseSwapResult),
   };
 });
-
-let mockGetChannelCreationResult: any = undefined;
-const mockGetChannelCreation = jest.fn().mockImplementation(() => {
-  return mockGetChannelCreationResult;
-});
-
-jest.mock('../../../lib/db/repositories/ChannelCreationRepository');
-
-const mockedChannelCreationRepository = <jest.Mock<ChannelCreationRepository>>(
-  (<any>ChannelCreationRepository)
-);
 
 const mockAddReferral = jest.fn().mockImplementation(async () => {});
 
@@ -173,16 +161,12 @@ jest.mock('../../../lib/swap/SwapManager', () => {
   return jest.fn().mockImplementation(() => ({
     nursery: {
       on: () => {},
-      channelNursery: {
-        on: () => {},
-      },
       emit: jest.fn(),
     },
     routingHints: {
       getRoutingHints: mockGetRoutingHints,
     },
     swapRepository: mockedSwapRepository(),
-    channelCreationRepository: mockedChannelCreationRepository(),
     createSwap: mockCreateSwap,
     setSwapInvoice: mockSetSwapInvoice,
     createReverseSwap: mockCreateReverseSwap,
@@ -839,7 +823,6 @@ describe('Service', () => {
     SwapRepository.addSwap = mockAddSwap;
 
     ExtraFeeRepository.create = jest.fn();
-    ChannelCreationRepository.getChannelCreation = mockGetChannelCreation;
 
     mockListChannelsResult = [
       {
@@ -1915,7 +1898,6 @@ describe('Service', () => {
     );
   });
 
-  // TODO: add channel creations
   test('should create swaps', async () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
     mockGetSwapResult = null;
@@ -2031,12 +2013,6 @@ describe('Service', () => {
     ).rejects.toEqual('setting Webhook failed: fail');
 
     expect(sidecar.createWebHook).toHaveBeenCalledTimes(1);
-    expect(ChannelCreationRepository.getChannelCreation).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(ChannelCreationRepository.getChannelCreation).toHaveBeenCalledWith({
-      swapId: mockedSwap.id,
-    });
     expect(SwapRepository.getSwap).toHaveBeenCalledTimes(2);
     expect(SwapRepository.getSwap).toHaveBeenCalledWith({ id: mockedSwap.id });
   });
@@ -2356,7 +2332,6 @@ describe('Service', () => {
     mockAcceptZeroConfResult = true;
   });
 
-  // TODO: channel creation logic
   test('should create swaps with invoices', async () => {
     const createSwapResult = {
       id: 'swapInvoice',
@@ -2437,13 +2412,9 @@ describe('Service', () => {
     };
 
     const mockDestroySwap = jest.fn().mockResolvedValue({});
-    const mockDestroyChannelCreation = jest.fn().mockResolvedValue({});
     service['setSwapInvoice'] = jest.fn().mockImplementation(async () => {
       mockGetSwapResult = {
         destroy: mockDestroySwap,
-      };
-      mockGetChannelCreationResult = {
-        destroy: mockDestroyChannelCreation,
       };
 
       throw error;
@@ -2454,7 +2425,6 @@ describe('Service', () => {
     ).rejects.toEqual(error);
 
     expect(mockDestroySwap).toHaveBeenCalledTimes(1);
-    expect(mockDestroyChannelCreation).toHaveBeenCalledTimes(1);
 
     // Throw if swap with invoice exists already
     mockGetSwapResult = {};

@@ -16,7 +16,6 @@ import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import FeeRepository from '../../../lib/db/repositories/FeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
@@ -28,8 +27,6 @@ import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 import { wait } from '../../Utils';
 import {
-  channelCreationExample,
-  channelSwapExample,
   pendingReverseSwapExample,
   pendingSwapExample,
   reverseSwapExample,
@@ -220,10 +217,6 @@ describe('CommandHandler', () => {
 
     await ReverseSwapRepository.addReverseSwap(reverseSwapExample);
     await ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample);
-
-    await SwapRepository.addSwap(channelSwapExample);
-
-    await ChannelCreationRepository.addChannelCreation(channelCreationExample);
   });
 
   beforeEach(() => {
@@ -316,28 +309,11 @@ describe('CommandHandler', () => {
         )}\`\`\``,
       );
 
-      // Channel Creation Swap
-      sendMessage(`swapinfo ${channelSwapExample.id}`);
-      await wait(commandWaitMs);
-
-      expect(mockSendMessage).toHaveBeenCalledTimes(2);
-      expect(mockSendMessage).toHaveBeenCalledWith(
-        `Channel Creation \`${channelSwapExample.id}\`:\n\`\`\`` +
-          `${stringify(
-            await SwapRepository.getSwap({ id: channelSwapExample.id }),
-          )}\n` +
-          `${stringify(
-            await ChannelCreationRepository.getChannelCreation({
-              swapId: channelSwapExample.id,
-            }),
-          )}\`\`\``,
-      );
-
       // Reverse Swap
       sendMessage(`swapinfo ${reverseSwapExample.id}`);
       await wait(commandWaitMs);
 
-      expect(mockSendMessage).toHaveBeenCalledTimes(3);
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
       expect(mockSendMessage).toHaveBeenCalledWith(
         `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(
           await ReverseSwapRepository.getReverseSwap({
@@ -351,7 +327,7 @@ describe('CommandHandler', () => {
       // Send an error if there is no id provided
       sendMessage('swapinfo');
 
-      expect(mockSendMessage).toHaveBeenCalledTimes(4);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
       expect(mockSendMessage).toHaveBeenCalledWith(errorMessage);
 
       // Send an error if the swap cannot be found
@@ -360,7 +336,7 @@ describe('CommandHandler', () => {
 
       await wait(commandWaitMs);
 
-      expect(mockSendMessage).toHaveBeenCalledTimes(5);
+      expect(mockSendMessage).toHaveBeenCalledTimes(4);
       expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
     });
 
@@ -711,8 +687,6 @@ describe('CommandHandler', () => {
   });
 
   afterAll(async () => {
-    await ChannelCreationRepository.dropTable();
-
     await Promise.all([
       SwapRepository.dropTable(),
       ReverseSwapRepository.dropTable(),

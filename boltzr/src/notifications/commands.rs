@@ -1,5 +1,6 @@
 use crate::db::Pool;
 use crate::db::helpers::offer::OfferHelper;
+use crate::db::helpers::web_hook::WebHookHelper;
 use async_trait::async_trait;
 use boltz_backup::Backup;
 use std::collections::HashMap;
@@ -42,6 +43,13 @@ impl Commands {
             Command {
                 description: "shows information about a BOLT12 offer".to_string(),
                 executor: Box::new(|state, args| Box::pin(offer_info(state, args))),
+            },
+        );
+        executors.insert(
+            "webhookinfo".to_string(),
+            Command {
+                description: "shows information about a Webhook".to_string(),
+                executor: Box::new(|state, args| Box::pin(web_hook_info(state, args))),
             },
         );
 
@@ -120,6 +128,26 @@ async fn offer_info(state: Arc<State>, args: Vec<String>) -> Result {
         match offer {
             Some(offer) => Some(format!("```{}```", serde_json::to_string_pretty(&offer)?)),
             None => Some("Offer not found".to_string()),
+        },
+    ))
+}
+
+async fn web_hook_info(state: Arc<State>, args: Vec<String>) -> Result {
+    if args.is_empty() {
+        return Ok((true, Some("Please provide a swap id".to_string())));
+    }
+
+    let web_hook = crate::db::helpers::web_hook::WebHookHelperDatabase::new(state.pool.clone())
+        .get_by_id(&args[0])?;
+
+    Ok((
+        true,
+        match web_hook {
+            Some(web_hook) => Some(format!(
+                "```{}```",
+                serde_json::to_string_pretty(&web_hook)?
+            )),
+            None => Some("No Webhook found for this swap".to_string()),
         },
     ))
 }

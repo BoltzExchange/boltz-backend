@@ -1,7 +1,7 @@
-use diesel::{AsChangeset, Insertable, Queryable, Selectable};
-use strum_macros::{AsRefStr, EnumString};
-
 use crate::webhook::caller::Hook;
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
+use serde::Serialize;
+use strum_macros::{AsRefStr, EnumString};
 
 #[derive(EnumString, AsRefStr, Debug, PartialEq, Clone, Copy)]
 pub enum WebHookState {
@@ -21,7 +21,9 @@ impl From<WebHookState> for String {
     }
 }
 
-#[derive(Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Default, Debug)]
+#[derive(
+    Queryable, Selectable, Insertable, AsChangeset, PartialEq, Clone, Default, Debug, Serialize,
+)]
 #[diesel(table_name = crate::db::schema::web_hooks)]
 pub struct WebHook {
     pub id: String,

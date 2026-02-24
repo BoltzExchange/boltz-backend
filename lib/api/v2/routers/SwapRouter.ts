@@ -2535,7 +2535,6 @@ class SwapRouter extends RouterBase {
         invoice.toLowerCase(),
         pairHash,
         referralId,
-        undefined,
         SwapVersion.Taproot,
         paymentTimeout,
         webHookData,

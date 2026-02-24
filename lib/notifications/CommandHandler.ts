@@ -22,13 +22,11 @@ import {
 import type { AnySwap } from '../consts/Types';
 import ReferralStats from '../data/ReferralStats';
 import Stats from '../data/Stats';
-import type ChannelCreation from '../db/models/ChannelCreation';
 import type ReverseRoutingHint from '../db/models/ReverseRoutingHint';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import FeeRepository from '../db/repositories/FeeRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -399,12 +397,7 @@ class CommandHandler {
     );
 
     for (const swap of swaps) {
-      const channelCreation =
-        await ChannelCreationRepository.getChannelCreation({
-          swapId: swap.id,
-        });
-
-      await this.sendSwapInfo(swap, channelCreation);
+      await this.sendSwapInfo(swap);
     }
 
     for (const reverseSwap of reverseSwaps as (ReverseSwap & {
@@ -689,26 +682,11 @@ class CommandHandler {
    * Helper functions
    */
 
-  private sendSwapInfo = async (
-    swap: AnySwap,
-    channelCreation?: ChannelCreation | null,
-  ) => {
-    const hasChannelCreation =
-      channelCreation !== null && channelCreation !== undefined;
-
-    let name: string;
-
-    if (hasChannelCreation) {
-      name = 'Channel Creation';
-    } else {
-      name = `${swapTypeToPrettyString(swap.type)} Swap`;
-    }
-
+  private sendSwapInfo = async (swap: AnySwap) => {
+    const name = `${swapTypeToPrettyString(swap.type)} Swap`;
     await this.notificationClient.sendMessage(
       `${name} \`${swap.id}\`:\n` +
-        `${codeBlock}${stringify(swap)}${
-          hasChannelCreation ? '\n' + stringify(channelCreation) : ''
-        }${codeBlock}`,
+        `${codeBlock}${stringify(swap)}${codeBlock}`,
     );
   };
 

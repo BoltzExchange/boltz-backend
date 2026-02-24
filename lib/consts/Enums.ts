@@ -28,8 +28,6 @@ export enum SwapUpdateEvent {
   SwapCreated = 'swap.created',
   SwapExpired = 'swap.expired',
 
-  ChannelCreated = 'channel.created',
-
   InvoiceSet = 'invoice.set',
   InvoicePaid = 'invoice.paid',
   InvoicePending = 'invoice.pending',
@@ -88,18 +86,6 @@ export const FinalChainSwapEvents = [
   SwapUpdateEvent.TransactionClaimed,
   SwapUpdateEvent.TransactionRefunded,
 ];
-
-export enum ChannelCreationType {
-  Auto = 'auto',
-  Create = 'create',
-}
-
-export enum ChannelCreationStatus {
-  Attempted = 'attempted',
-  Created = 'created',
-  Settled = 'settled',
-  Abandoned = 'abandoned',
-}
 
 export enum ServiceWarning {
   ReverseSwapsDisabled = 'reverse.swaps.disabled',

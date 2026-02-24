@@ -4,7 +4,6 @@ import { join } from 'path';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
 import { CurrencyType, SwapType } from '../../../lib/consts/Enums';
-import type ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import { satToMsat } from '../../../lib/lightning/ChannelUtils';
@@ -16,16 +15,9 @@ import type Sidecar from '../../../lib/sidecar/Sidecar';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import { wait } from '../../Utils';
-import {
-  channelCreationExample,
-  reverseSwapExample,
-  swapExample,
-} from './ExampleSwaps';
+import { reverseSwapExample, swapExample } from './ExampleSwaps';
 
-type successCallback = (args: {
-  swap: Swap | ReverseSwap;
-  channelCreation?: ChannelCreation;
-}) => void;
+type successCallback = (args: { swap: Swap | ReverseSwap }) => void;
 type failureCallback = (args: {
   swap: Swap | ReverseSwap;
   reason: string;
@@ -129,10 +121,6 @@ describe('NotificationProvider', () => {
     type: SwapType.Submarine,
     ...swapExample,
   } as any as Swap;
-
-  const channelCreation = {
-    ...channelCreationExample,
-  } as any as ChannelCreation;
 
   const reverseSwap = {
     type: SwapType.ReverseSubmarine,
@@ -309,60 +297,6 @@ describe('NotificationProvider', () => {
         `Lightning amount: ${satoshisToSatcomma(
           bolt11.decode(reverseSwap.invoice).satoshis!,
         )} LTC` +
-        NotificationProvider['trailingWhitespace'],
-    );
-  });
-
-  test('should send notification after successful Channel Creation Swap', async () => {
-    emitSwapSuccess({ swap, channelCreation });
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      '**Swap BTC -> LTC :zap: :construction_site:**\n' +
-        `ID: ${swap.id}\n` +
-        `Pair: ${swap.pair}\n` +
-        'Order side: buy\n' +
-        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToSatcomma(
-          bolt11.decode(swap.invoice!).satoshis!,
-        )} LTC\n` +
-        `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
-        `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
-        `Routing fees: ${swap.routingFee! / 1000} sats\n\n` +
-        '**Channel Creation:**\n' +
-        `Private: ${channelCreation.private}\n` +
-        `Inbound: ${channelCreation.inboundLiquidity}%\n` +
-        `Node: ${channelCreation.nodePublicKey}\n` +
-        `Funding: ${channelCreation.fundingTransactionId}:${channelCreation.fundingTransactionVout}` +
-        NotificationProvider['trailingWhitespace'],
-    );
-
-    // Should skip the Channel Creation part in case no channel was opened
-    emitSwapSuccess({
-      swap,
-      channelCreation: {
-        ...channelCreation,
-        // tslint:disable-next-line:no-null-keyword
-        fundingTransactionId: null,
-      } as any as ChannelCreation,
-    });
-    await wait(5);
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(
-      2,
-      '**Swap BTC -> LTC :zap:**\n' +
-        `ID: ${swap.id}\n` +
-        `Pair: ${swap.pair}\n` +
-        'Order side: buy\n' +
-        `Onchain amount: ${satoshisToSatcomma(swap.onchainAmount!)} BTC\n` +
-        `Lightning amount: ${satoshisToSatcomma(
-          bolt11.decode(swap.invoice!).satoshis!,
-        )} LTC\n` +
-        `Fees earned: ${satoshisToSatcomma(swap.fee!)} LTC\n` +
-        `Miner fees: ${satoshisToSatcomma(swap.minerFee!)} BTC\n` +
-        `Routing fees: ${swap.routingFee! / 1000} sats` +
         NotificationProvider['trailingWhitespace'],
     );
   });

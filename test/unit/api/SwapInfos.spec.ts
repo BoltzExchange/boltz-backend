@@ -14,7 +14,6 @@ import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../../../lib/db/repositories/ChannelCreationRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
@@ -218,30 +217,6 @@ describe('SwapInfos', () => {
 
   describe('handleSwapStatus', () => {
     describe('handleSubmarineSwapStatus', () => {
-      test('should handle created channels', async () => {
-        const swap = {
-          id: 'someId',
-          type: SwapType.Submarine,
-          status: SwapUpdateEvent.ChannelCreated,
-        } as unknown as Swap;
-
-        const channelCreation = {
-          fundingTransactionId: 'txId',
-          fundingTransactionVout: 12,
-        };
-        ChannelCreationRepository.getChannelCreation = jest
-          .fn()
-          .mockResolvedValue(channelCreation);
-
-        await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
-          status: swap.status,
-          channel: {
-            fundingTransactionId: channelCreation.fundingTransactionId,
-            fundingTransactionVout: channelCreation.fundingTransactionVout,
-          },
-        });
-      });
-
       test('should handle rejected zero conf transactions', async () => {
         const transaction = new Transaction();
         const swap = {

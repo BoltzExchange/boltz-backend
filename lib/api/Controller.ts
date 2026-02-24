@@ -290,7 +290,6 @@ class Controller {
   private createSubmarineSwap = async (req: Request, res: Response) => {
     const {
       pairId,
-      channel,
       invoice,
       pairHash,
       orderSide,
@@ -299,21 +298,12 @@ class Controller {
     } = validateRequest(req.body, [
       { name: 'pairId', type: 'string' },
       { name: 'orderSide', type: 'string' },
-      { name: 'channel', type: 'object', optional: true },
       { name: 'invoice', type: 'string', optional: true },
       { name: 'pairHash', type: 'string', optional: true },
       { name: 'refundPublicKey', type: 'string', hex: true, optional: true },
       { name: 'preimageHash', type: 'string', hex: true, optional: true },
     ]);
     const referralId = parseReferralId(req);
-
-    if (channel !== undefined) {
-      validateRequest(channel, [
-        { name: 'auto', type: 'boolean' },
-        { name: 'private', type: 'boolean' },
-        { name: 'inboundLiquidity', type: 'number' },
-      ]);
-    }
 
     let response: any;
 
@@ -325,7 +315,6 @@ class Controller {
         invoice.toLowerCase(),
         pairHash,
         referralId,
-        channel,
       );
     } else {
       // Check that the preimage hash was set
@@ -337,7 +326,6 @@ class Controller {
 
       response = await this.service.createSwap({
         pairId,
-        channel,
         orderSide,
         referralId,
         preimageHash,

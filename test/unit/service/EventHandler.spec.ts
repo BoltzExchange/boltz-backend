@@ -4,7 +4,6 @@ import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import Logger from '../../../lib/Logger';
 import { SwapType, SwapUpdateEvent } from '../../../lib/consts/Enums';
-import type ChannelCreation from '../../../lib/db/models/ChannelCreation';
 import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
@@ -29,11 +28,6 @@ const swap = {
   status: SwapUpdateEvent.SwapCreated,
 } as Swap;
 
-const channelCreation = {
-  fundingTransactionId: 'fundingId',
-  fundingTransactionVout: 43,
-} as ChannelCreation;
-
 const reverseSwap = {
   id: 'reverseId',
   type: SwapType.ReverseSubmarine,
@@ -56,7 +50,6 @@ const mockTransaction = () => {
 
 describe('EventHandler', () => {
   const nursery = new StubEventEmitter();
-  (nursery as any).channelNursery = new StubEventEmitter();
 
   const eventHandler = new EventHandler(Logger.disabledLogger, nursery as any);
 
@@ -269,10 +262,10 @@ describe('EventHandler', () => {
       expect(status).toEqual({ status: SwapUpdateEvent.TransactionClaimed });
     });
     eventHandler.once('swap.success', (args) => {
-      expect(args).toEqual({ swap, channelCreation });
+      expect(args).toEqual({ swap });
     });
 
-    nursery.emit('claim', { swap, channelCreation });
+    nursery.emit('claim', { swap });
   });
 
   test('should emit on chain swap claims', () => {
@@ -455,26 +448,6 @@ describe('EventHandler', () => {
     });
 
     nursery.emit('refund', { swap: toEmit });
-  });
-
-  test('should emit on channel creation', () => {
-    expect.assertions(2);
-
-    eventHandler.once('swap.update', ({ id, status }) => {
-      expect(id).toEqual(swap.id);
-      expect(status).toEqual({
-        status: SwapUpdateEvent.ChannelCreated,
-        channel: {
-          fundingTransactionId: channelCreation.fundingTransactionId,
-          fundingTransactionVout: channelCreation.fundingTransactionVout,
-        },
-      });
-    });
-
-    (nursery as any).channelNursery.emit('channel.created', {
-      swap,
-      channelCreation,
-    });
   });
 
   test('should emit when lockup fails', () => {

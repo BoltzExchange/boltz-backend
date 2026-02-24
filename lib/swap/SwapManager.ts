@@ -41,7 +41,6 @@ import type { Timeouts } from '../chain/ArkClient';
 import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
 import {
-  ChannelCreationType,
   CurrencyType,
   FinalChainSwapEvents,
   OrderSide,
@@ -61,7 +60,6 @@ import type {
   ChainSwapInfo,
 } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import ScriptPubKeyRepository from '../db/repositories/ScriptPubKeyRepository';
@@ -102,14 +100,7 @@ export type InvoiceExpiryRange = {
   max: number;
 };
 
-type ChannelCreationInfo = {
-  auto: boolean;
-  private: boolean;
-  inboundLiquidity: number;
-};
-
 type SetSwapInvoiceResponse = {
-  channelCreationError?: string;
   expectedAmount: number;
   acceptZeroConf: boolean;
 };
@@ -377,7 +368,6 @@ class SwapManager {
     preimageHash: Buffer;
     timeoutBlockDelta: number;
     paymentTimeout?: number;
-    channel?: ChannelCreationInfo;
 
     // Referral ID for the swap
     referralId?: string;
@@ -573,19 +563,6 @@ class SwapManager {
       });
     }
 
-    if (args.channel !== undefined) {
-      this.logger.verbose(`Adding Channel Creation for Swap: ${id}`);
-
-      await ChannelCreationRepository.addChannelCreation({
-        swapId: id,
-        private: args.channel.private,
-        type: args.channel.auto
-          ? ChannelCreationType.Auto
-          : ChannelCreationType.Create,
-        inboundLiquidity: args.channel.inboundLiquidity,
-      });
-    }
-
     return result as CreatedSwap;
   };
 
@@ -628,80 +605,7 @@ class SwapManager {
       throw Errors.INVOICE_EXPIRED_ALREADY();
     }
 
-    const channelCreation = await ChannelCreationRepository.getChannelCreation({
-      swapId: swap.id,
-    });
-
-    let channelCreationError: string | undefined;
-
-    if (channelCreation) {
-      const getChainInfo = async (
-        currency: Currency,
-      ): Promise<{ blocks: number; blockTime: number }> => {
-        if (
-          currency.type === CurrencyType.BitcoinLike ||
-          currency.type === CurrencyType.Liquid
-        ) {
-          const { blocks } = await currency.chainClient!.getBlockchainInfo();
-
-          return {
-            blocks,
-            blockTime: TimeoutDeltaProvider.blockTimes.get(currency.symbol)!,
-          };
-        } else if (currency.type === CurrencyType.Ark) {
-          return {
-            blocks: await currency.arkNode!.getBlockHeight(),
-            blockTime: TimeoutDeltaProvider.blockTimes.get(currency.symbol)!,
-          };
-        } else {
-          const networkInfo = this.walletManager.ethereumManagers.find(
-            (manager) => manager.hasSymbol(currency.symbol),
-          )!.networkDetails;
-
-          return {
-            blocks: await currency.provider!.getLocktimeHeight(),
-            blockTime: TimeoutDeltaProvider.blockTimes.get(networkInfo.symbol)!,
-          };
-        }
-      };
-
-      const { blocks, blockTime } = await getChainInfo(receivingCurrency);
-      const blocksUntilExpiry = swap.timeoutBlockHeight - blocks;
-
-      const timeoutTimestamp =
-        getUnixTime() + blocksUntilExpiry * blockTime * 60;
-
-      if (timeoutTimestamp > decodedInvoice.expiryTimestamp) {
-        const invoiceError = Errors.INVOICE_EXPIRES_TOO_EARLY(
-          decodedInvoice.expiryTimestamp,
-          timeoutTimestamp,
-        );
-
-        // In the auto Channel Creation mode, which is used by the frontend, the invoice check can fail but the Swap should
-        // still be attempted without Channel Creation
-        if (channelCreation.type === ChannelCreationType.Auto) {
-          this.logger.info(
-            `Disabling Channel Creation for Swap ${swap.id}: ${invoiceError.message}`,
-          );
-          channelCreationError = invoiceError.message;
-
-          await channelCreation.destroy();
-
-          if (!canBeRouted) {
-            throw Errors.NO_ROUTE_FOUND();
-          }
-
-          // In other modes (only manual right now), a failing invoice Check should result in a failed request
-        } else {
-          throw invoiceError;
-        }
-      }
-
-      await ChannelCreationRepository.setNodePublicKey(
-        channelCreation,
-        getHexString(decodedInvoice.payee!),
-      );
-    } else if (
+    if (
       !decodedInvoice.routingHints ||
       (decodedInvoice.routingHints && decodedInvoice.routingHints.length === 0)
     ) {
@@ -817,7 +721,6 @@ class SwapManager {
     });
 
     return {
-      channelCreationError,
       acceptZeroConf: swap.acceptZeroConf!,
       expectedAmount: swap.expectedAmount!,
     };
@@ -1668,4 +1571,3 @@ class SwapManager {
 }
 
 export default SwapManager;
-export { ChannelCreationInfo };

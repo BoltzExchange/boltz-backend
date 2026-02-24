@@ -9,7 +9,6 @@ import {
 } from '../consts/Enums';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type { AnySwap, IncorrectAmountDetails } from '../consts/Types';
-import type ChannelCreation from '../db/models/ChannelCreation';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
 
@@ -28,11 +27,6 @@ type SwapUpdate = {
 
   failureReason?: string;
   failureDetails?: IncorrectAmountDetails;
-
-  channel?: {
-    fundingTransactionId: string;
-    fundingTransactionVout: number;
-  };
 };
 
 class EventHandler extends TypedEventEmitter<{
@@ -43,7 +37,6 @@ class EventHandler extends TypedEventEmitter<{
   };
   'swap.success': {
     swap: AnySwap;
-    channelCreation?: ChannelCreation;
   };
   'swap.failure': {
     swap: AnySwap;
@@ -193,7 +186,7 @@ class EventHandler extends TypedEventEmitter<{
       });
     });
 
-    this.nursery.on('claim', ({ swap, channelCreation }) => {
+    this.nursery.on('claim', ({ swap }) => {
       this.logger.verbose(
         `${swapTypeToPrettyString(swap.type)} Swap ${swap.id} succeeded`,
       );
@@ -206,7 +199,6 @@ class EventHandler extends TypedEventEmitter<{
       });
       this.emit('swap.success', {
         swap,
-        channelCreation,
       });
     });
 
@@ -255,22 +247,6 @@ class EventHandler extends TypedEventEmitter<{
         swap.failureReason!,
       );
     });
-
-    this.nursery.channelNursery.on(
-      'channel.created',
-      ({ swap, channelCreation }) => {
-        this.emit('swap.update', {
-          id: swap.id,
-          status: {
-            status: SwapUpdateEvent.ChannelCreated,
-            channel: {
-              fundingTransactionId: channelCreation.fundingTransactionId!,
-              fundingTransactionVout: channelCreation.fundingTransactionVout!,
-            },
-          },
-        });
-      },
-    );
 
     this.nursery.on('lockup.failed', (swap) => {
       this.emit('swap.update', {

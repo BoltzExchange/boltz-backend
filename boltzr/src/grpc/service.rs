@@ -3,7 +3,7 @@ use crate::db::helpers::web_hook::WebHookHelper;
 use crate::db::models::{WebHook, WebHookState};
 use crate::grpc::service::boltzr::boltz_r_server::BoltzR;
 use crate::grpc::service::boltzr::sign_evm_refund_request::Contract;
-use crate::grpc::service::boltzr::swap_update::{ChannelInfo, FailureDetails, TransactionInfo};
+use crate::grpc::service::boltzr::swap_update::{FailureDetails, TransactionInfo};
 use crate::grpc::service::boltzr::{
     Block, BlockAddedRequest, Bolt11Invoice, Bolt12Invoice, Bolt12Offer, CheckTransactionRequest,
     CheckTransactionResponse, ClaimBatchRequest, ClaimBatchResponse, CreateWebHookRequest,
@@ -262,10 +262,6 @@ where
                             status: update.base.status,
                             failure_reason: update.base.failure_reason,
                             zero_conf_rejected: update.base.zero_conf_rejected,
-                            channel_info: update.base.channel_info.map(|info| ChannelInfo {
-                                funding_transaction_id: info.funding_transaction_id,
-                                funding_transaction_vout: info.funding_transaction_vout,
-                            }),
                             failure_details: update.base.failure_details.map(|dt| FailureDetails {
                                 actual: dt.actual,
                                 expected: dt.expected,

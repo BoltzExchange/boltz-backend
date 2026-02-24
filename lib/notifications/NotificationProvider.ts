@@ -245,52 +245,29 @@ class NotificationProvider {
       }
     };
 
-    this.service.eventHandler.on(
-      'swap.success',
-      async ({ swap, channelCreation }) => {
-        const { base, quote } = splitPairId(swap.pair);
-        const { sending, receiving } = getSendingReceivingCurrency(
-          base,
-          quote,
-          swap.orderSide,
-        );
+    this.service.eventHandler.on('swap.success', async ({ swap }) => {
+      const { base, quote } = splitPairId(swap.pair);
+      const { sending, receiving } = getSendingReceivingCurrency(
+        base,
+        quote,
+        swap.orderSide,
+      );
 
-        const hasChannelCreation =
-          channelCreation !== null &&
-          channelCreation !== undefined &&
-          channelCreation.fundingTransactionId !== null;
+      let message =
+        `**Swap ${getSwapTitle(swap.type, sending, receiving)}**\n` +
+        `${await getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
+        `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${sending}\n` +
+        `Miner fees: ${this.getMinerFees(swap.type, swap)}`;
 
-        let message =
-          `**Swap ${getSwapTitle(swap.type, sending, receiving)}${
-            hasChannelCreation ? ` ${Emojis.ConstructionSite}` : ''
-          }**\n` +
-          `${await getBasicSwapInfo(swap.type, swap, base, quote)}\n` +
-          `Fees earned: ${satoshisToSatcomma(swap.fee!)} ${sending}\n` +
-          `Miner fees: ${this.getMinerFees(swap.type, swap)}`;
+      if (swap.type === SwapType.Submarine) {
+        // The routing fees are denominated in millisatoshi
+        message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} sats`;
+      }
 
-        if (swap.type === SwapType.Submarine) {
-          // The routing fees are denominated in millisatoshi
-          message += `\nRouting fees: ${
-            (swap as Swap).routingFee! / 1000
-          } sats`;
-        }
-
-        if (hasChannelCreation) {
-          message +=
-            '\n\n**Channel Creation:**\n' +
-            `Private: ${channelCreation!.private}\n` +
-            `Inbound: ${channelCreation!.inboundLiquidity}%\n` +
-            `Node: ${channelCreation!.nodePublicKey}\n` +
-            `Funding: ${channelCreation!.fundingTransactionId}:${
-              channelCreation!.fundingTransactionVout
-            }`;
-        }
-
-        await this.client.sendMessage(
-          `${message}${NotificationProvider.trailingWhitespace}`,
-        );
-      },
-    );
+      await this.client.sendMessage(
+        `${message}${NotificationProvider.trailingWhitespace}`,
+      );
+    });
 
     this.service.eventHandler.on('swap.failure', async ({ swap, reason }) => {
       const { base, quote } = splitPairId(swap.pair);

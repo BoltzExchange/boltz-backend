@@ -192,11 +192,6 @@ export class SwapUpdate extends jspb.Message {
     getFailureDetails(): SwapUpdate.FailureDetails | undefined;
     setFailureDetails(value?: SwapUpdate.FailureDetails): SwapUpdate;
 
-    hasChannelInfo(): boolean;
-    clearChannelInfo(): void;
-    getChannelInfo(): SwapUpdate.ChannelInfo | undefined;
-    setChannelInfo(value?: SwapUpdate.ChannelInfo): SwapUpdate;
-
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SwapUpdate.AsObject;
     static toObject(includeInstance: boolean, msg: SwapUpdate): SwapUpdate.AsObject;
@@ -215,7 +210,6 @@ export namespace SwapUpdate {
         transactionInfo?: SwapUpdate.TransactionInfo.AsObject,
         failureReason?: string,
         failureDetails?: SwapUpdate.FailureDetails.AsObject,
-        channelInfo?: SwapUpdate.ChannelInfo.AsObject,
     }
 
 
@@ -271,29 +265,6 @@ export namespace SwapUpdate {
         export type AsObject = {
             expected: number,
             actual: number,
-        }
-    }
-
-    export class ChannelInfo extends jspb.Message { 
-        getFundingTransactionId(): string;
-        setFundingTransactionId(value: string): ChannelInfo;
-        getFundingTransactionVout(): number;
-        setFundingTransactionVout(value: number): ChannelInfo;
-
-        serializeBinary(): Uint8Array;
-        toObject(includeInstance?: boolean): ChannelInfo.AsObject;
-        static toObject(includeInstance: boolean, msg: ChannelInfo): ChannelInfo.AsObject;
-        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-        static serializeBinaryToWriter(message: ChannelInfo, writer: jspb.BinaryWriter): void;
-        static deserializeBinary(bytes: Uint8Array): ChannelInfo;
-        static deserializeBinaryFromReader(message: ChannelInfo, reader: jspb.BinaryReader): ChannelInfo;
-    }
-
-    export namespace ChannelInfo {
-        export type AsObject = {
-            fundingTransactionId: string,
-            fundingTransactionVout: number,
         }
     }
 

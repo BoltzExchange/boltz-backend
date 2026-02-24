@@ -9,9 +9,8 @@ import {
   getTsString,
   splitPairId,
 } from '../Utils';
-import { ChannelCreationStatus, SwapUpdateEvent } from '../consts/Enums';
+import { SwapUpdateEvent } from '../consts/Enums';
 import type { AnySwap } from '../consts/Types';
-import type ChannelCreation from '../db/models/ChannelCreation';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
@@ -29,7 +28,6 @@ import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
 import type { Currency } from '../wallet/WalletManager';
-import type ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import LightningNursery from './LightningNursery';
 import type NodeSwitch from './NodeSwitch';
@@ -56,7 +54,6 @@ type SwapNurseryEvents = {
   'claim.pending': Swap | ChainSwapInfo;
   claim: {
     swap: Swap | ChainSwapInfo;
-    channelCreation?: ChannelCreation;
   };
 
   // Reverse swap related events
@@ -89,7 +86,6 @@ class PaymentHandler {
     private readonly sidecar: Sidecar,
     private readonly nodeSwitch: NodeSwitch,
     private readonly currencies: Map<string, Currency>,
-    public readonly channelNursery: ChannelNursery,
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private readonly pendingPaymentTracker: PendingPaymentTracker,
     private readonly swapNursery: SwapNursery,
@@ -99,15 +95,11 @@ class PaymentHandler {
 
   public payInvoice = async (
     swap: Swap,
-    channelCreation: ChannelCreation | null,
     outgoingChannelId?: string,
   ): Promise<Buffer | undefined> => {
     this.logger.verbose(`Paying invoice of Swap ${swap.id}`);
 
-    if (
-      swap.status !== SwapUpdateEvent.InvoicePending &&
-      swap.status !== SwapUpdateEvent.ChannelCreated
-    ) {
+    if (swap.status !== SwapUpdateEvent.InvoicePending) {
       this.swapNursery.emit(
         'invoice.pending',
         await SwapRepository.setSwapStatus(
@@ -187,14 +179,7 @@ class PaymentHandler {
         return await this.settleInvoice(swap, payResponse);
       }
     } catch (error) {
-      return this.handlePaymentFailure(
-        swap,
-        channelCreation,
-        lightningCurrency,
-        node,
-        error,
-        outgoingChannelId,
-      );
+      return this.handlePaymentFailure(swap, node, error, outgoingChannelId);
     }
 
     return undefined;
@@ -202,8 +187,6 @@ class PaymentHandler {
 
   private handlePaymentFailure = async (
     swap: Swap,
-    channelCreation: ChannelCreation | null,
-    lightningCurrency: Currency,
     lightningClient: LightningClient,
     error: unknown,
     outgoingChannelId?: string,
@@ -211,8 +194,6 @@ class PaymentHandler {
     if (lightningClient instanceof LndClient) {
       return this.handleLndPaymentFailure(
         swap,
-        channelCreation,
-        lightningCurrency,
         lightningClient,
         error,
         outgoingChannelId,
@@ -226,8 +207,6 @@ class PaymentHandler {
 
   private handleLndPaymentFailure = async (
     swap: Swap,
-    channelCreation: ChannelCreation | null,
-    lightningCurrency: Currency,
     lndClient: LndClient,
     error: unknown,
     outgoingChannelId?: string,
@@ -307,24 +286,6 @@ class PaymentHandler {
       this.logger.debug(
         `Not resetting ${lndClient.symbol} ${LndClient.serviceName} mission control because last reset was at ${getTsString(new Date(this.lastResetMissionControl))}`,
       );
-    }
-
-    // If the invoice could not be paid but the Swap has a Channel Creation attached to it, a channel will be opened
-    if (
-      typeof error === 'number' &&
-      channelCreation &&
-      channelCreation.status !== ChannelCreationStatus.Created
-    ) {
-      switch (error) {
-        case PaymentFailureReason.FAILURE_REASON_TIMEOUT:
-        case PaymentFailureReason.FAILURE_REASON_NO_ROUTE:
-        case PaymentFailureReason.FAILURE_REASON_INSUFFICIENT_BALANCE:
-          await this.channelNursery.openChannel(
-            lightningCurrency,
-            swap,
-            channelCreation,
-          );
-      }
     }
 
     return undefined;

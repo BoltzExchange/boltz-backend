@@ -21,11 +21,9 @@ import {
   swapTypeToPrettyString,
 } from '../../consts/Enums';
 import type { AnySwap } from '../../consts/Types';
-import type ChannelCreation from '../../db/models/ChannelCreation';
 import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../../db/repositories/ChannelCreationRepository';
 import CommitmentRepository from '../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import type RateProvider from '../../rates/RateProvider';
@@ -62,7 +60,6 @@ type ChainSwapToClaimPreimage = AnySwapWithPreimage<ChainSwapInfo>;
 class DeferredClaimer extends CoopSignerBase<{
   claim: {
     swap: Swap | ChainSwapInfo;
-    channelCreation?: ChannelCreation;
   };
   'batch.claim.failure': {
     symbol: string;
@@ -356,10 +353,6 @@ class DeferredClaimer extends CoopSignerBase<{
 
           this.emit('claim', {
             swap: await SwapRepository.setMinerFee(toClaim.swap as Swap, fee),
-            channelCreation:
-              (await ChannelCreationRepository.getChannelCreation({
-                swapId: toClaim.swap.id,
-              })) || undefined,
           });
         } else {
           this.chainSwapsToClaim.get(chainCurrency.symbol)?.delete(swap.id);
@@ -607,10 +600,6 @@ class DeferredClaimer extends CoopSignerBase<{
 
       this.emit('claim', {
         swap: updatedSwap,
-        channelCreation:
-          (await ChannelCreationRepository.getChannelCreation({
-            swapId: toClaim.swap.id,
-          })) || undefined,
       });
     }
 

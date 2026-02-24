@@ -1,7 +1,5 @@
-import { Transaction } from 'bitcoinjs-lib';
 import type { RoutingInfo } from 'bolt11';
 import bolt11 from 'bolt11';
-import { detectSwap } from 'boltz-core';
 import { Transaction as EthersTransaction } from 'ethers';
 import type { Sequelize, Transaction as SequelizeTransaction } from 'sequelize';
 import { DataTypes, Op, QueryTypes } from 'sequelize';
@@ -11,7 +9,6 @@ import type Logger from '../Logger';
 import {
   createApiCredential,
   formatError,
-  getChainCurrency,
   getHexBuffer,
   getHexString,
   getLightningCurrency,
@@ -22,7 +19,6 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
-import ChannelCreation from './models/ChannelCreation';
 import DatabaseVersion from './models/DatabaseVersion';
 import LightningPayment, {
   LightningPaymentStatus,
@@ -134,7 +130,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 23;
+  private static latestSchemaVersion = 24;
 
   private toBackFill: number[] = [];
 
@@ -176,114 +172,10 @@ class Migration {
     this.logOutdatedVersion(versionRow.version);
 
     switch (versionRow.version) {
-      // The migration from schema version 1 to 2 adds support for Ether and ERC20 tokens
-      // Which means that we can safely assume that all Swaps that are in the database
-      // already were on a Bitcoin like chain
       case 1: {
-        // Sanity check the chain clients
-        for (const currency of currencies.values()) {
-          try {
-            if (currency.chainClient) {
-              this.logger.debug(
-                `Sanity checking ${currency.symbol} chain client for migration`,
-              );
-              await currency.chainClient!.getBlockchainInfo();
-              this.logger.debug(
-                `${currency.symbol} chain client is ready for migration`,
-              );
-            }
-          } catch (error) {
-            throw `could not connect to to chain client of ${
-              currency.symbol
-            }: ${formatError(error)}`;
-          }
-        }
-
-        this.logUpdatingTable('swaps');
-
-        // Add the missing columns to make querying via the model possible
-        await this.sequelize.query(
-          'ALTER TABLE swaps ADD failureReason VARCHAR(255)',
+        throw new Error(
+          'database schema version 1 is no longer supported; please upgrade using an older boltz-backend release first',
         );
-        await this.sequelize.query(
-          'ALTER TABLE swaps ADD lockupTransactionVout VARCHAR(255)',
-        );
-
-        const allSwaps = await Swap.findAll();
-        const allChannelCreations = await ChannelCreation.findAll();
-
-        // To drop the "swaps" table, we also need to drop "channelCreations" because it has a foreign constraint
-        await this.dropTable('channelCreations');
-        await this.dropTable('swaps');
-
-        await Swap.sync();
-        await ChannelCreation.sync();
-
-        for (const swap of allSwaps) {
-          let lockupTransactionVout: number | null = null;
-
-          if (swap.lockupTransactionId) {
-            const { base, quote } = splitPairId(swap.pair);
-            const chainCurrency = getChainCurrency(
-              base,
-              quote,
-              swap.orderSide,
-              false,
-            );
-            const chainClient = currencies.get(chainCurrency)!.chainClient!;
-
-            const lockupTransaction = Transaction.fromHex(
-              await chainClient.getRawTransaction(swap.lockupTransactionId),
-            );
-
-            lockupTransactionVout = detectSwap(
-              getHexBuffer(swap.redeemScript!),
-              lockupTransaction,
-            )!.vout;
-          }
-
-          await Swap.create({
-            ...this.getModelDataValues(swap),
-            lockupTransactionVout,
-          });
-        }
-
-        for (const channelCreation of allChannelCreations) {
-          await ChannelCreation.create({
-            ...this.getModelDataValues(channelCreation),
-          });
-        }
-
-        this.logUpdatingTable('reverseSwaps');
-
-        // Add the missing columns to make querying via the model possible
-        await this.sequelize.query(
-          'ALTER TABLE reverseSwaps ADD claimAddress VARCHAR(255)',
-        );
-        await this.sequelize.query(
-          'ALTER TABLE reverseSwaps ADD preimageHash VARCHAR(255)',
-        );
-        await this.sequelize.query(
-          'ALTER TABLE reverseSwaps ADD failureReason VARCHAR(255)',
-        );
-
-        const allReverseSwaps = await ReverseSwap.findAll();
-
-        await this.dropTable('reverseSwaps');
-
-        await ReverseSwap.sync();
-
-        for (const reverseSwap of allReverseSwaps) {
-          // The "claimAddress" does not have to be set because it is only needed for Swaps on the Ethereum chain and
-          // databases of the schema version 1 do not support Ethereum Swaps
-          await ReverseSwap.create({
-            ...this.getModelDataValues(reverseSwap),
-            preimageHash: decodeInvoice(reverseSwap.invoice).paymentHash!,
-          });
-        }
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
       }
 
       // Database schema version 3 adds support for the prepay miner fee on the Ethereum chain
@@ -1053,6 +945,15 @@ class Migration {
         break;
       }
 
+      case 23: {
+        this.logUpdatingTable('channelCreations');
+
+        await this.sequelize.getQueryInterface().dropTable('channelCreations');
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
@@ -1197,14 +1098,6 @@ class Migration {
     }
 
     this.toBackFill = [];
-  };
-
-  private dropTable = async (table: string) => {
-    await this.sequelize.query(`DROP TABLE ${table}`);
-  };
-
-  private getModelDataValues = (model: any) => {
-    return model['dataValues'];
   };
 
   private logUpdatingTable = (table: string) => {

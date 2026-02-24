@@ -8,7 +8,6 @@ import Migration from './Migration';
 import ChainSwap from './models/ChainSwap';
 import ChainSwapData from './models/ChainSwapData';
 import ChainTip from './models/ChainTip';
-import ChannelCreation from './models/ChannelCreation';
 import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import ExtraFee from './models/ExtraFee';
@@ -119,7 +118,6 @@ class Database {
       MarkedSwap.sync(),
       ChainSwapData.sync(),
       LightningPayment.sync(),
-      ChannelCreation.sync(),
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
       RefundTransaction.sync(),
@@ -159,7 +157,6 @@ class Database {
     ReverseSwap.load(Database.sequelize);
     MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
-    ChannelCreation.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
     ReverseRoutingHint.load(Database.sequelize);
     PendingLockupTransaction.load(Database.sequelize);

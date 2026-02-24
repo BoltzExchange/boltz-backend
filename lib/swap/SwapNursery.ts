@@ -48,13 +48,11 @@ import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../consts/Types';
-import type ChannelCreation from '../db/models/ChannelCreation';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
-import ChannelCreationRepository from '../db/repositories/ChannelCreationRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -84,7 +82,6 @@ import {
 import type Contracts from '../wallet/ethereum/contracts/Contracts';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import ArkNursery from './ArkNursery';
-import ChannelNursery from './ChannelNursery';
 import Errors from './Errors';
 import EthereumNursery from './EthereumNursery';
 import InvoiceNursery from './InvoiceNursery';
@@ -100,7 +97,6 @@ import TransactionHook from './hooks/TransactionHook';
 
 type PaidSwapInvoice = {
   preimage: Buffer;
-  channelCreation: ChannelCreation | null;
 };
 
 class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
@@ -110,7 +106,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   // Nurseries
   public readonly arkNursery: ArkNursery;
   public readonly utxoNursery: UtxoNursery;
-  public readonly channelNursery: ChannelNursery;
   public readonly ethereumNurseries: EthereumNursery[];
 
   private readonly invoiceNursery: InvoiceNursery;
@@ -171,10 +166,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       overpaymentProtector,
     );
     this.invoiceNursery = new InvoiceNursery(this.logger, this.sidecar);
-    this.channelNursery = new ChannelNursery(
-      this.logger,
-      this.attemptSettleSwap,
-    );
 
     this.ethereumNurseries = this.walletManager.ethereumManagers.map(
       (manager) =>
@@ -197,7 +188,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.sidecar,
       this.nodeSwitch,
       this.currencies,
-      this.channelNursery,
       timeoutDeltaProvider,
       this.pendingPaymentTracker,
       this,
@@ -208,10 +198,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       this.paymentHandler.selfPaymentClient,
     );
 
-    this.claimer.on('claim', ({ swap, channelCreation }) => {
+    this.claimer.on('claim', ({ swap }) => {
       this.emit('claim', {
         swap,
-        channelCreation,
       });
     });
 
@@ -336,7 +325,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               wallet,
               transaction,
               payRes.preimage,
-              payRes.channelCreation,
             );
           } else {
             await this.setSwapRate(swap);
@@ -368,12 +356,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           );
 
           const { arkNode } = this.currencies.get(chainSymbol)!;
-          await this.claimVtxo(
-            swap,
-            arkNode!,
-            payRes.preimage,
-            payRes.channelCreation,
-          );
+          await this.claimVtxo(swap, arkNode!, payRes.preimage);
         } else {
           await this.setSwapRate(swap);
         }
@@ -793,7 +776,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.lightningNursery.bindCurrencies(currencies);
 
     await this.invoiceNursery.init();
-    await this.channelNursery.init(currencies);
 
     if (this.retryInterval !== 0) {
       setInterval(async () => {
@@ -845,7 +827,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     if (swap.type === SwapType.Submarine) {
       payRes = await this.payInvoice(swap as Swap, outgoingChannelId);
     } else {
-      payRes = { preimage: preimage!, channelCreation: null };
+      payRes = { preimage: preimage! };
     }
 
     if (payRes === undefined) {
@@ -874,7 +856,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.walletManager.wallets.get(currency.symbol)!,
           parseTransaction(currency.type, lockupTransactionHex),
           payRes.preimage,
-          payRes.channelCreation,
         );
         break;
       }
@@ -900,7 +881,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             txToClaim!,
           ),
           payRes.preimage,
-          payRes.channelCreation,
         );
         break;
       }
@@ -925,18 +905,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             txToClaim!,
           ),
           payRes.preimage,
-          payRes.channelCreation,
         );
         break;
       }
 
       case CurrencyType.Ark: {
-        await this.claimVtxo(
-          swap,
-          currency.arkNode!,
-          payRes.preimage,
-          payRes.channelCreation,
-        );
+        await this.claimVtxo(swap, currency.arkNode!, payRes.preimage);
         break;
       }
     }
@@ -1522,12 +1496,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap,
     outgoingChannelId?: string,
   ): Promise<PaidSwapInvoice | undefined> => {
-    const channelCreation = await ChannelCreationRepository.getChannelCreation({
-      swapId: swap.id,
-    });
     const preimage = await this.paymentHandler.payInvoice(
       swap,
-      channelCreation,
       outgoingChannelId,
     );
 
@@ -1537,7 +1507,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     return {
       preimage,
-      channelCreation,
     };
   };
 
@@ -1547,7 +1516,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     preimage: Buffer,
-    channelCreation: ChannelCreation | null,
   ) => {
     if (await this.claimer.deferClaim(swap, preimage)) {
       this.emit('claim.pending', swap);
@@ -1583,7 +1551,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.emit('claim', {
-      channelCreation: channelCreation || undefined,
       swap:
         swap.type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, claimTransactionFee)
@@ -1599,7 +1566,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap | ChainSwapInfo,
     arkClient: ArkClient,
     preimage: Buffer,
-    channelCreation: ChannelCreation | null,
   ) => {
     const claimTransaction = await arkClient.claimVHtlc(
       preimage,
@@ -1612,7 +1578,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.emit('claim', {
-      channelCreation: channelCreation || undefined,
       swap:
         swap.type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, 0)
@@ -1630,7 +1595,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap | ChainSwapInfo,
     etherSwapValues: EtherSwapValues,
     preimage: Buffer,
-    channelCreation?: ChannelCreation | null,
   ) => {
     const contractTransaction = await contracts.contractHandler.claimEther(
       swap,
@@ -1645,7 +1609,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     const transactionFee = calculateEthereumTransactionFee(contractTransaction);
     this.emit('claim', {
-      channelCreation: channelCreation || undefined,
       swap:
         swap.type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)
@@ -1662,7 +1625,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap | ChainSwapInfo,
     erc20SwapValues: ERC20SwapValues,
     preimage: Buffer,
-    channelCreation?: ChannelCreation | null,
   ) => {
     const { base, quote } = splitPairId(swap.pair);
     const chainCurrency = getChainCurrency(base, quote, swap.orderSide, false);
@@ -1683,7 +1645,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
     const transactionFee = calculateEthereumTransactionFee(contractTransaction);
     this.emit('claim', {
-      channelCreation: channelCreation || undefined,
       swap:
         swap.type === SwapType.Submarine
           ? await SwapRepository.setMinerFee(swap as Swap, transactionFee)

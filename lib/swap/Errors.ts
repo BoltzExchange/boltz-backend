@@ -19,13 +19,6 @@ export default {
     message: `the preimage hash of the invoice does not match the one of the Swap: ${preimageHash}`,
     code: concatErrorCode(ErrorCodePrefix.Swap, 3),
   }),
-  INVOICE_EXPIRES_TOO_EARLY: (
-    invoiceExpiry: number,
-    timeoutTimestamp: number,
-  ): Error => ({
-    message: `invoice expiry ${invoiceExpiry} is before Swap timeout: ${timeoutTimestamp}`,
-    code: concatErrorCode(ErrorCodePrefix.Swap, 4),
-  }),
   COINS_COULD_NOT_BE_SENT: (): Error => ({
     message: 'onchain coins could not be sent',
     code: concatErrorCode(ErrorCodePrefix.Swap, 5),

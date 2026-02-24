@@ -9,7 +9,7 @@ edition.workspace = true
 anyhow = { workspace = true }
 boltz-utils = { path = "../boltz-utils" }
 dashmap = { workspace = true }
-redis = { version = "1.0.3", features = ["tokio-comp", "r2d2"] }
+redis = { version = "1.0.4", features = ["tokio-comp", "r2d2"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

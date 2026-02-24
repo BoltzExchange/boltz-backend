@@ -25,12 +25,12 @@ import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
-import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import type Wallet from '../wallet/Wallet';
 import type WalletManager from '../wallet/WalletManager';
 import type EthereumManager from '../wallet/ethereum/EthereumManager';
 import type ERC20WalletProvider from '../wallet/providers/ERC20WalletProvider';
 import Errors from './Errors';
+import EthereumTransactionConfirmationTracker from './EthereumConfirmationTracker';
 import type OverpaymentProtector from './OverpaymentProtector';
 import { Action } from './hooks/CreationHook';
 import type TransactionHook from './hooks/TransactionHook';
@@ -66,6 +66,8 @@ class EthereumNursery extends TypedEventEmitter<{
     isEtherSwap: boolean;
   };
 }> {
+  private readonly contractTransactionTracker: EthereumTransactionConfirmationTracker;
+
   constructor(
     private readonly logger: Logger,
     private readonly walletManager: WalletManager,
@@ -74,6 +76,19 @@ class EthereumNursery extends TypedEventEmitter<{
     private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     super();
+
+    this.contractTransactionTracker =
+      new EthereumTransactionConfirmationTracker(
+        this.logger,
+        this.ethereumManager.networkDetails,
+        this.ethereumManager.provider,
+      );
+    this.contractTransactionTracker.on('confirmed', (data) => {
+      this.emit('lockup.confirmed', data);
+    });
+    this.contractTransactionTracker.on('failedToSend', (data) => {
+      this.emit('lockup.failedToSend', data);
+    });
 
     this.listenBlocks();
 
@@ -131,29 +146,8 @@ class EthereumNursery extends TypedEventEmitter<{
   public listenContractTransaction = (
     swap: ReverseSwap | ChainSwapInfo,
     transaction: TransactionResponse,
-  ): void => {
-    transaction
-      .wait(1)
-      .then(async () => {
-        this.emit('lockup.confirmed', {
-          transactionHash: transaction.hash,
-          swap: await WrappedSwapRepository.setStatus(
-            swap,
-            swap.type === SwapType.ReverseSubmarine
-              ? SwapUpdateEvent.TransactionConfirmed
-              : SwapUpdateEvent.TransactionServerConfirmed,
-          ),
-        });
-      })
-      .catch(async (reason) => {
-        this.emit('lockup.failedToSend', {
-          reason,
-          swap: await WrappedSwapRepository.setStatus(
-            swap,
-            SwapUpdateEvent.TransactionFailed,
-          ),
-        });
-      });
+  ) => {
+    this.contractTransactionTracker.trackTransaction(swap, transaction.hash);
   };
 
   public checkEtherSwapLockup = async (
@@ -555,6 +549,7 @@ class EthereumNursery extends TypedEventEmitter<{
             this.checkExpiredSwaps(latest),
             this.checkExpiredChainSwaps(latest),
             this.checkExpiredReverseSwaps(latest),
+            this.contractTransactionTracker.scanPendingTransactions(),
           ]);
         }
       })

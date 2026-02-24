@@ -29,7 +29,6 @@ import EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 import ERC20WalletProvider from '../../../lib/wallet/providers/ERC20WalletProvider';
 import EtherWalletProvider from '../../../lib/wallet/providers/EtherWalletProvider';
-import { wait } from '../../Utils';
 
 type blockCallback = (data: { number: number; l1BlockNumber?: number }) => void;
 
@@ -95,6 +94,8 @@ const mockOnBlock = jest.fn().mockImplementation((callback: any): any => {
 });
 
 const mockGetTransaction = jest.fn().mockResolvedValue(null);
+const mockGetTransactionReceipt = jest.fn().mockResolvedValue(null);
+const mockGetBlockNumber = jest.fn().mockResolvedValue(0);
 
 let emitEthClaim: claimCallback;
 let emitErc20Claim: claimCallback;
@@ -132,6 +133,8 @@ jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
     provider: {
       onBlock: mockOnBlock,
       getTransaction: mockGetTransaction,
+      getTransactionReceipt: mockGetTransactionReceipt,
+      getBlockNumber: mockGetBlockNumber,
     },
     contractEventHandler: {
       on: mockOnContractEventHandler,
@@ -277,14 +280,52 @@ describe('EthereumNursery', () => {
   });
 
   test('should listen to contract transactions', async () => {
-    expect.assertions(4);
+    const confirmedHash = exampleTransaction.hash!;
+    const failedHash =
+      '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
 
-    nursery.once('lockup.confirmed', ({ swap, transactionHash }) => {
-      expect(swap).toEqual({
-        type: SwapType.ReverseSubmarine,
-        status: SwapUpdateEvent.TransactionConfirmed,
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
+    mockGetBlockNumber.mockResolvedValue(12345);
+    mockGetTransactionReceipt.mockImplementation(async (transactionHash) => {
+      if (transactionHash === confirmedHash) {
+        return {
+          blockNumber: 12345,
+          status: 1,
+        };
+      }
+
+      if (transactionHash === failedHash) {
+        return {
+          blockNumber: 12345,
+          status: 0,
+        };
+      }
+
+      return null;
+    });
+
+    const confirmedPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.confirmed', ({ swap, transactionHash }) => {
+        expect(swap).toEqual({
+          type: SwapType.ReverseSubmarine,
+          status: SwapUpdateEvent.TransactionConfirmed,
+        });
+        expect(transactionHash).toEqual(confirmedHash);
+        resolve();
       });
-      expect(transactionHash).toEqual(exampleTransaction);
+    });
+
+    const failedPromise = new Promise<void>((resolve) => {
+      nursery.once('lockup.failedToSend', ({ swap, reason }) => {
+        expect(swap).toEqual({
+          type: SwapType.ReverseSubmarine,
+          status: SwapUpdateEvent.TransactionFailed,
+        });
+        expect(reason).toContain(failedHash);
+        resolve();
+      });
     });
 
     nursery.listenContractTransaction(
@@ -292,31 +333,21 @@ describe('EthereumNursery', () => {
         type: SwapType.ReverseSubmarine,
       } as any,
       {
-        wait: jest.fn().mockResolvedValue(undefined),
+        hash: confirmedHash,
       } as any,
     );
-
-    // A lockup transaction that confirms but reverts
-    const rejectedReason = 'did not feel like it';
-
-    nursery.once('lockup.failedToSend', ({ swap, reason }) => {
-      expect(swap).toEqual({
-        type: SwapType.ReverseSubmarine,
-        status: SwapUpdateEvent.TransactionFailed,
-      });
-      expect(reason).toEqual(rejectedReason);
-    });
 
     nursery.listenContractTransaction(
       {
         type: SwapType.ReverseSubmarine,
       } as any,
       {
-        wait: jest.fn().mockRejectedValue(rejectedReason),
+        hash: failedHash,
       } as any,
     );
 
-    await wait(50);
+    await emitBlock({ number: 12345 });
+    await Promise.all([confirmedPromise, failedPromise]);
   });
 
   test('should listen for EtherSwap lockup events', async () => {

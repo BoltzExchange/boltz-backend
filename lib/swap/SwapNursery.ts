@@ -1419,22 +1419,22 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
       }
 
-      nursery.listenContractTransaction(swap, contractTransaction);
+      const updatedSwap =
+        await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          contractTransaction.hash,
+          lockupDetails.expectedAmount,
+          calculateEthereumTransactionFee(contractTransaction),
+        );
+
+      nursery.listenContractTransaction(updatedSwap, contractTransaction);
       this.logger.verbose(
         `Locked up ${lockupDetails.expectedAmount} ${wallet.symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${contractTransaction.hash}`,
       );
 
-      const transactionFee =
-        calculateEthereumTransactionFee(contractTransaction);
-
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap: await WrappedSwapRepository.setServerLockupTransaction(
-          swap,
-          contractTransaction.hash,
-          lockupDetails.expectedAmount,
-          transactionFee,
-        ),
+        swap: updatedSwap,
       });
     } catch (error) {
       await this.handleSwapSendFailed(
@@ -1491,22 +1491,22 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
       }
 
-      nursery.listenContractTransaction(swap, contractTransaction);
+      const updatedSwap =
+        await WrappedSwapRepository.setServerLockupTransaction(
+          swap,
+          contractTransaction.hash,
+          lockupDetails.expectedAmount,
+          calculateEthereumTransactionFee(contractTransaction),
+        );
+
+      nursery.listenContractTransaction(updatedSwap, contractTransaction);
       this.logger.verbose(
         `Locked up ${lockupDetails.expectedAmount} ${wallet.symbol} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${contractTransaction.hash}`,
       );
 
-      const transactionFee =
-        calculateEthereumTransactionFee(contractTransaction);
-
       this.emit('coins.sent', {
         transaction: contractTransaction.hash,
-        swap: await WrappedSwapRepository.setServerLockupTransaction(
-          swap,
-          contractTransaction.hash,
-          lockupDetails.expectedAmount,
-          transactionFee,
-        ),
+        swap: updatedSwap,
       });
     } catch (error) {
       await this.handleSwapSendFailed(

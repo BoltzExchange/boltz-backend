@@ -10,7 +10,7 @@ use crate::db::helpers::chain_tip::{ChainTipHelper, ChainTipHelperDatabase};
 use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::referral::ReferralHelperDatabase;
 use crate::db::helpers::reverse_swap::{ReverseSwapHelper, ReverseSwapHelperDatabase};
-use crate::db::helpers::script_pubkey::ScriptPubKeyHelperDatabase;
+use crate::db::helpers::script_pubkey::{ScriptPubKeyHelper, ScriptPubKeyHelperDatabase};
 use crate::db::helpers::swap::{SwapHelper, SwapHelperDatabase};
 use crate::db::models::{SomeSwap, SwapType};
 use crate::grpc::service::boltzr::ClaimBatchResponse;
@@ -92,6 +92,7 @@ pub struct Manager {
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     chain_swap_repo: Arc<dyn ChainSwapHelper + Sync + Send>,
     reverse_swap_repo: Arc<dyn ReverseSwapHelper + Sync + Send>,
+    script_pubkey_repo: Arc<dyn ScriptPubKeyHelper + Sync + Send>,
     timeout_delta_provider: Arc<TimeoutDeltaProvider>,
 
     utxo_nursery: UtxoNursery,
@@ -128,6 +129,7 @@ impl Manager {
             swap_repo: swap_repo.clone(),
             chain_swap_repo: chain_swap_repo.clone(),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
+            script_pubkey_repo: Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
             timeout_delta_provider: Arc::new(TimeoutDeltaProvider::new(&currencies, pairs)?),
             utxo_nursery: UtxoNursery::new(
                 cancellation_token,
@@ -518,6 +520,7 @@ impl SwapManager for Manager {
             &self.swap_repo,
             &self.reverse_swap_repo,
             &self.chain_swap_repo,
+            &self.script_pubkey_repo,
         )?;
         let scan_results =
             futures::future::join_all(clients.iter().map(|(option, client)| async {
@@ -651,6 +654,7 @@ pub mod test {
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),
             chain_swap_repo: Arc::new(ChainSwapHelperDatabase::new(pool.clone())),
             reverse_swap_repo: Arc::new(ReverseSwapHelperDatabase::new(pool.clone())),
+            script_pubkey_repo: Arc::new(ScriptPubKeyHelperDatabase::new(pool.clone())),
             timeout_delta_provider: Arc::new(timeout_provider),
             utxo_nursery: UtxoNursery::new(
                 cancellation_token.clone(),

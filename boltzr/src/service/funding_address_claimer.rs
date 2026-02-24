@@ -339,8 +339,8 @@ mod test {
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::funding_address_test_utils::test::{
         compute_preimage_hash, compute_swap_lockup_address, create_presigned_tx, create_signer,
-        create_swap_tree_json, encode_funding_address, fund_address, get_keypair,
-        test_funding_address, test_funding_address_for_symbol, test_swap,
+        create_swap_tree_json, get_keypair, setup_funding_address_with_real_lockup,
+        test_funding_address, test_swap,
     };
     use crate::service::test::get_test_currencies;
     use boltz_core::Musig;
@@ -440,21 +440,15 @@ mod test {
             .unwrap()
             .to_keypair(&bitcoin::secp256k1::Secp256k1::new());
 
-        let mut funding_address = test_funding_address_for_symbol(
+        let mut funding_address = setup_funding_address_with_real_lockup(
+            chain_client,
             funding_address_id,
             symbol,
             &client_keypair.public_key().serialize(),
             100000,
-        );
-
-        let script_pubkey = funding_address.script_pubkey(&server_keypair).unwrap();
-        let funding_address_str = encode_funding_address(symbol, script_pubkey.clone());
-        let (tx_id, vout, amount) =
-            fund_address(chain_client, symbol, &funding_address_str, &script_pubkey).await;
-
-        funding_address.lockup_transaction_id = Some(tx_id);
-        funding_address.lockup_transaction_vout = Some(vout);
-        funding_address.lockup_amount = Some(amount);
+            &server_keypair,
+        )
+        .await;
 
         let preimage = "0000000000000000000000000000000000000000000000000000000000000001";
         let preimage_bytes: [u8; 32] = hex::decode(preimage).unwrap().try_into().unwrap();

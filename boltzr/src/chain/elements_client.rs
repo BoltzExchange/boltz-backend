@@ -2,7 +2,7 @@ use crate::chain::chain_client::ChainClient;
 use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
 use crate::chain::types::{
     BlockchainInfo, NetworkInfo, RawTransactionVerbose, SignRawTransactionResponse,
-    SubmitPackageResponse, Type, UnspentOutput,
+    SubmitPackageResponse, TestMempoolAcceptResult, Type, UnspentOutput,
 };
 use crate::chain::utils::{Block, Outpoint, Transaction};
 use crate::chain::{BaseClient, Client, LiquidConfig, Transactions};
@@ -173,8 +173,17 @@ impl Client for ElementsClient {
         self.wallet_client().send_raw_transaction(tx).await
     }
 
-    async fn submit_package(&self, txs: &[&str]) -> anyhow::Result<SubmitPackageResponse> {
-        self.wallet_client().submit_package(txs).await
+    async fn test_mempool_accept(
+        &self,
+        txs: &[&str],
+    ) -> anyhow::Result<Vec<TestMempoolAcceptResult>> {
+        self.wallet_client().test_mempool_accept(txs).await
+    }
+
+    async fn submit_package(&self, _txs: &[&str]) -> anyhow::Result<SubmitPackageResponse> {
+        Err(anyhow::anyhow!(
+            "submitpackage is not supported by Elements"
+        ))
     }
 
     async fn list_unspent(&self, wallet: Option<&str>) -> anyhow::Result<Vec<UnspentOutput>> {

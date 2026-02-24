@@ -802,9 +802,9 @@ impl SwapRescue {
                         .map_err(|e| anyhow!("failed to decode derived public key: {}", e))
                 })
                 .collect::<Result<Vec<Vec<u8>>>>()?;
-            let funding_addresses = self
-                .funding_address_helper
-                .get_by_public_keys(public_keys)?;
+            let funding_addresses = self.funding_address_helper.get_all(Box::new(
+                crate::db::schema::funding_addresses::dsl::their_public_key.eq_any(public_keys),
+            ))?;
 
             if pagination.is_none()
                 && swaps.is_empty()
@@ -1274,13 +1274,13 @@ mod test {
             lockup_amount: Some(150000),
             ..Default::default()
         };
-        funding.tree = funding.tree_json().unwrap();
+        funding.init_tree().unwrap();
         funding
     }
 
     fn mock_funding_address_helper_empty() -> MockFundingAddressHelper {
         let mut helper = MockFundingAddressHelper::new();
-        helper.expect_get_by_public_keys().returning(|_| Ok(vec![]));
+        helper.expect_get_all().returning(|_| Ok(vec![]));
         helper
     }
 
@@ -1822,7 +1822,7 @@ mod test {
         {
             let funding_address = funding_address.clone();
             funding_helper
-                .expect_get_by_public_keys()
+                .expect_get_all()
                 .returning(move |_| Ok(vec![funding_address.clone()]))
                 .times(1);
         }

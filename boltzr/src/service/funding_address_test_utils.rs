@@ -1,7 +1,8 @@
 #[cfg(test)]
 pub mod test {
     use crate::chain::Client;
-    use crate::chain::types::RpcParam;
+    use crate::chain::types::{RpcParam, Type};
+    use crate::chain::utils::encode_address;
     use crate::currencies::Currencies;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
@@ -40,7 +41,7 @@ pub mod test {
             timeout_block_height: 1000,
             ..Default::default()
         };
-        fa.tree = fa.tree_json().unwrap();
+        fa.init_tree().unwrap();
         fa
     }
 
@@ -53,7 +54,7 @@ pub mod test {
         let mut fa = test_funding_address(id, their_public_key);
         fa.symbol = symbol.to_string();
         fa.timeout_block_height = timeout_block_height;
-        fa.tree = fa.tree_json().unwrap();
+        fa.init_tree().unwrap();
         fa
     }
 
@@ -70,7 +71,8 @@ pub mod test {
             lockup_amount: Some(amount),
             ..test_funding_address(id, their_public_key)
         };
-        fa.tree = fa.tree_json().unwrap();
+        fa.status = FundingAddressStatus::TransactionConfirmed.to_string();
+        fa.init_tree().unwrap();
         fa
     }
 
@@ -315,19 +317,21 @@ pub mod test {
         }
     }
 
-    pub async fn fund_address(
+    pub async fn send_to_address(
         chain_client: &Arc<dyn Client + Send + Sync>,
         symbol: &str,
-        address: &str,
         script_pubkey: &[u8],
     ) -> (String, i32, i64) {
+        let chain_type = Type::from_str(symbol).unwrap();
+        let address =
+            encode_address(chain_type, script_pubkey.to_vec(), None, Network::Regtest).unwrap();
         let amount = 100_000i64;
         let tx_id = chain_client
             .request_wallet(
                 None,
                 "sendtoaddress",
                 Some(&[
-                    RpcParam::Str(address),
+                    RpcParam::Str(&address),
                     RpcParam::Float(amount as f64 / 100_000_000.0),
                 ]),
             )
@@ -341,7 +345,7 @@ pub mod test {
             .request_wallet(
                 None,
                 "generatetoaddress",
-                Some(&[RpcParam::Int(1), RpcParam::Str(address)]),
+                Some(&[RpcParam::Int(1), RpcParam::Str(&address)]),
             )
             .await;
 
@@ -350,6 +354,31 @@ pub mod test {
         let vout = find_vout(symbol, &raw_tx, &script_pubkey.to_vec());
 
         (tx_id, vout, amount)
+    }
+
+    pub async fn setup_funding_address_with_real_lockup(
+        chain_client: &Arc<dyn Client + Send + Sync>,
+        funding_address_id: &str,
+        symbol: &str,
+        their_public_key: &[u8],
+        timeout_block_height: i32,
+        server_keypair: &Keypair,
+    ) -> FundingAddress {
+        let mut funding_address = test_funding_address_for_symbol(
+            funding_address_id,
+            symbol,
+            their_public_key,
+            timeout_block_height,
+        );
+
+        let script_pubkey = funding_address.script_pubkey(server_keypair).unwrap();
+        let (tx_id, vout, amount) = send_to_address(chain_client, symbol, &script_pubkey).await;
+
+        funding_address.lockup_transaction_id = Some(tx_id);
+        funding_address.lockup_transaction_vout = Some(vout);
+        funding_address.lockup_amount = Some(amount);
+        funding_address.status = FundingAddressStatus::TransactionConfirmed.to_string();
+        funding_address
     }
 
     /// Create a presigned transaction for a funding address using the signer.
@@ -384,11 +413,5 @@ pub mod test {
 
     pub fn compute_preimage_hash(preimage: &[u8; 32]) -> [u8; 20] {
         bitcoin::hashes::hash160::Hash::hash(preimage).to_byte_array()
-    }
-
-    pub fn encode_funding_address(symbol: &str, script_pubkey: Vec<u8>) -> String {
-        let chain_type = crate::chain::types::Type::from_str(symbol).unwrap();
-        crate::chain::utils::encode_address(chain_type, script_pubkey, None, Network::Regtest)
-            .unwrap()
     }
 }

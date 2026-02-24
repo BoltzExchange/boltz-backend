@@ -1,11 +1,7 @@
 use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
-use crate::api::ws::types::{FundingAddressUpdate, TransactionInfo};
-use crate::currencies::get_chain_client;
-use crate::service::{
-    CreateFundingAddressRequest, FundingAddressError, RefundSignatureRequest, SetSignatureRequest,
-};
+use crate::service::{FundingAddressError, RefundSignatureRequest, SetSignatureRequest};
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::PublicKeyDeserialize;
 use anyhow::Result;
@@ -13,6 +9,7 @@ use async_tungstenite::tungstenite::http::StatusCode;
 use axum::extract::{Path, Query};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
+use boltz_core::wrapper::FundingTree;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -50,7 +47,7 @@ pub struct CreateResponse {
     #[serde(rename = "blindingKey", skip_serializing_if = "Option::is_none")]
     pub blinding_key: Option<String>,
     #[serde(rename = "tree")]
-    pub tree: String,
+    pub tree: FundingTree,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,12 +76,11 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    let request = CreateFundingAddressRequest {
-        symbol: body.symbol,
-        refund_public_key: body.refund_public_key.0,
-    };
-
-    let response = state.service.funding_address.create(request).await?;
+    let response = state
+        .service
+        .funding_address
+        .create(body.symbol, body.refund_public_key.0)
+        .await?;
 
     Ok((
         StatusCode::CREATED,
@@ -108,29 +104,14 @@ where
     S: SwapInfos + Send + Sync + Clone + 'static,
     M: SwapManager + Send + Sync + 'static,
 {
-    // TODO: consider caching
-    let funding_address = state.service.funding_address.get_by_id(&id)?;
-
-    let transaction = match &funding_address.lockup_transaction_id {
-        Some(tx_id) => {
-            let hex = get_chain_client(state.manager.get_currencies(), &funding_address.symbol)?
-                .raw_transaction(tx_id)
-                .await?;
-            Some(TransactionInfo {
-                id: tx_id.clone(),
-                hex: Some(hex),
-                eta: None,
-            })
-        }
-        None => None,
-    };
-
-    let update = FundingAddressUpdate {
-        id: funding_address.id,
-        status: funding_address.status,
-        transaction,
-        swap_id: funding_address.swap_id,
-    };
+    let updates = state
+        .service
+        .funding_address
+        .get_updates(vec![id.clone()])
+        .await?;
+    let update = updates
+        .first()
+        .ok_or(FundingAddressError::NotFound(id.to_string()))?;
 
     Ok((StatusCode::OK, Json(update)).into_response())
 }
@@ -212,6 +193,7 @@ mod test {
     use super::*;
     use crate::api::errors::ApiError;
     use crate::api::test::Fetcher;
+    use crate::api::ws::types::FundingAddressUpdate;
     use crate::api::ws::types::SwapStatus;
     use crate::api::{Server, ServerState};
     use crate::db::helpers::funding_address::{FundingAddressHelper, SwapTxInfo};
@@ -412,8 +394,12 @@ mod test {
         assert!(!response.address.is_empty());
         assert!(!response.server_public_key.is_empty());
         assert!(response.blinding_key.is_none());
-        assert!(!response.tree.is_empty());
-        assert!(response.tree.contains("refundLeaf"));
+        assert!(
+            serde_json::to_value(&response.tree)
+                .unwrap()
+                .get("refundLeaf")
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -434,8 +420,12 @@ mod test {
         assert!(!response.server_public_key.is_empty());
         assert!(response.blinding_key.is_some());
         assert!(!response.blinding_key.as_ref().unwrap().is_empty());
-        assert!(!response.tree.is_empty());
-        assert!(response.tree.contains("refundLeaf"));
+        assert!(
+            serde_json::to_value(&response.tree)
+                .unwrap()
+                .get("refundLeaf")
+                .is_some()
+        );
     }
 
     #[tokio::test]

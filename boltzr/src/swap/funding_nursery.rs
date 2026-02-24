@@ -273,7 +273,7 @@ impl FundingAddressNursery {
                     let status = FundingAddressStatus::parse(&funding_address.status);
                     if status != FundingAddressStatus::TransactionMempool {
                         info!(
-                            "Ignoring relevant tx {tx_id} for funding address {funding_address_id} since its at status {status}",
+                            "Ignoring relevant tx {tx_id} for funding address {funding_address_id} because its status is {status}",
                         );
                         continue;
                     }
@@ -415,7 +415,7 @@ mod test {
             timeout_block_height: 1000000,
             ..Default::default()
         };
-        fa.tree = fa.tree_json().unwrap();
+        fa.init_tree().unwrap();
         fa
     }
 

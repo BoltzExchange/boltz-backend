@@ -1,7 +1,8 @@
 use crate::db::Pool;
 use crate::db::helpers::QueryResponse;
 use crate::db::models::ScriptPubKey;
-use crate::db::schema::script_pubkeys;
+use crate::db::schema::{funding_addresses, script_pubkeys};
+use crate::swap::FundingAddressStatus;
 use diesel::insert_into;
 use diesel::prelude::*;
 use tracing::instrument;
@@ -10,6 +11,8 @@ use tracing::instrument;
 pub trait ScriptPubKeyHelper {
     fn get_by_scripts(&self, symbol: &str, scripts: &[Vec<u8>])
     -> QueryResponse<Vec<ScriptPubKey>>;
+
+    fn get_pending_funding_addresses(&self) -> QueryResponse<Vec<ScriptPubKey>>;
 
     fn add(&self, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
 }
@@ -40,6 +43,19 @@ impl ScriptPubKeyHelper for ScriptPubKeyHelperDatabase {
             .select(ScriptPubKey::as_select())
             .filter(script_pubkeys::symbol.eq(symbol))
             .filter(script_pubkeys::script_pubkey.eq_any(scripts))
+            .load(&mut self.pool.get()?)?)
+    }
+
+    fn get_pending_funding_addresses(&self) -> QueryResponse<Vec<ScriptPubKey>> {
+        Ok(script_pubkeys::dsl::script_pubkeys
+            .select(ScriptPubKey::as_select())
+            .inner_join(
+                funding_addresses::dsl::funding_addresses.on(funding_addresses::dsl::id
+                    .nullable()
+                    .eq(script_pubkeys::dsl::funding_address_id)),
+            )
+            .filter(script_pubkeys::funding_address_id.is_not_null())
+            .filter(funding_addresses::dsl::status.ne_all(FundingAddressStatus::final_statuses()))
             .load(&mut self.pool.get()?)?)
     }
 
@@ -91,6 +107,7 @@ pub mod test {
                 symbol: &str,
                 script_pubkeys: &[Vec<u8>],
             ) -> QueryResponse<Vec<ScriptPubKey>>;
+            fn get_pending_funding_addresses(&self) -> QueryResponse<Vec<ScriptPubKey>>;
             fn add(&self, script_pubkey: &ScriptPubKey) -> QueryResponse<usize>;
         }
     }

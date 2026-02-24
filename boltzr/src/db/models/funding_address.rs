@@ -45,26 +45,23 @@ impl FundingAddress {
         FundingTree::parse(self.symbol.parse()?, &self.tree)
     }
 
-    pub fn tree_json(&self) -> Result<String> {
-        match self.symbol_type()? {
-            Type::Bitcoin => Ok(serde_json::to_string(
-                &boltz_core::bitcoin::FundingTree::new(
-                    &self.their_public_key()?.to_x_only_pubkey(),
-                    LockTime::from_height(self.timeout_block_height as u32)?,
-                ),
-            )?),
+    pub fn init_tree(&mut self) -> Result<()> {
+        self.tree = match self.symbol_type()? {
+            Type::Bitcoin => serde_json::to_string(&boltz_core::bitcoin::FundingTree::new(
+                &self.their_public_key()?.to_x_only_pubkey(),
+                LockTime::from_height(self.timeout_block_height as u32)?,
+            ))?,
             Type::Elements => {
                 let pubkey =
                     elements::secp256k1_zkp::PublicKey::from_slice(&self.their_public_key)?;
                 let x_only_key = elements::secp256k1_zkp::XOnlyPublicKey::from(pubkey);
-                Ok(serde_json::to_string(
-                    &boltz_core::elements::FundingTree::new(
-                        &x_only_key,
-                        elements::LockTime::from_height(self.timeout_block_height as u32)?,
-                    ),
-                )?)
+                serde_json::to_string(&boltz_core::elements::FundingTree::new(
+                    &x_only_key,
+                    elements::LockTime::from_height(self.timeout_block_height as u32)?,
+                ))?
             }
-        }
+        };
+        Ok(())
     }
 
     pub fn their_public_key(&self) -> Result<bitcoin::PublicKey> {
@@ -130,9 +127,9 @@ impl FundingAddress {
     }
 
     pub fn presigned_tx_hex(&self) -> Result<String> {
-        Ok(hex::encode(self.presigned_tx.clone().ok_or_else(|| {
-            anyhow::anyhow!("funding address has no presigned transaction")
-        })?))
+        Ok(hex::encode(self.presigned_tx.as_ref().ok_or_else(
+            || anyhow::anyhow!("funding address has no presigned transaction"),
+        )?))
     }
 }
 
@@ -157,9 +154,10 @@ mod test {
 
     #[test]
     fn test_tree_json() {
-        let funding_address = create_funding_address();
-        let tree_json = funding_address.tree_json().unwrap();
-        let tree: boltz_core::bitcoin::FundingTree = serde_json::from_str(&tree_json).unwrap();
+        let mut funding_address = create_funding_address();
+        funding_address.init_tree().unwrap();
+        let tree: boltz_core::bitcoin::FundingTree =
+            serde_json::from_str(&funding_address.tree).unwrap();
         // The refund pubkey is the x-only version of the compressed public key
         assert_eq!(
             tree.refund_pubkey().unwrap().to_string(),
@@ -169,9 +167,10 @@ mod test {
 
     #[test]
     fn test_tree_json_round_trip() {
-        let funding_address = create_funding_address();
-        let tree_json = funding_address.tree_json().unwrap();
-        let tree: boltz_core::bitcoin::FundingTree = serde_json::from_str(&tree_json).unwrap();
+        let mut funding_address = create_funding_address();
+        funding_address.init_tree().unwrap();
+        let tree: boltz_core::bitcoin::FundingTree =
+            serde_json::from_str(&funding_address.tree).unwrap();
 
         // The refund pubkey is the x-only version of the compressed public key
         assert_eq!(
@@ -181,21 +180,21 @@ mod test {
 
         // Verify JSON serialization round-trip
         let tree_json_again = serde_json::to_string(&tree).unwrap();
-        assert_eq!(tree_json, tree_json_again);
+        assert_eq!(funding_address.tree, tree_json_again);
     }
 
     #[test]
     fn test_tree_json_format() {
-        let funding_address = create_funding_address();
-        let tree_json = funding_address.tree_json().unwrap();
+        let mut funding_address = create_funding_address();
+        funding_address.init_tree().unwrap();
 
         // Verify the JSON has the expected structure
-        assert!(tree_json.contains("refundLeaf"));
-        assert!(tree_json.contains("version"));
-        assert!(tree_json.contains("output"));
+        assert!(funding_address.tree.contains("refundLeaf"));
+        assert!(funding_address.tree.contains("version"));
+        assert!(funding_address.tree.contains("output"));
 
         // Parse and verify
-        let parsed: serde_json::Value = serde_json::from_str(&tree_json).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&funding_address.tree).unwrap();
         assert!(parsed.get("refundLeaf").is_some());
         assert!(parsed["refundLeaf"].get("version").is_some());
         assert!(parsed["refundLeaf"].get("output").is_some());

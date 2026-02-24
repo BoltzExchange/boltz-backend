@@ -1,6 +1,7 @@
 use crate::api::ws::status::{FundingAddressInfos, SwapInfos};
 use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, SwapStatusNoId};
 use crate::grpc::service::boltzr::SwapUpdateResponse;
+use crate::service::Service;
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_cache::Cache;
@@ -19,6 +20,7 @@ type StatusSender = Sender<Result<SwapUpdateResponse, Status>>;
 #[derive(Clone)]
 pub struct StatusFetcher {
     cache: Cache,
+    funding_address_service: Option<Arc<Service>>,
 
     buffer: Arc<DashMap<u64, Vec<String>>>,
 
@@ -29,9 +31,15 @@ impl StatusFetcher {
     pub fn new(cache: Cache) -> Self {
         StatusFetcher {
             cache,
+            funding_address_service: None,
             buffer: Arc::new(DashMap::new()),
             sender: Arc::new(Mutex::new(Cell::new(None))),
         }
+    }
+
+    pub fn with_funding_address_service(mut self, funding_address_service: Arc<Service>) -> Self {
+        self.funding_address_service = Some(funding_address_service);
+        self
     }
 
     pub async fn set_sender(&self, sender: Sender<Result<SwapUpdateResponse, Status>>) {
@@ -109,12 +117,18 @@ impl FundingAddressInfos for StatusFetcher {
     async fn fetch_funding_address_info(
         &self,
         _connection: u64,
-        _ids: Vec<String>,
+        ids: Vec<String>,
     ) -> Result<Option<Vec<FundingAddressUpdate>>> {
-        // TODO: Implement fetching funding address status from database
-        // For now, return None to allow the subscription to complete
-        // Updates will be sent when they occur through the broadcast channel
-        Ok(None)
+        let Some(service) = &self.funding_address_service else {
+            return Err(anyhow::anyhow!("Funding address service not set"));
+        };
+
+        let updates = service.funding_address.get_updates(ids).await?;
+        if updates.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(updates))
+        }
     }
 }
 

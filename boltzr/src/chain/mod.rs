@@ -106,6 +106,10 @@ pub trait Client: BaseClient {
     async fn raw_transaction_verbose(&self, tx_id: &str) -> Result<types::RawTransactionVerbose>;
 
     async fn send_raw_transaction(&self, tx: &str) -> Result<String>;
+    async fn test_mempool_accept(
+        &self,
+        txs: &[&str],
+    ) -> Result<Vec<types::TestMempoolAcceptResult>>;
 
     /// Submit a package of raw transactions to the mempool (Bitcoin only)
     async fn submit_package(&self, txs: &[&str]) -> Result<types::SubmitPackageResponse>;

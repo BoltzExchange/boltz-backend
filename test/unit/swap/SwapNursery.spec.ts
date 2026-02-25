@@ -635,6 +635,58 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('EVM chainSwap.lockup', () => {
+    test('should prevent second lockup when EVM nursery emits duplicate chain lockup', async () => {
+      const listeners: Record<string, (...args: any[]) => Promise<void>> = {};
+      const ethereumNursery = {
+        on: jest.fn(
+          (event: string, callback: (...args: any[]) => Promise<void>) => {
+            listeners[event] = callback;
+          },
+        ),
+        init: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const baseMockChainSwap = {
+        id: 'test-chain-swap-id',
+        type: SwapType.Chain,
+        sendingData: {
+          transactionId: null,
+        },
+      } as unknown as ChainSwapInfo;
+
+      mockGetChainSwapResult = {
+        ...baseMockChainSwap,
+        sendingData: {
+          transactionId: 'existing-transaction-id',
+        },
+      };
+
+      const mockHandleChainSwapLockup = jest
+        .spyOn(swapNursery as any, 'handleChainSwapLockup')
+        .mockResolvedValue(undefined);
+      jest.spyOn(swapNursery, 'emit');
+
+      await (swapNursery as any).listenEthereumNursery(ethereumNursery);
+      await listeners['eth.lockup']({
+        swap: baseMockChainSwap,
+        transactionHash: '0xduplicate',
+      });
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('second lockup transaction'),
+      );
+      expect(mockHandleChainSwapLockup).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('swap.lockup', () => {
     let baseMockSwap: any;
     let mockTransaction: any;

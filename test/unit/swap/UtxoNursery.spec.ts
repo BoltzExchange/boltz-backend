@@ -148,8 +148,6 @@ const mockSetLockupTransaction = jest
   .fn()
   .mockImplementation(async (arg) => arg);
 
-jest.mock('../../../lib/db/repositories/SwapRepository');
-
 let mockGetReverseSwapResult: any = null;
 const mockGetReverseSwap = jest.fn().mockImplementation(async () => {
   return mockGetReverseSwapResult;
@@ -387,6 +385,42 @@ describe('UtxoNursery', () => {
       },
     );
   });
+
+  test.each([
+    SwapUpdateEvent.InvoicePaid,
+    SwapUpdateEvent.TransactionClaimPending,
+    SwapUpdateEvent.TransactionClaimed,
+  ])(
+    'should not emit swap.lockup when lockup update returns %s',
+    async (status) => {
+      const checkSwapOutputs = nursery['checkOutputs'];
+      const transaction = Transaction.fromHex(sampleTransactions.lockup);
+
+      mockGetSwapResult = {
+        id: 'final-status',
+        type: SwapType.Submarine,
+        redeemScript: sampleRedeemScript,
+        expectedAmount: transaction.outs[0].value,
+      };
+      mockSetLockupTransaction.mockResolvedValueOnce({
+        ...mockGetSwapResult,
+        status,
+      });
+
+      const lockupListener = jest.fn();
+      nursery.on('swap.lockup', lockupListener);
+
+      await checkSwapOutputs(
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+
+      expect(mockSetLockupTransaction).toHaveBeenCalledTimes(1);
+      expect(lockupListener).not.toHaveBeenCalled();
+    },
+  );
 
   test('should handle unconfirmed Swap outputs', async () => {
     const checkSwapOutputs = nursery['checkOutputs'];

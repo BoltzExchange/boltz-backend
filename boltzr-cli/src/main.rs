@@ -47,6 +47,16 @@ struct PendingSweepSymbol {
 }
 
 #[derive(Serialize)]
+struct PendingEvmTransaction {
+    symbol: String,
+    hash: String,
+    label: Option<String>,
+    nonce: u64,
+    amount_sent: String,
+    amount_received: Option<String>,
+}
+
+#[derive(Serialize)]
 struct ReferralStats {
     id: String,
     stats: serde_json::Value,
@@ -759,7 +769,19 @@ async fn run_command(cli: Cli) -> Result<()> {
                     .await?
                     .get_pending_evm_transactions()
                     .await?;
-                print_pretty(&response.transactions)?;
+                let transactions = response
+                    .transactions
+                    .into_iter()
+                    .map(|transaction| PendingEvmTransaction {
+                        symbol: transaction.symbol,
+                        hash: format!("0x{}", alloy::hex::encode(transaction.hash)),
+                        label: transaction.label,
+                        nonce: transaction.nonce,
+                        amount_sent: transaction.amount_sent,
+                        amount_received: transaction.amount_received,
+                    })
+                    .collect::<Vec<PendingEvmTransaction>>();
+                print_pretty(&transactions)?;
             }
             WalletCommands::SendCoins {
                 symbol,

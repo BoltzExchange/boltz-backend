@@ -1,7 +1,9 @@
 import AsyncLock from 'async-lock';
+import { createHash } from 'crypto';
 import type Logger from '../../Logger';
 import { stringify } from '../../Utils';
 import TypedEventEmitter from '../../consts/TypedEventEmitter';
+import type { ERC20SwapValues, EtherSwapValues } from '../../consts/Types';
 import type { NetworkDetails } from './EvmNetworks';
 import type InjectedProvider from './InjectedProvider';
 import type { Events } from './contracts/ContractEventHandler';
@@ -15,6 +17,29 @@ type PendingEvent = {
   txHash: string;
   firstSeenTimestamp: number;
   event: LockupEventEntry;
+};
+
+const hashSwapValues = (values: EtherSwapValues | ERC20SwapValues): string => {
+  const h = createHash('sha256');
+  h.update(values.preimageHash);
+  h.update(values.amount.toString());
+  h.update(values.claimAddress);
+  h.update(values.refundAddress);
+  h.update(values.timelock.toString());
+
+  if ('tokenAddress' in values) {
+    h.update(values.tokenAddress);
+  }
+
+  return h.digest('hex');
+};
+
+const pendingEventKey = (pending: PendingEvent): string => {
+  const values =
+    pending.event.name === 'eth.lockup'
+      ? pending.event.payload.etherSwapValues
+      : pending.event.payload.erc20SwapValues;
+  return `${pending.event.name}:${pending.txHash}:${hashSwapValues(values)}`;
 };
 
 const enum QueueAction {
@@ -37,7 +62,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
   private readonly requiredConfirmations: number;
   private readonly handlers: ContractEventHandler[] = [];
 
-  private pendingEvents: PendingEvent[] = [];
+  private pendingEvents = new Map<string, PendingEvent>();
   private destroyed = false;
 
   constructor(
@@ -94,7 +119,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
 
   public destroy = () => {
     this.destroyed = true;
-    this.pendingEvents = [];
+    this.pendingEvents.clear();
     this.handlers.forEach((handler) => handler.destroy());
   };
 
@@ -154,7 +179,10 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
         await this.lock.acquire(
           ConsolidatedEventHandler.flushLock,
           async () => {
-            this.pendingEvents.push(result.pending);
+            const key = pendingEventKey(result.pending);
+            if (!this.pendingEvents.has(key)) {
+              this.pendingEvents.set(key, result.pending);
+            }
           },
         );
         return;
@@ -205,16 +233,20 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
         return;
       }
 
-      if (this.pendingEvents.length === 0) {
+      if (this.pendingEvents.size === 0) {
         return;
       }
 
       const processed = await Promise.all(
-        this.pendingEvents.map((queued) =>
+        Array.from(this.pendingEvents.values()).map((queued) =>
           this.processPendingEvent(queued, latestBlockHeight),
         ),
       );
-      this.pendingEvents = processed.filter((queued) => queued !== undefined);
+      this.pendingEvents = new Map(
+        processed
+          .filter((p): p is PendingEvent => p !== undefined)
+          .map((p) => [pendingEventKey(p), p]),
+      );
     });
   };
 

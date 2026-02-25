@@ -25,7 +25,7 @@ jobs:
       - name: Build and push
         run: |
           ./docker/build.py buildx --platform linux/amd64 --no-latest \
-            --branch ${GITHUB_REF##*/} --tag amd64 boltz
+            --branch ${{ github.ref_name }} --tag amd64 boltz
 
   build-arm64:
     name: Build ARM64
@@ -42,7 +42,7 @@ jobs:
       - name: Build and push
         run: |
           ./docker/build.py buildx --platform linux/arm64 --no-latest \
-            --branch ${GITHUB_REF##*/} --tag arm64 boltz
+            --branch ${{ github.ref_name }} --tag arm64 boltz
 
   create-manifest:
     name: Create Manifest
@@ -57,7 +57,7 @@ jobs:
 
       - name: Create and push manifest
         run: |
-          TAG=${{ github.ref_name == 'master' && 'latest' || github.ref_name }}
+          TAG=$(echo "${{ github.ref_name == 'master' && 'latest' || github.ref_name }}" | tr '/' '-')
           docker buildx imagetools create \
             -t boltz/boltz:${TAG} \
             boltz/boltz:amd64 \

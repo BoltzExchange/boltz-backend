@@ -1,20 +1,17 @@
-use crate::evm::{
-    Keys,
-    utils::{EtherSwap, get_provider},
-};
+use crate::evm::{Keys, utils::get_provider};
 use alloy::{
-    primitives::{Address, FixedBytes, U256},
+    primitives::{Address, B256, U256},
     providers::Provider,
     signers::local::PrivateKeySigner,
-    sol_types::SolValue,
 };
 use anyhow::Result;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
 use indicatif::ProgressBar;
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
 struct LockedFunds {
-    transaction_hash: FixedBytes<32>,
+    transaction_hash: B256,
     #[serde(serialize_with = "crate::serde::hex::serialize")]
     preimage_hash: Vec<u8>,
     refund_address: Address,
@@ -34,7 +31,7 @@ pub async fn scan_locked_in_contract(
     let latest_block = provider.get_block_number().await?;
     let pb = ProgressBar::new(latest_block - start_height);
 
-    let contract = EtherSwap::new(address, provider);
+    let contract = EtherSwapContract::new(address, provider.clone()).await?;
 
     let mut locked_swaps = Vec::new();
 
@@ -42,31 +39,17 @@ pub async fn scan_locked_in_contract(
     while current_block < latest_block {
         let to = std::cmp::min(current_block + scan_interval, latest_block);
 
-        let logs = contract
-            .Lockup_filter()
-            .from_block(current_block)
-            .to_block(to)
-            .query()
-            .await?;
+        let logs = contract.lockups_in_range(current_block, to).await?;
 
-        for (event, log) in logs {
-            let params = (
-                event.preimageHash,
-                event.amount,
-                event.claimAddress,
-                event.refundAddress,
-                event.timelock,
-            );
-            let swap_hash = alloy::primitives::keccak256(SolValue::abi_encode(&params));
-
-            if contract.swaps(swap_hash).call().await? {
+        for lockup in logs {
+            if contract.is_lockup_active(lockup.lockup).await? {
                 locked_swaps.push(LockedFunds {
-                    transaction_hash: log
+                    transaction_hash: lockup
                         .transaction_hash
                         .ok_or(anyhow::anyhow!("No transaction hash"))?,
-                    preimage_hash: event.preimageHash.to_vec(),
-                    refund_address: event.refundAddress,
-                    amount: event.amount,
+                    preimage_hash: lockup.lockup.preimage_hash.to_vec(),
+                    refund_address: lockup.lockup.refund_address,
+                    amount: lockup.lockup.amount,
                 });
             }
         }

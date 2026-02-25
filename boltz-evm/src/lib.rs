@@ -19,7 +19,7 @@ pub use manager::Manager;
 pub use quoter::{Call, Data as QuoterData, QuoteAggregator, QuoterType};
 
 pub const MIN_CONTRACT_VERSION: u8 = 3;
-pub const MAX_CONTRACT_VERSION: u8 = 5;
+pub const MAX_CONTRACT_VERSION: u8 = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SwapType {

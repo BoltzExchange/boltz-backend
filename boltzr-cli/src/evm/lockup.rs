@@ -1,9 +1,10 @@
-use crate::evm::utils::{ERC20Swap, EtherSwap};
 use alloy::{
     primitives::{Address, U256},
     rpc::types::Log,
 };
 use anyhow::{Result, bail};
+use boltz_evm::contracts::erc20_swap::ERC20SwapContract;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
 
 pub(crate) struct LockupEvent {
     pub(crate) amount: U256,
@@ -18,21 +19,21 @@ pub(crate) fn parse_lockup_from_receipt(contract: Address, logs: &[Log]) -> Resu
             continue;
         }
 
-        if let Ok(event) = log.log_decode::<EtherSwap::Lockup>() {
+        if let Some(event) = EtherSwapContract::decode_lockup_log(log) {
             return Ok(LockupEvent {
-                amount: event.inner.amount,
-                claim_address: event.inner.claimAddress,
-                timelock: event.inner.timelock,
+                amount: event.amount,
+                claim_address: event.claim_address,
+                timelock: event.timelock,
                 token_address: None,
             });
         }
 
-        if let Ok(event) = log.log_decode::<ERC20Swap::Lockup>() {
+        if let Some(event) = ERC20SwapContract::decode_lockup_log(log) {
             return Ok(LockupEvent {
-                amount: event.inner.amount,
-                claim_address: event.inner.claimAddress,
-                timelock: event.inner.timelock,
-                token_address: Some(event.inner.tokenAddress),
+                amount: event.amount,
+                claim_address: event.claim_address,
+                timelock: event.timelock,
+                token_address: Some(event.token_address),
             });
         }
     }

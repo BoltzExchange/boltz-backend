@@ -13,8 +13,8 @@ use tracing::info;
 pub struct LocalRefundSigner {
     version: u8,
 
-    ether_swap: EtherSwapContract<DynProvider<AnyNetwork>, AnyNetwork>,
-    erc20_swap: ERC20SwapContract<DynProvider<AnyNetwork>, AnyNetwork>,
+    ether_swap: EtherSwapContract,
+    erc20_swap: ERC20SwapContract,
 }
 
 impl LocalRefundSigner {
@@ -105,8 +105,8 @@ impl LocalRefundSigner {
 pub mod test {
     use crate::ContractAddresses;
     use crate::contracts::SwapContract;
-    use crate::contracts::erc20_swap::ERC20Swap;
-    use crate::contracts::ether_swap::EtherSwap;
+    use crate::contracts::erc20_swap::ERC20SwapContract;
+    use crate::contracts::ether_swap::EtherSwapContract;
     use crate::refund_signer::LocalRefundSigner;
     use crate::test_utils::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
     use crate::{Address, English, FixedBytes, MnemonicBuilder, PrivateKeySigner, U256};
@@ -151,7 +151,10 @@ pub mod test {
     async fn test_sign_ether_swap() {
         let (claim_keys, _, signer, provider) = setup().await;
 
-        let contract = EtherSwap::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider.clone());
+        let contract =
+            EtherSwapContract::new(ETHER_SWAP_ADDRESS.parse().unwrap(), provider.clone())
+                .await
+                .unwrap();
 
         let mut preimage_hash = FixedBytes::<32>::default();
         rand::thread_rng().fill(&mut preimage_hash[..]);
@@ -160,12 +163,12 @@ pub mod test {
         let timelock: u64 = 1;
 
         contract
-            .lock_0(preimage_hash, claim_keys.address(), U256::from(timelock))
-            .value(amount)
-            .send()
-            .await
-            .unwrap()
-            .watch()
+            .lock_funds(
+                preimage_hash,
+                claim_keys.address(),
+                U256::from(timelock),
+                amount,
+            )
             .await
             .unwrap();
 
@@ -175,19 +178,13 @@ pub mod test {
             .unwrap();
 
         let refund_tx_hash = contract
-            .refundCooperative_1(
+            .refund_cooperative(
                 preimage_hash,
                 amount,
                 claim_keys.address(),
                 U256::from(timelock),
-                refund_sig.v() as u8 + 27,
-                refund_sig.r().into(),
-                refund_sig.s().into(),
+                refund_sig,
             )
-            .send()
-            .await
-            .unwrap()
-            .watch()
             .await
             .unwrap();
 
@@ -213,7 +210,10 @@ pub mod test {
         );
 
         let token = ERC20::new(TOKEN_ADDRESS.parse().unwrap(), provider.clone());
-        let contract = ERC20Swap::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider.clone());
+        let contract =
+            ERC20SwapContract::new(ERC20_SWAP_ADDRESS.parse().unwrap(), provider.clone())
+                .await
+                .unwrap();
 
         let mut preimage_hash = FixedBytes::<32>::default();
         rand::thread_rng().fill(&mut preimage_hash[..]);
@@ -240,17 +240,13 @@ pub mod test {
             .unwrap();
 
         contract
-            .lock_0(
+            .lock_funds(
                 preimage_hash,
                 amount,
                 *token.address(),
                 claim_keys.address(),
                 U256::from(timelock),
             )
-            .send()
-            .await
-            .unwrap()
-            .watch()
             .await
             .unwrap();
 
@@ -266,20 +262,14 @@ pub mod test {
             .unwrap();
 
         let refund_tx_hash = contract
-            .refundCooperative_1(
+            .refund_cooperative(
                 preimage_hash,
                 amount,
                 *token.address(),
                 claim_keys.address(),
                 U256::from(timelock),
-                refund_sig.v() as u8 + 27,
-                refund_sig.r().into(),
-                refund_sig.s().into(),
+                refund_sig,
             )
-            .send()
-            .await
-            .unwrap()
-            .watch()
             .await
             .unwrap();
 

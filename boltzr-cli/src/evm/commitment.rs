@@ -1,13 +1,11 @@
-use crate::evm::{
-    Keys, get_provider,
-    lockup::parse_lockup_from_receipt,
-    utils::{ERC20Swap, EtherSwap},
-};
+use crate::evm::{Keys, get_provider, lockup::parse_lockup_from_receipt};
 use alloy::{
     primitives::{Address, B256, FixedBytes},
     providers::Provider,
 };
 use anyhow::{Result, anyhow};
+use boltz_evm::contracts::erc20_swap::ERC20SwapContract;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
 use boltz_evm::{SwapType, SwapValues, eip712_domain};
 
 pub async fn sign_commitment_from_tx(
@@ -30,16 +28,12 @@ pub async fn sign_commitment_from_tx(
 
     let (swap_type, contract_version, token_address) = match lockup.token_address {
         Some(token_address) => {
-            let erc20_swap = ERC20Swap::new(contract, &provider);
-            (
-                SwapType::ERC20,
-                erc20_swap.version().call().await?,
-                Some(token_address),
-            )
+            let erc20_swap = ERC20SwapContract::new(contract, provider.clone()).await?;
+            (SwapType::ERC20, erc20_swap.version(), Some(token_address))
         }
         None => {
-            let ether_swap = EtherSwap::new(contract, &provider);
-            (SwapType::Ether, ether_swap.version().call().await?, None)
+            let ether_swap = EtherSwapContract::new(contract, provider.clone()).await?;
+            (SwapType::Ether, ether_swap.version(), None)
         }
     };
 

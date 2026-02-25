@@ -18,20 +18,6 @@ pub enum Keys {
 sol!(
     #[allow(clippy::too_many_arguments)]
     #[sol(rpc)]
-    EtherSwap,
-    "../node_modules/boltz-core/dist/out/EtherSwap.sol/EtherSwap.json"
-);
-
-sol!(
-    #[allow(clippy::too_many_arguments)]
-    #[sol(rpc)]
-    ERC20Swap,
-    "../node_modules/boltz-core/dist/out/ERC20Swap.sol/ERC20Swap.json"
-);
-
-sol!(
-    #[allow(clippy::too_many_arguments)]
-    #[sol(rpc)]
     IERC20,
     "../node_modules/boltz-core/dist/out/ERC20.sol/ERC20.json"
 );

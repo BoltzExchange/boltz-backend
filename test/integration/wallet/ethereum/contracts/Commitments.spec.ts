@@ -1009,6 +1009,53 @@ describe('Commitments', () => {
       ).rejects.toThrow('overpaid amount:');
     });
 
+    test('should accept overpay at always-allowed boundary', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 100;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const overpaidAmount = BigInt(expectedAmount + 121) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: overpaidAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: overpaidAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).not.toBeNull();
+      expect(commitment!.swapId).toEqual(id);
+    });
+
     test('should throw when swap not found', async () => {
       const commitments = createInitializedCommitments();
 

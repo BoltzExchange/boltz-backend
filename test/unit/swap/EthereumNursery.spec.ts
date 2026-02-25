@@ -350,6 +350,30 @@ describe('EthereumNursery', () => {
     await Promise.all([confirmedPromise, failedPromise]);
   });
 
+  test('should scan contract transactions even without a new L1 block', async () => {
+    ReverseSwapRepository.getReverseSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
+    mockGetSwapsExpirableResult = [];
+    mockGetReverseSwapsExpirableResult = [];
+
+    await nursery.init();
+
+    const scanSpy = jest
+      .spyOn(
+        (nursery as any).contractTransactionTracker,
+        'scanPendingTransactions',
+      )
+      .mockResolvedValue(Promise.resolve());
+
+    emitBlock({ number: 42, l1BlockNumber: 10 });
+    emitBlock({ number: 43, l1BlockNumber: 10 });
+
+    expect(scanSpy).toHaveBeenCalledTimes(2);
+  });
+
   test('should listen for EtherSwap lockup events', async () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
 

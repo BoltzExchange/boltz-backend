@@ -41,6 +41,8 @@ class Commitments {
   // Two weeks
   private static readonly defaultCommitmentTimelockMinutes = 14 * 24 * 60;
 
+  private static readonly alwaysAllowedOverpayment = 121;
+
   private provider!: InjectedProvider;
   private signer!: Signer;
   private wallets!: Map<string, Wallet>;
@@ -315,9 +317,10 @@ class Commitments {
       );
     }
 
+    const overpayment = actualAmount - expectedAmount;
     if (
-      actualAmount - expectedAmount >
-      expectedAmount * allowedOverpaymentPercentage
+      overpayment > Commitments.alwaysAllowedOverpayment &&
+      overpayment > expectedAmount * allowedOverpaymentPercentage
     ) {
       throw new Error(`overpaid amount: ${actualAmount} > ${expectedAmount}`);
     }

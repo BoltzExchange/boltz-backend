@@ -20,6 +20,13 @@ import {
   getSigner,
 } from '../wallet/EthereumTools';
 
+jest.mock('../../../lib/ExitHandler', () => ({
+  shutdownSignal: { aborted: false },
+}));
+const mockedExitHandler = jest.requireMock('../../../lib/ExitHandler') as {
+  shutdownSignal: { aborted: boolean };
+};
+
 describe('EthereumConfirmationTracker', () => {
   let db: Database;
   let setup: EthereumSetup;
@@ -41,6 +48,7 @@ describe('EthereumConfirmationTracker', () => {
   beforeEach(async () => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    mockedExitHandler.shutdownSignal.aborted = false;
 
     await ReverseSwap.destroy({
       truncate: true,
@@ -150,5 +158,21 @@ describe('EthereumConfirmationTracker', () => {
 
     await swap.reload();
     expect(swap.status).toEqual(SwapUpdateEvent.TransactionFailed);
+  });
+
+  test('should skip transaction scans when shutdown is in progress', async () => {
+    const swap = await createReverseSwap(SwapUpdateEvent.TransactionMempool);
+    const getReceiptSpy = jest.spyOn(setup.provider, 'getTransactionReceipt');
+    mockedExitHandler.shutdownSignal.aborted = true;
+
+    tracker.trackTransaction(
+      swap,
+      '0x0000000000000000000000000000000000000000000000000000000000000001',
+    );
+    await tracker.scanPendingTransactions();
+
+    expect(getReceiptSpy).not.toHaveBeenCalled();
+    await swap.reload();
+    expect(swap.status).toEqual(SwapUpdateEvent.TransactionMempool);
   });
 });

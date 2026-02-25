@@ -15,6 +15,13 @@ import { fundSignerWallet, getSigner } from '../wallet/EthereumTools';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
+jest.mock('../../../lib/ExitHandler', () => ({
+  shutdownSignal: { aborted: false },
+}));
+const mockedExitHandler = jest.requireMock('../../../lib/ExitHandler') as {
+  shutdownSignal: { aborted: boolean };
+};
+
 RefundTransactionRepository.setStatus = jest.fn();
 RefundTransactionRepository.getPendingTransactions = jest
   .fn()
@@ -60,6 +67,7 @@ describe('RefundWatcher', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedExitHandler.shutdownSignal.aborted = false;
   });
 
   afterAll(async () => {
@@ -126,6 +134,16 @@ describe('RefundWatcher', () => {
         RefundStatus.Confirmed,
       );
     });
+  });
+
+  test('should skip pending transaction checks when shutdown is in progress', async () => {
+    mockedExitHandler.shutdownSignal.aborted = true;
+
+    await watcher['checkPendingTransactions']();
+
+    expect(
+      RefundTransactionRepository.getPendingTransactions,
+    ).not.toHaveBeenCalled();
   });
 
   describe('checkRefund', () => {

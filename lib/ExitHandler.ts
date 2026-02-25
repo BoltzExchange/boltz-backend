@@ -5,6 +5,9 @@ type ExitArg = number | string | Error;
 
 const exitHandlerTimeout = 5_000;
 
+const shutdownController = new AbortController();
+export const shutdownSignal: AbortSignal = shutdownController.signal;
+
 const parseExitArg = (arg: ExitArg): number => {
   if (!isNaN(+arg)) {
     return +arg;
@@ -20,6 +23,8 @@ const parseExitArg = (arg: ExitArg): number => {
 };
 
 const exitHandler = async (handler: Handler, arg: ExitArg) => {
+  shutdownController.abort();
+
   try {
     await racePromise(
       handler(),

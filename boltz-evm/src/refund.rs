@@ -222,16 +222,51 @@ mod test {
     }
 
     #[test]
+    fn test_ether_refund_hash_v6() {
+        let (contract, values) = sample_values(SwapType::Ether);
+        let domain = eip712_domain(SwapType::Ether, 6, 31_337, contract).unwrap();
+
+        let result = hash(6, &domain, &values).unwrap();
+
+        let expected = ether_current::Refund {
+            preimageHash: values.preimage_hash,
+            amount: values.amount,
+            claimAddress: values.claim_address,
+            timelock: values.timelock,
+        }
+        .eip712_signing_hash(&domain);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_erc20_refund_hash_v6() {
+        let (contract, values) = sample_values(SwapType::ERC20);
+        let domain = eip712_domain(SwapType::ERC20, 6, 31_337, contract).unwrap();
+
+        let result = hash(6, &domain, &values).unwrap();
+
+        let expected = erc20_current::Refund {
+            preimageHash: values.preimage_hash,
+            amount: values.amount,
+            tokenAddress: values.token_address.unwrap(),
+            claimAddress: values.claim_address,
+            timelock: values.timelock,
+        }
+        .eip712_signing_hash(&domain);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_unsupported_contract_version() {
         let (contract, values) = sample_values(SwapType::Ether);
         let domain = Eip712Domain::new(
             Some("EtherSwap".into()),
-            Some("6".into()),
+            Some("7".into()),
             Some(U256::from(31_337)),
             Some(contract),
             None,
         );
 
-        assert!(hash(6, &domain, &values).is_err());
+        assert!(hash(7, &domain, &values).is_err());
     }
 }

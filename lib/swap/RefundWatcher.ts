@@ -1,5 +1,4 @@
 import AsyncLock from 'async-lock';
-import { shutdownSignal } from '../ExitHandler';
 import type Logger from '../Logger';
 import { formatError } from '../Utils';
 import { CurrencyType, swapTypeToPrettyString } from '../consts/Enums';
@@ -37,16 +36,12 @@ class RefundWatcher extends TypedEventEmitter<{
 
     for (const { provider } of this.currencies.values()) {
       if (provider) {
-        provider.on('block', this.checkPendingTransactions);
+        provider.onBlock(this.checkPendingTransactions);
       }
     }
   };
 
   private checkPendingTransactions = async () => {
-    if (shutdownSignal.aborted) {
-      return;
-    }
-
     await this.lock.acquire(RefundWatcher.pendingTransactionsLock, async () => {
       const txs = await RefundTransactionRepository.getPendingTransactions();
 

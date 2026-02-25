@@ -1,20 +1,18 @@
-use crate::evm::{
-    Keys,
-    utils::{EtherSwap, get_provider},
-};
+use crate::evm::{Keys, utils::get_provider};
 use alloy::{
-    primitives::{Address, FixedBytes, U256},
+    primitives::{Address, B256, U256},
     providers::Provider,
     signers::local::PrivateKeySigner,
-    sol_types::SolValue,
 };
 use anyhow::Result;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
+use futures::stream::{StreamExt, TryStreamExt};
 use indicatif::ProgressBar;
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
 struct LockedFunds {
-    transaction_hash: FixedBytes<32>,
+    transaction_hash: B256,
     #[serde(serialize_with = "crate::serde::hex::serialize")]
     preimage_hash: Vec<u8>,
     refund_address: Address,
@@ -34,7 +32,7 @@ pub async fn scan_locked_in_contract(
     let latest_block = provider.get_block_number().await?;
     let pb = ProgressBar::new(latest_block - start_height);
 
-    let contract = EtherSwap::new(address, provider);
+    let contract = EtherSwapContract::new(address, provider.clone()).await?;
 
     let mut locked_swaps = Vec::new();
 
@@ -42,33 +40,30 @@ pub async fn scan_locked_in_contract(
     while current_block < latest_block {
         let to = std::cmp::min(current_block + scan_interval, latest_block);
 
-        let logs = contract
-            .Lockup_filter()
-            .from_block(current_block)
-            .to_block(to)
-            .query()
+        let logs = contract.lockups_in_range(current_block, to).await?;
+
+        let contract_ref = &contract;
+        let active_lockups = futures::stream::iter(logs)
+            .map(|lockup| async move {
+                let is_active = contract_ref.is_lockup_active(lockup.lockup).await?;
+                Ok::<_, anyhow::Error>((lockup, is_active))
+            })
+            .buffered(16)
+            .try_filter_map(|(lockup, is_active)| async move {
+                Ok::<_, anyhow::Error>(is_active.then_some(lockup))
+            })
+            .try_collect::<Vec<_>>()
             .await?;
 
-        for (event, log) in logs {
-            let params = (
-                event.preimageHash,
-                event.amount,
-                event.claimAddress,
-                event.refundAddress,
-                event.timelock,
-            );
-            let swap_hash = alloy::primitives::keccak256(SolValue::abi_encode(&params));
-
-            if contract.swaps(swap_hash).call().await? {
-                locked_swaps.push(LockedFunds {
-                    transaction_hash: log
-                        .transaction_hash
-                        .ok_or(anyhow::anyhow!("No transaction hash"))?,
-                    preimage_hash: event.preimageHash.to_vec(),
-                    refund_address: event.refundAddress,
-                    amount: event.amount,
-                });
-            }
+        for lockup in active_lockups {
+            locked_swaps.push(LockedFunds {
+                transaction_hash: lockup
+                    .transaction_hash
+                    .ok_or(anyhow::anyhow!("No transaction hash"))?,
+                preimage_hash: lockup.lockup.preimage_hash.to_vec(),
+                refund_address: lockup.lockup.refund_address,
+                amount: lockup.lockup.amount,
+            });
         }
 
         pb.inc(to - current_block);

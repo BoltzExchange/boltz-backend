@@ -159,20 +159,4 @@ describe('EthereumConfirmationTracker', () => {
     await swap.reload();
     expect(swap.status).toEqual(SwapUpdateEvent.TransactionFailed);
   });
-
-  test('should skip transaction scans when shutdown is in progress', async () => {
-    const swap = await createReverseSwap(SwapUpdateEvent.TransactionMempool);
-    const getReceiptSpy = jest.spyOn(setup.provider, 'getTransactionReceipt');
-    mockedExitHandler.shutdownSignal.aborted = true;
-
-    tracker.trackTransaction(
-      swap,
-      '0x0000000000000000000000000000000000000000000000000000000000000001',
-    );
-    await tracker.scanPendingTransactions();
-
-    expect(getReceiptSpy).not.toHaveBeenCalled();
-    await swap.reload();
-    expect(swap.status).toEqual(SwapUpdateEvent.TransactionMempool);
-  });
 });

@@ -1,14 +1,12 @@
-use crate::evm::{
-    Keys, get_provider,
-    lockup::parse_lockup_from_receipt,
-    utils::{ERC20Swap, EtherSwap},
-};
+use crate::evm::{Keys, get_provider, lockup::parse_lockup_from_receipt};
 use alloy::{
     primitives::{Address, B256, FixedBytes},
     providers::Provider,
 };
 use anyhow::{Result, anyhow};
-use boltz_evm::{SwapType, SwapValues, eip712_domain};
+use boltz_evm::contracts::erc20_swap::ERC20SwapContract;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
+use boltz_evm::{SwapType, SwapValues};
 
 pub async fn sign_commitment_from_tx(
     rpc_url: &str,
@@ -26,20 +24,19 @@ pub async fn sign_commitment_from_tx(
 
     let lockup = parse_lockup_from_receipt(contract, receipt.inner.logs())?;
     let refund_address = signer.address();
-    let chain_id = provider.get_chain_id().await?;
 
-    let (swap_type, contract_version, token_address) = match lockup.token_address {
+    let (swap_type, token_address, domain) = match lockup.token_address {
         Some(token_address) => {
-            let erc20_swap = ERC20Swap::new(contract, &provider);
+            let erc20_swap = ERC20SwapContract::new(contract, provider.clone()).await?;
             (
                 SwapType::ERC20,
-                erc20_swap.version().call().await?,
                 Some(token_address),
+                erc20_swap.eip712_domain().clone(),
             )
         }
         None => {
-            let ether_swap = EtherSwap::new(contract, &provider);
-            (SwapType::Ether, ether_swap.version().call().await?, None)
+            let ether_swap = EtherSwapContract::new(contract, provider.clone()).await?;
+            (SwapType::Ether, None, ether_swap.eip712_domain().clone())
         }
     };
 
@@ -52,7 +49,6 @@ pub async fn sign_commitment_from_tx(
         timelock: lockup.timelock,
     };
 
-    let domain = eip712_domain(swap_type, contract_version, chain_id, contract)?;
     let signature = boltz_evm::commitment::sign(&signer, &domain, &values, refund_address).await?;
 
     Ok(signature)

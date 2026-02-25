@@ -1,0 +1,373 @@
+[
+  {
+    "type": "function",
+    "name": "DOMAIN_SEPARATOR",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "TYPEHASH_CLAIM",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "TYPEHASH_COMMIT",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "TYPEHASH_REFUND",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "VERSION",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint8", "internalType": "uint8" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "checkCommitmentSignature",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+      { "name": "v", "type": "uint8", "internalType": "uint8" },
+      { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      { "name": "preimage", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+      { "name": "v", "type": "uint8", "internalType": "uint8" },
+      { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      { "name": "preimage", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+      { "name": "v", "type": "uint8", "internalType": "uint8" },
+      { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      { "name": "preimage", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      { "name": "preimage", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimBatch",
+    "inputs": [
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      {
+        "name": "entries",
+        "type": "tuple[]",
+        "internalType": "struct ERC20Swap.BatchClaimEntry[]",
+        "components": [
+          { "name": "preimage", "type": "bytes32", "internalType": "bytes32" },
+          { "name": "amount", "type": "uint256", "internalType": "uint256" },
+          {
+            "name": "refundAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+          { "name": "v", "type": "uint8", "internalType": "uint8" },
+          { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+          { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimBatch",
+    "inputs": [
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "preimages", "type": "bytes32[]", "internalType": "bytes32[]" },
+      { "name": "amounts", "type": "uint256[]", "internalType": "uint256[]" },
+      {
+        "name": "refundAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      { "name": "timelocks", "type": "uint256[]", "internalType": "uint256[]" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "hashValues",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [
+      { "name": "result", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "lock",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "lock",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "lockPrepayMinerfee",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      {
+        "name": "claimAddress",
+        "type": "address",
+        "internalType": "address payable"
+      },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "refund",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "refund",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "refundCooperative",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "refundAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+      { "name": "v", "type": "uint8", "internalType": "uint8" },
+      { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "refundCooperative",
+    "inputs": [
+      { "name": "preimageHash", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
+      { "name": "tokenAddress", "type": "address", "internalType": "address" },
+      { "name": "claimAddress", "type": "address", "internalType": "address" },
+      { "name": "timelock", "type": "uint256", "internalType": "uint256" },
+      { "name": "v", "type": "uint8", "internalType": "uint8" },
+      { "name": "r", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "s", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "swaps",
+    "inputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "version",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint8", "internalType": "uint8" }],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "event",
+    "name": "Claim",
+    "inputs": [
+      {
+        "name": "preimageHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "preimage",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Lockup",
+    "inputs": [
+      {
+        "name": "preimageHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokenAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "claimAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "refundAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timelock",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Refund",
+    "inputs": [
+      {
+        "name": "preimageHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  { "type": "error", "name": "CommitmentCannotBeClaimedAsSwap", "inputs": [] },
+  { "type": "error", "name": "InvalidSignature", "inputs": [] },
+  { "type": "error", "name": "SwapAlreadyExists", "inputs": [] },
+  { "type": "error", "name": "SwapNotFound", "inputs": [] },
+  { "type": "error", "name": "SwapNotTimedOut", "inputs": [] },
+  { "type": "error", "name": "ZeroAmount", "inputs": [] }
+]

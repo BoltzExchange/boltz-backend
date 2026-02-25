@@ -18,6 +18,7 @@ import type {
 } from 'ethers';
 import { JsonRpcProvider, Transaction } from 'ethers';
 import type { EthereumConfig, ProviderConfig } from '../../Config';
+import { shutdownSignal } from '../../ExitHandler';
 import type Logger from '../../Logger';
 import Tracing from '../../Tracing';
 import { formatError } from '../../Utils';
@@ -40,6 +41,7 @@ class InjectedProvider implements Provider {
 
   private providers = new Map<string, AbstractProvider>();
   private network!: Network;
+  private destroyed = false;
 
   private static readonly requestTimeout = 5000;
 
@@ -158,6 +160,7 @@ class InjectedProvider implements Provider {
    */
 
   public async destroy(): Promise<void> {
+    this.destroyed = true;
     await Promise.all(
       Array.from(this.providers.values()).map((provider) => provider.destroy()),
     );
@@ -403,8 +406,15 @@ class InjectedProvider implements Provider {
       (provider) => provider instanceof WebSocketProvider,
     );
 
+    const guarded = (block: BlockEvent) => {
+      if (this.destroyed || shutdownSignal.aborted) {
+        return;
+      }
+      listener(block);
+    };
+
     const injected = this.createInjectedListener(
-      listener,
+      guarded,
       webSocketProviders.length,
     );
 

@@ -199,7 +199,10 @@ pub mod test {
     use super::*;
     use crate::test_utils::{ERC20_SWAP_ADDRESS, ETHER_SWAP_ADDRESS, MNEMONIC, PROVIDER};
     use crate::{Address, English, FixedBytes, MnemonicBuilder};
-    use crate::{Config, ContractAddresses, RefundSigner, TokenConfig};
+    use crate::{
+        Config, ContractAddresses, MAX_CONTRACT_VERSION, MIN_CONTRACT_VERSION, RefundSigner,
+        TokenConfig,
+    };
     use boltz_cache::MemCache;
     use serial_test::serial;
     use std::fs;
@@ -245,13 +248,11 @@ pub mod test {
     async fn test_version_for_address() {
         let manager = crate::test_utils::new_manager().await;
 
-        let contract_version = 5;
-        assert_eq!(
-            manager
-                .version_for_address(&ETHER_SWAP_ADDRESS.parse().unwrap())
-                .unwrap(),
-            contract_version
-        );
+        let contract_version = manager
+            .version_for_address(&ETHER_SWAP_ADDRESS.parse().unwrap())
+            .unwrap();
+        assert!((MIN_CONTRACT_VERSION..=MAX_CONTRACT_VERSION).contains(&contract_version));
+
         assert_eq!(
             manager
                 .version_for_address(&ERC20_SWAP_ADDRESS.parse().unwrap())
@@ -265,11 +266,14 @@ pub mod test {
     #[tokio::test]
     async fn test_sign_cooperative_refund() {
         let manager = crate::test_utils::new_manager().await;
+        let contract_version = manager
+            .version_for_address(&ETHER_SWAP_ADDRESS.parse().unwrap())
+            .unwrap();
 
         assert!(
             manager
                 .sign_cooperative_refund(
-                    5,
+                    contract_version,
                     FixedBytes::<32>::default(),
                     crate::utils::parse_wei("1").unwrap(),
                     None,

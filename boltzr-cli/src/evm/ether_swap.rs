@@ -1,10 +1,7 @@
-use crate::evm::{Keys, get_provider, utils::EtherSwap};
-use alloy::{
-    network::AnyNetwork,
-    primitives::{Address, FixedBytes, U256},
-    providers::DynProvider,
-};
+use crate::evm::{Keys, get_provider};
+use alloy::primitives::{Address, FixedBytes, U256};
 use anyhow::Result;
+use boltz_evm::contracts::ether_swap::EtherSwapContract;
 
 pub async fn lock_ether(
     rpc_url: &str,
@@ -16,15 +13,15 @@ pub async fn lock_ether(
     timelock: u64,
 ) -> Result<String> {
     let (provider, _) = get_provider(rpc_url, keys)?;
-    let contract = EtherSwap::new(contract, provider);
+    let contract = EtherSwapContract::new(contract, provider.clone()).await?;
 
     let tx = contract
-        .lock_0(preimage_hash, claim_address, U256::from(timelock))
-        .value(amount.try_into()?)
-        .send()
-        .await?
-        .with_required_confirmations(1)
-        .watch()
+        .lock_funds(
+            preimage_hash,
+            claim_address,
+            U256::from(timelock),
+            amount.try_into()?,
+        )
         .await?;
 
     Ok(format!("0x{}", alloy::hex::encode(tx)))
@@ -38,24 +35,22 @@ pub async fn claim_ether(
     query_start_height: u64,
 ) -> Result<String> {
     let (provider, _) = get_provider(rpc_url, keys)?;
-    let contract = EtherSwap::new(contract, provider);
+    let contract = EtherSwapContract::new(contract, provider.clone()).await?;
 
     let preimage_hash =
         FixedBytes::<32>::from(bitcoin_hashes::Sha256::hash(preimage.as_slice()).as_byte_array());
 
-    let lockup = scan_swap_data(&contract, preimage_hash, query_start_height).await?;
+    let lockup = contract
+        .find_lockup(preimage_hash, query_start_height)
+        .await?;
 
     let tx = contract
-        .claim_2(
+        .claim(
             preimage,
             lockup.amount,
-            lockup.refundAddress,
+            lockup.refund_address,
             lockup.timelock,
         )
-        .send()
-        .await?
-        .with_required_confirmations(1)
-        .watch()
         .await?;
 
     Ok(format!("0x{}", alloy::hex::encode(tx)))
@@ -69,41 +64,20 @@ pub async fn refund_ether(
     query_start_height: u64,
 ) -> Result<String> {
     let (provider, _) = get_provider(rpc_url, keys)?;
-    let contract = EtherSwap::new(contract, provider);
+    let contract = EtherSwapContract::new(contract, provider.clone()).await?;
 
-    let lockup = scan_swap_data(&contract, preimage_hash, query_start_height).await?;
+    let lockup = contract
+        .find_lockup(preimage_hash, query_start_height)
+        .await?;
 
     let tx = contract
-        .refund_0(
+        .refund(
             preimage_hash,
             lockup.amount,
-            lockup.claimAddress,
+            lockup.claim_address,
             lockup.timelock,
         )
-        .send()
-        .await?
-        .with_required_confirmations(1)
-        .watch()
         .await?;
 
     Ok(format!("0x{}", alloy::hex::encode(tx)))
-}
-
-async fn scan_swap_data(
-    contract: &EtherSwap::EtherSwapInstance<DynProvider<AnyNetwork>, AnyNetwork>,
-    preimage_hash: FixedBytes<32>,
-    query_start_height: u64,
-) -> Result<EtherSwap::Lockup> {
-    let logs = contract
-        .Lockup_filter()
-        .topic1(preimage_hash)
-        .from_block(query_start_height)
-        .query()
-        .await?;
-
-    let lockup = logs
-        .into_iter()
-        .next()
-        .ok_or(anyhow::anyhow!("no lockup found"))?;
-    Ok(lockup.0)
 }

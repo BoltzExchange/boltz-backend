@@ -1,5 +1,4 @@
 import type { Provider, TransactionReceipt } from 'ethers';
-import { shutdownSignal } from '../ExitHandler';
 import type Logger from '../Logger';
 import { formatError } from '../Utils';
 import { SwapType, SwapUpdateEvent } from '../consts/Enums';
@@ -46,11 +45,7 @@ class EthereumTransactionConfirmationTracker extends TypedEventEmitter<Events> {
   };
 
   public scanPendingTransactions = async () => {
-    if (
-      shutdownSignal.aborted ||
-      this.scanning ||
-      this.pendingTransactions.size === 0
-    ) {
+    if (this.scanning || this.pendingTransactions.size === 0) {
       return;
     }
 

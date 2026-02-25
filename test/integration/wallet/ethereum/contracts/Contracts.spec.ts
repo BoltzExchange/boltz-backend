@@ -164,6 +164,33 @@ describe('Contracts', () => {
           },
         ]);
       });
+
+      test('should decode signed v6 Ether claims', () => {
+        const preimage =
+          '0xec403faf0719b8b1ad469c28f9ec02fb3f1093d61f9cbfd601e5f5fcce42f443';
+        const amount = 99886710000000000n;
+
+        const data = contracts.etherSwap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+          [
+            preimage,
+            amount,
+            '0x4ca129c71da487afd603bb123b12398a3c5a2300',
+            '0x1bdf482f5da32ef51c20d9a94960385c5be9aab7',
+            7297597n,
+            27,
+            '0x145457dbe09264e9f8f086341f19870ea16ca89de36657f7fa0e4d917a73fca6',
+            '0x6208ece6a5947b05e4baefbc97388be4baf20380c6873f57c8ecf8f5eb220fdb',
+          ],
+        );
+
+        expect(contracts.decodeClaimData(true, data)).toEqual([
+          {
+            preimage,
+            amount,
+          },
+        ]);
+      });
     });
 
     describe('ERC20Swap', () => {
@@ -213,6 +240,36 @@ describe('Contracts', () => {
             preimage:
               '0x3c599ecbe097d4b9f7bcc78c58da9972ea553aa28b11a9389c323eeb7f5cf229',
             amount: 1n,
+            token: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+          },
+        ]);
+      });
+
+      test('should decode signed v6 ERC20 claims', () => {
+        const preimage =
+          '0x3c599ecbe097d4b9f7bcc78c58da9972ea553aa28b11a9389c323eeb7f5cf229';
+        const amount = 1n;
+        const token = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0';
+
+        const data = contracts.erc20Swap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,address,address,uint256,uint8,bytes32,bytes32)',
+          [
+            preimage,
+            amount,
+            token,
+            '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+            '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+            2n,
+            27,
+            '0x145457dbe09264e9f8f086341f19870ea16ca89de36657f7fa0e4d917a73fca6',
+            '0x6208ece6a5947b05e4baefbc97388be4baf20380c6873f57c8ecf8f5eb220fdb',
+          ],
+        );
+
+        expect(contracts.decodeClaimData(false, data)).toEqual([
+          {
+            preimage,
+            amount,
             token: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
           },
         ]);

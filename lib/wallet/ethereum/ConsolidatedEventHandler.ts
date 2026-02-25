@@ -99,10 +99,6 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
 
   private subscribeBlocks = async () => {
     await this.provider.onBlock(({ number }) => {
-      if (this.destroyed) {
-        return;
-      }
-
       this.flushPendingEvents(number).catch((err) => {
         this.logger.error(
           `${this.networkDetails.name} error flushing pending events: ${err}`,

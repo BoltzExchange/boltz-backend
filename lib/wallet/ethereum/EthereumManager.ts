@@ -13,7 +13,6 @@ import type {
   EthereumConfig,
   OverPaymentConfig,
 } from '../../Config';
-import { shutdownSignal } from '../../ExitHandler';
 import type Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
@@ -162,10 +161,6 @@ class EthereumManager {
 
     let lastBlockNumber = currentBlock;
     await this.provider.onBlock(async ({ number }) => {
-      if (shutdownSignal.aborted) {
-        return;
-      }
-
       this.logger.silly(`Got new ${this.networkDetails.name} block: ${number}`);
 
       if (number - lastBlockNumber > 1) {

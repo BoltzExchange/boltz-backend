@@ -5,6 +5,13 @@ import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import type { EthereumSetup } from '../EthereumTools';
 import { fundSignerWallet, getSigner } from '../EthereumTools';
 
+jest.mock('../../../../lib/ExitHandler', () => ({
+  shutdownSignal: { aborted: false },
+}));
+const mockedExitHandler = jest.requireMock('../../../../lib/ExitHandler') as {
+  shutdownSignal: { aborted: boolean };
+};
+
 const mockAddTransaction = jest.fn().mockImplementation(async () => {});
 
 const mockGetTransactionsResult: any[] = [
@@ -40,6 +47,7 @@ describe('EthereumTransactionTracker', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedExitHandler.shutdownSignal.aborted = false;
   });
 
   test('should init', async () => {
@@ -75,6 +83,14 @@ describe('EthereumTransactionTracker', () => {
 
     expect(mockGetTransactions).toHaveBeenCalledTimes(1);
     expect(mockGetTransactionsResult[0].destroy).toHaveBeenCalledTimes(1);
+  });
+
+  test('should skip scanning when shutdown is in progress', async () => {
+    mockedExitHandler.shutdownSignal.aborted = true;
+
+    await transactionTracker.scanPendingTransactions();
+
+    expect(mockGetTransactions).not.toHaveBeenCalled();
   });
 
   afterAll(async () => {

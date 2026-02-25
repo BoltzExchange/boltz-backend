@@ -211,6 +211,7 @@ const mockedProvider = <jest.Mock<InjectedProvider>>(
   (<any>jest.fn().mockImplementation(() => ({
     getFeeData: mockGetFeeData,
     getBlockNumber: mockGetBlockNumber,
+    getLocktimeHeight: mockGetBlockNumber,
   })))
 );
 

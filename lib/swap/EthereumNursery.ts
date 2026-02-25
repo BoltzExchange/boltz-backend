@@ -542,15 +542,21 @@ class EthereumNursery extends TypedEventEmitter<{
       .onBlock(async ({ number, l1BlockNumber }) => {
         const latest = l1BlockNumber ?? number;
 
+        // Always check for confirmed transactions, even when there is no new L1 block
+        const confirmationCheck =
+          this.contractTransactionTracker.scanPendingTransactions();
+
         if (latest > lastKnownBlock) {
           lastKnownBlock = latest;
 
           await Promise.all([
+            confirmationCheck,
             this.checkExpiredSwaps(latest),
             this.checkExpiredChainSwaps(latest),
             this.checkExpiredReverseSwaps(latest),
-            this.contractTransactionTracker.scanPendingTransactions(),
           ]);
+        } else {
+          await confirmationCheck;
         }
       })
       .catch((err) => {

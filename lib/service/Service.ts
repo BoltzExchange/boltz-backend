@@ -821,7 +821,7 @@ class Service {
           } else {
             return [
               currency.symbol,
-              (await currency.provider?.getBlockNumber()) || 0,
+              (await currency.provider?.getLocktimeHeight()) || 0,
             ];
           }
         }),

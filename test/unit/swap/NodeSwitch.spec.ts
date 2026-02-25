@@ -22,9 +22,11 @@ describe('NodeSwitch', () => {
   const createNode = (
     service: string,
     type: NodeType,
+    id: string,
     connected: boolean = true,
   ): LightningClient =>
     ({
+      id,
       type,
       serviceName: () => service,
       isConnected: () => connected,
@@ -33,21 +35,33 @@ describe('NodeSwitch', () => {
   const clnClient = createNode(
     ClnClient.serviceName,
     NodeType.CLN,
+    'cln-1',
   ) as LndClient;
   const lndClient = createNode(
     LndClient.serviceName,
     NodeType.LND,
+    'lnd-1',
   ) as ClnClient;
+
+  const lndOnlyCurrency = {
+    clnClient: undefined,
+    lndClients: new Map([[lndClient.id, lndClient]]),
+  } as unknown as Currency;
+
+  const clnOnlyCurrency = {
+    clnClient,
+    lndClients: new Map(),
+  } as unknown as Currency;
 
   let currency = {
     clnClient,
-    lndClient,
+    lndClients: new Map([[lndClient.id, lndClient]]),
   } as unknown as Currency;
 
   beforeEach(() => {
     currency = {
       clnClient,
-      lndClient,
+      lndClients: new Map([[lndClient.id, lndClient]]),
     } as unknown as Currency;
   });
 
@@ -73,35 +87,35 @@ describe('NodeSwitch', () => {
 
       const config = {
         clnAmountThreshold: 21,
-        swapNode: 'LND',
+        swapNode: lndClient.id,
         referralsIds: {
-          test: 'CLN',
-          breez: 'LND',
-          other: 'notFound',
+          test: clnClient.id,
+          breez: lndClient.id,
+          other: 123,
         },
         preferredForNode: {
-          [nodeOne]: 'LND',
-          [nodeTwo]: 'CLN',
-          unparseable: 'notFound',
+          [nodeOne]: lndClient.id,
+          [nodeTwo]: clnClient.id,
+          unparseable: 123,
         },
-      };
+      } as any;
       const ns = new NodeSwitch(Logger.disabledLogger, config);
 
       expect(ns['clnAmountThreshold']).toEqual({
         [SwapType.Submarine]: config.clnAmountThreshold,
         [SwapType.ReverseSubmarine]: config.clnAmountThreshold,
       });
-      expect(ns['swapNode']).toEqual(NodeType.LND);
+      expect(ns['swapNode']).toEqual(lndClient.id);
 
       const referrals = ns['referralIds'];
       expect(referrals.size).toEqual(2);
-      expect(referrals.get('test')).toEqual(NodeType.CLN);
-      expect(referrals.get('breez')).toEqual(NodeType.LND);
+      expect(referrals.get('test')).toEqual(clnClient.id);
+      expect(referrals.get('breez')).toEqual(lndClient.id);
 
       const preferredNodes = ns['preferredForNode'];
       expect(preferredNodes.size).toEqual(2);
-      expect(preferredNodes.get(nodeOne)).toEqual(NodeType.LND);
-      expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(NodeType.CLN);
+      expect(preferredNodes.get(nodeOne)).toEqual(lndClient.id);
+      expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(clnClient.id);
     });
 
     test('should parse config with clnAmountThreshold as object', () => {
@@ -146,15 +160,15 @@ describe('NodeSwitch', () => {
     ${1_000}     | ${'breez'}   | ${lndClient} | ${currency}
     ${1_000_000} | ${'breez'}   | ${lndClient} | ${currency}
     ${2_000_000} | ${'breez'}   | ${lndClient} | ${currency}
-    ${2_000_000} | ${'breez'}   | ${clnClient} | ${{ clnClient }}
-    ${1}         | ${undefined} | ${lndClient} | ${{ lndClient }}
-    ${2_000_000} | ${undefined} | ${clnClient} | ${{ clnClient }}
+    ${2_000_000} | ${'breez'}   | ${clnClient} | ${clnOnlyCurrency}
+    ${1}         | ${undefined} | ${lndClient} | ${lndOnlyCurrency}
+    ${2_000_000} | ${undefined} | ${clnClient} | ${clnOnlyCurrency}
   `(
     'should get node for Swap of amount $amount and referral id $referral',
     async ({ amount, client, currency, referral }) => {
       await expect(
         new NodeSwitch(Logger.disabledLogger, {
-          referralsIds: { breez: 'LND' },
+          referralsIds: { breez: lndClient.id },
           clnAmountThreshold: {
             submarine: 1_000_000,
             reverse: 2_000_000,
@@ -196,10 +210,10 @@ describe('NodeSwitch', () => {
   );
 
   test.each`
-    swapNode | currency         | expected
-    ${'LND'} | ${currency}      | ${lndClient}
-    ${'CLN'} | ${currency}      | ${clnClient}
-    ${'LND'} | ${{ clnClient }} | ${clnClient}
+    swapNode        | currency           | expected
+    ${lndClient.id} | ${currency}        | ${lndClient}
+    ${clnClient.id} | ${currency}        | ${clnClient}
+    ${lndClient.id} | ${clnOnlyCurrency} | ${clnClient}
   `(
     'should get node for Swap with swapNode $swapNode configured',
     async ({ swapNode, currency, expected }) => {
@@ -220,16 +234,15 @@ describe('NodeSwitch', () => {
 
   describe('invoicePaymentHook', () => {
     test.each`
-      hookResult                                      | testCurrency     | expected                                      | description
-      ${{ node: NodeType.LND }}                       | ${currency}      | ${{ client: lndClient }}                      | ${'LND'}
-      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${currency}      | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND with time preferrence'}
-      ${{ node: NodeType.CLN }}                       | ${currency}      | ${{ client: clnClient }}                      | ${'CLN'}
-      ${undefined}                                    | ${currency}      | ${undefined}                                  | ${'undefined when hook returns undefined'}
-      ${{ node: NodeType.LND }}                       | ${{ clnClient }} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
-      ${{ node: NodeType.CLN }}                       | ${{ lndClient }} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
-      ${{ timePreference: -1 }}                       | ${currency}      | ${{ timePreference: -1 }}                     | ${'time preference only without client'}
-      ${{ node: NodeType.LND, timePreference: 0.5 }}  | ${{ clnClient }} | ${{ timePreference: 0.5 }}                    | ${'time preference only when requested client missing'}
-      ${{ node: NodeType.CLN, timePreference: -0.2 }} | ${{ lndClient }} | ${{ timePreference: -0.2 }}                   | ${'time preference only when requested client missing'}
+      hookResult                                       | testCurrency       | expected                                      | description
+      ${{ nodeId: lndClient.id }}                      | ${currency}        | ${{ client: lndClient }}                      | ${'LND by nodeId'}
+      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${currency}        | ${{ client: lndClient, timePreference: 0.5 }} | ${'LND by nodeId with time preference'}
+      ${{ nodeId: clnClient.id }}                      | ${currency}        | ${{ client: clnClient }}                      | ${'CLN by nodeId'}
+      ${undefined}                                     | ${currency}        | ${undefined}                                  | ${'undefined when hook returns undefined'}
+      ${{ nodeId: lndClient.id }}                      | ${clnOnlyCurrency} | ${undefined}                                  | ${'undefined when hook returns LND but LND client is missing'}
+      ${{ nodeId: clnClient.id }}                      | ${lndOnlyCurrency} | ${undefined}                                  | ${'undefined when hook returns CLN but CLN client is missing'}
+      ${{ timePreference: -1 }}                        | ${currency}        | ${{ timePreference: -1 }}                     | ${'time preference only without client'}
+      ${{ nodeId: lndClient.id, timePreference: 0.5 }} | ${clnOnlyCurrency} | ${{ timePreference: 0.5 }}                    | ${'time preference only when requested client missing'}
     `(
       'should return $description',
       async ({ hookResult, testCurrency, expected }) => {
@@ -263,7 +276,7 @@ describe('NodeSwitch', () => {
 
   describe('xpay handling', () => {
     afterAll(() => {
-      LightningPaymentRepository.findByPreimageHashAndNode = jest
+      LightningPaymentRepository.findByPreimageHashAndNodeId = jest
         .fn()
         .mockResolvedValue(null);
     });
@@ -289,7 +302,7 @@ describe('NodeSwitch', () => {
           routingHints: [],
         } as unknown as DecodedInvoice;
 
-        LightningPaymentRepository.findByPreimageHashAndNode = jest
+        LightningPaymentRepository.findByPreimageHashAndNodeId = jest
           .fn()
           .mockResolvedValue({ retries } as LightningPayment);
 
@@ -302,29 +315,72 @@ describe('NodeSwitch', () => {
         ).resolves.toEqual(expected);
 
         expect(
-          LightningPaymentRepository.findByPreimageHashAndNode,
+          LightningPaymentRepository.findByPreimageHashAndNodeId,
         ).toHaveBeenCalledTimes(1);
         expect(
-          LightningPaymentRepository.findByPreimageHashAndNode,
+          LightningPaymentRepository.findByPreimageHashAndNodeId,
         ).toHaveBeenCalledWith(
           getHexString(decoded.paymentHash!),
-          NodeType.CLN,
+          clnClient.id,
         );
       },
     );
   });
 
   test.each`
-    type            | node
-    ${NodeType.LND} | ${lndClient}
-    ${NodeType.CLN} | ${clnClient}
-    ${21}           | ${clnClient}
-  `('should get node for NodeType $type', ({ type, node }) => {
+    nodeId     | node
+    ${'lnd-1'} | ${lndClient}
+    ${'cln-1'} | ${clnClient}
+  `('should get node for nodeId $nodeId', ({ nodeId, node }) => {
     expect(
       NodeSwitch.getReverseSwapNode(currency, {
-        node: type,
+        nodeId,
       } as ReverseSwap),
-    ).toEqual(node);
+    ).toEqual({
+      nodeId: node.id,
+      nodeType: node.type,
+      lightningClient: node,
+    });
+  });
+
+  test('should throw when nodeId not found', () => {
+    expect(() =>
+      NodeSwitch.getReverseSwapNode(currency, {
+        id: 'swap-123',
+        nodeId: 'non-existent-node',
+      } as ReverseSwap),
+    ).toThrow(
+      Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
+        'node non-existent-node not found for reverse swap swap-123',
+      ).message,
+    );
+  });
+
+  test('should throw when node is not connected', () => {
+    const disconnectedClient = createNode(
+      LndClient.serviceName,
+      NodeType.LND,
+      'lnd-disconnected',
+      false,
+    );
+    const currencyWithDisconnected = {
+      clnClient,
+      lndClients: new Map([
+        [lndClient.id, lndClient],
+        [disconnectedClient.id, disconnectedClient],
+      ]),
+    } as unknown as Currency;
+
+    expect(() =>
+      NodeSwitch.getReverseSwapNode(currencyWithDisconnected, {
+        id: 'swap-456',
+        nodeId: 'lnd-disconnected',
+      } as ReverseSwap),
+    ).toThrow(
+      Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
+        'node lnd-disconnected is not connected for reverse swap swap-456',
+      ).message,
+    );
   });
 
   test.each`
@@ -337,48 +393,52 @@ describe('NodeSwitch', () => {
     ${2_000_000} | ${undefined} | ${lndClient} | ${NodeType.LND} | ${currency}
     ${1}         | ${'breez'}   | ${lndClient} | ${NodeType.LND} | ${currency}
     ${2_000_000} | ${'breez'}   | ${lndClient} | ${NodeType.LND} | ${currency}
-    ${2_000_000} | ${'breez'}   | ${clnClient} | ${NodeType.CLN} | ${{ clnClient }}
-    ${1}         | ${undefined} | ${lndClient} | ${NodeType.LND} | ${{ lndClient }}
-    ${2_000_000} | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${{ clnClient }}
+    ${2_000_000} | ${'breez'}   | ${clnClient} | ${NodeType.CLN} | ${clnOnlyCurrency}
+    ${1}         | ${undefined} | ${lndClient} | ${NodeType.LND} | ${lndOnlyCurrency}
+    ${2_000_000} | ${undefined} | ${clnClient} | ${NodeType.CLN} | ${clnOnlyCurrency}
   `(
-    'should get node for Reverse Swap for amount $amount and referral $referral',
+    'should get candidates for Reverse Swap for amount $amount and referral $referral',
     ({ amount, referral, client, type, currency }) => {
-      expect(
-        new NodeSwitch(Logger.disabledLogger, {
-          referralsIds: { breez: 'LND' },
-          clnAmountThreshold: {
-            submarine: 2_000_000,
-            reverse: 1_000_000,
-          },
-        }).getNodeForReverseSwap('', currency, amount, referral),
-      ).toEqual({ nodeType: type, lightningClient: client });
+      const candidates = new NodeSwitch(Logger.disabledLogger, {
+        referralsIds: { breez: lndClient.id },
+        clnAmountThreshold: {
+          submarine: 2_000_000,
+          reverse: 1_000_000,
+        },
+      }).getReverseSwapCandidates(currency, amount, referral);
+
+      expect(candidates[0]).toEqual({
+        nodeType: type,
+        nodeId: client.id,
+        lightningClient: client,
+      });
     },
   );
 
   test.each`
-    currency                    | expected
-    ${{}}                       | ${[]}
-    ${{ lndClient }}            | ${[lndClient]}
-    ${{ clnClient }}            | ${[clnClient]}
-    ${{ lndClient, clnClient }} | ${[lndClient, clnClient]}
+    currency                                                                      | expected
+    ${{ lndClients: new Map(), clnClient: undefined }}                            | ${[]}
+    ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: undefined }} | ${[lndClient]}
+    ${{ lndClients: new Map(), clnClient: clnClient }}                            | ${[clnClient]}
+    ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: clnClient }} | ${[lndClient, clnClient]}
   `('should get clients', ({ currency, expected }) => {
     expect(NodeSwitch.getClients(currency)).toEqual(expected);
   });
 
   test.each`
-    has      | currency         | type
-    ${true}  | ${currency}      | ${undefined}
-    ${true}  | ${{ lndClient }} | ${undefined}
-    ${true}  | ${{ clnClient }} | ${undefined}
-    ${false} | ${{}}            | ${undefined}
-    ${true}  | ${currency}      | ${NodeType.LND}
-    ${true}  | ${currency}      | ${NodeType.CLN}
-    ${true}  | ${{ lndClient }} | ${NodeType.LND}
-    ${false} | ${{ lndClient }} | ${NodeType.CLN}
-    ${false} | ${{ clnClient }} | ${NodeType.LND}
-    ${true}  | ${{ clnClient }} | ${NodeType.CLN}
-    ${false} | ${{}}            | ${NodeType.LND}
-    ${false} | ${{}}            | ${NodeType.CLN}
+    has      | currency                                                                      | type
+    ${true}  | ${currency}                                                                   | ${undefined}
+    ${true}  | ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: undefined }} | ${undefined}
+    ${true}  | ${{ lndClients: new Map(), clnClient: clnClient }}                            | ${undefined}
+    ${false} | ${{ lndClients: new Map(), clnClient: undefined }}                            | ${undefined}
+    ${true}  | ${currency}                                                                   | ${NodeType.LND}
+    ${true}  | ${currency}                                                                   | ${NodeType.CLN}
+    ${true}  | ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: undefined }} | ${NodeType.LND}
+    ${false} | ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: undefined }} | ${NodeType.CLN}
+    ${false} | ${{ lndClients: new Map(), clnClient: clnClient }}                            | ${NodeType.LND}
+    ${true}  | ${{ lndClients: new Map(), clnClient: clnClient }}                            | ${NodeType.CLN}
+    ${false} | ${{ lndClients: new Map(), clnClient: undefined }}                            | ${NodeType.LND}
+    ${false} | ${{ lndClients: new Map(), clnClient: undefined }}                            | ${NodeType.CLN}
   `('should check if currency has clients', ({ has, currency, type }) => {
     expect(NodeSwitch.hasClient(currency, type)).toEqual(has);
   });
@@ -422,13 +482,13 @@ describe('NodeSwitch', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
           preferredForNode: {
-            [getHexString(payee)]: 'CLN',
+            [getHexString(payee)]: clnClient.id,
           },
         })['getPreferredNode']({
           payee,
           routingHints: [],
         } as unknown as DecodedInvoice),
-      ).toEqual(NodeType.CLN);
+      ).toEqual(clnClient.id);
     });
 
     test('should get preferred node for routing hint', () => {
@@ -437,35 +497,35 @@ describe('NodeSwitch', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
           preferredForNode: {
-            [getHexString(nodeId)]: 'CLN',
+            [getHexString(nodeId)]: clnClient.id,
           },
         })['getPreferredNode']({
           routingHints: [[{ nodeId: getHexString(nodeId) }]],
         } as unknown as DecodedInvoice),
-      ).toEqual(NodeType.CLN);
+      ).toEqual(clnClient.id);
     });
 
     test('should default to swapNode when no preference is configured', () => {
       expect(
         new NodeSwitch(Logger.disabledLogger, {
-          swapNode: 'LND',
+          swapNode: lndClient.id,
         })['getPreferredNode']({
           payee: randomBytes(32),
           routingHints: [[{ nodeId: getHexString(randomBytes(32)) }]],
         } as unknown as DecodedInvoice),
-      ).toEqual(NodeType.LND);
+      ).toEqual(lndClient.id);
     });
   });
 
   test.each`
-    currency                                                                       | client       | expected
-    ${{ lndClient: lndClient, clnClient: clnClient }}                              | ${lndClient} | ${lndClient}
-    ${{ lndClient: lndClient, clnClient: clnClient }}                              | ${clnClient} | ${clnClient}
-    ${{ lndClient: lndClient, clnClient: clnClient }}                              | ${undefined} | ${lndClient}
-    ${{ clnClient: clnClient }}                                                    | ${lndClient} | ${lndClient}
-    ${{ clnClient: clnClient }}                                                    | ${undefined} | ${clnClient}
-    ${{ lndClient: createNode('LND', NodeType.LND, false), clnClient: clnClient }} | ${undefined} | ${clnClient}
-    ${{}}                                                                          | ${lndClient} | ${lndClient}
+    currency                                                                                                               | client       | expected
+    ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: clnClient }}                                          | ${lndClient} | ${lndClient}
+    ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: clnClient }}                                          | ${clnClient} | ${clnClient}
+    ${{ lndClients: new Map([[lndClient.id, lndClient]]), clnClient: clnClient }}                                          | ${undefined} | ${lndClient}
+    ${{ lndClients: new Map(), clnClient: clnClient }}                                                                     | ${lndClient} | ${lndClient}
+    ${{ lndClients: new Map(), clnClient: clnClient }}                                                                     | ${undefined} | ${clnClient}
+    ${{ lndClients: new Map([[lndClient.id, createNode('LND', NodeType.LND, 'lnd-down', false)]]), clnClient: clnClient }} | ${undefined} | ${clnClient}
+    ${{ lndClients: new Map(), clnClient: undefined }}                                                                     | ${lndClient} | ${lndClient}
   `(
     'should fallback based on client availability',
     ({ currency, client, expected }) => {
@@ -474,18 +534,25 @@ describe('NodeSwitch', () => {
   );
 
   test('should throw when no clients are available', () => {
-    expect(() => NodeSwitch.fallback({} as Currency)).toThrow(
-      Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message,
-    );
     expect(() =>
       NodeSwitch.fallback({
-        lndClient: createNode('LND', NodeType.LND, false),
+        lndClients: new Map(),
+        clnClient: undefined,
       } as Currency),
     ).toThrow(Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message);
     expect(() =>
       NodeSwitch.fallback({
-        lndClient: createNode('LND', NodeType.LND, false),
-        clnClient: createNode('CLN', NodeType.CLN, false),
+        lndClients: new Map([
+          [lndClient.id, createNode('LND', NodeType.LND, lndClient.id, false)],
+        ]),
+      } as Currency),
+    ).toThrow(Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message);
+    expect(() =>
+      NodeSwitch.fallback({
+        lndClients: new Map([
+          [lndClient.id, createNode('LND', NodeType.LND, lndClient.id, false)],
+        ]),
+        clnClient: createNode('CLN', NodeType.CLN, clnClient.id, false),
       } as Currency),
     ).toThrow(Errors.NO_AVAILABLE_LIGHTNING_CLIENT().message);
   });

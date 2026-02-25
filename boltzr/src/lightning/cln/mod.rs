@@ -10,7 +10,7 @@ use crate::lightning::cln::cln_rpc::{
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
 };
 use crate::{utils, wallet};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use boltz_utils::mb_to_bytes;
 use serde::{Deserialize, Serialize};
@@ -77,12 +77,15 @@ impl Cln {
     ) -> anyhow::Result<Self> {
         let tls = ClientTlsConfig::new()
             .domain_name("cln")
-            .ca_certificate(Certificate::from_pem(fs::read_to_string(
-                &config.cln.root_cert_path,
-            )?))
+            .ca_certificate(Certificate::from_pem(
+                fs::read_to_string(&config.cln.root_cert_path)
+                    .with_context(|| format!("failed to read {} CLN root cert: {}", symbol, config.cln.root_cert_path))?,
+            ))
             .identity(Identity::from_pem(
-                fs::read_to_string(&config.cln.cert_chain_path)?,
-                fs::read_to_string(&config.cln.private_key_path)?,
+                fs::read_to_string(&config.cln.cert_chain_path)
+                    .with_context(|| format!("failed to read {} CLN cert chain: {}", symbol, config.cln.cert_chain_path))?,
+                fs::read_to_string(&config.cln.private_key_path)
+                    .with_context(|| format!("failed to read {} CLN private key: {}", symbol, config.cln.private_key_path))?,
             ));
 
         let channel =

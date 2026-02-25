@@ -72,7 +72,7 @@ describe('UtxoNursery', () => {
     {
       network: networks.regtest,
       chainClient: bitcoinClient,
-      lndClient: bitcoinLndClient,
+      lndClients: new Map([['lnd1', bitcoinLndClient]]),
       symbol: bitcoinClient.symbol,
       type: CurrencyType.BitcoinLike,
       limits: {
@@ -82,6 +82,7 @@ describe('UtxoNursery', () => {
     {
       type: CurrencyType.Liquid,
       chainClient: elementsClient,
+      lndClients: new Map(),
       symbol: elementsClient.symbol,
       network: liquidNetworks.regtest,
       limits: {

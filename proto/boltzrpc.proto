@@ -428,14 +428,11 @@ message TransactionHookRequest {
   optional uint64 vout = 7;
 }
 
-enum Node {
-  LND = 0;
-  CLN = 1;
-}
-
 message InvoicePaymentHookResponse {
   string id = 1;
-  optional Node action = 2;
+
+  // Node selection by pubkey
+  optional string node_pubkey = 2;
 
   // Only applies to LND
   // -1 to optimize for fees, 1 to optimize for reliability; value between for a mix

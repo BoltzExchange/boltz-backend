@@ -100,6 +100,7 @@ type EventTypes = {
 };
 
 interface LightningClient extends BalancerFetcher, BaseClient<EventTypes> {
+  id: string;
   symbol: string;
   type: NodeType;
 

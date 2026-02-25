@@ -4,12 +4,11 @@ import type Logger from '../../Logger';
 import { formatError } from '../../Utils';
 import type NotificationClient from '../../notifications/NotificationClient';
 
-interface HookResponse<T> {
+interface HookResponse {
   getId(): string;
-  getAction(): T;
 }
 
-abstract class Hook<T, P, Req, Res extends HookResponse<T>> {
+abstract class Hook<P, Req, Res extends HookResponse> {
   private readonly pendingHooks = new Map<string, (parsed: P) => void>();
 
   private stream?: ServerDuplexStream<Res, Req> = undefined;
@@ -54,7 +53,7 @@ abstract class Hook<T, P, Req, Res extends HookResponse<T>> {
 
     this.stream.on('data', (data: Res) => {
       this.logger.silly(
-        `Received gRPC ${this.name} hook response for ${data.getId()}: ${data.getAction()?.toString() ?? 'undefined'}`,
+        `Received gRPC ${this.name} hook response for ${data.getId()}`,
       );
 
       const hook = this.pendingHooks.get(data.getId());
@@ -122,4 +121,3 @@ abstract class Hook<T, P, Req, Res extends HookResponse<T>> {
 }
 
 export default Hook;
-export { HookResponse };

@@ -1,6 +1,5 @@
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
-import { NodeType } from './ReverseSwap';
 import Swap from './Swap';
 
 enum LightningPaymentStatus {
@@ -12,7 +11,7 @@ enum LightningPaymentStatus {
 
 type LightningPaymentType = {
   preimageHash: string;
-  node: NodeType;
+  nodeId: string;
   status: LightningPaymentStatus;
   error?: string;
   retries: number | null;
@@ -20,7 +19,7 @@ type LightningPaymentType = {
 
 class LightningPayment extends Model implements LightningPaymentType {
   declare preimageHash: string;
-  declare node: NodeType;
+  declare nodeId: string;
   declare status: LightningPaymentStatus;
   declare error?: string;
   declare retries: number | null;
@@ -36,15 +35,10 @@ class LightningPayment extends Model implements LightningPaymentType {
           allowNull: false,
           primaryKey: true,
         },
-        node: {
-          type: new DataTypes.INTEGER(),
+        nodeId: {
+          type: new DataTypes.STRING(255),
           allowNull: false,
           primaryKey: true,
-          validate: {
-            isIn: [
-              Object.values(NodeType).filter((val) => typeof val === 'number'),
-            ],
-          },
         },
         status: {
           type: new DataTypes.INTEGER(),
@@ -73,6 +67,10 @@ class LightningPayment extends Model implements LightningPaymentType {
           {
             unique: false,
             fields: ['preimageHash'],
+          },
+          {
+            unique: false,
+            fields: ['nodeId'],
           },
         ],
       },

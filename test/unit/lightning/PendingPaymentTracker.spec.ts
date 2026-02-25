@@ -111,6 +111,7 @@ describe('PendingPaymentTracker', () => {
 
   describe('sendPaymentWithNode', () => {
     const lightningClient = {
+      id: 'lnd-1',
       type: NodeType.LND,
       sendPayment: jest.fn().mockResolvedValue({
         feeMsat: 21,
@@ -213,6 +214,7 @@ describe('PendingPaymentTracker', () => {
 
     test('should watch payment for temporarily failed CLN payments', async () => {
       const clnClient = {
+        id: 'cln-1',
         type: NodeType.CLN,
         sendPayment: jest.fn().mockRejectedValue('xpay doing something weird'),
       } as unknown as LightningClient;
@@ -242,7 +244,7 @@ describe('PendingPaymentTracker', () => {
   describe('checkInvoiceTimeout', () => {
     const swapId = 'testSwap123';
     const paymentHash = 'paymentHash123';
-    const nodeType = NodeType.LND;
+    const nodeId = 'lnd-1';
     const expectedError = LightningErrors.PAYMENT_TIMED_OUT().message;
 
     beforeEach(() => {
@@ -263,7 +265,7 @@ describe('PendingPaymentTracker', () => {
         tracker['checkInvoiceTimeout'](
           { id: swapId },
           paymentHash,
-          nodeType,
+          nodeId,
           payments,
         ),
       ).resolves.toBeUndefined();
@@ -280,7 +282,7 @@ describe('PendingPaymentTracker', () => {
       } as LightningPayment;
 
       await expect(
-        tracker['checkInvoiceTimeout']({ id: swapId }, paymentHash, nodeType, [
+        tracker['checkInvoiceTimeout']({ id: swapId }, paymentHash, nodeId, [
           recentPayment,
         ]),
       ).resolves.toBeUndefined();
@@ -300,7 +302,7 @@ describe('PendingPaymentTracker', () => {
         trackerWithoutPaymentTimeout['checkInvoiceTimeout'](
           { id: swapId },
           paymentHash,
-          nodeType,
+          nodeId,
           [oldPayment],
         ),
       ).resolves.toBeUndefined();
@@ -334,14 +336,14 @@ describe('PendingPaymentTracker', () => {
         tracker['checkInvoiceTimeout'](
           { id: swapId },
           paymentHash,
-          nodeType,
+          nodeId,
           payments,
         ),
       ).rejects.toEqual(expectedError);
 
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         paymentHash,
-        nodeType,
+        nodeId,
         LightningPaymentStatus.PermanentFailure,
         expectedError,
       );
@@ -373,7 +375,7 @@ describe('PendingPaymentTracker', () => {
         tracker['checkInvoiceTimeout'](
           { id: swapId },
           paymentHash,
-          nodeType,
+          nodeId,
           payments,
         ),
       ).resolves.toBeUndefined();
@@ -391,13 +393,13 @@ describe('PendingPaymentTracker', () => {
         tracker['checkInvoiceTimeout'](
           { id: swapId, paymentTimeout: 1 },
           paymentHash,
-          nodeType,
+          nodeId,
           [oldPayment],
         ),
       ).rejects.toEqual(expectedError);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         paymentHash,
-        nodeType,
+        nodeId,
         LightningPaymentStatus.PermanentFailure,
         expectedError,
       );

@@ -8,13 +8,13 @@ import RoutingHints from '../../../lib/swap/routing/RoutingHints';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { raceCall } from '../../Utils';
 
-let nodeForReverseSwap: any;
+let reverseSwapCandidates: any[] = [];
 
 jest.mock('../../../lib/swap/NodeSwitch', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      getNodeForReverseSwap: jest.fn().mockImplementation(() => {
-        return nodeForReverseSwap;
+      getReverseSwapCandidates: jest.fn().mockImplementation(() => {
+        return reverseSwapCandidates;
       }),
     };
   });
@@ -34,6 +34,8 @@ const MockedRoutingHints = <jest.Mock<RoutingHints>>(<any>RoutingHints);
 
 describe('NodeFallback', () => {
   const currency = { symbol: 'BTC' } as Currency;
+  const lndNodeId = 'lnd-1';
+  const clnNodeId = 'cln-1';
 
   const nodeSwitch = MockedNodeSwitch();
   const routingHints = MockedRoutingHints();
@@ -53,13 +55,16 @@ describe('NodeFallback', () => {
     const invoice = 'lnbc1';
     const nodeType = NodeType.LND;
 
-    nodeForReverseSwap = {
+    const candidate = {
+      nodeId: lndNodeId,
       nodeType,
       lightningClient: {
         raceCall,
+        serviceName: () => 'LND',
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
+    reverseSwapCandidates = [candidate];
 
     const id = 'someId';
     const holdInvoiceAmount = 10_000;
@@ -81,23 +86,19 @@ describe('NodeFallback', () => {
     );
     expect(res.paymentRequest).toEqual(invoice);
     expect(res.routingHints).toEqual([]);
+    expect(res.nodeId).toEqual(lndNodeId);
     expect(res.nodeType).toEqual(nodeType);
-    expect(res.lightningClient).toEqual(nodeForReverseSwap.lightningClient);
+    expect(res.lightningClient).toEqual(candidate.lightningClient);
 
-    expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledTimes(1);
-    expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledWith(
-      id,
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledTimes(1);
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledWith(
       currency,
       holdInvoiceAmount,
       undefined,
     );
     expect(routingHints.getRoutingHints).not.toHaveBeenCalled();
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledWith(
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledWith(
       holdInvoiceAmount,
       preimageHash,
       cltvExpiry,
@@ -112,13 +113,16 @@ describe('NodeFallback', () => {
     const invoice = 'lnbc1';
     const nodeType = NodeType.LND;
 
-    nodeForReverseSwap = {
+    const candidate = {
+      nodeId: lndNodeId,
       nodeType,
       lightningClient: {
         raceCall,
+        serviceName: () => 'LND',
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
+    reverseSwapCandidates = [candidate];
 
     const amount = 100;
     const preimageHash = randomBytes(32);
@@ -137,12 +141,8 @@ describe('NodeFallback', () => {
       descriptionHash,
     );
 
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledWith(
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledWith(
       amount,
       preimageHash,
       undefined,
@@ -159,13 +159,16 @@ describe('NodeFallback', () => {
     const invoice = 'lnbc1';
     const nodeType = NodeType.LND;
 
-    nodeForReverseSwap = {
+    const candidate = {
+      nodeId: lndNodeId,
       nodeType,
       lightningClient: {
         raceCall,
+        serviceName: () => 'LND',
         addHoldInvoice: jest.fn().mockResolvedValue(invoice),
       },
     };
+    reverseSwapCandidates = [candidate];
 
     const id = 'someId';
     const holdInvoiceAmount = 10_000;
@@ -187,12 +190,12 @@ describe('NodeFallback', () => {
     );
     expect(res.paymentRequest).toEqual(invoice);
     expect(res.routingHints).toEqual(mockGetRoutingHintsResult);
+    expect(res.nodeId).toEqual(lndNodeId);
     expect(res.nodeType).toEqual(nodeType);
-    expect(res.lightningClient).toEqual(nodeForReverseSwap.lightningClient);
+    expect(res.lightningClient).toEqual(candidate.lightningClient);
 
-    expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledTimes(1);
-    expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledWith(
-      id,
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledTimes(1);
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledWith(
       currency,
       holdInvoiceAmount,
       referralId,
@@ -201,14 +204,10 @@ describe('NodeFallback', () => {
     expect(routingHints.getRoutingHints).toHaveBeenCalledWith(
       currency.symbol,
       routingNode,
-      nodeForReverseSwap.nodeType,
+      candidate.nodeId,
     );
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledWith(
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledWith(
       holdInvoiceAmount,
       preimageHash,
       cltvExpiry,
@@ -220,13 +219,16 @@ describe('NodeFallback', () => {
   });
 
   test('should concat node and external routing hints', async () => {
-    nodeForReverseSwap = {
+    const candidate = {
+      nodeId: lndNodeId,
       nodeType: NodeType.LND,
       lightningClient: {
         raceCall,
+        serviceName: () => 'LND',
         addHoldInvoice: jest.fn().mockResolvedValue('lnbc1'),
       },
     };
+    reverseSwapCandidates = [candidate];
 
     const invoiceAmount = 10_000;
     const preimageHash = crypto.randomBytes(32);
@@ -249,12 +251,8 @@ describe('NodeFallback', () => {
       hints,
     );
 
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledWith(
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledWith(
       invoiceAmount,
       preimageHash,
       cltvExpiry,
@@ -266,7 +264,8 @@ describe('NodeFallback', () => {
   });
 
   test('should fallback to different client after timeout', async () => {
-    nodeForReverseSwap = {
+    const lndCandidate = {
+      nodeId: lndNodeId,
       nodeType: NodeType.LND,
       lightningClient: {
         raceCall,
@@ -277,8 +276,20 @@ describe('NodeFallback', () => {
       },
     };
 
-    const id = 'someId';
     const invoice = 'lnbc1';
+    const clnCandidate = {
+      nodeId: clnNodeId,
+      nodeType: NodeType.CLN,
+      lightningClient: {
+        raceCall,
+        serviceName: () => 'CLN',
+        addHoldInvoice: jest.fn().mockResolvedValue(invoice),
+      },
+    };
+
+    reverseSwapCandidates = [lndCandidate, clnCandidate];
+
+    const id = 'someId';
     const holdInvoiceAmount = 10_000;
     const preimageHash = crypto.randomBytes(32);
 
@@ -290,43 +301,41 @@ describe('NodeFallback', () => {
       holdInvoiceAmount,
       preimageHash,
     );
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
 
-    nodeForReverseSwap = {
-      nodeType: NodeType.CLN,
-      lightningClient: {
-        raceCall,
-        addHoldInvoice: jest.fn().mockResolvedValue(invoice),
-      },
-    };
     jest.runOnlyPendingTimers();
 
     const res = await promise;
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
+
+    expect(lndCandidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(clnCandidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(
+      1,
+    );
 
     expect(res.paymentRequest).toEqual(invoice);
     expect(res.routingHints).toEqual([]);
+    expect(res.nodeId).toEqual(clnNodeId);
     expect(res.nodeType).toEqual(NodeType.CLN);
-    expect(res.lightningClient).toEqual(nodeForReverseSwap.lightningClient);
+    expect(res.lightningClient).toEqual(clnCandidate.lightningClient);
 
-    expect(nodeSwitch.getNodeForReverseSwap).toHaveBeenCalledTimes(2);
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledTimes(1);
     expect(routingHints.getRoutingHints).not.toHaveBeenCalled();
   });
 
   test('should throw non timeout related errors', async () => {
     const otherError = 'not working';
 
-    nodeForReverseSwap = {
+    const candidate = {
+      nodeId: lndNodeId,
       nodeType: NodeType.LND,
       lightningClient: {
         raceCall,
+        serviceName: () => 'LND',
         addHoldInvoice: jest.fn().mockRejectedValue(otherError),
       },
     };
+    reverseSwapCandidates = [candidate];
 
     await expect(
       fallback.getReverseSwapInvoice(
@@ -338,13 +347,11 @@ describe('NodeFallback', () => {
         crypto.randomBytes(32),
       ),
     ).rejects.toEqual(otherError);
-    expect(
-      nodeForReverseSwap.lightningClient.addHoldInvoice,
-    ).toHaveBeenCalledTimes(1);
+    expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
   });
 
   test('should error when no clients are available', async () => {
-    nodeForReverseSwap = {};
+    reverseSwapCandidates = [];
     await expect(
       fallback.getReverseSwapInvoice(
         '',

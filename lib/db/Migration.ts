@@ -1,106 +1,30 @@
-import type { RoutingInfo } from 'bolt11';
-import bolt11 from 'bolt11';
 import { Transaction as EthersTransaction } from 'ethers';
 import type { Sequelize, Transaction as SequelizeTransaction } from 'sequelize';
 import { DataTypes, Op, QueryTypes } from 'sequelize';
 import { getBlindingKey, toOutputScript } from '../../lib/Core';
 import ElementsClient from '../../lib/chain/ElementsClient';
+import { SelfPaymentNodeId } from '../BaseClient';
 import type Logger from '../Logger';
-import {
-  createApiCredential,
-  formatError,
-  getHexBuffer,
-  getHexString,
-  getLightningCurrency,
-  splitPairId,
-} from '../Utils';
-import { SwapType, SwapVersion, swapTypeToPrettyString } from '../consts/Enums';
+import { formatError, getHexBuffer } from '../Utils';
+import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
 import DatabaseVersion from './models/DatabaseVersion';
-import LightningPayment, {
-  LightningPaymentStatus,
-} from './models/LightningPayment';
+import LightningPayment from './models/LightningPayment';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
-import PendingLockupTransaction from './models/PendingLockupTransaction';
 import type { ReferralConfig } from './models/Referral';
 import Referral from './models/Referral';
 import RefundTransaction from './models/RefundTransaction';
-import ReverseSwap, { NodeType } from './models/ReverseSwap';
+import ReverseSwap from './models/ReverseSwap';
 import Swap from './models/Swap';
 import ChainSwapRepository from './repositories/ChainSwapRepository';
 import DatabaseVersionRepository from './repositories/DatabaseVersionRepository';
-import LightningPaymentRepository from './repositories/LightningPaymentRepository';
 import PendingEthereumTransactionRepository from './repositories/PendingEthereumTransactionRepository';
 import RefundTransactionRepository from './repositories/RefundTransactionRepository';
 import ScriptPubKeyRepository from './repositories/ScriptPubKeyRepository';
 import SwapRepository from './repositories/SwapRepository';
-
-const coalesceInvoiceAmount = (
-  decoded: bolt11.PaymentRequestObject,
-): number => {
-  const decodedMsat = decoded.millisatoshis
-    ? Math.ceil(Number(decoded.millisatoshis) / 1000)
-    : undefined;
-
-  return decoded.satoshis || decodedMsat || 0;
-};
-
-const decodeInvoice = (
-  invoice: string,
-): bolt11.PaymentRequestObject & {
-  satoshis: number;
-  timeExpireDate: number;
-  paymentHash: string | undefined;
-  description: string | undefined;
-  descriptionHash: string | undefined;
-  minFinalCltvExpiry: number | undefined;
-  routingInfo: bolt11.RoutingInfo | undefined;
-} => {
-  const decoded = bolt11.decode(invoice);
-
-  let paymentHash: string | undefined;
-  let routingInfo: bolt11.RoutingInfo | undefined;
-  let minFinalCltvExpiry: number | undefined;
-  let description: string | undefined;
-  let descriptionHash: string | undefined;
-
-  for (const tag of decoded.tags) {
-    switch (tag.tagName) {
-      case 'payment_hash':
-        paymentHash = tag.data as string;
-        break;
-      case 'routing_info':
-        routingInfo = tag.data as RoutingInfo;
-        break;
-
-      case 'min_final_cltv_expiry':
-        minFinalCltvExpiry = tag.data as number;
-        break;
-
-      case 'description':
-        description = tag.data as string;
-        break;
-
-      case 'purpose_commit_hash':
-        descriptionHash = tag.data as string;
-        break;
-    }
-  }
-
-  return {
-    ...decoded,
-    routingInfo,
-    paymentHash,
-    description,
-    descriptionHash,
-    minFinalCltvExpiry,
-    satoshis: coalesceInvoiceAmount(decoded),
-    timeExpireDate: decoded.timeExpireDate || (decoded.timestamp || 0) + 3600,
-  };
-};
 
 export const decodeBip21 = (
   bip21: string,
@@ -130,7 +54,8 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 24;
+  private static latestSchemaVersion = 25;
+  private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
 
@@ -169,350 +94,18 @@ class Migration {
       );
     }
 
+    if (
+      versionRow.version >= 1 &&
+      versionRow.version <= Migration.latestDeprecatedSchemaVersion
+    ) {
+      throw new Error(
+        `database schema version ${versionRow.version} is no longer supported; please upgrade using an older boltz-backend release first`,
+      );
+    }
+
     this.logOutdatedVersion(versionRow.version);
 
     switch (versionRow.version) {
-      case 1: {
-        throw new Error(
-          'database schema version 1 is no longer supported; please upgrade using an older boltz-backend release first',
-        );
-      }
-
-      // Database schema version 3 adds support for the prepay miner fee on the Ethereum chain
-      case 2:
-        this.logUpdatingTable('reverseSwaps');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'minerFeeOnchainAmount', {
-            type: new DataTypes.INTEGER(),
-            allowNull: true,
-          });
-
-        // Because adding unique columns is not possible with SQLite, that property is omitted here
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'minerFeeInvoicePreimage', {
-            type: new DataTypes.STRING(64),
-            allowNull: true,
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-
-      // Schema version 4 adds referrals for fee sharing
-      case 3:
-        this.logUpdatingTable('swaps');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('swaps', 'referral', {
-            type: new DataTypes.STRING(255),
-            allowNull: true,
-          });
-
-        await this.sequelize
-          .getQueryInterface()
-          .addIndex('swaps', ['referral'], {
-            unique: false,
-            fields: ['referral'],
-          });
-
-        this.logUpdatingTable('reverseSwaps');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'referral', {
-            type: new DataTypes.STRING(255),
-            allowNull: true,
-          });
-
-        await this.sequelize
-          .getQueryInterface()
-          .addIndex('reverseSwaps', ['referral'], {
-            unique: false,
-            fields: ['referral'],
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-
-        break;
-
-      // Schema version 5 adds API keys to referrals
-      case 4: {
-        this.logUpdatingTable('referrals');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('referrals', 'apiKey', {
-            type: new DataTypes.STRING(255),
-          });
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('referrals', 'apiSecret', {
-            type: new DataTypes.STRING(255),
-          });
-
-        await this.sequelize
-          .getQueryInterface()
-          .addIndex('referrals', ['apiKey']);
-
-        const referrals = await Referral.findAll();
-
-        for (const referral of referrals) {
-          await referral.update({
-            apiKey: createApiCredential(),
-            apiSecret: createApiCredential(),
-          });
-        }
-
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('referrals', 'apiKey', {
-            unique: true,
-            allowNull: false,
-            type: new DataTypes.STRING(255),
-          });
-
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('referrals', 'apiSecret', {
-            unique: true,
-            allowNull: false,
-            type: new DataTypes.STRING(255),
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-
-        break;
-      }
-
-      case 5: {
-        this.logUpdatingTable('swaps');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('swaps', 'invoiceAmount', {
-            allowNull: true,
-            type: new DataTypes.INTEGER(),
-          });
-
-        await this.logProgress(
-          'swaps',
-          100,
-          await Swap.findAll({
-            attributes: ['id', 'invoice'],
-            where: {
-              invoice: {
-                [Op.not]: null,
-              },
-            },
-          }),
-          async (swap) => {
-            await swap.update({
-              invoiceAmount: decodeInvoice(swap.invoice!).satoshis,
-            });
-          },
-        );
-
-        this.logUpdatingTable('reverseSwaps');
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'invoiceAmount', {
-            type: new DataTypes.INTEGER(),
-          });
-
-        await this.logProgress(
-          'reverseSwaps',
-          100,
-          await ReverseSwap.findAll({
-            attributes: ['id', 'invoice'],
-          }),
-          async (reverseSwap) => {
-            await reverseSwap.update({
-              invoiceAmount: decodeInvoice(reverseSwap.invoice).satoshis,
-            });
-          },
-        );
-
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('reverseSwaps', 'invoiceAmount', {
-            allowNull: false,
-            type: new DataTypes.INTEGER(),
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-
-        break;
-      }
-
-      case 6: {
-        this.logUpdatingTable('reverseSwaps');
-
-        const attrs = {
-          type: new DataTypes.INTEGER(),
-          allowNull: true,
-          validate: {
-            isIn: [
-              Object.values(NodeType).filter((val) => typeof val === 'number'),
-            ],
-          },
-        };
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'node', attrs);
-
-        await this.sequelize
-          .getQueryInterface()
-          .bulkUpdate('reverseSwaps', { node: NodeType.LND }, {});
-
-        attrs.allowNull = false;
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('reverseSwaps', 'node', attrs);
-
-        await this.finishMigration(versionRow.version, currencies);
-
-        break;
-      }
-
-      case 7: {
-        this.logUpdatingTable('swaps');
-
-        const attrs = {
-          type: new DataTypes.INTEGER(),
-          allowNull: true,
-          validate: {
-            isIn: [
-              Object.values(SwapVersion).filter(
-                (val) => typeof val === 'number',
-              ),
-            ],
-          },
-        };
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('swaps', 'version', attrs);
-
-        await this.sequelize
-          .getQueryInterface()
-          .bulkUpdate('swaps', { version: SwapVersion.Legacy }, {});
-
-        attrs.allowNull = false;
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('swaps', 'version', attrs);
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('swaps', 'refundPublicKey', {
-            type: new DataTypes.STRING(),
-            allowNull: true,
-          });
-
-        this.logUpdatingTable('reverseSwaps');
-
-        attrs.allowNull = true;
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'version', attrs);
-
-        await this.sequelize
-          .getQueryInterface()
-          .bulkUpdate('reverseSwaps', { version: SwapVersion.Legacy }, {});
-
-        attrs.allowNull = false;
-        await this.sequelize
-          .getQueryInterface()
-          .changeColumn('reverseSwaps', 'version', attrs);
-
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn('reverseSwaps', 'claimPublicKey', {
-            type: new DataTypes.STRING(),
-            allowNull: true,
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
-      case 8: {
-        const tables = await this.sequelize.getQueryInterface().showAllTables();
-
-        // It is possible that the table does not exist yet in schema version 8,
-        // so we have to check if it exists before trying to add a column
-        if (tables.includes(LightningPayment.tableName)) {
-          await this.sequelize
-            .getQueryInterface()
-            .addColumn(LightningPayment.tableName, 'error', {
-              type: new DataTypes.STRING(),
-              allowNull: true,
-            });
-        }
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
-      case 9: {
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn(PendingLockupTransaction.tableName, 'transaction', {
-            type: new DataTypes.TEXT(),
-          });
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
-      case 10: {
-        await this.sequelize.transaction(async (tx) => {
-          await this.sequelize.getQueryInterface().addColumn(
-            ChainSwap.tableName,
-            'createdRefundSignature',
-            {
-              type: new DataTypes.BOOLEAN(),
-              allowNull: false,
-              defaultValue: false,
-            },
-            { transaction: tx },
-          );
-
-          // To make sure we do not allow renegotiation of amounts and potentially
-          // accept a transaction, we created a refund signature before
-          await ChainSwap.update(
-            {
-              createdRefundSignature: true,
-            },
-            {
-              where: {},
-              transaction: tx,
-            },
-          );
-        });
-
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
-      case 11: {
-        await this.sequelize
-          .getQueryInterface()
-          .addColumn(Swap.tableName, 'preimage', {
-            type: new DataTypes.STRING(64),
-            allowNull: true,
-            unique: true,
-          });
-
-        this.toBackFill.push(11);
-        await this.finishMigration(versionRow.version, currencies);
-        break;
-      }
-
       case 12: {
         await this.sequelize
           .getQueryInterface()
@@ -954,6 +547,147 @@ class Migration {
         break;
       }
 
+      case 24: {
+        const queryInterface = this.sequelize.getQueryInterface();
+        const nodeIdCol = {
+          type: new DataTypes.STRING(255),
+          allowNull: true,
+        };
+
+        this.logUpdatingTable(ReverseSwap.tableName);
+        this.logUpdatingTable(LightningPayment.tableName);
+        await this.sequelize.transaction(async (transaction) => {
+          await queryInterface.addColumn(
+            ReverseSwap.tableName,
+            'nodeId',
+            nodeIdCol,
+            {
+              transaction,
+            },
+          );
+          await queryInterface.addColumn(
+            LightningPayment.tableName,
+            'nodeId',
+            nodeIdCol,
+            {
+              transaction,
+            },
+          );
+
+          await this.sequelize.query(
+            `UPDATE "${ReverseSwap.tableName}"
+             SET "nodeId" = CASE "node"
+               WHEN 0 THEN 'legacy-lnd'
+               WHEN 1 THEN 'legacy-cln'
+               WHEN 2 THEN $selfPaymentNodeId
+             END
+             WHERE "node" IN (0, 1, 2)`,
+            {
+              bind: {
+                selfPaymentNodeId: SelfPaymentNodeId,
+              },
+              transaction,
+            },
+          );
+          await this.sequelize.query(
+            `UPDATE "${LightningPayment.tableName}"
+             SET "nodeId" = CASE "node"
+               WHEN 0 THEN 'legacy-lnd'
+               WHEN 1 THEN 'legacy-cln'
+               WHEN 2 THEN $selfPaymentNodeId
+             END
+             WHERE "node" IN (0, 1, 2)`,
+            {
+              bind: {
+                selfPaymentNodeId: SelfPaymentNodeId,
+              },
+              transaction,
+            },
+          );
+
+          const [reverseSwapNullCount] = await this.sequelize.query<{
+            count: string | number;
+          }>(
+            `SELECT COUNT(*) AS count FROM "${ReverseSwap.tableName}" WHERE "nodeId" IS NULL`,
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+            },
+          );
+          if (Number(reverseSwapNullCount.count) > 0) {
+            throw new Error(
+              `Could not migrate all ${ReverseSwap.tableName} rows to nodeId; found ${reverseSwapNullCount.count} NULL values`,
+            );
+          }
+
+          const [lightningPaymentNullCount] = await this.sequelize.query<{
+            count: string | number;
+          }>(
+            `SELECT COUNT(*) AS count FROM "${LightningPayment.tableName}" WHERE "nodeId" IS NULL`,
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+            },
+          );
+          if (Number(lightningPaymentNullCount.count) > 0) {
+            throw new Error(
+              `Could not migrate all ${LightningPayment.tableName} rows to nodeId; found ${lightningPaymentNullCount.count} NULL values`,
+            );
+          }
+
+          await this.sequelize.query(
+            `ALTER TABLE "${ReverseSwap.tableName}" ALTER COLUMN "nodeId" SET NOT NULL`,
+            {
+              transaction,
+            },
+          );
+          await this.sequelize.query(
+            `ALTER TABLE "${LightningPayment.tableName}" ALTER COLUMN "nodeId" SET NOT NULL`,
+            {
+              transaction,
+            },
+          );
+
+          await queryInterface.addIndex(ReverseSwap.tableName, ['nodeId'], {
+            transaction,
+          });
+          await this.sequelize.query(
+            `ALTER TABLE "${LightningPayment.tableName}" DROP CONSTRAINT IF EXISTS "${LightningPayment.tableName}_pkey"`,
+            {
+              transaction,
+            },
+          );
+          await this.sequelize.query(
+            `ALTER TABLE "${LightningPayment.tableName}" ADD PRIMARY KEY ("preimageHash", "nodeId")`,
+            {
+              transaction,
+            },
+          );
+          await queryInterface.addIndex(
+            LightningPayment.tableName,
+            ['nodeId'],
+            {
+              transaction,
+            },
+          );
+
+          await queryInterface.removeColumn(ReverseSwap.tableName, 'node', {
+            transaction,
+          });
+          await queryInterface.removeColumn(
+            LightningPayment.tableName,
+            'node',
+            {
+              transaction,
+            },
+          );
+        });
+
+        this.toBackFill.push(24);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
       default:
         throw `found unexpected database version ${versionRow.version}`;
     }
@@ -970,65 +704,6 @@ class Migration {
       );
 
       switch (version) {
-        case 11: {
-          await this.logProgress(
-            Swap.tableName,
-            100,
-            await LightningPaymentRepository.findByStatus(
-              LightningPaymentStatus.Success,
-            ),
-            async (payment) => {
-              const { base, quote } = splitPairId(payment.Swap.pair);
-              const lightningSymbol = getLightningCurrency(
-                base,
-                quote,
-                payment.Swap.orderSide,
-                false,
-              );
-              const currency = currencies.get(lightningSymbol);
-              if (currency === undefined) {
-                this.logger.warn(
-                  `Could not get lightning currency ${lightningSymbol} for ${swapTypeToPrettyString(payment.Swap.type)} Swap ${payment.Swap.id}`,
-                );
-                return;
-              }
-
-              let preimage: string | undefined = undefined;
-              if (
-                payment.node === NodeType.LND &&
-                currency.lndClient !== undefined
-              ) {
-                const res = await currency.lndClient.trackPayment(
-                  getHexBuffer(payment.Swap.preimageHash),
-                );
-                if (res?.paymentPreimage?.length > 0) {
-                  preimage = res.paymentPreimage;
-                }
-              } else if (
-                payment.node === NodeType.CLN &&
-                currency.clnClient !== undefined
-              ) {
-                const res = await currency.clnClient.checkPayStatus(
-                  payment.Swap.invoice!,
-                );
-                if (res !== undefined) {
-                  preimage = getHexString(res.preimage);
-                }
-              }
-
-              if (preimage === undefined) {
-                this.logger.warn(
-                  `Could not get preimage for ${payment.Swap.id}`,
-                );
-                return;
-              }
-
-              await payment.Swap.update({ preimage });
-            },
-          );
-          break;
-        }
-
         case 21: {
           await this.logProgress(
             Swap.tableName,
@@ -1087,6 +762,43 @@ class Migration {
             },
             sequelize,
           );
+
+          break;
+        }
+
+        case 24: {
+          // Resolve legacy-lnd / legacy-cln placeholders to actual node pubkeys
+          const btc = currencies.get('BTC');
+          const lndPubkey = btc?.lndClients.values().next().value?.id;
+          const clnPubkey = btc?.clnClient?.id;
+
+          for (const [placeholder, pubkey] of [
+            ['legacy-lnd', lndPubkey],
+            ['legacy-cln', clnPubkey],
+          ] as const) {
+            if (pubkey === undefined) {
+              this.logger.warn(
+                `No node configured to resolve ${placeholder} nodeId placeholder`,
+              );
+              continue;
+            }
+
+            const [, rsCount] = await sequelize.query(
+              `UPDATE "${ReverseSwap.tableName}" SET "nodeId" = $pubkey WHERE "nodeId" = $placeholder`,
+              { bind: { pubkey, placeholder } },
+            );
+            this.logger.debug(
+              `Resolved ${(rsCount as any)?.rowCount ?? rsCount} ${placeholder} -> ${pubkey} in ${ReverseSwap.tableName}`,
+            );
+
+            const [, lpCount] = await sequelize.query(
+              `UPDATE "${LightningPayment.tableName}" SET "nodeId" = $pubkey WHERE "nodeId" = $placeholder`,
+              { bind: { pubkey, placeholder } },
+            );
+            this.logger.debug(
+              `Resolved ${(lpCount as any)?.rowCount ?? lpCount} ${placeholder} -> ${pubkey} in ${LightningPayment.tableName}`,
+            );
+          }
 
           break;
         }

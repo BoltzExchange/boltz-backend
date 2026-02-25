@@ -10,12 +10,12 @@ import {
 import DefaultMap from '../consts/DefaultMap';
 import type LightningPayment from '../db/models/LightningPayment';
 import { LightningPaymentStatus } from '../db/models/LightningPayment';
-import { NodeType, nodeTypeToPrettyString } from '../db/models/ReverseSwap';
+import { NodeType } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import type Sidecar from '../sidecar/Sidecar';
-import type { Currency } from '../wallet/WalletManager';
+import { type Currency, getLightningClientById } from '../wallet/WalletManager';
 import LightningErrors from './Errors';
 import type { LightningClient, PaymentResponse } from './LightningClient';
 import type LndClient from './LndClient';
@@ -24,10 +24,7 @@ import ClnPendingPaymentTracker from './paymentTrackers/ClnPendingPaymentTracker
 import LndPendingPaymentTracker from './paymentTrackers/LndPendingPaymentTracker';
 import type NodePendingPaymentTracker from './paymentTrackers/NodePendingPaymentTracker';
 
-type LightningNodes = Record<
-  Exclude<NodeType, NodeType.SelfPayment>,
-  LightningClient | undefined
->;
+type LightningNodes = Map<string, LightningClient>;
 
 class PendingPaymentTracker {
   public static readonly raceTimeout = 10;
@@ -40,10 +37,7 @@ class PendingPaymentTracker {
   >;
 
   private readonly lightningNodes = new DefaultMap<string, LightningNodes>(
-    () => ({
-      [NodeType.LND]: undefined,
-      [NodeType.CLN]: undefined,
-    }),
+    () => new Map<string, LightningClient>(),
   );
 
   constructor(
@@ -72,29 +66,32 @@ class PendingPaymentTracker {
 
   public init = async (currencies: Currency[]) => {
     currencies.forEach((currency) => {
-      this.lightningNodes.set(currency.symbol, {
-        [NodeType.LND]: currency.lndClient,
-        [NodeType.CLN]: currency.clnClient,
-      });
+      const nodes = new Map<string, LightningClient>();
+      currency.lndClients.forEach((client, nodeId) =>
+        nodes.set(nodeId, client),
+      );
+      if (currency.clnClient) {
+        nodes.set(currency.clnClient.id, currency.clnClient);
+      }
+      this.lightningNodes.set(currency.symbol, nodes);
     });
 
     for (const payment of await LightningPaymentRepository.findByStatus(
       LightningPaymentStatus.Pending,
     )) {
-      const client = this.lightningNodes.get(payment.Swap.lightningCurrency)[
-        payment.node
-      ];
+      const nodes = this.lightningNodes.get(payment.Swap.lightningCurrency);
+      const client = nodes.get(payment.nodeId);
       if (client === undefined) {
         this.logger.warn(
-          `Could not track payment ${payment.Swap.id} (${payment.preimageHash}): ${payment.Swap.lightningCurrency} ${nodeTypeToPrettyString(payment.node)} is not available`,
+          `Could not track payment ${payment.Swap.id} (${payment.preimageHash}): ${payment.Swap.lightningCurrency} ${payment.nodeId} is not available`,
         );
         continue;
       }
 
       this.logger.debug(
-        `Watching pending ${client.symbol} ${nodeTypeToPrettyString(client.type)} payment of ${payment.Swap.id}: ${payment.preimageHash}`,
+        `Watching pending ${client.symbol} ${client.id} payment of ${payment.Swap.id}: ${payment.preimageHash}`,
       );
-      this.lightningTrackers[payment.node].watchPayment(
+      this.lightningTrackers[client.type].watchPayment(
         client,
         payment.Swap.invoice!,
         payment.preimageHash,
@@ -132,10 +129,16 @@ class PendingPaymentTracker {
       };
     }
 
-    const node = [
-      lightningCurrency.lndClient,
-      lightningCurrency.clnClient,
-    ].find((n) => n?.type === existingRelevantAction.node);
+    const node = getLightningClientById(
+      lightningCurrency,
+      existingRelevantAction.nodeId,
+    );
+
+    if (node === undefined) {
+      this.logger.warn(
+        `Node ${existingRelevantAction.nodeId} for existing payment ${paymentHash} not available; using preferred node`,
+      );
+    }
 
     return {
       payments,
@@ -166,7 +169,7 @@ class PendingPaymentTracker {
       switch (status) {
         case LightningPaymentStatus.Pending:
           this.logger.verbose(
-            `Invoice payment of ${swap.id} (${paymentHash}) still pending with node ${nodeTypeToPrettyString(relevant.node)}`,
+            `Invoice payment of ${swap.id} (${paymentHash}) still pending with node ${relevant.nodeId}`,
           );
           return undefined;
 
@@ -191,7 +194,7 @@ class PendingPaymentTracker {
     await this.checkInvoiceTimeout(
       swap,
       paymentHash,
-      lightningClient.type,
+      lightningClient.id,
       payments,
     );
 
@@ -208,7 +211,7 @@ class PendingPaymentTracker {
   private checkInvoiceTimeout = async (
     swap: Pick<Swap, 'id' | 'paymentTimeout'>,
     paymentHash: string,
-    lightningClientType: NodeType,
+    lightningClientId: string,
     payments: LightningPayment[],
   ) => {
     // Prefer the payment timeout from the swap, if it exists
@@ -232,7 +235,7 @@ class PendingPaymentTracker {
       const err = LightningErrors.PAYMENT_TIMED_OUT();
       await LightningPaymentRepository.setStatus(
         paymentHash,
-        lightningClientType,
+        lightningClientId,
         LightningPaymentStatus.PermanentFailure,
         err.message,
       );
@@ -250,7 +253,7 @@ class PendingPaymentTracker {
   ) => {
     await LightningPaymentRepository.create({
       preimageHash,
-      node: lightningClient.type,
+      nodeId: lightningClient.id,
     });
 
     const referral =
@@ -274,7 +277,7 @@ class PendingPaymentTracker {
       );
       await LightningPaymentRepository.setStatus(
         preimageHash,
-        lightningClient.type,
+        lightningClient.id,
         LightningPaymentStatus.Success,
       );
 
@@ -291,7 +294,7 @@ class PendingPaymentTracker {
           paymentPromise,
         );
         this.logger.verbose(
-          `Invoice payment of ${swap.id} (${preimageHash}) is still pending with node ${nodeTypeToPrettyString(lightningClient.type)} after ${PendingPaymentTracker.raceTimeout} seconds`,
+          `Invoice payment of ${swap.id} (${preimageHash}) is still pending with node ${lightningClient.id} after ${PendingPaymentTracker.raceTimeout} seconds`,
         );
         return undefined;
       }
@@ -312,7 +315,7 @@ class PendingPaymentTracker {
 
       await LightningPaymentRepository.setStatus(
         preimageHash,
-        lightningClient.type,
+        lightningClient.id,
         isPermanentError
           ? LightningPaymentStatus.PermanentFailure
           : LightningPaymentStatus.TemporaryFailure,
@@ -333,13 +336,13 @@ class PendingPaymentTracker {
     invoice: string,
   ): Promise<PaymentResponse | undefined> => {
     this.logger.verbose(
-      `Invoice payment of ${swapId} (${preimageHash}) has already succeeded on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
+      `Invoice payment of ${swapId} (${preimageHash}) has already succeeded on node ${symbol} ${payment.nodeId}`,
     );
 
-    const nodeThatPaid = this.lightningNodes.get(symbol)[payment.node];
+    const nodeThatPaid = this.lightningNodes.get(symbol).get(payment.nodeId);
     if (nodeThatPaid === undefined) {
       this.logger.warn(
-        `Could not resolve payment of ${swapId} (${preimageHash}): ${symbol} ${nodeTypeToPrettyString(payment.node)} is not available`,
+        `Could not resolve payment of ${swapId} (${preimageHash}): ${symbol} ${payment.nodeId} is not available`,
       );
       return undefined;
     }
@@ -371,7 +374,7 @@ class PendingPaymentTracker {
     symbol: string,
   ) => {
     this.logger.verbose(
-      `Invoice payment of ${swapId} (${payment.preimageHash}) has failed with a permanent error on node ${symbol} ${nodeTypeToPrettyString(payment.node)}`,
+      `Invoice payment of ${swapId} (${payment.preimageHash}) has failed with a permanent error on node ${symbol} ${payment.nodeId}`,
     );
     throw payment.error;
   };

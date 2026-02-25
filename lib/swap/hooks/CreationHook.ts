@@ -2,7 +2,7 @@ import type Logger from '../../Logger';
 import { SwapType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
-import Hook, { type HookResponse } from './Hook';
+import Hook from './Hook';
 
 const enum Action {
   Accept,
@@ -36,7 +36,6 @@ type RequestParams =
   | RequestParamsChain;
 
 class CreationHook extends Hook<
-  boltzrpc.Action,
   Action,
   boltzrpc.SwapCreation,
   boltzrpc.SwapCreationResponse
@@ -98,7 +97,7 @@ class CreationHook extends Hook<
     return this.handleAction(await this.sendHook(params.id, msg));
   };
 
-  protected parseGrpcAction = (res: HookResponse<boltzrpc.Action>): Action =>
+  protected parseGrpcAction = (res: boltzrpc.SwapCreationResponse): Action =>
     parseGrpcAction(this.logger, this.name, res.getId(), res.getAction());
 
   private handleAction = (action: Action) => {

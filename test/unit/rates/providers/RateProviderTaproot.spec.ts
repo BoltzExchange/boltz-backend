@@ -80,18 +80,19 @@ describe('RateProviderTaproot', () => {
         'BTC',
         {
           chainClient: {},
-          lndClient: {},
+          lndClients: new Map([['lnd-1', {}]]),
         },
       ],
       [
         'L-BTC',
         {
           chainClient: {},
+          lndClients: new Map(),
         },
       ],
-      ['R-BTC', { provider: {} }],
-      ['CASHU', {}],
-      [ArkClient.symbol, { arkNode: {} }],
+      ['R-BTC', { provider: {}, lndClients: new Map() }],
+      ['CASHU', { lndClients: new Map() }],
+      [ArkClient.symbol, { arkNode: {}, lndClients: new Map() }],
     ]),
     mockedFeeProvider,
     {

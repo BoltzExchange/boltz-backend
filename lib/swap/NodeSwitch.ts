@@ -2,13 +2,17 @@ import type Logger from '../Logger';
 import { getHexString, stringify } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
 import type ReverseSwap from '../db/models/ReverseSwap';
-import { NodeType, nodeTypeToPrettyString } from '../db/models/ReverseSwap';
+import { NodeType } from '../db/models/ReverseSwap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import type { LightningClient } from '../lightning/LightningClient';
 import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import { InvoiceType } from '../sidecar/DecodedInvoice';
-import type { Currency } from '../wallet/WalletManager';
+import {
+  type Currency,
+  getLightningClientById,
+  getLightningClients,
+} from '../wallet/WalletManager';
 import Errors from './Errors';
 import InvoicePaymentHook from './hooks/InvoicePaymentHook';
 
@@ -37,10 +41,10 @@ class NodeSwitch {
   private static readonly defaultClnAmountThreshold = 1_000_000;
   private static readonly maxClnRetries = 1;
 
-  private readonly referralIds = new Map<string, NodeType>();
+  private readonly referralIds = new Map<string, string>();
 
-  private readonly swapNode?: NodeType;
-  private readonly preferredForNode = new Map<string, NodeType>();
+  private readonly swapNode?: string;
+  private readonly preferredForNode = new Map<string, string>();
 
   constructor(
     private readonly logger: Logger,
@@ -73,33 +77,31 @@ class NodeSwitch {
 
     const swapNode =
       cfg?.swapNode !== undefined
-        ? this.parseNodeType(cfg.swapNode, 'swap node')
+        ? this.parseNodeId(cfg.swapNode, 'swap node')
         : undefined;
     if (swapNode !== undefined) {
-      this.logger.info(`Using ${cfg?.swapNode} for paying invoices of Swaps`);
+      this.logger.info(`Using ${swapNode} for paying invoices of Swaps`);
       this.swapNode = swapNode;
     }
 
-    for (const [referralId, nodeType] of Object.entries(
+    for (const [referralId, nodeId] of Object.entries(
       cfg?.referralsIds || {},
     )) {
-      const nt = this.parseNodeType(nodeType, `referral id ${referralId}`);
-      if (nt === undefined) {
+      const parsed = this.parseNodeId(nodeId, `referral id ${referralId}`);
+      if (parsed === undefined) {
         continue;
       }
 
-      this.referralIds.set(referralId, nt);
+      this.referralIds.set(referralId, parsed);
     }
 
-    for (const [node, nodeType] of Object.entries(
-      cfg?.preferredForNode || {},
-    )) {
-      const nt = this.parseNodeType(nodeType, `preferred for node ${node}`);
-      if (nt === undefined) {
+    for (const [node, nodeId] of Object.entries(cfg?.preferredForNode || {})) {
+      const parsed = this.parseNodeId(nodeId, `preferred for node ${node}`);
+      if (parsed === undefined) {
         continue;
       }
 
-      this.preferredForNode.set(node.toLowerCase(), nt);
+      this.preferredForNode.set(node.toLowerCase(), parsed);
     }
 
     this.paymentHook = new InvoicePaymentHook(this.logger);
@@ -108,27 +110,44 @@ class NodeSwitch {
   public static getReverseSwapNode = (
     currency: Currency,
     reverseSwap: ReverseSwap,
-  ): LightningClient => {
-    return NodeSwitch.fallback(
-      currency,
-      NodeSwitch.switchOnNodeType(currency, reverseSwap.node),
-    );
+  ): {
+    nodeId: string;
+    nodeType: NodeType;
+    lightningClient: LightningClient;
+  } => {
+    const client = getLightningClientById(currency, reverseSwap.nodeId!);
+    if (client === undefined) {
+      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
+        `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`,
+      );
+    }
+
+    if (!client.isConnected()) {
+      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
+        `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`,
+      );
+    }
+
+    return {
+      nodeId: client.id,
+      nodeType: client.type,
+      lightningClient: client,
+    };
   };
 
-  public static getClients = (currency: Currency): LightningClient[] => {
-    return [currency.lndClient, currency.clnClient].filter(
-      (client) => client !== undefined,
-    );
-  };
+  public static getClients = (currency: Currency): LightningClient[] =>
+    getLightningClients(currency);
 
   public static hasClient = (currency: Currency, type?: NodeType): boolean => {
-    return NodeSwitch.getClients(currency).some((client) => {
-      if (type !== undefined) {
-        return client?.type === type;
-      }
+    if (type === NodeType.LND) {
+      return currency.lndClients.size > 0;
+    }
 
-      return client !== undefined;
-    });
+    if (type === NodeType.CLN) {
+      return currency.clnClient !== undefined;
+    }
+
+    return currency.lndClients.size > 0 || currency.clnClient !== undefined;
   };
 
   public updateClnThresholds = (
@@ -153,31 +172,62 @@ class NodeSwitch {
       referral?: string;
     },
   ): Promise<LightningClient> => {
-    const selectNode = (preferredNode?: NodeType) => {
-      return NodeSwitch.fallback(
-        currency,
-        decoded.type === InvoiceType.Bolt11
-          ? preferredNode !== undefined
-            ? NodeSwitch.switchOnNodeType(currency, preferredNode)
-            : this.switch(
-                currency,
-                SwapType.Submarine,
-                msatToSat(decoded.amountMsat),
-                swap.referral,
-              )
-          : currency.clnClient,
-      );
-    };
+    const preferredNodeId = this.getPreferredNode(decoded);
+    const referralNodeId =
+      preferredNodeId === undefined
+        ? this.referralIds.get(swap.referral || '')
+        : undefined;
+    const requestedNodeId = preferredNodeId ?? referralNodeId;
 
-    let client = selectNode(this.getPreferredNode(decoded));
+    let requestedClient: LightningClient | undefined = undefined;
+    if (requestedNodeId !== undefined) {
+      requestedClient = getLightningClientById(currency, requestedNodeId);
+      if (requestedClient === undefined) {
+        this.logger.warn(
+          `Requested node ${requestedNodeId} not configured for ${currency.symbol}; falling back`,
+        );
+      }
+    }
+
+    let client: LightningClient;
+    if (decoded.type !== InvoiceType.Bolt11) {
+      if (requestedClient && requestedClient.type === NodeType.CLN) {
+        client = NodeSwitch.fallback(currency, requestedClient);
+      } else {
+        if (requestedClient && requestedClient.type !== NodeType.CLN) {
+          this.logger.warn(
+            `Ignoring non-CLN override ${requestedClient.id} for ${decoded.typePretty} invoice`,
+          );
+        }
+
+        client = NodeSwitch.fallback(currency, currency.clnClient);
+      }
+    } else {
+      // Bolt11: check amount threshold for CLN preference
+      if (requestedClient !== undefined) {
+        client = NodeSwitch.fallback(currency, requestedClient);
+      } else {
+        const amount =
+          decoded.amountMsat !== undefined ? msatToSat(decoded.amountMsat) : 0;
+
+        if (
+          amount <= this.clnAmountThreshold[SwapType.Submarine] &&
+          currency.clnClient?.isConnected()
+        ) {
+          client = currency.clnClient;
+        } else {
+          client = NodeSwitch.fallback(currency);
+        }
+      }
+    }
 
     // Go easy on CLN xpay
     if (client.type === NodeType.CLN && decoded.type === InvoiceType.Bolt11) {
       if (decoded.paymentHash !== undefined) {
         const existingPayment =
-          await LightningPaymentRepository.findByPreimageHashAndNode(
+          await LightningPaymentRepository.findByPreimageHashAndNodeId(
             getHexString(decoded.paymentHash),
-            client.type,
+            client.id,
           );
 
         if (
@@ -192,14 +242,14 @@ class NodeSwitch {
           this.logger.debug(
             `Max CLN retries reached for invoice ${identifier}; preferring LND`,
           );
-          client = selectNode(NodeType.LND);
+          client = NodeSwitch.fallback(currency);
         }
       }
     }
 
     if (swap.id !== undefined) {
       this.logger.debug(
-        `Using node ${client.serviceName()} for Swap ${swap.id}`,
+        `Using node ${client.id} (${client.serviceName()}) for Swap ${swap.id}`,
       );
     }
 
@@ -216,11 +266,15 @@ class NodeSwitch {
     const res = await this.paymentHook.hook(swap.id, swap.invoice, decoded);
     if (!res) return undefined;
 
-    if (res.node !== undefined) {
-      const requestedClient = NodeSwitch.switchOnNodeType(currency, res.node);
-      if (requestedClient) {
+    if (res.nodeId !== undefined) {
+      const requestedClient = getLightningClientById(currency, res.nodeId);
+      if (requestedClient && requestedClient.isConnected()) {
         return { client: requestedClient, timePreference: res.timePreference };
       }
+
+      this.logger.warn(
+        `Invoice payment hook requested unavailable node ${res.nodeId} for ${currency.symbol}`,
+      );
     }
 
     if (res.timePreference !== undefined) {
@@ -230,115 +284,138 @@ class NodeSwitch {
     return undefined;
   };
 
-  public getNodeForReverseSwap = (
-    id: string,
+  public getReverseSwapCandidates = (
     currency: Currency,
     holdInvoiceAmount: number,
     referralId?: string,
-  ): { nodeType: NodeType; lightningClient: LightningClient } => {
-    const client = NodeSwitch.fallback(
-      currency,
-      this.switch(
-        currency,
-        SwapType.ReverseSubmarine,
-        holdInvoiceAmount,
-        referralId,
-      ),
-    );
-    this.logger.debug(
-      `Using node ${client.serviceName()} for Reverse Swap ${id}`,
-    );
+  ): {
+    nodeType: NodeType;
+    nodeId: string;
+    lightningClient: LightningClient;
+  }[] => {
+    const preferredNodeId = this.referralIds.get(referralId || '');
+    const candidates = this.getBolt11Candidates(currency, preferredNodeId);
 
-    return {
-      lightningClient: client,
-      nodeType: client === currency.lndClient ? NodeType.LND : NodeType.CLN,
-    };
-  };
-
-  private switch = (
-    currency: Currency,
-    swapType: SwapType.Submarine | SwapType.ReverseSubmarine,
-    amount?: number,
-    referralId?: string,
-  ): LightningClient => {
-    if (referralId && this.referralIds.has(referralId)) {
-      return NodeSwitch.fallback(
-        currency,
-        NodeSwitch.switchOnNodeType(
-          currency,
-          this.referralIds.get(referralId)!,
-        ),
-      );
+    // If CLN threshold preference applies, move CLN to front
+    if (
+      preferredNodeId === undefined &&
+      holdInvoiceAmount <= this.clnAmountThreshold[SwapType.ReverseSubmarine] &&
+      currency.clnClient?.isConnected()
+    ) {
+      const clnCandidate = candidates.find((c) => c.nodeType === NodeType.CLN);
+      if (clnCandidate) {
+        return [
+          clnCandidate,
+          ...candidates.filter((c) => c.nodeId !== clnCandidate.nodeId),
+        ];
+      }
     }
 
-    return NodeSwitch.fallback(
-      currency,
-      (amount || 0) > this.clnAmountThreshold[swapType]
-        ? currency.lndClient
-        : currency.clnClient,
-    );
+    return candidates;
   };
 
-  private getPreferredNode = (
-    invoice: DecodedInvoice,
-  ): NodeType | undefined => {
+  private getPreferredNode = (invoice: DecodedInvoice): string | undefined => {
     const nodes = invoice.routingHints.flat().map((h) => h.nodeId);
     if (invoice.payee !== undefined) {
       nodes.push(getHexString(invoice.payee!));
     }
 
     for (const node of nodes) {
-      const nt = this.preferredForNode.get(node);
-      if (nt !== undefined) {
-        this.logger.debug(
-          `Preferring node ${nodeTypeToPrettyString(nt)} because of ${node}`,
-        );
-        return nt;
+      const preferred = this.preferredForNode.get(node.toLowerCase());
+      if (preferred !== undefined) {
+        this.logger.debug(`Preferring node ${preferred} because of ${node}`);
+        return preferred;
       }
     }
 
     return this.swapNode;
   };
 
-  private parseNodeType = (
-    nodeType: any,
+  private parseNodeId = (
+    nodeId: any,
     valueContext: string,
-  ): NodeType | undefined => {
-    const nt = NodeType[nodeType as string];
-    if (nt === undefined || typeof nodeType !== 'string') {
-      this.logger.warn(
-        `Invalid node type for ${valueContext}: "${nodeType}"; available options are: [${Object.values(
-          NodeType,
-        )
-          .filter((val) => typeof val === 'string')
-          .join(', ')}]`,
-      );
+  ): string | undefined => {
+    if (typeof nodeId !== 'string' || nodeId.trim() === '') {
+      this.logger.warn(`Invalid node id for ${valueContext}: "${nodeId}"`);
       return;
     }
 
-    return nt;
+    return nodeId;
+  };
+
+  private getBolt11Candidates = (
+    currency: Currency,
+    preferredNodeId?: string,
+  ): {
+    nodeType: NodeType;
+    nodeId: string;
+    lightningClient: LightningClient;
+  }[] => {
+    const ordered = this.getOrderedClients(currency, preferredNodeId);
+    return ordered
+      .filter((client) => client.isConnected())
+      .map((client) => ({
+        nodeId: client.id,
+        nodeType: client.type,
+        lightningClient: client,
+      }));
+  };
+
+  private getOrderedClients = (
+    currency: Currency,
+    preferredNodeId?: string,
+  ): LightningClient[] => {
+    const ordered: LightningClient[] = Array.from(currency.lndClients.values());
+    if (currency.clnClient) {
+      ordered.push(currency.clnClient);
+    }
+
+    if (preferredNodeId === undefined) {
+      return ordered;
+    }
+
+    const preferred = getLightningClientById(currency, preferredNodeId);
+    if (preferred === undefined) {
+      this.logger.warn(
+        `Preferred node ${preferredNodeId} not configured for ${currency.symbol}; falling back`,
+      );
+      return ordered;
+    }
+
+    return [
+      preferred,
+      ...ordered.filter((client) => client.id !== preferred.id),
+    ];
   };
 
   public static fallback = (
     currency: Currency,
     client?: LightningClient,
   ): LightningClient => {
-    const clients = [client, currency.lndClient, currency.clnClient]
-      .filter((client): client is LightningClient => client !== undefined)
-      .filter((client) => client.isConnected());
+    const ordered = [
+      client,
+      ...Array.from(currency.lndClients.values()),
+      currency.clnClient,
+    ].filter(
+      (candidate): candidate is LightningClient => candidate !== undefined,
+    );
+
+    const unique = new Map<string, LightningClient>();
+    ordered.forEach((candidate) => {
+      if (!unique.has(candidate.id)) {
+        unique.set(candidate.id, candidate);
+      }
+    });
+
+    const clients = Array.from(unique.values()).filter((candidate) =>
+      candidate.isConnected(),
+    );
 
     if (clients.length === 0) {
       throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT();
     }
 
     return clients[0]!;
-  };
-
-  private static switchOnNodeType = (
-    currency: Currency,
-    nodeType: NodeType,
-  ): LightningClient | undefined => {
-    return nodeType === NodeType.LND ? currency.lndClient : currency.clnClient;
   };
 
   private logClnThresholds = () => {

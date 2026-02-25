@@ -6,15 +6,15 @@ import { stringify } from '../Utils';
 import type {
   ChannelInfo,
   NodeInfo as INodeInfo,
+  LightningClient,
 } from '../lightning/LightningClient';
-import type LndClient from '../lightning/LndClient';
-import type ClnClient from '../lightning/cln/ClnClient';
 import NodeSwitch from '../swap/NodeSwitch';
-import type { Currency } from '../wallet/WalletManager';
+import { type Currency, getLightningClients } from '../wallet/WalletManager';
 
 type LightningNodeInfo = {
   nodeKey: string;
   uris: string[];
+  nodeType: LightningClient['type'];
 };
 
 type Stats = {
@@ -25,9 +25,7 @@ type Stats = {
 };
 
 class NodeInfo {
-  public static readonly totalStats = 'total';
-
-  public readonly stats = new Map<string, Map<'total' | string, Stats>>();
+  public readonly stats = new Map<string, Map<string, Stats>>();
   public readonly uris = new Map<string, Map<string, LightningNodeInfo>>();
 
   private readonly pubkeys = new Set<string>();
@@ -88,60 +86,39 @@ class NodeInfo {
         continue;
       }
 
-      const clients = [currency.lndClient, currency.clnClient].filter(
-        (client): client is LndClient | ClnClient => client !== undefined,
-      );
+      const clients = getLightningClients(currency);
 
-      const infos: [string, INodeInfo, ChannelInfo[]][] = await Promise.all(
-        clients.map(async (client) => [
-          client.serviceName(),
-          await client.getInfo(),
-          await client?.listChannels(),
-        ]),
-      );
+      const infos: [string, LightningClient, INodeInfo, ChannelInfo[]][] =
+        await Promise.all(
+          clients.map(async (client) => [
+            client.id,
+            client,
+            await client.getInfo(),
+            await client?.listChannels(),
+          ]),
+        );
 
-      infos.forEach(([, info]) => this.pubkeys.add(info.pubkey));
+      infos.forEach(([, , info]) => this.pubkeys.add(info.pubkey));
       this.uris.set(
         symbol,
         new Map<string, LightningNodeInfo>(
-          infos.map(([name, info]) => [
-            name,
+          infos.map(([nodeId, client, info]) => [
+            nodeId,
             {
               uris: info.uris,
               nodeKey: info.pubkey,
+              nodeType: client.type,
             },
           ]),
         ),
       );
 
       const stats: [string, Stats][] = await Promise.all(
-        infos.map(async ([name, info, channels]) => [
-          name,
+        infos.map(async ([nodeId, , info, channels]) => [
+          nodeId,
           await this.calculateNodeStats(currency, channels, info.peers),
         ]),
       );
-      stats.push([
-        NodeInfo.totalStats,
-        {
-          capacity: stats.reduce((sum, [, stat]) => sum + stat.capacity, 0),
-          channels: stats.reduce((sum, [, stat]) => sum + stat.channels, 0),
-          peers: stats.reduce((sum, [, stat]) => sum + stat.peers, 0),
-          oldestChannel: stats.reduce(
-            (oldest: number | undefined, [, stat]) => {
-              if (stat.oldestChannel === undefined) {
-                return oldest;
-              }
-
-              if (oldest === undefined) {
-                return stat.oldestChannel;
-              }
-
-              return oldest < stat.oldestChannel ? oldest : stat.oldestChannel;
-            },
-            undefined,
-          ),
-        },
-      ]);
 
       this.stats.set(symbol, new Map<string, Stats>(stats));
     }

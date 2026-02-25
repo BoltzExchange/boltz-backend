@@ -40,7 +40,9 @@ class ClnPendingPaymentTracker extends NodePendingPaymentTracker {
     promise: Promise<PaymentResponse>,
   ): void => {
     promise
-      .then((result) => this.handleSucceededPayment(preimageHash, result))
+      .then((result) =>
+        this.handleSucceededPayment(client, preimageHash, result),
+      )
       .catch((error) => {
         // CLN xpay throws errors while the payment is still pending
         if (!this.isPermanentError(error)) {
@@ -94,7 +96,7 @@ class ClnPendingPaymentTracker extends NodePendingPaymentTracker {
             continue;
           }
 
-          await this.handleSucceededPayment(preimageHash, res);
+          await this.handleSucceededPayment(client, preimageHash, res);
         }
       } catch (e) {
         // Ignore when the payment is pending; it's not a payment error

@@ -20,7 +20,7 @@ class RoutingHintsLnd implements RoutingHintsProvider {
     private logger: Logger,
     private lnd: LndClient,
   ) {
-    this.name = `${this.lnd.symbol} ${LndClient.serviceName}`;
+    this.name = `${this.lnd.symbol} ${LndClient.serviceName} ${this.lnd.id}`;
   }
 
   public start = async (): Promise<void> => {

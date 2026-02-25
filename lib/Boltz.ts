@@ -276,6 +276,7 @@ class Boltz {
       // Query the chain tips now to avoid them being updated after the chain clients are initialized
       const chainTips = await ChainTipRepository.getChainTips();
 
+      // Connect chain clients, CLN, and ARK in parallel
       await Promise.all(
         Array.from(this.currencies.values()).flatMap((currency) => {
           const prms: Promise<void>[] = [];
@@ -284,14 +285,9 @@ class Boltz {
             prms.push(this.connectChainClient(currency.chainClient));
           }
 
-          prms.concat(
-            [currency.lndClient, currency.clnClient]
-              .filter(
-                (client): client is ClnClient | LndClient =>
-                  client !== undefined,
-              )
-              .map((client) => this.connectLightningClient(client)),
-          );
+          if (currency.clnClient) {
+            prms.push(this.connectLightningClient(currency.clnClient));
+          }
 
           if (currency.arkNode) {
             const chainClient = this.currencies.get('BTC')?.chainClient;
@@ -307,6 +303,45 @@ class Boltz {
           return prms;
         }),
       );
+
+      // Create and connect LND clients in parallel
+      const configuredLnds = this.config.currencies.flatMap(
+        (currencyConfig) => {
+          const currency = this.currencies.get(currencyConfig.symbol);
+          if (!currency) {
+            return [];
+          }
+
+          return (currencyConfig.lnds || []).map((lndConfig) => ({
+            currency,
+            symbol: currencyConfig.symbol,
+            client: new LndClient(
+              this.logger,
+              currencyConfig.symbol,
+              lndConfig,
+              this.sidecar,
+              this.routingFee,
+            ),
+          }));
+        },
+      );
+
+      await Promise.all(
+        configuredLnds.map(({ client }) => this.connectLightningClient(client)),
+      );
+
+      // Register in config order so "primary LND" selection stays deterministic.
+      for (const { currency, symbol, client } of configuredLnds) {
+        if (!client.id) {
+          this.logger.warn(`Skipping LND for ${symbol} - connection failed`);
+          client.disconnect();
+          continue;
+        }
+
+        currency.lndClients.set(client.id, client);
+      }
+
+      await this.db.backFillMigrations(this.currencies, this.walletManager);
 
       await this.service.init(this.config.pairs);
 
@@ -364,8 +399,6 @@ class Boltz {
 
       await Promise.all(rescanPromises);
       this.logger.info('Finished rescanning');
-
-      await this.db.backFillMigrations(this.currencies, this.walletManager);
     } catch (error) {
       this.logger.error(`Could not initialize Boltz: ${formatError(error)}`);
       console.log(error);
@@ -485,16 +518,7 @@ class Boltz {
           symbol: currency.symbol,
           type: CurrencyType.BitcoinLike,
           network: Networks[currency.network],
-          lndClient:
-            currency.lnd !== undefined
-              ? new LndClient(
-                  this.logger,
-                  currency.symbol,
-                  currency.lnd,
-                  this.sidecar,
-                  this.routingFee,
-                )
-              : undefined,
+          lndClients: new Map(), // Populated in start()
           clnClient:
             currency.cln !== undefined
               ? new ClnClient(
@@ -555,6 +579,7 @@ class Boltz {
               token.symbol === network.symbol
                 ? CurrencyType.Ether
                 : CurrencyType.ERC20,
+            lndClients: new Map(),
             limits: {
               ...token,
             },
@@ -574,6 +599,7 @@ class Boltz {
           network,
           chain,
         ),
+        lndClients: new Map(),
         limits: {
           ...this.config.liquid,
         },
@@ -585,6 +611,7 @@ class Boltz {
         type: CurrencyType.Ark,
         symbol: ArkClient.symbol,
         arkNode: new ArkClient(this.logger, this.config.ark, this.sidecar),
+        lndClients: new Map(),
         limits: {
           ...this.config.ark,
           minWalletBalance: this.config.ark.minWalletBalance ?? 0,

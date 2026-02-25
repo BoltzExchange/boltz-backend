@@ -20,7 +20,9 @@ jest.mock('../../../lib/swap/NodeSwitch', () => {
     return {
       getSwapNode: jest
         .fn()
-        .mockImplementation((currency) => currency.lndClient),
+        .mockImplementation(
+          (currency) => currency.lndClients?.values().next().value,
+        ),
       invoicePaymentHook: jest.fn(),
     };
   });
@@ -47,6 +49,7 @@ jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     const baseObject = Object.create(LndClient.prototype);
     return Object.assign(baseObject, {
+      id: 'lnd-1',
       raceCall,
       resetMissionControl: jest.fn().mockResolvedValue(undefined),
       trackPayment: jest.fn().mockImplementation(async () => {
@@ -74,9 +77,11 @@ describe('PaymentHandler', () => {
 
   const mockedEmit = jest.fn();
 
+  const btcLndClient = MockedLndClient();
+
   const btcCurrency = {
     symbol: 'BTC',
-    lndClient: MockedLndClient(),
+    lndClients: new Map([[btcLndClient.id, btcLndClient]]),
   } as Currency;
 
   const swap = {
@@ -104,7 +109,7 @@ describe('PaymentHandler', () => {
             cltvLimit?: number,
             outgoingChannelId?: string,
           ) => {
-            return btcCurrency.lndClient!.sendPayment(
+            return btcLndClient.sendPayment(
               invoice,
               cltvLimit,
               outgoingChannelId,
@@ -144,8 +149,8 @@ describe('PaymentHandler', () => {
     );
 
     expect(mockedEmit).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(1);
-    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
+    expect(btcLndClient.trackPayment).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
     );
   });
@@ -167,9 +172,9 @@ describe('PaymentHandler', () => {
     );
 
     expect(mockedEmit).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledTimes(1);
-    expect(btcCurrency.lndClient!.trackPayment).toHaveBeenCalledWith(
+    expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
+    expect(btcLndClient.trackPayment).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.trackPayment).toHaveBeenCalledWith(
       getHexBuffer(swap.preimageHash),
     );
   });
@@ -182,8 +187,8 @@ describe('PaymentHandler', () => {
     };
 
     expect(mockedEmit).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
+    expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
+    expect(btcLndClient.trackPayment).not.toHaveBeenCalled();
 
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
@@ -203,8 +208,8 @@ describe('PaymentHandler', () => {
     };
 
     expect(mockedEmit).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.resetMissionControl).not.toHaveBeenCalled();
-    expect(btcCurrency.lndClient!.trackPayment).not.toHaveBeenCalled();
+    expect(btcLndClient.resetMissionControl).not.toHaveBeenCalled();
+    expect(btcLndClient.trackPayment).not.toHaveBeenCalled();
 
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
@@ -227,7 +232,7 @@ describe('PaymentHandler', () => {
       undefined,
     );
 
-    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(1);
     expect(handler['lastResetMissionControl']).not.toBeUndefined();
     expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
 
@@ -237,7 +242,7 @@ describe('PaymentHandler', () => {
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
-    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(1);
+    expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(1);
     expect(handler['lastResetMissionControl']).toEqual(lastCallBefore);
 
     // After interval, it is called again
@@ -247,7 +252,7 @@ describe('PaymentHandler', () => {
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
       undefined,
     );
-    expect(btcCurrency.lndClient!.resetMissionControl).toHaveBeenCalledTimes(2);
+    expect(btcLndClient.resetMissionControl).toHaveBeenCalledTimes(2);
     expect(handler['lastResetMissionControl']! - Date.now()).toBeLessThan(1000);
   });
 
@@ -339,7 +344,7 @@ describe('PaymentHandler', () => {
       ).toHaveBeenCalledWith(swap, 0, cltvLimit, undefined);
       expect(settleInvoiceSpy).toHaveBeenCalledTimes(1);
       expect(settleInvoiceSpy).toHaveBeenCalledWith(swap, mockPaymentResponse);
-      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+      expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
     });
 
     test('should handle self payment when isSelf is true but result is undefined', async () => {
@@ -359,7 +364,7 @@ describe('PaymentHandler', () => {
         handler['selfPaymentClient'].handleSelfPayment,
       ).toHaveBeenCalledTimes(1);
       expect(settleInvoiceSpy).not.toHaveBeenCalled();
-      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+      expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
     });
 
     test('should proceed with normal payment when isSelf is false', async () => {
@@ -375,7 +380,7 @@ describe('PaymentHandler', () => {
       expect(
         handler['selfPaymentClient'].handleSelfPayment,
       ).toHaveBeenCalledTimes(1);
-      expect(btcCurrency.lndClient!.sendPayment).toHaveBeenCalledTimes(1);
+      expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
       expect(result).toBeUndefined();
     });
 
@@ -409,7 +414,7 @@ describe('PaymentHandler', () => {
         swap,
         'Some self payment error',
       );
-      expect(btcCurrency.lndClient!.sendPayment).not.toHaveBeenCalled();
+      expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
     });
   });
 });

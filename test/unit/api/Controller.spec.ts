@@ -5,6 +5,7 @@ import Controller from '../../../lib/api/Controller';
 import SwapInfos from '../../../lib/api/SwapInfos';
 import { SwapUpdateEvent, SwapVersion } from '../../../lib/consts/Enums';
 import ReferralStats from '../../../lib/data/ReferralStats';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
 import Service from '../../../lib/service/Service';
@@ -20,6 +21,7 @@ const mockGetPairs = jest.fn().mockReturnValue({
   pairs: [],
 });
 
+const lndNodeId = 'lnd-1';
 const getNodes = new Map<
   string,
   Map<
@@ -27,17 +29,19 @@ const getNodes = new Map<
     {
       nodeKey: string;
       uris: string[];
+      nodeType: NodeType;
     }
   >
 >([
   [
     'BTC',
-    new Map<string, { nodeKey: string; uris: string[] }>([
+    new Map<string, { nodeKey: string; uris: string[]; nodeType: NodeType }>([
       [
-        'LND',
+        lndNodeId,
         {
           nodeKey: '321',
           uris: ['321@127.0.0.1:9735'],
+          nodeType: NodeType.LND,
         },
       ],
     ]),
@@ -264,7 +268,7 @@ describe('Controller', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       nodes: {
-        BTC: mockGetNodes().get('BTC').get('LND'),
+        BTC: mockGetNodes().get('BTC').get(lndNodeId),
       },
     });
   });

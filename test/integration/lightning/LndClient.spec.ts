@@ -17,14 +17,17 @@ import {
 } from '../../../lib/proto/lnd/rpc_pb';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { getPort } from '../../Utils';
-import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
+import { bitcoinClient, getBitcoinLndClient, lndDataPath } from '../Nodes';
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('LndClient', () => {
+  let bitcoinLndClient: LndClient;
+
   beforeAll(async () => {
     await startSidecar();
 
     await bitcoinClient.generate(1);
+    bitcoinLndClient = await getBitcoinLndClient();
     await bitcoinLndClient.connect(false);
 
     await sidecar.connect(
@@ -177,11 +180,26 @@ describe('LndClient', () => {
 
     expect(bindPort).toEqual(serverPort);
 
+    // Mock pubkey that the mock server will return
+    const mockPubkey =
+      '000000000000000000000000000000000000000000000000000000000000000000';
+
+    // Update the mock to return this pubkey
+    serviceImplementation['getInfo'] = async (
+      _: any | null,
+      callback: (error: any, res: GetInfoResponse) => void,
+    ) => {
+      const response = new GetInfoResponse();
+      response.setIdentityPubkey(mockPubkey);
+      callback(null, response);
+    };
+
     // Connect to the mocked LND gRPC server
     const lndClient = new LndClient(
       Logger.disabledLogger,
       'MOCK',
       {
+        pubkey: mockPubkey,
         host: serverHost,
         port: serverPort,
         certpath: `${lndDataPath(1)}/tls.cert`,

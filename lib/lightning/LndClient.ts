@@ -41,6 +41,7 @@ type LndConfig = {
   certpath: string;
   macaroonpath: string;
   sslTargetNameOverride?: string;
+  alias?: string;
 };
 
 /**
@@ -66,6 +67,8 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   private peerEventSubscription?: ClientReadableStream<lndrpc.PeerEvent>;
   private channelEventSubscription?: ClientReadableStream<lndrpc.ChannelEventUpdate>;
 
+  public id: string;
+
   /**
    * Create an LND client
    */
@@ -78,6 +81,8 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   ) {
     super(logger, symbol);
 
+    this.id = '';
+    this.alias = config.alias;
     const { host, port, certpath, macaroonpath } = config;
 
     if (fs.existsSync(certpath)) {
@@ -135,7 +140,8 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       );
 
       try {
-        await this.getInfo();
+        const info = await this.getInfo();
+        this.id = info.pubkey;
 
         if (startSubscriptions) {
           this.subscribePeerEvents();
@@ -170,7 +176,8 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     this.setClientStatus(ClientStatus.Disconnected);
 
     try {
-      await this.getInfo();
+      const info = await this.getInfo();
+      this.id = info.pubkey;
 
       this.logger.info(
         `Reestablished connection to ${LndClient.serviceName} ${this.symbol}`,

@@ -273,84 +273,89 @@ const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 const mockRescan = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
-  return jest.fn().mockImplementation(() => ({
-    ethereumManagers: [
-      {
-        networkDetails: networks.Ethereum,
-        provider: mockedProvider(),
-        tokenAddresses: new Map<string, string>(),
-        hasSymbol: jest.fn().mockReturnValue(true),
-        contractEventHandler: {
-          rescan: mockRescan,
+  const actual = jest.requireActual('../../../lib/wallet/WalletManager');
+  return {
+    __esModule: true,
+    ...actual,
+    default: jest.fn().mockImplementation(() => ({
+      ethereumManagers: [
+        {
+          networkDetails: networks.Ethereum,
+          provider: mockedProvider(),
+          tokenAddresses: new Map<string, string>(),
+          hasSymbol: jest.fn().mockReturnValue(true),
+          contractEventHandler: {
+            rescan: mockRescan,
+          },
         },
-      },
-    ],
-    wallets: new Map<string, Wallet>([
-      [
-        'BTC',
-        {
-          serviceName: () => 'mockedCore',
-          getBalance: mockGetBalance,
-          getAddress: mockGetAddress,
-          getKeysByIndex: mockGetKeysByIndex,
-          sendToAddress: mockSendToAddress,
-          sweepWallet: mockSweepWallet,
-          encodeAddress: (script: Buffer) =>
-            address.fromOutputScript(script, Networks.bitcoinRegtest),
-        } as any as Wallet,
       ],
-      [
-        'L-BTC',
-        {
-          serviceName: () => 'mockedElements',
-          getBalance: mockGetBalance,
-          getAddress: mockGetAddress,
-          getKeysByIndex: mockGetKeysByIndex,
-          sendToAddress: mockSendToAddress,
-          sweepWallet: mockSweepWallet,
-          encodeAddress: (script: Buffer) =>
-            address.fromOutputScript(script, liquidNetworks.regtest),
-        } as any as Wallet,
-      ],
-      [
-        'LTC',
-        {
-          serviceName: () => 'mockedCore',
-          getBalance: () => ({
-            totalBalance: 0,
-            confirmedBalance: 0,
-            unconfirmedBalance: 0,
-          }),
-        } as any as Wallet,
-      ],
-      [
-        'ETH',
-        {
-          serviceName: () => 'ETH',
-          getAddress: mockGetEthereumAddress,
-          sweepWallet: mockSweepEther,
-          sendToAddress: mockSendEther,
-          getBalance: jest.fn().mockResolvedValue({
-            totalBalance: etherBalance,
-            confirmedBalance: etherBalance,
-          }),
-        } as any as Wallet,
-      ],
-      [
-        'TRC',
-        {
-          serviceName: () => 'TRC',
-          getAddress: mockGetEthereumAddress,
-          sweepWallet: mockSweepToken,
-          sendToAddress: mockSendToken,
-          getBalance: jest.fn().mockResolvedValue({
-            totalBalance: tokenBalance,
-            confirmedBalance: tokenBalance,
-          }),
-        } as any as Wallet,
-      ],
-    ]),
-  }));
+      wallets: new Map<string, Wallet>([
+        [
+          'BTC',
+          {
+            serviceName: () => 'mockedCore',
+            getBalance: mockGetBalance,
+            getAddress: mockGetAddress,
+            getKeysByIndex: mockGetKeysByIndex,
+            sendToAddress: mockSendToAddress,
+            sweepWallet: mockSweepWallet,
+            encodeAddress: (script: Buffer) =>
+              address.fromOutputScript(script, Networks.bitcoinRegtest),
+          } as any as Wallet,
+        ],
+        [
+          'L-BTC',
+          {
+            serviceName: () => 'mockedElements',
+            getBalance: mockGetBalance,
+            getAddress: mockGetAddress,
+            getKeysByIndex: mockGetKeysByIndex,
+            sendToAddress: mockSendToAddress,
+            sweepWallet: mockSweepWallet,
+            encodeAddress: (script: Buffer) =>
+              address.fromOutputScript(script, liquidNetworks.regtest),
+          } as any as Wallet,
+        ],
+        [
+          'LTC',
+          {
+            serviceName: () => 'mockedCore',
+            getBalance: () => ({
+              totalBalance: 0,
+              confirmedBalance: 0,
+              unconfirmedBalance: 0,
+            }),
+          } as any as Wallet,
+        ],
+        [
+          'ETH',
+          {
+            serviceName: () => 'ETH',
+            getAddress: mockGetEthereumAddress,
+            sweepWallet: mockSweepEther,
+            sendToAddress: mockSendEther,
+            getBalance: jest.fn().mockResolvedValue({
+              totalBalance: etherBalance,
+              confirmedBalance: etherBalance,
+            }),
+          } as any as Wallet,
+        ],
+        [
+          'TRC',
+          {
+            serviceName: () => 'TRC',
+            getAddress: mockGetEthereumAddress,
+            sweepWallet: mockSweepToken,
+            sendToAddress: mockSendToken,
+            getBalance: jest.fn().mockResolvedValue({
+              totalBalance: tokenBalance,
+              confirmedBalance: tokenBalance,
+            }),
+          } as any as Wallet,
+        ],
+      ]),
+    })),
+  };
 });
 
 const mockedWalletManager = <jest.Mock<WalletManager>>(<any>WalletManager);
@@ -642,8 +647,11 @@ const mockLndGetBalance = jest.fn().mockImplementation(async () => {
   return lndBalance;
 });
 
+let lndIdCounter = 0;
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
+    id: `lnd-${++lndIdCounter}`,
+    type: 0,
     on: () => {},
     serviceName: () => 'mockLnd',
     isConnected: () => true,
@@ -701,6 +709,10 @@ describe('Service', () => {
     },
   ] as PairConfig[];
 
+  const btcLndClient = mockedLndClient();
+  const lbtcLndClient = mockedLndClient();
+  const ltcLndClient = mockedLndClient();
+
   const currencies = new Map<string, Currency>([
     [
       'BTC',
@@ -709,7 +721,7 @@ describe('Service', () => {
         type: CurrencyType.BitcoinLike,
         network: Networks.bitcoinRegtest,
         limits: {} as any,
-        lndClient: mockedLndClient(),
+        lndClients: new Map([[btcLndClient.id, btcLndClient]]),
         chainClient: mockedChainClient(),
       },
     ],
@@ -720,7 +732,7 @@ describe('Service', () => {
         type: CurrencyType.Liquid,
         network: liquidNetworks.regtest,
         limits: {} as any,
-        lndClient: mockedLndClient(),
+        lndClients: new Map([[lbtcLndClient.id, lbtcLndClient]]),
         chainClient: mockedChainClient(),
       },
     ],
@@ -731,7 +743,7 @@ describe('Service', () => {
         type: CurrencyType.BitcoinLike,
         network: Networks.litecoinRegtest,
         limits: {} as any,
-        lndClient: mockedLndClient(),
+        lndClients: new Map([[ltcLndClient.id, ltcLndClient]]),
         chainClient: mockedChainClient(),
       },
     ],
@@ -741,6 +753,7 @@ describe('Service', () => {
         symbol: 'ETH',
         type: CurrencyType.Ether,
         limits: {} as any,
+        lndClients: new Map(),
         provider: mockedProvider(),
       },
     ],
@@ -750,6 +763,7 @@ describe('Service', () => {
         symbol: 'USDT',
         type: CurrencyType.ERC20,
         limits: {} as any,
+        lndClients: new Map(),
         provider: mockedProvider(),
       },
     ],
@@ -759,6 +773,7 @@ describe('Service', () => {
         symbol: ArkClient.symbol,
         type: CurrencyType.Ark,
         limits: {} as any,
+        lndClients: new Map(),
         arkNode: {
           getBlockHeight: jest.fn().mockResolvedValue(0),
         } as any,
@@ -934,7 +949,7 @@ describe('Service', () => {
 
     expect(currency.lightningMap.length).toEqual(1);
     expect(currency.lightningMap[0]).toEqual([
-      'mockLnd',
+      btcLndClient.id,
       {
         error: '',
         version: lndInfo.version,
@@ -1212,7 +1227,7 @@ describe('Service', () => {
     expect(balances.get('BTC').toObject()).toEqual({
       walletsMap: [
         [
-          'mockLnd',
+          btcLndClient.id,
           {
             confirmed: lndBalance.confirmedBalance,
             unconfirmed: lndBalance.unconfirmedBalance,
@@ -1228,7 +1243,7 @@ describe('Service', () => {
       ],
       lightningMap: [
         [
-          'mockLnd',
+          btcLndClient.id,
           {
             local: channelBalance.localBalance,
             remote: channelBalance.remoteBalance,

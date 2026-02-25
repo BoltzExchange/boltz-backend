@@ -65,6 +65,8 @@ class ClnClient
   private trackAllSubscription?: ClientReadableStream<holdrpc.TrackAllResponse>;
   private holdInvoicesToSubscribe: Set<Uint8Array> = new Set<Uint8Array>();
 
+  public id: string;
+
   constructor(
     logger: Logger,
     public readonly symbol: string,
@@ -74,6 +76,8 @@ class ClnClient
   ) {
     super(logger, symbol);
 
+    this.id = '';
+    this.alias = config.alias;
     this.disableMpp = config.disableMpp ?? false;
 
     if (this.disableMpp) {
@@ -138,7 +142,9 @@ class ClnClient
       );
 
       try {
-        await this.getInfo();
+        const info = await this.getInfo();
+        this.id = info.pubkey;
+
         this.setClientStatus(ClientStatus.Connected);
       } catch (error) {
         this.setClientStatus(ClientStatus.Disconnected);
@@ -184,7 +190,8 @@ class ClnClient
     this.setClientStatus(ClientStatus.Disconnected);
 
     try {
-      await this.getInfo();
+      const info = await this.getInfo();
+      this.id = info.pubkey;
 
       this.logger.info(
         `Reestablished connection to ${ClnClient.serviceName} ${this.symbol}`,

@@ -3,6 +3,8 @@ import { racePromise } from './PromiseUtils';
 import { ClientStatus } from './consts/Enums';
 import TypedEventEmitter from './consts/TypedEventEmitter';
 
+export const SelfPaymentNodeId = 'self';
+
 export type BaseClientEvents = { 'status.changed': ClientStatus };
 
 abstract class BaseClient<
@@ -11,8 +13,10 @@ abstract class BaseClient<
   protected readonly RECONNECT_INTERVAL = 5000;
   protected reconnectionTimer?: any;
 
-  private status = ClientStatus.Disconnected;
+  public id?: string;
+  public alias?: string;
 
+  private status = ClientStatus.Disconnected;
   protected constructor(
     protected readonly logger: Logger,
     public readonly symbol: string,
@@ -70,7 +74,16 @@ abstract class BaseClient<
     }
   };
 
-  private getName = () => `${this.serviceName()}-${this.symbol}`;
+  private getName = () => {
+    const base = `${this.serviceName()}-${this.symbol}`;
+    if (this.alias) {
+      return `${base} (${this.alias})`;
+    }
+    if (this.id && this.id !== SelfPaymentNodeId) {
+      return `${base} (${this.id})`;
+    }
+    return base;
+  };
 }
 
 export default BaseClient;

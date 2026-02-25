@@ -16,6 +16,7 @@ type ClnConfig = BaseConfig & {
   hold: BaseConfig;
 
   disableMpp?: boolean;
+  alias?: string;
 };
 
 const createSsl = (

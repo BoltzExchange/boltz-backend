@@ -4,6 +4,8 @@ import { getHexBuffer } from '../../../lib/Utils';
 import Errors from '../../../lib/api/Errors';
 import type { ApiArgument } from '../../../lib/api/Utils';
 import {
+  accumulateNodeStats,
+  aggregateNodeStats,
   checkPreimageHashLength,
   errorResponse,
   markSwap,
@@ -137,6 +139,81 @@ describe('Utils', () => {
 
     test('should not throw when constrains are fulfilled', () => {
       validateArray('', [1, 2, 3], 'number');
+    });
+  });
+
+  test('should accumulate node stats', () => {
+    const acc = {
+      capacity: 10,
+      channels: 2,
+      peers: 3,
+      oldestChannel: 100,
+    };
+
+    const result = accumulateNodeStats(acc, {
+      capacity: 7,
+      channels: 1,
+      peers: 2,
+      oldestChannel: 90,
+    });
+
+    expect(result).toBe(acc);
+    expect(result).toEqual({
+      capacity: 17,
+      channels: 3,
+      peers: 5,
+      oldestChannel: 90,
+    });
+
+    accumulateNodeStats(acc, {
+      capacity: 1,
+      channels: 1,
+      peers: 1,
+      oldestChannel: undefined,
+    });
+
+    expect(acc).toEqual({
+      capacity: 18,
+      channels: 4,
+      peers: 6,
+      oldestChannel: 90,
+    });
+  });
+
+  test('should aggregate node stats', () => {
+    expect(
+      aggregateNodeStats([
+        {
+          capacity: 10,
+          channels: 2,
+          peers: 3,
+          oldestChannel: 100,
+        },
+        {
+          capacity: 7,
+          channels: 1,
+          peers: 2,
+          oldestChannel: 90,
+        },
+        {
+          capacity: 4,
+          channels: 1,
+          peers: 1,
+          oldestChannel: undefined,
+        },
+      ]),
+    ).toEqual({
+      capacity: 21,
+      channels: 4,
+      peers: 6,
+      oldestChannel: 90,
+    });
+
+    expect(aggregateNodeStats([])).toEqual({
+      capacity: 0,
+      channels: 0,
+      peers: 0,
+      oldestChannel: undefined,
     });
   });
 

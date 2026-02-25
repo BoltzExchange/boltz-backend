@@ -60,13 +60,7 @@ jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
 }));
 
 describe('MusigSigner', () => {
-  const btcCurrency = {
-    clnClient,
-    symbol: 'BTC',
-    chainClient: bitcoinClient,
-    lndClient: bitcoinLndClient,
-    type: CurrencyType.BitcoinLike,
-  } as unknown as Currency;
+  let btcCurrency: Currency;
 
   const arkCurrency = {
     type: CurrencyType.Ark,
@@ -99,6 +93,15 @@ describe('MusigSigner', () => {
       {} as any,
       false,
     );
+
+    // Create btcCurrency after clients are connected so client.id is populated
+    btcCurrency = {
+      clnClient,
+      symbol: 'BTC',
+      chainClient: bitcoinClient,
+      lndClients: new Map([[bitcoinLndClient.id, bitcoinLndClient]]),
+      type: CurrencyType.BitcoinLike,
+    } as unknown as Currency;
 
     await bitcoinClient.generate(1);
   });

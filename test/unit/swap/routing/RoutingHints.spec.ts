@@ -1,5 +1,4 @@
 import Logger from '../../../../lib/Logger';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import RoutingHints from '../../../../lib/swap/routing/RoutingHints';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 
@@ -19,6 +18,7 @@ jest.mock('../../../../lib/swap/routing/RoutingHintsLnd', () => {
 
 describe('RoutingHints', () => {
   const clnClient = {
+    id: 'cln-1',
     stop: jest.fn(),
     routingHints: jest.fn().mockResolvedValue('cln'),
   };
@@ -26,19 +26,21 @@ describe('RoutingHints', () => {
   const hints = new RoutingHints(Logger.disabledLogger, [
     {
       symbol: 'lnd',
-      lndClient: {},
+      lndClients: new Map([['lnd-1', {}]]),
     } as unknown as Currency,
     {
       clnClient,
       symbol: 'cln',
+      lndClients: new Map(),
     } as unknown as Currency,
     {
       clnClient,
       symbol: 'both',
-      lndClient: {},
+      lndClients: new Map([['lnd-2', {}]]),
     } as unknown as Currency,
     {
       symbol: 'neither',
+      lndClients: new Map(),
     } as unknown as Currency,
   ]);
 
@@ -46,16 +48,12 @@ describe('RoutingHints', () => {
     const providers = hints['providers'];
 
     expect(providers.size).toEqual(3);
-    expect(providers.get('lnd')).toEqual({
-      lnd: expect.anything(),
-    });
-    expect(providers.get('cln')).toEqual({
-      cln: clnClient,
-    });
-    expect(providers.get('both')).toEqual({
-      cln: clnClient,
-      lnd: expect.anything(),
-    });
+    expect(providers.get('lnd')?.lnds.size).toEqual(1);
+    expect(providers.get('lnd')?.cln).toBeUndefined();
+    expect(providers.get('cln')?.lnds.size).toEqual(0);
+    expect(providers.get('cln')?.cln).toEqual(clnClient);
+    expect(providers.get('both')?.lnds.size).toEqual(1);
+    expect(providers.get('both')?.cln).toEqual(clnClient);
     expect(providers.get('neither')).toBeUndefined();
   });
 
@@ -67,42 +65,27 @@ describe('RoutingHints', () => {
   test('should stop', async () => {
     hints.stop();
     expect(mockStop).toHaveBeenCalledTimes(2);
-    expect(clnClient.stop).toHaveBeenCalledTimes(2);
+    expect(clnClient.stop).not.toHaveBeenCalled();
   });
 
   test.each`
-    symbol       | nodeType        | expected
-    ${'lnd'}     | ${undefined}    | ${'lnd'}
-    ${'lnd'}     | ${NodeType.LND} | ${'lnd'}
-    ${'lnd'}     | ${NodeType.CLN} | ${'lnd'}
-    ${'cln'}     | ${undefined}    | ${'cln'}
-    ${'cln'}     | ${NodeType.LND} | ${'cln'}
-    ${'cln'}     | ${NodeType.CLN} | ${'cln'}
-    ${'both'}    | ${undefined}    | ${'lnd'}
-    ${'both'}    | ${NodeType.LND} | ${'lnd'}
-    ${'both'}    | ${NodeType.CLN} | ${'cln'}
-    ${'neither'} | ${undefined}    | ${[]}
+    symbol       | nodeId       | expected
+    ${'lnd'}     | ${undefined} | ${'lnd'}
+    ${'lnd'}     | ${'lnd-1'}   | ${'lnd'}
+    ${'lnd'}     | ${'cln-1'}   | ${'lnd'}
+    ${'cln'}     | ${undefined} | ${'cln'}
+    ${'cln'}     | ${'lnd-1'}   | ${'cln'}
+    ${'cln'}     | ${'cln-1'}   | ${'cln'}
+    ${'both'}    | ${undefined} | ${'lnd'}
+    ${'both'}    | ${'lnd-2'}   | ${'lnd'}
+    ${'both'}    | ${'cln-1'}   | ${'cln'}
+    ${'neither'} | ${undefined} | ${[]}
   `(
-    'should get routing hints for $symbol $nodeType',
-    async ({ symbol, nodeType, expected }) => {
+    'should get routing hints for $symbol $nodeId',
+    async ({ symbol, nodeId, expected }) => {
       await expect(
-        hints.getRoutingHints(symbol, 'node', nodeType),
+        hints.getRoutingHints(symbol, 'node', nodeId),
       ).resolves.toEqual(expected);
     },
   );
-
-  test.each`
-    type            | expected
-    ${NodeType.LND} | ${'lnd'}
-    ${NodeType.CLN} | ${'cln'}
-    ${'asdf'}       | ${undefined}
-    ${42}           | ${undefined}
-  `('should get provider for node type $type', ({ type, expected }) => {
-    expect(
-      RoutingHints['getProviderForNodeType'](
-        { lnd: 'lnd', cln: 'cln' } as any,
-        type,
-      ),
-    ).toEqual(expected);
-  });
 });

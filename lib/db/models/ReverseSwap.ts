@@ -40,7 +40,7 @@ type ReverseSwapType = {
 
   timeoutBlockHeight: number;
 
-  node: NodeType;
+  nodeId: string;
   invoice: string;
   invoiceAmount: number;
 
@@ -82,7 +82,7 @@ class ReverseSwap extends Model implements ReverseSwapType {
 
   declare timeoutBlockHeight: number;
 
-  declare node: NodeType;
+  declare nodeId: string;
 
   declare invoice: string;
   declare invoiceAmount: number;
@@ -134,14 +134,9 @@ class ReverseSwap extends Model implements ReverseSwapType {
         status: { type: new DataTypes.STRING(255), allowNull: false },
         failureReason: { type: new DataTypes.STRING(255), allowNull: true },
         timeoutBlockHeight: { type: new DataTypes.INTEGER(), allowNull: false },
-        node: {
-          type: new DataTypes.INTEGER(),
+        nodeId: {
+          type: new DataTypes.STRING(255),
           allowNull: false,
-          validate: {
-            isIn: [
-              Object.values(NodeType).filter((val) => typeof val === 'number'),
-            ],
-          },
         },
         invoice: {
           type: new DataTypes.TEXT(),
@@ -184,6 +179,10 @@ class ReverseSwap extends Model implements ReverseSwapType {
           {
             unique: false,
             fields: ['status'],
+          },
+          {
+            unique: false,
+            fields: ['nodeId'],
           },
           {
             unique: true,

@@ -49,15 +49,45 @@ export const elementsClient = new ElementsClient(
 export const lndDataPath = (number: number) =>
   `${resolve(__dirname, '..', '..')}/regtest/data/lnd${number}`;
 
+export const clnDataPath = (number: number) =>
+  `${resolve(__dirname, '..', '..')}/regtest/data/cln${number}/regtest`;
+
+export const clnHoldPath = (number: number) => `${clnDataPath(number)}/hold`;
+
+// LND client configs
+const lnd1Config = {
+  host,
+  port: 10009,
+  certpath: `${lndDataPath(1)}/tls.cert`,
+  macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
+};
+
+const lnd2Config = {
+  host,
+  port: 11009,
+  certpath: `${lndDataPath(2)}/tls.cert`,
+  macaroonpath: `${lndDataPath(2)}/data/chain/bitcoin/regtest/admin.macaroon`,
+};
+
+const cln1Config = {
+  host,
+  port: 9736,
+  rootCertPath: `${clnDataPath(1)}/ca.pem`,
+  privateKeyPath: `${clnDataPath(1)}/client-key.pem`,
+  certChainPath: `${clnDataPath(1)}/client.pem`,
+  hold: {
+    host,
+    port: 9292,
+    rootCertPath: `${clnHoldPath(1)}/ca.pem`,
+    privateKeyPath: `${clnHoldPath(1)}/client-key.pem`,
+    certChainPath: `${clnHoldPath(1)}/client.pem`,
+  },
+};
+
 export const bitcoinLndClient = new LndClient(
   Logger.disabledLogger,
   'BTC',
-  {
-    host,
-    port: 10009,
-    certpath: `${lndDataPath(1)}/tls.cert`,
-    macaroonpath: `${lndDataPath(1)}/data/chain/bitcoin/regtest/admin.macaroon`,
-  },
+  lnd1Config,
   sidecar,
   new RoutingFee(Logger.disabledLogger),
 );
@@ -65,41 +95,46 @@ export const bitcoinLndClient = new LndClient(
 export const bitcoinLndClient2 = new LndClient(
   Logger.disabledLogger,
   'BTC',
-  {
-    host,
-    port: 11009,
-    certpath: `${lndDataPath(2)}/tls.cert`,
-    macaroonpath: `${lndDataPath(2)}/data/chain/bitcoin/regtest/admin.macaroon`,
-  },
+  lnd2Config,
   sidecar,
   new RoutingFee(Logger.disabledLogger),
 );
-
-export const clnDataPath = (number: number) =>
-  `${resolve(__dirname, '..', '..')}/regtest/data/cln${number}/regtest`;
-
-export const clnHoldPath = (number: number) => `${clnDataPath(number)}/hold`;
 
 export const clnClient = new ClnClient(
   Logger.disabledLogger,
   'BTC',
-  {
-    host: host,
-    port: 9736,
-    rootCertPath: `${clnDataPath(1)}/ca.pem`,
-    privateKeyPath: `${clnDataPath(1)}/client-key.pem`,
-    certChainPath: `${clnDataPath(1)}/client.pem`,
-    hold: {
-      host: host,
-      port: 9292,
-      rootCertPath: `${clnHoldPath(1)}/ca.pem`,
-      privateKeyPath: `${clnHoldPath(1)}/client-key.pem`,
-      certChainPath: `${clnHoldPath(1)}/client.pem`,
-    },
-  },
+  cln1Config,
   sidecar,
   new RoutingFee(Logger.disabledLogger),
 );
+
+let lnd1Connected = false;
+let lnd2Connected = false;
+let clnConnected = false;
+
+export const getBitcoinLndClient = async (): Promise<LndClient> => {
+  if (!lnd1Connected) {
+    await bitcoinLndClient.connect(false);
+    lnd1Connected = true;
+  }
+  return bitcoinLndClient;
+};
+
+export const getBitcoinLndClient2 = async (): Promise<LndClient> => {
+  if (!lnd2Connected) {
+    await bitcoinLndClient2.connect(false);
+    lnd2Connected = true;
+  }
+  return bitcoinLndClient2;
+};
+
+export const getClnClient = async (): Promise<ClnClient> => {
+  if (!clnConnected) {
+    await clnClient.connect();
+    clnConnected = true;
+  }
+  return clnClient;
+};
 
 export const arkClient = new ArkClient(
   Logger.disabledLogger,
@@ -111,18 +146,20 @@ export const arkClient = new ArkClient(
   mockSidecar,
 );
 
-export const waitForClnChainSync = () =>
-  new Promise<void>((resolve) => {
+export const waitForClnChainSync = async () => {
+  const cln = await getClnClient();
+  return new Promise<void>((resolve) => {
     const timeout = setInterval(async () => {
       if (
         (await bitcoinClient.getBlockchainInfo()).blocks ===
-        (await clnClient.getInfo()).blockHeight
+        (await cln.getInfo()).blockHeight
       ) {
         clearTimeout(timeout);
         resolve();
       }
     }, 100);
   });
+};
 
 export const redis = new Redis(Logger.disabledLogger, {
   redisEndpoint: 'redis://localhost:6379',

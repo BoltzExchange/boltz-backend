@@ -49,7 +49,6 @@ import type {
   EtherSwapValues,
 } from '../consts/Types';
 import type ReverseSwap from '../db/models/ReverseSwap';
-import { nodeTypeToPrettyString } from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
@@ -476,7 +475,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         );
 
         const chainCurrency = this.currencies.get(chainSymbol)!;
-        const lightningClient = NodeSwitch.getReverseSwapNode(
+        const { lightningClient } = NodeSwitch.getReverseSwapNode(
           this.currencies.get(lightningSymbol)!,
           reverseSwap,
         );
@@ -542,7 +541,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           reverseSwap.orderSide,
           true,
         );
-        const lightningClient = NodeSwitch.getReverseSwapNode(
+        const { lightningClient } = NodeSwitch.getReverseSwapNode(
           this.currencies.get(receiveCurrency)!,
           reverseSwap,
         );
@@ -731,7 +730,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         const lightningCurrency = this.currencies.get(
           (swap as ReverseSwap).lightningCurrency,
         )!;
-        const lightningClient = NodeSwitch.getReverseSwapNode(
+        const { lightningClient } = NodeSwitch.getReverseSwapNode(
           lightningCurrency,
           swap as ReverseSwap,
         );
@@ -909,11 +908,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       true,
     );
 
-    const lightningClient = NodeSwitch.getReverseSwapNode(
-      this.currencies.get(lightningCurrency)!,
-      reverseSwap,
-    );
     try {
+      const { lightningClient } = NodeSwitch.getReverseSwapNode(
+        this.currencies.get(lightningCurrency)!,
+        reverseSwap,
+      );
       const submarine = await SwapRepository.getSwap({
         preimageHash: reverseSwap.preimageHash,
         status: {
@@ -964,7 +963,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         ),
       );
     } catch (e) {
-      const message = `Could not settle ${nodeTypeToPrettyString(reverseSwap.node)} invoice of ${reverseSwap.id}: ${formatError(e)}`;
+      const message = `Could not settle invoice of ${reverseSwap.id} on node ${reverseSwap.nodeId}: ${formatError(e)}`;
       this.logger.error(message);
       await this.notifications?.sendMessage(message, true);
     }
@@ -1165,7 +1164,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             NodeSwitch.getReverseSwapNode(
               this.currencies.get(lightningSymbol)!,
               swap as ReverseSwap,
-            ),
+            ).lightningClient,
           );
         });
       } else {

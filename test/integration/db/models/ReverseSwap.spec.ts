@@ -7,7 +7,6 @@ import {
   SwapVersion,
 } from '../../../../lib/consts/Enums';
 import Database from '../../../../lib/db/Database';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import PairRepository from '../../../../lib/db/repositories/PairRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 
@@ -43,7 +42,7 @@ describe('ReverseSwap', () => {
         onchainAmount: 0,
         id: generateId(),
         lockupAddress: '',
-        node: NodeType.LND,
+        nodeId: 'lnd-1',
         timeoutBlockHeight: 1,
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.SwapCreated,
@@ -71,7 +70,7 @@ describe('ReverseSwap', () => {
         onchainAmount: 0,
         id: generateId(),
         lockupAddress: '',
-        node: NodeType.LND,
+        nodeId: 'lnd-1',
         timeoutBlockHeight: 1,
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.SwapCreated,

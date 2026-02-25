@@ -1,6 +1,7 @@
 import type { CurrencyConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import ChainClient from '../../../lib/chain/ChainClient';
+import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import LndClient from '../../../lib/lightning/LndClient';
 import NodeInfo from '../../../lib/service/NodeInfo';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -37,6 +38,8 @@ const channelsBtc = [
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation((symbol: string) => ({
+    id: `${symbol}-id`,
+    type: symbol.includes('CLN') ? NodeType.CLN : NodeType.LND,
     serviceName: jest.fn().mockReturnValue(symbol),
     getInfo: jest.fn().mockImplementation(async () => {
       return getNodeInfo(symbol);
@@ -68,19 +71,20 @@ describe('NodeInfo', () => {
     [
       'BTC',
       {
-        lndClient: mockedLightningClient('BTC'),
+        lndClients: new Map([['BTC-id', mockedLightningClient('BTC')]]),
         chainClient: mockedChainClient(),
       },
     ],
     [
       'LTC',
       {
-        lndClient: mockedLightningClient('LTC'),
+        lndClients: new Map([['LTC-id', mockedLightningClient('LTC')]]),
       },
     ],
     [
       'CLN',
       {
+        lndClients: new Map(),
         clnClient: mockedLightningClient('CLN'),
         chainClient: mockedChainClient(),
       },
@@ -88,12 +92,14 @@ describe('NodeInfo', () => {
     [
       'BOTH',
       {
-        lndClient: mockedLightningClient('BOTH_LND'),
+        lndClients: new Map([
+          ['BOTH_LND-id', mockedLightningClient('BOTH_LND')],
+        ]),
         clnClient: mockedLightningClient('BOTH_CLN'),
         chainClient: mockedChainClient(),
       },
     ],
-    ['NEITHER', {}],
+    ['NEITHER', { lndClients: new Map() }],
   ] as [string, Currency][]);
 
   const currencyConfigs = [
@@ -134,10 +140,11 @@ describe('NodeInfo', () => {
     expect(nodeInfo.uris.get('BTC')).toEqual(
       new Map([
         [
-          'BTC',
+          'BTC-id',
           {
             nodeKey: 'BTCidentityPubkey',
             uris: ['BTC@127.0.0.1:9735', 'BTC@hidden.onion:9735'],
+            nodeType: NodeType.LND,
           },
         ],
       ]),
@@ -145,10 +152,11 @@ describe('NodeInfo', () => {
     expect(nodeInfo.uris.get('LTC')).toEqual(
       new Map([
         [
-          'LTC',
+          'LTC-id',
           {
             nodeKey: 'LTCidentityPubkey',
             uris: ['LTC@127.0.0.1:9735', 'LTC@hidden.onion:9735'],
+            nodeType: NodeType.LND,
           },
         ],
       ]),
@@ -156,10 +164,11 @@ describe('NodeInfo', () => {
     expect(nodeInfo.uris.get('CLN')).toEqual(
       new Map([
         [
-          'CLN',
+          'CLN-id',
           {
             nodeKey: 'CLNidentityPubkey',
             uris: ['CLN@127.0.0.1:9735', 'CLN@hidden.onion:9735'],
+            nodeType: NodeType.CLN,
           },
         ],
       ]),
@@ -167,17 +176,19 @@ describe('NodeInfo', () => {
     expect(nodeInfo.uris.get('BOTH')).toEqual(
       new Map([
         [
-          'BOTH_LND',
+          'BOTH_LND-id',
           {
             nodeKey: 'BOTH_LNDidentityPubkey',
             uris: ['BOTH_LND@127.0.0.1:9735', 'BOTH_LND@hidden.onion:9735'],
+            nodeType: NodeType.LND,
           },
         ],
         [
-          'BOTH_CLN',
+          'BOTH_CLN-id',
           {
             nodeKey: 'BOTH_CLNidentityPubkey',
             uris: ['BOTH_CLN@127.0.0.1:9735', 'BOTH_CLN@hidden.onion:9735'],
+            nodeType: NodeType.CLN,
           },
         ],
       ]),
@@ -191,16 +202,7 @@ describe('NodeInfo', () => {
     expect(nodeInfo.stats.get('BTC')).toEqual(
       new Map([
         [
-          'BTC',
-          {
-            channels: 2,
-            peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
-            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
-          },
-        ],
-        [
-          'total',
+          'BTC-id',
           {
             channels: 2,
             peers: info.peers,
@@ -213,15 +215,7 @@ describe('NodeInfo', () => {
     expect(nodeInfo.stats.get('LTC')).toEqual(
       new Map([
         [
-          'LTC',
-          {
-            capacity: 0,
-            channels: 0,
-            peers: info.peers,
-          },
-        ],
-        [
-          'total',
+          'LTC-id',
           {
             capacity: 0,
             channels: 0,
@@ -233,16 +227,7 @@ describe('NodeInfo', () => {
     expect(nodeInfo.stats.get('CLN')).toEqual(
       new Map([
         [
-          'CLN',
-          {
-            channels: 2,
-            peers: info.peers,
-            oldestChannel: rawTxResult.blocktime,
-            capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
-          },
-        ],
-        [
-          'total',
+          'CLN-id',
           {
             channels: 2,
             peers: info.peers,
@@ -255,7 +240,7 @@ describe('NodeInfo', () => {
     expect(nodeInfo.stats.get('BOTH')).toEqual(
       new Map([
         [
-          'BOTH_LND',
+          'BOTH_LND-id',
           {
             channels: 2,
             peers: info.peers,
@@ -264,21 +249,12 @@ describe('NodeInfo', () => {
           },
         ],
         [
-          'BOTH_CLN',
+          'BOTH_CLN-id',
           {
             channels: 2,
             peers: info.peers,
             oldestChannel: rawTxResult.blocktime,
             capacity: channelsBtc[0].capacity + channelsBtc[1].capacity,
-          },
-        ],
-        [
-          'total',
-          {
-            channels: 4,
-            peers: info.peers * 2,
-            oldestChannel: rawTxResult.blocktime,
-            capacity: (channelsBtc[0].capacity + channelsBtc[1].capacity) * 2,
           },
         ],
       ]),
@@ -295,9 +271,10 @@ describe('NodeInfo', () => {
   `('should check if node $pubkey is ours', ({ pubkey, isOurs }) => {
     expect(nodeInfo['pubkeys'].size).toEqual(
       Array.from(currencies.values()).reduce((count, currency) => {
-        [currency.lndClient, currency.clnClient]
-          .filter((client) => client !== undefined)
-          .forEach(() => count++);
+        Array.from(currency.lndClients.values()).forEach(() => count++);
+        if (currency.clnClient !== undefined) {
+          count++;
+        }
         return count;
       }, 0),
     );

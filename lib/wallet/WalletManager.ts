@@ -45,7 +45,7 @@ type Currency = {
 
   // Needed for UTXO based coins
   network?: Network;
-  lndClient?: LndClient;
+  lndClients: Map<string, LndClient>;
   clnClient?: ClnClient;
   chainClient?: IChainClient;
 
@@ -54,6 +54,38 @@ type Currency = {
 
   // Needed for Ether and tokens on Ethereum
   provider?: InjectedProvider;
+};
+
+/**
+ * Returns all lightning clients (LNDs + optional CLN) for a currency.
+ */
+const getLightningClients = (currency: Currency): (LndClient | ClnClient)[] => {
+  const clients: (LndClient | ClnClient)[] = Array.from(
+    currency.lndClients.values(),
+  );
+  if (currency.clnClient) {
+    clients.push(currency.clnClient);
+  }
+  return clients;
+};
+
+/**
+ * Finds a lightning client by its node ID within a currency.
+ */
+const getLightningClientById = (
+  currency: Currency,
+  nodeId: string,
+): LndClient | ClnClient | undefined => {
+  const lndClient = currency.lndClients.get(nodeId);
+  if (lndClient !== undefined) {
+    return lndClient;
+  }
+
+  if (currency.clnClient?.id === nodeId) {
+    return currency.clnClient;
+  }
+
+  return undefined;
 };
 
 const bip32 = BIP32Factory(ecc);
@@ -266,4 +298,4 @@ class WalletManager {
 }
 
 export default WalletManager;
-export { Currency };
+export { Currency, getLightningClients, getLightningClientById };

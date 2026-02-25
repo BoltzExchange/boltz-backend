@@ -119,17 +119,10 @@ class BalanceChecker {
     if (type === BalanceType.Wallet) {
       notificationSet = this.walletBalanceAlerts;
 
-      const {
-        preferredWallet,
-        minWalletBalance,
-        maxWalletBalance,
-        maxUnusedWalletBalance,
-      } = currency;
+      const { minWalletBalance, maxWalletBalance, maxUnusedWalletBalance } =
+        currency;
 
-      if (
-        isOnlyWallet ||
-        (preferredWallet || 'lnd') === service.toLowerCase()
-      ) {
+      if (this.isPreferredWallet(currency, service, isOnlyWallet)) {
         isMainWallet = true;
         isInBounds =
           minWalletBalance <= balance &&
@@ -177,6 +170,37 @@ class BalanceChecker {
         balance,
       );
     }
+  };
+
+  private isPreferredWallet = (
+    currency: CurrenyThresholds,
+    service: string,
+    isOnlyWallet?: boolean,
+  ): boolean => {
+    if (isOnlyWallet) {
+      return true;
+    }
+
+    const preferred = (currency.preferredWallet || 'lnd').toLowerCase();
+    if (preferred === service.toLowerCase()) {
+      return true;
+    }
+
+    const runtimeCurrency = this.service.currencies.get(currency.symbol);
+    if (!runtimeCurrency) {
+      return false;
+    }
+
+    if (preferred === 'lnd') {
+      const primaryLnd = runtimeCurrency.lndClients.values().next().value;
+      return primaryLnd?.id === service;
+    }
+
+    if (preferred === 'cln') {
+      return runtimeCurrency.clnClient?.id === service;
+    }
+
+    return false;
   };
 
   private sendAlert = async (

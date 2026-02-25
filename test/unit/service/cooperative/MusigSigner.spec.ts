@@ -21,9 +21,11 @@ import type WalletManager from '../../../../lib/wallet/WalletManager';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 
 describe('MusigSigner', () => {
+  const btcLndClient = { id: 'lnd-1' } as unknown as LndClient;
+  const btcClnClient = { id: 'cln-1' } as unknown as ClnClient;
   const btcCurrency = {
-    lndClient: {} as unknown as LndClient,
-    clnClient: {} as unknown as ClnClient,
+    lndClients: new Map([[btcLndClient.id, btcLndClient]]),
+    clnClient: btcClnClient,
   };
 
   const arkCurrency = {
@@ -32,6 +34,7 @@ describe('MusigSigner', () => {
     arkNode: {
       signTransaction: jest.fn(),
     },
+    lndClients: new Map(),
   };
 
   const currencies = new Map<string, Currency>([
@@ -527,8 +530,8 @@ describe('MusigSigner', () => {
     const hasPendingHtlcs = signer['hasPendingHtlcs'];
 
     test('should return false when there are no pending HTLCs', async () => {
-      btcCurrency.lndClient.listChannels = jest.fn().mockResolvedValue([]);
-      btcCurrency.clnClient.listChannels = jest.fn().mockResolvedValue([]);
+      btcLndClient.listChannels = jest.fn().mockResolvedValue([]);
+      btcClnClient.listChannels = jest.fn().mockResolvedValue([]);
 
       await expect(hasPendingHtlcs('BTC', randomBytes(32))).resolves.toEqual(
         false,
@@ -538,10 +541,10 @@ describe('MusigSigner', () => {
     test('should return true when there are pending HTLCs', async () => {
       const preimageHash = randomBytes(32);
 
-      btcCurrency.lndClient.listChannels = jest
+      btcLndClient.listChannels = jest
         .fn()
         .mockResolvedValue([{ htlcs: [{ preimageHash }] }]);
-      btcCurrency.clnClient.listChannels = jest
+      btcClnClient.listChannels = jest
         .fn()
         .mockResolvedValue([{ htlcs: [{ preimageHash }] }]);
 
@@ -551,10 +554,10 @@ describe('MusigSigner', () => {
     test('should return true when LND has pending HTLCs', async () => {
       const preimageHash = randomBytes(32);
 
-      btcCurrency.lndClient.listChannels = jest
+      btcLndClient.listChannels = jest
         .fn()
         .mockResolvedValue([{ htlcs: [{ preimageHash }] }]);
-      btcCurrency.clnClient.listChannels = jest.fn().mockResolvedValue([]);
+      btcClnClient.listChannels = jest.fn().mockResolvedValue([]);
 
       await expect(hasPendingHtlcs('BTC', preimageHash)).resolves.toEqual(true);
     });
@@ -562,8 +565,8 @@ describe('MusigSigner', () => {
     test('should return true when CLN has pending HTLCs', async () => {
       const preimageHash = randomBytes(32);
 
-      btcCurrency.lndClient.listChannels = jest.fn().mockResolvedValue([]);
-      btcCurrency.clnClient.listChannels = jest
+      btcLndClient.listChannels = jest.fn().mockResolvedValue([]);
+      btcClnClient.listChannels = jest
         .fn()
         .mockResolvedValue([{ htlcs: [{ preimageHash }] }]);
 

@@ -11,11 +11,9 @@ import WrappedSwapRepository from '../db/repositories/WrappedSwapRepository';
 import LightningErrors from '../lightning/Errors';
 import type { LightningClient } from '../lightning/LightningClient';
 import { InvoiceState } from '../lightning/LightningClient';
-import type LndClient from '../lightning/LndClient';
 import type SelfPaymentClient from '../lightning/SelfPaymentClient';
-import type ClnClient from '../lightning/cln/ClnClient';
 import type Sidecar from '../sidecar/Sidecar';
-import type { Currency } from '../wallet/WalletManager';
+import { type Currency, getLightningClients } from '../wallet/WalletManager';
 
 class LightningNursery extends TypedEventEmitter<{
   'invoice.paid': ReverseSwap;
@@ -98,11 +96,7 @@ class LightningNursery extends TypedEventEmitter<{
 
   public bindCurrencies = (currencies: Currency[]): void => {
     currencies.forEach((currency) => {
-      [currency.lndClient, currency.clnClient]
-        .filter(
-          (client): client is LndClient | ClnClient => client !== undefined,
-        )
-        .map(this.listenInvoices);
+      getLightningClients(currency).map(this.listenInvoices);
     });
   };
 

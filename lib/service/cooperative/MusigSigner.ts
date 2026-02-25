@@ -362,16 +362,17 @@ class MusigSigner {
       return false;
     }
 
-    try {
-      if (currency.lndClient) {
-        const pendingPayment = await currency.lndClient!.trackPayment(
+    for (const client of currency.lndClients.values()) {
+      try {
+        const pendingPayment = await client.trackPayment(
           getHexBuffer(swap.preimageHash),
         );
-        return pendingPayment.status !== Payment.PaymentStatus.FAILED;
+        if (pendingPayment.status !== Payment.PaymentStatus.FAILED) {
+          return true;
+        }
+      } catch {
+        /* empty */
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      /* empty */
     }
 
     try {

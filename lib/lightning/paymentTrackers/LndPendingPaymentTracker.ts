@@ -1,6 +1,6 @@
 import type Logger from '../../Logger';
 import { formatError, getHexBuffer } from '../../Utils';
-import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
+import { NodeType } from '../../db/models/ReverseSwap';
 import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
 import LightningNursery from '../../swap/LightningNursery';
 import type { LightningClient, PaymentResponse } from '../LightningClient';
@@ -19,7 +19,9 @@ class LndPendingPaymentTracker extends NodePendingPaymentTracker {
     promise: Promise<PaymentResponse>,
   ): void => {
     promise
-      .then((result) => this.handleSucceededPayment(preimageHash, result))
+      .then((result) =>
+        this.handleSucceededPayment(client, preimageHash, result),
+      )
       .catch((error) => this.handleFailedPayment(client, preimageHash, error));
   };
 
@@ -33,7 +35,7 @@ class LndPendingPaymentTracker extends NodePendingPaymentTracker {
       .then(async (res) => {
         switch (res.status) {
           case Payment.PaymentStatus.SUCCEEDED:
-            await this.handleSucceededPayment(preimageHash, {
+            await this.handleSucceededPayment(client, preimageHash, {
               feeMsat: res.feeMsat,
               preimage: getHexBuffer(res.paymentPreimage),
             });
@@ -50,7 +52,7 @@ class LndPendingPaymentTracker extends NodePendingPaymentTracker {
       })
       .catch((error) => {
         this.logger.warn(
-          `Tracking payment ${preimageHash} with ${client.symbol} ${nodeTypeToPrettyString(this.nodeType)} failed: ${this.parseErrorMessage(error)}`,
+          `Tracking payment ${preimageHash} with ${client.symbol} ${client.id} failed: ${this.parseErrorMessage(error)}`,
         );
       });
   };

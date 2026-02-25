@@ -70,6 +70,7 @@ const lndSymbol = 'BTC';
 jest.mock('../../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      id: 'lnd-1',
       symbol: lndSymbol,
       getInfo: mockGetInfo,
       listChannels: mockListChannels,

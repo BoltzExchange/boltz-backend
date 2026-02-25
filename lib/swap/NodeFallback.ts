@@ -13,6 +13,7 @@ type InvoiceWithRoutingHints = {
 
 type HolisticInvoice = InvoiceWithRoutingHints & {
   nodeType: NodeType;
+  nodeId: string;
   lightningClient: LightningClient;
 };
 
@@ -44,20 +45,24 @@ class NodeFallback {
     routingHints?: HopHint[][],
   ): Promise<HolisticInvoice> => {
     this.checkInvoiceMemo(memo);
-    let nodeForSwap = this.nodeSwitch.getNodeForReverseSwap(
-      id,
+
+    const candidates = this.nodeSwitch.getReverseSwapCandidates(
       currency,
       holdInvoiceAmount,
       referralId,
     );
 
-    while (nodeForSwap.lightningClient !== undefined) {
+    for (const candidate of candidates) {
+      this.logger.debug(
+        `Using node ${candidate.nodeId} (${candidate.lightningClient.serviceName()}) for Reverse Swap ${id}`,
+      );
+
       try {
         return {
-          ...nodeForSwap,
+          ...candidate,
           ...(await this.addHoldInvoice(
-            nodeForSwap.nodeType,
-            nodeForSwap.lightningClient,
+            candidate.nodeId,
+            candidate.lightningClient,
             routingNode,
             currency,
             holdInvoiceAmount,
@@ -74,18 +79,8 @@ class NodeFallback {
           (e as any).message === Errors.LIGHTNING_CLIENT_CALL_TIMEOUT().message
         ) {
           this.logger.warn(
-            `${nodeForSwap.lightningClient.serviceName()} invoice creation timed out after ${
-              NodeFallback.addInvoiceTimeout
-            }ms; trying next node`,
+            `${candidate.lightningClient.serviceName()} invoice creation timed out after ${NodeFallback.addInvoiceTimeout}ms; trying next node`,
           );
-
-          nodeForSwap = this.nodeSwitch.getNodeForReverseSwap(
-            id,
-            currency,
-            holdInvoiceAmount,
-            referralId,
-          );
-
           continue;
         }
 
@@ -97,7 +92,7 @@ class NodeFallback {
   };
 
   private addHoldInvoice = async (
-    nodeType: NodeType,
+    nodeId: string,
     lightningClient: LightningClient,
     routingNode: string | undefined,
     currency: Currency,
@@ -114,7 +109,7 @@ class NodeFallback {
         ? await this.routingHints.getRoutingHints(
             currency.symbol,
             routingNode,
-            nodeType,
+            nodeId,
           )
         : undefined;
 

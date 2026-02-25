@@ -4,7 +4,6 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../lib/Utils';
 import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayment';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
 import LndClient from '../../../../lib/lightning/LndClient';
 import LndPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/LndPendingPaymentTracker';
@@ -76,7 +75,7 @@ describe('LndPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.LND,
+        bitcoinLndClient.id,
         LightningPaymentStatus.Success,
       );
     });
@@ -104,7 +103,7 @@ describe('LndPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.LND,
+        bitcoinLndClient.id,
         LightningPaymentStatus.PermanentFailure,
         LndClient.formatPaymentFailureReason(
           PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
@@ -128,7 +127,7 @@ describe('LndPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.LND,
+        bitcoinLndClient.id,
         LightningPaymentStatus.TemporaryFailure,
         undefined,
       );
@@ -159,7 +158,7 @@ describe('LndPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         getHexString(preimageHash),
-        NodeType.LND,
+        bitcoinLndClient.id,
         LightningPaymentStatus.Success,
       );
     });
@@ -189,7 +188,7 @@ describe('LndPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         getHexString(preimageHash),
-        NodeType.LND,
+        bitcoinLndClient.id,
         LightningPaymentStatus.PermanentFailure,
         LndClient.formatPaymentFailureReason(
           PaymentFailureReason.FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,

@@ -2172,6 +2172,7 @@ dependencies = [
  "clap",
  "dirs",
  "elements 0.26.1",
+ "futures",
  "hmac",
  "indicatif",
  "inquire",

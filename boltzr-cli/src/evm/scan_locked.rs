@@ -6,6 +6,7 @@ use alloy::{
 };
 use anyhow::Result;
 use boltz_evm::contracts::ether_swap::EtherSwapContract;
+use futures::stream::{StreamExt, TryStreamExt};
 use indicatif::ProgressBar;
 use serde::Serialize;
 
@@ -41,17 +42,28 @@ pub async fn scan_locked_in_contract(
 
         let logs = contract.lockups_in_range(current_block, to).await?;
 
-        for lockup in logs {
-            if contract.is_lockup_active(lockup.lockup).await? {
-                locked_swaps.push(LockedFunds {
-                    transaction_hash: lockup
-                        .transaction_hash
-                        .ok_or(anyhow::anyhow!("No transaction hash"))?,
-                    preimage_hash: lockup.lockup.preimage_hash.to_vec(),
-                    refund_address: lockup.lockup.refund_address,
-                    amount: lockup.lockup.amount,
-                });
-            }
+        let contract_ref = &contract;
+        let active_lockups = futures::stream::iter(logs)
+            .map(|lockup| async move {
+                let is_active = contract_ref.is_lockup_active(lockup.lockup).await?;
+                Ok::<_, anyhow::Error>((lockup, is_active))
+            })
+            .buffered(16)
+            .try_filter_map(|(lockup, is_active)| async move {
+                Ok::<_, anyhow::Error>(is_active.then_some(lockup))
+            })
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        for lockup in active_lockups {
+            locked_swaps.push(LockedFunds {
+                transaction_hash: lockup
+                    .transaction_hash
+                    .ok_or(anyhow::anyhow!("No transaction hash"))?,
+                preimage_hash: lockup.lockup.preimage_hash.to_vec(),
+                refund_address: lockup.lockup.refund_address,
+                amount: lockup.lockup.amount,
+            });
         }
 
         pb.inc(to - current_block);

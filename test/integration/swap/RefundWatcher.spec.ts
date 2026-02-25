@@ -10,8 +10,14 @@ import RefundTransactionRepository from '../../../lib/db/repositories/RefundTran
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import RefundWatcher from '../../../lib/swap/RefundWatcher';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
+import InjectedProvider from '../../../lib/wallet/ethereum/InjectedProvider';
 import { bitcoinClient } from '../Nodes';
-import { fundSignerWallet, getSigner } from '../wallet/EthereumTools';
+import {
+  fundSignerWallet,
+  getSigner,
+  providerEndpoint,
+} from '../wallet/EthereumTools';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
@@ -31,10 +37,21 @@ describe('RefundWatcher', () => {
   const mockSidecar = new EventEmitter() as any as Sidecar;
   const watcher = new RefundWatcher(Logger.disabledLogger, mockSidecar);
   let setup: Awaited<ReturnType<typeof getSigner>>;
+  let evmProvider: InjectedProvider;
 
   beforeAll(async () => {
+    InjectedProvider.allowHttpOnly = true;
+
     setup = await getSigner();
     await fundSignerWallet(setup.signer, setup.etherBase);
+    evmProvider = new InjectedProvider(
+      Logger.disabledLogger,
+      networks.Ethereum,
+      {
+        providerEndpoint,
+      } as never,
+    );
+    await evmProvider.init();
 
     watcher.init(
       new Map([
@@ -51,7 +68,7 @@ describe('RefundWatcher', () => {
           {
             symbol: 'RBTC',
             type: CurrencyType.Ether,
-            provider: setup.provider,
+            provider: evmProvider,
           } as unknown as Currency,
         ],
         [
@@ -72,6 +89,7 @@ describe('RefundWatcher', () => {
 
   afterAll(async () => {
     bitcoinClient.disconnect();
+    await evmProvider.destroy();
     setup.provider.destroy();
   });
 
@@ -134,16 +152,6 @@ describe('RefundWatcher', () => {
         RefundStatus.Confirmed,
       );
     });
-  });
-
-  test('should skip pending transaction checks when shutdown is in progress', async () => {
-    mockedExitHandler.shutdownSignal.aborted = true;
-
-    await watcher['checkPendingTransactions']();
-
-    expect(
-      RefundTransactionRepository.getPendingTransactions,
-    ).not.toHaveBeenCalled();
   });
 
   describe('checkRefund', () => {

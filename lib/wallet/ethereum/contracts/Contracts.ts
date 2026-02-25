@@ -149,12 +149,14 @@ class Contracts {
           this.decodeEtherClaimBatchWithCommitment,
           this.decodeEtherClaim,
           this.decodeEtherClaimForAddress,
+          this.decodeEtherClaimVSignature,
         ]
       : [
           this.decodeErc20ClaimBatch,
           this.decodeErc20ClaimBatchWithCommitment,
           this.decodeErc20Claim,
           this.decodeErc20ClaimForAddress,
+          this.decodeErc20ClaimSignature,
         ]) {
       try {
         return decoder(data);
@@ -206,6 +208,30 @@ class Contracts {
         amount: dec[1],
       },
     ];
+  };
+
+  private decodeEtherClaimVSignature = (data: string) => {
+    for (const signature of [
+      'claim(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)',
+      'claim(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+    ] as const) {
+      try {
+        const dec = this.etherSwap.interface.decodeFunctionData(
+          this.etherSwap.interface.getFunction(signature),
+          data,
+        );
+        return [
+          {
+            preimage: dec[0],
+            amount: dec[1],
+          },
+        ];
+      } catch {
+        // Ignored to try the next v6 decoder
+      }
+    }
+
+    throw new Error('invalid EtherSwap v6 claim data');
   };
 
   private decodeEtherClaimForAddress = (data: string) => {
@@ -265,6 +291,31 @@ class Contracts {
         token: dec[2],
       },
     ];
+  };
+
+  private decodeErc20ClaimSignature = (data: string) => {
+    for (const signature of [
+      'claim(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)',
+      'claim(bytes32,uint256,address,address,address,uint256,uint8,bytes32,bytes32)',
+    ] as const) {
+      try {
+        const dec = this.erc20Swap.interface.decodeFunctionData(
+          this.erc20Swap.interface.getFunction(signature),
+          data,
+        );
+        return [
+          {
+            preimage: dec[0],
+            amount: dec[1],
+            token: dec[2],
+          },
+        ];
+      } catch {
+        // Ignored to try the next v6 decoder
+      }
+    }
+
+    throw new Error('invalid ERC20Swap v6 claim data');
   };
 
   private decodeErc20ClaimForAddress = (data: string) => {

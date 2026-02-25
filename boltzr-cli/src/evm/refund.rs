@@ -6,7 +6,7 @@ use alloy::{
 use anyhow::{Result, anyhow};
 use boltz_evm::contracts::erc20_swap::ERC20SwapContract;
 use boltz_evm::contracts::ether_swap::EtherSwapContract;
-use boltz_evm::{SwapType, SwapValues, eip712_domain};
+use boltz_evm::{SwapType, SwapValues};
 
 pub async fn sign_refund_from_tx(
     rpc_url: &str,
@@ -23,16 +23,24 @@ pub async fn sign_refund_from_tx(
         .ok_or_else(|| anyhow!("transaction receipt not found"))?;
 
     let lockup = parse_lockup_from_receipt(contract, receipt.inner.logs())?;
-    let chain_id = provider.get_chain_id().await?;
-
-    let (swap_type, contract_version, token_address) = match lockup.token_address {
+    let (swap_type, contract_version, token_address, domain) = match lockup.token_address {
         Some(token_address) => {
             let erc20_swap = ERC20SwapContract::new(contract, provider.clone()).await?;
-            (SwapType::ERC20, erc20_swap.version(), Some(token_address))
+            (
+                SwapType::ERC20,
+                erc20_swap.version(),
+                Some(token_address),
+                erc20_swap.eip712_domain().clone(),
+            )
         }
         None => {
             let ether_swap = EtherSwapContract::new(contract, provider.clone()).await?;
-            (SwapType::Ether, ether_swap.version(), None)
+            (
+                SwapType::Ether,
+                ether_swap.version(),
+                None,
+                ether_swap.eip712_domain().clone(),
+            )
         }
     };
 
@@ -53,7 +61,6 @@ pub async fn sign_refund_from_tx(
         timelock: lockup.timelock,
     };
 
-    let domain = eip712_domain(swap_type, contract_version, chain_id, contract)?;
     let signature = boltz_evm::refund::sign(&signer, contract_version, &domain, &values).await?;
 
     Ok(signature)

@@ -1,5 +1,4 @@
 import type { Provider, Signer } from 'ethers';
-import { shutdownSignal } from '../../ExitHandler';
 import type Logger from '../../Logger';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import type { NetworkDetails } from './EvmNetworks';
@@ -28,10 +27,6 @@ class EthereumTransactionTracker {
    * in that class already
    */
   public scanPendingTransactions = async (): Promise<void> => {
-    if (shutdownSignal.aborted) {
-      return;
-    }
-
     for (const transaction of await PendingEthereumTransactionRepository.getTransactions(
       this.networkDetails.symbol,
     )) {

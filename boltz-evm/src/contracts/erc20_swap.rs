@@ -116,6 +116,10 @@ impl ERC20SwapContract {
         self.version
     }
 
+    pub fn eip712_domain(&self) -> &Eip712Domain {
+        &self.eip712domain
+    }
+
     pub async fn lock_funds(
         &self,
         preimage_hash: FixedBytes<32>,
@@ -214,7 +218,8 @@ impl ERC20SwapContract {
 
             let lockup = logs
                 .into_iter()
-                .find(|log| log.0.tokenAddress == token)
+                .filter(|(event, _)| event.tokenAddress == token)
+                .max_by_key(|(_, log)| (log.block_number, log.log_index, log.transaction_index))
                 .ok_or_else(|| anyhow!("no lockup found"))?;
 
             Ok(lockup.0.into())

@@ -640,33 +640,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       },
     );
 
-    const handleChainSwapLockup = async (
+    const handleIncomingChainSwapLockup = async (
       swap: ChainSwapInfo,
       transaction: Transaction | LiquidTransaction | string,
       confirmed: boolean,
     ) => {
       await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
-        const fetchedSwap = await ChainSwapRepository.getChainSwap({
-          id: swap.id,
-        });
-        if (fetchedSwap === null) {
-          return;
-        }
-
-        if (fetchedSwap.createdRefundSignature) {
-          this.logger.warn(
-            `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a lockup transaction because it already signed a refund`,
-          );
-          return;
-        }
-
-        if (
-          fetchedSwap.sendingData.transactionId !== null &&
-          fetchedSwap.sendingData.transactionId !== undefined
-        ) {
-          this.logger.warn(
-            `Prevented ${swapTypeToPrettyString(swap.type)} Swap ${fetchedSwap.id} from sending a second lockup transaction`,
-          );
+        const fetchedSwap = await this.getChainSwapForLockup(swap);
+        if (fetchedSwap === undefined || fetchedSwap === null) {
           return;
         }
 
@@ -683,14 +664,14 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     this.utxoNursery.on(
       'chainSwap.lockup',
       async ({ swap, transaction, confirmed }) => {
-        await handleChainSwapLockup(swap, transaction, confirmed);
+        await handleIncomingChainSwapLockup(swap, transaction, confirmed);
       },
     );
 
     this.arkNursery.on(
       'chainSwap.lockup',
       async ({ swap, lockupTransactionId }) => {
-        await handleChainSwapLockup(swap, lockupTransactionId, true);
+        await handleIncomingChainSwapLockup(swap, lockupTransactionId, true);
       },
     );
 
@@ -1040,6 +1021,36 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private getChainSwapForLockup = async (
+    swap: ChainSwapInfo,
+  ): Promise<ChainSwapInfo | undefined> => {
+    const fetchedSwap = await ChainSwapRepository.getChainSwap({
+      id: swap.id,
+    });
+    if (fetchedSwap === null) {
+      return undefined;
+    }
+
+    if (fetchedSwap.createdRefundSignature) {
+      this.logger.warn(
+        `Prevented ${swapTypeToPrettyString(fetchedSwap.type)} Swap ${fetchedSwap.id} from sending a lockup transaction because it already signed a refund`,
+      );
+      return undefined;
+    }
+
+    if (
+      fetchedSwap.sendingData.transactionId !== null &&
+      fetchedSwap.sendingData.transactionId !== undefined
+    ) {
+      this.logger.warn(
+        `Prevented ${swapTypeToPrettyString(fetchedSwap.type)} Swap ${fetchedSwap.id} from sending a second lockup transaction`,
+      );
+      return undefined;
+    }
+
+    return fetchedSwap;
+  };
+
   private listenEthereumNursery = async (ethereumNursery: EthereumNursery) => {
     // Swap events
     ethereumNursery.on('swap.expired', async ({ swap }) => {
@@ -1068,15 +1079,19 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           ? SwapNursery.swapLock
           : SwapNursery.chainSwapLock,
         async () => {
-          let updatedSwap: typeof swap;
+          let updatedSwap: typeof swap | undefined;
           if (swap.type === SwapType.Submarine) {
             updatedSwap = (await SwapRepository.getSwap({
               id: swap.id,
             }))!;
           } else {
-            updatedSwap = (await ChainSwapRepository.getChainSwap({
-              id: swap.id,
-            }))!;
+            updatedSwap = await this.getChainSwapForLockup(
+              swap as ChainSwapInfo,
+            );
+          }
+
+          if (updatedSwap === undefined || updatedSwap === null) {
+            return;
           }
 
           if (updatedSwap.status === SwapUpdateEvent.TransactionLockupFailed) {
@@ -1087,24 +1102,24 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           }
 
           this.emit('transaction', {
-            swap,
+            swap: updatedSwap,
             confirmed: true,
             transaction: transactionHash,
           });
 
-          if (swap.type === SwapType.Chain) {
-            await this.handleChainSwapLockup(swap as ChainSwapInfo);
+          if (updatedSwap.type === SwapType.Chain) {
+            await this.handleChainSwapLockup(updatedSwap as ChainSwapInfo);
           } else {
-            if ((swap as Swap).invoice) {
-              const { base, quote } = splitPairId(swap.pair);
+            if ((updatedSwap as Swap).invoice) {
+              const { base, quote } = splitPairId(updatedSwap.pair);
               await this.attemptSettleSwap(
                 this.currencies.get(
-                  getChainCurrency(base, quote, swap.orderSide, false),
+                  getChainCurrency(base, quote, updatedSwap.orderSide, false),
                 )!,
-                swap as Swap,
+                updatedSwap as Swap,
               );
             } else {
-              await this.setSwapRate(swap as Swap);
+              await this.setSwapRate(updatedSwap as Swap);
             }
           }
         },

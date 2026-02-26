@@ -92,18 +92,21 @@ describe('MultiNodeConnection', () => {
     });
 
     test('should get lightning client by ID from lndClients map', async () => {
+      const lndClientId1 = 'btc-client-1';
+      const lndClientId2 = 'btc-client-2';
+
       const currency = {
         symbol: 'BTC',
         lndClients: new Map([
-          [bitcoinLndClient.id, bitcoinLndClient],
-          [bitcoinLndClient2.id, bitcoinLndClient2],
+          [lndClientId1, bitcoinLndClient],
+          [lndClientId2, bitcoinLndClient2],
         ]),
       } as unknown as Currency;
 
-      expect(getLightningClientById(currency, bitcoinLndClient.id)).toBe(
+      expect(getLightningClientById(currency, lndClientId1)).toBe(
         bitcoinLndClient,
       );
-      expect(getLightningClientById(currency, bitcoinLndClient2.id)).toBe(
+      expect(getLightningClientById(currency, lndClientId2)).toBe(
         bitcoinLndClient2,
       );
       expect(getLightningClientById(currency, 'non-existent')).toBeUndefined();
@@ -150,12 +153,15 @@ describe('MultiNodeConnection', () => {
     });
 
     test('should get CLN client by ID', async () => {
+      const lndClientId1 = 'btc-client-1';
+      const lndClientId2 = 'btc-client-2';
+
       const currency = {
         clnClient,
         symbol: 'BTC',
         lndClients: new Map([
-          [bitcoinLndClient.id, bitcoinLndClient],
-          [bitcoinLndClient2.id, bitcoinLndClient2],
+          [lndClientId1, bitcoinLndClient],
+          [lndClientId2, bitcoinLndClient2],
         ]),
       } as unknown as Currency;
 
@@ -163,9 +169,13 @@ describe('MultiNodeConnection', () => {
       expect(getLightningClientById(currency, clnClient.id)).toBe(clnClient);
 
       // Should find LNDs by their IDs
-      expect(getLightningClientById(currency, bitcoinLndClient.id)).toBe(
+      expect(getLightningClientById(currency, lndClientId1)).toBe(
         bitcoinLndClient,
       );
+      expect(getLightningClientById(currency, lndClientId2)).toBe(
+        bitcoinLndClient2,
+      );
+      expect(getLightningClientById(currency, 'non-existent')).toBeUndefined();
     });
   });
 

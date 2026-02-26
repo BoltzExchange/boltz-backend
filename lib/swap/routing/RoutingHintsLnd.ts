@@ -10,7 +10,9 @@ class RoutingHintsLnd implements RoutingHintsProvider {
   // How often the channel lists should be updated in minutes
   private static readonly channelFetchInterval = 15;
 
-  private readonly name: string;
+  private get name(): string {
+    return `${this.lnd.symbol} ${LndClient.serviceName} ${this.lnd.id}`;
+  }
 
   private ourPubkey!: string;
   private interval: any;
@@ -19,9 +21,7 @@ class RoutingHintsLnd implements RoutingHintsProvider {
   constructor(
     private logger: Logger,
     private lnd: LndClient,
-  ) {
-    this.name = `${this.lnd.symbol} ${LndClient.serviceName} ${this.lnd.id}`;
-  }
+  ) {}
 
   public start = async (): Promise<void> => {
     const info = await this.lnd.getInfo();

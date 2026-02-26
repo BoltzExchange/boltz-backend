@@ -1,8 +1,10 @@
 import { resolve } from 'path';
+import type BaseClient from '../../lib/BaseClient';
 import Logger from '../../lib/Logger';
 import ArkClient from '../../lib/chain/ArkClient';
 import ChainClient from '../../lib/chain/ChainClient';
 import ElementsClient from '../../lib/chain/ElementsClient';
+import { ClientStatus } from '../../lib/consts/Enums';
 import Redis from '../../lib/db/Redis';
 import LndClient from '../../lib/lightning/LndClient';
 import RoutingFee from '../../lib/lightning/RoutingFee';
@@ -108,32 +110,63 @@ export const clnClient = new ClnClient(
   new RoutingFee(Logger.disabledLogger),
 );
 
-let lnd1Connected = false;
-let lnd2Connected = false;
-let clnConnected = false;
+/**
+ * Wraps a BaseClient with a lazy, concurrency-safe connect guard.
+ * Concurrent callers share the same in-flight promise; failures and
+ * disconnects automatically clear it so the next call retries.
+ */
+const createLazyConnector = <T extends BaseClient>(
+  client: T,
+  connect: () => Promise<boolean>,
+) => {
+  let pending: Promise<void> | undefined;
 
-export const getBitcoinLndClient = async (): Promise<LndClient> => {
-  if (!lnd1Connected) {
-    await bitcoinLndClient.connect(false);
-    lnd1Connected = true;
-  }
-  return bitcoinLndClient;
+  client.on('status.changed', (status: ClientStatus) => {
+    if (status === ClientStatus.Disconnected) {
+      pending = undefined;
+    }
+  });
+
+  return {
+    get: async (): Promise<T> => {
+      if (!client.isConnected()) {
+        if (!pending) {
+          pending = connect().then((ok) => {
+            if (!ok)
+              throw new Error(
+                `Could not connect ${client.serviceName()}-${client.symbol}`,
+              );
+          });
+          pending.catch(() => {
+            pending = undefined;
+          });
+        }
+        await pending;
+      }
+      return client;
+    },
+    reset: () => {
+      pending = undefined;
+    },
+  };
 };
 
-export const getBitcoinLndClient2 = async (): Promise<LndClient> => {
-  if (!lnd2Connected) {
-    await bitcoinLndClient2.connect(false);
-    lnd2Connected = true;
-  }
-  return bitcoinLndClient2;
-};
+const lnd1 = createLazyConnector(bitcoinLndClient, () =>
+  bitcoinLndClient.connect(false),
+);
+const lnd2 = createLazyConnector(bitcoinLndClient2, () =>
+  bitcoinLndClient2.connect(false),
+);
+const cln1 = createLazyConnector(clnClient, () => clnClient.connect());
 
-export const getClnClient = async (): Promise<ClnClient> => {
-  if (!clnConnected) {
-    await clnClient.connect();
-    clnConnected = true;
-  }
-  return clnClient;
+export const getBitcoinLndClient = lnd1.get;
+export const getBitcoinLndClient2 = lnd2.get;
+export const getClnClient = cln1.get;
+
+export const resetNodeConnectionPromises = () => {
+  lnd1.reset();
+  lnd2.reset();
+  cln1.reset();
 };
 
 export const arkClient = new ArkClient(

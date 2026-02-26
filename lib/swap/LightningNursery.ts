@@ -96,7 +96,9 @@ class LightningNursery extends TypedEventEmitter<{
 
   public bindCurrencies = (currencies: Currency[]): void => {
     currencies.forEach((currency) => {
-      getLightningClients(currency).map(this.listenInvoices);
+      getLightningClients(currency).forEach((client) =>
+        this.listenInvoices(client),
+      );
     });
   };
 

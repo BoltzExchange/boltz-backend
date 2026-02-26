@@ -17,7 +17,12 @@ import {
 } from '../../../lib/proto/lnd/rpc_pb';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { getPort } from '../../Utils';
-import { bitcoinClient, getBitcoinLndClient, lndDataPath } from '../Nodes';
+import {
+  bitcoinClient,
+  getBitcoinLndClient,
+  lndDataPath,
+  resetNodeConnectionPromises,
+} from '../Nodes';
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('LndClient', () => {
@@ -28,7 +33,6 @@ describe('LndClient', () => {
 
     await bitcoinClient.generate(1);
     bitcoinLndClient = await getBitcoinLndClient();
-    await bitcoinLndClient.connect(false);
 
     await sidecar.connect(
       { on: jest.fn(), removeAllListeners: jest.fn() } as any,
@@ -46,6 +50,7 @@ describe('LndClient', () => {
     bitcoinLndClient.removeAllListeners();
     bitcoinLndClient.disconnect();
     bitcoinLndClient.disconnect();
+    resetNodeConnectionPromises();
   });
 
   describe('addHoldInvoice', () => {

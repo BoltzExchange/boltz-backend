@@ -19,6 +19,7 @@ import type { Currency } from '../../../lib/wallet/WalletManager';
 import {
   getBitcoinLndClient,
   getClnClient,
+  resetNodeConnectionPromises,
   waitForClnChainSync,
 } from '../Nodes';
 import { createSubmarineSwapData } from '../db/repositories/Fixtures';
@@ -114,6 +115,7 @@ describe('PendingPaymentTracker', () => {
 
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
+    resetNodeConnectionPromises();
   });
 
   describe('init', () => {

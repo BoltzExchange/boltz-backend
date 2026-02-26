@@ -4,16 +4,16 @@ use crate::quoter::uniswap_v3::router::PathEncoder;
 use crate::quoter::{Call, Data as QuoterData, Quoter, QuoterType};
 use crate::utils::check_contract_exists;
 use alloy::primitives::aliases::U24;
-use alloy::primitives::{Address, U256};
-use alloy::providers::Provider;
+use alloy::primitives::{Address, U256, address};
 use alloy::providers::network::Network;
+use alloy::providers::{CallItemBuilder, Provider};
 use alloy::sol;
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_cache::Cache;
 use router::Router;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::time::Duration;
@@ -24,7 +24,7 @@ mod router;
 
 /// A normalized token pair where order doesn't matter.
 /// TokenPair(A, B) and TokenPair(B, A) are considered equal and hash to the same value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct TokenPair(Address, Address);
 
 impl TokenPair {
@@ -80,10 +80,17 @@ impl<'de> Deserialize<'de> for TokenPair {
 
 type RelevantPools = HashMap<TokenPair, Vec<u64>>;
 
+const ERROR_NO_RESULTS: &str = "no results";
+
 const FEE_OPTIONS: [u64; 4] = [100, 500, 3_000, 10_000];
+const DEFAULT_MULTICALL: Address = address!("0xcA11bde05977b3631167028862bE2a173976CA11");
 
 const CACHE_KEY_POOLS: &str = "uniswap_v3_pools";
 const CACHE_TTL_SECS: u64 = Duration::from_mins(60).as_secs();
+
+const fn default_multicall() -> Address {
+    DEFAULT_MULTICALL
+}
 
 sol!(
     #[sol(rpc)]
@@ -100,6 +107,8 @@ pub struct Config {
     pub factory: Address,
     pub quoter: Address,
     pub router: Address,
+    #[serde(default = "default_multicall")]
+    pub multicall: Address,
 
     /// Tokens with lots of liquidity that we can route through
     #[serde(rename = "liquidTokens")]
@@ -155,11 +164,13 @@ impl Data {
 
 #[derive(Debug, Clone)]
 pub struct UniswapV3<P, N> {
+    provider: P,
     cache: Cache,
     symbol: String,
     factory: IUniswapV3FactoryInstance<P, N>,
     quoter: IQuoterV2Instance<P, N>,
     router: Router<P, N>,
+    multicall: Address,
     liquid_tokens: Vec<Address>,
 }
 
@@ -176,11 +187,12 @@ where
         config: Config,
     ) -> Result<Self> {
         info!(
-            "Using {} factory {}, quoter {} and router {}",
+            "Using {} factory {}, quoter {}, router {} and multicall {}",
             symbol,
             config.factory.to_string(),
             config.quoter.to_string(),
-            config.router.to_string()
+            config.router.to_string(),
+            config.multicall.to_string(),
         );
 
         tokio::try_join!(
@@ -188,99 +200,19 @@ where
             check_contract_exists(&provider, config.factory),
             check_contract_exists(&provider, config.quoter),
             check_contract_exists(&provider, config.router),
+            check_contract_exists(&provider, config.multicall),
         )?;
 
         Ok(Self {
+            provider: provider.clone(),
             cache,
             symbol,
             factory: IUniswapV3FactoryInstance::new(config.factory, provider.clone()),
             quoter: IQuoterV2::new(config.quoter, provider.clone()),
             router: Router::new(provider, weth, config.router),
+            multicall: config.multicall,
             liquid_tokens: config.liquid_tokens.unwrap_or_default(),
         })
-    }
-
-    async fn quote_exact_input_single(
-        &self,
-        token_in: Address,
-        hops: &[Hop],
-        amount_in: U256,
-    ) -> Result<U256> {
-        Ok(self
-            .quoter
-            .quoteExactInput(
-                PathEncoder::new()
-                    .add_token(token_in)
-                    .add_hops(hops)?
-                    .build()
-                    .into(),
-                amount_in,
-            )
-            .call()
-            .await
-            .map(|result| result.amountOut)?)
-    }
-
-    async fn quote_exact_output_single(
-        &self,
-        token_in: Address,
-        hops: &[Hop],
-        amount_out: U256,
-    ) -> Result<U256> {
-        let data = Data {
-            token_in,
-            hops: hops.to_vec(),
-        }
-        .reverse();
-
-        Ok(self
-            .quoter
-            .quoteExactOutput(
-                // Needs to be in reverse order
-                PathEncoder::new()
-                    .add_token(data.token_in)
-                    .add_hops(&data.hops)?
-                    .build()
-                    .into(),
-                amount_out,
-            )
-            .call()
-            .await
-            .map(|result| result.amountIn)?)
-    }
-
-    async fn lookup_pools(&self, token_a: Address, token_b: Address) -> Result<Vec<u64>> {
-        let (cache_key, cache_field) = self.cache_key_pools(token_a, token_b);
-        if let Some(fees) = self.cache.get(&cache_key, &cache_field).await? {
-            return Ok(fees);
-        }
-
-        let fees: Vec<u64> = futures::future::join_all(FEE_OPTIONS.iter().map(async |fee| {
-            let pool = self
-                .factory
-                .getPool(token_a, token_b, U24::try_from(*fee)?)
-                .call()
-                .await?;
-            Ok::<_, anyhow::Error>((pool, *fee))
-        }))
-        .await
-        .into_iter()
-        .flatten()
-        .filter_map(|(address, fee)| {
-            // The factory returns the zero address for pools that don't exist
-            if address != Address::ZERO {
-                Some(fee)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-        self.cache
-            .set(&cache_key, &cache_field, &fees, Some(CACHE_TTL_SECS))
-            .await?;
-
-        Ok(fees)
     }
 
     async fn lookup_relevant_pools(
@@ -298,14 +230,64 @@ where
             lookups.push((*token, token_out));
         }
 
-        let pools = futures::future::join_all(lookups.into_iter().map(|(a, b)| async move {
-            Ok::<_, anyhow::Error>((TokenPair(a, b), self.lookup_pools(a, b).await?))
-        }))
-        .await
-        .into_iter()
-        .flatten()
-        .filter(|(_, fees)| !fees.is_empty())
-        .collect();
+        let mut pools: RelevantPools = HashMap::new();
+        let mut uncached_pairs = Vec::new();
+        let mut seen_pairs = HashSet::new();
+
+        for (token_a, token_b) in lookups {
+            let pair = TokenPair(token_a, token_b);
+            if !seen_pairs.insert(pair) {
+                continue;
+            }
+
+            let (cache_key, cache_field) = self.cache_key_pools(pair);
+            if let Some(fees) = self.cache.get::<Vec<u64>>(&cache_key, &cache_field).await? {
+                if !fees.is_empty() {
+                    pools.insert(pair, fees);
+                }
+            } else {
+                uncached_pairs.push(pair);
+            }
+        }
+
+        if uncached_pairs.is_empty() {
+            return Ok(pools);
+        }
+
+        let mut multicall = self.provider.multicall().address(self.multicall).dynamic();
+        let mut call_fees = Vec::with_capacity(uncached_pairs.len() * FEE_OPTIONS.len());
+
+        for pair in &uncached_pairs {
+            for fee in FEE_OPTIONS {
+                multicall = multicall.add_call_dynamic(
+                    CallItemBuilder::new(self.factory.getPool(pair.0, pair.1, U24::try_from(fee)?))
+                        .allow_failure(true),
+                );
+                call_fees.push((*pair, fee));
+            }
+        }
+
+        let results = multicall.aggregate3().await?;
+        let mut discovered = HashMap::<TokenPair, Vec<u64>>::new();
+        for ((pair, fee), result) in call_fees.into_iter().zip(results.into_iter()) {
+            if let Ok(pool) = result
+                && pool != Address::ZERO
+            {
+                discovered.entry(pair).or_default().push(fee);
+            }
+        }
+
+        for pair in uncached_pairs {
+            let fees = discovered.remove(&pair).unwrap_or_default();
+            let (cache_key, cache_field) = self.cache_key_pools(pair);
+            self.cache
+                .set(&cache_key, &cache_field, &fees, Some(CACHE_TTL_SECS))
+                .await?;
+
+            if !fees.is_empty() {
+                pools.insert(pair, fees);
+            }
+        }
 
         Ok(pools)
     }
@@ -369,12 +351,8 @@ where
         Ok(self.generate_routes(token_in, token_out, &pools))
     }
 
-    fn cache_key_pools(&self, token_a: Address, token_b: Address) -> (String, String) {
-        let (token_a, token_b) = if token_a < token_b {
-            (token_a, token_b)
-        } else {
-            (token_b, token_a)
-        };
+    fn cache_key_pools(&self, pair: TokenPair) -> (String, String) {
+        let (token_a, token_b) = pair.normalized();
 
         (
             format!("{CACHE_KEY_POOLS}:{}", self.symbol),
@@ -393,7 +371,7 @@ where
         QuoterType::UniswapV3
     }
 
-    #[instrument(name = "UniswapV3::quote_input", skip(self))]
+    #[instrument(name = "UniswapV3::quote_input", skip_all)]
     async fn quote_input(
         &self,
         token_in: Address,
@@ -407,18 +385,28 @@ where
             )
             .await?;
 
-        let (data, amount_out) = futures::future::join_all(routes.into_iter().map(|data| async {
-            let quote = self
-                .quote_exact_input_single(data.token_in, &data.hops, amount_in)
-                .await?;
+        if routes.is_empty() {
+            return Err(anyhow::anyhow!(ERROR_NO_RESULTS));
+        }
 
-            Ok::<_, anyhow::Error>((data, quote))
-        }))
-        .await
-        .into_iter()
-        .flatten()
-        .max_by_key(|(_, amount_out)| *amount_out)
-        .ok_or_else(|| anyhow::anyhow!("no results"))?;
+        let mut multicall = self.provider.multicall().address(self.multicall).dynamic();
+        for route in &routes {
+            let path = PathEncoder::new()
+                .add_token(route.token_in)
+                .add_hops(&route.hops)?
+                .build();
+            multicall = multicall.add_call_dynamic(
+                CallItemBuilder::new(self.quoter.quoteExactInput(path.into(), amount_in))
+                    .allow_failure(true),
+            );
+        }
+
+        let (data, amount_out) = routes
+            .into_iter()
+            .zip(multicall.aggregate3().await?.into_iter())
+            .filter_map(|(data, result)| result.ok().map(|quote| (data, quote.amountOut)))
+            .max_by_key(|(_, amount_out)| *amount_out)
+            .ok_or_else(|| anyhow::anyhow!(ERROR_NO_RESULTS))?;
 
         Ok((
             amount_out,
@@ -426,7 +414,7 @@ where
         ))
     }
 
-    #[instrument(name = "UniswapV3::quote_output", skip(self))]
+    #[instrument(name = "UniswapV3::quote_output", skip_all)]
     async fn quote_output(
         &self,
         token_in: Address,
@@ -440,18 +428,30 @@ where
             )
             .await?;
 
-        let (data, amount_in) = futures::future::join_all(routes.into_iter().map(|data| async {
-            let quote = self
-                .quote_exact_output_single(data.token_in, &data.hops, amount_out)
-                .await?;
+        if routes.is_empty() {
+            return Err(anyhow::anyhow!(ERROR_NO_RESULTS));
+        }
 
-            Ok::<_, anyhow::Error>((data, quote))
-        }))
-        .await
-        .into_iter()
-        .flatten()
-        .min_by_key(|(_, amount_in)| *amount_in)
-        .ok_or_else(|| anyhow::anyhow!("no results"))?;
+        let mut multicall = self.provider.multicall().address(self.multicall).dynamic();
+        for route in &routes {
+            // Needs to be in reverse order
+            let reverse = route.reverse();
+            let path = PathEncoder::new()
+                .add_token(reverse.token_in)
+                .add_hops(&reverse.hops)?
+                .build();
+            multicall = multicall.add_call_dynamic(
+                CallItemBuilder::new(self.quoter.quoteExactOutput(path.into(), amount_out))
+                    .allow_failure(true),
+            );
+        }
+
+        let (data, amount_in) = routes
+            .into_iter()
+            .zip(multicall.aggregate3().await?.into_iter())
+            .filter_map(|(data, result)| result.ok().map(|quote| (data, quote.amountIn)))
+            .min_by_key(|(_, amount_in)| *amount_in)
+            .ok_or_else(|| anyhow::anyhow!(ERROR_NO_RESULTS))?;
 
         Ok((
             amount_in,
@@ -494,6 +494,63 @@ mod test {
         ProviderBuilder::new()
             .network::<AnyNetwork>()
             .connect_http("https://arbitrum-one-rpc.publicnode.com".parse().unwrap())
+    }
+
+    async fn quote_exact_input_single<P, N>(
+        quoter: &UniswapV3<P, N>,
+        token_in: Address,
+        hops: &[Hop],
+        amount_in: U256,
+    ) -> Result<U256>
+    where
+        P: Provider<N> + Clone + 'static,
+        N: Network,
+    {
+        Ok(quoter
+            .quoter
+            .quoteExactInput(
+                PathEncoder::new()
+                    .add_token(token_in)
+                    .add_hops(hops)?
+                    .build()
+                    .into(),
+                amount_in,
+            )
+            .call()
+            .await
+            .map(|result| result.amountOut)?)
+    }
+
+    async fn quote_exact_output_single<P, N>(
+        quoter: &UniswapV3<P, N>,
+        token_in: Address,
+        hops: &[Hop],
+        amount_out: U256,
+    ) -> Result<U256>
+    where
+        P: Provider<N> + Clone + 'static,
+        N: Network,
+    {
+        // Needs to be in reverse order
+        let data = Data {
+            token_in,
+            hops: hops.to_vec(),
+        }
+        .reverse();
+
+        Ok(quoter
+            .quoter
+            .quoteExactOutput(
+                PathEncoder::new()
+                    .add_token(data.token_in)
+                    .add_hops(&data.hops)?
+                    .build()
+                    .into(),
+                amount_out,
+            )
+            .call()
+            .await
+            .map(|result| result.amountIn)?)
     }
 
     #[test]
@@ -603,6 +660,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -640,6 +698,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -661,10 +720,7 @@ mod test {
                 fee,
                 token: token_out,
             }];
-            if let Ok(res) = quoter
-                .quote_exact_input_single(token_in, &hops, amount_in)
-                .await
-            {
+            if let Ok(res) = quote_exact_input_single(&quoter, token_in, &hops, amount_in).await {
                 fee_results.push((fee, res));
             }
         }
@@ -700,6 +756,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -735,6 +792,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -772,6 +830,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -793,10 +852,7 @@ mod test {
                 fee,
                 token: token_out,
             }];
-            if let Ok(res) = quoter
-                .quote_exact_output_single(token_in, &hops, amount_out)
-                .await
-            {
+            if let Ok(res) = quote_exact_output_single(&quoter, token_in, &hops, amount_out).await {
                 fee_results.push((fee, res));
             }
         }
@@ -832,6 +888,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )
@@ -867,6 +924,7 @@ mod test {
                 factory: FACTORY.parse().unwrap(),
                 quoter: QUOTER.parse().unwrap(),
                 router: ROUTER.parse().unwrap(),
+                multicall: DEFAULT_MULTICALL,
                 liquid_tokens: None,
             },
         )

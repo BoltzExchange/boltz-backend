@@ -181,14 +181,27 @@ export const arkClient = new ArkClient(
 
 export const waitForClnChainSync = async () => {
   const cln = await getClnClient();
-  return new Promise<void>((resolve) => {
-    const timeout = setInterval(async () => {
-      if (
-        (await bitcoinClient.getBlockchainInfo()).blocks ===
-        (await cln.getInfo()).blockHeight
-      ) {
-        clearTimeout(timeout);
-        resolve();
+  return new Promise<void>((resolve, reject) => {
+    const maxAttempts = 300;
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      try {
+        attempts++;
+        if (attempts > maxAttempts) {
+          clearInterval(interval);
+          reject(new Error('CLN chain sync timed out'));
+          return;
+        }
+        if (
+          (await bitcoinClient.getBlockchainInfo()).blocks ===
+          (await cln.getInfo()).blockHeight
+        ) {
+          clearInterval(interval);
+          resolve();
+        }
+      } catch (err) {
+        clearInterval(interval);
+        reject(err);
       }
     }, 100);
   });

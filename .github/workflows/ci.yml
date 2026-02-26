@@ -26,6 +26,12 @@ jobs:
           rust-version: ${{ matrix.rust-version }}
           cache-prefix: npm-rust-build
 
+      - name: Temporary workaround for lnd-3 permissions
+        run: |
+          mkdir -p regtest/data/lnd3
+          chmod -R 777 regtest/data/lnd3
+          stat -c '%a %u:%g %n' regtest/data/lnd3
+
       - name: Start regtest
         timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
@@ -83,6 +89,12 @@ jobs:
 
       - name: Install clippy
         run: rustup component add clippy
+
+      - name: Temporary workaround for lnd-3 permissions
+        run: |
+          mkdir -p regtest/data/lnd3
+          chmod -R 777 regtest/data/lnd3
+          stat -c '%a %u:%g %n' regtest/data/lnd3
 
       - name: Start regtest
         timeout-minutes: 10

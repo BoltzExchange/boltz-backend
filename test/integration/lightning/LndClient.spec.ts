@@ -204,7 +204,6 @@ describe('LndClient', () => {
       Logger.disabledLogger,
       'MOCK',
       {
-        pubkey: mockPubkey,
         host: serverHost,
         port: serverPort,
         certpath: `${lndDataPath(1)}/tls.cert`,

@@ -126,6 +126,41 @@ describe('SwapRepository', () => {
     });
   });
 
+  describe('setLockupTransaction', () => {
+    test.each([
+      SwapUpdateEvent.InvoicePaid,
+      SwapUpdateEvent.TransactionClaimPending,
+      SwapUpdateEvent.TransactionClaimed,
+    ])('should not downgrade status from %s', async (status) => {
+      const swap = await Swap.create(createSubmarineSwapData());
+
+      await SwapRepository.setLockupTransaction(
+        swap,
+        'initial-lockup',
+        123_000,
+        true,
+        1,
+      );
+      await SwapRepository.setSwapStatus(swap, status);
+
+      const updated = await SwapRepository.setLockupTransaction(
+        swap,
+        'stale-lockup',
+        321_000,
+        false,
+        2,
+      );
+
+      await swap.reload();
+
+      expect(updated.status).toEqual(status);
+      expect(swap.status).toEqual(status);
+      expect(swap.lockupTransactionId).toEqual('initial-lockup');
+      expect(swap.onchainAmount).toEqual(123_000);
+      expect(swap.lockupTransactionVout).toEqual(1);
+    });
+  });
+
   describe('setInvoicePaid', () => {
     test('should set failureReason to null', async () => {
       const swap = await Swap.create(createSubmarineSwapData());

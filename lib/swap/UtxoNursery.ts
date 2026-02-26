@@ -643,6 +643,17 @@ class UtxoNursery extends TypedEventEmitter<{
       swapOutput.vout,
     );
 
+    if (
+      SwapRepository.lockupNonUpdatableStatuses.includes(
+        updatedSwap.status as SwapUpdateEvent,
+      )
+    ) {
+      this.logger.debug(
+        `Not acting on lockup transaction of ${swapTypeToPrettyString(updatedSwap.type)} Swap ${updatedSwap.id} because it succeeded already`,
+      );
+      return;
+    }
+
     if (updatedSwap.expectedAmount) {
       if (updatedSwap.expectedAmount > outputValue) {
         let reason: string;

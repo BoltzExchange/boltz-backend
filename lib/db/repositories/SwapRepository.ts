@@ -6,6 +6,12 @@ import type { SwapType } from '../models/Swap';
 import Swap from '../models/Swap';
 
 class SwapRepository {
+  public static readonly lockupNonUpdatableStatuses = [
+    SwapUpdateEvent.InvoicePaid,
+    SwapUpdateEvent.TransactionClaimPending,
+    SwapUpdateEvent.TransactionClaimed,
+  ];
+
   public static getSwaps = (
     options?: WhereOptions,
     order?: Order,
@@ -116,21 +122,33 @@ class SwapRepository {
     );
   };
 
-  public static setLockupTransaction = (
+  public static setLockupTransaction = async (
     swap: Swap,
     lockupTransactionId: string,
     onchainAmount: number,
     confirmed: boolean,
     lockupTransactionVout?: number,
   ): Promise<Swap> => {
-    return swap.update({
-      onchainAmount,
-      lockupTransactionId,
-      lockupTransactionVout,
-      status: confirmed
-        ? SwapUpdateEvent.TransactionConfirmed
-        : SwapUpdateEvent.TransactionMempool,
-    });
+    await Swap.update(
+      {
+        onchainAmount,
+        lockupTransactionId,
+        lockupTransactionVout,
+        status: confirmed
+          ? SwapUpdateEvent.TransactionConfirmed
+          : SwapUpdateEvent.TransactionMempool,
+      },
+      {
+        where: {
+          id: swap.id,
+          status: {
+            [Op.notIn]: SwapRepository.lockupNonUpdatableStatuses,
+          },
+        },
+      },
+    );
+
+    return (await SwapRepository.getSwap({ id: swap.id })) || swap;
   };
 
   public static setRate = (swap: Swap, rate: number): Promise<Swap> => {

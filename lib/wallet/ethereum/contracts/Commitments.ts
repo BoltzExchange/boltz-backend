@@ -279,7 +279,7 @@ class Commitments {
     // We can emit the events with our address as claim address because
     // we verified the signature is valid with it as parameter
     if (currency === this.network.symbol) {
-      this.eventHandler.emit('eth.lockup', {
+      await this.eventHandler.handleEvent('eth.lockup', {
         transaction,
         version: contractVersion,
         etherSwapValues: {
@@ -291,7 +291,7 @@ class Commitments {
         },
       });
     } else {
-      this.eventHandler.emit('erc20.lockup', {
+      await this.eventHandler.handleEvent('erc20.lockup', {
         transaction,
         version: contractVersion,
         erc20SwapValues: {

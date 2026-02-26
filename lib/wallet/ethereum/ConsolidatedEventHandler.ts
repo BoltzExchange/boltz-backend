@@ -90,10 +90,10 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
     this.handlers.push(handler);
 
     this.registerForwarding(handler, 'eth.lockup');
-    handler.on('eth.claim', (claim) => this.emit('eth.claim', claim));
+    this.registerForwarding(handler, 'eth.claim');
 
     this.registerForwarding(handler, 'erc20.lockup');
-    handler.on('erc20.claim', (claim) => this.emit('erc20.claim', claim));
+    this.registerForwarding(handler, 'erc20.claim');
   };
 
   public rescan = async (startHeight: number): Promise<void> => {
@@ -145,7 +145,7 @@ class ConsolidatedEventHandler extends TypedEventEmitter<Events> {
     });
   };
 
-  private handleEvent = async <T extends keyof Events>(
+  public handleEvent = async <T extends keyof Events>(
     eventName: T,
     payload: Events[T],
   ) => {

@@ -43,7 +43,7 @@ describe('Commitments', () => {
   let nextSignerNonce: number | undefined;
 
   const eventHandler = {
-    emit: jest.fn(),
+    handleEvent: jest.fn(),
   } as unknown as ConsolidatedEventHandler;
 
   const fetchSignerNonce = async () => {
@@ -866,8 +866,8 @@ describe('Commitments', () => {
       );
       expect(commitment!.lockupHash).toEqual(expectedLockupHash);
 
-      expect(eventHandler.emit).toHaveBeenCalledTimes(1);
-      expect(eventHandler.emit).toHaveBeenCalledWith(
+      expect(eventHandler.handleEvent).toHaveBeenCalledTimes(1);
+      expect(eventHandler.handleEvent).toHaveBeenCalledWith(
         'eth.lockup',
         expect.objectContaining({
           version: 5n,

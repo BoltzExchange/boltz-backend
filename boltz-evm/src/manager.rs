@@ -15,7 +15,7 @@ use alloy::transports::{
     layers::FallbackLayer,
     ws::WsConnect,
 };
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use boltz_cache::Cache;
 use std::collections::HashMap;
 use tower::ServiceBuilder;

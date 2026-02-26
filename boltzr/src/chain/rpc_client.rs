@@ -1,6 +1,6 @@
 use crate::chain::Config;
 use crate::chain::types::{RpcParam, RpcRequest, RpcResponse};
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use reqwest::Url;
@@ -33,8 +33,9 @@ impl RpcClient {
     pub fn new(symbol: String, config: Config) -> anyhow::Result<Self> {
         let auth = match config.cookie {
             Some(ref cookie_path) => {
-                let cookie = fs::read(cookie_path)
-                    .with_context(|| format!("failed to read {} cookie file: {}", symbol, cookie_path))?;
+                let cookie = fs::read(cookie_path).with_context(|| {
+                    format!("failed to read {} cookie file: {}", symbol, cookie_path)
+                })?;
                 debug!("Using cookie file auth for {} chain client", symbol);
 
                 cookie

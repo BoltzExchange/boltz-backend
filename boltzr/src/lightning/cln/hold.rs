@@ -108,14 +108,26 @@ impl Hold {
         let tls = ClientTlsConfig::new()
             .domain_name("hold")
             .ca_certificate(Certificate::from_pem(
-                fs::read_to_string(&config.root_cert_path)
-                    .with_context(|| format!("failed to read {} hold root cert: {}", symbol, config.root_cert_path))?,
+                fs::read_to_string(&config.root_cert_path).with_context(|| {
+                    format!(
+                        "failed to read {} hold root cert: {}",
+                        symbol, config.root_cert_path
+                    )
+                })?,
             ))
             .identity(Identity::from_pem(
-                fs::read_to_string(&config.cert_chain_path)
-                    .with_context(|| format!("failed to read {} hold cert chain: {}", symbol, config.cert_chain_path))?,
-                fs::read_to_string(&config.private_key_path)
-                    .with_context(|| format!("failed to read {} hold private key: {}", symbol, config.private_key_path))?,
+                fs::read_to_string(&config.cert_chain_path).with_context(|| {
+                    format!(
+                        "failed to read {} hold cert chain: {}",
+                        symbol, config.cert_chain_path
+                    )
+                })?,
+                fs::read_to_string(&config.private_key_path).with_context(|| {
+                    format!(
+                        "failed to read {} hold private key: {}",
+                        symbol, config.private_key_path
+                    )
+                })?,
             ));
 
         let channel = Channel::from_shared(format!("https://{}:{}", config.host, config.port))?

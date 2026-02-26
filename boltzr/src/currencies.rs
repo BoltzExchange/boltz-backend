@@ -17,7 +17,7 @@ use crate::db::{
 };
 use crate::lightning::{cln::Cln, lnd::Lnd};
 use crate::wallet::{self, Wallet};
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bip39::Mnemonic;
 use boltz_cache::Cache;
 use boltz_evm::Manager;

@@ -42,6 +42,7 @@ struct PendingSigningSession {
 struct SwapInfo {
     status: SwapUpdate,
     lockup_address: String,
+    expected_amount: i64,
     timeout_block_height: u32,
 }
 
@@ -140,6 +141,16 @@ impl FundingAddressSigner {
         ) {
             return Err(anyhow!(FundingAddressEligibilityError(
                 "swap is not in an eligible state".to_string(),
+            )));
+        }
+        let funding_address_amount = funding_address.lockup_amount.ok_or_else(|| {
+            anyhow!(FundingAddressEligibilityError(
+                "funding address lockup amount missing".to_string(),
+            ))
+        })?;
+        if funding_address_amount != swap_info.expected_amount {
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address amount does not match swaps expected amount".to_string(),
             )));
         }
 
@@ -295,20 +306,30 @@ impl FundingAddressSigner {
     fn get_swap_info(&self, swap_id: &str) -> Result<SwapInfo> {
         self.swap_helper
             .get_by_id(swap_id)
-            .map(|swap| SwapInfo {
-                status: swap.status(),
-                lockup_address: swap.lockupAddress,
-                timeout_block_height: swap.timeoutBlockHeight as u32,
+            .and_then(|swap| {
+                Ok(SwapInfo {
+                    status: swap.status(),
+                    lockup_address: swap.lockupAddress,
+                    expected_amount: swap
+                        .onchainAmount
+                        .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
+                    timeout_block_height: swap.timeoutBlockHeight as u32,
+                })
             })
             .or_else(|_| {
-                self.chain_swap_helper.get_by_id(swap_id).map(|chain_swap| {
-                    let receiving = chain_swap.receiving();
-                    SwapInfo {
-                        status: chain_swap.status(),
-                        lockup_address: receiving.lockupAddress.clone(),
-                        timeout_block_height: receiving.timeoutBlockHeight as u32,
-                    }
-                })
+                self.chain_swap_helper
+                    .get_by_id(swap_id)
+                    .and_then(|chain_swap| {
+                        let receiving = chain_swap.receiving();
+                        Ok(SwapInfo {
+                            status: chain_swap.status(),
+                            lockup_address: receiving.lockupAddress.clone(),
+                            expected_amount: receiving
+                                .amount
+                                .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
+                            timeout_block_height: receiving.timeoutBlockHeight as u32,
+                        })
+                    })
             })
             .map_err(|e| anyhow!("failed to get swap info: {}", e))
     }
@@ -507,6 +528,17 @@ mod test {
     use rstest::rstest;
     use serial_test::serial;
 
+    impl Default for SwapInfo {
+        fn default() -> Self {
+            Self {
+                status: SwapUpdate::SwapCreated,
+                lockup_address: String::new(),
+                expected_amount: 100000,
+                timeout_block_height: 500,
+            }
+        }
+    }
+
     struct TestSignerContext {
         swap_helper: MockSwapHelper,
         chain_swap_helper: MockChainSwapHelper,
@@ -524,31 +556,16 @@ mod test {
             }
         }
 
-        fn with_swap(mut self, lockup_address: &str) -> Self {
-            let lockup_address = lockup_address.to_string();
-            self.swap_helper
-                .expect_get_by_id()
-                .returning(move |_| Ok(test_swap(&lockup_address)));
-            self
-        }
-
-        fn with_swap_status(mut self, lockup_address: &str, status: SwapUpdate) -> Self {
-            let lockup_address = lockup_address.to_string();
+        fn with_swap(mut self, swap_info: SwapInfo) -> Self {
+            let lockup_address = swap_info.lockup_address;
+            let status = swap_info.status;
+            let expected_amount = swap_info.expected_amount;
+            let timeout_block_height = swap_info.timeout_block_height as i32;
             self.swap_helper.expect_get_by_id().returning(move |_| {
-                let mut swap = test_swap(&lockup_address);
+                let mut swap = test_swap_with_timeout(&lockup_address, timeout_block_height);
                 swap.status = status.to_string();
+                swap.onchainAmount = Some(expected_amount);
                 Ok(swap)
-            });
-            self
-        }
-
-        fn with_swap_timeout(mut self, lockup_address: &str, timeout_block_height: i32) -> Self {
-            let lockup_address = lockup_address.to_string();
-            self.swap_helper.expect_get_by_id().returning(move |_| {
-                Ok(test_swap_with_timeout(
-                    &lockup_address,
-                    timeout_block_height,
-                ))
             });
             self
         }
@@ -604,6 +621,15 @@ mod test {
                 currencies,
                 self.timeout_buffer_minutes,
             )
+        }
+    }
+
+    fn test_swap_info(lockup_address: &str) -> SwapInfo {
+        SwapInfo {
+            status: SwapUpdate::SwapCreated,
+            lockup_address: lockup_address.to_string(),
+            expected_amount: 100000,
+            timeout_block_height: 500,
         }
     }
 
@@ -674,7 +700,10 @@ mod test {
         #[case] should_succeed: bool,
     ) {
         let signer = TestSignerContext::new()
-            .with_swap_status("bcrt1qtest123", swap_status)
+            .with_swap(SwapInfo {
+                status: swap_status,
+                ..Default::default()
+            })
             .with_currencies()
             .await
             .build();
@@ -700,22 +729,57 @@ mod test {
         }
     }
 
+    #[tokio::test]
+    async fn test_can_spend_rejects_amount_mismatch() {
+        let signer = TestSignerContext::new()
+            .with_swap(SwapInfo {
+                expected_amount: 100000,
+                ..Default::default()
+            })
+            .with_currencies()
+            .await
+            .build();
+        let key_pair = get_keypair();
+        let funding_address = test_funding_address_with_lockup(
+            "test_funding_amount_mismatch",
+            &key_pair.public_key().serialize(),
+            "tx123",
+            0,
+            100001,
+        );
+
+        let result = signer.can_spend(&funding_address, TEST_SWAP_ID);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("funding address amount does not match swaps expected amount")
+        );
+    }
+
     #[rstest]
-    #[case(true, false, "bcrt1qtest123", 500, true)] // swap found
-    #[case(false, true, "bcrt1qchain123", 600, true)] // chain swap found
-    #[case(false, false, "", 0, false)] // both fail
+    #[case(true, false, "bcrt1qtest123", 100000, 500, true)] // swap found
+    #[case(false, true, "bcrt1qchain123", 100000, 600, true)] // chain swap found
+    #[case(false, false, "", 0, 0, false)] // both fail
     #[tokio::test]
     async fn test_get_swap_info_scenarios(
         #[case] swap_exists: bool,
         #[case] chain_swap_exists: bool,
         #[case] expected_address: &str,
+        #[case] expected_amount: i64,
         #[case] expected_timeout: u32,
         #[case] should_succeed: bool,
     ) {
         let mut context = TestSignerContext::new().with_currencies().await;
 
         if swap_exists {
-            context = context.with_swap_timeout(expected_address, expected_timeout as i32);
+            context = context.with_swap(SwapInfo {
+                lockup_address: expected_address.to_string(),
+                expected_amount,
+                timeout_block_height: expected_timeout as u32,
+                ..Default::default()
+            });
         } else {
             context = context.with_swap_not_found();
         }
@@ -733,6 +797,7 @@ mod test {
             assert!(result.is_ok());
             let swap_info = result.unwrap();
             assert_eq!(swap_info.lockup_address, expected_address);
+            assert_eq!(swap_info.expected_amount, expected_amount);
             assert_eq!(swap_info.timeout_block_height, expected_timeout);
         } else {
             assert!(result.is_err());
@@ -746,34 +811,19 @@ mod test {
     }
 
     #[rstest]
-    #[case::btc_within_buffer("BTC", false, 990, Some(100), true)]
-    #[case::btc_exceeds_buffer("BTC", false, 991, Some(100), false)]
-    #[case::lbtc_within_buffer("L-BTC", false, 940, Some(60), true)]
-    #[case::lbtc_exceeds_buffer("L-BTC", false, 941, Some(60), false)]
-    #[case::chain_swap_within_buffer("BTC", true, 856, Some(1440), true)]
-    #[case::default_buffer("BTC", false, 856, None, true)]
+    #[case::btc_within_buffer("BTC", 990, Some(100), true)]
+    #[case::btc_exceeds_buffer("BTC", 991, Some(100), false)]
+    #[case::lbtc_within_buffer("L-BTC", 940, Some(60), true)]
+    #[case::lbtc_exceeds_buffer("L-BTC", 941, Some(60), false)]
+    #[case::default_buffer("BTC", 856, None, true)]
     #[tokio::test]
     async fn test_validate_timeout_buffer(
         #[case] symbol: &str,
-        #[case] is_chain_swap: bool,
         #[case] swap_timeout: i32,
         #[case] buffer_minutes: Option<u64>,
         #[case] should_pass: bool,
     ) {
-        let lockup_address = if symbol == "L-BTC" {
-            "el1qqtest"
-        } else {
-            "bcrt1qtest"
-        };
-
         let mut ctx = TestSignerContext::new();
-        ctx = if is_chain_swap {
-            ctx.with_swap_not_found()
-                .with_chain_swap_timeout(lockup_address, swap_timeout)
-        } else {
-            ctx.with_swap_timeout(lockup_address, swap_timeout)
-                .with_chain_swap_not_found()
-        };
         ctx = ctx.with_currencies().await;
         if let Some(minutes) = buffer_minutes {
             ctx = ctx.with_timeout_buffer_minutes(minutes);
@@ -788,9 +838,7 @@ mod test {
             1000,
         );
 
-        let swap_info = signer.get_swap_info(TEST_SWAP_ID).unwrap();
-        let result =
-            signer.validate_timeout_buffer(&funding_address, swap_info.timeout_block_height);
+        let result = signer.validate_timeout_buffer(&funding_address, swap_timeout as u32);
 
         assert_eq!(result.is_ok(), should_pass, "result: {:?}", result);
     }
@@ -823,7 +871,7 @@ mod test {
             .unwrap();
 
         let signer = TestSignerContext::new()
-            .with_swap(&swap_lockup_address)
+            .with_swap(test_swap_info(&swap_lockup_address))
             .with_currencies()
             .await
             .build();
@@ -1162,7 +1210,7 @@ mod test {
     #[tokio::test]
     async fn test_set_signature_rejects_unspendable_statuses(#[case] status: FundingAddressStatus) {
         let signer = TestSignerContext::new()
-            .with_swap("bcrt1qtest123")
+            .with_swap(test_swap_info("bcrt1qtest123"))
             .with_currencies()
             .await
             .build();
@@ -1322,7 +1370,7 @@ mod test {
             .unwrap();
 
         let signer = TestSignerContext::new()
-            .with_swap(&swap_lockup_address)
+            .with_swap(test_swap_info(&swap_lockup_address))
             .with_currencies()
             .await
             .build();

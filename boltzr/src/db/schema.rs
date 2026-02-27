@@ -47,6 +47,7 @@ diesel::table! {
         lockupTransactionVout -> Nullable<Integer>,
         createdAt -> Timestamptz,
         onchainAmount -> Nullable<BigInt>,
+        expectedAmount -> Nullable<BigInt>,
     }
 }
 

@@ -86,6 +86,7 @@ pub mod test {
             lockupAddress: lockup_address.to_string(),
             timeoutBlockHeight: timeout_block_height,
             status: SwapUpdate::SwapCreated.to_string(),
+            onchainAmount: Some(100000),
             ..Default::default()
         }
     }
@@ -107,6 +108,7 @@ pub mod test {
                 symbol: "BTC".to_string(),
                 lockupAddress: lockup_address.to_string(),
                 timeoutBlockHeight: timeout_block_height,
+                amount: Some(100000),
                 ..Default::default()
             },
             ChainSwapData {
@@ -114,6 +116,7 @@ pub mod test {
                 symbol: "L-BTC".to_string(),
                 lockupAddress: "el1qq0test".to_string(),
                 timeoutBlockHeight: timeout_block_height,
+                amount: Some(100000),
                 ..Default::default()
             },
         ];

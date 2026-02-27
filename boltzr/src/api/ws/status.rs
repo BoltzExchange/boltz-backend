@@ -36,7 +36,6 @@ pub trait SwapInfos {
 pub trait FundingAddressInfos {
     async fn fetch_funding_address_info(
         &self,
-        connection: u64,
         ids: Vec<String>,
     ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>>;
 }
@@ -546,7 +545,7 @@ where
                     // Fetch and inject initial state for funding addresses
                     match self
                         .swap_infos
-                        .fetch_funding_address_info(connection_id, args.clone())
+                        .fetch_funding_address_info(args.clone())
                         .await
                     {
                         Ok(Some(updates)) => {
@@ -700,7 +699,6 @@ mod status_test {
     impl FundingAddressInfos for Fetcher {
         async fn fetch_funding_address_info(
             &self,
-            _: u64,
             _ids: Vec<String>,
         ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
             Ok(None)
@@ -1185,7 +1183,6 @@ mod status_test {
         impl FundingAddressInfos for CacheFetcher {
             async fn fetch_funding_address_info(
                 &self,
-                _: u64,
                 _ids: Vec<String>,
             ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
                 Ok(None)
@@ -1305,7 +1302,6 @@ mod status_test {
         impl FundingAddressInfos for EmptyCacheFetcher {
             async fn fetch_funding_address_info(
                 &self,
-                _: u64,
                 _ids: Vec<String>,
             ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
                 Ok(None)
@@ -1405,7 +1401,6 @@ mod status_test {
         impl FundingAddressInfos for ErrorFetcher {
             async fn fetch_funding_address_info(
                 &self,
-                _: u64,
                 _ids: Vec<String>,
             ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
                 Ok(None)

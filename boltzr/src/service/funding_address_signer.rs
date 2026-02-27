@@ -26,6 +26,7 @@ use std::sync::Arc;
 /// Short TTL so that clients can't hold sessions for too long
 const CACHE_TTL: u64 = 60;
 const CACHE_KEY: &str = "funding_address_signer";
+const MEMPOOL_REJECTED_REASON: &str = "transaction not allowed in mempool";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct PendingSigningSession {
@@ -242,33 +243,7 @@ impl FundingAddressSigner {
             }
         }
 
-        let tx_hex = tx.serialize().to_hex();
-        let response = get_chain_client(&self.currencies, &funding_address.symbol)?
-            .test_mempool_accept(&[&tx_hex])
-            .await?;
-        let result = response
-            .first()
-            .ok_or_else(|| anyhow!("testmempoolaccept returned no result"))?;
-
-        let invalid_reason = match Type::from_str(&funding_address.symbol)? {
-            Type::Bitcoin => match result.reject_reason.as_deref() {
-                Some(reason) if reason.contains("min relay fee not met") => None,
-                Some(reason) => Some(reason.to_string()),
-                None => Some("transaction not allowed by mempool".to_string()),
-            },
-            Type::Elements => match result.reject_reason.as_deref() {
-                Some(reason) if !reason.is_empty() => Some(reason.to_string()),
-                _ if result.allowed => None,
-                _ => Some("transaction not allowed by mempool".to_string()),
-            },
-        };
-        if let Some(reason) = invalid_reason {
-            return Err(anyhow!(
-                "presigned tx for funding address {} is not valid: {}",
-                funding_address.id,
-                reason
-            ));
-        }
+        self.test_mempool_accept(funding_address, &tx).await?;
 
         Ok((tx, session.swap_id))
     }
@@ -350,6 +325,42 @@ impl FundingAddressSigner {
             return Err(anyhow!(FundingAddressEligibilityError(format!(
                 "swap timeout too close to funding address timeout: difference must be at least {timeout_buffer_blocks} blocks",
             ))));
+        }
+
+        Ok(())
+    }
+
+    async fn test_mempool_accept(
+        &self,
+        funding_address: &FundingAddress,
+        tx: &Transaction,
+    ) -> Result<()> {
+        let tx_hex = tx.serialize().to_hex();
+        let response = get_chain_client(&self.currencies, &funding_address.symbol)?
+            .test_mempool_accept(&[&tx_hex])
+            .await?;
+        let result = response
+            .first()
+            .ok_or_else(|| anyhow!("testmempoolaccept returned no result"))?;
+
+        let invalid_reason = match Type::from_str(&funding_address.symbol)? {
+            Type::Bitcoin => match result.reject_reason.as_deref() {
+                Some(reason) if reason.contains("min relay fee not met") => None,
+                Some(reason) => Some(reason.to_string()),
+                None => Some(MEMPOOL_REJECTED_REASON.to_string()),
+            },
+            Type::Elements => match result.reject_reason.as_deref() {
+                Some(reason) if !reason.is_empty() => Some(reason.to_string()),
+                _ if result.allowed => None,
+                _ => Some(MEMPOOL_REJECTED_REASON.to_string()),
+            },
+        };
+        if let Some(reason) = invalid_reason {
+            return Err(anyhow!(
+                "presigned tx for funding address {} is not valid: {}",
+                funding_address.id,
+                reason
+            ));
         }
 
         Ok(())

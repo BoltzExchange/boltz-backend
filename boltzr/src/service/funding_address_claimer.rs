@@ -228,7 +228,12 @@ impl FundingAddressClaimer {
                         ));
                     }
 
-                    txids.extend(response.tx_results.keys().cloned());
+                    txids.extend(
+                        response
+                            .tx_results
+                            .values()
+                            .map(|result| result.txid.clone()),
+                    );
                 }
             }
         }

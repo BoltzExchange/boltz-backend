@@ -352,7 +352,7 @@ class NodeSwitch {
       return;
     }
 
-    return nodeId;
+    return nodeId.trim();
   };
 
   private getBolt11Candidates = (

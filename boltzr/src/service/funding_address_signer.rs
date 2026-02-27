@@ -2,9 +2,9 @@ use crate::chain::types::Type;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
-use crate::db::models::FundingAddress;
-use crate::swap::FundingAddressStatus;
+use crate::db::models::{FundingAddress, SomeSwap};
 use crate::swap::TimeoutDeltaProvider;
+use crate::swap::{FundingAddressStatus, SwapUpdate};
 use anyhow::{Result, anyhow};
 use bitcoin::hashes::Hash;
 use bitcoin::key::{Keypair, Secp256k1};
@@ -40,9 +40,8 @@ struct PendingSigningSession {
 /// Information about a swap needed for linking to a funding address.
 #[derive(Debug, Clone)]
 struct SwapInfo {
-    /// The lockup address of the swap
+    status: SwapUpdate,
     lockup_address: String,
-    /// The timeout block height of the swap
     timeout_block_height: u32,
 }
 
@@ -119,14 +118,12 @@ impl FundingAddressSigner {
         format!("session:{}", funding_address_id)
     }
 
-    fn can_spend(&self, funding_address: &FundingAddress) -> Result<()> {
+    fn can_spend(&self, funding_address: &FundingAddress, swap_id: &str) -> Result<SwapInfo> {
         let status = FundingAddressStatus::parse(&funding_address.status);
-        if ![
-            FundingAddressStatus::TransactionMempool,
-            FundingAddressStatus::TransactionConfirmed,
-        ]
-        .contains(&status)
-        {
+        if !matches![
+            status,
+            FundingAddressStatus::TransactionMempool | FundingAddressStatus::TransactionConfirmed
+        ] {
             return Err(anyhow!(FundingAddressEligibilityError(
                 "funding address is not in a spendable state".to_string(),
             )));
@@ -136,7 +133,17 @@ impl FundingAddressSigner {
                 "funding address is already linked to a swap".to_string(),
             )));
         }
-        Ok(())
+        let swap_info = self.get_swap_info(swap_id)?;
+        if !matches!(
+            swap_info.status,
+            SwapUpdate::SwapCreated | SwapUpdate::InvoiceSet | SwapUpdate::TransactionMempool
+        ) {
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "swap is not in an eligible state".to_string(),
+            )));
+        }
+
+        Ok(swap_info)
     }
 
     pub async fn get_signing_details(
@@ -145,10 +152,7 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         swap_id: &str,
     ) -> Result<CooperativeDetails> {
-        self.can_spend(funding_address)?;
-
-        // Get swap info and validate timeout buffer before creating presigned tx
-        let swap_info = self.get_swap_info(swap_id)?;
+        let swap_info = self.can_spend(funding_address, swap_id)?;
         self.validate_timeout_buffer(funding_address, swap_info.timeout_block_height)?;
 
         let (tx, msg) = self
@@ -192,14 +196,14 @@ impl FundingAddressSigner {
         key_pair: &Keypair,
         request: &SetSignatureRequest,
     ) -> Result<(Transaction, String)> {
-        self.can_spend(funding_address)?;
-
         // Retrieve and remove the stored signing session from cache
         let session = self
             .cache
             .take::<PendingSigningSession>(CACHE_KEY, &Self::cache_field(&funding_address.id))
             .await?
             .ok_or_else(|| anyhow!("musig session not found for funding address"))?;
+
+        self.can_spend(funding_address, &session.swap_id)?;
 
         let their_pubkey = Musig::convert_pub_key(&funding_address.their_public_key()?.to_bytes())?;
         let msg: [u8; 32] = hex::decode(&session.sighash)?
@@ -292,6 +296,7 @@ impl FundingAddressSigner {
         self.swap_helper
             .get_by_id(swap_id)
             .map(|swap| SwapInfo {
+                status: swap.status(),
                 lockup_address: swap.lockupAddress,
                 timeout_block_height: swap.timeoutBlockHeight as u32,
             })
@@ -299,6 +304,7 @@ impl FundingAddressSigner {
                 self.chain_swap_helper.get_by_id(swap_id).map(|chain_swap| {
                     let receiving = chain_swap.receiving();
                     SwapInfo {
+                        status: chain_swap.status(),
                         lockup_address: receiving.lockupAddress.clone(),
                         timeout_block_height: receiving.timeoutBlockHeight as u32,
                     }
@@ -526,6 +532,16 @@ mod test {
             self
         }
 
+        fn with_swap_status(mut self, lockup_address: &str, status: SwapUpdate) -> Self {
+            let lockup_address = lockup_address.to_string();
+            self.swap_helper.expect_get_by_id().returning(move |_| {
+                let mut swap = test_swap(&lockup_address);
+                swap.status = status.to_string();
+                Ok(swap)
+            });
+            self
+        }
+
         fn with_swap_timeout(mut self, lockup_address: &str, timeout_block_height: i32) -> Self {
             let lockup_address = lockup_address.to_string();
             self.swap_helper.expect_get_by_id().returning(move |_| {
@@ -645,6 +661,43 @@ mod test {
                 .to_string()
                 .contains("failed to get swap info")
         );
+    }
+
+    #[rstest]
+    #[case(SwapUpdate::SwapCreated, true)]
+    #[case(SwapUpdate::TransactionMempool, true)]
+    #[case(SwapUpdate::InvoiceSet, true)]
+    #[case(SwapUpdate::TransactionConfirmed, false)]
+    #[tokio::test]
+    async fn test_can_spend_swap_status_eligibility(
+        #[case] swap_status: SwapUpdate,
+        #[case] should_succeed: bool,
+    ) {
+        let signer = TestSignerContext::new()
+            .with_swap_status("bcrt1qtest123", swap_status)
+            .with_currencies()
+            .await
+            .build();
+
+        let key_pair = get_keypair();
+        let funding_address = test_funding_address_with_lockup(
+            "test_funding_swap_not_created",
+            &key_pair.public_key().serialize(),
+            "tx123",
+            0,
+            100000,
+        );
+
+        let result = signer.can_spend(&funding_address, TEST_SWAP_ID);
+        assert_eq!(result.is_ok(), should_succeed, "result: {:?}", result);
+        if !should_succeed {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("swap is not in an eligible state")
+            );
+        }
     }
 
     #[rstest]
@@ -1108,13 +1161,33 @@ mod test {
     #[case(FundingAddressStatus::TransactionClaimed)]
     #[tokio::test]
     async fn test_set_signature_rejects_unspendable_statuses(#[case] status: FundingAddressStatus) {
-        let signer = TestSignerContext::new().with_currencies().await.build();
+        let signer = TestSignerContext::new()
+            .with_swap("bcrt1qtest123")
+            .with_currencies()
+            .await
+            .build();
         let key_pair = get_keypair();
 
         let mut funding_address = test_funding_address(
             "test_funding_unspendable_status",
             &key_pair.public_key().serialize(),
         );
+        signer
+            .cache
+            .set(
+                CACHE_KEY,
+                &FundingAddressSigner::cache_field(&funding_address.id),
+                &PendingSigningSession {
+                    sec_nonce: "00".to_string(),
+                    pub_nonce: "00".to_string(),
+                    sighash: "00".repeat(32),
+                    swap_id: TEST_SWAP_ID.to_string(),
+                    transaction: "00".to_string(),
+                },
+                Some(CACHE_TTL),
+            )
+            .await
+            .unwrap();
         funding_address.status = status.to_string();
 
         let request = SetSignatureRequest {

@@ -33,6 +33,7 @@ pub struct FundingAddress {
     pub lockup_amount: Option<i64>,
     pub swap_id: Option<String>,
     pub presigned_tx: Option<Vec<u8>>,
+    #[diesel(skip_insertion)]
     pub created_at: chrono::NaiveDateTime,
 }
 

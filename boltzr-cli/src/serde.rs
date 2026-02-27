@@ -14,11 +14,11 @@ pub mod u256 {
     use alloy::primitives::U256;
     use serde::Serializer;
 
-    pub fn serialize_sats<S>(data: &U256, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize_base10<S>(data: &U256, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&data.div_ceil(U256::from(10u128.pow(10))).to_string())
+        serializer.serialize_str(&data.to_string())
     }
 }
 
@@ -35,8 +35,8 @@ mod tests {
     }
 
     #[derive(Serialize)]
-    struct U256Wrapper {
-        #[serde(serialize_with = "u256::serialize_sats")]
+    struct U256Base10Wrapper {
+        #[serde(serialize_with = "u256::serialize_base10")]
         amount: U256,
     }
 
@@ -57,57 +57,11 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_sats_zero() {
-        let wrapper = U256Wrapper {
-            amount: U256::from(0),
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"0\"}");
-    }
-
-    #[test]
-    fn test_serialize_sats_exact_division() {
-        let wrapper = U256Wrapper {
-            amount: U256::from(10u128.pow(10)),
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"1\"}");
-    }
-
-    #[test]
-    fn test_serialize_sats_ceiling_division() {
-        let wrapper = U256Wrapper {
-            amount: U256::from(10u128.pow(10) + 1),
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"2\"}");
-    }
-
-    #[test]
-    fn test_serialize_sats_large_value() {
-        let btc_21m_wei = U256::from(21_000_000u128) * U256::from(10u128.pow(18));
-        let wrapper = U256Wrapper {
-            amount: btc_21m_wei,
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"2100000000000000\"}");
-    }
-
-    #[test]
-    fn test_serialize_sats_small_value() {
-        let wrapper = U256Wrapper {
+    fn test_serialize_base10() {
+        let wrapper = U256Base10Wrapper {
             amount: U256::from(123456789u128),
         };
         let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"1\"}");
-    }
-
-    #[test]
-    fn test_serialize_sats_multiple_of_divisor() {
-        let wrapper = U256Wrapper {
-            amount: U256::from(5u128) * U256::from(10u128.pow(10)),
-        };
-        let json = serde_json::to_string(&wrapper).unwrap();
-        assert_eq!(json, "{\"amount\":\"5\"}");
+        assert_eq!(json, "{\"amount\":\"123456789\"}");
     }
 }

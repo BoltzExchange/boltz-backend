@@ -3,9 +3,8 @@ use crate::utils::check_contract_exists;
 use crate::{SwapType, SwapValues, eip712_domain};
 use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::{Address, B256, FixedBytes, U256};
-use alloy::providers::DynProvider;
-use alloy::providers::Provider;
 use alloy::providers::network::AnyNetwork;
+use alloy::providers::{CallItemBuilder, DynProvider, Provider};
 use alloy::rpc::types::Log;
 use alloy::sol_types::SolValue;
 use anyhow::anyhow;
@@ -94,6 +93,17 @@ impl From<v6::EtherSwap::Lockup> for EtherSwapLockup {
 }
 
 impl EtherSwapContract {
+    fn swap_hash(lockup: &EtherSwapLockup) -> B256 {
+        let params = (
+            lockup.preimage_hash,
+            lockup.amount,
+            lockup.claim_address,
+            lockup.refund_address,
+            lockup.timelock,
+        );
+        alloy::primitives::keccak256(SolValue::abi_encode(&params))
+    }
+
     pub async fn new(address: Address, provider: DynProvider<AnyNetwork>) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
         check_contract_exists(&provider, address).await?;
@@ -247,18 +257,40 @@ impl EtherSwapContract {
         })
     }
 
-    pub async fn is_lockup_active(&self, lockup: EtherSwapLockup) -> anyhow::Result<bool> {
-        let params = (
-            lockup.preimage_hash,
-            lockup.amount,
-            lockup.claim_address,
-            lockup.refund_address,
-            lockup.timelock,
-        );
-        let swap_hash = alloy::primitives::keccak256(SolValue::abi_encode(&params));
+    pub async fn is_lockup_active(&self, lockup: &EtherSwapLockup) -> anyhow::Result<bool> {
+        let swap_hash = Self::swap_hash(lockup);
 
         with_ether_contract!(self, contract => {
             Ok(contract.swaps(swap_hash).call().await?)
+        })
+    }
+
+    pub async fn are_lockups_active(
+        &self,
+        lockups: &[EtherSwapLockup],
+    ) -> anyhow::Result<Vec<bool>> {
+        if lockups.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let swap_hashes = lockups.iter().map(Self::swap_hash).collect::<Vec<_>>();
+
+        with_ether_contract!(self, contract => {
+            let mut multicall = self.provider.multicall().dynamic();
+            for swap_hash in &swap_hashes {
+                multicall = multicall.add_call_dynamic(
+                    CallItemBuilder::new(contract.swaps(*swap_hash)).allow_failure(true),
+                );
+            }
+
+            multicall
+                .aggregate3()
+                .await?
+                .into_iter()
+                .map(|result| {
+                    result.map_err(|err| anyhow!("check for lockup activity failed: {err}"))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()
         })
     }
 

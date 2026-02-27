@@ -341,6 +341,12 @@ enum EvmCommands {
         start_height: u64,
         #[arg(short, long, default_value_t = 10_000)]
         scan_interval: u64,
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Whether the contract is EtherSwap or ERC20Swap"
+        )]
+        erc20: bool,
     },
     #[command(about = "Signs a commitment for a swap by parsing the logs of a lockup transaction")]
     SignCommitment {
@@ -615,9 +621,16 @@ async fn run_command(cli: Cli) -> Result<()> {
                 EvmCommands::LockedInContract {
                     start_height,
                     scan_interval,
+                    erc20,
                 } => {
-                    evm::scan_locked_in_contract(&rpc_url, contract, *start_height, *scan_interval)
-                        .await?;
+                    evm::scan_locked_in_contract(
+                        &rpc_url,
+                        contract,
+                        *start_height,
+                        *scan_interval,
+                        *erc20,
+                    )
+                    .await?;
                 }
                 EvmCommands::SignCommitment {
                     preimage_hash,

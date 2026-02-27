@@ -3,10 +3,10 @@ use crate::utils::check_contract_exists;
 use crate::{SwapType, SwapValues, eip712_domain};
 use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::{Address, B256, FixedBytes, U256};
-use alloy::providers::DynProvider;
-use alloy::providers::Provider;
 use alloy::providers::network::AnyNetwork;
+use alloy::providers::{CallItemBuilder, DynProvider, Provider};
 use alloy::rpc::types::Log;
+use alloy::sol_types::SolValue;
 use anyhow::anyhow;
 use tracing::{debug, info};
 
@@ -63,6 +63,12 @@ pub struct ERC20SwapLockup {
     pub timelock: U256,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ERC20SwapLockupLog {
+    pub lockup: ERC20SwapLockup,
+    pub transaction_hash: Option<B256>,
+}
+
 impl From<v5::ERC20Swap::Lockup> for ERC20SwapLockup {
     fn from(lockup: v5::ERC20Swap::Lockup) -> Self {
         Self {
@@ -90,6 +96,18 @@ impl From<v6::ERC20Swap::Lockup> for ERC20SwapLockup {
 }
 
 impl ERC20SwapContract {
+    fn swap_hash(lockup: &ERC20SwapLockup) -> B256 {
+        let params = (
+            lockup.preimage_hash,
+            lockup.amount,
+            lockup.token_address,
+            lockup.claim_address,
+            lockup.refund_address,
+            lockup.timelock,
+        );
+        alloy::primitives::keccak256(SolValue::abi_encode(&params))
+    }
+
     pub async fn new(address: Address, provider: DynProvider<AnyNetwork>) -> anyhow::Result<Self> {
         debug!("Using {}: {}", NAME, address.to_string());
         check_contract_exists(&provider, address).await?;
@@ -223,6 +241,68 @@ impl ERC20SwapContract {
                 .ok_or_else(|| anyhow!("no lockup found"))?;
 
             Ok(lockup.0.into())
+        })
+    }
+
+    pub async fn lockups_in_range(
+        &self,
+        from_block: u64,
+        to_block: u64,
+    ) -> anyhow::Result<Vec<ERC20SwapLockupLog>> {
+        with_erc20_contract!(self, contract => {
+            let logs = contract
+                .Lockup_filter()
+                .from_block(from_block)
+                .to_block(to_block)
+                .query()
+                .await?;
+
+            let lockups = logs
+                .into_iter()
+                .map(|(event, log)| ERC20SwapLockupLog {
+                    lockup: event.into(),
+                    transaction_hash: log.transaction_hash,
+                })
+                .collect();
+
+            Ok(lockups)
+        })
+    }
+
+    pub async fn is_lockup_active(&self, lockup: &ERC20SwapLockup) -> anyhow::Result<bool> {
+        let swap_hash = Self::swap_hash(lockup);
+
+        with_erc20_contract!(self, contract => {
+            Ok(contract.swaps(swap_hash).call().await?)
+        })
+    }
+
+    pub async fn are_lockups_active(
+        &self,
+        lockups: &[ERC20SwapLockup],
+    ) -> anyhow::Result<Vec<bool>> {
+        if lockups.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let swap_hashes = lockups.iter().map(Self::swap_hash).collect::<Vec<_>>();
+
+        with_erc20_contract!(self, contract => {
+            let mut multicall = self.provider.multicall().dynamic();
+            for swap_hash in &swap_hashes {
+                multicall = multicall.add_call_dynamic(
+                    CallItemBuilder::new(contract.swaps(*swap_hash)).allow_failure(true),
+                );
+            }
+
+            multicall
+                .aggregate3()
+                .await?
+                .into_iter()
+                .map(|result| {
+                    result.map_err(|err| anyhow!("check for lockup activity failed: {err}"))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()
         })
     }
 

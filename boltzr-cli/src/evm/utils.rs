@@ -23,8 +23,16 @@ sol!(
 );
 
 pub async fn token_decimals(provider: &DynProvider<AnyNetwork>, token: Address) -> u8 {
+    token_decimals_or(provider, token, 18).await
+}
+
+pub async fn token_decimals_or(
+    provider: &DynProvider<AnyNetwork>,
+    token: Address,
+    default_decimals: u8,
+) -> u8 {
     let contract = IERC20::new(token, provider);
-    contract.decimals().call().await.unwrap_or(18)
+    contract.decimals().call().await.unwrap_or(default_decimals)
 }
 
 pub fn amount_to_token_units(amount: crate::parsers::Amount, decimals: u8) -> Result<U256> {

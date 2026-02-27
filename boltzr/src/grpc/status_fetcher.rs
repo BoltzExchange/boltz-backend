@@ -116,7 +116,6 @@ impl SwapInfos for StatusFetcher {
 impl FundingAddressInfos for StatusFetcher {
     async fn fetch_funding_address_info(
         &self,
-        _connection: u64,
         ids: Vec<String>,
     ) -> Result<Option<Vec<FundingAddressUpdate>>> {
         let Some(service) = &self.funding_address_service else {

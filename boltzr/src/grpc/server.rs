@@ -95,7 +95,7 @@ where
             notification_client,
             swap_status_update_tx,
             web_hook_status_caller,
-            status_fetcher: StatusFetcher::new(cache).with_funding_address_service(service.clone()),
+            status_fetcher: StatusFetcher::new(cache).with_funding_address_service(service),
         }
     }
 

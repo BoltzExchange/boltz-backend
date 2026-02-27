@@ -325,6 +325,88 @@ describe('NodeSwitch', () => {
         );
       },
     );
+
+    test('should prefer a connected LND when max xpay retries are reached', async () => {
+      const disconnectedLnd = createNode(
+        LndClient.serviceName,
+        NodeType.LND,
+        'lnd-down',
+        false,
+      );
+      const connectedLnd = createNode(
+        LndClient.serviceName,
+        NodeType.LND,
+        'lnd-2',
+      );
+      const multiLndCurrency = {
+        clnClient,
+        lndClients: new Map([
+          [disconnectedLnd.id, disconnectedLnd],
+          [connectedLnd.id, connectedLnd],
+        ]),
+      } as unknown as Currency;
+      const decoded = {
+        type: InvoiceType.Bolt11,
+        paymentHash: randomBytes(32),
+        amountMsat: satToMsat(21_000),
+        routingHints: [],
+      } as unknown as DecodedInvoice;
+
+      LightningPaymentRepository.findByPreimageHashAndNodeId = jest
+        .fn()
+        .mockResolvedValue({
+          retries: NodeSwitch['maxClnRetries'],
+        } as LightningPayment);
+
+      await expect(
+        new NodeSwitch(Logger.disabledLogger, {}).getSwapNode(
+          multiLndCurrency,
+          decoded,
+          {},
+        ),
+      ).resolves.toEqual(connectedLnd);
+
+      expect(
+        LightningPaymentRepository.findByPreimageHashAndNodeId,
+      ).toHaveBeenCalledWith(getHexString(decoded.paymentHash!), clnClient.id);
+    });
+
+    test('should fall back when no connected LND is available after max xpay retries', async () => {
+      const disconnectedLnd = createNode(
+        LndClient.serviceName,
+        NodeType.LND,
+        'lnd-down',
+        false,
+      );
+      const noConnectedLndCurrency = {
+        clnClient,
+        lndClients: new Map([[disconnectedLnd.id, disconnectedLnd]]),
+      } as unknown as Currency;
+      const decoded = {
+        type: InvoiceType.Bolt11,
+        paymentHash: randomBytes(32),
+        amountMsat: satToMsat(21_000),
+        routingHints: [],
+      } as unknown as DecodedInvoice;
+
+      LightningPaymentRepository.findByPreimageHashAndNodeId = jest
+        .fn()
+        .mockResolvedValue({
+          retries: NodeSwitch['maxClnRetries'],
+        } as LightningPayment);
+
+      await expect(
+        new NodeSwitch(Logger.disabledLogger, {}).getSwapNode(
+          noConnectedLndCurrency,
+          decoded,
+          {},
+        ),
+      ).resolves.toEqual(clnClient);
+
+      expect(
+        LightningPaymentRepository.findByPreimageHashAndNodeId,
+      ).toHaveBeenCalledWith(getHexString(decoded.paymentHash!), clnClient.id);
+    });
   });
 
   test.each`

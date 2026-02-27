@@ -332,7 +332,7 @@ class Boltz {
 
       // Register in config order so "primary LND" selection stays deterministic.
       for (const { currency, symbol, client } of configuredLnds) {
-        if (!client.id) {
+        if (!client.isConnected()) {
           this.logger.warn(`Skipping LND for ${symbol} - connection failed`);
           client.disconnect();
           continue;

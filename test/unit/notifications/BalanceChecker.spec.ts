@@ -242,7 +242,7 @@ describe('BalanceChecker', () => {
 
   test('should check balance', () => {
     const service = 'Core';
-    const currency = { ...btcCurrency, preferredWallet: 'core' } as any;
+    const currency = { ...btcCurrency } as any;
     const checkBalance = checker['checkBalance'];
 
     /*
@@ -528,11 +528,20 @@ describe('BalanceChecker', () => {
           },
         ],
       ],
-      lightningMap: [],
+      lightningMap: [
+        [
+          lndNodeId,
+          {
+            local: 2,
+            remote: 3,
+          },
+        ],
+      ],
     });
 
-    expect(mockedCheckBalance).toHaveBeenCalledTimes(3);
-    expect(mockedCheckBalance).toHaveBeenLastCalledWith(
+    expect(mockedCheckBalance).toHaveBeenCalledTimes(5);
+    expect(mockedCheckBalance).toHaveBeenNthCalledWith(
+      3,
       expect.anything(),
       expect.anything(),
       expect.anything(),

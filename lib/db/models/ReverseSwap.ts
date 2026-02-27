@@ -181,10 +181,6 @@ class ReverseSwap extends Model implements ReverseSwapType {
             fields: ['status'],
           },
           {
-            unique: false,
-            fields: ['nodeId'],
-          },
-          {
             unique: true,
             fields: ['preimageHash'],
           },

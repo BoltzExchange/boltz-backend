@@ -77,7 +77,6 @@ class ClnClient
     super(logger, symbol);
 
     this.id = '';
-    this.alias = config.alias;
     this.disableMpp = config.disableMpp ?? false;
 
     if (this.disableMpp) {

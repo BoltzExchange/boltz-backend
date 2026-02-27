@@ -24,8 +24,10 @@ const groupStatsByNodeType = (
 
   for (const [nodeId, stats] of statsByNodeId.entries()) {
     const nodeType = nodeInfos.get(nodeId)?.nodeType;
-    const key =
-      nodeType !== undefined ? nodeTypeToPrettyString(nodeType) : nodeId;
+    if (nodeType === undefined) {
+      continue;
+    }
+    const key = nodeTypeToPrettyString(nodeType);
 
     const existing = aggregated.get(key);
     if (!existing) {

@@ -14,7 +14,6 @@ abstract class BaseClient<
   protected reconnectionTimer?: any;
 
   public id?: string;
-  public alias?: string;
 
   private status = ClientStatus.Disconnected;
   protected constructor(
@@ -76,9 +75,6 @@ abstract class BaseClient<
 
   private getName = () => {
     const base = `${this.serviceName()}-${this.symbol}`;
-    if (this.alias) {
-      return `${base} (${this.alias})`;
-    }
     if (this.id && this.id !== SelfPaymentNodeId) {
       return `${base} (${this.id})`;
     }

@@ -1,3 +1,4 @@
+import type { NodeType } from 'lib/db/models/ReverseSwap';
 import type { Job } from 'node-schedule';
 import { scheduleJob } from 'node-schedule';
 import type { CurrencyConfig } from '../Config';
@@ -14,7 +15,7 @@ import { type Currency, getLightningClients } from '../wallet/WalletManager';
 type LightningNodeInfo = {
   nodeKey: string;
   uris: string[];
-  nodeType: LightningClient['type'];
+  nodeType: NodeType;
 };
 
 type Stats = {

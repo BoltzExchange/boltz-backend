@@ -26,6 +26,9 @@ import RefundTransactionRepository from './repositories/RefundTransactionReposit
 import ScriptPubKeyRepository from './repositories/ScriptPubKeyRepository';
 import SwapRepository from './repositories/SwapRepository';
 
+const LegacyLndNodeId = 'legacy-lnd';
+const LegacyClnNodeId = 'legacy-cln';
+
 export const decodeBip21 = (
   bip21: string,
   currencies: Map<string, Currency>,
@@ -556,6 +559,34 @@ class Migration {
 
         this.logUpdatingTable(ReverseSwap.tableName);
         this.logUpdatingTable(LightningPayment.tableName);
+        const [reverseSwapInvalidNodeCount] = await this.sequelize.query<{
+          count: string | number;
+        }>(
+          `SELECT COUNT(*) AS count FROM "${ReverseSwap.tableName}" WHERE "node" NOT IN (0, 1, 2)`,
+          {
+            type: QueryTypes.SELECT,
+          },
+        );
+        if (Number(reverseSwapInvalidNodeCount.count) > 0) {
+          throw new Error(
+            `Could not migrate all ${ReverseSwap.tableName} rows to nodeId; found ${reverseSwapInvalidNodeCount.count} rows with unsupported node values`,
+          );
+        }
+
+        const [lightningPaymentInvalidNodeCount] = await this.sequelize.query<{
+          count: string | number;
+        }>(
+          `SELECT COUNT(*) AS count FROM "${LightningPayment.tableName}" WHERE "node" NOT IN (0, 1, 2)`,
+          {
+            type: QueryTypes.SELECT,
+          },
+        );
+        if (Number(lightningPaymentInvalidNodeCount.count) > 0) {
+          throw new Error(
+            `Could not migrate all ${LightningPayment.tableName} rows to nodeId; found ${lightningPaymentInvalidNodeCount.count} rows with unsupported node values`,
+          );
+        }
+
         await this.sequelize.transaction(async (transaction) => {
           await queryInterface.addColumn(
             ReverseSwap.tableName,
@@ -577,13 +608,15 @@ class Migration {
           await this.sequelize.query(
             `UPDATE "${ReverseSwap.tableName}"
              SET "nodeId" = CASE "node"
-               WHEN 0 THEN 'legacy-lnd'
-               WHEN 1 THEN 'legacy-cln'
+               WHEN 0 THEN $legacyLndNodeId
+               WHEN 1 THEN $legacyClnNodeId
                WHEN 2 THEN $selfPaymentNodeId
              END
              WHERE "node" IN (0, 1, 2)`,
             {
               bind: {
+                legacyLndNodeId: LegacyLndNodeId,
+                legacyClnNodeId: LegacyClnNodeId,
                 selfPaymentNodeId: SelfPaymentNodeId,
               },
               transaction,
@@ -592,48 +625,20 @@ class Migration {
           await this.sequelize.query(
             `UPDATE "${LightningPayment.tableName}"
              SET "nodeId" = CASE "node"
-               WHEN 0 THEN 'legacy-lnd'
-               WHEN 1 THEN 'legacy-cln'
+               WHEN 0 THEN $legacyLndNodeId
+               WHEN 1 THEN $legacyClnNodeId
                WHEN 2 THEN $selfPaymentNodeId
              END
              WHERE "node" IN (0, 1, 2)`,
             {
               bind: {
+                legacyLndNodeId: LegacyLndNodeId,
+                legacyClnNodeId: LegacyClnNodeId,
                 selfPaymentNodeId: SelfPaymentNodeId,
               },
               transaction,
             },
           );
-
-          const [reverseSwapNullCount] = await this.sequelize.query<{
-            count: string | number;
-          }>(
-            `SELECT COUNT(*) AS count FROM "${ReverseSwap.tableName}" WHERE "nodeId" IS NULL`,
-            {
-              type: QueryTypes.SELECT,
-              transaction,
-            },
-          );
-          if (Number(reverseSwapNullCount.count) > 0) {
-            throw new Error(
-              `Could not migrate all ${ReverseSwap.tableName} rows to nodeId; found ${reverseSwapNullCount.count} NULL values`,
-            );
-          }
-
-          const [lightningPaymentNullCount] = await this.sequelize.query<{
-            count: string | number;
-          }>(
-            `SELECT COUNT(*) AS count FROM "${LightningPayment.tableName}" WHERE "nodeId" IS NULL`,
-            {
-              type: QueryTypes.SELECT,
-              transaction,
-            },
-          );
-          if (Number(lightningPaymentNullCount.count) > 0) {
-            throw new Error(
-              `Could not migrate all ${LightningPayment.tableName} rows to nodeId; found ${lightningPaymentNullCount.count} NULL values`,
-            );
-          }
 
           await this.sequelize.query(
             `ALTER TABLE "${ReverseSwap.tableName}" ALTER COLUMN "nodeId" SET NOT NULL`,
@@ -648,9 +653,6 @@ class Migration {
             },
           );
 
-          await queryInterface.addIndex(ReverseSwap.tableName, ['nodeId'], {
-            transaction,
-          });
           await this.sequelize.query(
             `ALTER TABLE "${LightningPayment.tableName}" DROP CONSTRAINT IF EXISTS "${LightningPayment.tableName}_pkey"`,
             {
@@ -659,13 +661,6 @@ class Migration {
           );
           await this.sequelize.query(
             `ALTER TABLE "${LightningPayment.tableName}" ADD PRIMARY KEY ("preimageHash", "nodeId")`,
-            {
-              transaction,
-            },
-          );
-          await queryInterface.addIndex(
-            LightningPayment.tableName,
-            ['nodeId'],
             {
               transaction,
             },
@@ -767,14 +762,14 @@ class Migration {
         }
 
         case 24: {
-          // Resolve legacy-lnd / legacy-cln placeholders to actual node pubkeys
+          // Resolve legacy placeholders to actual node pubkeys
           const btc = currencies.get('BTC');
           const lndPubkey = btc?.lndClients.values().next().value?.id;
           const clnPubkey = btc?.clnClient?.id;
 
           for (const [placeholder, pubkey] of [
-            ['legacy-lnd', lndPubkey],
-            ['legacy-cln', clnPubkey],
+            [LegacyLndNodeId, lndPubkey],
+            [LegacyClnNodeId, clnPubkey],
           ] as const) {
             if (pubkey === undefined) {
               this.logger.warn(

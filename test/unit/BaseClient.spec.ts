@@ -13,10 +13,9 @@ class BaseClientTest extends BaseClient {
 }
 
 class BaseClientTestWithId extends BaseClient {
-  constructor(symbol: string, id: string, alias?: string) {
+  constructor(symbol: string, id: string) {
     super(Logger.disabledLogger, symbol);
     this.id = id;
-    this.alias = alias;
   }
 
   public serviceName = (): string => {
@@ -98,32 +97,6 @@ describe('BaseClient', () => {
 
     expect(spy).toHaveBeenCalledWith(
       `LND-BTC status changed: ${ClientStatus.Connected}`,
-    );
-  });
-
-  test('should include alias in log message when alias is set', () => {
-    const spy = jest.spyOn(Logger.disabledLogger, 'info');
-    const client = new BaseClientTestWithId('BTC', '', 'my-node');
-
-    client['status'] = ClientStatus.Disconnected;
-    client.setClientStatus(ClientStatus.Connected);
-
-    expect(spy).toHaveBeenCalledWith(
-      `LND-BTC (my-node) status changed: ${ClientStatus.Connected}`,
-    );
-  });
-
-  test('should prefer alias over id in log message when both are set', () => {
-    const spy = jest.spyOn(Logger.disabledLogger, 'info');
-    const nodeId =
-      '02a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3';
-    const client = new BaseClientTestWithId('BTC', nodeId, 'my-node');
-
-    client['status'] = ClientStatus.Disconnected;
-    client.setClientStatus(ClientStatus.Connected);
-
-    expect(spy).toHaveBeenCalledWith(
-      `LND-BTC (my-node) status changed: ${ClientStatus.Connected}`,
     );
   });
 });

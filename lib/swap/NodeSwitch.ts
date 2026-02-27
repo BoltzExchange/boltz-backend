@@ -139,15 +139,19 @@ class NodeSwitch {
     getLightningClients(currency);
 
   public static hasClient = (currency: Currency, type?: NodeType): boolean => {
-    if (type === NodeType.LND) {
-      return currency.lndClients.size > 0;
-    }
+    switch (type) {
+      case NodeType.LND:
+        return currency.lndClients.size > 0;
 
-    if (type === NodeType.CLN) {
-      return currency.clnClient !== undefined;
-    }
+      case NodeType.CLN:
+        return currency.clnClient !== undefined;
 
-    return currency.lndClients.size > 0 || currency.clnClient !== undefined;
+      case NodeType.SelfPayment:
+        return false;
+
+      default:
+        return currency.lndClients.size > 0 || currency.clnClient !== undefined;
+    }
   };
 
   public updateClnThresholds = (
@@ -184,7 +188,7 @@ class NodeSwitch {
       requestedClient = getLightningClientById(currency, requestedNodeId);
       if (requestedClient === undefined) {
         this.logger.warn(
-          `Requested node ${requestedNodeId} not configured for ${currency.symbol}; falling back`,
+          `Requested node ${requestedNodeId} not configured for ${currency.symbol}`,
         );
       }
     }
@@ -242,7 +246,15 @@ class NodeSwitch {
           this.logger.debug(
             `Max CLN retries reached for invoice ${identifier}; preferring LND`,
           );
-          client = NodeSwitch.fallback(currency);
+          const connectedLnd = NodeSwitch.getConnectedLnd(currency);
+          if (connectedLnd !== undefined) {
+            client = connectedLnd;
+          } else {
+            this.logger.warn(
+              `Max CLN retries reached for invoice ${identifier}, but no connected LND is available`,
+            );
+            client = NodeSwitch.fallback(currency);
+          }
         }
       }
     }
@@ -377,7 +389,7 @@ class NodeSwitch {
     const preferred = getLightningClientById(currency, preferredNodeId);
     if (preferred === undefined) {
       this.logger.warn(
-        `Preferred node ${preferredNodeId} not configured for ${currency.symbol}; falling back`,
+        `Preferred node ${preferredNodeId} not configured for ${currency.symbol}`,
       );
       return ordered;
     }
@@ -387,6 +399,13 @@ class NodeSwitch {
       ...ordered.filter((client) => client.id !== preferred.id),
     ];
   };
+
+  private static getConnectedLnd = (
+    currency: Currency,
+  ): LightningClient | undefined =>
+    Array.from(currency.lndClients.values()).find((client) =>
+      client.isConnected(),
+    );
 
   public static fallback = (
     currency: Currency,

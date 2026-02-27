@@ -1,8 +1,4 @@
-import type {
-  BaseCurrencyConfig,
-  PreferredWallet,
-  TokenConfig,
-} from '../Config';
+import type { BaseCurrencyConfig, TokenConfig } from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import type Logger from '../Logger';
 import { liquidSymbol } from '../consts/LiquidTypes';
@@ -17,10 +13,8 @@ enum BalanceType {
   ChannelRemote,
 }
 
-type CurrenyThresholds = {
+type CurrencyThresholds = {
   symbol: string;
-
-  preferredWallet?: PreferredWallet;
 
   minWalletBalance: number;
   maxWalletBalance?: number;
@@ -32,7 +26,7 @@ type CurrenyThresholds = {
 };
 
 class BalanceChecker {
-  private currencies: CurrenyThresholds[] = [];
+  private currencies: CurrencyThresholds[] = [];
 
   // These Sets contain the symbols for which an out of bounds alert notification was sent
   private walletBalanceAlerts = new Set<string>();
@@ -75,16 +69,22 @@ class BalanceChecker {
   };
 
   private checkCurrency = async (
-    currency: CurrenyThresholds,
+    currency: CurrencyThresholds,
     balances: Balances.AsObject,
   ) => {
+    const isOnlyWallet = balances.walletsMap.length === 1;
+    const lightningServices = new Set(
+      balances.lightningMap.map(([service]) => service),
+    );
+
     for (const [service, balance] of balances.walletsMap) {
+      const isMainWallet = isOnlyWallet || !lightningServices.has(service);
       await this.checkBalance(
         currency,
         service,
         BalanceType.Wallet,
         balance.confirmed + balance.unconfirmed,
-        balances.walletsMap.length === 1,
+        isMainWallet,
       );
     }
 
@@ -106,14 +106,13 @@ class BalanceChecker {
   };
 
   private checkBalance = async (
-    currency: CurrenyThresholds,
+    currency: CurrencyThresholds,
     service: string,
     type: BalanceType,
     balance: number,
-    isOnlyWallet?: boolean,
+    isMainWallet = true,
   ) => {
     let isInBounds: boolean;
-    let isMainWallet = false;
     let notificationSet: Set<string>;
 
     if (type === BalanceType.Wallet) {
@@ -122,8 +121,7 @@ class BalanceChecker {
       const { minWalletBalance, maxWalletBalance, maxUnusedWalletBalance } =
         currency;
 
-      if (this.isPreferredWallet(currency, service, isOnlyWallet)) {
-        isMainWallet = true;
+      if (isMainWallet) {
         isInBounds =
           minWalletBalance <= balance &&
           balance <= (maxWalletBalance || Number.MAX_SAFE_INTEGER);
@@ -172,39 +170,8 @@ class BalanceChecker {
     }
   };
 
-  private isPreferredWallet = (
-    currency: CurrenyThresholds,
-    service: string,
-    isOnlyWallet?: boolean,
-  ): boolean => {
-    if (isOnlyWallet) {
-      return true;
-    }
-
-    const preferred = (currency.preferredWallet || 'lnd').toLowerCase();
-    if (preferred === service.toLowerCase()) {
-      return true;
-    }
-
-    const runtimeCurrency = this.service.currencies.get(currency.symbol);
-    if (!runtimeCurrency) {
-      return false;
-    }
-
-    if (preferred === 'lnd') {
-      const primaryLnd = runtimeCurrency.lndClients.values().next().value;
-      return primaryLnd?.id === service;
-    }
-
-    if (preferred === 'cln') {
-      return runtimeCurrency.clnClient?.id === service;
-    }
-
-    return false;
-  };
-
   private sendAlert = async (
-    currency: CurrenyThresholds,
+    currency: CurrencyThresholds,
     type: BalanceType,
     service: string,
     isInBounds: boolean,

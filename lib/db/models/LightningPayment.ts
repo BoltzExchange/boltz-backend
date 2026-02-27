@@ -68,10 +68,6 @@ class LightningPayment extends Model implements LightningPaymentType {
             unique: false,
             fields: ['preimageHash'],
           },
-          {
-            unique: false,
-            fields: ['nodeId'],
-          },
         ],
       },
     );

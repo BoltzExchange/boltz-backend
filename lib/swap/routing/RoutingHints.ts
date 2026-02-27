@@ -51,6 +51,14 @@ class RoutingHints {
       .forEach((prov) => prov.stop());
   };
 
+  private getFallbackProvider = (providers: Providers) => {
+    const fallbackLnd = providers.lnds.entries().next().value;
+    return {
+      fallbackNodeId: fallbackLnd?.[0] || providers.cln?.id,
+      fallbackProvider: fallbackLnd?.[1] || providers.cln,
+    };
+  };
+
   public getRoutingHints = async (
     symbol: string,
     routingNode: string,
@@ -62,6 +70,8 @@ class RoutingHints {
     }
 
     let provider: RoutingHintsProvider | undefined;
+    const { fallbackNodeId, fallbackProvider } =
+      this.getFallbackProvider(providers);
 
     if (nodeId !== undefined) {
       provider =
@@ -70,13 +80,13 @@ class RoutingHints {
 
       if (provider === undefined) {
         this.logger.warn(
-          `Routing hints requested for unknown node ${nodeId} (${symbol}); falling back`,
+          `Routing hints requested for unknown node ${nodeId} (${symbol}); using fallback provider ${fallbackNodeId}`,
         );
       }
     }
 
     if (provider === undefined) {
-      provider = providers.lnds.values().next().value || providers.cln;
+      provider = fallbackProvider;
     }
 
     return (await provider?.routingHints(routingNode)) || [];

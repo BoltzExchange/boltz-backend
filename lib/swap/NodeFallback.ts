@@ -79,7 +79,7 @@ class NodeFallback {
           (e as any).message === Errors.LIGHTNING_CLIENT_CALL_TIMEOUT().message
         ) {
           this.logger.warn(
-            `${candidate.lightningClient.serviceName()} invoice creation timed out after ${NodeFallback.addInvoiceTimeout}ms; trying next node`,
+            `${candidate.lightningClient.serviceName()}-${candidate.nodeId} invoice creation timed out after ${NodeFallback.addInvoiceTimeout}ms; trying next node`,
           );
           continue;
         }

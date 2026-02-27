@@ -113,9 +113,7 @@ class LightningNursery extends TypedEventEmitter<{
           );
         } catch (e) {
           this.logger.warn(
-            `Could not handle accepted invoice of ${lightningClient.serviceName()}: ${formatError(
-              e,
-            )}`,
+            `Could not handle accepted invoice of ${lightningClient.serviceName()}-${lightningClient.id}: ${formatError(e)}`,
           );
         }
       });

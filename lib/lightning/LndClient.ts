@@ -41,7 +41,6 @@ type LndConfig = {
   certpath: string;
   macaroonpath: string;
   sslTargetNameOverride?: string;
-  alias?: string;
 };
 
 /**
@@ -82,7 +81,6 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     super(logger, symbol);
 
     this.id = '';
-    this.alias = config.alias;
     const { host, port, certpath, macaroonpath } = config;
 
     if (fs.existsSync(certpath)) {
@@ -116,6 +114,10 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
   public serviceName = (): string => {
     return LndClient.serviceName;
+  };
+
+  private formatNodeLabel = (): string => {
+    return `${this.serviceName()}-${this.id || 'unknown'}`;
   };
 
   /**
@@ -154,9 +156,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         this.setClientStatus(ClientStatus.Disconnected);
 
         this.logger.error(
-          `Could not connect to ${LndClient.serviceName} ${this.symbol} at ${
-            this.uri
-          }: ${formatError(error)}`,
+          `Could not connect ${this.formatNodeLabel()} at ${this.uri}: ${formatError(error)}`,
         );
         this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
 
@@ -179,9 +179,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       const info = await this.getInfo();
       this.id = info.pubkey;
 
-      this.logger.info(
-        `Reestablished connection to ${LndClient.serviceName} ${this.symbol}`,
-      );
+      this.logger.info(`Reestablished connection to ${this.formatNodeLabel()}`);
 
       this.clearReconnectTimer();
 
@@ -194,7 +192,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       this.setClientStatus(ClientStatus.Disconnected);
 
       this.logger.error(
-        `Could not reconnect to ${LndClient.serviceName} ${this.symbol}: ${err}`,
+        `Could not reconnect ${this.formatNodeLabel()}: ${err}`,
       );
       this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
 
@@ -890,9 +888,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
             );
 
           this.logger.debug(
-            `${LndClient.serviceName} ${this.symbol} accepted ${
-              acceptedHtlcs.length
-            } HTLC${
+            `${this.formatNodeLabel()} accepted ${acceptedHtlcs.length} HTLC${
               acceptedHtlcs.length > 1 ? 's' : ''
             } for invoice: ${invoice.getPaymentRequest()}`,
           );
@@ -902,9 +898,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
           deleteSubscription();
         } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
           this.logger.debug(
-            `${LndClient.serviceName} ${
-              this.symbol
-            } invoice settled: ${invoice.getPaymentRequest()}`,
+            `${this.formatNodeLabel()} invoice settled: ${invoice.getPaymentRequest()}`,
           );
           this.emit('invoice.settled', invoice.getPaymentRequest());
 
@@ -914,7 +908,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
       .on('end', () => deleteSubscription())
       .on('error', (error) => {
         this.logger.error(
-          `${LndClient.serviceName} ${this.symbol} invoice subscription errored: ${error.message}`,
+          `${this.formatNodeLabel()} invoice subscription errored: ${error.message}`,
         );
         deleteSubscription();
       });
@@ -986,9 +980,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     error: any,
   ) => {
     this.logger.error(
-      `${LndClient.serviceName} ${
-        this.symbol
-      } ${subscriptionName} subscription errored: ${formatError(error)}`,
+      `${this.formatNodeLabel()} ${subscriptionName} subscription errored: ${formatError(error)}`,
     );
 
     if (this.isConnected()) {

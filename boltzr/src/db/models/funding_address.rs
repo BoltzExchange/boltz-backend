@@ -45,6 +45,8 @@ impl FundingAddress {
         FundingTree::parse(self.symbol.parse()?, &self.tree)
     }
 
+    /// Initialize the taproot tree for the funding address. Only has to be called once
+    /// after the funding address is created - the tree is persisted in serialized JSON.
     pub fn init_tree(&mut self) -> Result<()> {
         self.tree = match self.symbol_type()? {
             Type::Bitcoin => serde_json::to_string(&boltz_core::bitcoin::FundingTree::new(

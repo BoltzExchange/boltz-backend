@@ -27,7 +27,7 @@ use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct FundingAddressConfig {
@@ -385,6 +385,11 @@ impl FundingAddressService {
                 trace!("Could not send funding address update: {err}");
             }
         }
+
+        info!(
+            "Signed refund for funding address {id}",
+            id = funding_address.id
+        );
 
         Ok(response)
     }

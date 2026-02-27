@@ -14,7 +14,7 @@ use bitcoin::secp256k1::SecretKey;
 use elements::confidential::Value;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 #[derive(Clone)]
 pub struct FundingAddressNursery {
@@ -263,6 +263,14 @@ impl FundingAddressNursery {
                     .funding_address_helper
                     .get_by_id(funding_address_id.as_str())?
                     .ok_or(anyhow::anyhow!("funding address not found".to_string()))?;
+
+                if FundingAddressStatus::final_statuses().contains(&funding_address.status) {
+                    trace!(
+                        "Ignoring relevant tx {tx_id} for funding address {funding_address_id} because its status is {}",
+                        funding_address.status
+                    );
+                    continue;
+                }
 
                 // If an unconfirmed transaction is replaced, forcing a new signing flow.
                 let is_rbf = if let Some(previous_tx_id) = &funding_address.lockup_transaction_id

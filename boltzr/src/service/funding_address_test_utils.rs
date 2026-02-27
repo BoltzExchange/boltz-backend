@@ -10,7 +10,7 @@ pub mod test {
     use crate::service::funding_address_signer::{
         CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
     };
-    use crate::swap::FundingAddressStatus;
+    use crate::swap::{FundingAddressStatus, SwapUpdate};
     use bitcoin::hashes::Hash;
     use bitcoin::key::Keypair;
     use bitcoin::secp256k1::{Secp256k1, rand};
@@ -85,6 +85,7 @@ pub mod test {
             id: TEST_SWAP_ID.to_string(),
             lockupAddress: lockup_address.to_string(),
             timeoutBlockHeight: timeout_block_height,
+            status: SwapUpdate::SwapCreated.to_string(),
             ..Default::default()
         }
     }

@@ -820,7 +820,7 @@ mod test {
             context = context.with_swap(SwapInfo {
                 lockup_address: expected_address.to_string(),
                 expected_amount,
-                timeout_block_height: expected_timeout as u32,
+                timeout_block_height: expected_timeout,
                 ..Default::default()
             });
         } else {

@@ -2,7 +2,7 @@ use crate::chain::types::Type;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::swap::SwapHelper;
-use crate::db::models::{FundingAddress, SomeSwap};
+use crate::db::models::{FundingAddress, LightningSwap, SomeSwap};
 use crate::swap::TimeoutDeltaProvider;
 use crate::swap::{FundingAddressStatus, SwapUpdate};
 use anyhow::{Result, anyhow};
@@ -41,6 +41,7 @@ struct PendingSigningSession {
 #[derive(Debug, Clone)]
 struct SwapInfo {
     status: SwapUpdate,
+    currency: String,
     lockup_address: String,
     expected_amount: i64,
     timeout_block_height: u32,
@@ -135,6 +136,11 @@ impl FundingAddressSigner {
             )));
         }
         let swap_info = self.get_swap_info(swap_id)?;
+        if funding_address.symbol != swap_info.currency {
+            return Err(anyhow!(FundingAddressEligibilityError(
+                "funding address chain does not match swap chain".to_string(),
+            )));
+        }
         if !matches!(
             swap_info.status,
             SwapUpdate::SwapCreated | SwapUpdate::InvoiceSet | SwapUpdate::TransactionMempool
@@ -309,6 +315,7 @@ impl FundingAddressSigner {
             .and_then(|swap| {
                 Ok(SwapInfo {
                     status: swap.status(),
+                    currency: swap.chain_symbol()?,
                     lockup_address: swap.lockupAddress,
                     expected_amount: swap
                         .expectedAmount
@@ -323,6 +330,7 @@ impl FundingAddressSigner {
                         let receiving = chain_swap.receiving();
                         Ok(SwapInfo {
                             status: chain_swap.status(),
+                            currency: receiving.symbol.clone(),
                             lockup_address: receiving.lockupAddress.clone(),
                             expected_amount: receiving
                                 .expectedAmount
@@ -516,6 +524,7 @@ mod test {
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::funding_address_test_utils::test::*;
     use crate::service::test::get_test_currencies;
+    use crate::utils::pair::OrderSide;
     use bitcoin::TapTweakHash;
     use boltz_core::Address as CoreAddress;
     use boltz_core::FeeTarget;
@@ -532,6 +541,7 @@ mod test {
         fn default() -> Self {
             Self {
                 status: SwapUpdate::SwapCreated,
+                currency: TEST_SYMBOL.to_string(),
                 lockup_address: String::new(),
                 expected_amount: 100000,
                 timeout_block_height: 500,
@@ -558,11 +568,14 @@ mod test {
 
         fn with_swap(mut self, swap_info: SwapInfo) -> Self {
             let lockup_address = swap_info.lockup_address;
+            let chain = swap_info.currency;
             let status = swap_info.status;
             let expected_amount = swap_info.expected_amount;
             let timeout_block_height = swap_info.timeout_block_height as i32;
             self.swap_helper.expect_get_by_id().returning(move |_| {
                 let mut swap = test_swap_with_timeout(&lockup_address, timeout_block_height);
+                swap.pair = format!("{chain}/BTC");
+                swap.orderSide = OrderSide::Sell as i32;
                 swap.status = status.to_string();
                 swap.expectedAmount = Some(expected_amount);
                 Ok(swap)
@@ -627,6 +640,7 @@ mod test {
     fn test_swap_info(lockup_address: &str) -> SwapInfo {
         SwapInfo {
             status: SwapUpdate::SwapCreated,
+            currency: TEST_SYMBOL.to_string(),
             lockup_address: lockup_address.to_string(),
             expected_amount: 100000,
             timeout_block_height: 500,
@@ -755,6 +769,35 @@ mod test {
                 .unwrap_err()
                 .to_string()
                 .contains("funding address amount does not match swaps expected amount")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_can_spend_rejects_chain_mismatch() {
+        let signer = TestSignerContext::new()
+            .with_swap(SwapInfo {
+                currency: "L-BTC".to_string(),
+                ..Default::default()
+            })
+            .with_currencies()
+            .await
+            .build();
+        let key_pair = get_keypair();
+        let funding_address = test_funding_address_with_lockup(
+            "test_funding_chain_mismatch",
+            &key_pair.public_key().serialize(),
+            "tx123",
+            0,
+            100000,
+        );
+
+        let result = signer.can_spend(&funding_address, TEST_SWAP_ID);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("funding address chain does not match swap chain")
         );
     }
 

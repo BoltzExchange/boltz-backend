@@ -113,6 +113,7 @@ diesel::table! {
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
         amount -> Nullable<BigInt>,
+        expectedAmount -> Nullable<BigInt>,
     }
 }
 

@@ -311,7 +311,7 @@ impl FundingAddressSigner {
                     status: swap.status(),
                     lockup_address: swap.lockupAddress,
                     expected_amount: swap
-                        .onchainAmount
+                        .expectedAmount
                         .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
                     timeout_block_height: swap.timeoutBlockHeight as u32,
                 })
@@ -325,7 +325,7 @@ impl FundingAddressSigner {
                             status: chain_swap.status(),
                             lockup_address: receiving.lockupAddress.clone(),
                             expected_amount: receiving
-                                .amount
+                                .expectedAmount
                                 .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
                             timeout_block_height: receiving.timeoutBlockHeight as u32,
                         })
@@ -564,7 +564,7 @@ mod test {
             self.swap_helper.expect_get_by_id().returning(move |_| {
                 let mut swap = test_swap_with_timeout(&lockup_address, timeout_block_height);
                 swap.status = status.to_string();
-                swap.onchainAmount = Some(expected_amount);
+                swap.expectedAmount = Some(expected_amount);
                 Ok(swap)
             });
             self

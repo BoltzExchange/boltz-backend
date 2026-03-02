@@ -11,17 +11,22 @@ describe('CommitmentRepository', () => {
 
   const createCommitment = (
     overrides?: Partial<{
-      swapId: string;
+      swapId: string | null;
       lockupHash: string;
       transactionHash: string;
       signature: Buffer;
+      refunded: boolean;
     }>,
   ) => ({
-    swapId: overrides?.swapId ?? `swap-${randomBytes(8).toString('hex')}`,
+    swapId:
+      overrides?.swapId === undefined
+        ? `swap-${randomBytes(8).toString('hex')}`
+        : overrides.swapId,
     lockupHash: overrides?.lockupHash ?? `0x${randomBytes(32).toString('hex')}`,
     transactionHash:
       overrides?.transactionHash ?? `0x${randomBytes(32).toString('hex')}`,
     signature: overrides?.signature ?? randomBytes(65),
+    refunded: overrides?.refunded ?? false,
   });
 
   beforeAll(async () => {
@@ -49,6 +54,7 @@ describe('CommitmentRepository', () => {
       expect(result.lockupHash).toEqual(commitment.lockupHash);
       expect(result.transactionHash).toEqual(commitment.transactionHash);
       expect(result.signature).toEqual(commitment.signature);
+      expect(result.refunded).toEqual(false);
       expect(result.createdAt).toBeDefined();
       expect(result.updatedAt).toBeDefined();
     });
@@ -85,6 +91,15 @@ describe('CommitmentRepository', () => {
 
       expect(result.transactionHash).toEqual(transactionHash);
     });
+
+    test('should create an unlinked commitment without swapId', async () => {
+      const commitment = createCommitment({ swapId: null });
+
+      const result = await CommitmentRepository.create(commitment);
+
+      expect(result.swapId).toBeNull();
+      expect(result.lockupHash).toEqual(commitment.lockupHash);
+    });
   });
 
   describe('getBySwapId', () => {
@@ -92,7 +107,7 @@ describe('CommitmentRepository', () => {
       const commitment = createCommitment();
       await CommitmentRepository.create(commitment);
 
-      const result = await CommitmentRepository.getBySwapId(commitment.swapId);
+      const result = await CommitmentRepository.getBySwapId(commitment.swapId!);
 
       expect(result).not.toBeNull();
       expect(result!.swapId).toEqual(commitment.swapId);
@@ -120,19 +135,19 @@ describe('CommitmentRepository', () => {
       await CommitmentRepository.create(commitment3);
 
       const result = await CommitmentRepository.getBySwapIds([
-        commitment1.swapId,
-        commitment2.swapId,
-        commitment3.swapId,
+        commitment1.swapId!,
+        commitment2.swapId!,
+        commitment3.swapId!,
       ]);
 
       expect(result.size).toEqual(3);
-      expect(result.get(commitment1.swapId)!.swapId).toEqual(
+      expect(result.get(commitment1.swapId!)!.swapId).toEqual(
         commitment1.swapId,
       );
-      expect(result.get(commitment2.swapId)!.swapId).toEqual(
+      expect(result.get(commitment2.swapId!)!.swapId).toEqual(
         commitment2.swapId,
       );
-      expect(result.get(commitment3.swapId)!.swapId).toEqual(
+      expect(result.get(commitment3.swapId!)!.swapId).toEqual(
         commitment3.swapId,
       );
     });
@@ -160,16 +175,16 @@ describe('CommitmentRepository', () => {
       await CommitmentRepository.create(commitment2);
 
       const result = await CommitmentRepository.getBySwapIds([
-        commitment1.swapId,
+        commitment1.swapId!,
         'non-existent',
-        commitment2.swapId,
+        commitment2.swapId!,
       ]);
 
       expect(result.size).toEqual(2);
-      expect(result.get(commitment1.swapId)!.swapId).toEqual(
+      expect(result.get(commitment1.swapId!)!.swapId).toEqual(
         commitment1.swapId,
       );
-      expect(result.get(commitment2.swapId)!.swapId).toEqual(
+      expect(result.get(commitment2.swapId!)!.swapId).toEqual(
         commitment2.swapId,
       );
       expect(result.get('non-existent')).toBeUndefined();
@@ -211,6 +226,110 @@ describe('CommitmentRepository', () => {
       });
       const result = await CommitmentRepository.create(commitment);
       expect(result.signatureEthers.serialized).toEqual(signature.serialized);
+    });
+  });
+
+  describe('linkToSwap', () => {
+    test('should link an unlinked commitment to a swap', async () => {
+      const lockupHash = `0x${randomBytes(32).toString('hex')}`;
+      const commitment = createCommitment({
+        swapId: null,
+        lockupHash,
+      });
+      await CommitmentRepository.create(commitment);
+
+      const linked = await CommitmentRepository.linkToSwap(
+        lockupHash,
+        'swap-link',
+      );
+
+      expect(linked.swapId).toEqual('swap-link');
+    });
+
+    test('should keep swapId when linking to the same swap again', async () => {
+      const commitment = createCommitment({ swapId: 'swap-a' });
+      await CommitmentRepository.create(commitment);
+
+      const linked = await CommitmentRepository.linkToSwap(
+        commitment.lockupHash,
+        'swap-a',
+      );
+
+      expect(linked.swapId).toEqual('swap-a');
+      expect(linked.lockupHash).toEqual(commitment.lockupHash);
+    });
+
+    test('should throw when linking a non-existent commitment', async () => {
+      await expect(
+        CommitmentRepository.linkToSwap(
+          `0x${randomBytes(32).toString('hex')}`,
+          'swap-link',
+        ),
+      ).rejects.toThrow('commitment not found');
+    });
+
+    test('should throw when commitment is linked to another swap already', async () => {
+      const commitment = createCommitment({ swapId: 'swap-a' });
+      await CommitmentRepository.create(commitment);
+
+      await expect(
+        CommitmentRepository.linkToSwap(commitment.lockupHash, 'swap-b'),
+      ).rejects.toThrow('commitment linked to a different swap already');
+    });
+
+    test('should throw when commitment was refunded already', async () => {
+      const commitment = createCommitment({ swapId: null, refunded: true });
+      await CommitmentRepository.create(commitment);
+
+      await expect(
+        CommitmentRepository.linkToSwap(
+          commitment.lockupHash,
+          'swap-after-refund',
+        ),
+      ).rejects.toThrow('refunded commitment cannot be linked to a swap');
+    });
+  });
+
+  describe('markRefunded', () => {
+    test('should create refunded marker for unknown lockup hash', async () => {
+      const lockupHash = `0x${randomBytes(32).toString('hex')}`;
+      const transactionHash = `0x${randomBytes(32).toString('hex')}`;
+
+      const result = await CommitmentRepository.markRefunded(
+        lockupHash,
+        transactionHash,
+      );
+
+      expect(result.lockupHash).toEqual(lockupHash);
+      expect(result.transactionHash).toEqual(transactionHash);
+      expect(result.swapId).toBeNull();
+      expect(result.refunded).toEqual(true);
+      expect(result.signature).toBeNull();
+    });
+
+    test('should mark existing unlinked commitment as refunded', async () => {
+      const commitment = createCommitment({ swapId: null, refunded: false });
+      await CommitmentRepository.create(commitment);
+
+      const result = await CommitmentRepository.markRefunded(
+        commitment.lockupHash,
+        commitment.transactionHash,
+      );
+
+      expect(result.refunded).toEqual(true);
+      expect(result.swapId).toBeNull();
+    });
+
+    test('should throw when commitment is already linked to a swap', async () => {
+      const commitment = createCommitment({ swapId: 'linked-swap' });
+      await CommitmentRepository.create(commitment);
+
+      await expect(
+        CommitmentRepository.markRefunded(
+          commitment.lockupHash,
+          commitment.transactionHash,
+        ),
+      ).rejects.toThrow('linked commitment cannot be marked as refunded');
     });
   });
 });

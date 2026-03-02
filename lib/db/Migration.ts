@@ -11,6 +11,7 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import { networks } from '../wallet/ethereum/EvmNetworks';
 import ChainSwap from './models/ChainSwap';
+import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import LightningPayment from './models/LightningPayment';
 import PendingEthereumTransaction from './models/PendingEthereumTransaction';
@@ -57,7 +58,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 25;
+  private static latestSchemaVersion = 26;
   private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
@@ -679,6 +680,73 @@ class Migration {
         });
 
         this.toBackFill.push(24);
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      // Schema version 26 makes commitments addressable before linking a swap,
+      // adds refunded marker and makes commitment signature optional
+      case 25: {
+        this.logUpdatingTable(Commitment.tableName);
+        const queryInterface = this.sequelize.getQueryInterface();
+        const primaryKeyName = `${Commitment.tableName}_pkey`;
+        const lockupHashIndex = `${Commitment.tableName}_lockup_hash`;
+        const swapIdIndex = `${Commitment.tableName}_swap_id`;
+
+        await this.sequelize.transaction(async (transaction) => {
+          await queryInterface.removeConstraint(
+            Commitment.tableName,
+            primaryKeyName,
+            { transaction },
+          );
+
+          await queryInterface.changeColumn(
+            Commitment.tableName,
+            'swapId',
+            {
+              type: new DataTypes.STRING(255),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await queryInterface.removeIndex(
+            Commitment.tableName,
+            lockupHashIndex,
+            { transaction },
+          );
+
+          await queryInterface.addConstraint(Commitment.tableName, {
+            fields: ['lockupHash'],
+            type: 'primary key',
+            name: primaryKeyName,
+            transaction,
+          });
+          await queryInterface.addIndex(Commitment.tableName, ['swapId'], {
+            unique: true,
+            name: swapIdIndex,
+            transaction,
+          });
+          await queryInterface.addColumn(
+            Commitment.tableName,
+            'refunded',
+            {
+              type: new DataTypes.BOOLEAN(),
+              allowNull: false,
+              defaultValue: false,
+            },
+            { transaction },
+          );
+          await queryInterface.changeColumn(
+            Commitment.tableName,
+            'signature',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+        });
         await this.finishMigration(versionRow.version, currencies);
         break;
       }

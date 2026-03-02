@@ -116,6 +116,12 @@ pub fn parse_public_key(public_key: &str) -> Result<PublicKey, String> {
     PublicKey::from_slice(&bytes).map_err(|e| format!("invalid public key: {e}"))
 }
 
+pub fn parse_signature(signature: &str) -> Result<alloy::signers::Signature, String> {
+    signature
+        .parse::<alloy::signers::Signature>()
+        .map_err(|e| format!("invalid signature: {e}"))
+}
+
 pub fn parse_json_object(json: &str) -> Result<serde_json::Value, String> {
     let value = serde_json::from_str(json).map_err(|e| format!("invalid json: {e}"))?;
     match value {
@@ -302,5 +308,29 @@ mod tests {
             expected_prefix,
             err
         );
+    }
+
+    #[rstest]
+    #[case(
+        "0xd8b4ed2186a0eb3c1dcff031a4753ef1813264b3e7f3df4ce915f2e09ebb93055e36dfc5f01fb7dcd43b209770f6c497ac6869dffaf51431c3e1ad92129a0be01c"
+    )]
+    #[case(
+        "d8b4ed2186a0eb3c1dcff031a4753ef1813264b3e7f3df4ce915f2e09ebb93055e36dfc5f01fb7dcd43b209770f6c497ac6869dffaf51431c3e1ad92129a0be01c"
+    )]
+    fn test_parse_signature_valid(#[case] input: &str) {
+        let signature = parse_signature(input).unwrap();
+        assert_eq!(signature.as_bytes().len(), 65);
+    }
+
+    #[rstest]
+    #[case("invalid")]
+    #[case("0x1234")]
+    #[case(
+        "0x50f29beaafa5f4e6780b4e477335dca0bfee4079cfa90fca991e4448230d171973de798da616df06125d2c570f3fc70647dfa3d06f5029907141b626372b0abf"
+    )]
+    fn test_parse_signature_invalid(#[case] input: &str) {
+        let result = parse_signature(input);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().starts_with("invalid signature:"));
     }
 }

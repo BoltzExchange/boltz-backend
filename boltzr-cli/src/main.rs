@@ -380,6 +380,14 @@ enum EvmCommands {
         )]
         vrs: bool,
     },
+    #[command(about = "Formats a signature in v/r/s")]
+    PrintSignature {
+        #[arg(
+            help = "Signature to format (65-byte hex, with or without 0x prefix)",
+            value_parser = parsers::parse_signature
+        )]
+        signature: alloy::signers::Signature,
+    },
 }
 
 #[derive(Clone, Subcommand)]
@@ -645,7 +653,7 @@ async fn run_command(cli: Cli) -> Result<()> {
                         *lockup_tx_hash,
                     )
                     .await?;
-                    print_signature(signature, *vrs)?;
+                    print_signature(&signature, *vrs)?;
                 }
                 EvmCommands::SignRefund {
                     preimage_hash,
@@ -660,7 +668,10 @@ async fn run_command(cli: Cli) -> Result<()> {
                         *lockup_tx_hash,
                     )
                     .await?;
-                    print_signature(signature, *vrs)?;
+                    print_signature(&signature, *vrs)?;
+                }
+                EvmCommands::PrintSignature { signature } => {
+                    print_signature(signature, true)?;
                 }
             }
         }
@@ -1009,7 +1020,7 @@ fn print_pretty<T: Serialize>(value: &T) -> Result<()> {
     Ok(())
 }
 
-fn print_signature(signature: alloy::signers::Signature, split_vrs: bool) -> Result<()> {
+fn print_signature(signature: &alloy::signers::Signature, split_vrs: bool) -> Result<()> {
     let signature_bytes = signature.as_bytes();
     let encoded = format!("0x{}", alloy::hex::encode(signature_bytes));
 

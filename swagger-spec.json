@@ -3201,7 +3201,7 @@
                     "description": "Transaction hash of the lockup transaction"
                   },
                   "logIndex": {
-                    "type": "number",
+                    "type": "integer",
                     "description": "Log index of the lockup event if there are multiple in the transaction"
                   },
                   "maxOverpaymentPercentage": {
@@ -3228,6 +3228,82 @@
           },
           "400": {
             "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/commitment/{currency}/refund": {
+      "post": {
+        "tags": [
+          "Commitment"
+        ],
+        "description": "Get an EIP-712 signature for a cooperative refund of an unlinked commitment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "transactionHash",
+                  "refundAddressSignature"
+                ],
+                "properties": {
+                  "transactionHash": {
+                    "type": "string",
+                    "description": "Transaction hash containing the lockup event"
+                  },
+                  "logIndex": {
+                    "type": "integer",
+                    "description": "Optional log index in case of multiple lockups in one transaction"
+                  },
+                  "refundAddressSignature": {
+                    "type": "string",
+                    "description": "Signature of the refund address over the commitment refund authorization message"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "EIP-712 signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "signature"
+                  ],
+                  "properties": {
+                    "signature": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error that caused signature request to fail",
             "content": {
               "application/json": {
                 "schema": {

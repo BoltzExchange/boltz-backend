@@ -17,6 +17,7 @@ import ChainSwapRepository, {
 import CommitmentRepository from '../../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../service/TimeoutDeltaProvider';
+import type { RefundSignatureLock } from '../../../service/cooperative/EipSigner';
 import { overpaymentDefaultConfig } from '../../../swap/OverpaymentProtector';
 import type Wallet from '../../Wallet';
 import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
@@ -24,7 +25,7 @@ import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
 import { parseBuffer } from '../EthereumUtils';
 import type { NetworkDetails } from '../EvmNetworks';
 import type InjectedProvider from '../InjectedProvider';
-import { computeLockupHash } from './ContractUtils';
+import { computeLockupHash, isCommitmentPreimageHash } from './ContractUtils';
 import type Contracts from './Contracts';
 import { Feature } from './Contracts';
 
@@ -48,6 +49,9 @@ class Commitments {
   private wallets!: Map<string, Wallet>;
   private contracts!: Contracts[];
 
+  private refundSignatureLock: RefundSignatureLock = async () => {
+    throw new Error('refund signature lock not set');
+  };
   private readonly commitmentTimelockMinutes: number;
   private readonly maxOverpaymentPercentage: number;
 
@@ -89,6 +93,12 @@ class Commitments {
     );
   };
 
+  public setRefundSignatureLock = (
+    refundSignatureLock: RefundSignatureLock,
+  ) => {
+    this.refundSignatureLock = refundSignatureLock;
+  };
+
   public lockupDetails = async (currency: string) => {
     const isEtherSwap = currency === this.network.symbol;
     const contracts = this.highestContractsVersion();
@@ -121,190 +131,191 @@ class Commitments {
     transactionHash: string,
     logIndex?: number,
     maxOverpaymentPercentage?: number,
-  ) => {
-    let swap: Swap | ChainSwapInfo | null = await SwapRepository.getSwap({
-      id: swapId,
-    });
-    if (swap === null || swap === undefined) {
-      swap = await ChainSwapRepository.getChainSwap({
+  ) =>
+    this.refundSignatureLock(async () => {
+      let swap: Swap | ChainSwapInfo | null = await SwapRepository.getSwap({
         id: swapId,
       });
-    }
-
-    if (swap === null || swap === undefined) {
-      throw new Error('swap not found');
-    }
-
-    const { contract, version: contractVersion } =
-      await this.findContractForAddress(
-        swap.type === SwapType.Submarine
-          ? (swap as Swap).lockupAddress
-          : (swap as ChainSwapInfo).receivingData.lockupAddress,
-      );
-
-    const event = await this.findLockupEvent(
-      contract,
-      transactionHash,
-      logIndex,
-    );
-
-    const claimAddress = await this.signer.getAddress();
-
-    const lockupHash = await computeLockupHash(contract, {
-      claimAddress,
-      ...event,
-    });
-
-    {
-      const existingCommitment =
-        await CommitmentRepository.getByLockupHash(lockupHash);
-      if (existingCommitment !== null && existingCommitment !== undefined) {
-        throw new Error('commitment exists already');
+      if (swap === null || swap === undefined) {
+        swap = await ChainSwapRepository.getChainSwap({
+          id: swapId,
+        });
       }
-    }
 
-    if (event.preimageHash.some((byte) => byte !== 0)) {
-      throw new Error('commitment preimage hash has to be all zeros');
-    }
+      if (swap === null || swap === undefined) {
+        throw new Error('swap not found');
+      }
 
-    if (
-      event.timelock <
-      (swap.type === SwapType.Submarine
-        ? (swap as Swap).timeoutBlockHeight
-        : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight)
-    ) {
-      throw new Error('commitment timelock expires before swap timeout');
-    }
+      const { contract, version: contractVersion } =
+        await this.findContractForAddress(
+          swap.type === SwapType.Submarine
+            ? (swap as Swap).lockupAddress
+            : (swap as ChainSwapInfo).receivingData.lockupAddress,
+        );
 
-    const swapAmount =
-      swap.type === SwapType.Submarine
-        ? (swap as Swap).expectedAmount
-        : (swap as ChainSwapInfo).receivingData.expectedAmount;
-    if (swapAmount === undefined || swapAmount === null) {
-      throw new Error('swap amount not found');
-    }
-
-    let sig: Signature;
-    try {
-      sig = Signature.from(signature);
-    } catch (error) {
-      throw new Error(`invalid signature: ${formatError(error)}`);
-    }
-
-    let signatureValid: boolean;
-
-    if (
-      maxOverpaymentPercentage !== undefined &&
-      (!Number.isFinite(maxOverpaymentPercentage) ||
-        maxOverpaymentPercentage < 0)
-    ) {
-      throw new Error('invalid maxOverpaymentPercentage');
-    }
-
-    const allowedOverpaymentPercentage =
-      maxOverpaymentPercentage === undefined
-        ? this.maxOverpaymentPercentage
-        : maxOverpaymentPercentage / 100;
-
-    if (currency === this.network.symbol) {
-      this.checkAcceptedAmount(
-        swapAmount,
-        Math.floor(Number(event.amount / etherDecimals)),
-        allowedOverpaymentPercentage,
+      const event = await this.findLockupEvent(
+        contract,
+        transactionHash,
+        logIndex,
       );
 
-      signatureValid = await (contract as EtherSwap).checkCommitmentSignature(
-        getHexBuffer(swap.preimageHash),
-        event.amount,
+      const claimAddress = await this.signer.getAddress();
+
+      const lockupHash = await computeLockupHash(contract, {
         claimAddress,
-        event.refundAddress,
-        event.timelock,
-        sig.v,
-        sig.r,
-        sig.s,
-      );
-    } else {
-      const wallet = this.wallets.get(currency);
-      if (wallet === undefined || wallet.type !== CurrencyType.ERC20) {
-        throw new Error('wallet not found');
+        ...event,
+      });
+
+      {
+        const existingCommitment =
+          await CommitmentRepository.getByLockupHash(lockupHash);
+        if (existingCommitment !== null && existingCommitment !== undefined) {
+          throw new Error('commitment exists already');
+        }
       }
 
-      const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
+      if (!isCommitmentPreimageHash(event.preimageHash)) {
+        throw new Error('commitment preimage hash has to be all zeros');
+      }
 
       if (
-        erc20Wallet.tokenAddress.toLowerCase() !==
-        event.tokenAddress?.toLowerCase()
+        event.timelock <
+        (swap.type === SwapType.Submarine
+          ? (swap as Swap).timeoutBlockHeight
+          : (swap as ChainSwapInfo).receivingData.timeoutBlockHeight)
       ) {
-        throw new Error('token address mismatch');
+        throw new Error('commitment timelock expires before swap timeout');
       }
 
-      this.checkAcceptedAmount(
-        swapAmount,
-        erc20Wallet.normalizeTokenAmount(event.amount),
-        allowedOverpaymentPercentage,
+      const swapAmount =
+        swap.type === SwapType.Submarine
+          ? (swap as Swap).expectedAmount
+          : (swap as ChainSwapInfo).receivingData.expectedAmount;
+      if (swapAmount === undefined || swapAmount === null) {
+        throw new Error('swap amount not found');
+      }
+
+      let sig: Signature;
+      try {
+        sig = Signature.from(signature);
+      } catch (error) {
+        throw new Error(`invalid signature: ${formatError(error)}`);
+      }
+
+      let signatureValid: boolean;
+
+      if (
+        maxOverpaymentPercentage !== undefined &&
+        (!Number.isFinite(maxOverpaymentPercentage) ||
+          maxOverpaymentPercentage < 0)
+      ) {
+        throw new Error('invalid maxOverpaymentPercentage');
+      }
+
+      const allowedOverpaymentPercentage =
+        maxOverpaymentPercentage === undefined
+          ? this.maxOverpaymentPercentage
+          : maxOverpaymentPercentage / 100;
+
+      if (currency === this.network.symbol) {
+        this.checkAcceptedAmount(
+          swapAmount,
+          Math.floor(Number(event.amount / etherDecimals)),
+          allowedOverpaymentPercentage,
+        );
+
+        signatureValid = await (contract as EtherSwap).checkCommitmentSignature(
+          getHexBuffer(swap.preimageHash),
+          event.amount,
+          claimAddress,
+          event.refundAddress,
+          event.timelock,
+          sig.v,
+          sig.r,
+          sig.s,
+        );
+      } else {
+        const wallet = this.wallets.get(currency);
+        if (wallet === undefined || wallet.type !== CurrencyType.ERC20) {
+          throw new Error('wallet not found');
+        }
+
+        const erc20Wallet = wallet.walletProvider as ERC20WalletProvider;
+
+        if (
+          erc20Wallet.tokenAddress.toLowerCase() !==
+          event.tokenAddress?.toLowerCase()
+        ) {
+          throw new Error('token address mismatch');
+        }
+
+        this.checkAcceptedAmount(
+          swapAmount,
+          erc20Wallet.normalizeTokenAmount(event.amount),
+          allowedOverpaymentPercentage,
+        );
+
+        signatureValid = await (contract as ERC20Swap).checkCommitmentSignature(
+          getHexBuffer(swap.preimageHash),
+          event.amount,
+          erc20Wallet.tokenAddress,
+          claimAddress,
+          event.refundAddress,
+          event.timelock,
+          sig.v,
+          sig.r,
+          sig.s,
+        );
+      }
+
+      if (!signatureValid) {
+        throw new Error('invalid signature');
+      }
+
+      this.logger.info(
+        `Creating ${currency} commitment for ${swapTypeToPrettyString(swap.type)} Swap ${swapId}: ${transactionHash} (${lockupHash})`,
       );
+      await CommitmentRepository.create({
+        swapId,
+        lockupHash,
+        transactionHash,
+        signature: getHexBuffer(signature.slice(2)),
+      });
 
-      signatureValid = await (contract as ERC20Swap).checkCommitmentSignature(
-        getHexBuffer(swap.preimageHash),
-        event.amount,
-        erc20Wallet.tokenAddress,
-        claimAddress,
-        event.refundAddress,
-        event.timelock,
-        sig.v,
-        sig.r,
-        sig.s,
-      );
-    }
+      const transaction = await this.provider.getTransaction(transactionHash);
+      if (transaction === null) {
+        throw new Error('transaction not found');
+      }
 
-    if (!signatureValid) {
-      throw new Error('invalid signature');
-    }
-
-    this.logger.info(
-      `Creating ${currency} commitment for ${swapTypeToPrettyString(swap.type)} Swap ${swapId}: ${transactionHash} (${lockupHash})`,
-    );
-    await CommitmentRepository.create({
-      swapId,
-      lockupHash,
-      transactionHash,
-      signature: getHexBuffer(signature.slice(2)),
+      // We can emit the events with our address as claim address because
+      // we verified the signature is valid with it as parameter
+      if (currency === this.network.symbol) {
+        await this.eventHandler.handleEvent('eth.lockup', {
+          transaction,
+          version: contractVersion,
+          etherSwapValues: {
+            amount: event.amount,
+            claimAddress,
+            refundAddress: event.refundAddress,
+            timelock: Number(event.timelock),
+            preimageHash: getHexBuffer(swap.preimageHash),
+          },
+        });
+      } else {
+        await this.eventHandler.handleEvent('erc20.lockup', {
+          transaction,
+          version: contractVersion,
+          erc20SwapValues: {
+            amount: event.amount,
+            claimAddress,
+            refundAddress: event.refundAddress,
+            timelock: Number(event.timelock),
+            preimageHash: getHexBuffer(swap.preimageHash),
+            tokenAddress: event.tokenAddress!,
+          },
+        });
+      }
     });
-
-    const transaction = await this.provider.getTransaction(transactionHash);
-    if (transaction === null) {
-      throw new Error('transaction not found');
-    }
-
-    // We can emit the events with our address as claim address because
-    // we verified the signature is valid with it as parameter
-    if (currency === this.network.symbol) {
-      await this.eventHandler.handleEvent('eth.lockup', {
-        transaction,
-        version: contractVersion,
-        etherSwapValues: {
-          amount: event.amount,
-          claimAddress,
-          refundAddress: event.refundAddress,
-          timelock: Number(event.timelock),
-          preimageHash: getHexBuffer(swap.preimageHash),
-        },
-      });
-    } else {
-      await this.eventHandler.handleEvent('erc20.lockup', {
-        transaction,
-        version: contractVersion,
-        erc20SwapValues: {
-          amount: event.amount,
-          claimAddress,
-          refundAddress: event.refundAddress,
-          timelock: Number(event.timelock),
-          preimageHash: getHexBuffer(swap.preimageHash),
-          tokenAddress: event.tokenAddress!,
-        },
-      });
-    }
-  };
 
   private checkAcceptedAmount = (
     expectedAmount: number,

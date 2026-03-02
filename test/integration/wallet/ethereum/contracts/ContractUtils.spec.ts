@@ -13,7 +13,9 @@ import Errors from '../../../../../lib/wallet/ethereum/Errors';
 import {
   computeLockupHash,
   queryERC20SwapValuesFromLock,
+  queryERC20SwapValuesFromTransaction,
   queryEtherSwapValuesFromLock,
+  queryEtherSwapValuesFromTransaction,
 } from '../../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import type { EthereumSetup } from '../../EthereumTools';
 import { getContracts, getSigner } from '../../EthereumTools';
@@ -34,10 +36,12 @@ describe('ContractUtils', () => {
 
   let etherSwapValues: EtherSwapValues;
   let etherSwapLockTransactionHash: string;
+  let etherSwapLockLogIndex: number;
   let etherSwapLockupHash: string;
 
   let erc20SwapValues: ERC20SwapValues;
   let erc20SwapLockTransactionHash: string;
+  let erc20SwapLockLogIndex: number;
   let erc20SwapLockupHash: string;
 
   const getBySwapIdSpy = jest.spyOn(CommitmentRepository, 'getBySwapId');
@@ -90,7 +94,28 @@ describe('ContractUtils', () => {
 
     erc20SwapLockTransactionHash = erc20SwapLock.hash;
 
-    await Promise.all([erc20SwapLock.wait(1), etherSwapLock.wait(1)]);
+    const [erc20SwapReceipt, etherSwapReceipt] = await Promise.all([
+      erc20SwapLock.wait(1),
+      etherSwapLock.wait(1),
+    ]);
+
+    const etherSwapLockupLog = etherSwapReceipt!.logs.find(
+      (log) =>
+        log.topics[0] === etherSwap.interface.getEvent('Lockup').topicHash,
+    );
+    if (etherSwapLockupLog === undefined) {
+      throw new Error('could not find EtherSwap lockup log');
+    }
+    etherSwapLockLogIndex = etherSwapLockupLog.index;
+
+    const erc20SwapLockupLog = erc20SwapReceipt!.logs.find(
+      (log) =>
+        log.topics[0] === erc20Swap.interface.getEvent('Lockup').topicHash,
+    );
+    if (erc20SwapLockupLog === undefined) {
+      throw new Error('could not find ERC20Swap lockup log');
+    }
+    erc20SwapLockLogIndex = erc20SwapLockupLog.index;
 
     etherSwapLockupHash = await computeLockupHash(etherSwap, {
       preimageHash: etherSwapValues.preimageHash,
@@ -112,6 +137,10 @@ describe('ContractUtils', () => {
 
   beforeEach(() => {
     getBySwapIdSpy.mockReset();
+  });
+
+  afterAll(() => {
+    setup.provider.destroy();
   });
 
   describe('with preimageHash identifier', () => {
@@ -281,7 +310,112 @@ describe('ContractUtils', () => {
     });
   });
 
-  afterAll(() => {
-    setup.provider.destroy();
+  describe('query*FromTransaction', () => {
+    test('should query EtherSwap values from transaction hash', async () => {
+      expect(
+        await queryEtherSwapValuesFromTransaction(
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+        ),
+      ).toEqual(etherSwapValues);
+
+      expect(CommitmentRepository.getBySwapId).not.toHaveBeenCalled();
+    });
+
+    test('should query ERC20Swap values from transaction hash', async () => {
+      expect(
+        await queryERC20SwapValuesFromTransaction(
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+        ),
+      ).toEqual(erc20SwapValues);
+
+      expect(CommitmentRepository.getBySwapId).not.toHaveBeenCalled();
+    });
+
+    test('should query EtherSwap values by transaction hash and logIndex', async () => {
+      expect(
+        await queryEtherSwapValuesFromTransaction(
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+          etherSwapLockLogIndex,
+        ),
+      ).toEqual(etherSwapValues);
+    });
+
+    test('should query ERC20Swap values by transaction hash and logIndex', async () => {
+      expect(
+        await queryERC20SwapValuesFromTransaction(
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+          erc20SwapLockLogIndex,
+        ),
+      ).toEqual(erc20SwapValues);
+    });
+
+    test('should throw when EtherSwap logIndex does not match', async () => {
+      await expect(
+        queryEtherSwapValuesFromTransaction(
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+          etherSwapLockLogIndex + 1,
+        ),
+      ).rejects.toEqual(
+        Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
+      );
+    });
+
+    test('should throw when ERC20Swap logIndex does not match', async () => {
+      await expect(
+        queryERC20SwapValuesFromTransaction(
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+          erc20SwapLockLogIndex + 1,
+        ),
+      ).rejects.toEqual(
+        Errors.INVALID_LOCKUP_TRANSACTION(erc20SwapLockTransactionHash),
+      );
+    });
+
+    test('should ignore lockup topic logs from a different contract address', async () => {
+      const receipt = await setup.provider.getTransactionReceipt(
+        etherSwapLockTransactionHash,
+      );
+      const topicHash = etherSwap.interface.getEvent('Lockup').topicHash;
+      const wrongAddress = await erc20Swap.getAddress();
+
+      const receiptSpy = jest.spyOn(setup.provider, 'getTransactionReceipt');
+      receiptSpy.mockResolvedValueOnce({
+        ...receipt!,
+        logs: receipt!.logs.map((log) =>
+          log.topics[0] === topicHash
+            ? {
+                ...log,
+                address: wrongAddress,
+              }
+            : log,
+        ),
+      } as any);
+
+      try {
+        await expect(
+          queryEtherSwapValuesFromTransaction(
+            setup.provider,
+            etherSwap,
+            etherSwapLockTransactionHash,
+          ),
+        ).rejects.toEqual(
+          Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
+        );
+      } finally {
+        receiptSpy.mockRestore();
+      }
+    });
   });
 });

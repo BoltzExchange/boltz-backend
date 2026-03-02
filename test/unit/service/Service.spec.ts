@@ -155,6 +155,7 @@ const mockGetRoutingHintsResult = [
 const mockGetRoutingHints = jest
   .fn()
   .mockImplementation(() => mockGetRoutingHintsResult);
+const mockRefundSignatureLock = jest.fn();
 
 jest.mock('../../../lib/swap/SwapManager', () => {
   return jest.fn().mockImplementation(() => ({
@@ -169,6 +170,9 @@ jest.mock('../../../lib/swap/SwapManager', () => {
     createSwap: mockCreateSwap,
     setSwapInvoice: mockSetSwapInvoice,
     createReverseSwap: mockCreateReverseSwap,
+    eipSigner: {
+      refundSignatureLock: mockRefundSignatureLock,
+    },
   }));
 });
 
@@ -270,6 +274,7 @@ const mockSendToken = jest.fn().mockResolvedValue(tokenTransaction);
 const mockSweepToken = jest.fn().mockResolvedValue(tokenTransaction);
 
 const mockRescan = jest.fn().mockResolvedValue(undefined);
+const mockSetRefundSignatureLock = jest.fn();
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   const actual = jest.requireActual('../../../lib/wallet/WalletManager');
@@ -285,6 +290,9 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
           hasSymbol: jest.fn().mockReturnValue(true),
           contractEventHandler: {
             rescan: mockRescan,
+          },
+          commitments: {
+            setRefundSignatureLock: mockSetRefundSignatureLock,
           },
         },
       ],
@@ -804,26 +812,29 @@ describe('Service', () => {
       }),
   } as any as Sidecar;
 
-  const service = new Service(
-    Logger.disabledLogger,
-    undefined,
-    {
-      rates: {
-        interval: Number.MAX_SAFE_INTEGER,
+  const createService = () =>
+    new Service(
+      Logger.disabledLogger,
+      undefined,
+      {
+        rates: {
+          interval: Number.MAX_SAFE_INTEGER,
+        },
+        swap: {},
+        pairs: [],
+        currencies: [],
+      } as any as ConfigType,
+      mockedWalletManager(),
+      new NodeSwitch(Logger.disabledLogger),
+      currencies,
+      sidecar,
+      {
+        cltvDelta: 20,
       },
-      swap: {},
-      pairs: [],
-      currencies: [],
-    } as any as ConfigType,
-    mockedWalletManager(),
-    new NodeSwitch(Logger.disabledLogger),
-    currencies,
-    sidecar,
-    {
-      cltvDelta: 20,
-    },
-    new RoutingFee(Logger.disabledLogger),
-  );
+      new RoutingFee(Logger.disabledLogger),
+    );
+
+  const service = createService();
 
   // Inject a mocked SwapManager
   service.swapManager = mockedSwapManager();
@@ -856,8 +867,13 @@ describe('Service', () => {
   });
 
   test('should not init if a currency of a pair cannot be found', async () => {
+    const initService = createService();
+    expect(mockSetRefundSignatureLock).toHaveBeenCalledWith(
+      mockRefundSignatureLock,
+    );
+
     await expect(
-      service.init([
+      initService.init([
         {
           base: 'not',
           quote: 'BTC',
@@ -868,9 +884,17 @@ describe('Service', () => {
         },
       ]),
     ).rejects.toEqual(Errors.CURRENCY_NOT_FOUND('not'));
+
+    initService['nodeInfo'].stopSchedule();
   });
 
   test('should init', async () => {
+    const initService = createService();
+    expect(mockSetRefundSignatureLock).toHaveBeenCalledWith(
+      mockRefundSignatureLock,
+    );
+    initService['nodeInfo'].stopSchedule();
+
     mockListChannelsResult = [];
     await service.init(configPairs);
 

@@ -35,6 +35,7 @@ jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
 
 jest.mock('../../../../lib/db/repositories/CommitmentRepository', () => ({
   getBySwapId: jest.fn().mockResolvedValue(null),
+  markRefunded: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('EipSigner', () => {
@@ -121,6 +122,8 @@ describe('EipSigner', () => {
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    CommitmentRepository.getBySwapId = jest.fn().mockResolvedValue(null);
+    CommitmentRepository.markRefunded = jest.fn().mockResolvedValue(undefined);
   });
 
   test('should throw when no swap can be found', async () => {
@@ -655,6 +658,293 @@ describe('EipSigner', () => {
 
       const balanceAfter = await token.balanceOf(claimAddress);
       expect(balanceAfter).toBeGreaterThan(balanceBefore);
+    });
+  });
+
+  describe('Pre-link Commitment Refunds', () => {
+    const zerosPreimageHash = Buffer.alloc(32, 0);
+    const signRefundAddressProof = async (
+      chainSymbol: string,
+      transactionHash: string,
+      logIndex?: number,
+      signer = setup.etherBase,
+    ) =>
+      signer.signMessage(
+        EipSigner.commitmentRefundAddressProofMessage(
+          chainSymbol,
+          transactionHash,
+          logIndex,
+        ),
+      );
+
+    test('should throw when lockup transaction does not exist', async () => {
+      const transactionHash = `0x${randomBytes(32).toString('hex')}`;
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        transactionHash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund(
+          'RBTC',
+          transactionHash,
+          refundAddressSignature,
+        ),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'lockup transaction not found',
+        ),
+      );
+    });
+
+    test('should refund unlinked Ether commitment cooperatively', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const balanceBefore = await setup.provider.getBalance(claimAddress);
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      const signature = await eipSigner.signCommitmentRefund(
+        'RBTC',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+      const { v, r, s } = Signature.from(signature);
+
+      const refundTx = await etherSwap[
+        'refundCooperative(bytes32,uint256,address,uint256,uint8,bytes32,bytes32)'
+      ](zerosPreimageHash, amount, claimAddress, timelock, v, r, s);
+      await refundTx.wait(1);
+
+      const balanceAfter = await setup.provider.getBalance(claimAddress);
+      expect(balanceAfter).toBeGreaterThan(balanceBefore);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+        expectedLockupHash,
+        lockupTx.hash,
+      );
+    });
+
+    test('should refund unlinked ERC20 commitment cooperatively', async () => {
+      const amount = BigInt(10);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+      const tokenAddress = await token.getAddress();
+      const erc20SwapAddress = await erc20Swap.getAddress();
+
+      await (await token.approve(erc20SwapAddress, amount)).wait(1);
+      const lockupTx = await erc20Swap[
+        'lock(bytes32,uint256,address,address,uint256)'
+      ](zerosPreimageHash, amount, tokenAddress, claimAddress, timelock);
+      await lockupTx.wait(1);
+
+      const balanceBefore = await token.balanceOf(claimAddress);
+      const refundAddressSignature = await signRefundAddressProof(
+        'TOKEN',
+        lockupTx.hash,
+      );
+
+      const signature = await eipSigner.signCommitmentRefund(
+        'TOKEN',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+      const { v, r, s } = Signature.from(signature);
+
+      const refundTx = await erc20Swap[
+        'refundCooperative(bytes32,uint256,address,address,uint256,uint8,bytes32,bytes32)'
+      ](
+        zerosPreimageHash,
+        amount,
+        tokenAddress,
+        claimAddress,
+        timelock,
+        v,
+        r,
+        s,
+      );
+      await refundTx.wait(1);
+
+      const balanceAfter = await token.balanceOf(claimAddress);
+      expect(balanceAfter).toBeGreaterThan(balanceBefore);
+
+      const expectedLockupHash = await computeLockupHash(erc20Swap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        tokenAddress,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+        expectedLockupHash,
+        lockupTx.hash,
+      );
+    });
+
+    test('should refund by logIndex when provided', async () => {
+      const claimAddress = await setup.etherBase.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount1 = BigInt(10) ** BigInt(17);
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount1 },
+      );
+      const receipt = await tx.wait(1);
+      const lockupLog = receipt!.logs.find(
+        (log) =>
+          log.topics[0] === etherSwap.interface.getEvent('Lockup').topicHash,
+      )!;
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+        lockupLog.index,
+      );
+
+      await eipSigner.signCommitmentRefund(
+        'RBTC',
+        tx.hash,
+        refundAddressSignature,
+        lockupLog.index,
+      );
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount: amount1,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+        expectedLockupHash,
+        tx.hash,
+      );
+    });
+
+    test('should reject when preimage hash is not commitment preimage', async () => {
+      const preimageHash = randomBytes(32);
+      const claimAddress = await setup.etherBase.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount = BigInt(10) ** BigInt(17);
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        preimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await tx.wait(1);
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund('RBTC', tx.hash, refundAddressSignature),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'commitment preimage hash has to be all zeros',
+        ),
+      );
+    });
+
+    test('should reject when claim address does not match signer', async () => {
+      const claimAddress = await setup.signer.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount = BigInt(10) ** BigInt(17);
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await tx.wait(1);
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund('RBTC', tx.hash, refundAddressSignature),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('claim address mismatch'),
+      );
+    });
+
+    test('should reject when refund address signature does not match', async () => {
+      const claimAddress = await setup.etherBase.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount = BigInt(10) ** BigInt(17);
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await tx.wait(1);
+
+      const wrongRefundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+        undefined,
+        setup.signer,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund(
+          'RBTC',
+          tx.hash,
+          wrongRefundAddressSignature,
+        ),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'refund address signature mismatch',
+        ),
+      );
+    });
+
+    test('should reject when refund address signature is malformed', async () => {
+      const claimAddress = await setup.etherBase.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount = BigInt(10) ** BigInt(17);
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await tx.wait(1);
+
+      await expect(
+        eipSigner.signCommitmentRefund('RBTC', tx.hash, '0x1234'),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'invalid refund address signature',
+        ),
+      );
     });
   });
 });

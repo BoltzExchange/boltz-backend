@@ -4,17 +4,19 @@ import { DataTypes, Model } from 'sequelize';
 import { getHexString } from '../../Utils';
 
 type CommitmentType = {
-  swapId: string;
   lockupHash: string;
+  swapId?: string | null;
   transactionHash: string;
-  signature: Buffer;
+  signature?: Buffer | null;
+  refunded?: boolean;
 };
 
 class Commitment extends Model implements CommitmentType {
-  declare swapId: string;
+  declare swapId: string | null;
   declare lockupHash: string;
   declare transactionHash: string;
-  declare signature: Buffer;
+  declare signature: Buffer | null;
+  declare refunded: boolean;
 
   declare createdAt: Date;
   declare updatedAt: Date;
@@ -22,14 +24,15 @@ class Commitment extends Model implements CommitmentType {
   public static load = (sequelize: Sequelize): void => {
     Commitment.init(
       {
-        swapId: {
-          type: new DataTypes.STRING(255),
-          primaryKey: true,
-          allowNull: false,
-        },
         lockupHash: {
           type: new DataTypes.STRING(66),
           allowNull: false,
+          primaryKey: true,
+        },
+        swapId: {
+          type: new DataTypes.STRING(255),
+          allowNull: true,
+          unique: true,
         },
         transactionHash: {
           type: new DataTypes.STRING(66),
@@ -37,23 +40,26 @@ class Commitment extends Model implements CommitmentType {
         },
         signature: {
           type: new DataTypes.BLOB(),
+          allowNull: true,
+        },
+        refunded: {
+          type: new DataTypes.BOOLEAN(),
           allowNull: false,
+          defaultValue: false,
         },
       },
       {
         sequelize,
         tableName: 'commitments',
-        indexes: [
-          {
-            unique: true,
-            fields: ['lockupHash'],
-          },
-        ],
       },
     );
   };
 
   public get signatureEthers() {
+    if (this.signature === null) {
+      throw new Error('commitment does not have a signature');
+    }
+
     return Signature.from(`0x${getHexString(this.signature)}`);
   }
 }

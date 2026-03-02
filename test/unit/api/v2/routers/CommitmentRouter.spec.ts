@@ -36,6 +36,11 @@ describe('CommitmentRouter', () => {
         },
       ],
     },
+    swapManager: {
+      eipSigner: {
+        signCommitmentRefund: jest.fn().mockResolvedValue('0xrefundsignature'),
+      },
+    },
   } as unknown as Service;
 
   const commitmentRouter = new CommitmentRouter(Logger.disabledLogger, service);
@@ -60,9 +65,13 @@ describe('CommitmentRouter', () => {
       expect.anything(),
     );
 
-    expect(mockedRouter.post).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.post).toHaveBeenCalledTimes(2);
     expect(mockedRouter.post).toHaveBeenCalledWith(
       '/:currency',
+      expect.anything(),
+    );
+    expect(mockedRouter.post).toHaveBeenCalledWith(
+      '/:currency/refund',
       expect.anything(),
     );
   });
@@ -124,24 +133,26 @@ describe('CommitmentRouter', () => {
   });
 
   describe('POST /:currency', () => {
+    const validTransactionHash = `0x${'a'.repeat(64)}`;
+
     test.each`
       error                                            | params                  | body
-      ${'undefined parameter: currency'}               | ${{}}                   | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
-      ${'invalid parameter: currency'}                 | ${{ currency: 123 }}    | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx' }}
-      ${'undefined parameter: swapId'}                 | ${{ currency: 'RBTC' }} | ${{ signature: 'sig', transactionHash: 'tx' }}
-      ${'invalid parameter: swapId'}                   | ${{ currency: 'RBTC' }} | ${{ swapId: 123, signature: 'sig', transactionHash: 'tx' }}
-      ${'undefined parameter: signature'}              | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', transactionHash: 'tx' }}
-      ${'invalid parameter: signature'}                | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 123, transactionHash: 'tx' }}
+      ${'undefined parameter: currency'}               | ${{}}                   | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash }}
+      ${'invalid parameter: currency'}                 | ${{ currency: 123 }}    | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash }}
+      ${'undefined parameter: swapId'}                 | ${{ currency: 'RBTC' }} | ${{ signature: 'sig', transactionHash: validTransactionHash }}
+      ${'invalid parameter: swapId'}                   | ${{ currency: 'RBTC' }} | ${{ swapId: 123, signature: 'sig', transactionHash: validTransactionHash }}
+      ${'undefined parameter: signature'}              | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', transactionHash: validTransactionHash }}
+      ${'invalid parameter: signature'}                | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 123, transactionHash: validTransactionHash }}
       ${'undefined parameter: transactionHash'}        | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig' }}
       ${'invalid parameter: transactionHash'}          | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 123 }}
-      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: 'invalid' }}
-      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: -1 }}
-      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', logIndex: 1.5 }}
-      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: 'invalid' }}
-      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: -1 }}
-      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: 11 }}
-      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: Infinity }}
-      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: 'tx', maxOverpaymentPercentage: NaN }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, logIndex: 'invalid' }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, logIndex: -1 }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, logIndex: 1.5 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, maxOverpaymentPercentage: 'invalid' }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, maxOverpaymentPercentage: -1 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, maxOverpaymentPercentage: 11 }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, maxOverpaymentPercentage: Infinity }}
+      ${'invalid parameter: maxOverpaymentPercentage'} | ${{ currency: 'RBTC' }} | ${{ swapId: 'id', signature: 'sig', transactionHash: validTransactionHash, maxOverpaymentPercentage: NaN }}
     `(
       'should not post commitment with invalid parameters ($error)',
       async ({ params, body, error }) => {
@@ -158,7 +169,7 @@ describe('CommitmentRouter', () => {
       const currency = 'RBTC';
       const swapId = 'swap123';
       const signature = '0xsignature';
-      const transactionHash = '0xtxhash';
+      const transactionHash = validTransactionHash;
 
       const res = mockResponse();
       await commitmentRouter['postCommitment'](
@@ -197,7 +208,7 @@ describe('CommitmentRouter', () => {
       const currency = 'RBTC';
       const swapId = 'swap123';
       const signature = '0xsignature';
-      const transactionHash = '0xtxhash';
+      const transactionHash = validTransactionHash;
       const logIndex = 2;
 
       const res = mockResponse();
@@ -229,7 +240,7 @@ describe('CommitmentRouter', () => {
       const currency = 'RBTC';
       const swapId = 'swap123';
       const signature = '0xsignature';
-      const transactionHash = '0xtxhash';
+      const transactionHash = validTransactionHash;
       const maxOverpaymentPercentage = 3.5;
 
       const res = mockResponse();
@@ -262,13 +273,113 @@ describe('CommitmentRouter', () => {
       await expect(
         commitmentRouter['postCommitment'](
           mockRequest(
-            { swapId: 'id', signature: 'sig', transactionHash: 'tx' },
+            {
+              swapId: 'id',
+              signature: 'sig',
+              transactionHash: validTransactionHash,
+            },
             undefined,
             { currency: 'BTC' },
           ),
           res,
         ),
       ).rejects.toThrow('currency does not support commitment swaps');
+    });
+  });
+
+  describe('POST /:currency/refund', () => {
+    const refundAddressSignature = 'signed-proof';
+
+    test.each`
+      error                                            | params                  | body
+      ${'undefined parameter: currency'}               | ${{}}                   | ${{ transactionHash: `0x${'1'.repeat(64)}`, refundAddressSignature }}
+      ${'undefined parameter: transactionHash'}        | ${{ currency: 'RBTC' }} | ${{ refundAddressSignature }}
+      ${'undefined parameter: refundAddressSignature'} | ${{ currency: 'RBTC' }} | ${{ transactionHash: `0x${'1'.repeat(64)}` }}
+      ${'invalid parameter: refundAddressSignature'}   | ${{ currency: 'RBTC' }} | ${{ transactionHash: `0x${'1'.repeat(64)}`, refundAddressSignature: 123 }}
+      ${'invalid parameter: transactionHash'}          | ${{ currency: 'RBTC' }} | ${{ transactionHash: 'invalid', refundAddressSignature }}
+      ${'invalid parameter: transactionHash'}          | ${{ currency: 'RBTC' }} | ${{ transactionHash: '0x1234', refundAddressSignature }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ transactionHash: `0x${'1'.repeat(64)}`, refundAddressSignature, logIndex: -1 }}
+      ${'invalid parameter: logIndex'}                 | ${{ currency: 'RBTC' }} | ${{ transactionHash: `0x${'1'.repeat(64)}`, refundAddressSignature, logIndex: 1.5 }}
+    `(
+      'should not refund commitment with invalid parameters ($error)',
+      async ({ params, body, error }) => {
+        await expect(
+          commitmentRouter['refundCommitment'](
+            mockRequest(body, undefined, params),
+            mockResponse(),
+          ),
+        ).rejects.toEqual(error);
+      },
+    );
+
+    test('should refund commitment', async () => {
+      const currency = 'RBTC';
+      const transactionHash = `0x${'1'.repeat(64)}`;
+
+      const res = mockResponse();
+      await commitmentRouter['refundCommitment'](
+        mockRequest({ transactionHash, refundAddressSignature }, undefined, {
+          currency,
+        }),
+        res,
+      );
+
+      expect(
+        service.walletManager.ethereumManagers[0].hasSymbol,
+      ).toHaveBeenCalledWith(currency);
+      expect(
+        service.swapManager.eipSigner.signCommitmentRefund,
+      ).toHaveBeenCalledWith(
+        currency,
+        transactionHash,
+        refundAddressSignature,
+        undefined,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        signature: '0xrefundsignature',
+      });
+    });
+
+    test('should throw for unsupported currency', async () => {
+      await expect(
+        commitmentRouter['refundCommitment'](
+          mockRequest(
+            {
+              transactionHash: `0x${'2'.repeat(64)}`,
+              refundAddressSignature,
+            },
+            undefined,
+            { currency: 'BTC' },
+          ),
+          mockResponse(),
+        ),
+      ).rejects.toThrow('currency does not support commitment swaps');
+    });
+
+    test('should refund commitment with logIndex', async () => {
+      const currency = 'RBTC';
+      const transactionHash = `0x${'3'.repeat(64)}`;
+      const logIndex = 2;
+
+      await commitmentRouter['refundCommitment'](
+        mockRequest(
+          { transactionHash, refundAddressSignature, logIndex },
+          undefined,
+          { currency },
+        ),
+        mockResponse(),
+      );
+
+      expect(
+        service.swapManager.eipSigner.signCommitmentRefund,
+      ).toHaveBeenCalledWith(
+        currency,
+        transactionHash,
+        refundAddressSignature,
+        logIndex,
+      );
     });
   });
 

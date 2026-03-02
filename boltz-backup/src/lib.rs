@@ -25,7 +25,7 @@ const PROVIDER_INIT_TIMEOUT: Duration = Duration::from_secs(10);
 pub type ChannelBackupFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub trait ChannelBackupSource {
-    fn symbol(&self) -> &str;
+    fn source_id(&self) -> String;
     fn channel_backup_path(&self, date: &str) -> String;
 
     fn channel_backup<'a>(&'a self) -> ChannelBackupFuture<'a, anyhow::Result<Option<Vec<u8>>>>;
@@ -130,7 +130,7 @@ impl Backup {
     ) -> Self {
         let sources = channel_backup_sources
             .into_iter()
-            .map(|source| (source.symbol().to_string(), source))
+            .map(|source| (source.source_id(), source))
             .collect();
 
         Backup {
@@ -147,19 +147,19 @@ impl Backup {
         for source in self.channel_backup_sources.values() {
             let self_cp = self.clone();
             let source = source.clone();
-            let symbol = source.symbol().to_string();
+            let source_id = source.source_id();
 
             tokio::spawn(async move {
                 let mut backup_stream = source.subscribe_channel_backups().await;
 
                 if let Err(err) = self_cp.source_backup(&source).await {
-                    error!("Channel backup failed for {}: {}", symbol, err);
+                    error!("Channel backup failed for {}: {}", source_id, err);
                 }
 
                 loop {
                     tokio::select! {
                         _ = self_cp.cancellation_token.cancelled() => {
-                            debug!("Stopping channel backup stream for {}", symbol);
+                            debug!("Stopping channel backup stream for {}", source_id);
                             break;
                         }
                         backup_res = backup_stream.recv() => {
@@ -171,19 +171,19 @@ impl Backup {
                                     {
                                         error!(
                                             "Channel backup stream upload failed for {}: {}",
-                                            symbol, err
+                                            source_id, err
                                         );
-                                        self_cp.to_retry.insert(symbol.to_string());
+                                        self_cp.to_retry.insert(source_id.clone());
                                     }
                                 }
                                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                                     tracing::warn!(
                                         "Channel backup stream lagged for {} (skipped {} messages)",
-                                        symbol, skipped
+                                        source_id, skipped
                                     );
                                 }
                                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                                    debug!("Channel backup stream closed for {}", symbol);
+                                    debug!("Channel backup stream closed for {}", source_id);
                                     break;
                                 }
                             }
@@ -256,25 +256,25 @@ impl Backup {
                 }
             }
 
-            for symbol in self
+            for source_id in self
                 .to_retry
                 .iter()
                 .map(|s| s.key().clone())
                 .collect::<Vec<_>>()
             {
-                debug!("Retrying channel backup for {}", symbol);
-                let source = match self.channel_backup_sources.get(&symbol) {
+                debug!("Retrying channel backup for {}", source_id);
+                let source = match self.channel_backup_sources.get(&source_id) {
                     Some(source) => source.clone(),
                     None => continue,
                 };
 
                 match self.source_backup(&source).await {
                     Ok(_) => {
-                        debug!("Retry of channel backup for {} succeeded", symbol);
-                        self.to_retry.remove(&symbol);
+                        debug!("Retry of channel backup for {} succeeded", source_id);
+                        self.to_retry.remove(&source_id);
                     }
                     Err(err) => {
-                        error!("Channel backup retry failed for {}: {}", symbol, err);
+                        error!("Channel backup retry failed for {}: {}", source_id, err);
                         continue;
                     }
                 };
@@ -300,7 +300,7 @@ impl Backup {
         source: &(dyn ChannelBackupSource + Send + Sync),
         backup: &[u8],
     ) -> anyhow::Result<()> {
-        info!("Uploading {} channel backup", source.symbol());
+        info!("Uploading {} channel backup", source.source_id());
 
         let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::best());
         encoder.write_all(hex::encode(backup).as_bytes())?;
@@ -309,7 +309,7 @@ impl Backup {
 
         self.provider.put(&path, Bytes::from(data)).await?;
 
-        debug!("Uploaded {} channel backup", source.symbol());
+        debug!("Uploaded {} channel backup", source.source_id());
 
         Ok(())
     }
@@ -411,15 +411,25 @@ mod tests {
     #[derive(Debug)]
     struct TestBackupSource {
         symbol: String,
+        source_id: Option<String>,
         initial_backup: Option<Vec<u8>>,
         tx: tokio::sync::broadcast::Sender<Vec<u8>>,
     }
 
     impl TestBackupSource {
         fn new(symbol: &str, initial_backup: Option<Vec<u8>>) -> Self {
+            Self::with_source_id(symbol, None, initial_backup)
+        }
+
+        fn with_source_id(
+            symbol: &str,
+            source_id: Option<String>,
+            initial_backup: Option<Vec<u8>>,
+        ) -> Self {
             let (tx, _) = tokio::sync::broadcast::channel(8);
             Self {
                 symbol: symbol.to_string(),
+                source_id,
                 initial_backup,
                 tx,
             }
@@ -427,8 +437,10 @@ mod tests {
     }
 
     impl ChannelBackupSource for TestBackupSource {
-        fn symbol(&self) -> &str {
-            &self.symbol
+        fn source_id(&self) -> String {
+            self.source_id
+                .clone()
+                .unwrap_or_else(|| self.symbol.to_string())
         }
 
         fn channel_backup_path(&self, date: &str) -> String {
@@ -474,5 +486,29 @@ mod tests {
         );
 
         assert!(backup.channel_backup_sources.contains_key("BTC"));
+    }
+
+    #[test]
+    fn test_with_provider_keeps_sources_with_same_symbol() {
+        let provider: Vec<Box<dyn BackupProvider>> = vec![Box::new(TestProvider::new())];
+        let multi = providers::multi::MultiProvider::new(provider).unwrap();
+        let source_1: Arc<dyn ChannelBackupSource + Send + Sync> = Arc::new(
+            TestBackupSource::with_source_id("BTC", Some("BTC:node1".to_string()), None),
+        );
+        let source_2: Arc<dyn ChannelBackupSource + Send + Sync> = Arc::new(
+            TestBackupSource::with_source_id("BTC", Some("BTC:node2".to_string()), None),
+        );
+
+        let backup = Backup::with_provider(
+            CancellationToken::new(),
+            DEFAULT_INTERVAL.to_string(),
+            dummy_db_config(),
+            Arc::new(multi),
+            vec![source_1, source_2],
+        );
+
+        assert_eq!(backup.channel_backup_sources.len(), 2);
+        assert!(backup.channel_backup_sources.contains_key("BTC:node1"));
+        assert!(backup.channel_backup_sources.contains_key("BTC:node2"));
     }
 }

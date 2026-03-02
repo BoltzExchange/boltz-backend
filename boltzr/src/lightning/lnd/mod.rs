@@ -62,6 +62,7 @@ pub struct Lnd {
     cancellation_token: CancellationToken,
 
     symbol: String,
+    id: String,
     lnd: LndClient,
 
     scb_backup_tx: tokio::sync::broadcast::Sender<Vec<u8>>,
@@ -123,9 +124,14 @@ impl Lnd {
         Ok(Lnd {
             cancellation_token,
             symbol: symbol.to_string(),
+            id: String::new(),
             lnd,
             scb_backup_tx,
         })
+    }
+
+    pub fn node_id(&self) -> &str {
+        &self.id
     }
 
     pub async fn channel_backup(&mut self) -> anyhow::Result<Option<Vec<u8>>> {
@@ -188,16 +194,24 @@ impl BaseClient for Lnd {
 
     async fn connect(&mut self) -> anyhow::Result<()> {
         let info = self.lnd.get_info(GetInfoRequest {}).await?.into_inner();
+        if info.identity_pubkey.is_empty() {
+            return Err(anyhow!(
+                "could not connect {} LND: missing identity pubkey",
+                self.symbol
+            ));
+        }
+
         info!(
-            "Connected to {} LND {} ({})",
+            "Connected to {} LND {} {}",
             self.symbol,
             info.version,
-            if !info.alias.is_empty() {
-                info.alias
+            if info.alias.is_empty() {
+                format!("[{}]", info.identity_pubkey)
             } else {
-                info.identity_pubkey
+                format!("({}) [{}]", info.alias, info.identity_pubkey)
             }
         );
+        self.id = info.identity_pubkey;
 
         let mut self_sub = self.clone();
         tokio::spawn(async move {

@@ -494,7 +494,7 @@ mod tests {
                 wallet: None,
                 chain: None,
                 cln: None,
-                lnd: None,
+                lnds: HashMap::new(),
                 evm_manager: Some(Arc::new(manager)),
             },
         );

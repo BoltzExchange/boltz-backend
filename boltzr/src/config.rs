@@ -13,7 +13,7 @@ pub struct CurrencyConfig {
     pub preferred_wallet: Option<String>,
     pub chain: Option<crate::chain::Config>,
     pub cln: Option<crate::lightning::cln::Config>,
-    pub lnd: Option<crate::lightning::lnd::Config>,
+    pub lnds: Option<Vec<crate::lightning::lnd::Config>>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -244,6 +244,24 @@ providerEndpoint = "http://127.0.0.1:8545"
   [sidecar.ws]
   host = "0.0.0.0"
   port = 9004
+
+[[currencies]]
+symbol = "BTC"
+
+  [[currencies.lnds]]
+  host = "lnd-2"
+  port = 10009
+  certpath = "/tmp/lnd-2/tls.cert"
+  macaroonpath = "/tmp/lnd-2/admin.macaroon"
+
+  [[currencies.lnds]]
+  host = "lnd-3"
+  port = 10009
+  certpath = "/tmp/lnd-3/tls.cert"
+  macaroonpath = "/tmp/lnd-3/admin.macaroon"
+
+[[currencies]]
+symbol = "L-BTC"
         "#,
         )
         .unwrap();
@@ -255,6 +273,24 @@ providerEndpoint = "http://127.0.0.1:8545"
             config.otlp_endpoint.unwrap(),
             "http://127.0.0.1:4317/v1/traces"
         );
+
+        let currencies = config.currencies.clone().unwrap();
+        assert_eq!(currencies.len(), 2);
+        assert_eq!(currencies[0].symbol, "BTC");
+
+        let btc_lnds = currencies[0].lnds.clone().unwrap();
+        assert_eq!(btc_lnds.len(), 2);
+        assert_eq!(btc_lnds[0].host, "lnd-2");
+        assert_eq!(btc_lnds[0].port, 10009);
+        assert_eq!(btc_lnds[0].certpath, "/tmp/lnd-2/tls.cert");
+        assert_eq!(btc_lnds[0].macaroonpath, "/tmp/lnd-2/admin.macaroon");
+        assert_eq!(btc_lnds[1].host, "lnd-3");
+        assert_eq!(btc_lnds[1].port, 10009);
+        assert_eq!(btc_lnds[1].certpath, "/tmp/lnd-3/tls.cert");
+        assert_eq!(btc_lnds[1].macaroonpath, "/tmp/lnd-3/admin.macaroon");
+
+        assert_eq!(currencies[1].symbol, "L-BTC");
+        assert!(currencies[1].lnds.is_none());
 
         assert_eq!(
             config.postgres,

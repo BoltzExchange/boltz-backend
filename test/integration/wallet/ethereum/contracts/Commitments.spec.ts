@@ -777,6 +777,9 @@ describe('Commitments', () => {
         [contract],
         new Map(),
       );
+      commitments.setRefundSignatureLock(async <T>(cb: () => Promise<T>) =>
+        cb(),
+      );
 
       return commitments;
     };

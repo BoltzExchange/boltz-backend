@@ -107,7 +107,7 @@ class CommitmentRouter extends RouterBase {
      *                 type: string
      *                 description: Transaction hash of the lockup transaction
      *               logIndex:
-     *                 type: number
+     *                 type: integer
      *                 description: Log index of the lockup event if there are multiple in the transaction
      *               maxOverpaymentPercentage:
      *                 type: number
@@ -129,6 +129,55 @@ class CommitmentRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/:currency', this.handleError(this.postCommitment));
+
+    /**
+     * @openapi
+     * /commitment/{currency}/refund:
+     *   post:
+     *     tags: [Commitment]
+     *     description: Get an EIP-712 signature for a cooperative refund of an unlinked commitment
+     *     parameters:
+     *       - in: path
+     *         name: currency
+     *         required: true
+     *         schema:
+     *           type: string
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: ["transactionHash", "refundAddressSignature"]
+     *             properties:
+     *               transactionHash:
+     *                 type: string
+     *                 description: Transaction hash containing the lockup event
+     *               logIndex:
+     *                 type: integer
+     *                 description: Optional log index in case of multiple lockups in one transaction
+     *               refundAddressSignature:
+     *                 type: string
+     *                 description: Signature of the refund address over the commitment refund authorization message
+     *     responses:
+     *       '201':
+     *         description: EIP-712 signature
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               required: ["signature"]
+     *               properties:
+     *                 signature:
+     *                   type: string
+     *       '400':
+     *         description: Error that caused signature request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    router.post('/:currency/refund', this.handleError(this.refundCommitment));
 
     return router;
   };
@@ -161,12 +210,8 @@ class CommitmentRouter extends RouterBase {
       { name: 'maxOverpaymentPercentage', type: 'number', optional: true },
     ]);
 
-    if (
-      logIndex !== undefined &&
-      (!Number.isInteger(logIndex) || logIndex < 0)
-    ) {
-      throw Errors.INVALID_PARAMETER('logIndex');
-    }
+    this.validateTransactionHash(transactionHash);
+    this.validateLogIndex(logIndex);
 
     if (
       maxOverpaymentPercentage !== undefined &&
@@ -189,6 +234,36 @@ class CommitmentRouter extends RouterBase {
     createdResponse(res, {});
   };
 
+  private refundCommitment = async (req: Request, res: Response) => {
+    const { currency } = validateRequest(req.params, [
+      { name: 'currency', type: 'string' },
+    ]);
+    const { transactionHash, logIndex, refundAddressSignature } =
+      validateRequest(req.body, [
+        { name: 'transactionHash', type: 'string' },
+        { name: 'logIndex', type: 'number', optional: true },
+        { name: 'refundAddressSignature', type: 'string' },
+      ]);
+
+    this.validateTransactionHash(transactionHash);
+    this.validateLogIndex(logIndex);
+
+    this.getManager(currency);
+    successResponse(
+      res,
+      {
+        signature:
+          await this.service.swapManager.eipSigner.signCommitmentRefund(
+            currency,
+            transactionHash,
+            refundAddressSignature,
+            logIndex,
+          ),
+      },
+      201,
+    );
+  };
+
   private getManager = (currency: string): EthereumManager => {
     const manager = this.service.walletManager.ethereumManagers.find(
       (manager) => manager.hasSymbol(currency),
@@ -199,6 +274,21 @@ class CommitmentRouter extends RouterBase {
     }
 
     return manager;
+  };
+
+  private validateLogIndex = (logIndex: number | undefined) => {
+    if (
+      logIndex !== undefined &&
+      (!Number.isInteger(logIndex) || logIndex < 0)
+    ) {
+      throw Errors.INVALID_PARAMETER('logIndex');
+    }
+  };
+
+  private validateTransactionHash = (transactionHash: string) => {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(transactionHash)) {
+      throw Errors.INVALID_PARAMETER('transactionHash');
+    }
   };
 }
 

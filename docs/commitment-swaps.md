@@ -215,8 +215,59 @@ hash.
 
 ## Refunding Commitment Swaps
 
-Refunds work the same as standard EVM swaps:
+### Commitment Not Linked to a Swap
 
-- **After timelock expires**: Call `refund` with the lockup parameters
-- **Cooperative refund**: Request an EIP-712 refund signature from Boltz via
-  `GET /v2/swap/submarine/{id}/refund` and use `refundCooperative`
+If the lockup is not linked to any swap yet, request a cooperative refund
+signature using the lockup transaction:
+
+```
+POST /v2/commitment/{currency}/refund
+```
+
+**Request body:**
+
+```json
+{
+  "transactionHash": "0x...",
+  "logIndex": 0,
+  "refundAddressSignature": "0x..."
+}
+```
+
+- `transactionHash`: transaction containing the lockup event
+- `logIndex`: optional, required when multiple lockups are in the same
+  transaction
+- `refundAddressSignature`: signature from your `refundAddress` over:
+
+  ```
+  Boltz commitment refund authorization
+  chain: {currency}
+  transactionHash: {transactionHash}
+  logIndex: {logIndex or "none"}
+  ```
+
+**Response:**
+
+```json
+{
+  "signature": "0x..."
+}
+```
+
+Use that signature with `refundCooperative` and the exact lockup values from the
+transaction.
+
+### Commitment Linked to a Swap
+
+Once the commitment is linked to a swap, use the swap refund endpoint:
+
+```
+GET /v2/swap/submarine/{id}/refund
+```
+
+Then execute `refundCooperative` with the returned signature.
+
+### Timelock Refund
+
+After timelock expiry, refunds work the same as standard EVM swaps by calling
+`refund` with the lockup parameters

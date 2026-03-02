@@ -233,6 +233,11 @@ class Service {
       this.sidecar,
       this.balanceCheck,
     );
+    this.walletManager.ethereumManagers.forEach((manager) => {
+      manager.commitments.setRefundSignatureLock(
+        this.swapManager.eipSigner.refundSignatureLock,
+      );
+    });
 
     this.eventHandler = new EventHandler(this.logger, this.swapManager.nursery);
 

@@ -2,6 +2,7 @@ use crate::chain::utils::Outpoint;
 use crate::currencies::{Currencies, Currency};
 use crate::db::helpers::chain_swap::ChainSwapHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
+use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{LightningSwap, SomeSwap};
 use crate::swap::status::{SwapUpdate, serialize_swap_updates};
@@ -21,12 +22,14 @@ pub fn get_input_output_filters(
     swap_repo: &Arc<dyn SwapHelper + Sync + Send>,
     reverse_swap_repo: &Arc<dyn ReverseSwapHelper + Sync + Send>,
     chain_swap_repo: &Arc<dyn ChainSwapHelper + Sync + Send>,
+    script_pubkey_repo: &Arc<dyn ScriptPubKeyHelper + Sync + Send>,
 ) -> Result<Filters> {
     let mut filters = Filters::new();
 
     get_swap_filters(currencies, swap_repo, &mut filters)?;
     get_reverse_filters(reverse_swap_repo, &mut filters)?;
     get_chain_filters(currencies, chain_swap_repo, &mut filters)?;
+    get_funding_address_filters(script_pubkey_repo, &mut filters)?;
 
     Ok(filters)
 }
@@ -167,6 +170,20 @@ fn get_chain_filters(
     Ok(())
 }
 
+fn get_funding_address_filters(
+    script_pubkey_repo: &Arc<dyn ScriptPubKeyHelper + Sync + Send>,
+    filters: &mut Filters,
+) -> Result<()> {
+    for script_pubkey in script_pubkey_repo.get_pending_funding_addresses()? {
+        let (_, outputs) = filters
+            .entry(script_pubkey.symbol.clone())
+            .or_insert((HashSet::new(), HashSet::new()));
+        outputs.insert(script_pubkey.script_pubkey);
+    }
+
+    Ok(())
+}
+
 fn get_currency<'a, S>(currencies: &'a Currencies, symbol: &str, swap: &S) -> Option<&'a Currency>
 where
     S: SomeSwap,
@@ -224,64 +241,26 @@ fn parse_transaction_id(id: &str) -> Result<Vec<u8>> {
 mod test {
     use crate::chain::utils::Outpoint;
     use crate::currencies::{Currencies, Currency};
-    use crate::db::helpers::QueryResponse;
-    use crate::db::helpers::chain_swap::{
-        ChainSwapCondition, ChainSwapDataNullableCondition, ChainSwapHelper,
-    };
+    use crate::db::helpers::chain_swap::ChainSwapHelper;
+    use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::reverse_swap::ReverseSwapHelper;
     use crate::db::helpers::reverse_swap::test::MockReverseSwapHelper;
-    use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
-    use crate::db::models::{ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, Swap};
+    use crate::db::helpers::script_pubkey::ScriptPubKeyHelper;
+    use crate::db::helpers::script_pubkey::test::MockScriptPubKeyHelper;
+    use crate::db::helpers::swap::SwapHelper;
+    use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::models::{
+        ChainSwap, ChainSwapData, ChainSwapInfo, ReverseSwap, ScriptPubKey, Swap,
+    };
     use crate::swap::SwapUpdate;
     use crate::swap::filters::{
         decode_script, get_currency, get_input_output_filters, parse_transaction_id,
     };
     use crate::wallet::{Bitcoin, Elements, Network, Wallet};
     use bip39::Mnemonic;
-    use mockall::mock;
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
-
-    mock! {
-        SwapHelper {}
-
-        impl Clone for SwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl SwapHelper for SwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
-            fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
-            fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
-                &self,
-                id: &str,
-                status: SwapUpdate,
-                failure_reason: Option<String>,
-            ) -> QueryResponse<usize>;
-        }
-    }
-
-    mock! {
-        ChainSwapHelper {}
-
-        impl Clone for ChainSwapHelper {
-            fn clone(&self) -> Self;
-        }
-
-        impl ChainSwapHelper for ChainSwapHelper {
-            fn get_by_id(&self, id: &str) -> QueryResponse<ChainSwapInfo>;
-            fn get_all(
-                &self,
-                condition: ChainSwapCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-            fn get_by_data_nullable(
-                &self,
-                condition: ChainSwapDataNullableCondition,
-            ) -> QueryResponse<Vec<ChainSwapInfo>>;
-        }
-    }
 
     fn get_seed() -> [u8; 64] {
         Mnemonic::from_str("test test test test test test test test test test test junk")
@@ -387,11 +366,18 @@ mod test {
         chain.expect_get_all().returning(|_| Ok(Vec::default()));
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
+        let mut script_pubkey = MockScriptPubKeyHelper::new();
+        script_pubkey
+            .expect_get_pending_funding_addresses()
+            .returning(|| Ok(Vec::default()));
+        let script_pubkey_repo: Arc<dyn ScriptPubKeyHelper + Send + Sync> = Arc::new(script_pubkey);
+
         let chain_filters = get_input_output_filters(
             &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
+            &script_pubkey_repo,
         )
         .unwrap();
 
@@ -456,11 +442,18 @@ mod test {
         chain.expect_get_all().returning(|_| Ok(Vec::default()));
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
+        let mut script_pubkey = MockScriptPubKeyHelper::new();
+        script_pubkey
+            .expect_get_pending_funding_addresses()
+            .returning(|| Ok(Vec::default()));
+        let script_pubkey_repo: Arc<dyn ScriptPubKeyHelper + Send + Sync> = Arc::new(script_pubkey);
+
         let chain_filters = get_input_output_filters(
             &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
+            &script_pubkey_repo,
         )
         .unwrap();
 
@@ -536,11 +529,18 @@ mod test {
         });
         let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
 
+        let mut script_pubkey = MockScriptPubKeyHelper::new();
+        script_pubkey
+            .expect_get_pending_funding_addresses()
+            .returning(|| Ok(Vec::default()));
+        let script_pubkey_repo: Arc<dyn ScriptPubKeyHelper + Send + Sync> = Arc::new(script_pubkey);
+
         let chain_filters = get_input_output_filters(
             &get_currencies().await,
             &swap_repo,
             &reverse_swap_repo,
             &chain_swap_repo,
+            &script_pubkey_repo,
         )
         .unwrap();
 
@@ -570,6 +570,54 @@ mod test {
             vout: 21,
             hash: parse_transaction_id(tx_id).unwrap(),
         }));
+    }
+
+    #[tokio::test]
+    async fn get_input_output_filters_funding_address_script_pubkey() {
+        fn expected_script_pubkey() -> Vec<u8> {
+            vec![0x51, 0x20, 0x01, 0x02, 0x03, 0x04]
+        }
+
+        let mut swap = MockSwapHelper::new();
+        swap.expect_get_all().returning(|_| Ok(Vec::default()));
+        let swap_repo: Arc<dyn SwapHelper + Send + Sync> = Arc::new(swap);
+
+        let mut reverse = MockReverseSwapHelper::new();
+        reverse.expect_get_all().returning(|_| Ok(Vec::default()));
+        let reverse_swap_repo: Arc<dyn ReverseSwapHelper + Send + Sync> = Arc::new(reverse);
+
+        let mut chain = MockChainSwapHelper::new();
+        chain.expect_get_all().returning(|_| Ok(Vec::default()));
+        let chain_swap_repo: Arc<dyn ChainSwapHelper + Send + Sync> = Arc::new(chain);
+
+        let mut script_pubkey = MockScriptPubKeyHelper::new();
+        script_pubkey
+            .expect_get_pending_funding_addresses()
+            .returning(|| {
+                Ok(vec![ScriptPubKey {
+                    symbol: "BTC".to_string(),
+                    script_pubkey: expected_script_pubkey(),
+                    swap_id: None,
+                    funding_address_id: Some("funding-address-id".to_string()),
+                }])
+            });
+        let script_pubkey_repo: Arc<dyn ScriptPubKeyHelper + Send + Sync> = Arc::new(script_pubkey);
+
+        let chain_filters = get_input_output_filters(
+            &get_currencies().await,
+            &swap_repo,
+            &reverse_swap_repo,
+            &chain_swap_repo,
+            &script_pubkey_repo,
+        )
+        .unwrap();
+
+        assert_eq!(chain_filters.len(), 1);
+
+        let (inputs, outputs) = chain_filters.get("BTC").unwrap();
+        assert!(inputs.is_empty());
+        assert_eq!(outputs.len(), 1);
+        assert!(outputs.contains(&expected_script_pubkey()));
     }
 
     #[tokio::test]

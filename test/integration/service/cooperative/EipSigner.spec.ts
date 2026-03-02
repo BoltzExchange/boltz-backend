@@ -33,6 +33,15 @@ jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
   getChainSwap: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../../../../lib/db/repositories/FundingAddressRepository', () => {
+  return {
+    __esModule: true,
+    default: {
+      getBySwapId: jest.fn().mockResolvedValue(null),
+    },
+  };
+});
+
 jest.mock('../../../../lib/db/repositories/CommitmentRepository', () => ({
   getBySwapId: jest.fn().mockResolvedValue(null),
 }));

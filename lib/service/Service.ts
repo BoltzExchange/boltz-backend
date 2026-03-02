@@ -1603,11 +1603,13 @@ class Service {
     });
 
     try {
+      const swap = await SwapRepository.getSwap({
+        id: createdSwap.id,
+      });
+
       const { bip21, acceptZeroConf, expectedAmount } =
         await this.setSwapInvoice(
-          (await SwapRepository.getSwap({
-            id: createdSwap.id,
-          }))!,
+          swap!,
           invoice,
           createdSwap.canBeRouted,
           pairHash,

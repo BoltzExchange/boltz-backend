@@ -1,12 +1,13 @@
 use crate::config::parse_config;
 use crate::currencies::connect_nodes;
 use crate::db::helpers::chain_swap::ChainSwapHelperDatabase;
+use crate::db::helpers::funding_address::FundingAddressHelperDatabase;
 use crate::db::helpers::keys::KeysHelperDatabase;
 use crate::db::helpers::reverse_swap::ReverseSwapHelperDatabase;
 use crate::db::helpers::swap::SwapHelperDatabase;
 use crate::service::Service;
 use crate::swap::manager::Manager;
-use api::ws::{self};
+use api::ws::{self, types::UpdateSender};
 use boltz_backup::{Backup, DatabaseConfig};
 use boltz_cache::{Cache, MemCache, Redis};
 use boltz_utils::ensure_rustls_crypto_provider;
@@ -130,6 +131,11 @@ async fn main() {
         std::process::exit(1);
     });
 
+    db::run_migrations(&db_pool).unwrap_or_else(|err| {
+        error!("Could not run migrations: {}", err);
+        std::process::exit(1);
+    });
+
     let cache = if let Some(config) = config.cache {
         match Redis::new(&config).await {
             Ok(cache) => Cache::Redis(cache),
@@ -144,6 +150,12 @@ async fn main() {
     };
 
     let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let (swap_status_update_tx, _swap_status_update_rx): (UpdateSender<ws::types::SwapStatus>, _) =
+        tokio::sync::broadcast::channel(1024);
+    let (funding_address_update_tx, _funding_address_update_rx): (
+        UpdateSender<ws::types::FundingAddressUpdate>,
+        _,
+    ) = tokio::sync::broadcast::channel(1024);
 
     #[cfg(feature = "metrics")]
     let mut metrics_server =
@@ -190,9 +202,13 @@ async fn main() {
         Arc::new(ChainSwapHelperDatabase::new(db_pool.clone())),
         Arc::new(ReverseSwapHelperDatabase::new(db_pool.clone())),
         currencies.clone(),
+        Arc::new(FundingAddressHelperDatabase::new(db_pool.clone())),
+        Arc::new(KeysHelperDatabase::new(db_pool.clone())),
         config.marking,
         config.historical,
+        config.funding_address,
         cache.clone(),
+        funding_address_update_tx.clone(),
     ));
     {
         let service = service.clone();
@@ -256,9 +272,6 @@ async fn main() {
         })
     });
 
-    let (swap_status_update_tx, _swap_status_update_rx) =
-        tokio::sync::broadcast::channel::<(Option<u64>, Vec<ws::types::SwapStatus>)>(1024);
-
     let swap_manager = match Manager::new(
         cancellation_token.clone(),
         config.sidecar.asset_rescue,
@@ -267,6 +280,8 @@ async fn main() {
         db_pool.clone(),
         network,
         &config.pairs.unwrap_or_default(),
+        funding_address_update_tx.clone(),
+        swap_status_update_tx.clone(),
     ) {
         Ok(swap_manager) => Arc::new(swap_manager),
         Err(err) => {
@@ -283,7 +298,9 @@ async fn main() {
         service.clone(),
         swap_manager.clone(),
         swap_status_update_tx.clone(),
-        Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(db_pool)),
+        Box::new(db::helpers::web_hook::WebHookHelperDatabase::new(
+            db_pool.clone(),
+        )),
         web_hook_status_caller,
         notification_client.clone().map(Arc::new),
     );
@@ -313,6 +330,7 @@ async fn main() {
         config.sidecar.ws,
         grpc_server.status_fetcher(),
         swap_status_update_tx,
+        funding_address_update_tx,
         offer_subscriptions,
     );
 

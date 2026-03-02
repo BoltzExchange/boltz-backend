@@ -2,7 +2,9 @@ use crate::{
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
     elements::InputDetail,
     target_fee::{FeeTarget, target_fee},
-    utils::{Destination, InputType, OutputType},
+    utils::{
+        COOPERATIVE_INPUT_ERROR, Destination, InputType, LEGACY_COOPERATIVE_INPUT_ERROR, OutputType,
+    },
 };
 use anyhow::Result;
 use bitcoin::Witness;
@@ -168,6 +170,9 @@ fn construct_raw<C: Signing + Verification>(
                     InputType::Refund(_) => {
                         script_sig = script_sig.push_slice(&PREIMAGE_DUMMY);
                     }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(LEGACY_COOPERATIVE_INPUT_ERROR));
+                    }
                 };
 
                 tx.input[i].script_sig = script_sig
@@ -191,10 +196,12 @@ fn construct_raw<C: Signing + Verification>(
                 tx.input[i].witness.script_witness = stubbed_cooperative_witness().to_vec();
             }
             OutputType::Taproot(Some(uncooperative)) => {
-                let leaf = if let InputType::Claim(_) = input.input_type {
-                    &uncooperative.tree.claim_leaf
-                } else {
-                    &uncooperative.tree.refund_leaf
+                let leaf = match input.input_type {
+                    InputType::Claim(_) => &uncooperative.tree.claim_leaf,
+                    InputType::Refund(_) => &uncooperative.tree.refund_leaf,
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
+                    }
                 };
 
                 let leaf_hash = leaf.leaf_hash()?;
@@ -248,10 +255,16 @@ fn construct_raw<C: Signing + Verification>(
                 let mut witness = Witness::new();
                 witness.push(legacy_signature(secp, &sighash, &input.keys)?);
 
-                if let InputType::Claim(preimage) = input.input_type {
-                    witness.push(preimage);
-                } else {
-                    witness.push(PREIMAGE_DUMMY);
+                match input.input_type {
+                    InputType::Claim(preimage) => {
+                        witness.push(preimage);
+                    }
+                    InputType::Refund(_) => {
+                        witness.push(PREIMAGE_DUMMY);
+                    }
+                    InputType::Cooperative => {
+                        return Err(anyhow::anyhow!(COOPERATIVE_INPUT_ERROR));
+                    }
                 }
 
                 witness.push(witness_script.as_bytes());

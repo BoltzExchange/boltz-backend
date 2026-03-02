@@ -10,7 +10,6 @@ import {
   SwapVersion,
 } from '../../../../lib/consts/Enums';
 import type ChainSwapData from '../../../../lib/db/models/ChainSwapData';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 
@@ -35,7 +34,7 @@ export const createReverseSwap = async (
     fee: 123,
     id: generateId(),
     pair: 'L-BTC/BTC',
-    node: NodeType.CLN,
+    nodeId: 'cln-1',
     onchainAmount: 90_000,
     invoiceAmount: 100_000,
     orderSide: OrderSide.BUY,

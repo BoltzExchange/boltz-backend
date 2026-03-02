@@ -11,10 +11,17 @@ import Swap from '../../../lib/db/models/Swap';
 import LightningPaymentRepository from '../../../lib/db/repositories/LightningPaymentRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import LightningErrors from '../../../lib/lightning/Errors';
+import type LndClient from '../../../lib/lightning/LndClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
+import type ClnClient from '../../../lib/lightning/cln/ClnClient';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import type { Currency } from '../../../lib/wallet/WalletManager';
-import { bitcoinLndClient, clnClient, waitForClnChainSync } from '../Nodes';
+import {
+  getBitcoinLndClient,
+  getClnClient,
+  resetNodeConnectionPromises,
+  waitForClnChainSync,
+} from '../Nodes';
 import { createSubmarineSwapData } from '../db/repositories/Fixtures';
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
@@ -42,6 +49,10 @@ jest.mock(
 
 describe('PendingPaymentTracker', () => {
   let db: Database;
+  let bitcoinLndClient: LndClient;
+  let clnClient: ClnClient;
+  let currencies: Currency[];
+
   const tracker = new PendingPaymentTracker(Logger.disabledLogger, sidecar);
   const paymentTimeoutMinutes = 10;
   const trackerWithTimeout = new PendingPaymentTracker(
@@ -50,19 +61,15 @@ describe('PendingPaymentTracker', () => {
     paymentTimeoutMinutes,
   );
 
-  const currencies = [
-    {
-      clnClient,
-      symbol: 'BTC',
-      lndClient: bitcoinLndClient,
-    },
-  ] as Currency[];
-
   beforeAll(async () => {
     await startSidecar();
 
     db = new Database(Logger.disabledLogger, Database.memoryDatabase);
 
+    bitcoinLndClient = await getBitcoinLndClient();
+    clnClient = await getClnClient();
+
+    // Connect first to discover pubkeys
     await Promise.all([
       db.init(),
       clnClient.connect(),
@@ -73,6 +80,15 @@ describe('PendingPaymentTracker', () => {
         false,
       ),
     ]);
+
+    // Create currencies array after connection so client.id is populated
+    currencies = [
+      {
+        clnClient,
+        symbol: 'BTC',
+        lndClients: new Map([[bitcoinLndClient.id, bitcoinLndClient]]),
+      },
+    ] as Currency[];
 
     clnClient.subscribeTrackHoldInvoices();
 
@@ -99,6 +115,7 @@ describe('PendingPaymentTracker', () => {
 
     clnClient.disconnect();
     bitcoinLndClient.disconnect();
+    resetNodeConnectionPromises();
   });
 
   describe('init', () => {
@@ -106,10 +123,10 @@ describe('PendingPaymentTracker', () => {
       await tracker.init(currencies);
 
       expect(tracker['lightningNodes'].size).toEqual(1);
-      expect(tracker['lightningNodes'].get('BTC')).toEqual({
-        [NodeType.CLN]: clnClient,
-        [NodeType.LND]: bitcoinLndClient,
-      });
+      const nodes = tracker['lightningNodes'].get('BTC');
+      expect(nodes?.size).toEqual(2);
+      expect(nodes?.get(clnClient.id)).toEqual(clnClient);
+      expect(nodes?.get(bitcoinLndClient.id)).toEqual(bitcoinLndClient);
     });
 
     test('should watch pending lightning payments', async () => {
@@ -118,7 +135,7 @@ describe('PendingPaymentTracker', () => {
         invoice: 'lnbc1',
       });
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: bitcoinLndClient.id,
         preimageHash: swap.preimageHash,
       });
 
@@ -142,14 +159,14 @@ describe('PendingPaymentTracker', () => {
         invoice: 'lnbc1',
       });
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: bitcoinLndClient.id,
         preimageHash: swap.preimageHash,
       });
 
       await tracker.init([
         {
           ...currencies[0],
-          lndClient: undefined,
+          lndClients: new Map(),
         },
       ]);
 
@@ -181,7 +198,7 @@ describe('PendingPaymentTracker', () => {
       });
 
       await LightningPayment.create({
-        node: NodeType.CLN,
+        nodeId: clnClient.id,
         preimageHash: swap.preimageHash,
         status,
       });
@@ -194,7 +211,6 @@ describe('PendingPaymentTracker', () => {
       expect(res.node.type).toEqual(expected);
 
       expect(res.payments).toHaveLength(1);
-      expect(res.payments[0].node).toEqual(expected);
       expect(res.payments).toEqual(
         await LightningPaymentRepository.findByPreimageHash(swap.preimageHash),
       );
@@ -222,7 +238,7 @@ describe('PendingPaymentTracker', () => {
 
         if (status !== undefined) {
           await LightningPayment.create({
-            node: NodeType.CLN,
+            nodeId: clnClient.id,
             preimageHash: swap.preimageHash,
             status,
           });
@@ -274,7 +290,7 @@ describe('PendingPaymentTracker', () => {
         getHexString(preimageHash),
       );
       expect(payments).toHaveLength(1);
-      expect(payments[0].node).toEqual(NodeType.CLN);
+      expect(payments[0].nodeId).toEqual(clnClient.id);
       expect(payments[0].status).toEqual(LightningPaymentStatus.Success);
     });
 
@@ -299,7 +315,7 @@ describe('PendingPaymentTracker', () => {
         getHexString(preimageHash),
       );
       expect(payments).toHaveLength(1);
-      expect(payments[0].node).toEqual(NodeType.CLN);
+      expect(payments[0].nodeId).toEqual(clnClient.id);
       expect(payments[0].status).toEqual(
         LightningPaymentStatus.PermanentFailure,
       );
@@ -341,7 +357,7 @@ describe('PendingPaymentTracker', () => {
         getHexString(preimageHash),
       );
       expect(payments).toHaveLength(1);
-      expect(payments[0].node).toEqual(NodeType.CLN);
+      expect(payments[0].nodeId).toEqual(clnClient.id);
       expect(payments[0].status).toEqual(LightningPaymentStatus.Pending);
     });
 
@@ -373,7 +389,7 @@ describe('PendingPaymentTracker', () => {
           Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 1),
         );
         await LightningPayment.create({
-          node: NodeType.LND,
+          nodeId: bitcoinLndClient.id,
           preimageHash: swap.preimageHash,
           status: LightningPaymentStatus.TemporaryFailure,
           createdAt: pastDate,
@@ -416,7 +432,7 @@ describe('PendingPaymentTracker', () => {
         });
 
         await LightningPayment.create({
-          node: NodeType.LND,
+          nodeId: bitcoinLndClient.id,
           preimageHash: swap.preimageHash,
           status: LightningPaymentStatus.TemporaryFailure,
           createdAt: new Date(
@@ -461,7 +477,7 @@ describe('PendingPaymentTracker', () => {
           Date.now() - minutesToMilliseconds(paymentTimeoutMinutes + 50),
         );
         await LightningPayment.create({
-          node: NodeType.LND,
+          nodeId: bitcoinLndClient.id,
           preimageHash: swap.preimageHash,
           status: LightningPaymentStatus.TemporaryFailure,
           createdAt: pastDate,
@@ -523,7 +539,7 @@ describe('PendingPaymentTracker', () => {
           preimageHash: getHexString(preimageHash),
         });
         await LightningPaymentRepository.create({
-          node: NodeType.LND,
+          nodeId: bitcoinLndClient.id,
           preimageHash: swap.preimageHash,
         });
 
@@ -555,7 +571,7 @@ describe('PendingPaymentTracker', () => {
             preimageHash: getHexString(preimageHash),
           });
           await LightningPayment.create({
-            node: NodeType.LND,
+            nodeId: bitcoinLndClient.id,
             preimageHash: swap.preimageHash,
             status: LightningPaymentStatus.Success,
           });
@@ -584,7 +600,7 @@ describe('PendingPaymentTracker', () => {
             ),
           });
           await LightningPayment.create({
-            node: NodeType.CLN,
+            nodeId: clnClient.id,
             preimageHash: swap.preimageHash,
             status: LightningPaymentStatus.Success,
           });
@@ -615,7 +631,7 @@ describe('PendingPaymentTracker', () => {
             ),
           });
           await LightningPayment.create({
-            node: NodeType.CLN,
+            nodeId: clnClient.id,
             preimageHash: swap.preimageHash,
             status: LightningPaymentStatus.Success,
           });
@@ -653,7 +669,7 @@ describe('PendingPaymentTracker', () => {
         const error = 'some error';
         await LightningPayment.create({
           error,
-          node: NodeType.LND,
+          nodeId: bitcoinLndClient.id,
           preimageHash: swap.preimageHash,
           status: LightningPaymentStatus.PermanentFailure,
         });

@@ -30,11 +30,12 @@ abstract class NodePendingPaymentTracker {
   public abstract parseErrorMessage(error: unknown): string;
 
   protected handleSucceededPayment = async (
+    client: LightningClient,
     preimageHash: string,
     result: PaymentResponse,
   ) => {
     this.logger.debug(
-      `${nodeTypeToPrettyString(this.nodeType)} paid invoice ${preimageHash}: ${stringify(
+      `${client.id} (${nodeTypeToPrettyString(this.nodeType)}) paid invoice ${preimageHash}: ${stringify(
         {
           feeMsat: result.feeMsat,
           preimage: getHexString(result.preimage),
@@ -43,7 +44,7 @@ abstract class NodePendingPaymentTracker {
     );
     await LightningPaymentRepository.setStatus(
       preimageHash,
-      this.nodeType,
+      client.id,
       LightningPaymentStatus.Success,
     );
   };
@@ -57,7 +58,7 @@ abstract class NodePendingPaymentTracker {
 
     const errorMsg = this.parseErrorMessage(error);
     this.logger.debug(
-      `${nodeTypeToPrettyString(this.nodeType)} payment ${preimageHash} failed ${isPermanent ? 'permanently' : 'temporarily'}: ${errorMsg}`,
+      `${client.id} (${nodeTypeToPrettyString(this.nodeType)}) payment ${preimageHash} failed ${isPermanent ? 'permanently' : 'temporarily'}: ${errorMsg}`,
     );
 
     // Check for "Connection dropped" because the node status might be stale
@@ -70,7 +71,7 @@ abstract class NodePendingPaymentTracker {
 
     await LightningPaymentRepository.setStatus(
       preimageHash,
-      this.nodeType,
+      client.id,
       isPermanent
         ? LightningPaymentStatus.PermanentFailure
         : LightningPaymentStatus.TemporaryFailure,

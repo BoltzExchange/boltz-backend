@@ -11,6 +11,9 @@ import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 
 let mockGetBalanceResponse: any = null;
+const lndNodeId = 'lnd-1';
+const clnNodeId = 'cln-1';
+const mockCurrencies = new Map<string, any>();
 const mockGetBalance = jest.fn().mockImplementation(async () => {
   return mockGetBalanceResponse;
 });
@@ -18,6 +21,7 @@ const mockGetBalance = jest.fn().mockImplementation(async () => {
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => ({
     getBalance: mockGetBalance,
+    currencies: mockCurrencies,
   }));
 });
 
@@ -62,6 +66,11 @@ describe('BalanceChecker', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCurrencies.clear();
+    mockCurrencies.set('BTC', {
+      lndClients: new Map([[lndNodeId, { id: lndNodeId }]]),
+      clnClient: { id: clnNodeId },
+    });
 
     // Reset the BalanceChecker instance
     checker = new BalanceChecker(
@@ -125,7 +134,7 @@ describe('BalanceChecker', () => {
 
     const btcBalance = new Balances();
     btcBalance.getWalletsMap().set('Core', btcWalletBalance);
-    btcBalance.getLightningMap().set('LND', btcLightningBalance);
+    btcBalance.getLightningMap().set(lndNodeId, btcLightningBalance);
 
     const usdtWalletBalance = new Balances.WalletBalance();
     usdtWalletBalance.setConfirmed(123);
@@ -173,7 +182,7 @@ describe('BalanceChecker', () => {
       ],
       lightningMap: [
         [
-          'LND',
+          lndNodeId,
           {
             local: 2,
             remote: 3,
@@ -194,14 +203,14 @@ describe('BalanceChecker', () => {
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       2,
       btcCurrency,
-      'LND',
+      lndNodeId,
       BalanceType.ChannelLocal,
       2,
     );
     expect(mockCheckBalance).toHaveBeenNthCalledWith(
       3,
       btcCurrency,
-      'LND',
+      lndNodeId,
       BalanceType.ChannelRemote,
       3,
     );
@@ -233,7 +242,7 @@ describe('BalanceChecker', () => {
 
   test('should check balance', () => {
     const service = 'Core';
-    const currency = { ...btcCurrency, preferredWallet: 'core' } as any;
+    const currency = { ...btcCurrency } as any;
     const checkBalance = checker['checkBalance'];
 
     /*
@@ -512,18 +521,27 @@ describe('BalanceChecker', () => {
           },
         ],
         [
-          'LND',
+          lndNodeId,
           {
             confirmed: 2,
             unconfirmed: 1,
           },
         ],
       ],
-      lightningMap: [],
+      lightningMap: [
+        [
+          lndNodeId,
+          {
+            local: 2,
+            remote: 3,
+          },
+        ],
+      ],
     });
 
-    expect(mockedCheckBalance).toHaveBeenCalledTimes(3);
-    expect(mockedCheckBalance).toHaveBeenLastCalledWith(
+    expect(mockedCheckBalance).toHaveBeenCalledTimes(5);
+    expect(mockedCheckBalance).toHaveBeenNthCalledWith(
+      3,
       expect.anything(),
       expect.anything(),
       expect.anything(),
@@ -535,7 +553,7 @@ describe('BalanceChecker', () => {
   test('should ignore unused wallets when no max unused wallet balance is defined', async () => {
     await checker['checkBalance'](
       { ...btcCurrency, maxUnusedWalletBalance: undefined },
-      'CLN',
+      clnNodeId,
       BalanceType.Wallet,
       btcCurrency.maxWalletBalance! + 1,
       false,
@@ -548,7 +566,7 @@ describe('BalanceChecker', () => {
     const maxUnusedWalletBalance = 1_012_000;
     await checker['checkBalance'](
       { ...btcCurrency, maxUnusedWalletBalance },
-      'CLN',
+      clnNodeId,
       BalanceType.Wallet,
       maxUnusedWalletBalance + 1,
       false,
@@ -557,7 +575,7 @@ describe('BalanceChecker', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       `${Emojis.RotatingLight} **${
         btcCurrency.symbol
-      } CLN wallet balance is out of bounds** ${Emojis.RotatingLight}
+      } ${clnNodeId} wallet balance is out of bounds** ${Emojis.RotatingLight}
   Balance: ${satoshisToSatcomma(maxUnusedWalletBalance + 1)}
     Max: ${satoshisToSatcomma(maxUnusedWalletBalance)}`,
       true,

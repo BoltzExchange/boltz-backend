@@ -64,7 +64,9 @@ describe('EipSigner', () => {
 
     eipSigner = new EipSigner(
       Logger.disabledLogger,
-      new Map<string, any>([['BTC', {}]]),
+      new Map<string, any>([
+        ['BTC', { lndClients: new Map(), clnClient: undefined }],
+      ]),
       {
         wallets: new Map<string, any>([
           [

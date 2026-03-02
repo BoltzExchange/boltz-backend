@@ -272,19 +272,18 @@ class PaymentHandler {
       return undefined;
     }
 
+    const nodeLabel = `${LndClient.serviceName}-${lndClient.id}`;
     if (
       this.lastResetMissionControl === undefined ||
       Date.now() - this.lastResetMissionControl >=
         PaymentHandler.resetMissionControlInterval
     ) {
-      this.logger.debug(
-        `Resetting ${lndClient.symbol} ${LndClient.serviceName} mission control`,
-      );
+      this.logger.debug(`Resetting ${nodeLabel} mission control`);
       this.lastResetMissionControl = Date.now();
       await lndClient.resetMissionControl();
     } else {
       this.logger.debug(
-        `Not resetting ${lndClient.symbol} ${LndClient.serviceName} mission control because last reset was at ${getTsString(new Date(this.lastResetMissionControl))}`,
+        `Not resetting ${nodeLabel} mission control because last reset was at ${getTsString(new Date(this.lastResetMissionControl))}`,
       );
     }
 

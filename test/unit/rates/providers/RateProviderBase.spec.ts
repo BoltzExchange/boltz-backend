@@ -53,13 +53,14 @@ describe('RateProviderBase', () => {
         'BTC',
         {
           chainClient: {},
-          lndClient: {},
+          lndClients: new Map([['lnd-1', {}]]),
         },
       ],
       [
         'L-BTC',
         {
           chainClient: {},
+          lndClients: new Map(),
         },
       ],
     ]),

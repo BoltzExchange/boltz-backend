@@ -822,7 +822,7 @@ class SwapManager {
 
     const hints = this.reverseRoutingHints.getHints(sendingCurrency, args);
 
-    let nodeType: NodeType;
+    let nodeId: string;
     let lightningClient: LightningClient;
     let paymentRequest: string;
     let routingHints: HopHint[][] | undefined = undefined;
@@ -838,9 +838,9 @@ class SwapManager {
         args.lightningTimeoutBlockDelta,
       );
 
-      nodeType = NodeType.CLN;
       paymentRequest = args.invoice!.invoice;
       lightningClient = receivingCurrency.clnClient!;
+      nodeId = lightningClient.id;
     } else {
       const res = await this.nodeFallback.getReverseSwapInvoice(
         id,
@@ -857,7 +857,7 @@ class SwapManager {
       );
 
       res.lightningClient.subscribeSingleInvoice(args.preimageHash);
-      nodeType = res.nodeType;
+      nodeId = res.nodeId;
       lightningClient = res.lightningClient;
       paymentRequest = res.paymentRequest;
       routingHints = res.routingHints;
@@ -1000,7 +1000,7 @@ class SwapManager {
         id,
         pair,
         minerFeeInvoice,
-        node: nodeType,
+        nodeId,
         keyIndex: index,
         version: args.version,
         fee: args.percentageFee,
@@ -1062,7 +1062,7 @@ class SwapManager {
         id,
         pair,
         minerFeeInvoice,
-        node: nodeType,
+        nodeId,
         version: args.version,
         fee: args.percentageFee,
         invoice: paymentRequest,
@@ -1107,7 +1107,7 @@ class SwapManager {
         id,
         pair,
         minerFeeInvoice,
-        node: nodeType,
+        nodeId,
         fee: args.percentageFee,
 
         invoice: paymentRequest,
@@ -1402,13 +1402,13 @@ class SwapManager {
       ) {
         const reverseSwap = swap as ReverseSwap;
 
-        const lightningClient = NodeSwitch.getReverseSwapNode(
+        const { lightningClient } = NodeSwitch.getReverseSwapNode(
           this.currencies.get(lightningCurrency)!,
           reverseSwap,
         );
 
         if (
-          reverseSwap.node === NodeType.LND &&
+          lightningClient.type === NodeType.LND &&
           reverseSwap.minerFeeInvoice &&
           swap.status !== SwapUpdateEvent.MinerFeePaid
         ) {

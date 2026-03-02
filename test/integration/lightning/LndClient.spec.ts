@@ -17,15 +17,22 @@ import {
 } from '../../../lib/proto/lnd/rpc_pb';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { getPort } from '../../Utils';
-import { bitcoinClient, bitcoinLndClient, lndDataPath } from '../Nodes';
+import {
+  bitcoinClient,
+  getBitcoinLndClient,
+  lndDataPath,
+  resetNodeConnectionPromises,
+} from '../Nodes';
 import { sidecar, startSidecar } from '../sidecar/Utils';
 
 describe('LndClient', () => {
+  let bitcoinLndClient: LndClient;
+
   beforeAll(async () => {
     await startSidecar();
 
     await bitcoinClient.generate(1);
-    await bitcoinLndClient.connect(false);
+    bitcoinLndClient = await getBitcoinLndClient();
 
     await sidecar.connect(
       { on: jest.fn(), removeAllListeners: jest.fn() } as any,
@@ -43,6 +50,7 @@ describe('LndClient', () => {
     bitcoinLndClient.removeAllListeners();
     bitcoinLndClient.disconnect();
     bitcoinLndClient.disconnect();
+    resetNodeConnectionPromises();
   });
 
   describe('addHoldInvoice', () => {
@@ -176,6 +184,20 @@ describe('LndClient', () => {
     });
 
     expect(bindPort).toEqual(serverPort);
+
+    // Mock pubkey that the mock server will return
+    const mockPubkey =
+      '000000000000000000000000000000000000000000000000000000000000000000';
+
+    // Update the mock to return this pubkey
+    serviceImplementation['getInfo'] = async (
+      _: any | null,
+      callback: (error: any, res: GetInfoResponse) => void,
+    ) => {
+      const response = new GetInfoResponse();
+      response.setIdentityPubkey(mockPubkey);
+      callback(null, response);
+    };
 
     // Connect to the mocked LND gRPC server
     const lndClient = new LndClient(

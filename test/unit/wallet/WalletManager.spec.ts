@@ -77,10 +77,11 @@ describe('WalletManager', () => {
   ltcClient['symbol' as any] = 'LTC';
 
   const lndClient = mockedLndClient();
+  (lndClient as any).id = 'lnd-1';
 
   const currencies: Currency[] = [
     {
-      lndClient,
+      lndClients: new Map([[lndClient.id, lndClient]]),
       symbol: 'BTC',
       chainClient: btcClient,
       type: CurrencyType.BitcoinLike,
@@ -88,7 +89,7 @@ describe('WalletManager', () => {
       limits: {} as any as CurrencyConfig,
     },
     {
-      lndClient,
+      lndClients: new Map([[lndClient.id, lndClient]]),
       symbol: 'LTC',
       chainClient: ltcClient,
       type: CurrencyType.BitcoinLike,
@@ -154,7 +155,7 @@ describe('WalletManager', () => {
     const currenciesNoLnd: Currency[] = [
       {
         ...currencies[0],
-        lndClient: undefined,
+        lndClients: new Map(),
       },
     ];
 
@@ -177,7 +178,7 @@ describe('WalletManager', () => {
     const currenciesNoLnd: Currency[] = [
       {
         ...currencies[0],
-        lndClient: undefined,
+        lndClients: new Map(),
       },
     ];
 

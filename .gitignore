@@ -99,3 +99,4 @@ test/integration/sidecar/sidecar
 docs/.vitepress/dist
 docs/.vitepress/cache
 docs/fetched
+boltz.local.conf

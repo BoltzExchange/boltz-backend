@@ -45,14 +45,20 @@ describe('SelfPaymentClient', () => {
           'BTC',
           {
             clnClient: {
+              id: 'cln-1',
               type: NodeType.CLN,
               isConnected: jest.fn().mockReturnValue(true),
             },
+            lndClients: new Map(),
           },
         ],
       ]),
     } as unknown as SwapNursery;
     client = new SelfPaymentClient(Logger.disabledLogger, nursery);
+  });
+
+  test('should use self node id', () => {
+    expect(client.id).toEqual('self');
   });
 
   describe('handleSelfPayment', () => {
@@ -207,6 +213,7 @@ describe('SelfPaymentClient', () => {
         preimageHash,
         id: 'rev',
         pair: 'L-BTC/BTC',
+        nodeId: 'cln-1',
         orderSide: OrderSide.BUY,
         invoice: mockSwap.invoice,
         status: SwapUpdateEvent.SwapCreated,
@@ -241,6 +248,7 @@ describe('SelfPaymentClient', () => {
         preimageHash,
         id: 'rev',
         pair: 'L-BTC/BTC',
+        nodeId: 'cln-1',
         orderSide: OrderSide.BUY,
         invoice: mockSwap.invoice,
         status: SwapUpdateEvent.SwapCreated,

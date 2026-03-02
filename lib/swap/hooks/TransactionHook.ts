@@ -3,10 +3,9 @@ import { type SwapType, swapTypeToGrpcSwapType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
 import { Action, parseGrpcAction } from './CreationHook';
-import Hook, { type HookResponse } from './Hook';
+import Hook from './Hook';
 
 class TransactionHook extends Hook<
-  boltzrpc.Action,
   Action,
   boltzrpc.TransactionHookRequest,
   boltzrpc.TransactionHookResponse
@@ -45,7 +44,7 @@ class TransactionHook extends Hook<
     return this.sendHook(swapId, msg);
   };
 
-  protected parseGrpcAction = (res: HookResponse<boltzrpc.Action>): Action =>
+  protected parseGrpcAction = (res: boltzrpc.TransactionHookResponse): Action =>
     parseGrpcAction(this.logger, this.name, res.getId(), res.getAction());
 }
 

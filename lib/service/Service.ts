@@ -64,9 +64,7 @@ import { msatToSat } from '../lightning/ChannelUtils';
 import LightningErrors from '../lightning/Errors';
 import type { HopHint } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
-import type LndClient from '../lightning/LndClient';
 import type RoutingFee from '../lightning/RoutingFee';
-import type ClnClient from '../lightning/cln/ClnClient';
 import type NotificationClient from '../notifications/NotificationClient';
 import {
   Balances,
@@ -95,7 +93,7 @@ import type { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
 import type Wallet from '../wallet/Wallet';
-import type { Currency } from '../wallet/WalletManager';
+import { type Currency, getLightningClients } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import type {
   ContractAddresses,
@@ -369,35 +367,33 @@ class Service {
       const currencyInfo = new CurrencyInfo();
       currencyInfo.setChain(chain);
 
+      const lightningClients = getLightningClients(currency);
+
       await Promise.all(
-        [currency.lndClient, currency.clnClient]
-          .filter(
-            (client): client is LndClient | ClnClient => client !== undefined,
-          )
-          .map(async (client) => {
-            const info = new LightningInfo();
+        lightningClients.map(async (client) => {
+          const info = new LightningInfo();
 
-            try {
-              const infoRes = await client.getInfo();
+          try {
+            const infoRes = await client.getInfo();
 
-              const channels = new LightningInfo.Channels();
+            const channels = new LightningInfo.Channels();
 
-              channels.setActive(infoRes.channels.active);
-              channels.setInactive(infoRes.channels.inactive);
-              channels.setPending(infoRes.channels.pending);
+            channels.setActive(infoRes.channels.active);
+            channels.setInactive(infoRes.channels.inactive);
+            channels.setPending(infoRes.channels.pending);
 
-              info.setChannels(channels);
+            info.setChannels(channels);
 
-              info.setVersion(infoRes.version);
-              info.setBlockHeight(infoRes.blockHeight);
-            } catch (error) {
-              info.setError(
-                typeof error === 'object' ? (error as any).details : error,
-              );
-            }
+            info.setVersion(infoRes.version);
+            info.setBlockHeight(infoRes.blockHeight);
+          } catch (error) {
+            info.setError(
+              typeof error === 'object' ? (error as any).details : error,
+            );
+          }
 
-            currencyInfo.getLightningMap().set(client.serviceName(), info);
-          }),
+          currencyInfo.getLightningMap().set(client.id, info);
+        }),
       );
 
       map.set(symbol, currencyInfo);
@@ -582,18 +578,11 @@ class Service {
 
       const currency = this.currencies.get(symbol);
 
-      const lightningClients = currency
-        ? [currency.lndClient, currency.clnClient].filter(
-            (client): client is LndClient | ClnClient => client !== undefined,
-          )
-        : [];
+      const lightningClients = currency ? getLightningClients(currency) : [];
 
       await Promise.all(
-        [wallet, ...lightningClients, currency?.arkNode]
-          .filter(
-            (bf): bf is Wallet | LndClient | ClnClient | ArkClient =>
-              bf !== undefined,
-          )
+        [wallet, currency?.arkNode]
+          .filter((bf): bf is Wallet | ArkClient => bf !== undefined)
           .map(async (bf) => {
             const res = await bf.getBalance();
 
@@ -604,6 +593,19 @@ class Service {
 
             balances.getWalletsMap().set(bf.serviceName(), walletBal);
           }),
+      );
+
+      await Promise.all(
+        lightningClients.map(async (client) => {
+          const res = await client.getBalance();
+
+          const walletBal = new Balances.WalletBalance();
+
+          walletBal.setConfirmed(res.confirmedBalance);
+          walletBal.setUnconfirmed(res.unconfirmedBalance);
+
+          balances.getWalletsMap().set(client.id, walletBal);
+        }),
       );
 
       await Promise.all(
@@ -623,9 +625,7 @@ class Service {
           lightningBalance.setLocal(Number(localBalance));
           lightningBalance.setRemote(Number(remoteBalance));
 
-          balances
-            .getLightningMap()
-            .set(client.serviceName(), lightningBalance);
+          balances.getLightningMap().set(client.id, lightningBalance);
         }),
       );
 

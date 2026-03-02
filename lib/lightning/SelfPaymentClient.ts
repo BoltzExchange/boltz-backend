@@ -1,5 +1,5 @@
 import AsyncLock from 'async-lock';
-import BaseClient from '../BaseClient';
+import BaseClient, { SelfPaymentNodeId } from '../BaseClient';
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
 import {
@@ -51,6 +51,7 @@ class SelfPaymentClient
 
   private readonly lock = new AsyncLock();
 
+  public readonly id = SelfPaymentNodeId;
   public type: NodeType = NodeType.SelfPayment;
 
   constructor(
@@ -127,7 +128,7 @@ class SelfPaymentClient
               reverseSwap.orderSide,
               true,
             );
-            const lightningClient = NodeSwitch.getReverseSwapNode(
+            const { lightningClient } = NodeSwitch.getReverseSwapNode(
               this.swapNursery.currencies.get(receiveCurrency)!,
               reverseSwap,
             );

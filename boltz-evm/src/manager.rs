@@ -15,7 +15,7 @@ use alloy::transports::{
     layers::FallbackLayer,
     ws::WsConnect,
 };
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use boltz_cache::Cache;
 use std::collections::HashMap;
 use tower::ServiceBuilder;
@@ -35,7 +35,9 @@ pub struct Manager {
 
 impl Manager {
     pub async fn read_mnemonic_file(mnemonic_path: String) -> anyhow::Result<PrivateKeySigner> {
-        let mnemonic = tokio::fs::read_to_string(mnemonic_path).await?;
+        let mnemonic = tokio::fs::read_to_string(&mnemonic_path)
+            .await
+            .with_context(|| format!("failed to read EVM mnemonic file: {}", mnemonic_path))?;
         Ok(MnemonicBuilder::<English>::default()
             .phrase(mnemonic.trim())
             .index(0)?

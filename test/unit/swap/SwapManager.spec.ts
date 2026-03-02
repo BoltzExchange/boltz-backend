@@ -380,20 +380,26 @@ describe('SwapManager', () => {
       }),
   } as unknown as Sidecar;
 
+  const btcLndClient = new MockedLndClient();
+  (btcLndClient as any).id = 'lnd-btc';
+  (btcLndClient as any).type = NodeType.LND;
   const btcCurrency = {
     symbol: 'BTC',
     type: CurrencyType.BitcoinLike,
     network: Networks.bitcoinRegtest,
     chainClient: new MockedChainClient(),
-    lndClient: new MockedLndClient(),
+    lndClients: new Map([[btcLndClient.id, btcLndClient]]),
   } as any as Currency;
 
+  const ltcLndClient = new MockedLndClient();
+  (ltcLndClient as any).id = 'lnd-ltc';
+  (ltcLndClient as any).type = NodeType.LND;
   const ltcCurrency = {
     symbol: 'LTC',
     type: CurrencyType.BitcoinLike,
     network: Networks.litecoinRegtest,
     chainClient: new MockedChainClient(),
-    lndClient: new MockedLndClient(),
+    lndClients: new Map([[ltcLndClient.id, ltcLndClient]]),
   } as any as Currency;
 
   const lbtcCurrency = {
@@ -401,11 +407,13 @@ describe('SwapManager', () => {
     type: CurrencyType.Liquid,
     network: LiquidNetworks.liquidRegtest,
     chainClient: new MockedChainClient(),
+    lndClients: new Map(),
   } as any as Currency;
 
   const rbtcCurrency = {
     symbol: 'RBTC',
     type: CurrencyType.Ether,
+    lndClients: new Map(),
   } as any as Currency;
 
   beforeAll(async () => {
@@ -460,7 +468,11 @@ describe('SwapManager', () => {
 
     manager['nodeFallback'] = {
       getReverseSwapInvoice: jest.fn().mockResolvedValue({
-        lightningClient: btcCurrency.lndClient,
+        nodeType: NodeType.LND,
+        nodeId: btcLndClient.id,
+        lightningClient: btcLndClient,
+        paymentRequest: 'lnbc1test',
+        routingHints: undefined,
       }),
     } as any;
     manager['invoiceExpiryHelper'] = {
@@ -658,6 +670,7 @@ describe('SwapManager', () => {
     const notFoundSymbol = 'DOGE';
     manager['currencies'].set(notFoundSymbol, {
       symbol: notFoundSymbol,
+      lndClients: new Map(),
     } as any);
 
     await expect(
@@ -1186,9 +1199,12 @@ describe('SwapManager', () => {
       orderSide,
       onchainAmount,
       fee: percentageFee,
-      node: NodeType.LND,
+      nodeId: btcLndClient.id,
       id: reverseSwap.id,
       minerFeeInvoice: undefined,
+      minerFeeInvoicePreimage: undefined,
+      minerFeeOnchainAmount: undefined,
+      referral: undefined,
       version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
       invoiceAmount: holdInvoiceAmount,
@@ -1274,7 +1290,7 @@ describe('SwapManager', () => {
       orderSide,
       onchainAmount,
       fee: percentageFee,
-      node: NodeType.LND,
+      nodeId: btcLndClient.id,
       id: prepayReverseSwap.id,
       version: SwapVersion.Legacy,
       invoice: mockAddHoldInvoiceResult,
@@ -1329,7 +1345,7 @@ describe('SwapManager', () => {
     expect(mockGetRoutingHints).toHaveBeenCalledWith(
       baseCurrency,
       nodePublicKey,
-      NodeType.LND,
+      btcLndClient.id,
     );
 
     expect(mockSubscribeSingleInvoice).toHaveBeenCalledTimes(5);
@@ -1360,6 +1376,7 @@ describe('SwapManager', () => {
     const notFoundSymbol = 'DOGE';
     manager['currencies'].set(notFoundSymbol, {
       symbol: notFoundSymbol,
+      lndClients: new Map(),
     } as any);
 
     await expect(

@@ -72,7 +72,7 @@ describe('UtxoNursery', () => {
     {
       network: networks.regtest,
       chainClient: bitcoinClient,
-      lndClient: bitcoinLndClient,
+      lndClients: new Map([[bitcoinLndClient.id, bitcoinLndClient]]),
       symbol: bitcoinClient.symbol,
       type: CurrencyType.BitcoinLike,
       limits: {
@@ -82,6 +82,7 @@ describe('UtxoNursery', () => {
     {
       type: CurrencyType.Liquid,
       chainClient: elementsClient,
+      lndClients: new Map(),
       symbol: elementsClient.symbol,
       network: liquidNetworks.regtest,
       limits: {
@@ -184,6 +185,8 @@ describe('UtxoNursery', () => {
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);
+    currencies[0]!.lndClients.clear();
+    currencies[0]!.lndClients.set(bitcoinLndClient.id, bitcoinLndClient);
 
     await walletManager.init([
       {

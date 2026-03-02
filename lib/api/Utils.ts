@@ -3,10 +3,36 @@ import type Logger from '../Logger';
 import { getHexBuffer } from '../Utils';
 import MarkedSwapRepository from '../db/repositories/MarkedSwapRepository';
 import ServiceErrors from '../service/Errors';
+import type { Stats } from '../service/NodeInfo';
 import type Sidecar from '../sidecar/Sidecar';
 import Errors from './Errors';
 
 export type ApiType = 'string' | 'number' | 'boolean' | 'object';
+
+/**
+ * Aggregates multiple node stats into a single combined stats object.
+ * Used by both v1 and v2 API endpoints.
+ */
+export const accumulateNodeStats = (acc: Stats, entry: Stats): Stats => {
+  acc.capacity += entry.capacity;
+  acc.channels += entry.channels;
+  acc.peers += entry.peers;
+  if (entry.oldestChannel !== undefined) {
+    acc.oldestChannel =
+      acc.oldestChannel === undefined
+        ? entry.oldestChannel
+        : Math.min(acc.oldestChannel, entry.oldestChannel);
+  }
+  return acc;
+};
+
+export const aggregateNodeStats = (stats: Iterable<Stats>): Stats =>
+  Array.from(stats).reduce(accumulateNodeStats, {
+    capacity: 0,
+    channels: 0,
+    peers: 0,
+    oldestChannel: undefined,
+  } as Stats);
 
 export type ApiArgument = {
   name: string;

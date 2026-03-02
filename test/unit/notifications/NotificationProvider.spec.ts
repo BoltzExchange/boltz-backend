@@ -62,10 +62,10 @@ jest.mock('../../../lib/service/Service', () => {
         },
       },
       currencies: new Map<string, any>([
-        ['BTC', { type: CurrencyType.BitcoinLike }],
-        ['LTC', { type: CurrencyType.BitcoinLike }],
-        ['USDT', { type: CurrencyType.ERC20 }],
-        ['somethingElse', { type: CurrencyType.ERC20 }],
+        ['BTC', { type: CurrencyType.BitcoinLike, lndClients: new Map() }],
+        ['LTC', { type: CurrencyType.BitcoinLike, lndClients: new Map() }],
+        ['USDT', { type: CurrencyType.ERC20, lndClients: new Map() }],
+        ['somethingElse', { type: CurrencyType.ERC20, lndClients: new Map() }],
       ]),
       lockupTransactionTracker: {
         on: (event: string, callback: any) => {

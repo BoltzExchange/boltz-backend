@@ -1062,7 +1062,7 @@ mod status_test {
             }
         }
 
-        let port = 12_009;
+        let port = 13_009;
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);

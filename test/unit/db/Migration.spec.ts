@@ -61,6 +61,17 @@ describe('Migration', () => {
     expect(mockGetVersion).toHaveBeenCalledTimes(1);
   });
 
+  test.each([1, 10, 11])(
+    'should throw when upgrading from unsupported legacy database schema version %i',
+    async (version) => {
+      mockGetVersionResult = { version };
+
+      await expect(migration.migrate(emptyCurrenciesMap)).rejects.toThrow(
+        `database schema version ${version} is no longer supported; please upgrade using an older boltz-backend release first`,
+      );
+    },
+  );
+
   test('should throw when there is an unexpected database schema version', async () => {
     mockGetVersionResult = {
       version: -42,

@@ -35,11 +35,13 @@ describe('NodePendingPaymentTracker', () => {
 
       const msg = 'incorrect payment details';
       const preimageHash = getHexString(randomBytes(32));
+      const nodeId = 'cln-1';
 
       LightningPaymentRepository.setStatus = jest.fn();
 
       await tracker['handleFailedPayment'](
         {
+          id: nodeId,
           isConnected: jest.fn().mockReturnValue(true),
         } as unknown as LightningClient,
         preimageHash,
@@ -49,7 +51,7 @@ describe('NodePendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.CLN,
+        nodeId,
         LightningPaymentStatus.PermanentFailure,
         msg,
       );
@@ -57,11 +59,13 @@ describe('NodePendingPaymentTracker', () => {
 
     test('should set temporary failures', async () => {
       const preimageHash = getHexString(randomBytes(32));
+      const nodeId = 'cln-1';
 
       LightningPaymentRepository.setStatus = jest.fn();
 
       await tracker['handleFailedPayment'](
         {
+          id: nodeId,
           isConnected: jest.fn().mockReturnValue(true),
         } as unknown as LightningClient,
         preimageHash,
@@ -71,7 +75,7 @@ describe('NodePendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.CLN,
+        nodeId,
         LightningPaymentStatus.TemporaryFailure,
         undefined,
       );
@@ -81,6 +85,7 @@ describe('NodePendingPaymentTracker', () => {
       LightningPaymentRepository.setStatus = jest.fn();
 
       const client = {
+        id: 'cln-1',
         isConnected: jest.fn().mockReturnValue(false),
       } as unknown as LightningClient;
 
@@ -97,6 +102,7 @@ describe('NodePendingPaymentTracker', () => {
       LightningPaymentRepository.setStatus = jest.fn();
 
       const client = {
+        id: 'cln-1',
         isConnected: jest.fn().mockReturnValue(true),
       } as unknown as LightningClient;
 

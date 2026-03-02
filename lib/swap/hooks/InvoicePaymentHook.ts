@@ -1,30 +1,21 @@
 import type Logger from '../../Logger';
-import { NodeType, nodeTypeToPrettyString } from '../../db/models/ReverseSwap';
 import type NotificationClient from '../../notifications/NotificationClient';
 import * as boltzrpc from '../../proto/boltzrpc_pb';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
 type HookResult = {
-  node?: NodeType;
+  nodeId?: string;
   timePreference?: number;
 };
 
 class InvoicePaymentHook extends Hook<
-  boltzrpc.Node | undefined,
   HookResult | undefined,
   boltzrpc.InvoicePaymentHookRequest,
   boltzrpc.InvoicePaymentHookResponse
 > {
   constructor(logger: Logger, notificationClient?: NotificationClient) {
-    super(
-      logger,
-      'invoice payment',
-      { node: NodeType.CLN },
-      { node: NodeType.CLN },
-      60_000,
-      notificationClient,
-    );
+    super(logger, 'invoice payment', {}, {}, 60_000, notificationClient);
   }
 
   public hook = async (
@@ -57,8 +48,8 @@ class InvoicePaymentHook extends Hook<
 
     const preferences: string[] = [];
 
-    if (res.node !== undefined) {
-      preferences.push(`node: ${nodeTypeToPrettyString(res.node)}`);
+    if (res.nodeId !== undefined) {
+      preferences.push(`node: ${res.nodeId}`);
     }
 
     if (res.timePreference !== undefined) {
@@ -73,20 +64,7 @@ class InvoicePaymentHook extends Hook<
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
   ): HookResult | undefined => {
-    let node: NodeType | undefined;
-
-    if (res.hasAction()) {
-      switch (res.getAction()) {
-        case boltzrpc.Node.CLN:
-          node = NodeType.CLN;
-          break;
-        case boltzrpc.Node.LND:
-          node = NodeType.LND;
-          break;
-        default:
-          break;
-      }
-    }
+    const nodeId = res.getNodePubkey() || undefined;
 
     if (res.hasTimePreference()) {
       const timePreference = res.getTimePreference();
@@ -102,12 +80,12 @@ class InvoicePaymentHook extends Hook<
       }
 
       return {
-        node,
+        nodeId,
         timePreference,
       };
     }
 
-    return { node };
+    return { nodeId };
   };
 }
 

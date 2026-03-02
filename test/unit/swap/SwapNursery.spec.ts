@@ -88,13 +88,18 @@ const lightningClientCallTimeout = 100;
 const mockRaceCall = jest.fn().mockResolvedValue(undefined);
 const mockSettleHoldInvoice = jest.fn().mockResolvedValue(undefined);
 
-const mockLightningClient: LightningClient = {
-  type: NodeType.LND,
-  isConnected: jest.fn().mockReturnValue(true),
-  raceCall: mockRaceCall,
-  settleHoldInvoice: mockSettleHoldInvoice,
-  serviceName: jest.fn().mockReturnValue('LND'),
-} as any;
+const buildMockClient = (id: string, type: NodeType, name: string) =>
+  ({
+    id,
+    type,
+    isConnected: jest.fn().mockReturnValue(true),
+    raceCall: mockRaceCall,
+    settleHoldInvoice: mockSettleHoldInvoice,
+    serviceName: jest.fn().mockReturnValue(name),
+  }) as unknown as LightningClient;
+
+const mockLndClient = buildMockClient('lnd-1', NodeType.LND, 'LND');
+const mockClnClient = buildMockClient('cln-1', NodeType.CLN, 'CLN');
 
 describe('SwapNursery', () => {
   const mockLogger = Logger.disabledLogger;
@@ -113,8 +118,8 @@ describe('SwapNursery', () => {
 
   const mockCurrency: Currency = {
     symbol: 'BTC',
-    lndClient: mockLightningClient,
-    clnClient: mockLightningClient,
+    lndClients: new Map([[mockLndClient.id, mockLndClient]]),
+    clnClient: mockClnClient,
     chainClient: mockChainClient,
   } as Currency;
 
@@ -208,7 +213,7 @@ describe('SwapNursery', () => {
       orderSide: OrderSide.BUY,
       preimageHash: 'preimage-hash',
       invoice: 'invoice-123',
-      node: NodeType.LND,
+      nodeId: mockLndClient.id,
     } as ReverseSwap;
 
     test('should settle hold invoice when no matching submarine swap exists', async () => {
@@ -291,7 +296,7 @@ describe('SwapNursery', () => {
       });
 
       expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
-        mockLightningClient,
+        mockLndClient,
         mockReverseSwap,
         true,
       );
@@ -369,7 +374,7 @@ describe('SwapNursery', () => {
 
       await swapNursery.settleReverseSwapInvoice(mockReverseSwap, mockPreimage);
 
-      const expectedMessage = `Could not settle LND invoice of ${mockReverseSwap.id}: ${mockError.message}`;
+      const expectedMessage = `Could not settle invoice of ${mockReverseSwap.id} on node ${mockReverseSwap.nodeId}: ${mockError.message}`;
       expect(mockLogger.error).toHaveBeenCalledWith(expectedMessage);
       expect(mockNotifications.sendMessage).toHaveBeenCalledWith(
         expectedMessage,
@@ -401,7 +406,7 @@ describe('SwapNursery', () => {
       await eventPromise;
 
       expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
-        mockLightningClient,
+        mockLndClient,
         mockReverseSwap,
         true,
       );
@@ -899,7 +904,7 @@ describe('SwapNursery', () => {
     beforeEach(async () => {
       mockReverseSwap = {
         id: 'swap',
-        node: NodeType.LND,
+        nodeId: mockLndClient.id,
         expectedAmount: 110000,
         onchainAmount: 100000,
         type: SwapType.ReverseSubmarine,
@@ -924,11 +929,11 @@ describe('SwapNursery', () => {
         mockReverseSwap,
         'BTC',
         sendError,
-        mockLightningClient,
+        mockLndClient,
       );
 
       expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
-        mockLightningClient,
+        mockLndClient,
         mockReverseSwap,
         false,
       );
@@ -959,11 +964,11 @@ describe('SwapNursery', () => {
         mockReverseSwap,
         'BTC',
         sendError,
-        mockLightningClient,
+        mockLndClient,
       );
 
       expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
-        mockLightningClient,
+        mockLndClient,
         mockReverseSwap,
         false,
       );
@@ -1039,11 +1044,11 @@ describe('SwapNursery', () => {
         mockChainSwap,
         'BTC',
         sendError,
-        mockLightningClient,
+        mockLndClient,
       );
 
       expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
-        mockLightningClient,
+        mockLndClient,
         mockChainSwap,
         false,
       );

@@ -1,9 +1,45 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type Logger from '../../../Logger';
+import { nodeTypeToPrettyString } from '../../../db/models/ReverseSwap';
+import type { LightningNodeInfo, Stats } from '../../../service/NodeInfo';
 import type Service from '../../../service/Service';
-import { successResponse, validateRequest } from '../../Utils';
+import {
+  accumulateNodeStats,
+  aggregateNodeStats,
+  successResponse,
+  validateRequest,
+} from '../../Utils';
 import RouterBase from './RouterBase';
+
+/**
+ * Groups stats by node type name (e.g., "LND", "CLN") by looking up each nodeId's type.
+ * When multiple nodes of the same type exist, their stats are aggregated.
+ */
+const groupStatsByNodeType = (
+  statsByNodeId: Map<string, Stats>,
+  nodeInfos: Map<string, LightningNodeInfo>,
+): Map<string, Stats> => {
+  const aggregated = new Map<string, Stats>();
+
+  for (const [nodeId, stats] of statsByNodeId.entries()) {
+    const nodeType = nodeInfos.get(nodeId)?.nodeType;
+    if (nodeType === undefined) {
+      continue;
+    }
+    const key = nodeTypeToPrettyString(nodeType);
+
+    const existing = aggregated.get(key);
+    if (!existing) {
+      aggregated.set(key, { ...stats });
+      continue;
+    }
+
+    accumulateNodeStats(existing, stats);
+  }
+
+  return aggregated;
+};
 
 class NodesRouter extends RouterBase {
   constructor(
@@ -122,15 +158,16 @@ class NodesRouter extends RouterBase {
           return [
             symbol,
             Object.fromEntries(
-              Array.from(nodeInfo.entries()).map(([name, info]) => {
-                return [
-                  name,
-                  {
+              Array.from(nodeInfo.values()).reduce((acc, info) => {
+                const name = nodeTypeToPrettyString(info.nodeType);
+                if (!acc.has(name)) {
+                  acc.set(name, {
                     publicKey: info.nodeKey,
                     uris: info.uris,
-                  },
-                ];
-              }),
+                  });
+                }
+                return acc;
+              }, new Map<string, { publicKey: string; uris: string[] }>()),
             ),
           ];
         },
@@ -141,9 +178,15 @@ class NodesRouter extends RouterBase {
   };
 
   private getNodeStats = (_req: Request, res: Response) => {
+    const nodeInfos = this.service.getNodes();
     const stats = Object.fromEntries(
       Array.from(this.service.getNodeStats().entries()).map(
-        ([symbol, stats]) => [symbol, Object.fromEntries(stats.entries())],
+        ([symbol, statsByNodeId]) => {
+          const infos = nodeInfos.get(symbol) || new Map();
+          const byType = groupStatsByNodeType(statsByNodeId, infos);
+          byType.set('total', aggregateNodeStats(byType.values()));
+          return [symbol, Object.fromEntries(byType)];
+        },
       ),
     );
 

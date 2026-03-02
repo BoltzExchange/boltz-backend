@@ -2,7 +2,6 @@ import type { LightningPaymentType } from '../models/LightningPayment';
 import LightningPayment, {
   LightningPaymentStatus,
 } from '../models/LightningPayment';
-import type { NodeType } from '../models/ReverseSwap';
 import Swap from '../models/Swap';
 
 enum Errors {
@@ -17,7 +16,7 @@ class LightningPaymentRepository {
   ) => {
     const existing = await LightningPayment.findOne({
       where: {
-        node: data.node,
+        nodeId: data.nodeId,
         preimageHash: data.preimageHash,
       },
     });
@@ -41,7 +40,7 @@ class LightningPaymentRepository {
 
   public static setStatus = (
     preimageHash: string,
-    node: NodeType,
+    nodeId: string,
     status: LightningPaymentStatus,
     error?: string,
   ) => {
@@ -62,7 +61,7 @@ class LightningPaymentRepository {
       {
         where: {
           preimageHash,
-          node,
+          nodeId,
         },
       },
     );
@@ -71,10 +70,10 @@ class LightningPaymentRepository {
   public static findByPreimageHash = (preimageHash: string) =>
     LightningPayment.findAll({ where: { preimageHash } });
 
-  public static findByPreimageHashAndNode = (
+  public static findByPreimageHashAndNodeId = (
     preimageHash: string,
-    node: NodeType,
-  ) => LightningPayment.findOne({ where: { preimageHash, node } });
+    nodeId: string,
+  ) => LightningPayment.findOne({ where: { preimageHash, nodeId } });
 
   public static findByStatus = (status: LightningPaymentStatus) =>
     LightningPayment.findAll({

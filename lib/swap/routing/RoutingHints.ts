@@ -1,15 +1,13 @@
 import type Logger from '../../Logger';
-import { NodeType } from '../../db/models/ReverseSwap';
 import type {
   HopHint,
   RoutingHintsProvider,
 } from '../../lightning/LightningClient';
-import type LndClient from '../../lightning/LndClient';
 import type ClnClient from '../../lightning/cln/ClnClient';
 import type { Currency } from '../../wallet/WalletManager';
 import RoutingHintsLnd from './RoutingHintsLnd';
 
-type Providers = { lnd?: RoutingHintsLnd; cln?: ClnClient };
+type Providers = { lnds: Map<string, RoutingHintsLnd>; cln?: ClnClient };
 
 class RoutingHints {
   private providers = new Map<string, Providers>();
@@ -19,15 +17,15 @@ class RoutingHints {
     currencies: Currency[],
   ) {
     currencies
-      .filter(
-        (cur) => cur.lndClient !== undefined || cur.clnClient !== undefined,
-      )
+      .filter((cur) => cur.lndClients.size > 0 || cur.clnClient !== undefined)
       .forEach((cur) => {
+        const lndProviders = new Map<string, RoutingHintsLnd>();
+        for (const [nodeId, client] of cur.lndClients.entries()) {
+          lndProviders.set(nodeId, new RoutingHintsLnd(this.logger, client));
+        }
+
         this.providers.set(cur.symbol, {
-          lnd:
-            cur.lndClient !== undefined
-              ? new RoutingHintsLnd(this.logger, cur.lndClient as LndClient)
-              : undefined,
+          lnds: lndProviders,
           cln: cur.clnClient,
         });
       });
@@ -41,52 +39,57 @@ class RoutingHints {
 
   public start = async (): Promise<void> => {
     const startPromises = Array.from(this.providers.values())
-      .filter((prov) => prov.lnd !== undefined)
-      .map((prov) => prov.lnd?.start());
+      .flatMap((prov) => Array.from(prov.lnds.values()))
+      .map((prov) => prov.start());
 
     await Promise.all(startPromises);
   };
 
   public stop = (): void => {
     Array.from(this.providers.values())
-      .flatMap((prov) => [prov.lnd, prov.cln])
-      .filter((prov): prov is RoutingHintsLnd => prov !== undefined)
+      .flatMap((prov) => Array.from(prov.lnds.values()))
       .forEach((prov) => prov.stop());
+  };
+
+  private getFallbackProvider = (providers: Providers) => {
+    const fallbackLnd = providers.lnds.entries().next().value;
+    return {
+      fallbackNodeId: fallbackLnd?.[0] || providers.cln?.id,
+      fallbackProvider: fallbackLnd?.[1] || providers.cln,
+    };
   };
 
   public getRoutingHints = async (
     symbol: string,
-    nodeId: string,
-    nodeType?: NodeType,
+    routingNode: string,
+    nodeId?: string,
   ): Promise<HopHint[][]> => {
     const providers = this.providers.get(symbol);
     if (providers === undefined) {
       return [];
     }
 
-    // Prefer the LND routing hints provider
-    return (
-      (
-        RoutingHints.getProviderForNodeType(providers, nodeType) ||
-        providers.lnd ||
-        providers.cln
-      )?.routingHints(nodeId) || []
-    );
-  };
+    let provider: RoutingHintsProvider | undefined;
+    const { fallbackNodeId, fallbackProvider } =
+      this.getFallbackProvider(providers);
 
-  private static getProviderForNodeType = (
-    providers: Providers,
-    nodeType?: NodeType,
-  ): RoutingHintsProvider | undefined => {
-    switch (nodeType) {
-      case NodeType.LND:
-        return providers.lnd;
+    if (nodeId !== undefined) {
+      provider =
+        providers.lnds.get(nodeId) ||
+        (providers.cln?.id === nodeId ? providers.cln : undefined);
 
-      case NodeType.CLN:
-        return providers.cln;
+      if (provider === undefined) {
+        this.logger.warn(
+          `Routing hints requested for unknown node ${nodeId} (${symbol}); using fallback provider ${fallbackNodeId}`,
+        );
+      }
     }
 
-    return undefined;
+    if (provider === undefined) {
+      provider = fallbackProvider;
+    }
+
+    return (await provider?.routingHints(routingNode)) || [];
   };
 }
 

@@ -17,7 +17,7 @@ use crate::db::{
 };
 use crate::lightning::{cln::Cln, lnd::Lnd};
 use crate::wallet::{self, Wallet};
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use bip39::Mnemonic;
 use boltz_cache::Cache;
 use boltz_evm::Manager;
@@ -60,7 +60,8 @@ pub async fn connect_nodes<K: KeysHelper>(
     webhook_block_list: Option<Vec<String>>,
 ) -> anyhow::Result<(wallet::Network, Currencies, OfferSubscriptions)> {
     let mnemonic = match mnemonic_path {
-        Some(path) => fs::read_to_string(path)?,
+        Some(ref path) => fs::read_to_string(path)
+            .with_context(|| format!("failed to read mnemonic file: {}", path))?,
         None => return Err(anyhow!("no mnemonic path")),
     };
     let seed = Mnemonic::from_str(mnemonic.trim())?.to_seed("");

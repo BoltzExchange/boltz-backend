@@ -5,13 +5,12 @@ import type Logger from '../Logger';
 import { getVersion, mapToObject, stringify } from '../Utils';
 import { SwapType, SwapVersion, stringToSwapType } from '../consts/Enums';
 import ReferralStats from '../data/ReferralStats';
-import LndClient from '../lightning/LndClient';
-import ClnClient from '../lightning/cln/ClnClient';
-import NodeInfo from '../service/NodeInfo';
+import { NodeType } from '../db/models/ReverseSwap';
 import type Service from '../service/Service';
 import Bouncer from './Bouncer';
 import type SwapInfos from './SwapInfos';
 import {
+  aggregateNodeStats,
   checkPreimageHashLength,
   createdResponse,
   errorResponse,
@@ -87,11 +86,12 @@ class Controller {
     const result = Object.fromEntries(
       Array.from(this.service.getNodes().entries()).map(
         ([symbol, nodeInfo]) => {
-          return [
-            symbol,
-            nodeInfo.get(LndClient.serviceName) ||
-              nodeInfo.get(ClnClient.serviceName),
-          ];
+          const nodes = Array.from(nodeInfo.values());
+          const preferredNode =
+            nodes.find((info) => info.nodeType === NodeType.LND) ||
+            nodes.find((info) => info.nodeType === NodeType.CLN);
+
+          return [symbol, preferredNode];
         },
       ),
     );
@@ -106,9 +106,10 @@ class Controller {
 
     successResponse(res, {
       nodes: Object.fromEntries(
-        Array.from(stats).map(([symbol, stats]) => {
-          return [symbol, stats.get(NodeInfo.totalStats)];
-        }),
+        Array.from(stats).map(([symbol, nodeStats]) => [
+          symbol,
+          aggregateNodeStats(nodeStats.values()),
+        ]),
       ),
     });
   };

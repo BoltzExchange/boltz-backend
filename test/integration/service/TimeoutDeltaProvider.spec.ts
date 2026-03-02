@@ -33,33 +33,7 @@ jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
 });
 
 describe('TimeoutDeltaProvider', () => {
-  const deltaProvider = new TimeoutDeltaProvider(
-    Logger.disabledLogger,
-    {
-      configpath: '',
-      pairs: [],
-    } as any as ConfigType,
-    sidecar,
-    new Map<string, Currency>([
-      [
-        'BTC',
-        {
-          chainClient: bitcoinClient,
-          lndClient: bitcoinLndClient,
-        } as unknown as Currency,
-      ],
-      [
-        'L-BTC',
-        {
-          chainClient: elementsClient,
-        } as unknown as Currency,
-      ],
-    ]),
-    new NodeSwitch(Logger.disabledLogger),
-    {
-      cltvDelta: 20,
-    },
-  );
+  let deltaProvider: TimeoutDeltaProvider;
 
   const pair = 'L-BTC/BTC';
   const { base, quote } = splitPairId(pair);
@@ -85,6 +59,35 @@ describe('TimeoutDeltaProvider', () => {
       bitcoinLndClient.connect(false),
       bitcoinLndClient2.connect(false),
     ]);
+
+    // Create deltaProvider after clients are connected so client.id is populated
+    deltaProvider = new TimeoutDeltaProvider(
+      Logger.disabledLogger,
+      {
+        configpath: '',
+        pairs: [],
+      } as any as ConfigType,
+      sidecar,
+      new Map<string, Currency>([
+        [
+          'BTC',
+          {
+            chainClient: bitcoinClient,
+            lndClients: new Map([[bitcoinLndClient.id, bitcoinLndClient]]),
+          } as unknown as Currency,
+        ],
+        [
+          'L-BTC',
+          {
+            chainClient: elementsClient,
+          } as unknown as Currency,
+        ],
+      ]),
+      new NodeSwitch(Logger.disabledLogger),
+      {
+        cltvDelta: 20,
+      },
+    );
 
     await bitcoinClient.generate(1);
   });

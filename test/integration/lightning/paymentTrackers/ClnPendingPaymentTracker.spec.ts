@@ -4,7 +4,6 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../../lib/Utils';
 import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayment';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
 import ClnPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/ClnPendingPaymentTracker';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
@@ -70,7 +69,7 @@ describe('ClnPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.CLN,
+        clnClient.id,
         LightningPaymentStatus.Success,
       );
     });
@@ -90,7 +89,7 @@ describe('ClnPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.CLN,
+        clnClient.id,
         LightningPaymentStatus.PermanentFailure,
         expect.anything(),
       );
@@ -112,7 +111,7 @@ describe('ClnPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         preimageHash,
-        NodeType.CLN,
+        clnClient.id,
         LightningPaymentStatus.TemporaryFailure,
         undefined,
       );
@@ -139,7 +138,7 @@ describe('ClnPendingPaymentTracker', () => {
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledTimes(1);
       expect(LightningPaymentRepository.setStatus).toHaveBeenCalledWith(
         getHexString(preimageHash),
-        NodeType.CLN,
+        clnClient.id,
         LightningPaymentStatus.Success,
       );
     });

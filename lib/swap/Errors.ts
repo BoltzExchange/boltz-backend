@@ -79,8 +79,10 @@ export default {
     message: 'lightning client call timeout',
     code: concatErrorCode(ErrorCodePrefix.Swap, 17),
   }),
-  NO_AVAILABLE_LIGHTNING_CLIENT: (): Error => ({
-    message: 'no available lightning client',
+  NO_AVAILABLE_LIGHTNING_CLIENT: (details?: string): Error => ({
+    message: details
+      ? `no available lightning client: ${details}`
+      : 'no available lightning client',
     code: concatErrorCode(ErrorCodePrefix.Swap, 18),
   }),
   INVALID_ADDRESS: (): Error => ({

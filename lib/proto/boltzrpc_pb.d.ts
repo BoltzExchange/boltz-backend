@@ -1726,10 +1726,10 @@ export class InvoicePaymentHookResponse extends jspb.Message {
     getId(): string;
     setId(value: string): InvoicePaymentHookResponse;
 
-    hasAction(): boolean;
-    clearAction(): void;
-    getAction(): Node | undefined;
-    setAction(value: Node): InvoicePaymentHookResponse;
+    hasNodePubkey(): boolean;
+    clearNodePubkey(): void;
+    getNodePubkey(): string | undefined;
+    setNodePubkey(value: string): InvoicePaymentHookResponse;
 
     hasTimePreference(): boolean;
     clearTimePreference(): void;
@@ -1749,7 +1749,7 @@ export class InvoicePaymentHookResponse extends jspb.Message {
 export namespace InvoicePaymentHookResponse {
     export type AsObject = {
         id: string,
-        action?: Node,
+        nodePubkey?: string,
         timePreference?: number,
     }
 }
@@ -1983,9 +1983,4 @@ export enum Action {
     ACCEPT = 0,
     REJECT = 1,
     HOLD = 2,
-}
-
-export enum Node {
-    LND = 0,
-    CLN = 1,
 }

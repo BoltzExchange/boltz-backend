@@ -89,12 +89,12 @@ describe('RateProviderLegacy', () => {
 
   const provider = new RateProviderLegacy(
     new Map<string, any>([
-      ['BTC', { chainClient: {}, lndClient: {} }],
+      ['BTC', { chainClient: {}, lndClients: new Map([['lnd-1', {}]]) }],
       [
         'L-BTC',
         {
           chainClient: {},
-          lndClient: {},
+          lndClients: new Map([['lnd-1', {}]]),
         },
       ],
     ]),

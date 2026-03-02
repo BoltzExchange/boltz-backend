@@ -38,6 +38,7 @@ const mockSettleHoldInvoice = jest.fn().mockImplementation(async () => {});
 
 jest.mock('../../../lib/lightning/LndClient', () => {
   return jest.fn().mockImplementation(() => ({
+    id: 'lnd-1',
     raceCall,
     on: mockOn,
     lookupHoldInvoice: mockLookupHoldInvoice,
@@ -95,11 +96,12 @@ describe('LightningNursery', () => {
   );
 
   const btcLndClient = MockedLndClient();
+  (btcLndClient as any).id = 'lnd-1';
   const currencies: Currency[] = [
     {
       symbol: 'BTC',
       limits: {} as any,
-      lndClient: btcLndClient,
+      lndClients: new Map([[btcLndClient.id, btcLndClient]]),
       type: CurrencyType.BitcoinLike,
       network: Networks.bitcoinRegtest,
     },

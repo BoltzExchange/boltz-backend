@@ -5,7 +5,6 @@ import {
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import type { ReverseSwapType } from '../../../lib/db/models/ReverseSwap';
-import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type { SwapType } from '../../../lib/db/models/Swap';
 
 export const swapExample = {
@@ -52,7 +51,7 @@ export const reverseSwapExample = {
   type: SwapTypeEnum.ReverseSubmarine,
 
   fee: 200,
-  node: NodeType.LND,
+  nodeId: 'lnd-1',
   orderSide: OrderSide.SELL,
   keyIndex: 321,
   minerFee: 306,

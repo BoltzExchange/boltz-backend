@@ -81,7 +81,7 @@ type RoutingOffsetException = {
 };
 
 type CurrencyConfig = BaseCurrencyConfig & {
-  lnd?: LndConfig;
+  lnds?: LndConfig[];
   cln?: ClnConfig;
   noRoute?: string[];
   routingOffsetExceptions?: RoutingOffsetException[];
@@ -360,19 +360,21 @@ class Config {
             password: '',
           },
 
-          lnd: {
-            host: '127.0.0.1',
-            port: 10009,
-            certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(
-              getServiceDataDir('lnd'),
-              'data',
-              'chain',
-              'bitcoin',
-              Network.Testnet,
-              'admin.macaroon',
-            ),
-          },
+          lnds: [
+            {
+              host: '127.0.0.1',
+              port: 10009,
+              certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
+              macaroonpath: path.join(
+                getServiceDataDir('lnd'),
+                'data',
+                'chain',
+                'bitcoin',
+                Network.Testnet,
+                'admin.macaroon',
+              ),
+            },
+          ],
         },
         {
           symbol: 'LTC',
@@ -394,19 +396,21 @@ class Config {
             password: '',
           },
 
-          lnd: {
-            host: '127.0.0.1',
-            port: 11009,
-            certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
-            macaroonpath: path.join(
-              getServiceDataDir('lnd'),
-              'data',
-              'chain',
-              'litecoin',
-              Network.Testnet,
-              'admin.macaroon',
-            ),
-          },
+          lnds: [
+            {
+              host: '127.0.0.1',
+              port: 11009,
+              certpath: path.join(getServiceDataDir('lnd'), 'tls.cert'),
+              macaroonpath: path.join(
+                getServiceDataDir('lnd'),
+                'data',
+                'chain',
+                'litecoin',
+                Network.Testnet,
+                'admin.macaroon',
+              ),
+            },
+          ],
         },
       ],
 

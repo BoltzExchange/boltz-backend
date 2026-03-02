@@ -25,8 +25,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
-import type LndClient from '../lightning/LndClient';
-import type ClnClient from '../lightning/cln/ClnClient';
+import type { LightningClient } from '../lightning/LightningClient';
 import type { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
 import type Service from '../service/Service';
 import type Sidecar from '../sidecar/Sidecar';
@@ -77,40 +76,36 @@ class NotificationProvider {
       await this.client.sendMessage('Started Boltz instance');
 
       for (const [symbol, currency] of this.service.currencies) {
-        [currency.lndClient, currency.clnClient]
-          .filter(
-            (client): client is LndClient | ClnClient => client !== undefined,
-          )
-          .forEach((client) => {
-            client.on('status.changed', async (status: ClientStatus) => {
-              switch (status) {
-                case ClientStatus.Connected:
-                  await this.sendReconnected(
-                    `${client.serviceName()} ${symbol}`,
-                  );
-                  break;
+        const clients: LightningClient[] = Array.from(
+          currency.lndClients.values(),
+        );
+        if (currency.clnClient) {
+          clients.push(currency.clnClient);
+        }
 
-                case ClientStatus.Disconnected:
-                  await this.sendLostConnection(
-                    `${client.serviceName()} ${symbol}`,
-                  );
-                  break;
-              }
-            });
+        clients.forEach((client) => {
+          const clientLabel = `${symbol} ${client.serviceName()} ${client.id}`;
+          client.on('status.changed', async (status: ClientStatus) => {
+            switch (status) {
+              case ClientStatus.Connected:
+                await this.sendReconnected(clientLabel);
+                break;
 
-            client.on('subscription.error', async (subscription?: string) => {
-              await this.sendLostConnection(
-                `${client.serviceName()} ${symbol}`,
-                subscription,
-              );
-            });
-
-            client.on(
-              'subscription.reconnected',
-              async () =>
-                await this.sendReconnected(`${client.serviceName()} ${symbol}`),
-            );
+              case ClientStatus.Disconnected:
+                await this.sendLostConnection(clientLabel);
+                break;
+            }
           });
+
+          client.on('subscription.error', async (subscription?: string) => {
+            await this.sendLostConnection(clientLabel, subscription);
+          });
+
+          client.on(
+            'subscription.reconnected',
+            async () => await this.sendReconnected(clientLabel),
+          );
+        });
       }
 
       this.service.lockupTransactionTracker.on(

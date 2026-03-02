@@ -3,7 +3,6 @@ import Database from '../../../../lib/db/Database';
 import LightningPayment, {
   LightningPaymentStatus,
 } from '../../../../lib/db/models/LightningPayment';
-import { NodeType } from '../../../../lib/db/models/ReverseSwap';
 import Swap from '../../../../lib/db/models/Swap';
 import LightningPaymentRepository, {
   Errors,
@@ -13,6 +12,8 @@ import { createSubmarineSwapData } from './Fixtures';
 
 describe('LightningPaymentRepository', () => {
   let db: Database;
+  const lndNodeId = 'lnd-1';
+  const clnNodeId = 'cln-1';
 
   beforeAll(async () => {
     db = new Database(Logger.disabledLogger, Database.memoryDatabase);
@@ -39,11 +40,10 @@ describe('LightningPaymentRepository', () => {
       const swap = await Swap.create(createSubmarineSwapData());
 
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
       expect(payment.retries).toEqual(1);
-      expect(payment.node).toEqual(NodeType.LND);
       expect(payment.preimageHash).toEqual(swap.preimageHash);
       expect(payment.status).toEqual(LightningPaymentStatus.Pending);
     });
@@ -57,13 +57,13 @@ describe('LightningPaymentRepository', () => {
       const swap = await Swap.create(createSubmarineSwapData());
       await LightningPayment.create({
         status,
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
       await expect(
         LightningPaymentRepository.create({
-          node: NodeType.LND,
+          nodeId: lndNodeId,
           preimageHash: swap.preimageHash,
         }),
       ).rejects.toEqual(Errors.PaymentExistsAlready);
@@ -73,16 +73,15 @@ describe('LightningPaymentRepository', () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const existing = await LightningPayment.create({
         retries: 3,
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
         status: LightningPaymentStatus.TemporaryFailure,
       });
 
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
-      expect(payment.node).toEqual(NodeType.LND);
       expect(payment.retries).toEqual(existing.retries! + 1);
       expect(payment.preimageHash).toEqual(swap.preimageHash);
       expect(payment.status).toEqual(LightningPaymentStatus.Pending);
@@ -96,14 +95,14 @@ describe('LightningPaymentRepository', () => {
     test('should set success status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
       await expect(
         LightningPaymentRepository.setStatus(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
           LightningPaymentStatus.Success,
         ),
       ).resolves.toEqual([1]);
@@ -115,7 +114,7 @@ describe('LightningPaymentRepository', () => {
     test('should set pending status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
       await payment.update({ status: LightningPaymentStatus.TemporaryFailure });
@@ -123,7 +122,7 @@ describe('LightningPaymentRepository', () => {
       await expect(
         LightningPaymentRepository.setStatus(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
           LightningPaymentStatus.Pending,
         ),
       ).resolves.toEqual([1]);
@@ -135,14 +134,14 @@ describe('LightningPaymentRepository', () => {
     test('should set temporary failure status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
       await expect(
         LightningPaymentRepository.setStatus(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
           LightningPaymentStatus.TemporaryFailure,
         ),
       ).resolves.toEqual([1]);
@@ -154,7 +153,7 @@ describe('LightningPaymentRepository', () => {
     test('should set permanent failure status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       const payment = await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
@@ -162,7 +161,7 @@ describe('LightningPaymentRepository', () => {
       await expect(
         LightningPaymentRepository.setStatus(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
           LightningPaymentStatus.PermanentFailure,
           error,
         ),
@@ -183,7 +182,7 @@ describe('LightningPaymentRepository', () => {
       async ({ status }) => {
         const swap = await Swap.create(createSubmarineSwapData());
         await LightningPaymentRepository.create({
-          node: NodeType.LND,
+          nodeId: lndNodeId,
           preimageHash: swap.preimageHash,
         });
 
@@ -191,7 +190,7 @@ describe('LightningPaymentRepository', () => {
         expect(() =>
           LightningPaymentRepository.setStatus(
             swap.preimageHash,
-            NodeType.LND,
+            lndNodeId,
             status,
             error,
           ),
@@ -202,14 +201,14 @@ describe('LightningPaymentRepository', () => {
     test('should not allow setting permanent error without error message', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
       expect(() =>
         LightningPaymentRepository.setStatus(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
           LightningPaymentStatus.PermanentFailure,
         ),
       ).toThrow(Errors.ErrorMissingPermanentFailure);
@@ -221,11 +220,11 @@ describe('LightningPaymentRepository', () => {
       const swap = await Swap.create(createSubmarineSwapData());
 
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
       await LightningPaymentRepository.create({
-        node: NodeType.CLN,
+        nodeId: clnNodeId,
         preimageHash: swap.preimageHash,
       });
 
@@ -235,27 +234,27 @@ describe('LightningPaymentRepository', () => {
     });
   });
 
-  describe('findByPreimageHashAndNode', () => {
-    test('should find by preimage hash and node', async () => {
+  describe('findByPreimageHashAndNodeId', () => {
+    test('should find by preimage hash and node id', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
 
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 
       const fetched =
-        await LightningPaymentRepository.findByPreimageHashAndNode(
+        await LightningPaymentRepository.findByPreimageHashAndNodeId(
           swap.preimageHash,
-          NodeType.LND,
+          lndNodeId,
         );
-      expect(fetched!.node).toEqual(NodeType.LND);
+      expect(fetched!.nodeId).toEqual(lndNodeId);
       expect(fetched!.preimageHash).toEqual(swap.preimageHash);
 
       await expect(
-        LightningPaymentRepository.findByPreimageHashAndNode(
+        LightningPaymentRepository.findByPreimageHashAndNodeId(
           swap.preimageHash,
-          NodeType.CLN,
+          clnNodeId,
         ),
       ).resolves.toBeNull();
     });
@@ -265,7 +264,7 @@ describe('LightningPaymentRepository', () => {
     test('should find by status', async () => {
       const swap = await Swap.create(createSubmarineSwapData());
       await LightningPaymentRepository.create({
-        node: NodeType.LND,
+        nodeId: lndNodeId,
         preimageHash: swap.preimageHash,
       });
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import NodesRouter from '../../../../../lib/api/v2/routers/NodesRouter';
+import { NodeType } from '../../../../../lib/db/models/ReverseSwap';
 import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
@@ -28,17 +29,19 @@ describe('NodesRouter', () => {
           'BTC',
           new Map([
             [
-              'LND',
+              'lnd-1',
               {
                 nodeKey: 'lndNode',
                 uris: ['123.321', '::'],
+                nodeType: NodeType.LND,
               },
             ],
             [
-              'CLN',
+              'cln-1',
               {
                 nodeKey: 'clnNode',
                 uris: ['.onion'],
+                nodeType: NodeType.CLN,
               },
             ],
           ]),
@@ -51,8 +54,24 @@ describe('NodesRouter', () => {
         [
           'BTC',
           new Map([
-            ['total', { some: 'stats' }],
-            ['CLN', { more: 'statistics' }],
+            [
+              'lnd-1',
+              {
+                capacity: 10,
+                channels: 2,
+                peers: 3,
+                oldestChannel: 100,
+              },
+            ],
+            [
+              'cln-1',
+              {
+                capacity: 4,
+                channels: 1,
+                peers: 2,
+                oldestChannel: 120,
+              },
+            ],
           ]),
         ],
       ]),
@@ -116,10 +135,22 @@ describe('NodesRouter', () => {
     expect(res.json).toHaveBeenCalledWith({
       BTC: {
         total: {
-          some: 'stats',
+          capacity: 14,
+          channels: 3,
+          peers: 5,
+          oldestChannel: 100,
+        },
+        LND: {
+          capacity: 10,
+          channels: 2,
+          peers: 3,
+          oldestChannel: 100,
         },
         CLN: {
-          more: 'statistics',
+          capacity: 4,
+          channels: 1,
+          peers: 2,
+          oldestChannel: 120,
         },
       },
     });

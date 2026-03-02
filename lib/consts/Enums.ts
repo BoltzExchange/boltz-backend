@@ -87,9 +87,7 @@ export const FinalChainSwapEvents = [
   SwapUpdateEvent.TransactionRefunded,
 ];
 
-export enum ServiceWarning {
-  ReverseSwapsDisabled = 'reverse.swaps.disabled',
-}
+export enum ServiceWarning {}
 
 export enum ServiceInfo {
   PrepayMinerFee = 'prepay.minerfee',

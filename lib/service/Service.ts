@@ -43,7 +43,7 @@ import {
   OrderSide,
   PercentageFeeType,
   ServiceInfo,
-  ServiceWarning,
+  type ServiceWarning,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -143,8 +143,6 @@ type SomePair =
   | ChainPairTypeTaproot;
 
 class Service {
-  public allowReverseSwaps = true;
-
   private nodeInfo: NodeInfo;
   public swapManager: SwapManager;
   public eventHandler: EventHandler;
@@ -660,15 +658,7 @@ class Service {
     return infos;
   };
 
-  public getWarnings = (): ServiceWarning[] => {
-    const warnings: ServiceWarning[] = [];
-
-    if (!this.allowReverseSwaps) {
-      warnings.push(ServiceWarning.ReverseSwapsDisabled);
-    }
-
-    return warnings;
-  };
+  public getWarnings = (): ServiceWarning[] => [];
 
   public getNodes = () => this.nodeInfo.uris;
 
@@ -1765,10 +1755,6 @@ class Service {
 
     referralId?: string;
   }> => {
-    if (!this.allowReverseSwaps) {
-      throw Errors.REVERSE_SWAPS_DISABLED();
-    }
-
     const side = this.getOrderSide(args.orderSide);
     const referralId = await this.getReferralId(
       args.referralId,

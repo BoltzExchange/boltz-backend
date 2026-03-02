@@ -87,9 +87,7 @@ Response object:
     invoice for the miner fee to be paid before the actual hold invoice of a
     Reverse Swap is revealed.
 - `warnings`: An array of strings that indicate that some feature of Boltz might
-  be disabled or restricted. An example is:
-  - `reverse.swaps.disabled`: Means that all reverse swaps (from Lightning to
-    the chain) are disabled.
+  be disabled or restricted.
 - `pairs`: An object containing the supported pairs. The keys of the values are
   the IDs of the pairs (`BTC/BTC` is a special case with mainchain bitcoin as
   _base asset_ and Lightning bitcoin as _quote asset_) and the values itself

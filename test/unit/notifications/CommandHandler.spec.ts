@@ -195,7 +195,6 @@ Stats.generate = jest.fn().mockResolvedValue({
 
 describe('CommandHandler', () => {
   const service = mockedService();
-  service.allowReverseSwaps = true;
 
   new CommandHandler(
     Logger.disabledLogger,
@@ -257,8 +256,7 @@ describe('CommandHandler', () => {
         '**pendingsweeps**: gets all pending sweeps\n' +
         '**getreferrals**: gets stats for all referral IDs\n' +
         '**getaddress**: gets an address for a currency\n' +
-        '**sweepswaps**: sweeps deferred swap claims\n' +
-        '**togglereverse**: enables or disables reverse swaps',
+        '**sweepswaps**: sweeps deferred swap claims',
     );
   });
 
@@ -666,24 +664,6 @@ describe('CommandHandler', () => {
         `${codeBlock}${stringify({ [symbol.toUpperCase()]: await service.swapManager.deferredClaimer.sweepSymbol(symbol.toUpperCase()) })}${codeBlock}`,
       );
     });
-  });
-
-  test('should toggle reverse swaps', async () => {
-    sendMessage('togglereverse');
-    await wait(commandWaitMs);
-
-    expect(service.allowReverseSwaps).toBeFalsy();
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledWith('Disabled Reverse Swaps');
-
-    sendMessage('togglereverse');
-    await wait(commandWaitMs);
-
-    expect(service.allowReverseSwaps).toBeTruthy();
-
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenCalledWith('Enabled Reverse Swaps');
   });
 
   afterAll(async () => {

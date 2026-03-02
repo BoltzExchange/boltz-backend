@@ -35,10 +35,6 @@ export default {
     message: `${amount} is less than minimal of ${minimalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 7),
   }),
-  REVERSE_SWAPS_DISABLED: (): Error => ({
-    message: 'reverse swaps are disabled',
-    code: concatErrorCode(ErrorCodePrefix.Service, 8),
-  }),
   ONCHAIN_AMOUNT_TOO_LOW: (): Error => ({
     message: 'onchain amount is too low',
     code: concatErrorCode(ErrorCodePrefix.Service, 9),

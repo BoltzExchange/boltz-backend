@@ -29,7 +29,6 @@ import {
   OrderSide,
   PercentageFeeType,
   ServiceInfo,
-  ServiceWarning,
   SwapType,
   SwapUpdateEvent,
   SwapVersion,
@@ -1285,16 +1284,6 @@ describe('Service', () => {
       warnings: [],
     });
 
-    service.allowReverseSwaps = false;
-
-    expect(service.getPairs()).toEqual({
-      pairs,
-      info: [],
-      warnings: [ServiceWarning.ReverseSwapsDisabled],
-    });
-
-    service.allowReverseSwaps = true;
-
     service['prepayMinerFee'] = true;
 
     expect(service.getPairs()).toEqual({
@@ -2455,8 +2444,6 @@ describe('Service', () => {
     mockGetSwapResult = null;
     mockGetReverseSwapResult = null;
 
-    service.allowReverseSwaps = true;
-
     let pair = 'BTC/BTC';
     const orderSide = 'buy';
     const referralId = 'asdf';
@@ -2640,22 +2627,6 @@ describe('Service', () => {
       }),
     ).rejects.toEqual(Errors.BENEATH_MINIMAL_AMOUNT(invoiceAmountLimit, 1));
 
-    // Throw if reverse swaps are disabled
-    service.allowReverseSwaps = false;
-
-    await expect(
-      service.createReverseSwap({
-        orderSide,
-        preimageHash,
-        invoiceAmount,
-        claimPublicKey,
-        pairId: pair,
-        version: SwapVersion.Legacy,
-      }),
-    ).rejects.toEqual(Errors.REVERSE_SWAPS_DISABLED());
-
-    service.allowReverseSwaps = true;
-
     const invalidNumber = 3.141;
 
     // Throw if invoice amount is not a whole number
@@ -2687,8 +2658,6 @@ describe('Service', () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
     mockGetSwapResult = null;
     mockGetReverseSwapResult = null;
-
-    service.allowReverseSwaps = true;
 
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
@@ -2943,8 +2912,6 @@ describe('Service', () => {
   });
 
   test('should create Reverse Swaps with specified onchain amount', async () => {
-    service.allowReverseSwaps = true;
-
     const pair = 'BTC/BTC';
     const orderSide = 'buy';
     const onchainAmount = 97680;
@@ -3147,8 +3114,6 @@ describe('Service', () => {
 
   describe('createReverseSwap BOLT12', () => {
     test('should create reverse swaps with bolt12 invoices', async () => {
-      service.allowReverseSwaps = true;
-
       const paymentHash = randomBytes(32);
       const decodedInvoice = {
         type: InvoiceType.Bolt12Invoice,

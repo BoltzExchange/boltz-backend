@@ -53,7 +53,6 @@ enum Command {
   Backup = 'backup',
   GetAddress = 'getaddress',
   SweepSwaps = 'sweepswaps',
-  ToggleReverseSwaps = 'togglereverse',
 }
 
 type Usage = {
@@ -203,13 +202,6 @@ class CommandHandler {
           ],
           executor: this.sweepSwaps,
           description: 'sweeps deferred swap claims',
-        },
-      ],
-      [
-        Command.ToggleReverseSwaps,
-        {
-          executor: this.toggleReverseSwaps,
-          description: 'enables or disables reverse swaps',
         },
       ],
     ]);
@@ -665,17 +657,6 @@ class CommandHandler {
         `Could not sweep swaps: ${formatError(e)}`,
       );
     }
-  };
-
-  private toggleReverseSwaps = async () => {
-    this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
-
-    const message = `${
-      this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'
-    } Reverse Swaps`;
-
-    this.logger.info(message);
-    await this.notificationClient.sendMessage(message);
   };
 
   /*

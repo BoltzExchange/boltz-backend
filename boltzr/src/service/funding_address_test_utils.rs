@@ -11,6 +11,7 @@ pub mod test {
         CooperativeDetails, FundingAddressSigner, SetSignatureRequest,
     };
     use crate::swap::{FundingAddressStatus, SwapUpdate};
+    use crate::utils::pair::OrderSide;
     use bitcoin::hashes::Hash;
     use bitcoin::key::Keypair;
     use bitcoin::secp256k1::{Secp256k1, rand};
@@ -76,16 +77,16 @@ pub mod test {
         fa
     }
 
-    pub fn test_swap(lockup_address: &str) -> Swap {
-        test_swap_with_timeout(lockup_address, 500)
-    }
-
-    pub fn test_swap_with_timeout(lockup_address: &str, timeout_block_height: i32) -> Swap {
+    pub fn test_swap(lockup_address: &str, symbol: &str) -> Swap {
         Swap {
             id: TEST_SWAP_ID.to_string(),
+            pair: format!("{symbol}/BTC"),
+            orderSide: OrderSide::Sell as i32,
             lockupAddress: lockup_address.to_string(),
-            timeoutBlockHeight: timeout_block_height,
+            timeoutBlockHeight: 500,
             status: SwapUpdate::SwapCreated.to_string(),
+            onchainAmount: Some(100000),
+            expectedAmount: Some(100000),
             ..Default::default()
         }
     }
@@ -98,7 +99,7 @@ pub mod test {
             id: TEST_SWAP_ID.to_string(),
             pair: "L-BTC/BTC".to_string(),
             status: "swap.created".to_string(),
-            orderSide: 0,
+            orderSide: OrderSide::Buy as i32,
             ..Default::default()
         };
         let data = vec![
@@ -107,6 +108,8 @@ pub mod test {
                 symbol: "BTC".to_string(),
                 lockupAddress: lockup_address.to_string(),
                 timeoutBlockHeight: timeout_block_height,
+                amount: Some(100000),
+                expectedAmount: Some(100000),
                 ..Default::default()
             },
             ChainSwapData {
@@ -114,6 +117,8 @@ pub mod test {
                 symbol: "L-BTC".to_string(),
                 lockupAddress: "el1qq0test".to_string(),
                 timeoutBlockHeight: timeout_block_height,
+                amount: Some(100000),
+                expectedAmount: Some(100000),
                 ..Default::default()
             },
         ];

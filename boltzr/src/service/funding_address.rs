@@ -105,6 +105,23 @@ pub struct CreateResponse {
 }
 
 impl FundingAddressService {
+    fn map_signer_error(err: anyhow::Error) -> FundingAddressError {
+        if err
+            .downcast_ref::<FundingAddressEligibilityError>()
+            .is_some()
+        {
+            return FundingAddressError::InvalidRequest(err.to_string());
+        }
+
+        let error_message = err.to_string().to_lowercase();
+        if error_message.contains("failed to get swap info") && error_message.contains("not found")
+        {
+            return FundingAddressError::NotFound(err.to_string());
+        }
+
+        FundingAddressError::Internal(err.to_string())
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: Option<FundingAddressConfig>,
@@ -316,7 +333,7 @@ impl FundingAddressService {
         self.signer
             .get_signing_details(&funding_address, &key_pair, swap_id)
             .await
-            .map_err(|e| FundingAddressError::Internal(e.to_string()))
+            .map_err(Self::map_signer_error)
     }
 
     pub async fn set_signature(
@@ -331,7 +348,7 @@ impl FundingAddressService {
             .signer
             .set_signature(&funding_address, &key_pair, &request)
             .await
-            .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+            .map_err(Self::map_signer_error)?;
         self.funding_address_helper
             .set_presigned_tx(
                 &funding_address.id,
@@ -358,16 +375,7 @@ impl FundingAddressService {
             .signer
             .sign_refund(&funding_address, &key_pair, &request)
             .await
-            .map_err(|err| {
-                if err
-                    .downcast_ref::<FundingAddressEligibilityError>()
-                    .is_some()
-                {
-                    FundingAddressError::InvalidRequest(err.to_string())
-                } else {
-                    FundingAddressError::Internal(err.to_string())
-                }
-            })?;
+            .map_err(Self::map_signer_error)?;
 
         self.funding_address_helper
             .set_status(&funding_address.id, &new_status)

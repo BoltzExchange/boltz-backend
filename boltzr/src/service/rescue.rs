@@ -1454,6 +1454,7 @@ mod test {
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                 amount: Some(50000),
+                expectedAmount: Some(50000),
                 transactionId: Some("chain tx".to_string()),
                 transactionVout: Some(5),
             }, ChainSwapData {
@@ -1468,6 +1469,7 @@ mod test {
                 timeoutBlockHeight: 13_211,
                 lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                 amount: Some(200000),
+                expectedAmount: Some(200000),
                 transactionId: Some("chain tx".to_string()),
                 transactionVout: Some(5),
             }],
@@ -2171,6 +2173,7 @@ mod test {
                         "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m"
                             .to_string(),
                     amount: Some(50000),
+                    expectedAmount: Some(50000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },
@@ -2186,6 +2189,7 @@ mod test {
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
+                    expectedAmount: Some(200000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },

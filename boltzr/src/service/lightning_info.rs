@@ -384,7 +384,7 @@ mod test {
                     crate::chain::chain_client::test::get_client().await,
                 )),
                 cln: Some(cln_client().await),
-                lnd: None,
+                lnds: HashMap::new(),
                 evm_manager: None,
             },
         )]))

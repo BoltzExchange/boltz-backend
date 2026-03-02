@@ -163,7 +163,7 @@ mod test {
                 )),
                 chain: Some(chain_client),
                 cln: None,
-                lnd: None,
+                lnds: HashMap::new(),
                 evm_manager: None,
             },
         )]))

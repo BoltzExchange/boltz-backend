@@ -38,11 +38,17 @@ pub struct Currency {
 
     pub chain: Option<Arc<dyn crate::chain::Client + Send + Sync>>,
     pub cln: Option<Cln>,
-    pub lnd: Option<Lnd>,
+    pub lnds: HashMap<String, Lnd>,
     pub evm_manager: Option<Arc<Manager>>,
 }
 
 pub type Currencies = Arc<HashMap<String, Currency>>;
+
+impl Currency {
+    pub fn iter_lnds(&self) -> impl Iterator<Item = (&String, &Lnd)> {
+        self.lnds.iter()
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn connect_nodes<K: KeysHelper>(
@@ -77,7 +83,16 @@ pub async fn connect_nodes<K: KeysHelper>(
     match currencies {
         Some(currencies) => {
             for currency in currencies {
-                if let Some(preferred_wallet) = currency.preferred_wallet
+                let CurrencyConfig {
+                    symbol,
+                    preferred_wallet,
+                    chain: chain_config,
+                    cln: cln_config,
+                    lnds: lnd_configs,
+                    ..
+                } = currency;
+
+                if let Some(preferred_wallet) = preferred_wallet
                     && preferred_wallet != PREFERRED_WALLET_CORE
                 {
                     return Err(anyhow!(
@@ -87,16 +102,16 @@ pub async fn connect_nodes<K: KeysHelper>(
                     ));
                 }
 
-                debug!("Connecting to nodes of {}", currency.symbol);
+                debug!("Connecting to nodes of {}", symbol);
 
-                let keys_info = keys_helper.get_for_symbol(&currency.symbol)?;
-                let chain = match currency.chain {
+                let keys_info = keys_helper.get_for_symbol(&symbol)?;
+                let chain = match chain_config {
                     Some(config) => connect_client(ChainClient::new(
                         cancellation_token.clone(),
                         cache.clone(),
                         crate::chain::types::Type::Bitcoin,
                         network,
-                        currency.symbol.clone(),
+                        symbol.clone(),
                         config,
                     ))
                     .await
@@ -127,17 +142,17 @@ pub async fn connect_nodes<K: KeysHelper>(
                 }
 
                 curs.insert(
-                    currency.symbol.clone(),
+                    symbol.clone(),
                     Currency {
                         network,
                         wallet,
                         chain,
-                        cln: match currency.cln {
+                        cln: match cln_config {
                             Some(config) => {
                                 connect_client(
                                     Cln::new(
                                         cancellation_token.clone(),
-                                        &currency.symbol,
+                                        &symbol,
                                         network,
                                         &config,
                                         webhook_block_list.clone(),
@@ -151,16 +166,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                             }
                             None => None,
                         },
-                        lnd: match currency.lnd {
-                            Some(config) => {
-                                connect_client(
-                                    Lnd::new(cancellation_token.clone(), &currency.symbol, config)
-                                        .await,
-                                )
-                                .await
-                            }
-                            None => None,
-                        },
+                        lnds: connect_lnds(cancellation_token.clone(), &symbol, lnd_configs).await,
                         evm_manager: None,
                     },
                 );
@@ -215,7 +221,7 @@ pub async fn connect_nodes<K: KeysHelper>(
             Currency {
                 network,
                 cln: None,
-                lnd: None,
+                lnds: HashMap::new(),
                 chain,
                 wallet,
                 evm_manager: None,
@@ -243,7 +249,7 @@ pub async fn connect_nodes<K: KeysHelper>(
                     chain: None,
                     wallet: None,
                     cln: None,
-                    lnd: None,
+                    lnds: HashMap::new(),
                 },
             );
         } else {
@@ -272,13 +278,58 @@ pub async fn connect_nodes<K: KeysHelper>(
                 chain: None,
                 wallet,
                 cln: None,
-                lnd: None,
+                lnds: HashMap::new(),
                 evm_manager: None,
             },
         );
     }
 
     Ok((network, Arc::new(curs), offer_subscriptions))
+}
+
+async fn connect_lnds(
+    cancellation_token: CancellationToken,
+    symbol: &str,
+    lnd_configs: Option<Vec<crate::lightning::lnd::Config>>,
+) -> HashMap<String, Lnd> {
+    let Some(lnd_configs) = lnd_configs else {
+        return HashMap::new();
+    };
+
+    let configured_nodes = lnd_configs.len();
+    let mut lnds = HashMap::new();
+
+    for config in lnd_configs {
+        let lnd = connect_client(Lnd::new(cancellation_token.clone(), symbol, config).await).await;
+        let Some(lnd) = lnd else {
+            continue;
+        };
+
+        let node_id = lnd.node_id().to_string();
+
+        if lnds.contains_key(&node_id) {
+            warn!(
+                "Skipping duplicate {} LND node pubkey in config: {}",
+                symbol, node_id
+            );
+            continue;
+        }
+
+        lnds.insert(node_id, lnd);
+    }
+
+    if configured_nodes > 0 && lnds.is_empty() {
+        warn!("Could not connect any configured {} LND nodes", symbol);
+    } else if configured_nodes > 0 {
+        debug!(
+            "Connected {}/{} configured {} LND node(s)",
+            lnds.len(),
+            configured_nodes,
+            symbol
+        );
+    }
+
+    lnds
 }
 
 fn create_bumper(

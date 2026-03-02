@@ -1154,7 +1154,7 @@ mod test {
                             wallet: None,
                             chain: None,
                             cln: None,
-                            lnd: None,
+                            lnds: HashMap::new(),
                             evm_manager: Some(evm_manager.clone()),
                         },
                     )])),
@@ -1215,7 +1215,7 @@ mod test {
                     wallet: None,
                     chain: None,
                     cln: None,
-                    lnd: None,
+                    lnds: HashMap::new(),
                     evm_manager: evm_manager.clone(),
                 })
             } else {

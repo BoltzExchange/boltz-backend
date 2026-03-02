@@ -288,6 +288,7 @@ mod test {
     use axum::extract::Request;
     use bip39::Mnemonic;
     use http_body_util::BodyExt;
+    use std::collections::HashMap;
     use std::str::FromStr;
     use tower::ServiceExt;
 
@@ -331,7 +332,7 @@ mod test {
                         .unwrap(),
                     )),
                     cln: Some(cln.clone()),
-                    lnd: None,
+                    lnds: HashMap::new(),
                     chain: None,
                     evm_manager: None,
                 })
@@ -402,7 +403,7 @@ mod test {
                         .unwrap(),
                     )),
                     cln: Some(cln.clone()),
-                    lnd: None,
+                    lnds: HashMap::new(),
                     chain: None,
                     evm_manager: None,
                 })

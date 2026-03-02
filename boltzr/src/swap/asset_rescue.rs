@@ -746,7 +746,7 @@ mod tests {
                 wallet: None,
                 chain: None,
                 cln: None,
-                lnd: None,
+                lnds: HashMap::new(),
                 evm_manager: None,
             },
         );
@@ -1252,7 +1252,7 @@ mod tests {
                 wallet: Some(Arc::new(wallet)),
                 chain: Some(client.clone()),
                 cln: None,
-                lnd: None,
+                lnds: std::collections::HashMap::new(),
                 evm_manager: None,
             },
         );

@@ -524,7 +524,6 @@ mod test {
     use crate::db::helpers::swap::test::MockSwapHelper;
     use crate::service::funding_address_test_utils::test::*;
     use crate::service::test::get_test_currencies;
-    use crate::utils::pair::OrderSide;
     use bitcoin::TapTweakHash;
     use boltz_core::Address as CoreAddress;
     use boltz_core::FeeTarget;
@@ -573,9 +572,8 @@ mod test {
             let expected_amount = swap_info.expected_amount;
             let timeout_block_height = swap_info.timeout_block_height as i32;
             self.swap_helper.expect_get_by_id().returning(move |_| {
-                let mut swap = test_swap_with_timeout(&lockup_address, timeout_block_height);
-                swap.pair = format!("{chain}/BTC");
-                swap.orderSide = OrderSide::Sell as i32;
+                let mut swap = test_swap(&lockup_address, &chain);
+                swap.timeoutBlockHeight = timeout_block_height;
                 swap.status = status.to_string();
                 swap.expectedAmount = Some(expected_amount);
                 Ok(swap)
@@ -637,10 +635,10 @@ mod test {
         }
     }
 
-    fn test_swap_info(lockup_address: &str) -> SwapInfo {
+    fn test_swap_info(lockup_address: &str, symbol: &str) -> SwapInfo {
         SwapInfo {
             status: SwapUpdate::SwapCreated,
-            currency: TEST_SYMBOL.to_string(),
+            currency: symbol.to_string(),
             lockup_address: lockup_address.to_string(),
             expected_amount: 100000,
             timeout_block_height: 500,
@@ -914,7 +912,7 @@ mod test {
             .unwrap();
 
         let signer = TestSignerContext::new()
-            .with_swap(test_swap_info(&swap_lockup_address))
+            .with_swap(test_swap_info(&swap_lockup_address, symbol))
             .with_currencies()
             .await
             .build();
@@ -1253,7 +1251,7 @@ mod test {
     #[tokio::test]
     async fn test_set_signature_rejects_unspendable_statuses(#[case] status: FundingAddressStatus) {
         let signer = TestSignerContext::new()
-            .with_swap(test_swap_info("bcrt1qtest123"))
+            .with_swap(test_swap_info("bcrt1qtest123", TEST_SYMBOL))
             .with_currencies()
             .await
             .build();
@@ -1413,7 +1411,7 @@ mod test {
             .unwrap();
 
         let signer = TestSignerContext::new()
-            .with_swap(test_swap_info(&swap_lockup_address))
+            .with_swap(test_swap_info(&swap_lockup_address, TEST_SYMBOL))
             .with_currencies()
             .await
             .build();

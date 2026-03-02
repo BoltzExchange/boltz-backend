@@ -155,9 +155,10 @@ impl FundingAddressSigner {
             ))
         })?;
         if funding_address_amount != swap_info.expected_amount {
-            return Err(anyhow!(FundingAddressEligibilityError(
-                "funding address amount does not match swaps expected amount".to_string(),
-            )));
+            return Err(anyhow!(FundingAddressEligibilityError(format!(
+                "funding address amount {} does not match swaps expected amount: {}",
+                funding_address_amount, swap_info.expected_amount
+            ),)));
         }
 
         Ok(swap_info)
@@ -766,7 +767,7 @@ mod test {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("funding address amount does not match swaps expected amount")
+                .contains("funding address amount")
         );
     }
 

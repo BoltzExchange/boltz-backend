@@ -30,13 +30,6 @@ jobs:
         timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
 
-      - name: Debug boltz-lnd-3 logs
-        if: ${{ always() }}
-        run: |
-          docker ps -a
-          docker inspect boltz-lnd-3 --format '{{json .State.Health}}' || true
-          docker logs boltz-lnd-3 || true
-
       - name: Compile
         run: npm run compile
 
@@ -87,13 +80,6 @@ jobs:
       - name: Start regtest
         timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
-
-      - name: Debug boltz-lnd-3 logs
-        if: ${{ always() }}
-        run: |
-          docker ps -a
-          docker inspect boltz-lnd-3 --format '{{json .State.Health}}' || true
-          docker logs boltz-lnd-3 || true
 
       - name: Compile
         run: cargo build

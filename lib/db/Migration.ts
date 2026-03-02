@@ -687,11 +687,32 @@ class Migration {
       // Schema version 26 makes commitments addressable before linking a swap,
       // adds refunded marker and makes commitment signature optional
       case 25: {
-        this.logUpdatingTable(Commitment.tableName);
         const queryInterface = this.sequelize.getQueryInterface();
+
+        let commitmentTableExists = true;
+        try {
+          await queryInterface.describeTable(Commitment.tableName);
+        } catch (error) {
+          if (this.isMissingTableError(error, Commitment.tableName)) {
+            this.logger.verbose(
+              `Skipping migration for table ${Commitment.tableName} because it does not exist`,
+            );
+            commitmentTableExists = false;
+          } else {
+            throw error;
+          }
+        }
+
+        if (!commitmentTableExists) {
+          await this.finishMigration(versionRow.version, currencies);
+          break;
+        }
+
         const primaryKeyName = `${Commitment.tableName}_pkey`;
         const lockupHashIndex = `${Commitment.tableName}_lockup_hash`;
         const swapIdIndex = `${Commitment.tableName}_swap_id`;
+
+        this.logUpdatingTable(Commitment.tableName);
 
         await this.sequelize.transaction(async (transaction) => {
           await queryInterface.removeConstraint(
@@ -747,6 +768,7 @@ class Migration {
             { transaction },
           );
         });
+
         await this.finishMigration(versionRow.version, currencies);
         break;
       }
@@ -930,6 +952,22 @@ class Migration {
 
       throw error;
     }
+  };
+
+  private isMissingTableError = (error: unknown, table: string): boolean => {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const errorMessage = error.message.toLowerCase();
+    const tableName = table.toLowerCase();
+
+    return (
+      errorMessage.includes('no description found for') ||
+      errorMessage.includes(`relation "${tableName}" does not exist`) ||
+      errorMessage.includes(`no such table: ${tableName}`) ||
+      errorMessage.includes(`unknown table '${tableName}'`)
+    );
   };
 }
 

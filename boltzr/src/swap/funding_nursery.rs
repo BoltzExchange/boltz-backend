@@ -6,11 +6,13 @@ use crate::api::ws::types::{
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
+use crate::service::{CACHE_KEY as SIGNING_SESSION_CACHE_KEY, FundingAddressSigner};
 use crate::swap::tx_check::{RelevantId, TxDetails};
 use crate::swap::{FundingAddressStatus, RelevantTx, SwapUpdate, TxStatus};
 use anyhow::Result;
 use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::SecretKey;
+use boltz_cache::Cache;
 use elements::confidential::Value;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
@@ -23,6 +25,7 @@ pub struct FundingAddressNursery {
     funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
     funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     currencies: Currencies,
+    cache: Cache,
 }
 
 impl FundingAddressNursery {
@@ -31,12 +34,14 @@ impl FundingAddressNursery {
         funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
         funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
         currencies: Currencies,
+        cache: Cache,
     ) -> Self {
         Self {
             cancellation_token,
             funding_address_helper,
             funding_address_update_tx,
             currencies,
+            cache,
         }
     }
 
@@ -302,6 +307,15 @@ impl FundingAddressNursery {
                     false
                 };
 
+                if is_rbf {
+                    self.cache
+                        .delete(
+                            SIGNING_SESSION_CACHE_KEY,
+                            &FundingAddressSigner::cache_field(funding_address_id.as_str()),
+                        )
+                        .await?;
+                }
+
                 let (vout, value) =
                     self.find_output(&relevant_tx.tx, &funding_address.symbol, script_pubkey)?;
 
@@ -372,6 +386,7 @@ mod test {
     use bitcoin::hashes::Hash;
     use bitcoin::transaction::Version;
     use bitcoin::{Amount, ScriptBuf, Transaction as BitcoinTransaction, TxOut};
+    use boltz_cache::{Cache, MemCache};
     use mockall::predicate::*;
     use rstest::*;
     use std::collections::HashMap;
@@ -497,6 +512,7 @@ mod test {
                 Arc::new(funding_helper),
                 tx,
                 currencies,
+                Cache::Memory(MemCache::new()),
             );
             Self { nursery, rx }
         }
@@ -510,8 +526,8 @@ mod test {
 
     // find_output tests
 
-    #[test]
-    fn find_output_returns_matching_output() {
+    #[tokio::test]
+    async fn find_output_returns_matching_output() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let script = test_script(0);
         let tx = test_bitcoin_tx(vec![(script.clone(), 100_000)]);
@@ -525,8 +541,8 @@ mod test {
         assert_eq!(value, 100_000);
     }
 
-    #[test]
-    fn find_output_returns_error_when_not_found() {
+    #[tokio::test]
+    async fn find_output_returns_error_when_not_found() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let tx = test_bitcoin_tx(vec![(test_script(0), 100_000)]);
 
@@ -537,8 +553,8 @@ mod test {
         assert_eq!(result.unwrap_err().to_string(), "output not found");
     }
 
-    #[test]
-    fn find_output_finds_correct_output_among_multiple() {
+    #[tokio::test]
+    async fn find_output_finds_correct_output_among_multiple() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let script1 = test_script(0);
         let script2 = test_script(1);
@@ -553,8 +569,8 @@ mod test {
         assert_eq!(value, 200_000);
     }
 
-    #[test]
-    fn find_output_returns_matching_output_lbtc() {
+    #[tokio::test]
+    async fn find_output_returns_matching_output_lbtc() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let script = test_elements_script(0);
         let tx = test_elements_tx(vec![(script.clone(), 100_000)]);
@@ -568,8 +584,8 @@ mod test {
         assert_eq!(value, 100_000);
     }
 
-    #[test]
-    fn find_output_returns_error_when_not_found_lbtc() {
+    #[tokio::test]
+    async fn find_output_returns_error_when_not_found_lbtc() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let tx = test_elements_tx(vec![(test_elements_script(0), 100_000)]);
 
@@ -580,8 +596,8 @@ mod test {
         assert_eq!(result.unwrap_err().to_string(), "output not found");
     }
 
-    #[test]
-    fn find_output_finds_correct_output_among_multiple_lbtc() {
+    #[tokio::test]
+    async fn find_output_finds_correct_output_among_multiple_lbtc() {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let script1 = test_elements_script(0);
         let script2 = test_elements_script(1);
@@ -671,6 +687,12 @@ mod test {
 
         let test = TestNursery::new(mock_helper);
         let script = test_script(0);
+        let field = FundingAddressSigner::cache_field("test_id");
+        test.nursery
+            .cache
+            .set(SIGNING_SESSION_CACHE_KEY, &field, &"pending", Some(60))
+            .await
+            .unwrap();
 
         let relevant_tx = RelevantTx {
             symbol: "BTC".to_string(),
@@ -683,6 +705,14 @@ mod test {
         };
 
         test.nursery.handle_relevant_tx(relevant_tx).await.unwrap();
+
+        let cached: Option<String> = test
+            .nursery
+            .cache
+            .get(SIGNING_SESSION_CACHE_KEY, &field)
+            .await
+            .unwrap();
+        assert!(cached.is_none());
     }
 
     #[tokio::test]

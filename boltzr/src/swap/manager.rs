@@ -87,6 +87,7 @@ pub struct Manager {
 
     currencies: Currencies,
     cancellation_token: CancellationToken,
+    cache: Cache,
 
     pool: Pool,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
@@ -125,6 +126,7 @@ impl Manager {
             swap_status_update_tx,
             currencies: currencies.clone(),
             cancellation_token: cancellation_token.clone(),
+            cache: cache.clone(),
             pool: pool.clone(),
             swap_repo: swap_repo.clone(),
             chain_swap_repo: chain_swap_repo.clone(),
@@ -185,6 +187,7 @@ impl Manager {
             Arc::new(FundingAddressHelperDatabase::new(self.pool.clone())),
             self.funding_address_update_tx.clone(),
             self.currencies.clone(),
+            self.cache.clone(),
         );
 
         let currencies = self.currencies.clone();
@@ -650,6 +653,7 @@ pub mod test {
             funding_address_update_tx: tokio::sync::broadcast::channel(100).0,
             swap_status_update_tx: tokio::sync::broadcast::channel(100).0,
             cancellation_token: cancellation_token.clone(),
+            cache: Cache::Memory(MemCache::new()),
             pool: pool.clone(),
             currencies: currencies.clone(),
             swap_repo: Arc::new(SwapHelperDatabase::new(pool.clone())),

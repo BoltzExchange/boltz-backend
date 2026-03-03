@@ -1,3 +1,4 @@
+import { networks } from 'bitcoinjs-lib';
 import { Op } from 'sequelize';
 import { satoshisToSatcomma } from '../../../lib/DenominationConverter';
 import Logger from '../../../lib/Logger';
@@ -8,6 +9,7 @@ import {
   stringify,
 } from '../../../lib/Utils';
 import {
+  CurrencyType,
   SwapType,
   SwapUpdateEvent,
   swapTypeToString,
@@ -15,9 +17,11 @@ import {
 import ReferralStats from '../../../lib/data/ReferralStats';
 import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
+import ReverseRoutingHint from '../../../lib/db/models/ReverseRoutingHint';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
 import FeeRepository from '../../../lib/db/repositories/FeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
+import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
@@ -141,9 +145,27 @@ const mockSendCoins = jest
     }
   });
 
+const reverseRoutingHintExample = {
+  swapId: reverseSwapExample.id,
+  symbol: 'BTC',
+  scriptPubkey: getHexBuffer('0014cdd49bf4f4cf4d5ed245be9101cd0c0e65398c70'),
+  signature: getHexBuffer(
+    '9c8eb83fb6f26376872fe2ab06bc8cf993f8e223a51e7ec773f8eca39f86f4e4e7787ce761f2f4fefcc0ad5fc2a11f8ea4f02644cfdff12e8fc440317a7c5f54',
+  ),
+};
+
 jest.mock('../../../lib/service/Service', () => {
   return jest.fn().mockImplementation(() => {
     return {
+      currencies: new Map<string, unknown>([
+        [
+          'BTC',
+          {
+            type: CurrencyType.BitcoinLike,
+            network: networks.regtest,
+          },
+        ],
+      ]),
       swapManager: {
         deferredClaimer: {
           sweep: jest.fn().mockResolvedValue(
@@ -216,6 +238,7 @@ describe('CommandHandler', () => {
 
     await ReverseSwapRepository.addReverseSwap(reverseSwapExample);
     await ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample);
+    await ReverseRoutingHintRepository.addHint(reverseRoutingHintExample);
   });
 
   beforeEach(() => {
@@ -311,12 +334,26 @@ describe('CommandHandler', () => {
       sendMessage(`swapinfo ${reverseSwapExample.id}`);
       await wait(commandWaitMs);
 
+      const reverseSwapWithHint = await ReverseSwapRepository.getReverseSwap({
+        id: reverseSwapExample.id,
+      });
+      const reverseRoutingHint = await ReverseRoutingHintRepository.getHint(
+        reverseSwapExample.id,
+      );
+      reverseSwapWithHint!.dataValues.routingHint = {
+        ...reverseRoutingHint!.dataValues,
+        address: reverseRoutingHint!.address(
+          CurrencyType.BitcoinLike,
+          networks.regtest,
+        ),
+        scriptPubkey: reverseRoutingHint!.scriptPubkey.toString('hex'),
+        signature: reverseRoutingHint!.signature.toString('hex'),
+      };
+
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
       expect(mockSendMessage).toHaveBeenCalledWith(
         `Reverse Swap \`${reverseSwapExample.id}\`:\n\`\`\`${stringify(
-          await ReverseSwapRepository.getReverseSwap({
-            id: reverseSwapExample.id,
-          }),
+          reverseSwapWithHint,
         )}\`\`\``,
       );
 
@@ -667,10 +704,9 @@ describe('CommandHandler', () => {
   });
 
   afterAll(async () => {
-    await Promise.all([
-      SwapRepository.dropTable(),
-      ReverseSwapRepository.dropTable(),
-    ]);
+    await ReverseRoutingHint.drop();
+    await SwapRepository.dropTable();
+    await ReverseSwapRepository.dropTable();
 
     await PairRepository.dropTable();
     await database.close();

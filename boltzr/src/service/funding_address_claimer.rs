@@ -49,6 +49,35 @@ impl FundingAddressClaimer {
         }
     }
 
+    async fn attempt_broadcast(
+        &self,
+        symbol: &str,
+        funding_address_id: &str,
+        tx_hex: &str,
+        expected_tx_id: &str,
+    ) -> Result<String> {
+        let chain = get_chain_client(&self.currencies, symbol)?;
+        match chain.send_raw_transaction(tx_hex).await {
+            Ok(tx_id) => Ok(tx_id),
+            Err(err) if err.to_string().contains("already in block chain") => {
+                info!(
+                    "Presigned tx {expected_tx_id} for funding address {funding_address_id} already confirmed",
+                    expected_tx_id = expected_tx_id,
+                    funding_address_id = funding_address_id,
+                );
+                Ok(expected_tx_id.to_string())
+            }
+            Err(err) => {
+                error!(
+                    "Failed to broadcast presigned tx for funding address {funding_address_id}: {err}",
+                    funding_address_id = funding_address_id,
+                    err = err,
+                );
+                Err(err)
+            }
+        }
+    }
+
     fn input_detail(&self, swap: &SwapInfo) -> Result<InputDetail> {
         let chain_type = boltz_core::utils::Chain::from_str(&swap.funding_address.symbol)?;
         let presigned = Transaction::parse(
@@ -248,7 +277,6 @@ impl FundingAddressClaimer {
         &self,
         funding_address: &FundingAddress,
     ) -> Result<(String, u64)> {
-        let chain = get_chain_client(&self.currencies, funding_address.symbol.as_str())?;
         if funding_address.symbol_type()? != Type::Elements {
             return Err(anyhow!(
                 "broadcast_presigned_tx can only be used for liquid swaps"
@@ -259,8 +287,14 @@ impl FundingAddressClaimer {
             .as_ref()
             .ok_or(anyhow!("missing presigned tx"))?;
         let tx: elements::Transaction = elements::encode::deserialize(presigned_bytes)?;
-        let tx_id = chain
-            .send_raw_transaction(presigned_bytes.to_hex().as_str())
+        let expected_tx_id = tx.txid().to_string();
+        let tx_id = self
+            .attempt_broadcast(
+                funding_address.symbol.as_str(),
+                &funding_address.id,
+                presigned_bytes.to_hex().as_str(),
+                &expected_tx_id,
+            )
             .await?;
         info!(
             "Broadcast presigned transaction for funding address {}: {}",
@@ -339,6 +373,7 @@ impl FundingAddressClaimer {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::chain::types::RpcParam;
     use crate::db::helpers::chain_swap::test::MockChainSwapHelper;
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
@@ -542,5 +577,63 @@ mod test {
             2,
             "Expected presigned + claim txids for Liquid"
         );
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_attempt_broadcast_ignores_duplicates_in_mempool_and_blockchain() {
+        let currencies = get_test_currencies().await;
+        let symbol = "L-BTC";
+        let chain = get_chain_client(&currencies, symbol).expect("chain client not found");
+        let destination = chain
+            .request_wallet(None, "getnewaddress", None)
+            .await
+            .expect("failed to get destination")
+            .as_str()
+            .expect("getnewaddress should return string")
+            .to_string();
+        let expected_tx_id = chain
+            .request_wallet(
+                None,
+                "sendtoaddress",
+                Some(&[RpcParam::Str(destination.as_str()), RpcParam::Float(0.001)]),
+            )
+            .await
+            .expect("failed to create transaction")
+            .as_str()
+            .expect("sendtoaddress should return txid")
+            .to_string();
+        let tx_hex = chain
+            .raw_transaction(expected_tx_id.as_str())
+            .await
+            .expect("failed to fetch raw transaction");
+        let funding_address_id = "test_broadcast_presigned_tx_duplicate";
+
+        let claimer = create_claimer_with_mock(currencies.clone());
+        let first_txid = claimer
+            .attempt_broadcast(symbol, funding_address_id, &tx_hex, &expected_tx_id)
+            .await
+            .expect("first broadcast should succeed");
+        let second_txid = claimer
+            .attempt_broadcast(symbol, funding_address_id, &tx_hex, &expected_tx_id)
+            .await
+            .expect("second broadcast should ignore mempool duplicate");
+
+        chain
+            .request_wallet(
+                None,
+                "generatetoaddress",
+                Some(&[RpcParam::Int(1), RpcParam::Str(destination.as_str())]),
+            )
+            .await
+            .expect("failed to mine block");
+        let third_txid = claimer
+            .attempt_broadcast(symbol, funding_address_id, &tx_hex, &expected_tx_id)
+            .await
+            .expect("rebroadcast after confirmation should ignore blockchain duplicate");
+
+        assert_eq!(first_txid, second_txid);
+        assert_eq!(first_txid, third_txid);
+        assert_eq!(first_txid, expected_tx_id);
     }
 }

@@ -221,6 +221,29 @@ class UtxoNursery extends TypedEventEmitter<{
     });
   };
 
+  private lockupStatuses = (swapType: SwapType): SwapUpdateEvent[] => {
+    switch (swapType) {
+      case SwapType.Submarine:
+        return [
+          SwapUpdateEvent.SwapCreated,
+          SwapUpdateEvent.InvoiceSet,
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionZeroConfRejected,
+          SwapUpdateEvent.TransactionConfirmed,
+        ];
+      case SwapType.Chain:
+        return [
+          SwapUpdateEvent.SwapCreated,
+          SwapUpdateEvent.TransactionMempool,
+          SwapUpdateEvent.TransactionLockupFailed,
+          SwapUpdateEvent.TransactionZeroConfRejected,
+          SwapUpdateEvent.TransactionConfirmed,
+        ];
+      default:
+        throw new Error(`Unknown swap type: ${swapType}`);
+    }
+  };
+
   private checkFundingAddresses = async (
     chainClient: IChainClient,
     wallet: Wallet,
@@ -235,8 +258,18 @@ class UtxoNursery extends TypedEventEmitter<{
       );
     for (const fundingAddress of fundingAddresses) {
       const [submarineSwap, chainSwap] = await Promise.all([
-        SwapRepository.getSwap({ id: fundingAddress.swapId! }),
-        ChainSwapRepository.getChainSwap({ id: fundingAddress.swapId! }),
+        SwapRepository.getSwap({
+          id: fundingAddress.swapId!,
+          status: {
+            [Op.or]: this.lockupStatuses(SwapType.Submarine),
+          },
+        }),
+        ChainSwapRepository.getChainSwap({
+          id: fundingAddress.swapId!,
+          status: {
+            [Op.or]: this.lockupStatuses(SwapType.Chain),
+          },
+        }),
       ]);
 
       let swap = submarineSwap || chainSwap;
@@ -288,13 +321,7 @@ class UtxoNursery extends TypedEventEmitter<{
     const checkSwap = async (address: string) => {
       const swap = await SwapRepository.getSwap({
         status: {
-          [Op.or]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.InvoiceSet,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-            SwapUpdateEvent.TransactionConfirmed,
-          ],
+          [Op.or]: this.lockupStatuses(SwapType.Submarine),
         },
         lockupAddress: address,
       });
@@ -319,13 +346,7 @@ class UtxoNursery extends TypedEventEmitter<{
         },
         {
           status: {
-            [Op.or]: [
-              SwapUpdateEvent.SwapCreated,
-              SwapUpdateEvent.TransactionMempool,
-              SwapUpdateEvent.TransactionLockupFailed,
-              SwapUpdateEvent.TransactionZeroConfRejected,
-              SwapUpdateEvent.TransactionConfirmed,
-            ],
+            [Op.or]: this.lockupStatuses(SwapType.Chain),
           },
         },
       );

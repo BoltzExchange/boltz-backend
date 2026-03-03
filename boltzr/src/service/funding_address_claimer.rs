@@ -385,7 +385,7 @@ mod test {
         mock.expect_get_by_swap_id().returning(|_| Ok(None));
         let claimer = create_claimer(mock, currencies);
 
-        let swaps = vec![test_swap("bcrt1qtest")];
+        let swaps = vec![test_swap("bcrt1qtest", "BTC")];
         let result = claimer.prepare_claimable_swaps(swaps, vec![]).await;
 
         assert!(result.is_ok());
@@ -485,9 +485,10 @@ mod test {
 
         let mut swap_helper = MockSwapHelper::new();
         let lockup_addr = swap_lockup_address.clone();
+        let swap_symbol = symbol.to_string();
         swap_helper
             .expect_get_by_id()
-            .returning(move |_| Ok(test_swap(&lockup_addr)));
+            .returning(move |_| Ok(test_swap(&lockup_addr, swap_symbol.as_str())));
 
         let mut chain_swap_helper = MockChainSwapHelper::new();
         chain_swap_helper

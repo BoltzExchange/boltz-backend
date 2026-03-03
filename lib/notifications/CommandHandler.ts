@@ -395,10 +395,22 @@ class CommandHandler {
     for (const reverseSwap of reverseSwaps as (ReverseSwap & {
       routingHint?: ReverseRoutingHint;
     })[]) {
-      if (reverseRoutingHints.has(reverseSwap.id)) {
-        reverseSwap.dataValues.routingHint = reverseRoutingHints.get(
-          reverseSwap.id,
-        )!.dataValues;
+      const reverseRoutingHint = reverseRoutingHints.get(reverseSwap.id)!;
+
+      if (reverseRoutingHint !== undefined) {
+        reverseSwap.dataValues.routingHint = reverseRoutingHint.dataValues;
+
+        const currency = this.service.currencies.get(reverseRoutingHint.symbol);
+        if (currency?.network !== undefined) {
+          try {
+            reverseSwap.dataValues.routingHint.address =
+              reverseRoutingHint.address(currency.type, currency.network);
+          } catch (error) {
+            this.logger.warn(
+              `Could not derive routing hint address for ${swapTypeToPrettyString(reverseSwap.type)} Swap ${reverseSwap.id}: ${formatError(error)}`,
+            );
+          }
+        }
 
         reverseSwap.dataValues.routingHint.scriptPubkey = getHexString(
           reverseSwap.dataValues.routingHint.scriptPubkey,

@@ -14,10 +14,12 @@ use bitcoin::secp256k1::SecretKey;
 use elements::confidential::Value;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace};
 
 #[derive(Clone)]
 pub struct FundingAddressNursery {
+    cancellation_token: CancellationToken,
     funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
     funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     currencies: Currencies,
@@ -25,11 +27,13 @@ pub struct FundingAddressNursery {
 
 impl FundingAddressNursery {
     pub fn new(
+        cancellation_token: CancellationToken,
         funding_address_helper: Arc<dyn FundingAddressHelper + Send + Sync>,
         funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
         currencies: Currencies,
     ) -> Self {
         Self {
+            cancellation_token,
             funding_address_helper,
             funding_address_update_tx,
             currencies,
@@ -43,6 +47,7 @@ impl FundingAddressNursery {
     ) {
         self.start_block_listeners();
         let self_clone = self.clone();
+        let cancellation_token = self.cancellation_token.clone();
         tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -86,6 +91,9 @@ impl FundingAddressNursery {
                             }
                         }
                     }
+                    _ = cancellation_token.cancelled() => {
+                        break;
+                    }
                 }
             }
         });
@@ -100,31 +108,35 @@ impl FundingAddressNursery {
             let mut block_receiver = chain_client.block_receiver();
             let nursery = self.clone();
             let symbol = symbol.clone();
+            let cancellation_token = self.cancellation_token.clone();
 
             tokio::spawn(async move {
                 loop {
-                    match block_receiver.recv().await {
-                        Ok((height, _)) => {
-                            if let Err(e) = nursery.handle_block_update(&symbol, height).await {
+                    tokio::select! {
+                        res = block_receiver.recv() => match res {
+                            Ok((height, _)) => {
+                                if let Err(e) = nursery.handle_block_update(&symbol, height).await {
+                                    error!(
+                                        "Funding address nursery failed to handle {} block update: {}",
+                                        symbol, e
+                                    );
+                                }
+                            }
+                            Err(RecvError::Lagged(skipped)) => {
                                 error!(
-                                    "Funding address nursery failed to handle {} block update: {}",
-                                    symbol, e
+                                    "Funding address nursery missed {} {} block messages",
+                                    skipped, symbol
                                 );
                             }
-                        }
-                        Err(RecvError::Lagged(skipped)) => {
-                            error!(
-                                "Funding address nursery missed {} {} block messages",
-                                skipped, symbol
-                            );
-                        }
-                        Err(RecvError::Closed) => {
-                            error!(
-                                "Funding address nursery block receiver closed unexpectedly for {}",
-                                symbol
-                            );
-                            break;
-                        }
+                            Err(RecvError::Closed) => {
+                                error!(
+                                    "Funding address nursery block receiver closed unexpectedly for {}",
+                                    symbol
+                                );
+                                break;
+                            }
+                        },
+                        _ = cancellation_token.cancelled() => break,
                     }
                 }
             });
@@ -480,7 +492,12 @@ mod test {
             currencies: Currencies,
         ) -> Self {
             let (tx, rx) = broadcast::channel(16);
-            let nursery = FundingAddressNursery::new(Arc::new(funding_helper), tx, currencies);
+            let nursery = FundingAddressNursery::new(
+                CancellationToken::new(),
+                Arc::new(funding_helper),
+                tx,
+                currencies,
+            );
             Self { nursery, rx }
         }
 

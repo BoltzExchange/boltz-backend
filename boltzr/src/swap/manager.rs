@@ -181,6 +181,7 @@ impl Manager {
         let relevant_tx_receiver = nursery.relevant_tx_receiver();
         let swap_status_rx = self.swap_status_update_tx.subscribe();
         let funding_address_nursery = FundingAddressNursery::new(
+            self.cancellation_token.clone(),
             Arc::new(FundingAddressHelperDatabase::new(self.pool.clone())),
             self.funding_address_update_tx.clone(),
             self.currencies.clone(),

@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 /// Short TTL so that clients can't hold sessions for too long
 const CACHE_TTL: u64 = 60;
-const CACHE_KEY: &str = "funding_address_signer";
+pub const CACHE_KEY: &str = "funding_address_signer";
 const MEMPOOL_REJECTED_REASON: &str = "transaction not allowed in mempool";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -116,7 +116,7 @@ impl FundingAddressSigner {
         }
     }
 
-    fn cache_field(funding_address_id: &str) -> String {
+    pub fn cache_field(funding_address_id: &str) -> String {
         format!("session:{}", funding_address_id)
     }
 

@@ -1,9 +1,11 @@
 use crate::ark::ArkClient;
 use ::serde::Serialize;
-use anyhow::Result;
+use alloy::signers::local::{MnemonicBuilder, coins_bip39::English};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use rand::Rng;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 mod api;
 mod ark;
@@ -286,6 +288,12 @@ enum WalletCommands {
 enum EvmCommands {
     #[command(about = "Prints the address of the signer")]
     Address {},
+    #[command(about = "Prints an address derived from a mnemonic file")]
+    AddressFromMnemonic {
+        mnemonic_file: PathBuf,
+        #[arg(short, long, default_value = "m/44'/60'/0'/0/0")]
+        derivation_path: String,
+    },
     #[command(about = "Sends a transaction")]
     Send {
         #[arg(value_parser = parsers::parse_alloy_address)]
@@ -510,6 +518,12 @@ async fn run_command(cli: Cli) -> Result<()> {
                 EvmCommands::Address {} => {
                     let (_, signer) = evm::get_provider(&rpc_url, keys)?;
                     println!("{}", signer.address());
+                }
+                EvmCommands::AddressFromMnemonic {
+                    mnemonic_file,
+                    derivation_path,
+                } => {
+                    print_evm_address_from_mnemonic(mnemonic_file, derivation_path)?;
                 }
                 EvmCommands::Send { to, amount } => {
                     let tx_hash = evm::send_transaction(&rpc_url, keys, *to, *amount).await?;
@@ -1043,4 +1057,25 @@ fn print_signature(signature: &alloy::signers::Signature, split_vrs: bool) -> Re
             alloy::hex::encode(signature.s().to_be_bytes::<32>())
         ),
     })
+}
+
+fn print_evm_address_from_mnemonic(mnemonic_file: &Path, derivation_path: &str) -> Result<()> {
+    let derivation_path = derivation_path.trim();
+    if derivation_path.is_empty() {
+        bail!("derivation path must not be empty");
+    }
+
+    let mnemonic_path = utils::resolve_home(mnemonic_file.to_path_buf())?;
+    let mnemonic = fs::read_to_string(&mnemonic_path).with_context(|| {
+        format!(
+            "failed to read mnemonic file at {}",
+            mnemonic_path.display()
+        )
+    })?;
+    let signer = MnemonicBuilder::<English>::default()
+        .phrase(mnemonic.trim())
+        .derivation_path(derivation_path)?
+        .build()?;
+    println!("{}", signer.address());
+    Ok(())
 }

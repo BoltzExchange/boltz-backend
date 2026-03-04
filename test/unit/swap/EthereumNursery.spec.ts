@@ -125,11 +125,18 @@ const mockOnContractEventHandler = jest
   });
 
 const mockAddress = '0x735Ec659CB2E2D2B778F8D4178ce2a521D617119';
+let mockHasSymbolSymbols = [networks.Ethereum.symbol, 'USDT'];
+const mockHasSymbol = jest
+  .fn()
+  .mockImplementation((symbol: string) =>
+    mockHasSymbolSymbols.includes(symbol),
+  );
 
 jest.mock('../../../lib/wallet/ethereum/EthereumManager', () => {
   return jest.fn().mockImplementation(() => ({
     address: mockAddress,
     networkDetails: networks.Ethereum,
+    hasSymbol: mockHasSymbol,
     provider: {
       onBlock: mockOnBlock,
       getTransaction: mockGetTransaction,
@@ -216,6 +223,7 @@ describe('EthereumNursery', () => {
       wallets: new Map<string, Wallet>([
         ['BTC', {} as any],
         ['ETH', new MockedEtherWalletProvider('ETH') as any],
+        ['RBTC', new MockedEtherWalletProvider('RBTC') as any],
         ['USDT', new MockedErc20WalletProvider('USDT') as any],
       ]),
     } as any,
@@ -226,6 +234,7 @@ describe('EthereumNursery', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHasSymbolSymbols = [networks.Ethereum.symbol, 'USDT'];
 
     SwapRepository.getSwap = mockGetSwap;
     SwapRepository.getSwapsExpirable = mockGetSwapsExpirable;
@@ -1161,6 +1170,43 @@ describe('EthereumNursery', () => {
     expect(eventsEmitted).toEqual(2);
   });
 
+  test('should not expire swaps of other EVM managers', async () => {
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
+    mockGetSwapsExpirableResult = [
+      {
+        pair: 'RBTC/BTC',
+        orderSide: OrderSide.SELL,
+      },
+    ];
+
+    let eventsEmitted = 0;
+    nursery.on('swap.expired', () => {
+      eventsEmitted += 1;
+    });
+
+    await emitBlock({ number: 123400 });
+
+    expect(eventsEmitted).toEqual(0);
+  });
+
+  test('should query expirable chain swaps only for own symbols', async () => {
+    mockGetSwapsExpirableResult = [];
+    mockGetReverseSwapsExpirableResult = [];
+    const getChainSwapsExpirable = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwapsExpirable = getChainSwapsExpirable;
+
+    const emittedBlockHeight = 123401;
+    await emitBlock({ number: emittedBlockHeight });
+
+    expect(getChainSwapsExpirable).toHaveBeenCalledTimes(1);
+    const [symbols, height] = getChainSwapsExpirable.mock.calls[0];
+    expect(height).toEqual(emittedBlockHeight);
+    expect(symbols).toEqual(expect.arrayContaining(['ETH', 'USDT']));
+    expect(symbols).not.toContain('RBTC');
+  });
+
   test('should handle expired Reverse Swaps', async () => {
     mockGetReverseSwapsExpirableResult = [
       // Expired EtherSwap
@@ -1194,7 +1240,7 @@ describe('EthereumNursery', () => {
       eventsEmitted += 1;
     });
 
-    const emittedBlockHeight = 123322;
+    const emittedBlockHeight = 123402;
     await emitBlock({ number: emittedBlockHeight });
 
     expect(mockGetReverseSwapsExpirable).toHaveBeenCalledTimes(1);

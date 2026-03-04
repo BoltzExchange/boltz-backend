@@ -652,6 +652,10 @@ class EthereumNursery extends TypedEventEmitter<{
    * Returns a wallet in case there is one with the symbol, and it is an Ethereum one
    */
   private getEthereumWallet = (symbol: string): Wallet | undefined => {
+    if (!this.ethereumManager.hasSymbol(symbol)) {
+      return;
+    }
+
     const wallet = this.walletManager.wallets.get(symbol);
 
     if (!wallet) {
@@ -671,7 +675,9 @@ class EthereumNursery extends TypedEventEmitter<{
   private getEthereumWalletSymbols = () =>
     Array.from(this.walletManager.wallets.values())
       .filter(
-        (w) => w.type === CurrencyType.Ether || w.type === CurrencyType.ERC20,
+        (w) =>
+          (w.type === CurrencyType.Ether || w.type === CurrencyType.ERC20) &&
+          this.ethereumManager.hasSymbol(w.symbol),
       )
       .map((w) => w.symbol);
 }

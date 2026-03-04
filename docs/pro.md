@@ -35,8 +35,8 @@ refunds and many common edge cases. Boltz Client is our battle-tested swap
 client, powering e.g. the popular
 [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin).
 
-Check [this section](https://docs.boltz.exchange/boltz-client/boltz-pro) for
-details on how to set up Boltz Client for usage with Boltz Pro.
+Check [this section](https://client.docs.boltz.exchange/boltz-pro) for details
+on how to set up Boltz Client for usage with Boltz Pro.
 
 ::: warning
 

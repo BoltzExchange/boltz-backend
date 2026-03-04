@@ -30,7 +30,7 @@ import ElementsWalletProvider from './providers/ElementsWalletProvider';
 import type WalletProviderInterface from './providers/WalletProviderInterface';
 
 type CurrencyLimits = {
-  minWalletBalance: number;
+  minWalletBalance?: number;
 
   minLocalBalance?: number;
   minRemoteBalance?: number;

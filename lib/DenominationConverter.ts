@@ -30,6 +30,10 @@ export const satoshisToPaddedCoins = (satoshis: number): string => {
 };
 
 export const satoshisToSatcomma = (satoshis: number): string => {
+  if (satoshis === undefined || isNaN(satoshis)) {
+    return String(NaN);
+  }
+
   let coins = (satoshis / satFactor).toFixed(decimals);
   for (const [num, index] of [3, 6].entries()) {
     coins = `${coins.substring(

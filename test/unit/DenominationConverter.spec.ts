@@ -53,4 +53,12 @@ describe('DenominationConverter', () => {
   `('should convert $sats satoshis to satcomma', ({ sats, expected }) => {
     expect(satoshisToSatcomma(sats)).toEqual(expected);
   });
+
+  test.each`
+    sats                              | expected
+    ${Number.NaN}                     | ${String(Number.NaN)}
+    ${undefined as unknown as number} | ${String(Number.NaN)}
+  `('should return NaN for invalid satoshis', ({ sats, expected }) => {
+    expect(satoshisToSatcomma(sats)).toEqual(expected);
+  });
 });

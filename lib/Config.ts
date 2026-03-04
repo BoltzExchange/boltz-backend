@@ -64,7 +64,7 @@ type BaseCurrencyConfig<T = ChainConfig> = {
 
   preferredWallet: PreferredWallet;
 
-  minWalletBalance: number;
+  minWalletBalance?: number;
   maxWalletBalance?: number;
 
   maxUnusedWalletBalance?: number;

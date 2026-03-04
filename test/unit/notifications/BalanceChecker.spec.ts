@@ -47,14 +47,14 @@ describe('BalanceChecker', () => {
 
     minLocalBalance: 25000000,
     minRemoteBalance: 24000000,
-  } as any as CurrencyConfig;
+  } as any as CurrencyConfig & { minWalletBalance: number };
 
   const usdtCurrency = {
     symbol: 'USDT',
 
-    maxWalletBalance: 200000000000,
     minWalletBalance: 100000000000,
-  } as any as CurrencyConfig;
+    maxWalletBalance: 200000000000,
+  };
 
   let checker = new BalanceChecker(
     Logger.disabledLogger,
@@ -114,7 +114,20 @@ describe('BalanceChecker', () => {
         undefined,
         {},
         { minWalletBalance: undefined } as any,
+        { minWalletBalance: Number.NaN } as any,
       ],
+      [],
+    );
+    expect(check['currencies'].length).toEqual(1);
+    expect(check['currencies'][0]).toEqual(btcCurrency);
+  });
+
+  test('should ignore configs with NaN min wallet balance', () => {
+    const check = new BalanceChecker(
+      Logger.disabledLogger,
+      new MockedService(),
+      new MockedNotificationClient(),
+      [btcCurrency, { symbol: 'L-BTC', minWalletBalance: Number.NaN } as any],
       [],
     );
     expect(check['currencies'].length).toEqual(1);

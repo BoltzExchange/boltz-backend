@@ -189,7 +189,7 @@ class EthereumManager {
 
     const wallets = new Map<string, Wallet>();
 
-    for (const token of this.config.tokens) {
+    for (const token of this.config.tokens || []) {
       if (token.contractAddress) {
         if (token.decimals) {
           if (!wallets.has(token.symbol)) {

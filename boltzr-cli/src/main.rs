@@ -1,11 +1,11 @@
 use crate::ark::ArkClient;
 use ::serde::Serialize;
 use alloy::signers::local::{MnemonicBuilder, coins_bip39::English};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use rand::Rng;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod api;
 mod ark;
@@ -1059,14 +1059,19 @@ fn print_signature(signature: &alloy::signers::Signature, split_vrs: bool) -> Re
     })
 }
 
-fn print_evm_address_from_mnemonic(mnemonic_file: &PathBuf, derivation_path: &str) -> Result<()> {
+fn print_evm_address_from_mnemonic(mnemonic_file: &Path, derivation_path: &str) -> Result<()> {
     let derivation_path = derivation_path.trim();
     if derivation_path.is_empty() {
-        bail!("derivationPath must not be empty");
+        bail!("derivation path must not be empty");
     }
 
-    let mnemonic_path = utils::resolve_home(mnemonic_file.clone())?;
-    let mnemonic = fs::read_to_string(mnemonic_path)?;
+    let mnemonic_path = utils::resolve_home(mnemonic_file.to_path_buf())?;
+    let mnemonic = fs::read_to_string(&mnemonic_path).with_context(|| {
+        format!(
+            "failed to read mnemonic file at {}",
+            mnemonic_path.display()
+        )
+    })?;
     let signer = MnemonicBuilder::<English>::default()
         .phrase(mnemonic.trim())
         .derivation_path(derivation_path)?

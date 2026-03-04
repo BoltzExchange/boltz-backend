@@ -116,6 +116,7 @@ type EthereumConfig = {
 
   providerEndpoint?: string;
   providers?: ProviderConfig[];
+  derivationPath?: string;
 
   // Suggested timelock for commitment swaps in minutes
   commitmentTimelock?: number;

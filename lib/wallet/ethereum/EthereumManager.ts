@@ -3,7 +3,7 @@ import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { Signer } from 'ethers';
 import {
   Contract,
-  Wallet as EthersWallet,
+  HDNodeWallet,
   MaxUint256,
   Transaction,
   getAddress,
@@ -123,7 +123,7 @@ class EthereumManager {
 
     this.signer = new SequentialSigner(
       this.networkDetails.symbol,
-      EthersWallet.fromPhrase(mnemonic),
+      this.getSigner(mnemonic),
     ).connect(this.provider);
     this.address = await this.signer.getAddress();
 
@@ -380,6 +380,23 @@ class EthereumManager {
     }
 
     return false;
+  };
+
+  private getSigner = (mnemonic: string) => {
+    if (
+      this.config.derivationPath !== undefined &&
+      this.config.derivationPath.trim() === ''
+    ) {
+      throw Errors.INVALID_ETHEREUM_CONFIGURATION(
+        'derivationPath must not be empty',
+      );
+    }
+
+    return HDNodeWallet.fromPhrase(
+      mnemonic,
+      undefined,
+      this.config.derivationPath,
+    );
   };
 }
 

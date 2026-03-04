@@ -27,8 +27,18 @@ jobs:
           cache-prefix: npm-rust-build
 
       - name: Start regtest
+        id: start_regtest
         timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
+
+      - name: Docker Logs
+        if: failure() && steps.start_regtest.outcome == 'failure'
+        run: |
+          docker image ls -a
+          docker ps -a
+          cd regtest
+          docker compose ps
+          docker compose logs
 
       - name: Compile
         run: npm run compile
@@ -78,8 +88,18 @@ jobs:
         run: rustup component add clippy
 
       - name: Start regtest
+        id: start_regtest
         timeout-minutes: 10
         run: npm run regtest:start:ci && sudo chmod -R 777 regtest
+
+      - name: Docker Logs
+        if: failure() && steps.start_regtest.outcome == 'failure'
+        run: |
+          docker image ls -a
+          docker ps -a
+          cd regtest
+          docker compose ps
+          docker compose logs
 
       - name: Compile
         run: cargo build

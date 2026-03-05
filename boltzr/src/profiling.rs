@@ -1,7 +1,7 @@
 use crate::config::GlobalConfig;
 use pyroscope::PyroscopeAgent;
-use pyroscope::pyroscope::PyroscopeAgentRunning;
-use pyroscope_pprofrs::{PprofConfig, pprof_backend};
+use pyroscope::backend::{BackendConfig, PprofConfig, pprof_backend};
+use pyroscope::pyroscope::{PyroscopeAgentBuilder, PyroscopeAgentRunning, PyroscopeConfig};
 use tracing::{error, info, warn};
 
 pub fn start(config: &GlobalConfig) -> Option<PyroscopeAgent<PyroscopeAgentRunning>> {
@@ -13,12 +13,17 @@ pub fn start(config: &GlobalConfig) -> Option<PyroscopeAgent<PyroscopeAgentRunni
         }
     };
 
-    let backend = pprof_backend(PprofConfig::new().sample_rate(100));
-    let agent = PyroscopeAgent::builder(
+    let pyroscope_defaults = PyroscopeConfig::default();
+    let sample_rate = pyroscope_defaults.sample_rate;
+    let backend = pprof_backend(PprofConfig { sample_rate }, BackendConfig::default());
+    let agent = PyroscopeAgentBuilder::new(
         endpoint,
-        &crate::utils::get_name(&crate::utils::get_network(&config.network)),
+        crate::utils::get_name(&crate::utils::get_network(&config.network)),
+        sample_rate,
+        pyroscope_defaults.spy_name,
+        pyroscope_defaults.spy_version,
+        backend,
     )
-    .backend(backend)
     .tags(vec![("version", crate::utils::built_info::PKG_VERSION)])
     .build();
 

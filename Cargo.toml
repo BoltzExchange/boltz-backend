@@ -41,12 +41,12 @@ alloy = { version = "1.7.3", features = [
 anyhow = "1.0.102"
 base64 = "0.22.1"
 bitcoin = { version = "0.32.8", features = ["rand-std"] }
-bitcoin_hashes = "0.19.0"
+bitcoin_hashes = "0.20.0"
 clap = { version = "4.5.60", features = ["derive"] }
 elements = "0.26.1"
 rand = "0.8.5"
 reqwest = { version = "0.13.2", features = ["json"] }
-rustls = { version = "0.23.36", default-features = false, features = [
+rustls = { version = "0.23.37", default-features = false, features = [
 	"std",
 	"tls12",
 	"aws-lc-rs",
@@ -56,7 +56,7 @@ rstest = "0.26.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 serial_test = "3.4.0"
-tokio = { version = "1.49.0", features = [
+tokio = { version = "1.50.0", features = [
 	"rt-multi-thread",
 	"macros",
 	"process",

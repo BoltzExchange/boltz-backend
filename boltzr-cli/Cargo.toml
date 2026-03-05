@@ -28,7 +28,7 @@ prost = { workspace = true }
 dirs = { workspace = true }
 hmac = "0.12.1"
 sha2 = "0.10.9"
-inquire = { version = "0.9.3", default-features = false, features = [
+inquire = { version = "0.9.4", default-features = false, features = [
     "crossterm",
 ] }
 

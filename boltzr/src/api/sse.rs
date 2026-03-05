@@ -111,9 +111,45 @@ mod test {
     use super::*;
     use crate::api::test::start;
     use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
-    use eventsource_client::{Client, SSE};
-    use futures_util::StreamExt;
+    use reqwest::Response;
     use tokio_util::sync::CancellationToken;
+
+    fn parse_sse_data(frame: &str) -> Option<String> {
+        let data: Vec<String> = frame
+            .lines()
+            .filter_map(|line| {
+                line.strip_prefix("data:")
+                    .map(|value| value.trim_start().to_string())
+            })
+            .collect();
+
+        if data.is_empty() {
+            None
+        } else {
+            Some(data.join("\n"))
+        }
+    }
+
+    async fn next_sse_data(response: &mut Response, buffer: &mut String) -> Option<String> {
+        loop {
+            if let Some(pos) = buffer.find("\n\n") {
+                let frame = buffer[..pos].to_string();
+                buffer.drain(..pos + 2);
+
+                if let Some(data) = parse_sse_data(&frame) {
+                    return Some(data);
+                }
+                continue;
+            }
+
+            let chunk = response
+                .chunk()
+                .await
+                .expect("failed to read SSE chunk from response")?;
+            let normalized = String::from_utf8_lossy(&chunk).replace("\r\n", "\n");
+            buffer.push_str(&normalized);
+        }
+    }
 
     #[tokio::test]
     async fn test_sse_handler() {
@@ -121,67 +157,63 @@ mod test {
         let (cancel, status_tx) = start(port).await;
 
         let id = "swapId";
-        let client = eventsource_client::ClientBuilder::for_url(
-            format!("http://127.0.0.1:{port}/streamswapstatus?id={id}").as_str(),
-        )
-        .unwrap()
-        .build();
+        let mut response =
+            reqwest::get(format!("http://127.0.0.1:{port}/streamswapstatus?id={id}"))
+                .await
+                .unwrap();
+        assert!(response.status().is_success());
 
-        let mut count = 0;
+        let mut buffer = String::new();
 
-        let mut stream = client.stream();
-        while let Some(ev) = stream.next().await {
-            if let SSE::Event(ev) = ev.unwrap() {
-                if count == 0 {
-                    assert_eq!(
-                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
-                        SwapStatus {
-                            id: id.to_string(),
-                            base: SwapStatusNoId {
-                                status: "swap.created".to_string(),
-                                ..Default::default()
-                            },
-                        }
-                    );
-
-                    status_tx
-                        .send((
-                            None,
-                            vec![
-                                SwapStatus {
-                                    id: "ignored".to_string(),
-                                    base: SwapStatusNoId {
-                                        status: "ignored".to_string(),
-                                        ..Default::default()
-                                    },
-                                },
-                                SwapStatus {
-                                    id: id.to_string(),
-                                    base: SwapStatusNoId {
-                                        status: "new.status".to_string(),
-                                        ..Default::default()
-                                    },
-                                },
-                            ],
-                        ))
-                        .unwrap();
-                } else if count == 1 {
-                    assert_eq!(
-                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
-                        SwapStatus {
-                            id: id.to_string(),
-                            base: SwapStatusNoId {
-                                status: "new.status".to_string(),
-                                ..Default::default()
-                            },
-                        }
-                    );
-                    break;
-                }
-
-                count += 1;
+        let first = next_sse_data(&mut response, &mut buffer)
+            .await
+            .expect("did not receive first SSE event");
+        assert_eq!(
+            serde_json::from_str::<SwapStatus>(&first).unwrap(),
+            SwapStatus {
+                id: id.to_string(),
+                base: SwapStatusNoId {
+                    status: "swap.created".to_string(),
+                    ..Default::default()
+                },
             }
-        }
+        );
+
+        status_tx
+            .send((
+                None,
+                vec![
+                    SwapStatus {
+                        id: "ignored".to_string(),
+                        base: SwapStatusNoId {
+                            status: "ignored".to_string(),
+                            ..Default::default()
+                        },
+                    },
+                    SwapStatus {
+                        id: id.to_string(),
+                        base: SwapStatusNoId {
+                            status: "new.status".to_string(),
+                            ..Default::default()
+                        },
+                    },
+                ],
+            ))
+            .unwrap();
+
+        let second = next_sse_data(&mut response, &mut buffer)
+            .await
+            .expect("did not receive second SSE event");
+        assert_eq!(
+            serde_json::from_str::<SwapStatus>(&second).unwrap(),
+            SwapStatus {
+                id: id.to_string(),
+                base: SwapStatusNoId {
+                    status: "new.status".to_string(),
+                    ..Default::default()
+                },
+            }
+        );
 
         cancel.cancel();
     }
@@ -192,71 +224,67 @@ mod test {
         let (cancel, status_tx) = start(port).await;
 
         let id = "swapId";
-        let client = eventsource_client::ClientBuilder::for_url(
-            format!("http://127.0.0.1:{port}/streamswapstatus?id={id}").as_str(),
-        )
-        .unwrap()
-        .build();
+        let mut response =
+            reqwest::get(format!("http://127.0.0.1:{port}/streamswapstatus?id={id}"))
+                .await
+                .unwrap();
+        assert!(response.status().is_success());
 
-        let mut count = 0;
+        let mut buffer = String::new();
 
-        let mut stream = client.stream();
-        while let Some(ev) = stream.next().await {
-            if let SSE::Event(ev) = ev.unwrap() {
-                if count == 0 {
-                    assert_eq!(
-                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
-                        SwapStatus {
-                            id: id.to_string(),
-                            base: SwapStatusNoId {
-                                status: "swap.created".to_string(),
-                                ..Default::default()
-                            },
-                        }
-                    );
-
-                    status_tx
-                        .send((
-                            Some(sse_id("different id")),
-                            vec![SwapStatus {
-                                id: id.to_string(),
-                                base: SwapStatusNoId {
-                                    status: "ignored".to_string(),
-                                    ..Default::default()
-                                },
-                            }],
-                        ))
-                        .unwrap();
-
-                    status_tx
-                        .send((
-                            Some(sse_id(id)),
-                            vec![SwapStatus {
-                                id: id.to_string(),
-                                base: SwapStatusNoId {
-                                    status: "new.status".to_string(),
-                                    ..Default::default()
-                                },
-                            }],
-                        ))
-                        .unwrap();
-                } else if count == 1 {
-                    assert_eq!(
-                        serde_json::from_str::<SwapStatus>(ev.data.as_str()).unwrap(),
-                        SwapStatus {
-                            id: id.to_string(),
-                            base: SwapStatusNoId {
-                                status: "new.status".to_string(),
-                                ..Default::default()
-                            },
-                        }
-                    );
-                    break;
-                }
-
-                count += 1;
+        let first = next_sse_data(&mut response, &mut buffer)
+            .await
+            .expect("did not receive first SSE event");
+        assert_eq!(
+            serde_json::from_str::<SwapStatus>(&first).unwrap(),
+            SwapStatus {
+                id: id.to_string(),
+                base: SwapStatusNoId {
+                    status: "swap.created".to_string(),
+                    ..Default::default()
+                },
             }
-        }
+        );
+
+        status_tx
+            .send((
+                Some(sse_id("different id")),
+                vec![SwapStatus {
+                    id: id.to_string(),
+                    base: SwapStatusNoId {
+                        status: "ignored".to_string(),
+                        ..Default::default()
+                    },
+                }],
+            ))
+            .unwrap();
+
+        status_tx
+            .send((
+                Some(sse_id(id)),
+                vec![SwapStatus {
+                    id: id.to_string(),
+                    base: SwapStatusNoId {
+                        status: "new.status".to_string(),
+                        ..Default::default()
+                    },
+                }],
+            ))
+            .unwrap();
+
+        let second = next_sse_data(&mut response, &mut buffer)
+            .await
+            .expect("did not receive second SSE event");
+        assert_eq!(
+            serde_json::from_str::<SwapStatus>(&second).unwrap(),
+            SwapStatus {
+                id: id.to_string(),
+                base: SwapStatusNoId {
+                    status: "new.status".to_string(),
+                    ..Default::default()
+                },
+            }
+        );
 
         cancel.cancel();
     }
@@ -332,25 +360,20 @@ mod test {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         let id = "swap1";
-        let client = eventsource_client::ClientBuilder::for_url(
-            format!("http://127.0.0.1:{port}/streamswapstatus?id={id}").as_str(),
-        )
-        .unwrap()
-        .build();
+        let mut response =
+            reqwest::get(format!("http://127.0.0.1:{port}/streamswapstatus?id={id}"))
+                .await
+                .unwrap();
+        assert!(response.status().is_success());
 
         let mut count = 0;
-        let mut stream = client.stream();
+        let mut buffer = String::new();
 
-        while let Some(ev) = stream.next().await {
-            if let SSE::Event(ev) = ev.unwrap()
-                && count < 2
-            {
-                let received: SwapStatus = serde_json::from_str(ev.data.as_str()).unwrap();
+        while count < 2 {
+            if let Some(data) = next_sse_data(&mut response, &mut buffer).await {
+                let received: SwapStatus = serde_json::from_str(&data).unwrap();
                 assert_eq!(received, initial_updates[count]);
                 count += 1;
-                if count == 2 {
-                    break;
-                }
             }
         }
 
@@ -400,11 +423,11 @@ mod test {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         let id = "swap1";
-        let client = eventsource_client::ClientBuilder::for_url(
-            format!("http://127.0.0.1:{port}/streamswapstatus?id={id}").as_str(),
-        )
-        .unwrap()
-        .build();
+        let mut response =
+            reqwest::get(format!("http://127.0.0.1:{port}/streamswapstatus?id={id}"))
+                .await
+                .unwrap();
+        assert!(response.status().is_success());
 
         let update = SwapStatus {
             id: id.to_string(),
@@ -419,27 +442,20 @@ mod test {
             status_tx.send((None, vec![update.clone()])).unwrap();
         });
 
-        let mut stream = client.stream();
-        let mut received_update = false;
+        let mut buffer = String::new();
 
-        let timeout = tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            while let Some(ev) = stream.next().await {
-                if let SSE::Event(ev) = ev.unwrap() {
-                    let received: SwapStatus = serde_json::from_str(ev.data.as_str()).unwrap();
-                    if received.base.status == "transaction.mempool" {
-                        received_update = true;
-                        break;
-                    }
-                }
-            }
-        })
+        let timeout = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            next_sse_data(&mut response, &mut buffer),
+        )
         .await;
 
-        assert!(timeout.is_ok(), "Timeout waiting for update");
-        assert!(
-            received_update,
-            "Should have received update from channel despite initial fetch error"
-        );
+        let data = timeout
+            .expect("Timeout waiting for update")
+            .expect("SSE stream ended before update was received");
+        let received: SwapStatus = serde_json::from_str(&data).unwrap();
+        assert_eq!(received.base.status, "transaction.mempool");
+
         cancel.cancel();
     }
 }

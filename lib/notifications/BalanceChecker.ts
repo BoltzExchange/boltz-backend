@@ -25,6 +25,10 @@ type CurrencyThresholds = {
   minRemoteBalance?: number;
 };
 
+type ConfigWithMinWalletBalance = BaseCurrencyConfig & {
+  minWalletBalance: number;
+};
+
 class BalanceChecker {
   private currencies: CurrencyThresholds[] = [];
 
@@ -43,7 +47,11 @@ class BalanceChecker {
   ) {
     currencyConfigs
       .filter((config): config is BaseCurrencyConfig => config !== undefined)
-      .filter((config) => config.minWalletBalance !== undefined)
+      .filter(
+        (config): config is ConfigWithMinWalletBalance =>
+          config.minWalletBalance !== undefined &&
+          !isNaN(config.minWalletBalance),
+      )
       .forEach((config) =>
         this.currencies.push({
           ...config,

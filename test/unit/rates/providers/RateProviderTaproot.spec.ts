@@ -68,6 +68,14 @@ describe('RateProviderTaproot', () => {
         minBatchedAmount: 1_000,
       },
     },
+    {
+      base: 'BTC',
+      quote: 'BTC',
+      hidden: true,
+      rate: 1,
+      minSwapAmount: 1_000,
+      maxSwapAmount: 1_000_000,
+    },
   ];
 
   const mockedRoutingFee = {
@@ -126,6 +134,144 @@ describe('RateProviderTaproot', () => {
         } as any,
         [SwapType.Submarine, SwapType.ReverseSubmarine, SwapType.Chain],
       );
+      provider.setHardcodedPair(
+        {
+          base: 'BTC',
+          quote: 'BTC',
+          rate: 1,
+        } as any,
+        [SwapType.Submarine, SwapType.ReverseSubmarine, SwapType.Chain],
+      );
+    });
+
+    test('should include hidden pairs by default', () => {
+      expect(provider.getSubmarinePairs().get('BTC')!.get('BTC')).toEqual(
+        expect.objectContaining({ rate: 1 }),
+      );
+      expect(provider.getReversePairs().get('BTC')!.get('BTC')).toEqual(
+        expect.objectContaining({ rate: 1 }),
+      );
+      expect(provider.getChainPairs().get('BTC')?.get('BTC')).toEqual(
+        undefined,
+      );
+    });
+
+    test('should hide hidden pairs when hidden filter is enabled', () => {
+      expect(
+        provider.getSubmarinePairs(undefined, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+      expect(
+        provider.getReversePairs(undefined, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+    });
+
+    test('should keep non-hidden pairs visible without referral', () => {
+      expect(
+        provider.getSubmarinePairs().get('L-BTC')!.get('BTC'),
+      ).toBeDefined();
+      expect(provider.getReversePairs().get('BTC')!.get('L-BTC')).toBeDefined();
+      expect(provider.getChainPairs().get('BTC')!.get('L-BTC')).toBeDefined();
+    });
+
+    test('should keep non-hidden pairs visible when referral is provided', () => {
+      const referral = {
+        config: {},
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
+      expect(
+        provider.getSubmarinePairs(referral).get('L-BTC')!.get('BTC'),
+      ).toBeDefined();
+      expect(
+        provider.getReversePairs(referral).get('BTC')!.get('L-BTC'),
+      ).toBeDefined();
+      expect(
+        provider.getChainPairs(referral).get('BTC')!.get('L-BTC'),
+      ).toBeDefined();
+    });
+
+    test('should show hidden pairs when referral allows it and hidden filter is enabled', () => {
+      const referral = {
+        config: {
+          pairs: {
+            'BTC/BTC': {
+              showHidden: true,
+            },
+          },
+        },
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
+      expect(
+        provider.getSubmarinePairs(referral, true).get('BTC')!.get('BTC'),
+      ).toEqual(expect.objectContaining({ rate: 1 }));
+      expect(
+        provider.getReversePairs(referral, true).get('BTC')!.get('BTC'),
+      ).toEqual(expect.objectContaining({ rate: 1 }));
+      expect(
+        provider.getChainPairs(referral, true).get('BTC')!.get('BTC'),
+      ).toEqual(undefined);
+    });
+
+    test('should keep hidden pairs hidden when referral has no showHidden and hidden filter is enabled', () => {
+      const referral = {
+        config: {
+          pairs: {
+            'BTC/BTC': {
+              maxRoutingFee: 0.001,
+            },
+          },
+        },
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
+      expect(
+        provider.getSubmarinePairs(referral, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+      expect(
+        provider.getReversePairs(referral, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+    });
+
+    test('should keep hidden pairs hidden when referral has showHidden false and hidden filter is enabled', () => {
+      const referral = {
+        config: {
+          pairs: {
+            'BTC/BTC': {
+              showHidden: false,
+            },
+          },
+        },
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
+      expect(
+        provider.getSubmarinePairs(referral, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+      expect(
+        provider.getReversePairs(referral, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
+    });
+
+    test('should keep hidden pairs hidden when referral has empty config and hidden filter is enabled', () => {
+      const referral = {
+        config: null,
+        premiumForPairs: jest.fn().mockReturnValue(undefined),
+        limitsForPairs: jest.fn().mockReturnValue(undefined),
+        maxRoutingFeeRatioForPairs: jest.fn().mockReturnValue(undefined),
+      } as any as Referral;
+
+      expect(
+        provider.getSubmarinePairs(referral, true).get('BTC')?.get('BTC'),
+      ).toEqual(undefined);
     });
 
     test.each`

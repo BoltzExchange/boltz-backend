@@ -10,7 +10,6 @@ import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRep
 import MarkedSwapRepository from '../../../../../lib/db/repositories/MarkedSwapRepository';
 import ReferralRepository from '../../../../../lib/db/repositories/ReferralRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
-import RateProviderTaproot from '../../../../../lib/rates/providers/RateProviderTaproot';
 import Errors from '../../../../../lib/service/Errors';
 import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
@@ -421,12 +420,17 @@ describe('SwapRouter', () => {
     const res = mockResponse();
     await swapRouter['getSubmarine'](mockRequest(), res);
 
+    expect(
+      service.rateProvider.providers[SwapVersion.Taproot].getSubmarinePairs,
+    ).toHaveBeenCalledWith(null, true);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].getSubmarinePairs(),
-      ),
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      'L-BTC': {
+        BTC: {
+          some: 'submarine data',
+        },
+      },
+    });
   });
 
   test.each`
@@ -1135,12 +1139,17 @@ describe('SwapRouter', () => {
     const res = mockResponse();
     await swapRouter['getReverse'](mockRequest(), res);
 
+    expect(
+      service.rateProvider.providers[SwapVersion.Taproot].getReversePairs,
+    ).toHaveBeenCalledWith(null, true);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].getReversePairs(),
-      ),
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      BTC: {
+        'L-BTC': {
+          some: 'reverse data',
+        },
+      },
+    });
   });
 
   test('should get reverse expiry map', async () => {
@@ -1154,6 +1163,9 @@ describe('SwapRouter', () => {
     expect(
       service.rateProvider.providers[SwapVersion.Taproot].getReversePairs,
     ).toHaveBeenCalledTimes(1);
+    expect(
+      service.rateProvider.providers[SwapVersion.Taproot].getReversePairs,
+    ).toHaveBeenCalledWith(null, true);
 
     expect(service.convertToPairAndSide).toHaveBeenCalledTimes(1);
     expect(service.convertToPairAndSide).toHaveBeenCalledWith('BTC', 'L-BTC');
@@ -1773,12 +1785,17 @@ describe('SwapRouter', () => {
     const res = mockResponse();
     await swapRouter['getChain'](mockRequest(), res);
 
+    expect(
+      service.rateProvider.providers[SwapVersion.Taproot].getChainPairs,
+    ).toHaveBeenCalledWith(null, true);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      RateProviderTaproot.serializePairs(
-        service.rateProvider.providers[SwapVersion.Taproot].getChainPairs(),
-      ),
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      BTC: {
+        'L-BTC': {
+          some: 'chain data',
+        },
+      },
+    });
   });
 
   test.each`

@@ -33,9 +33,13 @@ type ReferralPairConfig = {
   expirations?: CustomExpirations;
 };
 
+type ReferralPairConfigWithHidden = ReferralPairConfig & {
+  showHidden?: boolean;
+};
+
 type ReferralConfig = ReferralPairConfig & {
   // Pair configs beat the ones of the type
-  pairs?: Record<string, ReferralPairConfig>;
+  pairs?: Record<string, ReferralPairConfigWithHidden>;
 };
 
 type ReferralType = {
@@ -190,6 +194,7 @@ export {
   ReferralType,
   ReferralConfig,
   ReferralPairConfig,
+  ReferralPairConfigWithHidden,
   DirectionalPremium,
   Premiums,
 };

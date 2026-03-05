@@ -2494,7 +2494,7 @@ class SwapRouter extends RouterBase {
       RateProviderTaproot.serializePairs(
         this.service.rateProvider.providers[
           SwapVersion.Taproot
-        ].getSubmarinePairs(referral),
+        ].getSubmarinePairs(referral, true),
       ),
     );
   };
@@ -2677,16 +2677,16 @@ class SwapRouter extends RouterBase {
       RateProviderTaproot.serializePairs(
         this.service.rateProvider.providers[
           SwapVersion.Taproot
-        ].getReversePairs(referral),
+        ].getReversePairs(referral, true),
       ),
     );
   };
 
-  private getReverseExpiry = async (_req: Request, res: Response) => {
-    const pairs =
-      this.service.rateProvider.providers[
-        SwapVersion.Taproot
-      ].getReversePairs();
+  private getReverseExpiry = async (req: Request, res: Response) => {
+    const referral = await this.getReferralFromHeader(req);
+    const pairs = this.service.rateProvider.providers[
+      SwapVersion.Taproot
+    ].getReversePairs(referral, true);
 
     const result: Record<string, Record<string, InvoiceExpiryRange>> = {};
 
@@ -2872,6 +2872,7 @@ class SwapRouter extends RouterBase {
       RateProviderTaproot.serializePairs(
         this.service.rateProvider.providers[SwapVersion.Taproot].getChainPairs(
           referral,
+          true,
         ),
       ),
     );

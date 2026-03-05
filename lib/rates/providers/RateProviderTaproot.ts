@@ -105,44 +105,46 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
 
   public getSubmarinePairs = (
     referral?: Referral | null,
+    filterHidden: boolean = false,
   ): typeof this.submarinePairs => {
-    if (referral === null || referral === undefined) {
-      return this.submarinePairs;
-    }
+    const pairs =
+      referral === null || referral === undefined
+        ? this.submarinePairs
+        : this.deepCloneWithReferral(
+            this.submarinePairs,
+            SwapType.Submarine,
+            referral,
+          );
 
-    return this.deepCloneWithReferral(
-      this.submarinePairs,
-      SwapType.Submarine,
-      referral,
-    );
+    return filterHidden ? this.filterHiddenPairs(pairs, referral) : pairs;
   };
 
   public getReversePairs = (
     referral?: Referral | null,
+    filterHidden: boolean = false,
   ): typeof this.reversePairs => {
-    if (referral === null || referral === undefined) {
-      return this.reversePairs;
-    }
+    const pairs =
+      referral === null || referral === undefined
+        ? this.reversePairs
+        : this.deepCloneWithReferral(
+            this.reversePairs,
+            SwapType.ReverseSubmarine,
+            referral,
+          );
 
-    return this.deepCloneWithReferral(
-      this.reversePairs,
-      SwapType.ReverseSubmarine,
-      referral,
-    );
+    return filterHidden ? this.filterHiddenPairs(pairs, referral) : pairs;
   };
 
   public getChainPairs = (
     referral?: Referral | null,
+    filterHidden: boolean = false,
   ): typeof this.chainPairs => {
-    if (referral === null || referral === undefined) {
-      return this.chainPairs;
-    }
+    const pairs =
+      referral === null || referral === undefined
+        ? this.chainPairs
+        : this.deepCloneWithReferral(this.chainPairs, SwapType.Chain, referral);
 
-    return this.deepCloneWithReferral(
-      this.chainPairs,
-      SwapType.Chain,
-      referral,
-    );
+    return filterHidden ? this.filterHiddenPairs(pairs, referral) : pairs;
   };
 
   public static serializePairs = <T>(
@@ -536,21 +538,8 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         from,
         new Map(
           Array.from(nested.entries()).map(([to, value]) => {
-            const pairIds = [
-              [from, to],
-              [to, from],
-            ].map(([base, quote]) => getPairId({ base, quote }));
-
-            const getConfigPairId = (pairIds: string[]) => {
-              for (const pairId of pairIds) {
-                if (this.pairConfigs.has(pairId)) {
-                  return pairId;
-                }
-              }
-              throw new Error('could not find pair id');
-            };
-
-            const { quote } = splitPairId(getConfigPairId(pairIds));
+            const pairIds = this.getPairIds(from, to);
+            const { quote } = splitPairId(this.getConfigPairId(pairIds)!);
 
             const premium = referral?.premiumForPairs(
               pairIds,
@@ -604,6 +593,54 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
         ),
       ]),
     ) as K;
+  };
+
+  private filterHiddenPairs = <T, K extends Map<string, Map<string, T>>>(
+    map: K,
+    referral?: Referral | null,
+  ): K => {
+    return new Map(
+      Array.from(map.entries()).map(([from, nested]) => [
+        from,
+        new Map(
+          Array.from(nested.entries()).filter(([to]) =>
+            this.isVisiblePair(this.getPairIds(from, to), referral),
+          ),
+        ),
+      ]),
+    ) as K;
+  };
+
+  private isVisiblePair = (
+    pairIds: string[],
+    referral?: Referral | null,
+  ): boolean => {
+    const configPairId = this.getConfigPairId(pairIds);
+    if (
+      configPairId === undefined ||
+      !this.pairConfigs.get(configPairId)?.hidden
+    ) {
+      return true;
+    }
+
+    if (referral === null || referral === undefined) {
+      return false;
+    }
+
+    return pairIds.some(
+      (pairId) => referral.config?.pairs?.[pairId]?.showHidden === true,
+    );
+  };
+
+  private getPairIds = (from: string, to: string): string[] => {
+    return [
+      [from, to],
+      [to, from],
+    ].map(([base, quote]) => getPairId({ base, quote }));
+  };
+
+  private getConfigPairId = (pairIds: string[]): string | undefined => {
+    return pairIds.find((pairId) => this.pairConfigs.has(pairId));
   };
 
   private applyOverride = (

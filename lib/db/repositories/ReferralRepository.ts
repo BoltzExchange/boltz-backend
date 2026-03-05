@@ -1,4 +1,5 @@
 import { QueryTypes } from 'sequelize';
+import { deepMerge } from '../../Utils';
 import {
   OrderSide,
   SuccessSwapUpdateEvents,
@@ -8,7 +9,7 @@ import Database from '../Database';
 import type {
   DirectionalPremium,
   ReferralConfig,
-  ReferralPairConfig,
+  ReferralPairConfigWithHidden,
 } from '../models/Referral';
 import Referral, { ReferralType } from '../models/Referral';
 import type { StatsDate } from './StatsRepository';
@@ -50,6 +51,23 @@ class ReferralRepository {
   private static readonly minRoutingFee = 0;
   private static readonly maxRoutingFee = 0.005;
 
+  private static referralConfigs: Record<string, ReferralConfig> = {};
+
+  public static setConfiguredReferrals = (
+    referrals?: Record<string, ReferralConfig>,
+  ) => {
+    ReferralRepository.referralConfigs = {};
+
+    if (referrals === undefined || referrals === null) {
+      return;
+    }
+
+    for (const [id, config] of Object.entries(referrals)) {
+      ReferralRepository.sanityCheckConfig(config);
+      ReferralRepository.referralConfigs[id] = config;
+    }
+  };
+
   public static addReferral = async (
     referral: ReferralType,
   ): Promise<Referral> => {
@@ -58,36 +76,73 @@ class ReferralRepository {
     return await Referral.create(referral);
   };
 
-  public static getReferrals = (): Promise<Referral[]> => {
-    return Referral.findAll();
+  public static getReferrals = async (): Promise<Referral[]> => {
+    return (await Referral.findAll()).map(
+      ReferralRepository.mergeWithConfigFile,
+    );
   };
 
-  public static getReferralById = (id: string): Promise<Referral | null> => {
-    return Referral.findOne({
-      where: {
-        id,
-      },
-    });
+  public static getReferralById = async (
+    id: string,
+  ): Promise<Referral | null> => {
+    return ReferralRepository.mergeWithConfigFile(
+      await Referral.findOne({
+        where: {
+          id,
+        },
+      }),
+    );
   };
 
-  public static getReferralByApiKey = (
+  public static getReferralByApiKey = async (
     apiKey: string,
   ): Promise<Referral | null> => {
-    return Referral.findOne({
-      where: {
-        apiKey,
-      },
-    });
+    return ReferralRepository.mergeWithConfigFile(
+      await Referral.findOne({
+        where: {
+          apiKey,
+        },
+      }),
+    );
   };
 
-  public static getReferralByRoutingNode = (
+  public static getReferralByRoutingNode = async (
     routingNode: string,
   ): Promise<Referral | null> => {
-    return Referral.findOne({
-      where: {
-        routingNode,
-      },
-    });
+    return ReferralRepository.mergeWithConfigFile(
+      await Referral.findOne({
+        where: {
+          routingNode,
+        },
+      }),
+    );
+  };
+
+  private static mergeWithConfigFile = <T extends Referral | null>(
+    referral: T,
+  ): T => {
+    if (referral === null) {
+      return referral;
+    }
+
+    referral.config = ReferralRepository.mergeConfig(
+      referral.id,
+      referral.config,
+    );
+
+    return referral;
+  };
+
+  private static mergeConfig = (
+    referralId: string,
+    dbConfig: ReferralConfig | null,
+  ): ReferralConfig | null => {
+    const fileConfig = ReferralRepository.referralConfigs[referralId];
+    if (fileConfig === undefined) {
+      return dbConfig;
+    }
+
+    return deepMerge({}, fileConfig, dbConfig ?? {}) as ReferralConfig;
   };
 
   public static getReferralSum = async (
@@ -142,7 +197,11 @@ class ReferralRepository {
       return premium as DirectionalPremium;
     };
 
-    const sanityCheckPairConfig = (cfg: ReferralPairConfig) => {
+    const sanityCheckPairConfig = (cfg: ReferralPairConfigWithHidden) => {
+      if (cfg.showHidden !== undefined && typeof cfg.showHidden !== 'boolean') {
+        throw 'showHidden must be a boolean';
+      }
+
       if (
         cfg.maxRoutingFee !== undefined &&
         (cfg.maxRoutingFee < ReferralRepository.minRoutingFee ||

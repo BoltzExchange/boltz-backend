@@ -21,6 +21,7 @@ import Database from './db/Database';
 import Redis from './db/Redis';
 import type ChainTip from './db/models/ChainTip';
 import ChainTipRepository from './db/repositories/ChainTipRepository';
+import ReferralRepository from './db/repositories/ReferralRepository';
 import GrpcServer from './grpc/GrpcServer';
 import GrpcService from './grpc/GrpcService';
 import type { LightningClient } from './lightning/LightningClient';
@@ -65,6 +66,7 @@ class Boltz {
 
   constructor(config: Arguments<any>) {
     this.config = new Config().load(config);
+    ReferralRepository.setConfiguredReferrals(this.config.referrals);
     this.logger = new Logger(
       this.config.loglevel,
       this.config.logpath,

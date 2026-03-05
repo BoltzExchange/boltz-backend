@@ -46,6 +46,7 @@ export type ChainSwapPairConfig = PairLimits & {
 export type PairConfig = {
   base: string;
   quote: string;
+  hidden?: boolean;
 
   // Percentage of the amount that will be charged as fee
   fee?: number;

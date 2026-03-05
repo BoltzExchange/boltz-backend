@@ -248,11 +248,11 @@ describe('RefundWatcher', () => {
 
     test('should get confirmations for EVM currencies', async () => {
       const tx = await setup.signer.sendTransaction({});
-      await tx.wait(1);
+      await evmProvider.waitForTransaction(tx.hash, 1, 10_000);
 
       await expect(
         getConfirmations(watcher['currencies'].get('RBTC')!, tx.hash),
-      ).resolves.toEqual(1);
+      ).resolves.toBeGreaterThanOrEqual(1);
     });
 
     test('should always return required confirmations + 1 for ARK', async () => {

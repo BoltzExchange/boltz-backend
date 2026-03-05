@@ -9,6 +9,7 @@ import { Network } from './consts/Enums';
 import Errors from './consts/Errors';
 import type { PairConfig } from './consts/Types';
 import type { RedisConfig } from './db/Redis';
+import type { ReferralConfig } from './db/models/Referral';
 import type { LndConfig } from './lightning/LndClient';
 import type { Config as RoutingFeeConfig } from './lightning/RoutingFee';
 import type { ClnConfig } from './lightning/cln/Types';
@@ -225,6 +226,7 @@ type ConfigType = {
   notification: NotificationConfig;
 
   nodeSwitch?: NodeSwitchConfig;
+  referrals?: Record<string, ReferralConfig>;
 
   pairs: PairConfig[];
   currencies: CurrencyConfig[];

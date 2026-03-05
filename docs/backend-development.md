@@ -13,8 +13,8 @@ Backend development.
 - [Docker](https://docs.docker.com/engine/install/)
 
 The regtest environment of the Boltz Backend is based on
-[boltz-regtest](https://github.com/BoltzExchange/boltz-regtest). To start the
-regtest environment run `npm run regtest:start` and to stop it again use
+[our regtest Docker Compose](https://github.com/BoltzExchange/regtest). To start
+the regtest environment run `npm run regtest:start` and to stop it again use
 `npm run regtest:stop`.
 
 To use the nodes in the container with the Boltz Backend, use a configuration

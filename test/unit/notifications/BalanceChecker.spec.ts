@@ -115,6 +115,7 @@ describe('BalanceChecker', () => {
         {},
         { minWalletBalance: undefined } as any,
         { minWalletBalance: Number.NaN } as any,
+        { minWalletBalance: Infinity } as any,
       ],
       [],
     );
@@ -132,6 +133,24 @@ describe('BalanceChecker', () => {
     );
     expect(check['currencies'].length).toEqual(1);
     expect(check['currencies'][0]).toEqual(btcCurrency);
+  });
+
+  test('should ignore token configs with invalid min wallet balance', () => {
+    const check = new BalanceChecker(
+      Logger.disabledLogger,
+      new MockedService(),
+      new MockedNotificationClient(),
+      [btcCurrency],
+      [
+        usdtCurrency,
+        { symbol: 'TBTC', minWalletBalance: Number.NaN } as any,
+        { symbol: 'RBTC' } as any,
+        { symbol: 'WBTC', minWalletBalance: Infinity } as any,
+      ],
+    );
+    expect(check['currencies'].length).toEqual(2);
+    expect(check['currencies'][0]).toEqual(btcCurrency);
+    expect(check['currencies'][1]).toEqual(usdtCurrency);
   });
 
   test('should check all currencies', async () => {

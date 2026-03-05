@@ -25,10 +25,6 @@ type CurrencyThresholds = {
   minRemoteBalance?: number;
 };
 
-type ConfigWithMinWalletBalance = BaseCurrencyConfig & {
-  minWalletBalance: number;
-};
-
 class BalanceChecker {
   private currencies: CurrencyThresholds[] = [];
 
@@ -37,6 +33,10 @@ class BalanceChecker {
 
   private localBalanceAlerts = new Set<string>();
   private remoteBalanceAlerts = new Set<string>();
+
+  private static isValidMinWalletBalance(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+  }
 
   constructor(
     private logger: Logger,
@@ -47,18 +47,34 @@ class BalanceChecker {
   ) {
     currencyConfigs
       .filter((config): config is BaseCurrencyConfig => config !== undefined)
-      .filter(
-        (config): config is ConfigWithMinWalletBalance =>
-          config.minWalletBalance !== undefined &&
-          !isNaN(config.minWalletBalance),
-      )
-      .forEach((config) =>
+      .forEach((config) => {
+        if (!BalanceChecker.isValidMinWalletBalance(config.minWalletBalance)) {
+          this.logger.warn(
+            `Ignoring ${config.symbol || liquidSymbol} balance checker config because minWalletBalance is invalid`,
+          );
+          return;
+        }
+
         this.currencies.push({
           ...config,
           symbol: config.symbol || liquidSymbol,
-        }),
-      );
-    tokenConfigs.forEach((config) => this.currencies.push(config));
+          minWalletBalance: config.minWalletBalance,
+        });
+      });
+
+    tokenConfigs.forEach((config) => {
+      if (!BalanceChecker.isValidMinWalletBalance(config.minWalletBalance)) {
+        this.logger.warn(
+          `Ignoring ${config.symbol} balance checker config because minWalletBalance is invalid`,
+        );
+        return;
+      }
+
+      this.currencies.push({
+        ...config,
+        minWalletBalance: config.minWalletBalance,
+      });
+    });
   }
 
   public check = async (): Promise<void> => {

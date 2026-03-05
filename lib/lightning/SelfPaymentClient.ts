@@ -47,6 +47,8 @@ class SelfPaymentClient
   implements LightningClient
 {
   private static readonly selfPaymentLock = 'self-payment';
+  private static readonly disabledSubmarineInvoicePaymentError =
+    'signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled';
   private static readonly notImplementedError = new Error('not implemented');
 
   private readonly lock = new AsyncLock();
@@ -71,6 +73,7 @@ class SelfPaymentClient
     decoded: DecodedInvoiceSidecar,
     cltvLimit: number,
     payments: LightningPayment[],
+    isSubmarineInvoicePaymentSignerDisabled = false,
   ): Promise<{
     isSelf: boolean;
     result: PaymentResponse | undefined;
@@ -103,6 +106,12 @@ class SelfPaymentClient
         );
 
         if (reverseSwap.status === SwapUpdateEvent.SwapCreated) {
+          if (isSubmarineInvoicePaymentSignerDisabled) {
+            throw new Error(
+              SelfPaymentClient.disabledSubmarineInvoicePaymentError,
+            );
+          }
+
           // Only check the CLTV limit on the first attempt
           if (cltvLimit <= decoded.minFinalCltv) {
             throw new Error('CLTV limit too small');

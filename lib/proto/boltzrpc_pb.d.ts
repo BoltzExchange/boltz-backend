@@ -977,6 +977,133 @@ export namespace AllowRefundResponse {
     }
 }
 
+export class DisableSignerRequest extends jspb.Message { 
+    clearSignersList(): void;
+    getSignersList(): Array<Signer>;
+    setSignersList(value: Array<Signer>): DisableSignerRequest;
+    addSigners(value: Signer, index?: number): Signer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DisableSignerRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DisableSignerRequest): DisableSignerRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DisableSignerRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DisableSignerRequest;
+    static deserializeBinaryFromReader(message: DisableSignerRequest, reader: jspb.BinaryReader): DisableSignerRequest;
+}
+
+export namespace DisableSignerRequest {
+    export type AsObject = {
+        signersList: Array<Signer>,
+    }
+}
+
+export class DisableSignerResponse extends jspb.Message { 
+    clearDisabledSignersList(): void;
+    getDisabledSignersList(): Array<Signer>;
+    setDisabledSignersList(value: Array<Signer>): DisableSignerResponse;
+    addDisabledSigners(value: Signer, index?: number): Signer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DisableSignerResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DisableSignerResponse): DisableSignerResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DisableSignerResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DisableSignerResponse;
+    static deserializeBinaryFromReader(message: DisableSignerResponse, reader: jspb.BinaryReader): DisableSignerResponse;
+}
+
+export namespace DisableSignerResponse {
+    export type AsObject = {
+        disabledSignersList: Array<Signer>,
+    }
+}
+
+export class EnableSignerRequest extends jspb.Message { 
+    clearSignersList(): void;
+    getSignersList(): Array<Signer>;
+    setSignersList(value: Array<Signer>): EnableSignerRequest;
+    addSigners(value: Signer, index?: number): Signer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EnableSignerRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: EnableSignerRequest): EnableSignerRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EnableSignerRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EnableSignerRequest;
+    static deserializeBinaryFromReader(message: EnableSignerRequest, reader: jspb.BinaryReader): EnableSignerRequest;
+}
+
+export namespace EnableSignerRequest {
+    export type AsObject = {
+        signersList: Array<Signer>,
+    }
+}
+
+export class EnableSignerResponse extends jspb.Message { 
+    clearDisabledSignersList(): void;
+    getDisabledSignersList(): Array<Signer>;
+    setDisabledSignersList(value: Array<Signer>): EnableSignerResponse;
+    addDisabledSigners(value: Signer, index?: number): Signer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EnableSignerResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: EnableSignerResponse): EnableSignerResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EnableSignerResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EnableSignerResponse;
+    static deserializeBinaryFromReader(message: EnableSignerResponse, reader: jspb.BinaryReader): EnableSignerResponse;
+}
+
+export namespace EnableSignerResponse {
+    export type AsObject = {
+        disabledSignersList: Array<Signer>,
+    }
+}
+
+export class GetDisabledSignersRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetDisabledSignersRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetDisabledSignersRequest): GetDisabledSignersRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetDisabledSignersRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetDisabledSignersRequest;
+    static deserializeBinaryFromReader(message: GetDisabledSignersRequest, reader: jspb.BinaryReader): GetDisabledSignersRequest;
+}
+
+export namespace GetDisabledSignersRequest {
+    export type AsObject = {
+    }
+}
+
+export class GetDisabledSignersResponse extends jspb.Message { 
+    clearDisabledSignersList(): void;
+    getDisabledSignersList(): Array<Signer>;
+    setDisabledSignersList(value: Array<Signer>): GetDisabledSignersResponse;
+    addDisabledSigners(value: Signer, index?: number): Signer;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetDisabledSignersResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetDisabledSignersResponse): GetDisabledSignersResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetDisabledSignersResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetDisabledSignersResponse;
+    static deserializeBinaryFromReader(message: GetDisabledSignersResponse, reader: jspb.BinaryReader): GetDisabledSignersResponse;
+}
+
+export namespace GetDisabledSignersResponse {
+    export type AsObject = {
+        disabledSignersList: Array<Signer>,
+    }
+}
+
 export class GetLabelRequest extends jspb.Message { 
     getTxId(): string;
     setTxId(value: string): GetLabelRequest;
@@ -1921,47 +2048,23 @@ export namespace DevClearSwapUpdateCacheResponse {
     }
 }
 
-export class DevDisableCooperativeRequest extends jspb.Message { 
-    getDisabled(): boolean;
-    setDisabled(value: boolean): DevDisableCooperativeRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): DevDisableCooperativeRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: DevDisableCooperativeRequest): DevDisableCooperativeRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: DevDisableCooperativeRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): DevDisableCooperativeRequest;
-    static deserializeBinaryFromReader(message: DevDisableCooperativeRequest, reader: jspb.BinaryReader): DevDisableCooperativeRequest;
-}
-
-export namespace DevDisableCooperativeRequest {
-    export type AsObject = {
-        disabled: boolean,
-    }
-}
-
-export class DevDisableCooperativeResponse extends jspb.Message { 
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): DevDisableCooperativeResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: DevDisableCooperativeResponse): DevDisableCooperativeResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: DevDisableCooperativeResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): DevDisableCooperativeResponse;
-    static deserializeBinaryFromReader(message: DevDisableCooperativeResponse, reader: jspb.BinaryReader): DevDisableCooperativeResponse;
-}
-
-export namespace DevDisableCooperativeResponse {
-    export type AsObject = {
-    }
-}
-
 export enum OutputType {
     BECH32 = 0,
     COMPATIBILITY = 1,
     LEGACY = 2,
+}
+
+export enum Signer {
+    SIGNER_SUBMARINE_REFUND_COOP = 0,
+    SIGNER_REVERSE_CLAIM_COOP = 1,
+    SIGNER_CHAIN_REFUND_COOP = 2,
+    SIGNER_CHAIN_CLAIM_COOP = 3,
+    SIGNER_DEFERRED_CLAIM_COOP = 4,
+    SIGNER_EVM_REFUND_COOP = 5,
+    SIGNER_EVM_COMMITMENT_REFUND_COOP = 6,
+    SIGNER_REVERSE_LOCKUP = 7,
+    SIGNER_CHAIN_LOCKUP = 8,
+    SIGNER_SUBMARINE_INVOICE_PAYMENT = 9,
 }
 
 export enum LogLevel {

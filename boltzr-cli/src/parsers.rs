@@ -14,6 +14,20 @@ pub enum SwapType {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Signer {
+    SubmarineRefundCoop,
+    ReverseClaimCoop,
+    ChainRefundCoop,
+    ChainClaimCoop,
+    DeferredClaimCoop,
+    EvmRefundCoop,
+    EvmCommitmentRefundCoop,
+    ReverseLockup,
+    ChainLockup,
+    SubmarineInvoicePayment,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Network {
     Mainnet,
     Testnet,

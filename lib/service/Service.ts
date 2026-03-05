@@ -105,6 +105,7 @@ import Errors from './Errors';
 import EventHandler from './EventHandler';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
+import SignerControlRegistry from './SignerControlRegistry';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
@@ -151,6 +152,7 @@ class Service {
   public readonly transactionFetcher: TransactionFetcher;
 
   public readonly musigSigner: MusigSigner;
+  public readonly signerControlRegistry: SignerControlRegistry;
   public readonly rateProvider: RateProvider;
   public readonly lockupTransactionTracker: LockupTransactionTracker;
 
@@ -214,6 +216,7 @@ class Service {
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
+    this.signerControlRegistry = new SignerControlRegistry();
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -232,6 +235,7 @@ class Service {
       this.lockupTransactionTracker,
       this.sidecar,
       this.balanceCheck,
+      this.signerControlRegistry,
     );
     this.walletManager.ethereumManagers.forEach((manager) => {
       manager.commitments.setRefundSignatureLock(
@@ -256,6 +260,7 @@ class Service {
       this.currencies,
       this.walletManager,
       this.swapManager.nursery,
+      this.signerControlRegistry,
     );
   }
 

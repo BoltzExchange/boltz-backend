@@ -48,8 +48,10 @@ import CommitmentRepository from '../../../../lib/db/repositories/CommitmentRepo
 import PairRepository from '../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import { Signer } from '../../../../lib/proto/boltzrpc_pb';
 import type RateProvider from '../../../../lib/rates/RateProvider';
 import Errors from '../../../../lib/service/Errors';
+import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import DeferredClaimer from '../../../../lib/service/cooperative/DeferredClaimer';
 import AmountTrigger from '../../../../lib/service/cooperative/triggers/AmountTrigger';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
@@ -111,6 +113,7 @@ describe('DeferredClaimer', () => {
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
   } as WalletManager;
+  const signerControlRegistry = new SignerControlRegistry();
 
   const claimer = new DeferredClaimer(
     Logger.disabledLogger,
@@ -134,6 +137,7 @@ describe('DeferredClaimer', () => {
       batchClaimInterval: '*/15 * * * *',
       cltvDelta: 20,
     },
+    signerControlRegistry,
   );
 
   const createClaimableOutput = async (timeoutBlockHeight?: number) => {
@@ -646,6 +650,7 @@ describe('DeferredClaimer', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    signerControlRegistry.enableSigners([Signer.SIGNER_DEFERRED_CLAIM_COOP]);
     claimer['swapsToClaim'].get('BTC')?.clear();
     claimer['chainSwapsToClaim'].get('BTC')?.clear();
     claimer['swapsToClaim'].get('ARK')?.clear();
@@ -1448,6 +1453,23 @@ describe('DeferredClaimer', () => {
   });
 
   describe('getCooperativeDetails', () => {
+    test('should throw when deferred cooperative claims are disabled', async () => {
+      signerControlRegistry.disableSigners([Signer.SIGNER_DEFERRED_CLAIM_COOP]);
+
+      await expect(
+        claimer.getCooperativeDetails({
+          id: 'disabled',
+          pair: 'BTC/BTC',
+          type: SwapType.Submarine,
+          orderSide: OrderSide.BUY,
+        } as any),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+          'cooperative signatures are disabled',
+        ),
+      );
+    });
+
     test.each`
       name           | type
       ${'Submarine'} | ${SwapType.Submarine}

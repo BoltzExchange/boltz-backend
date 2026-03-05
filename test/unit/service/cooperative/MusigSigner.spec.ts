@@ -9,10 +9,12 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
+import { Signer } from '../../../../lib/proto/boltzrpc_pb';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import type LndClient from '../../../../lib/lightning/LndClient';
 import type ClnClient from '../../../../lib/lightning/cln/ClnClient';
 import Errors from '../../../../lib/service/Errors';
+import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import MusigSigner, {
   RefundRejectionReason,
 } from '../../../../lib/service/cooperative/MusigSigner';
@@ -41,12 +43,14 @@ describe('MusigSigner', () => {
     ['BTC', btcCurrency as Currency],
     [ArkClient.symbol, arkCurrency as unknown as Currency],
   ]);
+  const signerControlRegistry = new SignerControlRegistry();
 
   const signer = new MusigSigner(
     Logger.disabledLogger,
     currencies,
     {} as unknown as WalletManager,
     {} as unknown as SwapNursery,
+    signerControlRegistry,
   );
 
   describe('signRefundArk', () => {
@@ -86,7 +90,9 @@ describe('MusigSigner', () => {
         version: SwapVersion.Taproot,
       });
 
-      signer.setDisableCooperative(true);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_REFUND_COOP,
+      ]);
 
       await expect(
         signer.signRefundArk('asdf', 'transaction', 'checkpoint'),
@@ -96,7 +102,9 @@ describe('MusigSigner', () => {
         ),
       );
 
-      signer.setDisableCooperative(false);
+      signerControlRegistry.enableSigners([
+        Signer.SIGNER_SUBMARINE_REFUND_COOP,
+      ]);
     });
 
     test('should validate eligibility', async () => {

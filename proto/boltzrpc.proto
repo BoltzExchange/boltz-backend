@@ -34,6 +34,10 @@ service Boltz {
   /* Disables safety checks to allow for a cooperative refund for a swap */
   rpc AllowRefund (AllowRefundRequest) returns (AllowRefundResponse);
 
+  rpc DisableSigner (DisableSignerRequest) returns (DisableSignerResponse);
+  rpc EnableSigner (EnableSignerRequest) returns (EnableSignerResponse);
+  rpc GetDisabledSigners (GetDisabledSignersRequest) returns (GetDisabledSignersResponse);
+
   /* Gets funds locked by the server for swaps */
   rpc GetLockedFunds (GetLockedFundsRequest) returns (GetLockedFundsResponse);
 
@@ -66,14 +70,25 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
-
-  rpc DevDisableCooperative (DevDisableCooperativeRequest) returns (DevDisableCooperativeResponse);
 }
 
 enum OutputType {
   BECH32 = 0;
   COMPATIBILITY = 1;
   LEGACY = 2;
+}
+
+enum Signer {
+  SIGNER_SUBMARINE_REFUND_COOP = 0;
+  SIGNER_REVERSE_CLAIM_COOP = 1;
+  SIGNER_CHAIN_REFUND_COOP = 2;
+  SIGNER_CHAIN_CLAIM_COOP = 3;
+  SIGNER_DEFERRED_CLAIM_COOP = 4;
+  SIGNER_EVM_REFUND_COOP = 5;
+  SIGNER_EVM_COMMITMENT_REFUND_COOP = 6;
+  SIGNER_REVERSE_LOCKUP = 7;
+  SIGNER_CHAIN_LOCKUP = 8;
+  SIGNER_SUBMARINE_INVOICE_PAYMENT = 9;
 }
 
 message StopRequest {}
@@ -256,6 +271,28 @@ message AllowRefundRequest {
 }
 
 message AllowRefundResponse {}
+
+message DisableSignerRequest {
+  repeated Signer signers = 1;
+}
+
+message DisableSignerResponse {
+  repeated Signer disabled_signers = 1;
+}
+
+message EnableSignerRequest {
+  repeated Signer signers = 1;
+}
+
+message EnableSignerResponse {
+  repeated Signer disabled_signers = 1;
+}
+
+message GetDisabledSignersRequest {}
+
+message GetDisabledSignersResponse {
+  repeated Signer disabled_signers = 1;
+}
 
 message GetLabelRequest {
   string tx_id = 1;
@@ -464,9 +501,3 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
-
-message DevDisableCooperativeRequest {
-  bool disabled = 1;
-}
-
-message DevDisableCooperativeResponse {}

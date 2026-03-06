@@ -106,11 +106,11 @@ pub struct CreateResponse {
 
 impl FundingAddressService {
     fn map_signer_error(err: anyhow::Error) -> FundingAddressError {
-        if err
-            .downcast_ref::<FundingAddressEligibilityError>()
-            .is_some()
+        if let Some(eligibility_error) = err
+            .chain()
+            .find_map(|cause| cause.downcast_ref::<FundingAddressEligibilityError>())
         {
-            return FundingAddressError::InvalidRequest(err.to_string());
+            return FundingAddressError::InvalidRequest(eligibility_error.to_string());
         }
 
         let error_message = err.to_string().to_lowercase();
@@ -411,6 +411,7 @@ mod test {
     use crate::db::helpers::funding_address::test::MockFundingAddressHelper;
     use crate::db::helpers::keys::test::MockKeysHelper;
     use crate::db::helpers::swap::test::MockSwapHelper;
+    use crate::db::models::Swap;
     use crate::service::test::get_test_currencies;
     use crate::wallet::Network;
     use anyhow::anyhow;
@@ -424,6 +425,7 @@ mod test {
     struct TestContext {
         funding_helper: MockFundingAddressHelper,
         keys_helper: MockKeysHelper,
+        swap_helper: MockSwapHelper,
         currencies: Option<Currencies>,
     }
 
@@ -432,6 +434,7 @@ mod test {
             Self {
                 funding_helper: MockFundingAddressHelper::new(),
                 keys_helper: MockKeysHelper::new(),
+                swap_helper: MockSwapHelper::new(),
                 currencies: None,
             }
         }
@@ -489,6 +492,13 @@ mod test {
             self
         }
 
+        fn with_swap_by_id_result(mut self, result: Swap) -> Self {
+            self.swap_helper
+                .expect_get_by_id()
+                .returning(move |_| Ok(result.clone()));
+            self
+        }
+
         async fn with_currencies(mut self) -> Self {
             self.currencies = Some(get_test_currencies().await);
             self
@@ -516,7 +526,7 @@ mod test {
                 None,
                 Arc::new(self.funding_helper),
                 Arc::new(self.keys_helper),
-                Arc::new(MockSwapHelper::new()),
+                Arc::new(self.swap_helper),
                 Arc::new(MockChainSwapHelper::new()),
                 self.currencies.unwrap_or_else(|| Arc::new(HashMap::new())),
                 Cache::Memory(boltz_cache::MemCache::new()),
@@ -663,6 +673,49 @@ mod test {
                 .unwrap_err();
 
             assert!(err.to_string().contains("key error"));
+        }
+    }
+
+    mod signer_error_mapping {
+        use super::*;
+        use crate::db::models::Swap;
+        use crate::swap::FundingAddressStatus;
+        use crate::utils::pair::OrderSide;
+
+        #[tokio::test]
+        async fn preserves_eligibility_message_from_signer() {
+            let mut funding_address = sample_funding_address("test123", "BTC");
+            funding_address.status = FundingAddressStatus::TransactionConfirmed.to_string();
+            funding_address.lockup_transaction_id = Some("tx123".to_string());
+            funding_address.lockup_transaction_vout = Some(0);
+            funding_address.lockup_amount = None;
+            let service = TestContext::new()
+                .with_get_by_id_result(Some(funding_address))
+                .with_swap_by_id_result(Swap {
+                    id: "swap123".to_string(),
+                    pair: "BTC/BTC".to_string(),
+                    orderSide: OrderSide::Sell as i32,
+                    status: "swap.created".to_string(),
+                    lockupAddress: "bcrt1qtest123".to_string(),
+                    timeoutBlockHeight: 500,
+                    expectedAmount: Some(100000),
+                    ..Default::default()
+                })
+                .with_currencies()
+                .await
+                .build();
+
+            let err = service
+                .get_signing_details("test123", "swap123")
+                .await
+                .unwrap_err();
+
+            match err {
+                FundingAddressError::InvalidRequest(message) => {
+                    assert_eq!(message, "funding address lockup amount missing");
+                }
+                other => panic!("expected invalid request error, got: {other:?}"),
+            }
         }
     }
 

@@ -1862,7 +1862,7 @@ mod test {
                     wallet: Some(get_liquid_wallet()),
                     chain: None,
                     cln: None,
-                    lnd: None,
+                    lnds: HashMap::new(),
                     evm_manager: None,
                 },
             )])),

@@ -1265,6 +1265,7 @@ class SwapManager {
         res.theirPublicKey = getHexString(theirPublicKey!);
         res.lockupAddress = vHtlc.vHtlc.address;
         res.timeoutBlockHeight = vHtlc.timeouts.refund;
+        res.swapTree = JSON.stringify(vHtlc.vHtlc.swapTree);
       } else {
         const blockNumber = await currency.provider!.getLocktimeHeight();
         res.timeoutBlockHeight = blockNumber + timeoutBlockDelta;

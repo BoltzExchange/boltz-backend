@@ -824,16 +824,21 @@ impl SwapRescue {
         keys_map: &HashMap<String, u32>,
         s: ChainSwapInfo,
     ) -> Result<RestorableSwap> {
-        let receiving_wallet = self.get_wallet(&s.receiving().symbol)?;
         let sending_data = s.sending();
+        let receiving_data = s.receiving();
+        let claim_key_index =
+            Self::lookup_optional_from_keys(keys_map, &sending_data.theirPublicKey);
+        let refund_key_index =
+            Self::lookup_optional_from_keys(keys_map, &receiving_data.theirPublicKey);
 
-        // No support for claim details on RSK yet
-        let claim_details = if sending_data.theirPublicKey.is_some() {
+        // No support for claim details on RSK yet, and single-key restore requests can
+        // legitimately cover only one side of a chain swap.
+        let claim_details = if let Some(key_index) = claim_key_index {
             let sending_wallet = self.get_wallet(&sending_data.symbol)?;
             Some(
                 (
                     &s,
-                    Self::lookup_from_keys(keys_map, &s.sending().theirPublicKey, &s.id())?,
+                    key_index,
                     Self::derive_our_public_key(
                         secp,
                         &s.sending().symbol,
@@ -854,16 +859,12 @@ impl SwapRescue {
             None
         };
 
-        Ok(RestorableSwap {
-            base: (&s).into(),
-            preimage_hash: s.swap.preimageHash.clone(),
-            from: s.receiving().symbol.clone(),
-            to: sending_data.symbol.clone(),
-            claim_details,
-            refund_details: Some(
+        let refund_details = if let Some(key_index) = refund_key_index {
+            let receiving_wallet = self.get_wallet(&receiving_data.symbol)?;
+            Some(
                 (
-                    s.receiving(),
-                    Self::lookup_from_keys(keys_map, &s.receiving().theirPublicKey, &s.id())?,
+                    receiving_data,
+                    key_index,
                     Self::derive_our_public_key(
                         secp,
                         &s.receiving().symbol,
@@ -879,7 +880,22 @@ impl SwapRescue {
                     )?,
                 )
                     .try_into()?,
-            ),
+            )
+        } else {
+            None
+        };
+
+        if claim_details.is_none() && refund_details.is_none() {
+            return Err(anyhow!("no key mapping for {}", s.id()));
+        }
+
+        Ok(RestorableSwap {
+            base: (&s).into(),
+            preimage_hash: s.swap.preimageHash.clone(),
+            from: s.receiving().symbol.clone(),
+            to: sending_data.symbol.clone(),
+            claim_details,
+            refund_details,
         })
     }
 
@@ -965,6 +981,10 @@ impl SwapRescue {
                     .ok_or_else(|| anyhow!("no public key for {}", id))?,
             )
             .ok_or_else(|| anyhow!("no key mapping for {}", id))?)
+    }
+
+    fn lookup_optional_from_keys(keys: &HashMap<String, u32>, key: &Option<String>) -> Option<u32> {
+        key.as_ref().and_then(|key| keys.get(key).copied())
     }
 
     fn cache_key_index(identifier: &str) -> (&'static str, &str) {
@@ -1565,6 +1585,221 @@ mod test {
                 refund_details: None,
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_restore_single_key_chain_swap_claim_only() {
+        let tree = get_test_tree();
+        let chain_swap = ChainSwapInfo::new(
+            get_test_chain_swap(),
+            vec![
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "L-BTC".to_string(),
+                    keyIndex: Some(123),
+                    theirPublicKey: Some(
+                        "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree.clone()),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
+                    amount: Some(50000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "BTC".to_string(),
+                    keyIndex: Some(456),
+                    theirPublicKey: Some(
+                        "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree.clone()),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                    amount: Some(200000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+            ],
+        )
+        .unwrap();
+
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        {
+            let chain_swap = chain_swap.clone();
+            chain_helper
+                .expect_get_by_data_nullable()
+                .returning(move |_| Ok(vec![chain_swap.clone()]))
+                .times(1);
+        }
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnds: HashMap::new(),
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnds: HashMap::new(),
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+
+        let pubkey = PublicKey::from_str(
+            "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0",
+        )
+        .unwrap();
+        let res = rescue
+            .restore(Box::new(SingleKeyIterator::new(pubkey)))
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].base.id, chain_swap.id());
+        assert_eq!(
+            res[0].claim_details.as_ref().map(|d| d.base.key_index),
+            Some(0)
+        );
+        assert!(res[0].refund_details.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_restore_single_key_chain_swap_refund_only() {
+        let tree = get_test_tree();
+        let chain_swap = ChainSwapInfo::new(
+            get_test_chain_swap(),
+            vec![
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "L-BTC".to_string(),
+                    keyIndex: Some(123),
+                    theirPublicKey: Some(
+                        "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree.clone()),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
+                    amount: Some(50000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+                ChainSwapData {
+                    swapId: "chain".to_string(),
+                    symbol: "BTC".to_string(),
+                    keyIndex: Some(456),
+                    theirPublicKey: Some(
+                        "03f00262509d6c450463b293dedf06ccb472d160325debdb97fae58b05f0863cf0"
+                            .to_string(),
+                    ),
+                    swapTree: Some(tree.clone()),
+                    timeoutBlockHeight: 13_211,
+                    lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
+                    amount: Some(200000),
+                    transactionId: Some("chain tx".to_string()),
+                    transactionVout: Some(5),
+                },
+            ],
+        )
+        .unwrap();
+
+        let mut swap_helper = MockSwapHelper::new();
+        swap_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let mut chain_helper = MockChainSwapHelper::new();
+        {
+            let chain_swap = chain_swap.clone();
+            chain_helper
+                .expect_get_by_data_nullable()
+                .returning(move |_| Ok(vec![chain_swap.clone()]))
+                .times(1);
+        }
+
+        let mut reverse_helper = MockReverseSwapHelper::new();
+        reverse_helper
+            .expect_get_all_nullable()
+            .returning(|_| Ok(vec![]))
+            .times(1);
+
+        let rescue = SwapRescue::new(
+            Cache::Memory(MemCache::new()),
+            Arc::new(swap_helper),
+            Arc::new(chain_helper),
+            Arc::new(reverse_helper),
+            Arc::new(HashMap::from([
+                (
+                    crate::chain::elements_client::SYMBOL.to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnds: HashMap::new(),
+                        evm_manager: None,
+                    },
+                ),
+                (
+                    "BTC".to_string(),
+                    Currency {
+                        network: Network::Regtest,
+                        wallet: Some(get_liquid_wallet()),
+                        chain: None,
+                        cln: None,
+                        lnds: HashMap::new(),
+                        evm_manager: None,
+                    },
+                ),
+            ])),
+        );
+
+        let pubkey_refund = PublicKey::from_str(
+            "02a21f37434b4f5b9e53c8401b75a078e5f6fb797c6d29feb8d9fbf980e6320b3b",
+        )
+        .unwrap();
+        let res = rescue
+            .restore(Box::new(SingleKeyIterator::new(pubkey_refund)))
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].base.id, chain_swap.id());
+        assert_eq!(res[0].refund_details.as_ref().map(|d| d.key_index), Some(0));
+        assert!(res[0].claim_details.is_none());
     }
 
     #[tokio::test]

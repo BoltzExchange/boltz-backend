@@ -502,7 +502,7 @@ mod test {
                     wallet: None,
                     chain: None,
                     cln: None,
-                    lnd: None,
+                    lnds: HashMap::new(),
                     evm_manager: None,
                 },
             )])));

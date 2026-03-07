@@ -35,6 +35,7 @@ type ReferralPairConfig = {
 
 type ReferralPairConfigWithHidden = ReferralPairConfig & {
   showHidden?: boolean;
+  hidePair?: boolean;
 };
 
 type ReferralConfig = ReferralPairConfig & {

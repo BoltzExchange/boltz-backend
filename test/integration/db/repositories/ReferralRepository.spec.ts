@@ -120,6 +120,29 @@ describe('ReferralRepository', () => {
 
       test.each`
         value
+        ${'true'}
+        ${1}
+        ${{}}
+      `(
+        'should throw if hidePair has invalid type ($value)',
+        async ({ value }) => {
+          await expect(
+            ReferralRepository.addReferral({
+              ...fixture,
+              config: {
+                pairs: {
+                  'BTC/BTC': {
+                    hidePair: value as any,
+                  },
+                },
+              },
+            }),
+          ).rejects.toEqual('hidePair must be a boolean');
+        },
+      );
+
+      test.each`
+        value
         ${true}
         ${false}
       `('should accept valid showHidden values ($value)', async ({ value }) => {
@@ -135,6 +158,25 @@ describe('ReferralRepository', () => {
         });
 
         expect(ref.config?.pairs?.['BTC/BTC']?.showHidden).toEqual(value);
+      });
+
+      test.each`
+        value
+        ${true}
+        ${false}
+      `('should accept valid hidePair values ($value)', async ({ value }) => {
+        const ref = await ReferralRepository.addReferral({
+          ...fixture,
+          config: {
+            pairs: {
+              'BTC/BTC': {
+                hidePair: value,
+              },
+            },
+          },
+        });
+
+        expect(ref.config?.pairs?.['BTC/BTC']?.hidePair).toEqual(value);
       });
 
       test.each`
@@ -294,6 +336,32 @@ describe('ReferralRepository', () => {
         });
       });
 
+      test('should apply hidePair from file config when db config is empty', async () => {
+        ReferralRepository.setConfiguredReferrals({
+          test: {
+            pairs: {
+              'L-BTC/BTC': {
+                hidePair: true,
+              },
+            },
+          },
+        });
+
+        await ReferralRepository.addReferral({
+          ...fixture,
+          config: undefined,
+        });
+
+        const ref = await ReferralRepository.getReferralById('test');
+        expect(ref?.config).toEqual({
+          pairs: {
+            'L-BTC/BTC': {
+              hidePair: true,
+            },
+          },
+        });
+      });
+
       test('should prefer db config for duplicate values', async () => {
         ReferralRepository.setConfiguredReferrals({
           test: {
@@ -327,6 +395,38 @@ describe('ReferralRepository', () => {
             'BTC/BTC': {
               showHidden: true,
               maxRoutingFee: 0.002,
+            },
+          },
+        });
+      });
+
+      test('should prefer db hidePair for duplicate values', async () => {
+        ReferralRepository.setConfiguredReferrals({
+          test: {
+            pairs: {
+              'L-BTC/BTC': {
+                hidePair: false,
+              },
+            },
+          },
+        });
+
+        await ReferralRepository.addReferral({
+          ...fixture,
+          config: {
+            pairs: {
+              'L-BTC/BTC': {
+                hidePair: true,
+              },
+            },
+          },
+        });
+
+        const ref = await ReferralRepository.getReferralById('test');
+        expect(ref?.config).toEqual({
+          pairs: {
+            'L-BTC/BTC': {
+              hidePair: true,
             },
           },
         });
@@ -369,6 +469,43 @@ describe('ReferralRepository', () => {
         });
       });
 
+      test('should preserve non-conflicting nested hidePair values from both configs', async () => {
+        ReferralRepository.setConfiguredReferrals({
+          test: {
+            pairs: {
+              'L-BTC/BTC': {
+                hidePair: true,
+              },
+            },
+          },
+        });
+
+        await ReferralRepository.addReferral({
+          ...fixture,
+          config: {
+            pairs: {
+              'L-BTC/BTC': {
+                premiums: {
+                  [SwapType.Submarine]: 1,
+                },
+              },
+            },
+          },
+        });
+
+        const ref = await ReferralRepository.getReferralById('test');
+        expect(ref?.config).toEqual({
+          pairs: {
+            'L-BTC/BTC': {
+              hidePair: true,
+              premiums: {
+                [SwapType.Submarine]: 1,
+              },
+            },
+          },
+        });
+      });
+
       test('should return db config unchanged when no file config exists for referral', async () => {
         ReferralRepository.setConfiguredReferrals({
           other: {
@@ -387,6 +524,45 @@ describe('ReferralRepository', () => {
 
         const ref = await ReferralRepository.getReferralById('test');
         expect(ref?.config).toEqual(dbConfig);
+      });
+
+      test('should return merged hidePair values consistently across lookups', async () => {
+        ReferralRepository.setConfiguredReferrals({
+          test: {
+            pairs: {
+              'L-BTC/BTC': {
+                hidePair: true,
+              },
+            },
+          },
+        });
+
+        await ReferralRepository.addReferral({
+          ...fixture,
+          apiKey: 'testKey',
+          routingNode: '02abc',
+          config: undefined,
+        });
+
+        const [byId, byApiKey, byRoutingNode, refs] = await Promise.all([
+          ReferralRepository.getReferralById('test'),
+          ReferralRepository.getReferralByApiKey('testKey'),
+          ReferralRepository.getReferralByRoutingNode('02abc'),
+          ReferralRepository.getReferrals(),
+        ]);
+
+        const expectedConfig = {
+          pairs: {
+            'L-BTC/BTC': {
+              hidePair: true,
+            },
+          },
+        };
+
+        expect(byId?.config).toEqual(expectedConfig);
+        expect(byApiKey?.config).toEqual(expectedConfig);
+        expect(byRoutingNode?.config).toEqual(expectedConfig);
+        expect(refs[0].config).toEqual(expectedConfig);
       });
 
       test('should merge config in getReferrals', async () => {
@@ -492,6 +668,20 @@ describe('ReferralRepository', () => {
             },
           }),
         ).toThrow('showHidden must be a boolean');
+      });
+
+      test('should reject file config with invalid hidePair type', () => {
+        expect(() =>
+          ReferralRepository.setConfiguredReferrals({
+            bad: {
+              pairs: {
+                'L-BTC/BTC': {
+                  hidePair: 'yes' as any,
+                },
+              },
+            },
+          }),
+        ).toThrow('hidePair must be a boolean');
       });
     });
 

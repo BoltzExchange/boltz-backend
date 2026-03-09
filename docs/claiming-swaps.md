@@ -64,6 +64,63 @@ Examples for constructing Taproot Swap transactions can be found in
 [boltz-core](https://github.com/BoltzExchange/boltz-core/blob/v2.1.0/lib/swap/Claim.ts#L124).
 Partial signatures from Boltz use `SIGHASH_DEFAULT`.
 
+### Funding Address-backed Swaps
+
+Some Submarine and Chain Swaps are funded via a Funding Address instead of the
+swap's original lockup keys. In that case, clients need to use the Funding
+Address keys for the cooperative funding step and, later, also for cooperative
+claims when Boltz indicates that via `fundingAddressId`.
+
+#### Linking a Funding Address to a Swap
+
+To link a funded Funding Address to a swap:
+
+1. Create and fund the Funding Address.
+2. Create the swap once the exact amount is known.
+3. Call `GET /funding/{id}/signature?swapId=<swap id>` to receive Boltz's public
+   nonce, public key, and the presigned transaction.
+4. Verify the returned transaction before signing it.
+5. Create the partial signature with the Funding Address key and submit it with
+   `PATCH /funding/{id}/signature`.
+
+Clients should validate that the presigned transaction:
+
+- spends the Funding Address UTXO they expect
+- pays to the correct swap lockup address
+- moves the expected amount into that swap lockup output
+- does not contain unexpected outputs or other changes in value flow
+
+Clients must not blindly sign the transaction returned by Boltz - otherwise they
+risk losing funds.
+
+#### Cooperative Claims
+
+If a swap was funded through a Funding Address, cooperative claim responses can
+include `fundingAddressId`. That indicates that the client must use the Funding
+Address keys and tree for signing instead of the original swap lockup keys.
+
+The flow is then:
+
+1. Request the normal cooperative claim details for the swap.
+2. Check whether `fundingAddressId` is present.
+3. If it is present, load the restored or locally stored Funding Address data.
+4. Use the same signing process as for regular cooperative claims but with the
+   private key of the Funding Address.
+5. Build and verify the claim transaction with the Funding Address tree and key.
+6. Create the partial signature using the Funding Address key material.
+
+#### Refunds
+
+Funding Address refunds are similar to cooperative Taproot refunds:
+
+- while a Funding Address is unlinked, the client can request Boltz's partial
+  signature for a refund transaction via `POST /funding/{id}/refund`
+- if a linked swap fails, Boltz delinks the Funding Address again so it can be
+  refunded or linked to another eligible swap
+
+As with other Taproot flows, clients should still implement the script path
+fallback after timeout in case Boltz is unavailable or refuses to cooperate.
+
 ### Submarine Swaps
 
 #### Claim

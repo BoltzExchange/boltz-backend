@@ -1191,11 +1191,11 @@ describe('GrpcService', () => {
       const signers = [boltzrpc.Signer.SIGNER_CHAIN_LOCKUP];
       mockDisableSigners.mockReturnValueOnce(signers);
 
-      const request = new boltzrpc.DisableSignerRequest();
+      const request = new boltzrpc.DisableSignersRequest();
       request.setSignersList(signers);
 
       await new Promise<void>((resolve, reject) => {
-        grpcService.disableSigner({ request } as any, (error, response) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
           if (error) {
             reject(error);
             return;
@@ -1215,11 +1215,11 @@ describe('GrpcService', () => {
       const disabledSigners = [boltzrpc.Signer.SIGNER_REVERSE_LOCKUP];
       mockEnableSigners.mockReturnValueOnce(disabledSigners);
 
-      const request = new boltzrpc.EnableSignerRequest();
+      const request = new boltzrpc.EnableSignersRequest();
       request.setSignersList(toEnable);
 
       await new Promise<void>((resolve, reject) => {
-        grpcService.enableSigner({ request } as any, (error, response) => {
+        grpcService.enableSigners({ request } as any, (error, response) => {
           if (error) {
             reject(error);
             return;
@@ -1237,7 +1237,9 @@ describe('GrpcService', () => {
     });
 
     test('should list disabled signers', async () => {
-      const disabledSigners = [boltzrpc.Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT];
+      const disabledSigners = [
+        boltzrpc.Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ];
       mockGetDisabledSigners.mockReturnValueOnce(disabledSigners);
 
       await new Promise<void>((resolve, reject) => {
@@ -1263,15 +1265,12 @@ describe('GrpcService', () => {
 
     test('should return INVALID_ARGUMENT for invalid signer input', async () => {
       const errorMessage = 'at least one signer must be specified';
-      mockDisableSigners.mockImplementationOnce(() => {
-        throw new Error(errorMessage);
-      });
 
-      const request = new boltzrpc.DisableSignerRequest();
+      const request = new boltzrpc.DisableSignersRequest();
       request.setSignersList([]);
 
       await new Promise<void>((resolve) => {
-        grpcService.disableSigner({ request } as any, (error, response) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
           expect(response).toEqual(null);
           expect(error).toEqual({
             code: status.INVALID_ARGUMENT,
@@ -1281,6 +1280,27 @@ describe('GrpcService', () => {
           resolve();
         });
       });
+
+      expect(mockDisableSigners).not.toHaveBeenCalled();
+    });
+
+    test('should reject unknown signer values before mutating registry', async () => {
+      const request = new boltzrpc.DisableSignersRequest();
+      request.setSignersList([123_456 as any]);
+
+      await new Promise<void>((resolve) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
+          expect(response).toEqual(null);
+          expect(error).toEqual({
+            code: status.INVALID_ARGUMENT,
+            details: 'invalid signer: 123456',
+            message: 'invalid signer: 123456',
+          });
+          resolve();
+        });
+      });
+
+      expect(mockDisableSigners).not.toHaveBeenCalled();
     });
   });
 

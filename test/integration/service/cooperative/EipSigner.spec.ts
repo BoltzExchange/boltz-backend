@@ -66,7 +66,7 @@ describe('EipSigner', () => {
       false,
     );
 
-    signerControlRegistry = new SignerControlRegistry();
+    signerControlRegistry = SignerControlRegistry.getInstance();
 
     eipSigner = new EipSigner(
       Logger.disabledLogger,
@@ -125,9 +125,10 @@ describe('EipSigner', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    signerControlRegistry.reset();
     signerControlRegistry.enableSigners([
-      Signer.SIGNER_EVM_REFUND_COOP,
-      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOP,
+      Signer.SIGNER_EVM_REFUND_COOPERATIVE,
+      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
     ]);
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
@@ -189,7 +190,9 @@ describe('EipSigner', () => {
   });
 
   test('should throw when EVM cooperative refunds are disabled', async () => {
-    signerControlRegistry.disableSigners([Signer.SIGNER_EVM_REFUND_COOP]);
+    signerControlRegistry.disableSigners([
+      Signer.SIGNER_EVM_REFUND_COOPERATIVE,
+    ]);
 
     await expect(eipSigner.signSwapRefund('disabled')).rejects.toEqual(
       Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
@@ -200,7 +203,7 @@ describe('EipSigner', () => {
 
   test('should throw when EVM commitment cooperative refunds are disabled', async () => {
     signerControlRegistry.disableSigners([
-      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOP,
+      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
     ]);
 
     await expect(

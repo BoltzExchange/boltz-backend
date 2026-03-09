@@ -21,6 +21,8 @@ import type Swap from '../db/models/Swap';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { Signer } from '../proto/boltzrpc_pb';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
 import LightningNursery from '../swap/LightningNursery';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -47,8 +49,6 @@ class SelfPaymentClient
   implements LightningClient
 {
   private static readonly selfPaymentLock = 'self-payment';
-  private static readonly disabledSubmarineInvoicePaymentError =
-    'signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled';
   private static readonly notImplementedError = new Error('not implemented');
 
   private readonly lock = new AsyncLock();
@@ -108,7 +108,7 @@ class SelfPaymentClient
         if (reverseSwap.status === SwapUpdateEvent.SwapCreated) {
           if (isSubmarineInvoicePaymentSignerDisabled) {
             throw new Error(
-              SelfPaymentClient.disabledSubmarineInvoicePaymentError,
+              disabledSignerMessage(Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT),
             );
           }
 

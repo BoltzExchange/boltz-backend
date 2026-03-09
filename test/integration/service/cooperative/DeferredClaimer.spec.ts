@@ -113,7 +113,7 @@ describe('DeferredClaimer', () => {
   const walletManager = {
     wallets: new Map<string, Wallet>([['BTC', btcWallet]]),
   } as WalletManager;
-  const signerControlRegistry = new SignerControlRegistry();
+  const signerControlRegistry = SignerControlRegistry.getInstance();
 
   const claimer = new DeferredClaimer(
     Logger.disabledLogger,
@@ -650,7 +650,10 @@ describe('DeferredClaimer', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    signerControlRegistry.enableSigners([Signer.SIGNER_DEFERRED_CLAIM_COOP]);
+    signerControlRegistry.reset();
+    signerControlRegistry.enableSigners([
+      Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
+    ]);
     claimer['swapsToClaim'].get('BTC')?.clear();
     claimer['chainSwapsToClaim'].get('BTC')?.clear();
     claimer['swapsToClaim'].get('ARK')?.clear();
@@ -1454,7 +1457,9 @@ describe('DeferredClaimer', () => {
 
   describe('getCooperativeDetails', () => {
     test('should throw when deferred cooperative claims are disabled', async () => {
-      signerControlRegistry.disableSigners([Signer.SIGNER_DEFERRED_CLAIM_COOP]);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
+      ]);
 
       await expect(
         claimer.getCooperativeDetails({

@@ -38,11 +38,11 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
-import { Signer } from '../../../../lib/proto/boltzrpc_pb';
 import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
+import { Signer } from '../../../../lib/proto/boltzrpc_pb';
 import Errors from '../../../../lib/service/Errors';
 import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
@@ -124,7 +124,8 @@ describe('ChainSwapSigner', () => {
   });
 
   beforeEach(() => {
-    signerControlRegistry = new SignerControlRegistry();
+    signerControlRegistry = SignerControlRegistry.getInstance();
+    signerControlRegistry.reset();
     signer = new ChainSwapSigner(
       Logger.disabledLogger,
       new Map<string, Currency>([
@@ -374,7 +375,9 @@ describe('ChainSwapSigner', () => {
         },
       });
 
-      signerControlRegistry.disableSigners([Signer.SIGNER_CHAIN_REFUND_COOP]);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+      ]);
 
       await expect(
         signer.signRefund('asdf', Buffer.alloc(0), Buffer.alloc(0), 0),
@@ -480,7 +483,9 @@ describe('ChainSwapSigner', () => {
         },
       });
 
-      signerControlRegistry.disableSigners([Signer.SIGNER_CHAIN_REFUND_COOP]);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+      ]);
 
       await expect(
         signerWithArk.signRefundArk('asdf', 'transaction', 'checkpoint'),

@@ -22,14 +22,16 @@ const KEY_FILE_NAME: &str = "client-key.pem";
 
 fn map_signer(signer: crate::parsers::Signer) -> i32 {
     match signer {
-        crate::parsers::Signer::SubmarineRefundCoop => boltz_rpc::Signer::SubmarineRefundCoop,
-        crate::parsers::Signer::ReverseClaimCoop => boltz_rpc::Signer::ReverseClaimCoop,
-        crate::parsers::Signer::ChainRefundCoop => boltz_rpc::Signer::ChainRefundCoop,
-        crate::parsers::Signer::ChainClaimCoop => boltz_rpc::Signer::ChainClaimCoop,
-        crate::parsers::Signer::DeferredClaimCoop => boltz_rpc::Signer::DeferredClaimCoop,
-        crate::parsers::Signer::EvmRefundCoop => boltz_rpc::Signer::EvmRefundCoop,
+        crate::parsers::Signer::SubmarineRefundCoop => {
+            boltz_rpc::Signer::SubmarineRefundCooperative
+        }
+        crate::parsers::Signer::ReverseClaimCoop => boltz_rpc::Signer::ReverseClaimCooperative,
+        crate::parsers::Signer::ChainRefundCoop => boltz_rpc::Signer::ChainRefundCooperative,
+        crate::parsers::Signer::ChainClaimCoop => boltz_rpc::Signer::ChainClaimCooperative,
+        crate::parsers::Signer::DeferredClaimCoop => boltz_rpc::Signer::DeferredClaimCooperative,
+        crate::parsers::Signer::EvmRefundCoop => boltz_rpc::Signer::EvmRefundCooperative,
         crate::parsers::Signer::EvmCommitmentRefundCoop => {
-            boltz_rpc::Signer::EvmCommitmentRefundCoop
+            boltz_rpc::Signer::EvmCommitmentRefundCooperative
         }
         crate::parsers::Signer::ReverseLockup => boltz_rpc::Signer::ReverseLockup,
         crate::parsers::Signer::ChainLockup => boltz_rpc::Signer::ChainLockup,
@@ -108,26 +110,26 @@ impl BoltzClient {
         Ok(response.into_inner())
     }
 
-    pub async fn disable_signer(
+    pub async fn disable_signers(
         &mut self,
         signers: Vec<crate::parsers::Signer>,
-    ) -> Result<boltz_rpc::DisableSignerResponse> {
+    ) -> Result<boltz_rpc::DisableSignersResponse> {
         let response = self
             .client
-            .disable_signer(boltz_rpc::DisableSignerRequest {
+            .disable_signers(boltz_rpc::DisableSignersRequest {
                 signers: signers.into_iter().map(map_signer).collect(),
             })
             .await?;
         Ok(response.into_inner())
     }
 
-    pub async fn enable_signer(
+    pub async fn enable_signers(
         &mut self,
         signers: Vec<crate::parsers::Signer>,
-    ) -> Result<boltz_rpc::EnableSignerResponse> {
+    ) -> Result<boltz_rpc::EnableSignersResponse> {
         let response = self
             .client
-            .enable_signer(boltz_rpc::EnableSignerRequest {
+            .enable_signers(boltz_rpc::EnableSignersRequest {
                 signers: signers.into_iter().map(map_signer).collect(),
             })
             .await?;

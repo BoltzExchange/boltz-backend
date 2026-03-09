@@ -105,7 +105,7 @@ class MusigSigner {
 
     if (
       this.signerControlRegistry?.isDisabled(
-        Signer.SIGNER_SUBMARINE_REFUND_COOP,
+        Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
       )
     ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
@@ -158,7 +158,7 @@ class MusigSigner {
 
     if (
       this.signerControlRegistry?.isDisabled(
-        Signer.SIGNER_SUBMARINE_REFUND_COOP,
+        Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
       )
     ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
@@ -221,7 +221,7 @@ class MusigSigner {
 
         if (
           this.signerControlRegistry?.isDisabled(
-            Signer.SIGNER_REVERSE_CLAIM_COOP,
+            Signer.SIGNER_REVERSE_CLAIM_COOPERATIVE,
           )
         ) {
           throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(

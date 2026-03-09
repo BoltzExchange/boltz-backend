@@ -216,7 +216,8 @@ class Service {
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
-    this.signerControlRegistry = new SignerControlRegistry();
+    this.signerControlRegistry = SignerControlRegistry.getInstance();
+    this.signerControlRegistry.init(this.logger);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,

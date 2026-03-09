@@ -295,7 +295,7 @@ class DeferredClaimer extends CoopSignerBase<{
   }> => {
     if (
       this.signerControlRegistry?.isDisabled(
-        Signer.SIGNER_DEFERRED_CLAIM_COOP,
+        Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
       )
     ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
@@ -330,7 +330,7 @@ class DeferredClaimer extends CoopSignerBase<{
     await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
       if (
         this.signerControlRegistry?.isDisabled(
-          Signer.SIGNER_DEFERRED_CLAIM_COOP,
+          Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
         )
       ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(

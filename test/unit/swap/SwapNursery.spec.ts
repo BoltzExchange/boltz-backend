@@ -209,7 +209,8 @@ describe('SwapNursery', () => {
 
   describe('signer lockup guards', () => {
     test('should reject reverse lockups when signer is disabled', () => {
-      const signerControlRegistry = new SignerControlRegistry();
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      signerControlRegistry.reset();
       signerControlRegistry.disableSigners([Signer.SIGNER_REVERSE_LOCKUP]);
 
       const guardedNursery = new SwapNursery(
@@ -238,7 +239,8 @@ describe('SwapNursery', () => {
     });
 
     test('should reject chain lockups when signer is disabled', () => {
-      const signerControlRegistry = new SignerControlRegistry();
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      signerControlRegistry.reset();
       signerControlRegistry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
 
       const guardedNursery = new SwapNursery(

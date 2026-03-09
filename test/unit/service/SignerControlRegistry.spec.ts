@@ -1,3 +1,4 @@
+import Logger from '../../../lib/Logger';
 import { Signer } from '../../../lib/proto/boltzrpc_pb';
 import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 
@@ -5,7 +6,9 @@ describe('SignerControlRegistry', () => {
   let registry: SignerControlRegistry;
 
   beforeEach(() => {
-    registry = new SignerControlRegistry();
+    registry = SignerControlRegistry.getInstance();
+    registry.init(Logger.disabledLogger);
+    registry.reset();
   });
 
   test('should disable signers with set semantics', () => {
@@ -39,32 +42,33 @@ describe('SignerControlRegistry', () => {
     ]);
   });
 
-  test('should throw for empty signer lists', () => {
-    expect(() => registry.disableSigners([])).toThrow(
-      'at least one signer must be specified',
+  test('should log disable and enable operations', () => {
+    const infoSpy = jest.spyOn(Logger.disabledLogger, 'info');
+
+    registry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
+    registry.enableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
+
+    expect(infoSpy).toHaveBeenCalledTimes(2);
+    expect(infoSpy).toHaveBeenNthCalledWith(
+      1,
+      'Disabled signers: SIGNER_CHAIN_LOCKUP. Disabled signer set: SIGNER_CHAIN_LOCKUP',
     );
-    expect(() => registry.enableSigners([])).toThrow(
-      'at least one signer must be specified',
+    expect(infoSpy).toHaveBeenNthCalledWith(
+      2,
+      'Enabled signers: SIGNER_CHAIN_LOCKUP. No signers are disabled',
     );
   });
 
-  test('should reject invalid signer values without partial mutation', () => {
+  test('should return the same singleton instance', () => {
     registry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
 
-    expect(() =>
-      registry.disableSigners([
-        Signer.SIGNER_REVERSE_LOCKUP,
-        123_456 as unknown as Signer,
-      ]),
-    ).toThrow('invalid signer: 123456');
-
-    expect(registry.getDisabledSigners()).toEqual([Signer.SIGNER_CHAIN_LOCKUP]);
+    expect(SignerControlRegistry.getInstance()).toBe(registry);
   });
 
-  test('should reset state with a new instance', () => {
+  test('should reset state explicitly', () => {
     registry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
 
-    const newRegistry = new SignerControlRegistry();
-    expect(newRegistry.getDisabledSigners()).toEqual([]);
+    registry.reset();
+    expect(registry.getDisabledSigners()).toEqual([]);
   });
 });

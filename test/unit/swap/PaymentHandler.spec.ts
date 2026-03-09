@@ -5,13 +5,13 @@ import type Swap from '../../../lib/db/models/Swap';
 import LightningErrors from '../../../lib/lightning/Errors';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
+import { Signer } from '../../../lib/proto/boltzrpc_pb';
 import { Payment } from '../../../lib/proto/lnd/rpc_pb';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import type DecodedInvoiceSidecar from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
-import { Signer } from '../../../lib/proto/boltzrpc_pb';
-import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
 import PaymentHandler from '../../../lib/swap/PaymentHandler';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -76,7 +76,7 @@ const sidecar = {
 
 describe('PaymentHandler', () => {
   const nodeSwitch = MockedNodeSwitch();
-  const signerControlRegistry = new SignerControlRegistry();
+  const signerControlRegistry = SignerControlRegistry.getInstance();
   let relevantPayments: any[] = [];
 
   const mockedEmit = jest.fn();
@@ -145,14 +145,17 @@ describe('PaymentHandler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    signerControlRegistry.enableSigners([Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT]);
+    signerControlRegistry.reset();
+    signerControlRegistry.enableSigners([
+      Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+    ]);
     relevantPayments = [];
-    (handler['selfPaymentClient'].handleSelfPayment as jest.Mock).mockResolvedValue(
-      {
-        isSelf: false,
-        result: undefined,
-      },
-    );
+    (
+      handler['selfPaymentClient'].handleSelfPayment as jest.Mock
+    ).mockResolvedValue({
+      isSelf: false,
+      result: undefined,
+    });
   });
 
   test('should check payment for CLTV limits that are too small', async () => {
@@ -174,11 +177,17 @@ describe('PaymentHandler', () => {
   });
 
   test('should fail fast for new payments when invoice signer is disabled', async () => {
-    signerControlRegistry.disableSigners([Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT]);
+    signerControlRegistry.disableSigners([
+      Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+    ]);
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(undefined);
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
+      undefined,
+    );
 
-    expect(handler['selfPaymentClient'].handleSelfPayment).toHaveBeenCalledTimes(1);
+    expect(
+      handler['selfPaymentClient'].handleSelfPayment,
+    ).toHaveBeenCalledTimes(1);
     expect(handler['selfPaymentClient'].handleSelfPayment).toHaveBeenCalledWith(
       swap,
       0,
@@ -195,12 +204,18 @@ describe('PaymentHandler', () => {
   });
 
   test('should allow payment retries with history when signer is disabled', async () => {
-    signerControlRegistry.disableSigners([Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT]);
+    signerControlRegistry.disableSigners([
+      Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+    ]);
     relevantPayments = [{} as any];
 
-    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(undefined);
+    await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
+      undefined,
+    );
 
-    expect(handler['selfPaymentClient'].handleSelfPayment).toHaveBeenCalledTimes(1);
+    expect(
+      handler['selfPaymentClient'].handleSelfPayment,
+    ).toHaveBeenCalledTimes(1);
     expect(handler['selfPaymentClient'].handleSelfPayment).toHaveBeenCalledWith(
       swap,
       0,

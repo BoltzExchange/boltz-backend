@@ -23,9 +23,10 @@ import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
-import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import { Signer } from '../proto/boltzrpc_pb';
+import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
 import type SignerControlRegistry from '../service/SignerControlRegistry';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
@@ -167,7 +168,9 @@ class PaymentHandler {
     }
 
     if (isSubmarineInvoicePaymentSignerDisabled && payments.length === 0) {
-      const errorMessage = 'signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled';
+      const errorMessage = disabledSignerMessage(
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      );
       this.logPaymentFailure(swap, errorMessage);
       await this.abandonSwap(swap, errorMessage);
       return undefined;

@@ -64,7 +64,11 @@ class EipSigner {
 
   public signSwapRefund = async (swapIdOrPreimageHash: string) =>
     this.refundSignatureLock(async () => {
-      if (this.signerControlRegistry?.isDisabled(Signer.SIGNER_EVM_REFUND_COOP)) {
+      if (
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_EVM_REFUND_COOPERATIVE,
+        )
+      ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           cooperativeSignaturesDisabledMessage,
         );
@@ -165,7 +169,7 @@ class EipSigner {
     this.refundSignatureLock(async () => {
       if (
         this.signerControlRegistry?.isDisabled(
-          Signer.SIGNER_EVM_COMMITMENT_REFUND_COOP,
+          Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
         )
       ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(

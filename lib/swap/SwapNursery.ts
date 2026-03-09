@@ -67,6 +67,7 @@ import FeeProvider from '../rates/FeeProvider';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import type RateProvider from '../rates/RateProvider';
 import type SignerControlRegistry from '../service/SignerControlRegistry';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import type DeferredClaimer from '../service/cooperative/DeferredClaimer';
@@ -1253,22 +1254,16 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       return;
     }
 
-    const { signer, signerName } =
+    const signer =
       swap.type === SwapType.ReverseSubmarine
-        ? {
-            signer: Signer.SIGNER_REVERSE_LOCKUP,
-            signerName: 'SIGNER_REVERSE_LOCKUP',
-          }
-        : {
-            signer: Signer.SIGNER_CHAIN_LOCKUP,
-            signerName: 'SIGNER_CHAIN_LOCKUP',
-          };
+        ? Signer.SIGNER_REVERSE_LOCKUP
+        : Signer.SIGNER_CHAIN_LOCKUP;
 
     if (!this.signerControlRegistry.isDisabled(signer)) {
       return;
     }
 
-    throw new Error(`signer ${signerName} is disabled`);
+    throw new Error(disabledSignerMessage(signer));
   };
 
   private lockupUtxo = async (

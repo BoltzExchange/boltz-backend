@@ -34,8 +34,8 @@ service Boltz {
   /* Disables safety checks to allow for a cooperative refund for a swap */
   rpc AllowRefund (AllowRefundRequest) returns (AllowRefundResponse);
 
-  rpc DisableSigner (DisableSignerRequest) returns (DisableSignerResponse);
-  rpc EnableSigner (EnableSignerRequest) returns (EnableSignerResponse);
+  rpc DisableSigners (DisableSignersRequest) returns (DisableSignersResponse);
+  rpc EnableSigners (EnableSignersRequest) returns (EnableSignersResponse);
   rpc GetDisabledSigners (GetDisabledSignersRequest) returns (GetDisabledSignersResponse);
 
   /* Gets funds locked by the server for swaps */
@@ -79,13 +79,13 @@ enum OutputType {
 }
 
 enum Signer {
-  SIGNER_SUBMARINE_REFUND_COOP = 0;
-  SIGNER_REVERSE_CLAIM_COOP = 1;
-  SIGNER_CHAIN_REFUND_COOP = 2;
-  SIGNER_CHAIN_CLAIM_COOP = 3;
-  SIGNER_DEFERRED_CLAIM_COOP = 4;
-  SIGNER_EVM_REFUND_COOP = 5;
-  SIGNER_EVM_COMMITMENT_REFUND_COOP = 6;
+  SIGNER_SUBMARINE_REFUND_COOPERATIVE = 0;
+  SIGNER_REVERSE_CLAIM_COOPERATIVE = 1;
+  SIGNER_CHAIN_REFUND_COOPERATIVE = 2;
+  SIGNER_CHAIN_CLAIM_COOPERATIVE = 3;
+  SIGNER_DEFERRED_CLAIM_COOPERATIVE = 4;
+  SIGNER_EVM_REFUND_COOPERATIVE = 5;
+  SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE = 6;
   SIGNER_REVERSE_LOCKUP = 7;
   SIGNER_CHAIN_LOCKUP = 8;
   SIGNER_SUBMARINE_INVOICE_PAYMENT = 9;
@@ -272,19 +272,19 @@ message AllowRefundRequest {
 
 message AllowRefundResponse {}
 
-message DisableSignerRequest {
+message DisableSignersRequest {
   repeated Signer signers = 1;
 }
 
-message DisableSignerResponse {
+message DisableSignersResponse {
   repeated Signer disabled_signers = 1;
 }
 
-message EnableSignerRequest {
+message EnableSignersRequest {
   repeated Signer signers = 1;
 }
 
-message EnableSignerResponse {
+message EnableSignersResponse {
   repeated Signer disabled_signers = 1;
 }
 

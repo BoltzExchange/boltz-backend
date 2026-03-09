@@ -1,43 +1,50 @@
-import { Signer } from '../proto/boltzrpc_pb';
-
-const supportedSigners = [
-  Signer.SIGNER_SUBMARINE_REFUND_COOP,
-  Signer.SIGNER_REVERSE_CLAIM_COOP,
-  Signer.SIGNER_CHAIN_REFUND_COOP,
-  Signer.SIGNER_CHAIN_CLAIM_COOP,
-  Signer.SIGNER_DEFERRED_CLAIM_COOP,
-  Signer.SIGNER_EVM_REFUND_COOP,
-  Signer.SIGNER_EVM_COMMITMENT_REFUND_COOP,
-  Signer.SIGNER_REVERSE_LOCKUP,
-  Signer.SIGNER_CHAIN_LOCKUP,
-  Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
-] as const;
-
-const supportedSignersSet = new Set<number>(supportedSigners);
+import LoggerClass from '../Logger';
+import type Logger from '../Logger';
+import type { Signer } from '../proto/boltzrpc_pb';
+import { signerName } from './SignerControlUtils';
 
 class SignerControlRegistry {
-  public static readonly allSigners = supportedSigners;
+  private static instance: SignerControlRegistry | undefined;
 
   private readonly disabledSigners = new Set<Signer>();
+  private logger = LoggerClass.disabledLogger;
+
+  private constructor() {}
+
+  public static getInstance = (): SignerControlRegistry => {
+    if (SignerControlRegistry.instance === undefined) {
+      SignerControlRegistry.instance = new SignerControlRegistry();
+    }
+
+    return SignerControlRegistry.instance;
+  };
+
+  public init = (logger: Logger) => {
+    this.logger = logger;
+  };
 
   public disableSigners = (signers: Signer[]): Signer[] => {
-    this.assertValidSigners(signers);
-
     for (const signer of signers) {
       this.disabledSigners.add(signer);
     }
 
-    return this.getDisabledSigners();
+    const disabledSigners = this.getDisabledSigners();
+    this.logger.info(
+      this.formatLogMessage('Disabled', signers, disabledSigners),
+    );
+    return disabledSigners;
   };
 
   public enableSigners = (signers: Signer[]): Signer[] => {
-    this.assertValidSigners(signers);
-
     for (const signer of signers) {
       this.disabledSigners.delete(signer);
     }
 
-    return this.getDisabledSigners();
+    const disabledSigners = this.getDisabledSigners();
+    this.logger.info(
+      this.formatLogMessage('Enabled', signers, disabledSigners),
+    );
+    return disabledSigners;
   };
 
   public getDisabledSigners = (): Signer[] =>
@@ -46,16 +53,24 @@ class SignerControlRegistry {
   public isDisabled = (signer: Signer): boolean =>
     this.disabledSigners.has(signer);
 
-  private assertValidSigners = (signers: Signer[]) => {
-    if (signers.length === 0) {
-      throw new Error('at least one signer must be specified');
+  // Tests use this to clear singleton state between cases.
+  public reset = () => {
+    this.disabledSigners.clear();
+  };
+
+  private formatLogMessage = (
+    action: 'Disabled' | 'Enabled',
+    signers: Signer[],
+    disabledSigners: Signer[],
+  ) => {
+    const changed = signers.map(signerName).join(', ');
+    if (disabledSigners.length === 0) {
+      return `${action} signers: ${changed}. No signers are disabled`;
     }
 
-    for (const signer of signers) {
-      if (!supportedSignersSet.has(signer)) {
-        throw new Error(`invalid signer: ${signer}`);
-      }
-    }
+    return `${action} signers: ${changed}. Disabled signer set: ${disabledSigners
+      .map(signerName)
+      .join(', ')}`;
   };
 }
 

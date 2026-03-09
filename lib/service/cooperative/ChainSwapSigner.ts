@@ -106,7 +106,9 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       }
 
       if (
-        this.signerControlRegistry?.isDisabled(Signer.SIGNER_CHAIN_REFUND_COOP)
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+        )
       ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           cooperativeSignaturesDisabledMessage,
@@ -167,7 +169,9 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       }
 
       if (
-        this.signerControlRegistry?.isDisabled(Signer.SIGNER_CHAIN_REFUND_COOP)
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+        )
       ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           cooperativeSignaturesDisabledMessage,
@@ -235,7 +239,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
-    if (this.signerControlRegistry?.isDisabled(Signer.SIGNER_CHAIN_CLAIM_COOP)) {
+    if (
+      this.signerControlRegistry?.isDisabled(
+        Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
+      )
+    ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
         cooperativeSignaturesDisabledMessage,
       );
@@ -275,7 +283,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       async () => {
         if (
           this.signerControlRegistry?.isDisabled(
-            Signer.SIGNER_CHAIN_CLAIM_COOP,
+            Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
           )
         ) {
           throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(

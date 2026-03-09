@@ -989,7 +989,7 @@ async fn run_command(cli: Cli) -> Result<()> {
             SignerCommands::Disable { signers } => {
                 let response = get_grpc_client(&cli)
                     .await?
-                    .disable_signer(signers.clone())
+                    .disable_signers(signers.clone())
                     .await?;
                 print_pretty(
                     &response
@@ -1002,7 +1002,7 @@ async fn run_command(cli: Cli) -> Result<()> {
             SignerCommands::Enable { signers } => {
                 let response = get_grpc_client(&cli)
                     .await?
-                    .enable_signer(signers.clone())
+                    .enable_signers(signers.clone())
                     .await?;
                 print_pretty(
                     &response

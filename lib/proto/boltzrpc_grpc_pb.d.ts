@@ -20,8 +20,8 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     addReferral: IBoltzService_IAddReferral;
     setSwapStatus: IBoltzService_ISetSwapStatus;
     allowRefund: IBoltzService_IAllowRefund;
-    disableSigner: IBoltzService_IDisableSigner;
-    enableSigner: IBoltzService_IEnableSigner;
+    disableSigners: IBoltzService_IDisableSigners;
+    enableSigners: IBoltzService_IEnableSigners;
     getDisabledSigners: IBoltzService_IGetDisabledSigners;
     getLockedFunds: IBoltzService_IGetLockedFunds;
     getPendingSweeps: IBoltzService_IGetPendingSweeps;
@@ -142,23 +142,23 @@ interface IBoltzService_IAllowRefund extends grpc.MethodDefinition<boltzrpc_pb.A
     responseSerialize: grpc.serialize<boltzrpc_pb.AllowRefundResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.AllowRefundResponse>;
 }
-interface IBoltzService_IDisableSigner extends grpc.MethodDefinition<boltzrpc_pb.DisableSignerRequest, boltzrpc_pb.DisableSignerResponse> {
-    path: "/boltzrpc.Boltz/DisableSigner";
+interface IBoltzService_IDisableSigners extends grpc.MethodDefinition<boltzrpc_pb.DisableSignersRequest, boltzrpc_pb.DisableSignersResponse> {
+    path: "/boltzrpc.Boltz/DisableSigners";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<boltzrpc_pb.DisableSignerRequest>;
-    requestDeserialize: grpc.deserialize<boltzrpc_pb.DisableSignerRequest>;
-    responseSerialize: grpc.serialize<boltzrpc_pb.DisableSignerResponse>;
-    responseDeserialize: grpc.deserialize<boltzrpc_pb.DisableSignerResponse>;
+    requestSerialize: grpc.serialize<boltzrpc_pb.DisableSignersRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.DisableSignersRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.DisableSignersResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.DisableSignersResponse>;
 }
-interface IBoltzService_IEnableSigner extends grpc.MethodDefinition<boltzrpc_pb.EnableSignerRequest, boltzrpc_pb.EnableSignerResponse> {
-    path: "/boltzrpc.Boltz/EnableSigner";
+interface IBoltzService_IEnableSigners extends grpc.MethodDefinition<boltzrpc_pb.EnableSignersRequest, boltzrpc_pb.EnableSignersResponse> {
+    path: "/boltzrpc.Boltz/EnableSigners";
     requestStream: false;
     responseStream: false;
-    requestSerialize: grpc.serialize<boltzrpc_pb.EnableSignerRequest>;
-    requestDeserialize: grpc.deserialize<boltzrpc_pb.EnableSignerRequest>;
-    responseSerialize: grpc.serialize<boltzrpc_pb.EnableSignerResponse>;
-    responseDeserialize: grpc.deserialize<boltzrpc_pb.EnableSignerResponse>;
+    requestSerialize: grpc.serialize<boltzrpc_pb.EnableSignersRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.EnableSignersRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.EnableSignersResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.EnableSignersResponse>;
 }
 interface IBoltzService_IGetDisabledSigners extends grpc.MethodDefinition<boltzrpc_pb.GetDisabledSignersRequest, boltzrpc_pb.GetDisabledSignersResponse> {
     path: "/boltzrpc.Boltz/GetDisabledSigners";
@@ -346,8 +346,8 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     addReferral: grpc.handleUnaryCall<boltzrpc_pb.AddReferralRequest, boltzrpc_pb.AddReferralResponse>;
     setSwapStatus: grpc.handleUnaryCall<boltzrpc_pb.SetSwapStatusRequest, boltzrpc_pb.SetSwapStatusResponse>;
     allowRefund: grpc.handleUnaryCall<boltzrpc_pb.AllowRefundRequest, boltzrpc_pb.AllowRefundResponse>;
-    disableSigner: grpc.handleUnaryCall<boltzrpc_pb.DisableSignerRequest, boltzrpc_pb.DisableSignerResponse>;
-    enableSigner: grpc.handleUnaryCall<boltzrpc_pb.EnableSignerRequest, boltzrpc_pb.EnableSignerResponse>;
+    disableSigners: grpc.handleUnaryCall<boltzrpc_pb.DisableSignersRequest, boltzrpc_pb.DisableSignersResponse>;
+    enableSigners: grpc.handleUnaryCall<boltzrpc_pb.EnableSignersRequest, boltzrpc_pb.EnableSignersResponse>;
     getDisabledSigners: grpc.handleUnaryCall<boltzrpc_pb.GetDisabledSignersRequest, boltzrpc_pb.GetDisabledSignersResponse>;
     getLockedFunds: grpc.handleUnaryCall<boltzrpc_pb.GetLockedFundsRequest, boltzrpc_pb.GetLockedFundsResponse>;
     getPendingSweeps: grpc.handleUnaryCall<boltzrpc_pb.GetPendingSweepsRequest, boltzrpc_pb.GetPendingSweepsResponse>;
@@ -403,12 +403,12 @@ export interface IBoltzClient {
     allowRefund(request: boltzrpc_pb.AllowRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
-    disableSigner(request: boltzrpc_pb.DisableSignerRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    disableSigner(request: boltzrpc_pb.DisableSignerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    disableSigner(request: boltzrpc_pb.DisableSignerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    enableSigner(request: boltzrpc_pb.EnableSignerRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
-    enableSigner(request: boltzrpc_pb.EnableSignerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
-    enableSigner(request: boltzrpc_pb.EnableSignerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
+    disableSigners(request: boltzrpc_pb.DisableSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    disableSigners(request: boltzrpc_pb.DisableSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    disableSigners(request: boltzrpc_pb.DisableSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    enableSigners(request: boltzrpc_pb.EnableSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
+    enableSigners(request: boltzrpc_pb.EnableSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
+    enableSigners(request: boltzrpc_pb.EnableSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
     getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;
     getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;
     getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;
@@ -503,12 +503,12 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public allowRefund(request: boltzrpc_pb.AllowRefundRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     public allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
     public allowRefund(request: boltzrpc_pb.AllowRefundRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.AllowRefundResponse) => void): grpc.ClientUnaryCall;
-    public disableSigner(request: boltzrpc_pb.DisableSignerRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    public disableSigner(request: boltzrpc_pb.DisableSignerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    public disableSigner(request: boltzrpc_pb.DisableSignerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignerResponse) => void): grpc.ClientUnaryCall;
-    public enableSigner(request: boltzrpc_pb.EnableSignerRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
-    public enableSigner(request: boltzrpc_pb.EnableSignerRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
-    public enableSigner(request: boltzrpc_pb.EnableSignerRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignerResponse) => void): grpc.ClientUnaryCall;
+    public disableSigners(request: boltzrpc_pb.DisableSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    public disableSigners(request: boltzrpc_pb.DisableSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    public disableSigners(request: boltzrpc_pb.DisableSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.DisableSignersResponse) => void): grpc.ClientUnaryCall;
+    public enableSigners(request: boltzrpc_pb.EnableSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
+    public enableSigners(request: boltzrpc_pb.EnableSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
+    public enableSigners(request: boltzrpc_pb.EnableSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.EnableSignersResponse) => void): grpc.ClientUnaryCall;
     public getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;
     public getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;
     public getDisabledSigners(request: boltzrpc_pb.GetDisabledSignersRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.GetDisabledSignersResponse) => void): grpc.ClientUnaryCall;

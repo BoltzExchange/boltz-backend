@@ -109,7 +109,13 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, [], true),
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          true,
+        ),
       ).rejects.toThrow('signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled');
 
       expect(emitSpy).not.toHaveBeenCalled();
@@ -128,7 +134,13 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, [], true),
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          true,
+        ),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -140,10 +152,10 @@ describe('SelfPaymentClient', () => {
 
     test.each`
       reverseSwapValue | signerDisabled
-      ${null}         | ${false}
-      ${undefined}    | ${false}
-      ${null}         | ${true}
-      ${undefined}    | ${true}
+      ${null}          | ${false}
+      ${undefined}     | ${false}
+      ${null}          | ${true}
+      ${undefined}     | ${true}
     `(
       'should return isSelf: false when reverse swap is $reverseSwapValue (signer disabled: $signerDisabled)',
       async ({ reverseSwapValue, signerDisabled }) => {

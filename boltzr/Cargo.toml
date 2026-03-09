@@ -30,7 +30,6 @@ axum = "0.8.8"
 bitcoin_hashes = { workspace = true }
 clap = { workspace = true }
 crossbeam-channel = "0.5.15"
-ctrlc = { version = "3.5.2", features = ["termination"] }
 dirs = { workspace = true }
 prost = { workspace = true }
 rcgen = { version = "0.14.7", features = ["x509-parser"] }

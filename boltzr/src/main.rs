@@ -79,6 +79,21 @@ async fn create_with_timeout<T, E: std::fmt::Display>(
     }
 }
 
+#[cfg(unix)]
+async fn wait_for_shutdown_signal() -> Result<(), std::io::Error> {
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+
+    tokio::select! {
+        res = tokio::signal::ctrl_c() => res,
+        _ = terminate.recv() => Ok(()),
+    }
+}
+
+#[cfg(not(unix))]
+async fn wait_for_shutdown_signal() -> Result<(), std::io::Error> {
+    tokio::signal::ctrl_c().await
+}
+
 #[tokio::main]
 async fn main() {
     ensure_rustls_crypto_provider();
@@ -338,13 +353,17 @@ async fn main() {
         swap_manager.start().await;
     });
 
-    ctrlc::set_handler(move || {
-        info!("Got shutdown signal");
-        cancellation_token.cancel();
-    })
-    .unwrap_or_else(|e| {
-        error!("Could not register exit handler: {}", e);
-        std::process::exit(1);
+    tokio::spawn({
+        let cancellation_token = cancellation_token.clone();
+        async move {
+            wait_for_shutdown_signal().await.unwrap_or_else(|e| {
+                error!("Could not listen for shutdown signal: {}", e);
+                std::process::exit(1);
+            });
+
+            info!("Got shutdown signal");
+            cancellation_token.cancel();
+        }
     });
 
     if let Some(backup_handle) = backup_handle {

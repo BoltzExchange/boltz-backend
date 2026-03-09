@@ -617,6 +617,14 @@ class RateProviderTaproot extends RateProviderBase<SwapTypes> {
   ): boolean => {
     const configPairId = this.getConfigPairId(pairIds);
     if (
+      pairIds.some(
+        (pairId) => referral?.config?.pairs?.[pairId]?.hidePair === true,
+      )
+    ) {
+      return false;
+    }
+
+    if (
       configPairId === undefined ||
       !this.pairConfigs.get(configPairId)?.hidden
     ) {

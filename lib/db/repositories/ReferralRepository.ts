@@ -202,6 +202,10 @@ class ReferralRepository {
         throw 'showHidden must be a boolean';
       }
 
+      if (cfg.hidePair !== undefined && typeof cfg.hidePair !== 'boolean') {
+        throw 'hidePair must be a boolean';
+      }
+
       if (
         cfg.maxRoutingFee !== undefined &&
         (cfg.maxRoutingFee < ReferralRepository.minRoutingFee ||

@@ -1,5 +1,7 @@
 import AsyncLock from 'async-lock';
-import { verifyMessage } from 'ethers';
+import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
+import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
+import { type Provider, verifyMessage } from 'ethers';
 import { Op } from 'sequelize';
 import type Logger from '../../Logger';
 import {
@@ -18,6 +20,7 @@ import SwapRepository from '../../db/repositories/SwapRepository';
 import type Sidecar from '../../sidecar/Sidecar';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
+import type EthereumManager from '../../wallet/ethereum/EthereumManager';
 import {
   computeLockupHash,
   isCommitmentPreimageHash,
@@ -161,44 +164,20 @@ class EipSigner {
         throw 'chain currency is not EVM based';
       }
 
-      const transaction =
-        await manager.provider.getTransaction(transactionHash);
-      if (transaction?.to === undefined || transaction.to === null) {
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
-          'lockup transaction not found',
-        );
-      }
-
-      const contracts = await manager.contractsForAddress(transaction.to);
-      if (contracts === undefined) {
-        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('contract not found');
-      }
-
       const isEtherSwap = manager.networkDetails.symbol === chainSymbol;
-      const lockupValues = isEtherSwap
-        ? await queryEtherSwapValuesFromTransaction(
-            manager.provider,
-            contracts.etherSwap,
-            transactionHash,
-            logIndex,
-          )
-        : await queryERC20SwapValuesFromTransaction(
-            manager.provider,
-            contracts.erc20Swap,
-            transactionHash,
-            logIndex,
-          );
-
-      if (
-        lockupValues.claimAddress.toLowerCase() !==
-        manager.address.toLowerCase()
-      ) {
+      const { values, contract } = await this.findLockupEvent(
+        isEtherSwap,
+        manager,
+        transactionHash,
+        logIndex,
+      );
+      if (values.claimAddress.toLowerCase() !== manager.address.toLowerCase()) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           'claim address mismatch',
         );
       }
 
-      if (!isCommitmentPreimageHash(lockupValues.preimageHash)) {
+      if (!isCommitmentPreimageHash(values.preimageHash)) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           'commitment preimage hash has to be all zeros',
         );
@@ -207,12 +186,12 @@ class EipSigner {
         chainSymbol,
         transactionHash,
         logIndex,
-        lockupValues.refundAddress,
+        values.refundAddress,
         refundAddressSignature,
       );
 
       const tokenAddress = !isEtherSwap
-        ? (lockupValues as ERC20SwapValues).tokenAddress
+        ? (values as ERC20SwapValues).tokenAddress
         : undefined;
       if (!isEtherSwap) {
         const expectedTokenAddress = manager.tokenAddresses.get(chainSymbol);
@@ -228,17 +207,14 @@ class EipSigner {
         }
       }
 
-      const lockupHash = await computeLockupHash(
-        isEtherSwap ? contracts.etherSwap : contracts.erc20Swap,
-        {
-          preimageHash: lockupValues.preimageHash,
-          amount: lockupValues.amount,
-          claimAddress: lockupValues.claimAddress,
-          refundAddress: lockupValues.refundAddress,
-          timelock: BigInt(lockupValues.timelock),
-          tokenAddress,
-        },
-      );
+      const lockupHash = await computeLockupHash(contract, {
+        preimageHash: values.preimageHash,
+        amount: values.amount,
+        claimAddress: values.claimAddress,
+        refundAddress: values.refundAddress,
+        timelock: BigInt(values.timelock),
+        tokenAddress,
+      });
 
       this.logger.debug(
         `Creating EIP-712 signature for refund of unlinked commitment ${lockupHash}: ${transactionHash}`,
@@ -246,11 +222,11 @@ class EipSigner {
 
       const sidecarRes = await this.sidecar.signEvmRefund(
         manager.networkDetails.symbol,
-        transaction.to,
-        lockupValues.preimageHash,
-        lockupValues.amount,
+        await contract.getAddress(),
+        values.preimageHash,
+        values.amount,
         tokenAddress,
-        lockupValues.timelock,
+        values.timelock,
       );
       await CommitmentRepository.markRefunded(lockupHash, transactionHash);
 
@@ -327,6 +303,87 @@ class EipSigner {
     }
 
     throw Errors.SWAP_NOT_FOUND(swapIdOrPreimageHash);
+  };
+
+  private findLockupEvent = async (
+    isEtherSwap: boolean,
+    manager: EthereumManager,
+    transactionHash: string,
+    logIndex?: number,
+  ) => {
+    const transaction = await manager.provider.getTransaction(transactionHash);
+    if (transaction === undefined || transaction === null) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        'lockup transaction not found',
+      );
+    }
+
+    const lockups = (
+      await Promise.all(
+        manager.contracts.map((c) => {
+          if (isEtherSwap) {
+            return this.lookupLockupsForContract(
+              manager.provider,
+              c.etherSwap,
+              true,
+              transactionHash,
+              logIndex,
+            );
+          } else {
+            return this.lookupLockupsForContract(
+              manager.provider,
+              c.erc20Swap,
+              false,
+              transactionHash,
+              logIndex,
+            );
+          }
+        }),
+      )
+    ).filter((l) => l !== undefined);
+
+    if (lockups.length === 0) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('no lockup event found');
+    }
+
+    if (lockups.length > 1) {
+      throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        'multiple lockup events found; logIndex has to be specified',
+      );
+    }
+
+    return lockups[0];
+  };
+
+  private lookupLockupsForContract = async (
+    provider: Provider,
+    contract: EtherSwap | ERC20Swap,
+    isEtherSwap: boolean,
+    transactionHash: string,
+    logIndex?: number,
+  ) => {
+    try {
+      const values = isEtherSwap
+        ? await queryEtherSwapValuesFromTransaction(
+            provider,
+            contract as EtherSwap,
+            transactionHash,
+            logIndex,
+          )
+        : await queryERC20SwapValuesFromTransaction(
+            provider,
+            contract as ERC20Swap,
+            transactionHash,
+            logIndex,
+          );
+
+      return {
+        values,
+        contract,
+      };
+    } catch {
+      return undefined;
+    }
   };
 }
 

@@ -19,6 +19,7 @@ import EipSigner from '../../../../lib/service/cooperative/EipSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
+import type EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { computeLockupHash } from '../../../../lib/wallet/ethereum/contracts/ContractUtils';
 import { sidecar, startSidecar } from '../../sidecar/Utils';
 import type { EthereumSetup } from '../../wallet/EthereumTools';
@@ -45,6 +46,8 @@ describe('EipSigner', () => {
   let etherSwap: EtherSwap;
   let erc20Swap: ERC20Swap;
 
+  let ethereumManager: EthereumManager;
+
   let eipSigner: EipSigner;
 
   beforeAll(async () => {
@@ -56,6 +59,35 @@ describe('EipSigner', () => {
     token = contracts.token;
     etherSwap = contracts.etherSwap;
     erc20Swap = contracts.erc20Swap;
+
+    ethereumManager = {
+      etherSwap,
+      erc20Swap,
+      provider: setup.provider,
+      signer: setup.etherBase,
+      address: await setup.etherBase.getAddress(),
+      network: {
+        chainId: (await setup.provider.getNetwork()).chainId,
+      },
+      networkDetails: {
+        symbol: 'RBTC',
+      },
+      hasSymbol: (symbol: string) => ['RBTC', 'TOKEN'].includes(symbol),
+      tokenAddresses: new Map<string, string>([
+        ['TOKEN', await token.getAddress()],
+      ]),
+      contractsForAddress: async () => ({
+        etherSwap,
+        erc20Swap,
+      }),
+      contracts: [
+        {
+          version: 5,
+          etherSwap,
+          erc20Swap,
+        },
+      ],
+    } as unknown as EthereumManager;
 
     await sidecar.connect(
       { on: jest.fn(), removeAllListeners: jest.fn() } as any,
@@ -81,33 +113,7 @@ describe('EipSigner', () => {
             },
           ],
         ]),
-        ethereumManagers: [
-          {
-            etherSwap,
-            erc20Swap,
-            provider: setup.provider,
-            signer: setup.etherBase,
-            address: await setup.etherBase.getAddress(),
-            network: {
-              chainId: (await setup.provider.getNetwork()).chainId,
-            },
-            networkDetails: {
-              symbol: 'RBTC',
-            },
-            hasSymbol: jest
-              .fn()
-              .mockImplementation((symbol) =>
-                ['RBTC', 'TOKEN'].includes(symbol),
-              ),
-            tokenAddresses: new Map<string, string>([
-              ['TOKEN', await token.getAddress()],
-            ]),
-            contractsForAddress: jest.fn().mockImplementation(async () => ({
-              etherSwap,
-              erc20Swap,
-            })),
-          },
-        ],
+        ethereumManagers: [ethereumManager],
       } as unknown as WalletManager,
       sidecar,
     );
@@ -124,6 +130,18 @@ describe('EipSigner', () => {
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
     CommitmentRepository.getBySwapId = jest.fn().mockResolvedValue(null);
     CommitmentRepository.markRefunded = jest.fn().mockResolvedValue(undefined);
+
+    ethereumManager.contractsForAddress = jest.fn().mockResolvedValue({
+      etherSwap,
+      erc20Swap,
+    });
+    (ethereumManager as any).contracts = [
+      {
+        version: 5,
+        etherSwap,
+        erc20Swap,
+      },
+    ];
   });
 
   test('should throw when no swap can be found', async () => {
@@ -744,6 +762,38 @@ describe('EipSigner', () => {
       );
     });
 
+    test('should refund unlinked Ether commitment without address contract lookup', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      ethereumManager.contractsForAddress = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      await eipSigner.signCommitmentRefund(
+        'RBTC',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+
+      expect(ethereumManager.contractsForAddress).not.toHaveBeenCalled();
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledTimes(1);
+    });
+
     test('should refund unlinked ERC20 commitment cooperatively', async () => {
       const amount = BigInt(10);
       const timelock = (await setup.provider.getBlockNumber()) + 21;
@@ -839,6 +889,65 @@ describe('EipSigner', () => {
       expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
         expectedLockupHash,
         tx.hash,
+      );
+    });
+
+    test('should reject when no lockup event is found in configured contracts', async () => {
+      const tx = await setup.etherBase.sendTransaction({
+        to: await setup.signer.getAddress(),
+        value: 1n,
+      });
+      await tx.wait(1);
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund('RBTC', tx.hash, refundAddressSignature),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND('no lockup event found'),
+      );
+    });
+
+    test('should reject when multiple configured contracts match the lockup transaction', async () => {
+      const claimAddress = await setup.etherBase.getAddress();
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const amount = BigInt(10) ** BigInt(17);
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await tx.wait(1);
+
+      (ethereumManager as any).contracts = [
+        {
+          version: 5,
+          etherSwap,
+          erc20Swap,
+        },
+        {
+          version: 5,
+          etherSwap,
+          erc20Swap,
+        },
+      ];
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        tx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund('RBTC', tx.hash, refundAddressSignature),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          'multiple lockup events found; logIndex has to be specified',
+        ),
       );
     });
 

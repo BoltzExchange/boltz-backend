@@ -229,10 +229,14 @@ pub async fn connect_nodes<K: KeysHelper>(
         );
     }
 
-    let evm_signer = Manager::read_mnemonic_file(evm_mnemonic_path).await?;
-
     for (symbol, config) in evm_configs {
         if let Some(config) = config {
+            let evm_signer = Manager::read_mnemonic_file(
+                evm_mnemonic_path.clone(),
+                config.derivation_path.as_deref(),
+            )
+            .await?;
+
             curs.insert(
                 symbol.to_string(),
                 Currency {

@@ -469,6 +469,7 @@ mod tests {
             &Config {
                 provider_endpoint: Some(PROVIDER.to_string()),
                 providers: None,
+                derivation_path: None,
                 contracts: vec![ContractAddresses {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),

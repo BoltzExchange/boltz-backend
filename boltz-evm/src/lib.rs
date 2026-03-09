@@ -117,6 +117,9 @@ pub struct Config {
     #[serde(rename = "providers")]
     pub providers: Option<Vec<ProviderConfig>>,
 
+    #[serde(rename = "derivationPath")]
+    pub derivation_path: Option<String>,
+
     #[serde(rename = "contracts")]
     pub contracts: Vec<ContractAddresses>,
 

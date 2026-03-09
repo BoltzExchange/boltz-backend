@@ -34,14 +34,26 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub async fn read_mnemonic_file(mnemonic_path: String) -> anyhow::Result<PrivateKeySigner> {
+    pub async fn read_mnemonic_file(
+        mnemonic_path: String,
+        derivation_path: Option<&str>,
+    ) -> anyhow::Result<PrivateKeySigner> {
         let mnemonic = tokio::fs::read_to_string(&mnemonic_path)
             .await
             .with_context(|| format!("failed to read EVM mnemonic file: {}", mnemonic_path))?;
-        Ok(MnemonicBuilder::<English>::default()
-            .phrase(mnemonic.trim())
-            .index(0)?
-            .build()?)
+        let builder = MnemonicBuilder::<English>::default().phrase(mnemonic.trim());
+
+        match derivation_path {
+            Some(derivation_path) => {
+                let derivation_path = derivation_path.trim();
+                if derivation_path.is_empty() {
+                    return Err(anyhow!("derivationPath must not be empty"));
+                }
+
+                Ok(builder.derivation_path(derivation_path)?.build()?)
+            }
+            None => Ok(builder.index(0)?.build()?),
+        }
     }
 
     #[instrument(name = "Manager::new", skip(cache, signer, config))]
@@ -218,7 +230,7 @@ pub mod test {
         let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
         fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
 
-        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string())
+        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string(), None)
             .await
             .unwrap();
         assert_eq!(
@@ -235,13 +247,57 @@ pub mod test {
         let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
         fs::write(mnemonic_file.clone(), format!("{MNEMONIC}\n")).unwrap();
 
-        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string())
+        let signer = Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string(), None)
             .await
             .unwrap();
         assert_eq!(
             signer.address(),
             EXPECTED_ADDRESS.parse::<Address>().unwrap()
         );
+
+        fs::remove_file(mnemonic_file.clone()).unwrap();
+    }
+
+    #[tokio::test]
+    #[serial(mnemonic)]
+    async fn test_from_mnemonic_file_custom_derivation_path() {
+        let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
+        let derivation_path = "m/44'/60'/0'/0/7";
+        fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
+
+        let signer = Manager::read_mnemonic_file(
+            mnemonic_file.to_str().unwrap().to_string(),
+            Some(derivation_path),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            signer.address(),
+            MnemonicBuilder::<English>::default()
+                .phrase(MNEMONIC)
+                .derivation_path(derivation_path)
+                .unwrap()
+                .build()
+                .unwrap()
+                .address()
+        );
+
+        fs::remove_file(mnemonic_file.clone()).unwrap();
+    }
+
+    #[tokio::test]
+    #[serial(mnemonic)]
+    async fn test_from_mnemonic_file_rejects_empty_derivation_path() {
+        let mnemonic_file = Path::new(env!("CARGO_MANIFEST_DIR")).join("mnemonic");
+        fs::write(mnemonic_file.clone(), MNEMONIC).unwrap();
+
+        let err =
+            Manager::read_mnemonic_file(mnemonic_file.to_str().unwrap().to_string(), Some("   "))
+                .await
+                .unwrap_err();
+
+        assert_eq!(err.to_string(), "derivationPath must not be empty");
 
         fs::remove_file(mnemonic_file.clone()).unwrap();
     }
@@ -315,6 +371,7 @@ pub mod test {
             &Config {
                 provider_endpoint: Some(PROVIDER.to_string()),
                 providers: None,
+                derivation_path: None,
                 contracts: vec![ContractAddresses {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
@@ -351,6 +408,7 @@ pub mod test {
             &Config {
                 provider_endpoint: Some(PROVIDER.to_string()),
                 providers: None,
+                derivation_path: None,
                 contracts: vec![ContractAddresses {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),
@@ -384,6 +442,7 @@ pub mod test {
             &Config {
                 provider_endpoint: Some(PROVIDER.to_string()),
                 providers: None,
+                derivation_path: None,
                 contracts: vec![ContractAddresses {
                     ether_swap: ETHER_SWAP_ADDRESS.to_string(),
                     erc20_swap: ERC20_SWAP_ADDRESS.to_string(),

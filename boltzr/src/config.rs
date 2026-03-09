@@ -220,6 +220,7 @@ lokiNetwork = "someNetwork"
 
 [rsk]
 providerEndpoint = "http://127.0.0.1:8545"
+derivationPath = "m/44'/60'/0'/0/7"
 
   [[rsk.contracts]]
   etherSwap = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
@@ -308,6 +309,7 @@ symbol = "L-BTC"
             boltz_evm::Config {
                 provider_endpoint: Some("http://127.0.0.1:8545".to_string()),
                 providers: None,
+                derivation_path: Some("m/44'/60'/0'/0/7".to_string()),
                 contracts: vec![boltz_evm::ContractAddresses {
                     ether_swap: "0x5FbDB2315678afecb367f032d93F642f64180aa3".to_string(),
                     erc20_swap: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512".to_string(),

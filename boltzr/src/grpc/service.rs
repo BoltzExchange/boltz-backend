@@ -250,33 +250,39 @@ where
         &self,
         _: Request<SendSwapUpdateRequest>,
     ) -> Result<Response<Self::SendSwapUpdateStream>, Status> {
-        let mut update_rx = self.manager.listen_to_updates();
+        let mut update_rx = self.swap_status_update_tx.subscribe();
 
         let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         tokio::spawn(async move {
-            while let Ok(update) = update_rx.recv().await {
-                if let Err(err) = tx
-                    .send(Ok(SendSwapUpdateResponse {
-                        update: Some(SwapUpdate {
-                            id: update.id,
-                            status: update.base.status,
-                            failure_reason: update.base.failure_reason,
-                            zero_conf_rejected: update.base.zero_conf_rejected,
-                            failure_details: update.base.failure_details.map(|dt| FailureDetails {
-                                actual: dt.actual,
-                                expected: dt.expected,
+            while let Ok((_, updates)) = update_rx.recv().await {
+                for update in updates {
+                    if let Err(err) = tx
+                        .send(Ok(SendSwapUpdateResponse {
+                            update: Some(SwapUpdate {
+                                id: update.id,
+                                status: update.base.status,
+                                failure_reason: update.base.failure_reason,
+                                zero_conf_rejected: update.base.zero_conf_rejected,
+                                failure_details: update.base.failure_details.map(|dt| {
+                                    FailureDetails {
+                                        actual: dt.actual,
+                                        expected: dt.expected,
+                                    }
+                                }),
+                                transaction_info: update.base.transaction.map(|tx| {
+                                    TransactionInfo {
+                                        id: tx.id,
+                                        hex: tx.hex,
+                                        eta: tx.eta,
+                                    }
+                                }),
                             }),
-                            transaction_info: update.base.transaction.map(|tx| TransactionInfo {
-                                id: tx.id,
-                                hex: tx.hex,
-                                eta: tx.eta,
-                            }),
-                        }),
-                    }))
-                    .await
-                {
-                    debug!("send_swap_update stream closed: {}", err);
-                    break;
+                        }))
+                        .await
+                    {
+                        debug!("send_swap_update stream closed: {}", err);
+                        return;
+                    }
                 }
             }
         });

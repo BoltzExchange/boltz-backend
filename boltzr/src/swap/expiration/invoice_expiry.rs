@@ -1,4 +1,4 @@
-use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
+use crate::api::ws::types::{SwapStatus, SwapStatusNoId, UpdateSender, send_update};
 use crate::currencies::Currencies;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::LightningSwap;
@@ -14,14 +14,14 @@ use tracing::{info, instrument, trace};
 const FAILURE_REASON_EXPIRED_INVOICE: &str = "invoice expired";
 
 pub struct InvoiceExpirationChecker {
-    update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
+    update_tx: UpdateSender<SwapStatus>,
     currencies: Currencies,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
 }
 
 impl InvoiceExpirationChecker {
     pub fn new(
-        update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
+        update_tx: UpdateSender<SwapStatus>,
         currencies: Currencies,
         swap_repo: Arc<dyn SwapHelper + Sync + Send>,
     ) -> Self {
@@ -91,14 +91,17 @@ impl ExpirationChecker for InvoiceExpirationChecker {
             self.swap_repo
                 .update_status(&swap.id, status, Some(failure_reason.to_string()))?;
 
-            self.update_tx.send(SwapStatus {
-                id: swap.id,
-                base: SwapStatusNoId {
-                    status: status.to_string(),
-                    failure_reason: Some(failure_reason.to_string()),
-                    ..Default::default()
+            send_update(
+                &self.update_tx,
+                SwapStatus {
+                    id: swap.id,
+                    base: SwapStatusNoId {
+                        status: status.to_string(),
+                        failure_reason: Some(failure_reason.to_string()),
+                        ..Default::default()
+                    },
                 },
-            })?;
+            )?;
         }
 
         Ok(())
@@ -200,7 +203,8 @@ mod test {
 
         checker.check().unwrap();
 
-        let emitted = rx.recv().await.unwrap();
+        let (_, updates) = rx.recv().await.unwrap();
+        let emitted = updates.into_iter().next().unwrap();
         assert_eq!(
             emitted,
             SwapStatus {

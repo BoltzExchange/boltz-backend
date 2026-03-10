@@ -6,12 +6,19 @@ pub trait SubscriptionUpdate: Clone + Send + Sync + 'static {
     fn id(&self) -> &str;
 }
 
+type UpdatePayload<T> = (Option<u64>, Vec<T>);
+type UpdateSendResult<T> = Result<usize, broadcast::error::SendError<UpdatePayload<T>>>;
+
 /// Type alias for broadcast senders that send updates with an optional connection ID filter.
 /// The `Option<u64>` is the connection ID - when `Some`, updates are only sent to that connection.
-pub type UpdateSender<T> = broadcast::Sender<(Option<u64>, Vec<T>)>;
+pub type UpdateSender<T> = broadcast::Sender<UpdatePayload<T>>;
 
 /// Type alias for broadcast receivers that receive updates with an optional connection ID filter.
-pub type UpdateReceiver<T> = broadcast::Receiver<(Option<u64>, Vec<T>)>;
+pub type UpdateReceiver<T> = broadcast::Receiver<UpdatePayload<T>>;
+
+pub fn send_update<T: Clone>(update_tx: &UpdateSender<T>, update: T) -> UpdateSendResult<T> {
+    update_tx.send((None, vec![update]))
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct TransactionInfo {

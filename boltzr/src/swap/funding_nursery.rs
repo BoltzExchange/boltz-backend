@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::api::ws::types::{
     FundingAddressUpdate, SwapStatus, TransactionInfo, UpdateReceiver, UpdateSender,
 };
@@ -14,6 +12,7 @@ use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::SecretKey;
 use boltz_cache::Cache;
 use elements::confidential::Value;
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
@@ -104,6 +103,16 @@ impl FundingAddressNursery {
         });
     }
 
+    async fn clear_signing_session(&self, funding_address_id: &str) -> Result<()> {
+        self.cache
+            .delete(
+                SIGNING_SESSION_CACHE_KEY,
+                &FundingAddressSigner::cache_field(funding_address_id),
+            )
+            .await?;
+        Ok(())
+    }
+
     fn start_block_listeners(&self) {
         for (symbol, currency) in self.currencies.iter() {
             let Some(chain_client) = currency.chain.as_ref() else {
@@ -191,6 +200,7 @@ impl FundingAddressNursery {
             // Status stays the same
             self.funding_address_helper
                 .set_presigned_tx(funding_address_id, None)?;
+            self.clear_signing_session(funding_address_id).await?;
         }
 
         self.send_update(funding_address_id, None).await?;
@@ -244,26 +254,32 @@ impl FundingAddressNursery {
                     None
                 }
             }),
-            Transaction::Elements(tx) => tx.output.iter().enumerate().find_map(|(vout, output)| {
-                if output.script_pubkey.to_bytes() == script_pubkey {
-                    match output.value {
-                        Value::Explicit(amount) => Some((vout, amount)),
-                        Value::Confidential(_) => {
-                            let secp = Secp256k1::new();
-                            let wallet = get_wallet(&self.currencies, symbol).ok()?;
-                            let blinding_key =
-                                wallet.derive_blinding_key(script_pubkey.clone()).ok()?;
-                            let unblinded = output
-                                .unblind(&secp, SecretKey::from_slice(blinding_key.as_ref()).ok()?)
-                                .ok()?;
-                            Some((vout, unblinded.value))
-                        }
-                        Value::Null => None,
-                    }
-                } else {
-                    None
-                }
-            }),
+            Transaction::Elements(tx) => tx
+                .output
+                .iter()
+                .enumerate()
+                .find_map(|(vout, output)| {
+                    (output.script_pubkey.to_bytes() == script_pubkey).then(
+                        || -> Result<(usize, u64)> {
+                            match output.value {
+                                Value::Explicit(amount) => Ok((vout, amount)),
+                                Value::Confidential(_) => {
+                                    let secp = Secp256k1::new();
+                                    let wallet = get_wallet(&self.currencies, symbol)?;
+                                    let blinding_key =
+                                        wallet.derive_blinding_key(script_pubkey.clone())?;
+                                    let unblinded = output.unblind(
+                                        &secp,
+                                        SecretKey::from_slice(blinding_key.as_ref())?,
+                                    )?;
+                                    Ok((vout, unblinded.value))
+                                }
+                                Value::Null => Err(anyhow::anyhow!("output value is null")),
+                            }
+                        },
+                    )
+                })
+                .transpose()?,
         }
         .ok_or(anyhow::anyhow!("output not found"))
     }
@@ -308,11 +324,7 @@ impl FundingAddressNursery {
                 };
 
                 if is_rbf {
-                    self.cache
-                        .delete(
-                            SIGNING_SESSION_CACHE_KEY,
-                            &FundingAddressSigner::cache_field(funding_address_id.as_str()),
-                        )
+                    self.clear_signing_session(funding_address_id.as_str())
                         .await?;
                 }
 

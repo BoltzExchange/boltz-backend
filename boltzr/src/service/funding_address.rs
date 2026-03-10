@@ -11,8 +11,8 @@ use crate::db::helpers::keys::KeysHelper;
 use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, ScriptPubKey};
 use crate::service::funding_address_signer::{
-    CooperativeDetails, FundingAddressEligibilityError, FundingAddressSigner,
-    PartialSignatureResponse, RefundSignatureRequest, SetSignatureRequest,
+    CooperativeDetails, FundingAddressSigner, FundingAddressSignerError, PartialSignatureResponse,
+    RefundSignatureRequest, SetSignatureRequest,
 };
 use crate::swap::{FundingAddressStatus, TimeoutDeltaProvider};
 use crate::utils::generate_id;
@@ -106,17 +106,18 @@ pub struct CreateResponse {
 
 impl FundingAddressService {
     fn map_signer_error(err: anyhow::Error) -> FundingAddressError {
-        if let Some(eligibility_error) = err
+        if let Some(signer_error) = err
             .chain()
-            .find_map(|cause| cause.downcast_ref::<FundingAddressEligibilityError>())
+            .find_map(|cause| cause.downcast_ref::<FundingAddressSignerError>())
         {
-            return FundingAddressError::InvalidRequest(eligibility_error.to_string());
-        }
-
-        let error_message = err.to_string().to_lowercase();
-        if error_message.contains("failed to get swap info") && error_message.contains("not found")
-        {
-            return FundingAddressError::NotFound(err.to_string());
+            return match signer_error {
+                FundingAddressSignerError::Eligibility(message) => {
+                    FundingAddressError::InvalidRequest(message.clone())
+                }
+                FundingAddressSignerError::SwapNotFound(swap_id) => {
+                    FundingAddressError::NotFound(swap_id.clone())
+                }
+            };
         }
 
         FundingAddressError::Internal(err.to_string())

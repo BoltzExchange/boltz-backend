@@ -5,7 +5,7 @@ use crate::db::helpers::swap::SwapHelper;
 use crate::db::models::{FundingAddress, LightningSwap, SomeSwap};
 use crate::swap::TimeoutDeltaProvider;
 use crate::swap::{FundingAddressStatus, SwapUpdate};
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use bitcoin::hashes::Hash;
 use bitcoin::key::{Keypair, Secp256k1};
 use bitcoin::sighash::{Prevouts, SighashCache};
@@ -48,15 +48,25 @@ struct SwapInfo {
 }
 
 #[derive(Debug)]
-pub(crate) struct FundingAddressEligibilityError(String);
+pub(crate) enum FundingAddressSignerError {
+    Eligibility(String),
+    SwapNotFound(String),
+}
 
-impl Display for FundingAddressEligibilityError {
+impl Display for FundingAddressSignerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        match self {
+            FundingAddressSignerError::Eligibility(message) => {
+                write!(f, "{}", message)
+            }
+            FundingAddressSignerError::SwapNotFound(swap_id) => {
+                write!(f, "swap not found: {}", swap_id)
+            }
+        }
     }
 }
 
-impl std::error::Error for FundingAddressEligibilityError {}
+impl std::error::Error for FundingAddressSignerError {}
 
 pub struct FundingAddressSigner {
     swap_helper: Arc<dyn SwapHelper + Sync + Send>,
@@ -126,18 +136,18 @@ impl FundingAddressSigner {
             status,
             FundingAddressStatus::TransactionMempool | FundingAddressStatus::TransactionConfirmed
         ] {
-            return Err(anyhow!(FundingAddressEligibilityError(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "funding address is not in a spendable state".to_string(),
             )));
         }
         if funding_address.swap_id.is_some() {
-            return Err(anyhow!(FundingAddressEligibilityError(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "funding address is already linked to a swap".to_string(),
             )));
         }
         let swap_info = self.get_swap_info(swap_id)?;
         if funding_address.symbol != swap_info.currency {
-            return Err(anyhow!(FundingAddressEligibilityError(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "funding address chain does not match swap chain".to_string(),
             )));
         }
@@ -145,17 +155,17 @@ impl FundingAddressSigner {
             swap_info.status,
             SwapUpdate::SwapCreated | SwapUpdate::InvoiceSet | SwapUpdate::TransactionMempool
         ) {
-            return Err(anyhow!(FundingAddressEligibilityError(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "swap is not in an eligible state".to_string(),
             )));
         }
         let funding_address_amount = funding_address.lockup_amount.ok_or_else(|| {
-            anyhow!(FundingAddressEligibilityError(
+            anyhow!(FundingAddressSignerError::Eligibility(
                 "funding address lockup amount missing".to_string(),
             ))
         })?;
         if funding_address_amount != swap_info.expected_amount {
-            return Err(anyhow!(FundingAddressEligibilityError(format!(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(format!(
                 "funding address amount {} does not match swaps expected amount: {}",
                 funding_address_amount, swap_info.expected_amount
             ),)));
@@ -258,10 +268,17 @@ impl FundingAddressSigner {
         )?;
         match &mut tx {
             Transaction::Bitcoin(tx) => {
-                tx.input[0].witness = Witness::from_slice(&[sig_bytes]);
+                tx.input
+                    .get_mut(0)
+                    .ok_or_else(|| anyhow!("invalid cached transaction: no inputs"))?
+                    .witness = Witness::from_slice(&[sig_bytes]);
             }
             Transaction::Elements(tx) => {
-                tx.input[0].witness.script_witness = vec![sig_bytes];
+                tx.input
+                    .get_mut(0)
+                    .ok_or_else(|| anyhow!("invalid cached transaction: no inputs"))?
+                    .witness
+                    .script_witness = vec![sig_bytes];
             }
         }
 
@@ -277,7 +294,7 @@ impl FundingAddressSigner {
         request: &RefundSignatureRequest,
     ) -> Result<PartialSignatureResponse> {
         if funding_address.swap_id.is_some() {
-            return Err(anyhow!(FundingAddressEligibilityError(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "funding address is already linked to a swap".to_string(),
             )));
         }
@@ -311,36 +328,43 @@ impl FundingAddressSigner {
     }
 
     fn get_swap_info(&self, swap_id: &str) -> Result<SwapInfo> {
-        self.swap_helper
-            .get_by_id(swap_id)
-            .and_then(|swap| {
-                Ok(SwapInfo {
-                    status: swap.status(),
-                    currency: swap.chain_symbol()?,
-                    lockup_address: swap.lockupAddress,
-                    expected_amount: swap
-                        .expectedAmount
-                        .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
-                    timeout_block_height: swap.timeoutBlockHeight as u32,
-                })
-            })
-            .or_else(|_| {
-                self.chain_swap_helper
-                    .get_by_id(swap_id)
-                    .and_then(|chain_swap| {
-                        let receiving = chain_swap.receiving();
-                        Ok(SwapInfo {
-                            status: chain_swap.status(),
-                            currency: receiving.symbol.clone(),
-                            lockup_address: receiving.lockupAddress.clone(),
-                            expected_amount: receiving
-                                .expectedAmount
-                                .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
-                            timeout_block_height: receiving.timeoutBlockHeight as u32,
-                        })
+        match self.swap_helper.get_by_id(swap_id) {
+            Ok(swap) => Ok(SwapInfo {
+                status: swap.status(),
+                currency: swap.chain_symbol()?,
+                lockup_address: swap.lockupAddress,
+                expected_amount: swap
+                    .expectedAmount
+                    .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
+                timeout_block_height: Self::parse_timeout_block_height(
+                    "swap",
+                    swap.timeoutBlockHeight,
+                )?,
+            }),
+            Err(swap_err) => match self.chain_swap_helper.get_by_id(swap_id) {
+                Ok(chain_swap) => {
+                    let receiving = chain_swap.receiving();
+                    Ok(SwapInfo {
+                        status: chain_swap.status(),
+                        currency: receiving.symbol.clone(),
+                        lockup_address: receiving.lockupAddress.clone(),
+                        expected_amount: receiving
+                            .expectedAmount
+                            .ok_or_else(|| anyhow!("swap lockup amount missing"))?,
+                        timeout_block_height: Self::parse_timeout_block_height(
+                            "chain swap",
+                            receiving.timeoutBlockHeight,
+                        )?,
                     })
-            })
-            .map_err(|e| anyhow!("failed to get swap info: {}", e))
+                }
+                Err(chain_swap_err) => Err(anyhow!(FundingAddressSignerError::SwapNotFound(
+                    swap_id.to_string()
+                )))
+                .context(format!(
+                    "failed to get swap info: {swap_err}; {chain_swap_err}"
+                )),
+            },
+        }
     }
 
     fn validate_timeout_buffer(
@@ -348,7 +372,10 @@ impl FundingAddressSigner {
         funding_address: &FundingAddress,
         swap_timeout: u32,
     ) -> Result<()> {
-        let funding_timeout = funding_address.timeout_block_height as u32;
+        let funding_timeout = Self::parse_timeout_block_height(
+            "funding address",
+            funding_address.timeout_block_height,
+        )?;
 
         let timeout_buffer_blocks = TimeoutDeltaProvider::calculate_blocks(
             &funding_address.symbol,
@@ -358,12 +385,22 @@ impl FundingAddressSigner {
         let required_max_swap_timeout = funding_timeout.saturating_sub(timeout_buffer_blocks);
 
         if swap_timeout > required_max_swap_timeout {
-            return Err(anyhow!(FundingAddressEligibilityError(format!(
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(format!(
                 "swap timeout too close to funding address timeout: difference must be at least {timeout_buffer_blocks} blocks",
             ))));
         }
 
         Ok(())
+    }
+
+    fn parse_timeout_block_height(context: &str, timeout_block_height: i32) -> Result<u32> {
+        u32::try_from(timeout_block_height).map_err(|_| {
+            anyhow!(
+                "invalid {} timeout block height: {}",
+                context,
+                timeout_block_height
+            )
+        })
     }
 
     async fn test_mempool_accept(
@@ -381,6 +418,7 @@ impl FundingAddressSigner {
 
         let invalid_reason = match Type::from_str(&funding_address.symbol)? {
             Type::Bitcoin => match result.reject_reason.as_deref() {
+                _ if result.allowed => None,
                 Some(reason) if reason.contains("min relay fee not met") => None,
                 Some(reason) => Some(reason.to_string()),
                 None => Some(MEMPOOL_REJECTED_REASON.to_string()),

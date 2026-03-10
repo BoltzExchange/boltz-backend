@@ -1,4 +1,5 @@
 import AsyncLock from 'async-lock';
+import type { ContractTransactionResponse } from 'ethers';
 import type { SwapConfig } from '../../Config';
 import type Logger from '../../Logger';
 import {
@@ -513,10 +514,7 @@ class DeferredClaimer extends CoopSignerBase<{
         );
 
         transactionIds = [tx.hash];
-        const ethFeePerSwap = Math.ceil(
-          calculateEthereumTransactionFee(tx) / swaps.length,
-        );
-        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, ethFeePerSwap]));
+        feesPerSwap = DeferredClaimer.splitEthereumFee(tx, swaps);
 
         break;
       }
@@ -567,10 +565,7 @@ class DeferredClaimer extends CoopSignerBase<{
         );
 
         transactionIds = [tx.hash];
-        const erc20FeePerSwap = Math.ceil(
-          calculateEthereumTransactionFee(tx) / swaps.length,
-        );
-        feesPerSwap = new Map(swaps.map((s) => [s.swap.id, erc20FeePerSwap]));
+        feesPerSwap = DeferredClaimer.splitEthereumFee(tx, swaps);
 
         break;
       }
@@ -611,6 +606,25 @@ class DeferredClaimer extends CoopSignerBase<{
     }
 
     return swaps.map((toClaim) => toClaim.swap.id);
+  };
+
+  private static splitEthereumFee = (
+    tx: ContractTransactionResponse,
+    swaps: (SwapToClaimPreimage | ChainSwapToClaimPreimage)[],
+  ): Map<string, number> => {
+    const totalFee = calculateEthereumTransactionFee(tx);
+    const baseFee = Math.floor(totalFee / swaps.length);
+    let remainder = totalFee - baseFee * swaps.length;
+
+    return new Map(
+      swaps.map((swap) => {
+        const fee = baseFee + (remainder > 0 ? 1 : 0);
+        if (remainder > 0) {
+          remainder -= 1;
+        }
+        return [swap.swap.id, fee];
+      }),
+    );
   };
 
   private shouldBeDeferred = async (

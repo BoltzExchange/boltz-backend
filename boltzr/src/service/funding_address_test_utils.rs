@@ -347,13 +347,14 @@ pub mod test {
             .unwrap()
             .to_string();
 
-        let _ = chain_client
+        chain_client
             .request_wallet(
                 None,
                 "generatetoaddress",
                 Some(&[RpcParam::Int(1), RpcParam::Str(&address)]),
             )
-            .await;
+            .await
+            .expect("failed to mine funding address lockup transaction");
 
         let raw_tx_hex = chain_client.raw_transaction(&tx_id).await.unwrap();
         let raw_tx = hex::decode(&raw_tx_hex).unwrap();

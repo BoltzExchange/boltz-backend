@@ -278,12 +278,19 @@ class UtxoNursery extends TypedEventEmitter<{
         continue;
       }
 
+      const amount = fundingAddress.lockupAmount;
+      if (amount == null) {
+        throw new Error(
+          `Funding address ${fundingAddress.id} is missing lockup amount`,
+        );
+      }
+
       switch (swap.type) {
         case SwapType.Submarine:
           swap = await SwapRepository.setLockupTransaction(
             swap as Swap,
             event.transaction.getId(),
-            fundingAddress.lockupAmount!,
+            amount,
             event.status === TransactionStatus.Confirmed,
             fundingAddress.lockupTransactionVout!,
           );
@@ -292,7 +299,7 @@ class UtxoNursery extends TypedEventEmitter<{
           swap = await ChainSwapRepository.setUserLockupTransaction(
             swap as ChainSwapInfo,
             event.transaction.getId(),
-            fundingAddress.lockupAmount!,
+            amount,
             event.status === TransactionStatus.Confirmed,
             fundingAddress.lockupTransactionVout!,
           );
@@ -714,15 +721,16 @@ class UtxoNursery extends TypedEventEmitter<{
     }
 
     if (
+      updatedSwap.expectedAmount != null &&
       this.overpaymentProtector.isUnacceptableOverpay(
         swap.type,
-        updatedSwap.expectedAmount!,
+        updatedSwap.expectedAmount,
         outputValue,
       )
     ) {
       this.emit('swap.lockup.failed', {
         swap: updatedSwap,
-        reason: Errors.OVERPAID_AMOUNT(outputValue, updatedSwap.expectedAmount!)
+        reason: Errors.OVERPAID_AMOUNT(outputValue, updatedSwap.expectedAmount)
           .message,
       });
 

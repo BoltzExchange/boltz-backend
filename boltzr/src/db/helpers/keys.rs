@@ -60,36 +60,31 @@ pub mod test {
     use super::*;
     use crate::db::Pool;
     use mockall::mock;
-    use std::sync::OnceLock;
 
     pub fn create_keys_table(pool: &Pool, symbols: Vec<String>) {
         let mut conn = pool.get().unwrap();
 
-        static INIT: OnceLock<()> = OnceLock::new();
-
-        INIT.get_or_init(|| {
-            diesel::sql_query(r#"DROP TABLE IF EXISTS keys;"#)
-                .execute(&mut conn)
-                .unwrap();
-            diesel::sql_query(
-                r#"
-                CREATE TABLE keys (
-                    symbol VARCHAR(255) NOT NULL PRIMARY KEY,
-                    "derivationPath" VARCHAR(255) NOT NULL,
-                    "highestUsedIndex" INTEGER NOT NULL
-                );"#,
-            )
+        diesel::sql_query(r#"DROP TABLE IF EXISTS keys;"#)
             .execute(&mut conn)
             .unwrap();
-            for symbol in symbols.iter() {
-                diesel::sql_query(format!(
-                    r#"INSERT INTO keys (symbol, "derivationPath", "highestUsedIndex") VALUES ('{}', 'm/0/0', 0)"#,
-                    symbol
-                ))
-                .execute(&mut conn)
-                .unwrap();
-            }
-        });
+        diesel::sql_query(
+            r#"
+            CREATE TABLE keys (
+                symbol VARCHAR(255) NOT NULL PRIMARY KEY,
+                "derivationPath" VARCHAR(255) NOT NULL,
+                "highestUsedIndex" INTEGER NOT NULL
+            );"#,
+        )
+        .execute(&mut conn)
+        .unwrap();
+        for symbol in symbols.iter() {
+            diesel::sql_query(format!(
+                r#"INSERT INTO keys (symbol, "derivationPath", "highestUsedIndex") VALUES ('{}', 'm/0/0', 0)"#,
+                symbol
+            ))
+            .execute(&mut conn)
+            .unwrap();
+        }
     }
 
     mock! {

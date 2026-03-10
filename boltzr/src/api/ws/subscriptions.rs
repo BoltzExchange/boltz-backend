@@ -5,6 +5,7 @@ use crate::api::ws::{
 };
 use dashmap::DashMap;
 use std::sync::Arc;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -114,9 +115,16 @@ impl<T: SubscriptionUpdate> Subscriptions<T> {
                     msg = update_rx.recv() => {
                         match msg {
                             Ok(msg) => msg,
-                            Err(err) => {
-                                tracing::error!("Error receiving update: {}", err);
+                            Err(RecvError::Lagged(skipped)) => {
+                                tracing::warn!(
+                                    "Subscriptions update receiver lagged behind by {} messages",
+                                    skipped
+                                );
                                 continue;
+                            }
+                            Err(RecvError::Closed) => {
+                                tracing::debug!("Subscriptions update sender closed");
+                                break;
                             }
                         }
                     }

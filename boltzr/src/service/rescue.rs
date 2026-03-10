@@ -1918,6 +1918,7 @@ mod test {
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                     amount: Some(50000),
+                    expectedAmount: Some(50000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },
@@ -1933,6 +1934,7 @@ mod test {
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
+                    expectedAmount: Some(200000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },
@@ -1966,6 +1968,7 @@ mod test {
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
+            Arc::new(mock_funding_address_helper_empty()),
             Arc::new(HashMap::from([
                 (
                     crate::chain::elements_client::SYMBOL.to_string(),
@@ -2001,12 +2004,17 @@ mod test {
             .unwrap();
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res[0].base.id, chain_swap.id());
-        assert_eq!(
-            res[0].claim_details.as_ref().map(|d| d.base.key_index),
-            Some(0)
-        );
-        assert!(res[0].refund_details.is_none());
+        match &res[0] {
+            Restorable::Swap(restored) => {
+                assert_eq!(restored.base.id, chain_swap.id());
+                assert_eq!(
+                    restored.claim_details.as_ref().map(|d| d.base.key_index),
+                    Some(0)
+                );
+                assert!(restored.refund_details.is_none());
+            }
+            other => panic!("expected swap variant, got {other:?}"),
+        }
     }
 
     #[tokio::test]
@@ -2027,6 +2035,7 @@ mod test {
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "el1qqdg7adcqj6kqgz0fp3pyts0kmvgft07r38t3lqhspw7cjncahffay897ym8xmd9c20kc8yx90xt3n38f8wpygvnuc3d4cue6m".to_string(),
                     amount: Some(50000),
+                    expectedAmount: Some(50000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },
@@ -2042,6 +2051,7 @@ mod test {
                     timeoutBlockHeight: 13_211,
                     lockupAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                     amount: Some(200000),
+                    expectedAmount: Some(200000),
                     transactionId: Some("chain tx".to_string()),
                     transactionVout: Some(5),
                 },
@@ -2075,6 +2085,7 @@ mod test {
             Arc::new(swap_helper),
             Arc::new(chain_helper),
             Arc::new(reverse_helper),
+            Arc::new(mock_funding_address_helper_empty()),
             Arc::new(HashMap::from([
                 (
                     crate::chain::elements_client::SYMBOL.to_string(),
@@ -2110,9 +2121,17 @@ mod test {
             .unwrap();
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res[0].base.id, chain_swap.id());
-        assert_eq!(res[0].refund_details.as_ref().map(|d| d.key_index), Some(0));
-        assert!(res[0].claim_details.is_none());
+        match &res[0] {
+            Restorable::Swap(restored) => {
+                assert_eq!(restored.base.id, chain_swap.id());
+                assert_eq!(
+                    restored.refund_details.as_ref().map(|d| d.key_index),
+                    Some(0)
+                );
+                assert!(restored.claim_details.is_none());
+            }
+            other => panic!("expected swap variant, got {other:?}"),
+        }
     }
 
     #[tokio::test]

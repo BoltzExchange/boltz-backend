@@ -66,14 +66,8 @@ Partial signatures from Boltz use `SIGHASH_DEFAULT`.
 
 ### Funding Address-backed Swaps
 
-Some Submarine and Chain Swaps are funded via a Funding Address instead of the
-swap's original lockup keys. In that case, clients need to use the Funding
-Address keys for the cooperative funding step and, later, also for cooperative
-claims when Boltz indicates that via `fundingAddressId`.
-
-#### Linking a Funding Address to a Swap
-
-To link a funded Funding Address to a swap:
+In order to link a funding address to a swap the client has to sign a transaction
+that allows boltz to spend the funding address's UTXO to the swap's lockup address.
 
 1. Create and fund the Funding Address.
 2. Create the swap once the exact amount is known.
@@ -106,8 +100,6 @@ The flow is then:
 3. If it is present, load the restored or locally stored Funding Address data.
 4. Use the same signing process as for regular cooperative claims but with the
    private key of the Funding Address.
-5. Build and verify the claim transaction with the Funding Address tree and key.
-6. Create the partial signature using the Funding Address key material.
 
 #### Refunds
 

@@ -53,9 +53,8 @@ class EthereumManager {
   public address!: string;
   public network!: Network;
 
+  public readonly contracts: Contracts[] = [];
   public readonly tokenAddresses = new Map<string, string>();
-
-  private contracts: Contracts[] = [];
 
   constructor(
     private readonly logger: Logger,

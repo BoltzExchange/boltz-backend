@@ -379,7 +379,7 @@ export const createMusig = (
 export const tweakMusig = (
   type: CurrencyType,
   musig: Musig,
-  swapTree: Types.SwapTree | Types.FundingAddressTree,
+  swapTree: SomeTree,
 ) =>
   (isBitcoin(type) ? TaprootUtils : TaprootUtilsLiquid).tweakMusig(
     musig,

@@ -49,10 +49,16 @@ impl FundingAddress {
     /// Initialize the taproot tree for the funding address. Only has to be called once
     /// after the funding address is created - the tree is persisted in serialized JSON.
     pub fn init_tree(&mut self) -> Result<()> {
+        let timeout_block_height = u32::try_from(self.timeout_block_height).map_err(|_| {
+            anyhow::anyhow!(
+                "invalid funding address timeout block height: {}",
+                self.timeout_block_height
+            )
+        })?;
         self.tree = match self.symbol_type()? {
             Type::Bitcoin => serde_json::to_string(&boltz_core::bitcoin::FundingTree::new(
                 &self.their_public_key()?.to_x_only_pubkey(),
-                LockTime::from_height(self.timeout_block_height as u32)?,
+                LockTime::from_height(timeout_block_height)?,
             ))?,
             Type::Elements => {
                 let pubkey =
@@ -60,7 +66,7 @@ impl FundingAddress {
                 let x_only_key = elements::secp256k1_zkp::XOnlyPublicKey::from(pubkey);
                 serde_json::to_string(&boltz_core::elements::FundingTree::new(
                     &x_only_key,
-                    elements::LockTime::from_height(self.timeout_block_height as u32)?,
+                    elements::LockTime::from_height(timeout_block_height)?,
                 ))?
             }
         };

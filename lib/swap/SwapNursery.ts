@@ -802,15 +802,22 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private checkFundingAddress = async (swap: Swap | ChainSwapInfo) => {
     const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
     if (fundingAddress !== null && fundingAddress !== undefined) {
+      if (!fundingAddress.presignedTx) {
+        throw new Error(
+          `Funding address ${fundingAddress.id} has no presigned transaction`,
+        );
+      }
       const chain = this.currencies.get(fundingAddress.symbol)!.chainClient!;
 
       const response = await chain.testMempoolAccept([
-        getHexString(fundingAddress.presignedTx!),
+        getHexString(fundingAddress.presignedTx),
       ]);
       if (fundingAddress.symbol === 'BTC') {
         if (
           response.some(
-            (r) => !r['reject-reason']?.includes('min relay fee not met'),
+            (r) =>
+              r.allowed === false &&
+              r['reject-reason'] !== 'min relay fee not met',
           )
         ) {
           throw new Error(
@@ -818,12 +825,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           );
         }
       } else {
-        if (
-          response.some(
-            (r) =>
-              r['reject-reason'] !== undefined && r['reject-reason'] !== '',
-          )
-        ) {
+        if (response.some((r) => r.allowed == false)) {
           throw new Error(
             `Presigned tx for funding address ${fundingAddress.id} is not valid: ${response.map((r) => r['reject-reason']).join(', ')}`,
           );

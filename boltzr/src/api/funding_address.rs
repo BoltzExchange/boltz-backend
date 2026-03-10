@@ -12,6 +12,7 @@ use axum::{Extension, Json};
 use boltz_core::wrapper::FundingTree;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::warn;
 
 impl IntoResponse for FundingAddressError {
     fn into_response(self) -> Response {
@@ -169,7 +170,12 @@ where
                 ))?,
         )
         .await
-        .map_err(|e| FundingAddressError::Internal(e.to_string()))?;
+        .unwrap_or_else(|err| {
+            warn!(
+                "signature stored for funding address {}, but check_transaction failed: {}",
+                id, err
+            );
+        });
 
     Ok(StatusCode::NO_CONTENT.into_response())
 }

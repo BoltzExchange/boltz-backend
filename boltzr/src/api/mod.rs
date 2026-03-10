@@ -219,7 +219,7 @@ where
 #[cfg(test)]
 pub mod test {
     use crate::api::ws::status::SwapInfos;
-    use crate::api::ws::types::SwapStatus;
+    use crate::api::ws::types::{SwapStatus, UpdateSender};
     use crate::api::{Config, Server};
     use crate::service::Service;
     use crate::swap::manager::test::MockManager;
@@ -227,12 +227,11 @@ pub mod test {
     use reqwest::StatusCode;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::sync::broadcast::Sender;
     use tokio_util::sync::CancellationToken;
 
     #[derive(Debug, Clone)]
     pub struct Fetcher {
-        pub status_tx: Sender<(Option<u64>, Vec<SwapStatus>)>,
+        pub status_tx: UpdateSender<SwapStatus>,
     }
 
     #[async_trait]
@@ -265,7 +264,7 @@ pub mod test {
         cancel.cancel();
     }
 
-    pub async fn start(port: u16) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
+    pub async fn start(port: u16) -> (CancellationToken, UpdateSender<SwapStatus>) {
         let cancel = CancellationToken::new();
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
 

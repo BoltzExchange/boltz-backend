@@ -100,6 +100,12 @@ class VersionCheck {
     version: number,
   ): void => {
     const limits = VersionCheck.chainVersionLimits[symbol];
+    if (limits === undefined) {
+      throw VersionCheck.unsupportedVersionError(`${symbol} Core`, version, {
+        minimal: 'unsupported',
+        maximal: 'unsupported',
+      });
+    }
     if (!Comparator.versionInBounds(version, limits)) {
       throw VersionCheck.unsupportedVersionError(
         `${symbol} Core`,

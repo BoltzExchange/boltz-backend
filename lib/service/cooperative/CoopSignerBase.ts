@@ -82,7 +82,7 @@ abstract class CoopSignerBase<
       : (toClaim.swap as ChainSwapInfo).receivingData;
 
     let keyIndex = details.keyIndex!;
-    let theirPublicKey = getHexBuffer(details.theirPublicKey!);
+    let theirPublicKey: Buffer;
 
     const fundingAddress = await FundingAddressRepository.getBySwapId(
       toClaim.swap.id,
@@ -90,6 +90,8 @@ abstract class CoopSignerBase<
     if (fundingAddress !== null) {
       keyIndex = fundingAddress.keyIndex;
       theirPublicKey = fundingAddress.theirPublicKey;
+    } else {
+      theirPublicKey = getHexBuffer(details.theirPublicKey!);
     }
 
     const ourKeys = wallet.getKeysByIndex(keyIndex);

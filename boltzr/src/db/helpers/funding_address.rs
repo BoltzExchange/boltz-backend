@@ -110,13 +110,35 @@ impl FundingAddressHelper for FundingAddressHelperDatabase {
             Some(info) => (Some(info.presigned_tx), Some(info.swap_id)),
             None => (None, None),
         };
-        Ok(update(funding_addresses::dsl::funding_addresses)
-            .set((
-                funding_addresses::dsl::presigned_tx.eq(presigned_tx),
-                funding_addresses::dsl::swap_id.eq(swap_id),
-            ))
-            .filter(funding_addresses::dsl::id.eq(id))
-            .execute(&mut self.pool.get()?)?)
+        let mut conn = self.pool.get()?;
+
+        conn.build_transaction()
+            .serializable()
+            .run(|conn| {
+                let mut query = update(funding_addresses::dsl::funding_addresses)
+                    .filter(funding_addresses::dsl::id.eq(id))
+                    .into_boxed();
+
+                if swap_id.is_some() {
+                    query = query.filter(funding_addresses::dsl::swap_id.is_null());
+                }
+
+                let updated_rows = query
+                    .set((
+                        funding_addresses::dsl::presigned_tx.eq(presigned_tx),
+                        funding_addresses::dsl::swap_id.eq(swap_id),
+                    ))
+                    .execute(conn)?;
+
+                if updated_rows == 0 {
+                    return Err(anyhow!(
+                        "funding address is already linked to a swap or does not exist"
+                    ));
+                }
+
+                Ok(updated_rows)
+            })
+            .map_err(|e| anyhow!("failed to set funding address presigned tx: {}", e))
     }
 
     #[instrument(

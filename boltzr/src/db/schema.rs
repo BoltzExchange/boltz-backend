@@ -58,6 +58,7 @@ diesel::table! {
         pair -> Text,
         orderSide -> Integer,
         status -> Text,
+        invoice -> Text,
         preimageHash -> Text,
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,

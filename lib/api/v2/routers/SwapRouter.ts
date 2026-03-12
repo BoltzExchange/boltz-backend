@@ -2023,6 +2023,9 @@ class SwapRouter extends RouterBase {
      *         preimageHash:
      *           type: string
      *           description: Preimage hash of the swap
+     *         invoice:
+     *           type: string
+     *           description: Invoice of the swap, if set. Only returned for submarine swaps
      *         timeoutBlockHeight:
      *           type: number
      *           description: Block height at which the rescuable onchain HTLCs will time out
@@ -2135,6 +2138,9 @@ class SwapRouter extends RouterBase {
      *         preimageHash:
      *           type: string
      *           description: Hash of the preimage required to claim the swap
+     *         invoice:
+     *           type: string
+     *           description: Invoice of the swap, if set. Only set for submarine and reverse swaps
      *         claimDetails:
      *           $ref: '#/components/schemas/RestoreClaimDetails'
      *         refundDetails:

@@ -253,6 +253,8 @@ pub struct RescuableSwap {
     pub details: SwapDetailsBase,
     #[serde(rename = "preimageHash")]
     pub preimage_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invoice: Option<String>,
 }
 
 impl Identifiable for RescuableSwap {
@@ -276,6 +278,7 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RescuableSwap {
             symbol: s.chain_symbol()?,
             preimage_hash: s.preimageHash.clone(),
             details: (s, key_index, server_public_key, blinding_key).try_into()?,
+            invoice: s.invoice.clone(),
         })
     }
 }
@@ -296,6 +299,7 @@ impl TryFrom<(&ChainSwapInfo, u32, String, Option<String>)> for RescuableSwap {
             symbol: s.receiving().symbol.clone(),
             preimage_hash: s.swap.preimageHash.clone(),
             details: (s.receiving(), key_index, server_public_key, blinding_key).try_into()?,
+            invoice: None,
         })
     }
 }
@@ -354,6 +358,8 @@ pub struct RestorableSwap {
     pub to: String,
     #[serde(rename = "preimageHash")]
     pub preimage_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invoice: Option<String>,
     #[serde(rename = "claimDetails", skip_serializing_if = "Option::is_none")]
     pub claim_details: Option<ClaimDetails>,
     #[serde(rename = "refundDetails", skip_serializing_if = "Option::is_none")]
@@ -381,6 +387,7 @@ impl TryFrom<(&Swap, u32, String, Option<String>)> for RestorableSwap {
             from: s.chain_symbol()?,
             to: s.lightning_symbol()?,
             preimage_hash: s.preimageHash.clone(),
+            invoice: s.invoice.clone(),
             claim_details: None,
             refund_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
         })
@@ -403,6 +410,7 @@ impl TryFrom<(&ReverseSwap, u32, String, Option<String>)> for RestorableSwap {
             from: s.lightning_symbol()?,
             to: s.chain_symbol()?,
             preimage_hash: s.preimageHash.clone(),
+            invoice: Some(s.invoice.clone()),
             claim_details: Some((s, key_index, server_public_key, blinding_key).try_into()?),
             refund_details: None,
         })
@@ -894,6 +902,7 @@ impl SwapRescue {
             preimage_hash: s.swap.preimageHash.clone(),
             from: s.receiving().symbol.clone(),
             to: sending_data.symbol.clone(),
+            invoice: None,
             claim_details,
             refund_details,
         })
@@ -1028,6 +1037,7 @@ mod test {
             pair: "L-BTC/BTC".to_string(),
             orderSide: 1,
             status: "invoice.failedToPay".to_string(),
+            invoice: Some("lnbc123".to_string()),
             keyIndex: Some(1),
             timeoutBlockHeight: 321,
             preimageHash: "101a17e334bcaba40cbf8e3580b73d263c3b94ed65e86ff81317f95fe1346dd8".to_string(),
@@ -1062,6 +1072,7 @@ mod test {
             pair: "BTC/L-BTC".to_string(),
             orderSide: 0,
             status: "transaction.failed".to_string(),
+            invoice: "lnbc123reverse".to_string(),
             keyIndex: Some(789),
             timeoutBlockHeight: 654,
             preimageHash: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
@@ -1190,6 +1201,7 @@ mod test {
                     timeout_block_height: 321,
                 },
                 preimage_hash: swap.preimageHash,
+                invoice: swap.invoice,
             }
         );
         assert_eq!(
@@ -1225,6 +1237,7 @@ mod test {
                     timeout_block_height: 13_211,
                 },
                 preimage_hash: chain_swap.swap.preimageHash,
+                invoice: None,
             }
         );
     }
@@ -1354,6 +1367,7 @@ mod test {
                 from: crate::chain::elements_client::SYMBOL.to_string(),
                 to: "BTC".to_string(),
                 preimage_hash: swap.preimageHash,
+                invoice: swap.invoice,
                 claim_details: None,
                 refund_details: Some(SwapDetailsBase {
                     amount: swap.onchainAmount,
@@ -1388,6 +1402,7 @@ mod test {
                 from: "L-BTC".to_string(),
                 to: "BTC".to_string(),
                 preimage_hash: reverse_swap.preimageHash.clone(),
+                invoice: Some(reverse_swap.invoice.clone()),
                 claim_details: Some(ClaimDetails {
                     base: SwapDetailsBase {
                         amount: Some(reverse_swap.onchainAmount),
@@ -1427,6 +1442,7 @@ mod test {
                 from: crate::chain::elements_client::SYMBOL.to_string(),
                 to: "BTC".to_string(),
                 preimage_hash: chain_swap.swap.preimageHash.clone(),
+                invoice: None,
                 claim_details: Some(ClaimDetails {
                     base: SwapDetailsBase {
                         amount: chain_swap.sending().amount,
@@ -1559,6 +1575,7 @@ mod test {
                 from: "L-BTC".to_string(),
                 to: "BTC".to_string(),
                 preimage_hash: reverse_swap.preimageHash.clone(),
+                invoice: Some(reverse_swap.invoice.clone()),
                 claim_details: Some(ClaimDetails {
                     base: SwapDetailsBase {
                         amount: Some(reverse_swap.onchainAmount),

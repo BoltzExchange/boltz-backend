@@ -1,7 +1,7 @@
 # 🏦 Funding Addresses
 
 Funding Addresses are standalone onchain lockup addresses that can be created
-before a swap is linked. They let clients receive or pre-fund coins first and
+before a swap exists. They let clients receive or pre-fund coins first and
 only later attach those funds to an eligible swap.
 
 They are especially useful for **Submarine Swaps**, where the client has to
@@ -10,9 +10,9 @@ time. If the user does not already know the exact onchain amount they will lock,
 Funding Addresses allow receiving the coins first and only creating the swap
 once the amount is known.
 
-Another benefit, especially relevant for Bitcoin, is that the lockup transaction
-can be confirmed before swap creation, so the swaps can be swapped instantly
-later.
+Another benefit, especially relevant for Bitcoin, is that the funding
+transaction can confirm before swap creation. That allows the later swap to
+continue immediately once it is linked.
 
 They are available on Bitcoin and Liquid and use the same Taproot + MuSig2 model
 as other cooperative Boltz flows.
@@ -23,7 +23,7 @@ When creating a Funding Address, the client provides a refund public key and
 Boltz derives its own public key. Together they define a Taproot output that:
 
 - can be spent **cooperatively** via the key path to fund a swap lockup
-- can be **unlilaterally** refunded by the the client after a timeout if the
+- can be **unilaterally** refunded by the client after a timeout if the
   server disappears or does not cooperate.
 
 Unlike a normal swap lockup address, a Funding Address exists independently of
@@ -42,8 +42,8 @@ any specific swap.
    `transaction.mempool` or `transaction.confirmed` status update depending on
    the funding transaction.
 
-If you replace the lockup transaction of a funding address which was previously
-linked to a swap, the swap will be delinked, so the client has to go through the
+If you replace the funding transaction of a Funding Address that was previously
+linked to a swap, the swap is delinked and the client has to go through the
 signing flow again.
 
 ## Statuses
@@ -68,7 +68,7 @@ swaps is documented in [Claims & Refunds](./claiming-swaps.md).
 
 Funding Addresses are also covered by [Swap Restore](./swap-restore.md). They
 should use the same deterministic key derivation and backup model as swaps so
-that the keys can be recovered in exactly the same way.
+their keys can be recovered in exactly the same way.
 
 ## API
 
@@ -83,5 +83,5 @@ Funding Address updates can be subscribed to via the `funding.update` WebSocket
 channel. This is the easiest way to learn when a Funding Address was funded,
 linked, claimed, refunded, or expired.
 
-See the [REST API v2](./api-v2.md#websocket) documentation for the subscription
-format.
+See [Funding Address Updates](./api-v2.md#funding-address-updates) in the
+[REST API v2](./api-v2.md) documentation for the subscription format.

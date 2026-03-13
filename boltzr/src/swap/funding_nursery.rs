@@ -331,6 +331,10 @@ impl FundingAddressNursery {
                 let (vout, value) =
                     self.find_output(&relevant_tx.tx, &funding_address.symbol, script_pubkey)?;
 
+                debug!(
+                    "Setting transaction {tx_id} for funding address {funding_address_id} with vout {vout} and value {value}",
+                );
+
                 self.funding_address_helper.set_transaction(
                     funding_address_id.as_str(),
                     &tx_id,

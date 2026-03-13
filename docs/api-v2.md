@@ -1447,6 +1447,65 @@ is still subscribed to.
 }
 ```
 
+### Funding Address Updates
+
+Funding Addresses can also be monitored via WebSocket. To subscribe, send a
+message like below. `args` is a list of Funding Address ids to subscribe to.
+
+```json
+{
+  "op": "subscribe",
+  "channel": "funding.update",
+  "args": ["funding id 1", "funding id 2"]
+}
+```
+
+Boltz API will respond with a confirmation message:
+
+```json
+{
+  "event": "subscribe",
+  "channel": "funding.update",
+  "args": ["funding id 1", "funding id 2"]
+}
+```
+
+After subscribing, Boltz sends the current state immediately and then every
+later Funding Address update. The objects in `args` use the same
+`FundingAddressUpdate` schema as `GET /funding/{id}` in the
+[Swagger spec](https://api.boltz.exchange/swagger/):
+
+```json
+{
+  "event": "update",
+  "channel": "funding.update",
+  "args": [
+    {
+      "id": "funding id 1",
+      "status": "transaction.confirmed",
+      "transaction": {
+        "id": "<transaction id>",
+        "hex": "<raw transaction encoded as HEX>"
+      },
+      "swapId": "swap id"
+    }
+  ]
+}
+```
+
+To unsubscribe, send:
+
+```json
+{
+  "op": "unsubscribe",
+  "channel": "funding.update",
+  "args": ["funding id 1"]
+}
+```
+
+The backend responds with the list of Funding Address ids the connection is
+still subscribed to.
+
 ### BOLT12 Invoice Requests
 
 Clients can subscribe to invoice requests for BOLT12 offers they created via

@@ -71,6 +71,8 @@ pub struct GlobalConfig {
     pub cache: Option<CacheConfig>,
     pub historical: Option<crate::service::HistoricalConfig>,
 
+    #[serde(rename = "funding")]
+    pub funding_address: Option<crate::service::funding_address::FundingAddressConfig>,
     pub backup: Option<BackupConfig>,
     pub notification: Option<crate::notifications::Config>,
 

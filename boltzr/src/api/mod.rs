@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 use ws::status::SwapInfos;
-use ws::types::SwapStatus;
+use ws::types::{SwapStatus, UpdateSender};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::server::MetricsLayer;
@@ -20,6 +20,7 @@ use crate::metrics::server::MetricsLayer;
 mod asset_rescue;
 mod bolt12;
 mod errors;
+mod funding_address;
 mod headers;
 mod lightning;
 mod quoter;
@@ -45,7 +46,7 @@ pub struct Server<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 struct ServerState<S, M> {
@@ -53,7 +54,7 @@ struct ServerState<S, M> {
     service: Arc<Service>,
 
     swap_infos: S,
-    swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 impl<S, M> Server<S, M>
@@ -67,7 +68,7 @@ where
         manager: Arc<M>,
         service: Arc<Service>,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Self {
         Server {
             config,
@@ -194,6 +195,21 @@ where
                 get(quoter::quote_output::<S, M>),
             )
             .route("/v2/quote/{currency}/encode", post(quoter::encode::<S, M>))
+            // Funding addresses
+            .route("/v2/funding", post(funding_address::create::<S, M>))
+            .route("/v2/funding/{id}", get(funding_address::get::<S, M>))
+            .route(
+                "/v2/funding/{id}/signature",
+                get(funding_address::get_signing_details::<S, M>),
+            )
+            .route(
+                "/v2/funding/{id}/signature",
+                patch(funding_address::set_signature::<S, M>),
+            )
+            .route(
+                "/v2/funding/{id}/refund",
+                post(funding_address::refund::<S, M>),
+            )
             // Middlewares
             .layer(axum::middleware::from_fn(error_middleware))
             .layer(axum::middleware::from_fn(logging_middleware))
@@ -203,7 +219,7 @@ where
 #[cfg(test)]
 pub mod test {
     use crate::api::ws::status::SwapInfos;
-    use crate::api::ws::types::SwapStatus;
+    use crate::api::ws::types::{SwapStatus, UpdateSender};
     use crate::api::{Config, Server};
     use crate::service::Service;
     use crate::swap::manager::test::MockManager;
@@ -211,12 +227,11 @@ pub mod test {
     use reqwest::StatusCode;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::sync::broadcast::Sender;
     use tokio_util::sync::CancellationToken;
 
     #[derive(Debug, Clone)]
     pub struct Fetcher {
-        pub status_tx: Sender<(Option<u64>, Vec<SwapStatus>)>,
+        pub status_tx: UpdateSender<SwapStatus>,
     }
 
     #[async_trait]
@@ -249,7 +264,7 @@ pub mod test {
         cancel.cancel();
     }
 
-    pub async fn start(port: u16) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
+    pub async fn start(port: u16) -> (CancellationToken, UpdateSender<SwapStatus>) {
         let cancel = CancellationToken::new();
         let (status_tx, _) = tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
 

@@ -1,6 +1,7 @@
-use crate::api::ws::status::SwapInfos;
-use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
+use crate::api::ws::status::{FundingAddressInfos, SwapInfos};
+use crate::api::ws::types::{FundingAddressUpdate, SwapStatus, SwapStatusNoId};
 use crate::grpc::service::boltzr::SwapUpdateResponse;
+use crate::service::Service;
 use anyhow::Result;
 use async_trait::async_trait;
 use boltz_cache::Cache;
@@ -19,6 +20,7 @@ type StatusSender = Sender<Result<SwapUpdateResponse, Status>>;
 #[derive(Clone)]
 pub struct StatusFetcher {
     cache: Cache,
+    funding_address_service: Option<Arc<Service>>,
 
     buffer: Arc<DashMap<u64, Vec<String>>>,
 
@@ -29,9 +31,15 @@ impl StatusFetcher {
     pub fn new(cache: Cache) -> Self {
         StatusFetcher {
             cache,
+            funding_address_service: None,
             buffer: Arc::new(DashMap::new()),
             sender: Arc::new(Mutex::new(Cell::new(None))),
         }
+    }
+
+    pub fn with_funding_address_service(mut self, funding_address_service: Arc<Service>) -> Self {
+        self.funding_address_service = Some(funding_address_service);
+        self
     }
 
     pub async fn set_sender(&self, sender: Sender<Result<SwapUpdateResponse, Status>>) {
@@ -101,6 +109,25 @@ impl SwapInfos for StatusFetcher {
         }
 
         Ok(None)
+    }
+}
+
+#[async_trait]
+impl FundingAddressInfos for StatusFetcher {
+    async fn fetch_funding_address_info(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<Option<Vec<FundingAddressUpdate>>> {
+        let Some(service) = &self.funding_address_service else {
+            return Err(anyhow::anyhow!("Funding address service not set"));
+        };
+
+        let updates = service.funding_address.get_updates(ids).await?;
+        if updates.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(updates))
+        }
     }
 }
 

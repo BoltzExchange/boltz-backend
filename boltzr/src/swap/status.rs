@@ -25,6 +25,8 @@ pub enum SwapUpdate {
     TransactionDirect,
     #[strum(serialize = "transaction.refunded")]
     TransactionRefunded,
+    #[strum(serialize = "transaction.failed")]
+    TransactionFailed,
 
     #[strum(serialize = "transaction.server.mempool")]
     TransactionServerMempool,
@@ -37,6 +39,8 @@ pub enum SwapUpdate {
     InvoicePending,
     #[strum(serialize = "invoice.failedToPay")]
     InvoiceFailedToPay,
+    #[strum(serialize = "invoice.settled")]
+    InvoiceSettled,
 
     // In case we cannot parse a string
     Unknown,
@@ -46,6 +50,24 @@ impl SwapUpdate {
     pub fn parse(value: &str) -> Self {
         SwapUpdate::try_from(value).unwrap_or(SwapUpdate::Unknown)
     }
+
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self,
+            SwapUpdate::InvoiceSettled | SwapUpdate::TransactionClaimed
+        )
+    }
+
+    pub fn is_failed(&self) -> bool {
+        matches!(
+            self,
+            SwapUpdate::SwapExpired
+                | SwapUpdate::TransactionFailed
+                | SwapUpdate::TransactionLockupFailed
+                | SwapUpdate::InvoiceFailedToPay
+                | SwapUpdate::TransactionRefunded
+        )
+    }
 }
 
 pub fn serialize_swap_updates(
@@ -54,15 +76,52 @@ pub fn serialize_swap_updates(
     status.iter().map(|status| status.to_string())
 }
 
+#[derive(EnumString, Display, PartialEq, Clone, Copy, Debug)]
+pub enum FundingAddressStatus {
+    #[strum(serialize = "created")]
+    Created,
+    #[strum(serialize = "expired")]
+    Expired,
+    #[strum(serialize = "signature.required")]
+    SignatureRequired,
+    #[strum(serialize = "transaction.mempool")]
+    TransactionMempool,
+    #[strum(serialize = "transaction.confirmed")]
+    TransactionConfirmed,
+    #[strum(serialize = "transaction.claimed")]
+    TransactionClaimed,
+    #[strum(serialize = "transaction.refunded")]
+    TransactionRefunded,
+
+    // In case we cannot parse a string
+    Unknown,
+}
+
+impl FundingAddressStatus {
+    pub fn parse(value: &str) -> Self {
+        FundingAddressStatus::try_from(value).unwrap_or(FundingAddressStatus::Unknown)
+    }
+
+    pub fn final_statuses() -> Vec<String> {
+        vec![
+            FundingAddressStatus::Expired.to_string(),
+            FundingAddressStatus::TransactionClaimed.to_string(),
+            FundingAddressStatus::TransactionRefunded.to_string(),
+        ]
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::swap::{SwapUpdate, serialize_swap_updates};
+    use crate::swap::{FundingAddressStatus, SwapUpdate, serialize_swap_updates};
     use rstest::*;
 
     #[rstest]
     #[case(SwapUpdate::SwapCreated)]
     #[case(SwapUpdate::TransactionMempool)]
     #[case(SwapUpdate::TransactionServerMempool)]
+    #[case(SwapUpdate::InvoiceSettled)]
+    #[case(SwapUpdate::TransactionFailed)]
     fn test_swap_update_parse(#[case] update: SwapUpdate) {
         assert_eq!(SwapUpdate::parse(update.to_string().as_str()), update);
     }
@@ -80,6 +139,67 @@ mod test {
                 SwapUpdate::TransactionMempool.to_string(),
                 SwapUpdate::SwapExpired.to_string()
             ]
+        );
+    }
+
+    #[test]
+    fn test_swap_update_is_success() {
+        // Success events
+        assert!(SwapUpdate::InvoiceSettled.is_success());
+        assert!(SwapUpdate::TransactionClaimed.is_success());
+
+        // Non-success events
+        assert!(!SwapUpdate::SwapCreated.is_success());
+        assert!(!SwapUpdate::SwapExpired.is_success());
+        assert!(!SwapUpdate::TransactionMempool.is_success());
+        assert!(!SwapUpdate::TransactionConfirmed.is_success());
+        assert!(!SwapUpdate::TransactionFailed.is_success());
+        assert!(!SwapUpdate::InvoiceFailedToPay.is_success());
+        assert!(!SwapUpdate::TransactionRefunded.is_success());
+        assert!(!SwapUpdate::TransactionLockupFailed.is_success());
+    }
+
+    #[test]
+    fn test_swap_update_is_failed() {
+        // Failed events
+        assert!(SwapUpdate::SwapExpired.is_failed());
+        assert!(SwapUpdate::TransactionFailed.is_failed());
+        assert!(SwapUpdate::InvoiceFailedToPay.is_failed());
+        assert!(SwapUpdate::TransactionRefunded.is_failed());
+        assert!(SwapUpdate::TransactionLockupFailed.is_failed());
+
+        // Non-failure events
+        assert!(!SwapUpdate::SwapCreated.is_failed());
+        assert!(!SwapUpdate::TransactionMempool.is_failed());
+        assert!(!SwapUpdate::TransactionConfirmed.is_failed());
+        assert!(!SwapUpdate::InvoiceSettled.is_failed());
+        assert!(!SwapUpdate::TransactionClaimed.is_failed());
+    }
+
+    #[rstest]
+    #[case(FundingAddressStatus::Created)]
+    #[case(FundingAddressStatus::Expired)]
+    #[case(FundingAddressStatus::SignatureRequired)]
+    #[case(FundingAddressStatus::TransactionMempool)]
+    #[case(FundingAddressStatus::TransactionConfirmed)]
+    #[case(FundingAddressStatus::TransactionClaimed)]
+    #[case(FundingAddressStatus::TransactionRefunded)]
+    fn test_funding_address_status_parse(#[case] status: FundingAddressStatus) {
+        assert_eq!(
+            FundingAddressStatus::parse(status.to_string().as_str()),
+            status
+        );
+    }
+
+    #[test]
+    fn test_funding_address_status_transaction_claimed_serialization() {
+        assert_eq!(
+            FundingAddressStatus::TransactionClaimed.to_string(),
+            "transaction.claimed"
+        );
+        assert_eq!(
+            FundingAddressStatus::parse("transaction.claimed"),
+            FundingAddressStatus::TransactionClaimed
         );
     }
 }

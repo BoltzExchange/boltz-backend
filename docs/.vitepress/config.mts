@@ -26,6 +26,7 @@ export default defineConfig({
           { text: '💰 Swap Limits & Fees', link: '/swap-limits-and-fees' },
           { text: '♻️ Renegotiating Swaps', link: '/renegotiating' },
           { text: '🙋‍♂️ Claims & Refunds', link: '/claiming-swaps' },
+          { text: '🏦 Funding Addresses', link: '/funding-addresses' },
           { text: '🔐 Commitment Swaps', link: '/commitment-swaps' },
           { text: '🛟 Swap Restore', link: '/swap-restore' },
           { text: '⛑️ Asset Rescue', link: '/asset-rescue' },

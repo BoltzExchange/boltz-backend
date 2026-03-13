@@ -66,8 +66,9 @@ Partial signatures from Boltz use `SIGHASH_DEFAULT`.
 
 ### Funding Address-backed Swaps
 
-In order to link a funding address to a swap the client has to sign a transaction
-that allows boltz to spend the funding address's UTXO to the swap's lockup address.
+In order to link a funding address to a swap the client has to sign a
+transaction that allows boltz to spend the funding address's UTXO to the swap's
+lockup address.
 
 1. Create and fund the Funding Address.
 2. Create the swap once the exact amount is known.

@@ -153,7 +153,10 @@ impl FundingAddressSigner {
         }
         if !matches!(
             swap_info.status,
-            SwapUpdate::SwapCreated | SwapUpdate::InvoiceSet | SwapUpdate::TransactionMempool
+            SwapUpdate::SwapCreated
+                | SwapUpdate::InvoiceSet
+                | SwapUpdate::TransactionMempool
+                | SwapUpdate::TransactionZeroconfRejected
         ) {
             return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "swap is not in an eligible state".to_string(),
@@ -744,6 +747,7 @@ mod test {
     #[case(SwapUpdate::SwapCreated, true)]
     #[case(SwapUpdate::TransactionMempool, true)]
     #[case(SwapUpdate::InvoiceSet, true)]
+    #[case(SwapUpdate::TransactionZeroconfRejected, true)]
     #[case(SwapUpdate::TransactionConfirmed, false)]
     #[tokio::test]
     async fn test_can_spend_swap_status_eligibility(

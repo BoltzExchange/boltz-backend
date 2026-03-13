@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use bitcoin::hex::DisplayHex;
 use futures::future::try_join_all;
+use tokio::sync::broadcast::Receiver;
 use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::broadcast::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
-use crate::api::ws::types::{SwapStatus, SwapStatusNoId, TransactionInfo};
+use crate::api::ws::types::{
+    SwapStatus, SwapStatusNoId, TransactionInfo, UpdateSender, send_update,
+};
 use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
 use crate::chain::{Client, Transactions};
@@ -18,14 +20,14 @@ use crate::swap::SwapUpdate as SwapUpdateStatus;
 pub struct MrhWatcher {
     cancellation_token: CancellationToken,
     reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync>,
-    swap_status_update_tx: broadcast::Sender<SwapStatus>,
+    swap_status_update_tx: UpdateSender<SwapStatus>,
 }
 
 impl MrhWatcher {
     pub fn new(
         cancellation_token: CancellationToken,
         reverse_swap_helper: Arc<dyn ReverseSwapHelper + Send + Sync>,
-        swap_status_update_tx: broadcast::Sender<SwapStatus>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Self {
         Self {
             cancellation_token,
@@ -101,7 +103,7 @@ impl MrhWatcher {
                     },
                 };
 
-                if let Err(e) = swap_status_update_tx.send(update) {
+                if let Err(e) = send_update(&swap_status_update_tx, update) {
                     tracing::warn!("Failed to send routing hint update: {}", e);
                 }
             });
@@ -160,8 +162,9 @@ mod test {
 
     #[tokio::test]
     async fn test_listen() {
-        let (swap_status_update_tx, mut swap_status_update_rx) = broadcast::channel(256);
-        let (tx_sender, tx_receiver) = broadcast::channel(256);
+        let (swap_status_update_tx, mut swap_status_update_rx) =
+            tokio::sync::broadcast::channel(256);
+        let (tx_sender, tx_receiver) = tokio::sync::broadcast::channel(256);
 
         let mut helper = MockReverseSwapHelper::new();
 
@@ -198,7 +201,8 @@ mod test {
             .send((Transactions::Single(test_transaction.clone()), false))
             .unwrap();
 
-        let received_update = swap_status_update_rx.recv().await.unwrap();
+        let (_, updates) = swap_status_update_rx.recv().await.unwrap();
+        let received_update = updates.into_iter().next().unwrap();
 
         assert_eq!(received_update.id, "123");
         assert_eq!(
@@ -221,8 +225,8 @@ mod test {
 
     #[tokio::test]
     async fn test_listen_ignore_confirmed() {
-        let (swap_status_update_tx, swap_status_update_rx) = broadcast::channel(256);
-        let (tx_sender, tx_receiver) = broadcast::channel(256);
+        let (swap_status_update_tx, swap_status_update_rx) = tokio::sync::broadcast::channel(256);
+        let (tx_sender, tx_receiver) = tokio::sync::broadcast::channel(256);
 
         let mut helper = MockReverseSwapHelper::new();
 
@@ -268,8 +272,8 @@ mod test {
 
     #[tokio::test]
     async fn test_listen_zero_conf_not_safe() {
-        let (swap_status_update_tx, swap_status_update_rx) = broadcast::channel(256);
-        let (tx_sender, tx_receiver) = broadcast::channel(256);
+        let (swap_status_update_tx, swap_status_update_rx) = tokio::sync::broadcast::channel(256);
+        let (tx_sender, tx_receiver) = tokio::sync::broadcast::channel(256);
 
         let mut helper = MockReverseSwapHelper::new();
 

@@ -65,8 +65,6 @@ pub trait SwapManager {
 
     async fn claim_batch(&self, swap_ids: Vec<String>) -> Result<ClaimBatchResponse>;
 
-    fn listen_to_updates(&self) -> broadcast::Receiver<SwapStatus>;
-
     async fn rescan_chains(
         &self,
         options: Option<Vec<RescanChainOptions>>,
@@ -81,7 +79,6 @@ pub trait SwapManager {
 pub struct Manager {
     network: crate::wallet::Network,
 
-    update_tx: broadcast::Sender<SwapStatus>,
     funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
     swap_status_update_tx: UpdateSender<SwapStatus>,
 
@@ -114,14 +111,11 @@ impl Manager {
         funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
         swap_status_update_tx: UpdateSender<SwapStatus>,
     ) -> Result<Self> {
-        let (update_tx, _) = broadcast::channel::<SwapStatus>(128);
-
         let swap_repo = Arc::new(SwapHelperDatabase::new(pool.clone()));
         let chain_swap_repo = Arc::new(ChainSwapHelperDatabase::new(pool.clone()));
 
         Ok(Manager {
             network,
-            update_tx,
             funding_address_update_tx,
             swap_status_update_tx,
             currencies: currencies.clone(),
@@ -161,7 +155,7 @@ impl Manager {
         let invoice_expiration = Scheduler::new(
             self.cancellation_token.clone(),
             InvoiceExpirationChecker::new(
-                self.update_tx.clone(),
+                self.swap_status_update_tx.clone(),
                 self.currencies.clone(),
                 self.swap_repo.clone(),
             ),
@@ -169,7 +163,7 @@ impl Manager {
         let custom_expiration = Scheduler::new(
             self.cancellation_token.clone(),
             CustomExpirationChecker::new(
-                self.update_tx.clone(),
+                self.swap_status_update_tx.clone(),
                 self.swap_repo.clone(),
                 Arc::new(ReferralHelperDatabase::new(self.pool.clone())),
             ),
@@ -177,7 +171,7 @@ impl Manager {
         let watcher = MrhWatcher::new(
             self.cancellation_token.clone(),
             self.reverse_swap_repo.clone(),
-            self.update_tx.clone(),
+            self.swap_status_update_tx.clone(),
         );
         let nursery = self.utxo_nursery.clone();
         let relevant_tx_receiver = nursery.relevant_tx_receiver();
@@ -346,10 +340,6 @@ impl SwapManager for Manager {
 
     fn get_asset_rescue(&self) -> Arc<AssetRescue> {
         self.asset_rescue.clone()
-    }
-
-    fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus> {
-        self.update_tx.subscribe()
     }
 
     #[instrument(name = "SwapManager::claim_batch", skip_all)]
@@ -589,7 +579,6 @@ impl SwapManager for Manager {
 #[cfg(test)]
 pub mod test {
     use super::*;
-    use crate::api::ws::types::SwapStatus;
     use crate::db::helpers::web_hook::test::get_pool;
     use crate::swap::{AssetRescue, timeout_delta::PairTimeoutBlockDelta};
     use anyhow::Result;
@@ -618,7 +607,6 @@ pub mod test {
             ) -> Result<(u64, u64)>;
             async fn claim_batch(&self, swap_ids: Vec<String>) -> anyhow::Result<ClaimBatchResponse>;
             fn get_asset_rescue(&self) -> Arc<AssetRescue>;
-            fn listen_to_updates(&self) -> tokio::sync::broadcast::Receiver<SwapStatus>;
             async fn rescan_chains(
                 &self,
                 options: Option<Vec<RescanChainOptions>>,
@@ -649,7 +637,6 @@ pub mod test {
         let cancellation_token = CancellationToken::new();
         let manager = Manager {
             network: crate::wallet::Network::Regtest,
-            update_tx: tokio::sync::broadcast::channel(100).0,
             funding_address_update_tx: tokio::sync::broadcast::channel(100).0,
             swap_status_update_tx: tokio::sync::broadcast::channel(100).0,
             cancellation_token: cancellation_token.clone(),

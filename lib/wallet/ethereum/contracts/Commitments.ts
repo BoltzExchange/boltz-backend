@@ -33,6 +33,7 @@ type LockupEvent = {
   preimageHash: Buffer;
   logIndex: number;
   amount: bigint;
+  claimAddress: string;
   refundAddress: string;
   timelock: bigint;
   tokenAddress?: string;
@@ -159,12 +160,16 @@ class Commitments {
         logIndex,
       );
 
-      const claimAddress = await this.signer.getAddress();
+      const expectedClaimAddress = await this.signer.getAddress();
+      if (
+        event.claimAddress.toLowerCase() !== expectedClaimAddress.toLowerCase()
+      ) {
+        throw new Error(
+          `claim address mismatch: ${event.claimAddress} !== ${expectedClaimAddress}`,
+        );
+      }
 
-      const lockupHash = await computeLockupHash(contract, {
-        claimAddress,
-        ...event,
-      });
+      const lockupHash = await computeLockupHash(contract, event);
 
       {
         const existingCommitment =
@@ -227,7 +232,7 @@ class Commitments {
         signatureValid = await (contract as EtherSwap).checkCommitmentSignature(
           getHexBuffer(swap.preimageHash),
           event.amount,
-          claimAddress,
+          event.claimAddress,
           event.refundAddress,
           event.timelock,
           sig.v,
@@ -259,7 +264,7 @@ class Commitments {
           getHexBuffer(swap.preimageHash),
           event.amount,
           erc20Wallet.tokenAddress,
-          claimAddress,
+          event.claimAddress,
           event.refundAddress,
           event.timelock,
           sig.v,
@@ -287,15 +292,15 @@ class Commitments {
         throw new Error('transaction not found');
       }
 
-      // We can emit the events with our address as claim address because
-      // we verified the signature is valid with it as parameter
+      // The synthetic event is safe because the onchain lockup and the
+      // commitment signature were both verified for our claim address.
       if (currency === this.network.symbol) {
         await this.eventHandler.handleEvent('eth.lockup', {
           transaction,
           version: contractVersion,
           etherSwapValues: {
             amount: event.amount,
-            claimAddress,
+            claimAddress: event.claimAddress,
             refundAddress: event.refundAddress,
             timelock: Number(event.timelock),
             preimageHash: getHexBuffer(swap.preimageHash),
@@ -307,7 +312,7 @@ class Commitments {
           version: contractVersion,
           erc20SwapValues: {
             amount: event.amount,
-            claimAddress,
+            claimAddress: event.claimAddress,
             refundAddress: event.refundAddress,
             timelock: Number(event.timelock),
             preimageHash: getHexBuffer(swap.preimageHash),
@@ -412,6 +417,7 @@ class Commitments {
       lockupsFound.push({
         logIndex: event.index,
         amount: parsedEvent.args.amount,
+        claimAddress: parsedEvent.args.claimAddress,
         timelock: parsedEvent.args.timelock,
         tokenAddress: parsedEvent.args.tokenAddress,
         refundAddress: parsedEvent.args.refundAddress,

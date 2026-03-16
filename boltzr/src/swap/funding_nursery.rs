@@ -1,6 +1,7 @@
 use crate::api::ws::types::{
     FundingAddressUpdate, SwapStatus, TransactionInfo, UpdateReceiver, UpdateSender,
 };
+use crate::chain::elements_client;
 use crate::chain::utils::Transaction;
 use crate::currencies::{Currencies, get_chain_client, get_wallet};
 use crate::db::helpers::funding_address::FundingAddressHelper;
@@ -11,8 +12,8 @@ use anyhow::Result;
 use bitcoin::key::Secp256k1;
 use bitcoin::secp256k1::SecretKey;
 use boltz_cache::Cache;
-use elements::confidential::Value;
-use std::sync::Arc;
+use elements::{AssetId, confidential::Value};
+use std::{str::FromStr, sync::Arc};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
@@ -240,12 +241,7 @@ impl FundingAddressNursery {
         Ok(())
     }
 
-    fn find_output(
-        &self,
-        tx: &Transaction,
-        symbol: &str,
-        script_pubkey: Vec<u8>,
-    ) -> Result<(usize, u64)> {
+    fn find_output(&self, tx: &Transaction, script_pubkey: Vec<u8>) -> Result<(usize, u64)> {
         match tx {
             Transaction::Bitcoin(tx) => tx.output.iter().enumerate().find_map(|(vout, output)| {
                 if output.script_pubkey.to_bytes() == script_pubkey {
@@ -259,29 +255,47 @@ impl FundingAddressNursery {
                 .iter()
                 .enumerate()
                 .find_map(|(vout, output)| {
-                    (output.script_pubkey.to_bytes() == script_pubkey).then(
-                        || -> Result<(usize, u64)> {
-                            match output.value {
-                                Value::Explicit(amount) => Ok((vout, amount)),
-                                Value::Confidential(_) => {
-                                    let secp = Secp256k1::new();
-                                    let wallet = get_wallet(&self.currencies, symbol)?;
-                                    let blinding_key =
-                                        wallet.derive_blinding_key(script_pubkey.clone())?;
-                                    let unblinded = output.unblind(
-                                        &secp,
-                                        SecretKey::from_slice(blinding_key.as_ref())?,
-                                    )?;
-                                    Ok((vout, unblinded.value))
-                                }
-                                Value::Null => Err(anyhow::anyhow!("output value is null")),
-                            }
-                        },
-                    )
+                    (output.script_pubkey.to_bytes() == script_pubkey).then(|| {
+                        self.elements_output_value(output)
+                            .map(|amount| (vout, amount))
+                    })
                 })
                 .transpose()?,
         }
         .ok_or(anyhow::anyhow!("output not found"))
+    }
+
+    fn elements_output_value(&self, output: &elements::TxOut) -> Result<u64> {
+        let symbol = elements_client::SYMBOL;
+        let currency = self
+            .currencies
+            .get(symbol)
+            .ok_or_else(|| anyhow::anyhow!("currency not found: {}", symbol))?;
+        let expected_asset = AssetId::from_str(currency.network.liquid_asset_id()?)?;
+        let script_pubkey = output.script_pubkey.to_bytes();
+        match output.value {
+            Value::Explicit(amount) => match output.asset.explicit() {
+                Some(asset) if asset == expected_asset => Ok(amount),
+                Some(_) => Err(anyhow::anyhow!(
+                    "output asset does not match expected asset"
+                )),
+                None => Err(anyhow::anyhow!("inconsistent blinding")),
+            },
+            Value::Confidential(_) => {
+                let secp = Secp256k1::new();
+                let wallet = get_wallet(&self.currencies, symbol)?;
+                let blinding_key = wallet.derive_blinding_key(script_pubkey)?;
+                let unblinded =
+                    output.unblind(&secp, SecretKey::from_slice(blinding_key.as_ref())?)?;
+                if unblinded.asset != expected_asset {
+                    return Err(anyhow::anyhow!(
+                        "output asset does not match expected asset"
+                    ));
+                }
+                Ok(unblinded.value)
+            }
+            Value::Null => Err(anyhow::anyhow!("output value is null")),
+        }
     }
 
     pub async fn handle_relevant_tx(&self, relevant_tx: RelevantTx) -> Result<()> {
@@ -328,8 +342,7 @@ impl FundingAddressNursery {
                         .await?;
                 }
 
-                let (vout, value) =
-                    self.find_output(&relevant_tx.tx, &funding_address.symbol, script_pubkey)?;
+                let (vout, value) = self.find_output(&relevant_tx.tx, script_pubkey)?;
 
                 debug!(
                     "Setting transaction {tx_id} for funding address {funding_address_id} with vout {vout} and value {value}",
@@ -403,6 +416,7 @@ mod test {
     use bitcoin::transaction::Version;
     use bitcoin::{Amount, ScriptBuf, Transaction as BitcoinTransaction, TxOut};
     use boltz_cache::{Cache, MemCache};
+    use elements::confidential::Asset;
     use mockall::predicate::*;
     use rstest::*;
     use std::collections::HashMap;
@@ -432,8 +446,12 @@ mod test {
         })
     }
 
-    fn test_elements_tx(outputs: Vec<(elements::Script, u64)>) -> Transaction {
-        use elements::confidential::{Asset, Nonce};
+    fn test_liquid_asset_id() -> AssetId {
+        AssetId::from_str(crate::wallet::Network::Regtest.liquid_asset_id().unwrap()).unwrap()
+    }
+
+    fn test_elements_tx_with_asset(outputs: Vec<(elements::Script, u64, AssetId)>) -> Transaction {
+        use elements::confidential::Nonce;
 
         Transaction::Elements(elements::Transaction {
             version: 2,
@@ -441,8 +459,8 @@ mod test {
             input: vec![],
             output: outputs
                 .into_iter()
-                .map(|(script, amount)| elements::TxOut {
-                    asset: Asset::Null,
+                .map(|(script, amount, asset)| elements::TxOut {
+                    asset: Asset::Explicit(asset),
                     value: Value::Explicit(amount),
                     nonce: Nonce::Null,
                     script_pubkey: script,
@@ -450,6 +468,16 @@ mod test {
                 })
                 .collect(),
         })
+    }
+
+    fn test_elements_tx(outputs: Vec<(elements::Script, u64)>) -> Transaction {
+        let asset = test_liquid_asset_id();
+        test_elements_tx_with_asset(
+            outputs
+                .into_iter()
+                .map(|(script, amount)| (script, amount, asset))
+                .collect(),
+        )
     }
 
     fn test_funding_address(id: &str) -> FundingAddress {
@@ -548,10 +576,7 @@ mod test {
         let script = test_script(0);
         let tx = test_bitcoin_tx(vec![(script.clone(), 100_000)]);
 
-        let (vout, value) = test
-            .nursery
-            .find_output(&tx, "BTC", script.to_bytes())
-            .unwrap();
+        let (vout, value) = test.nursery.find_output(&tx, script.to_bytes()).unwrap();
 
         assert_eq!(vout, 0);
         assert_eq!(value, 100_000);
@@ -562,9 +587,7 @@ mod test {
         let test = TestNursery::new(MockFundingAddressHelper::new());
         let tx = test_bitcoin_tx(vec![(test_script(0), 100_000)]);
 
-        let result = test
-            .nursery
-            .find_output(&tx, "BTC", test_script(1).to_bytes());
+        let result = test.nursery.find_output(&tx, test_script(1).to_bytes());
 
         assert_eq!(result.unwrap_err().to_string(), "output not found");
     }
@@ -576,10 +599,7 @@ mod test {
         let script2 = test_script(1);
         let tx = test_bitcoin_tx(vec![(script1, 100_000), (script2.clone(), 200_000)]);
 
-        let (vout, value) = test
-            .nursery
-            .find_output(&tx, "BTC", script2.to_bytes())
-            .unwrap();
+        let (vout, value) = test.nursery.find_output(&tx, script2.to_bytes()).unwrap();
 
         assert_eq!(vout, 1);
         assert_eq!(value, 200_000);
@@ -587,14 +607,11 @@ mod test {
 
     #[tokio::test]
     async fn find_output_returns_matching_output_lbtc() {
-        let test = TestNursery::new(MockFundingAddressHelper::new());
+        let test = TestNursery::new_with_test_currencies(MockFundingAddressHelper::new()).await;
         let script = test_elements_script(0);
         let tx = test_elements_tx(vec![(script.clone(), 100_000)]);
 
-        let (vout, value) = test
-            .nursery
-            .find_output(&tx, "L-BTC", script.to_bytes())
-            .unwrap();
+        let (vout, value) = test.nursery.find_output(&tx, script.to_bytes()).unwrap();
 
         assert_eq!(vout, 0);
         assert_eq!(value, 100_000);
@@ -602,30 +619,46 @@ mod test {
 
     #[tokio::test]
     async fn find_output_returns_error_when_not_found_lbtc() {
-        let test = TestNursery::new(MockFundingAddressHelper::new());
+        let test = TestNursery::new_with_test_currencies(MockFundingAddressHelper::new()).await;
         let tx = test_elements_tx(vec![(test_elements_script(0), 100_000)]);
 
         let result = test
             .nursery
-            .find_output(&tx, "L-BTC", test_elements_script(1).to_bytes());
+            .find_output(&tx, test_elements_script(1).to_bytes());
 
         assert_eq!(result.unwrap_err().to_string(), "output not found");
     }
 
     #[tokio::test]
     async fn find_output_finds_correct_output_among_multiple_lbtc() {
-        let test = TestNursery::new(MockFundingAddressHelper::new());
+        let test = TestNursery::new_with_test_currencies(MockFundingAddressHelper::new()).await;
         let script1 = test_elements_script(0);
         let script2 = test_elements_script(1);
         let tx = test_elements_tx(vec![(script1, 100_000), (script2.clone(), 200_000)]);
 
-        let (vout, value) = test
-            .nursery
-            .find_output(&tx, "L-BTC", script2.to_bytes())
-            .unwrap();
+        let (vout, value) = test.nursery.find_output(&tx, script2.to_bytes()).unwrap();
 
         assert_eq!(vout, 1);
         assert_eq!(value, 200_000);
+    }
+
+    #[tokio::test]
+    async fn find_output_returns_error_when_lbtc_asset_mismatches() {
+        let test = TestNursery::new_with_test_currencies(MockFundingAddressHelper::new()).await;
+        let script = test_elements_script(0);
+        let tx = test_elements_tx_with_asset(vec![(
+            script.clone(),
+            100_000,
+            AssetId::from_str("144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49")
+                .unwrap(),
+        )]);
+
+        let result = test.nursery.find_output(&tx, script.to_bytes());
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "output asset does not match expected asset"
+        );
     }
 
     // handle_relevant_tx tests
@@ -1220,7 +1253,7 @@ mod test {
             })
             .returning(|_, _, _, _, _, _| Ok(1));
 
-        let test = TestNursery::new(mock_helper);
+        let test = TestNursery::new_with_test_currencies(mock_helper).await;
         let script = test_elements_script(0);
 
         let relevant_tx = RelevantTx {

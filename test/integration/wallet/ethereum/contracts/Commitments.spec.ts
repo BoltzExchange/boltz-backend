@@ -3,10 +3,12 @@ import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
+import { Wallet as EthersWallet } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import { generateSwapId, getHexString } from '../../../../../lib/Utils';
 import { etherDecimals } from '../../../../../lib/consts/Consts';
 import {
+  CurrencyType,
   OrderSide,
   SwapUpdateEvent,
   SwapVersion,
@@ -19,17 +21,21 @@ import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentR
 import PairRepository from '../../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../../../lib/service/TimeoutDeltaProvider';
+import Wallet from '../../../../../lib/wallet/Wallet';
 import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
 import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
 import Commitments from '../../../../../lib/wallet/ethereum/contracts/Commitments';
 import type Contracts from '../../../../../lib/wallet/ethereum/contracts/Contracts';
 import { Feature } from '../../../../../lib/wallet/ethereum/contracts/Contracts';
+import ERC20WalletProvider from '../../../../../lib/wallet/providers/ERC20WalletProvider';
 import { getPostgresDatabase, wait } from '../../../../Utils';
 import type { EthereumSetup } from '../../EthereumTools';
 import {
+  erc20SwapCommitTypes,
   etherSwapCommitTypes,
   fundSignerWallet,
   getContracts,
+  getErc20SwapDomain,
   getEtherSwapDomain,
   getSigner,
 } from '../../EthereumTools';
@@ -600,6 +606,7 @@ describe('Commitments', () => {
       const event = await commitments['findLockupEvent'](etherSwap, tx.hash);
 
       expect(event.amount).toEqual(amount);
+      expect(event.claimAddress).toEqual(await setup.signer.getAddress());
       expect(event.timelock).toEqual(timelock);
       expect(event.refundAddress).toEqual(await setup.signer.getAddress());
       expect(event.preimageHash).toEqual(preimageHash);
@@ -637,6 +644,7 @@ describe('Commitments', () => {
       const event = await commitments['findLockupEvent'](erc20Swap, tx.hash);
 
       expect(event.amount).toEqual(amount);
+      expect(event.claimAddress).toEqual(await setup.signer.getAddress());
       expect(event.timelock).toEqual(timelock);
       expect(event.refundAddress).toEqual(await setup.signer.getAddress());
       expect(event.preimageHash).toEqual(preimageHash);
@@ -757,7 +765,9 @@ describe('Commitments', () => {
   describe('commit', () => {
     const zeroPreimageHash = Buffer.alloc(32);
 
-    const createInitializedCommitments = () => {
+    const createInitializedCommitments = (
+      wallets: Map<string, Wallet> = new Map(),
+    ) => {
       const commitments = new Commitments(
         Logger.disabledLogger,
         networks.Ethereum,
@@ -775,13 +785,34 @@ describe('Commitments', () => {
         setup.provider as any,
         setup.signer,
         [contract],
-        new Map(),
+        wallets,
       );
       commitments.setRefundSignatureLock(async <T>(cb: () => Promise<T>) =>
         cb(),
       );
 
       return commitments;
+    };
+
+    const createErc20Wallet = async (symbol: string) => {
+      const provider = new ERC20WalletProvider(
+        Logger.disabledLogger,
+        setup.signer,
+        {
+          symbol,
+          contract: token,
+          address: await token.getAddress(),
+          decimals: Number(await token.decimals()),
+        },
+      );
+
+      const wallets = new Map<string, Wallet>();
+      wallets.set(
+        symbol,
+        new Wallet(Logger.disabledLogger, CurrencyType.ERC20, provider),
+      );
+
+      return { provider, wallets };
     };
 
     const createSwap = async (
@@ -882,6 +913,116 @@ describe('Commitments', () => {
           }),
         }),
       );
+    });
+
+    test('should reject Ether commitment when onchain claimAddress differs', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 1;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const amount = BigInt(expectedAmount) * etherDecimals;
+      const onchainClaimAddress = EthersWallet.createRandom().address;
+      const boltzClaimAddress = await setup.signer.getAddress();
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        onchainClaimAddress,
+        timelock,
+        { value: amount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          claimAddress: boltzClaimAddress,
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await expect(
+        commitments.commit(networks.Ethereum.symbol, id, signature, tx.hash),
+      ).rejects.toThrow(
+        `claim address mismatch: ${onchainClaimAddress} !== ${boltzClaimAddress}`,
+      );
+
+      expect(await CommitmentRepository.getBySwapId(id)).toBeNull();
+      expect(eventHandler.handleEvent).not.toHaveBeenCalled();
+    });
+
+    test('should reject ERC20 commitment when onchain claimAddress differs', async () => {
+      const symbol = 'USDT';
+      const { provider, wallets } = await createErc20Wallet(symbol);
+      const commitments = createInitializedCommitments(wallets);
+      const erc20SwapAddress = await erc20Swap.getAddress();
+
+      const expectedAmount = 1;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        erc20SwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const amount = provider.formatTokenAmount(expectedAmount);
+      const onchainClaimAddress = EthersWallet.createRandom().address;
+      const boltzClaimAddress = await setup.signer.getAddress();
+
+      const approveTx = await token.approve(
+        await erc20Swap.getAddress(),
+        amount,
+        {
+          nonce: await getSignerNonce(),
+        },
+      );
+      await approveTx.wait(1);
+
+      const tx = await erc20Swap[
+        'lock(bytes32,uint256,address,address,uint256)'
+      ](
+        zeroPreimageHash,
+        amount,
+        await token.getAddress(),
+        onchainClaimAddress,
+        timelock,
+        { nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getErc20SwapDomain(setup.provider, erc20Swap),
+        erc20SwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          tokenAddress: await token.getAddress(),
+          claimAddress: boltzClaimAddress,
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await expect(
+        commitments.commit(symbol, id, signature, tx.hash),
+      ).rejects.toThrow(
+        `claim address mismatch: ${onchainClaimAddress} !== ${boltzClaimAddress}`,
+      );
+
+      expect(await CommitmentRepository.getBySwapId(id)).toBeNull();
+      expect(eventHandler.handleEvent).not.toHaveBeenCalled();
     });
 
     test('should create commitment when lockup amount has extra precision', async () => {

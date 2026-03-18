@@ -235,6 +235,12 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
+    this.arkNursery.on('swap.expired', async (swap) => {
+      await this.lock.acquire(SwapNursery.swapLock, async () => {
+        await this.expireSwap(swap);
+      });
+    });
+
     this.utxoNursery.on('swap.lockup.failed', async ({ swap, reason }) => {
       await this.lock.acquire(SwapNursery.swapLock, async () => {
         await this.lockupFailed(swap, reason);

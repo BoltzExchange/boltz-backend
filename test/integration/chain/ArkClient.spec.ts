@@ -2,7 +2,7 @@ import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer } from '../../../lib/Utils';
-import ArkClient from '../../../lib/chain/ArkClient';
+import ArkClient, { ArkBlockEventKind } from '../../../lib/chain/ArkClient';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, bitcoinClient } from '../Nodes';
@@ -242,6 +242,7 @@ describe('ArkClient', () => {
       const emitPromise = new Promise<void>((resolve) => {
         arkClient.on('block', (block) => {
           expect(block).toEqual({
+            kind: ArkBlockEventKind.Height,
             height: blockHeight + 1,
           });
           arkClient.removeAllListeners('block');
@@ -267,8 +268,11 @@ describe('ArkClient', () => {
 
       const emitPromise = new Promise<void>((resolve) => {
         arkClient.on('block', (block) => {
-          expect(block.height).toBeUndefined();
-          expect(block.medianTime).toBeDefined();
+          expect(block.kind).toBe(ArkBlockEventKind.MedianTime);
+          if (block.kind !== ArkBlockEventKind.MedianTime) {
+            throw new Error('expected medianTime ARK block event');
+          }
+
           expect(block.medianTime).toBeGreaterThan(0);
           arkClient.removeAllListeners('block');
           resolve();

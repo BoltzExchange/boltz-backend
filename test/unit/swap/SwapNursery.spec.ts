@@ -898,6 +898,52 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('ark swap.expired', () => {
+    const mockExpiredSwap = {
+      id: 'ark-submarine-swap',
+      type: SwapType.Submarine,
+      status: SwapUpdateEvent.TransactionConfirmed,
+    } as any;
+
+    beforeEach(async () => {
+      mockGetSwapResult = mockExpiredSwap;
+
+      (SwapRepository.setSwapStatus as jest.Mock).mockResolvedValue({
+        ...mockExpiredSwap,
+        status: SwapUpdateEvent.SwapExpired,
+        failureReason: Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+      });
+
+      await swapNursery.init([mockCurrency]);
+    });
+
+    test('should expire ARK submarine swaps through SwapNursery', async () => {
+      const eventPromise = new Promise<any>((resolve) => {
+        swapNursery.once('expiration', (swap) => {
+          resolve(swap);
+        });
+      });
+
+      (swapNursery as any).arkNursery.emit('swap.expired', mockExpiredSwap);
+
+      const emittedSwap = await eventPromise;
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: mockExpiredSwap.id,
+      });
+      expect(SwapRepository.setSwapStatus).toHaveBeenCalledWith(
+        mockExpiredSwap,
+        SwapUpdateEvent.SwapExpired,
+        Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+      );
+      expect(emittedSwap).toEqual({
+        ...mockExpiredSwap,
+        status: SwapUpdateEvent.SwapExpired,
+        failureReason: Errors.ONCHAIN_HTLC_TIMED_OUT().message,
+      });
+    });
+  });
+
   describe('handleSwapSendFailed', () => {
     let mockReverseSwap: ReverseSwap;
 

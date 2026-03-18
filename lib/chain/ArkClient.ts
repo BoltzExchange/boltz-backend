@@ -61,12 +61,27 @@ type ArkAddress = {
   boardingAddress: string;
 };
 
+enum ArkBlockEventKind {
+  Height = 'height',
+  MedianTime = 'medianTime',
+}
+
+// "height" is populated when timelocks based on block numbers are used
+// else, "medianTime" is populated for seconds based timelocks
+type ArkBlockEvent =
+  | {
+      kind: ArkBlockEventKind.Height;
+      height: number;
+    }
+  | {
+      kind: ArkBlockEventKind.MedianTime;
+      medianTime: number;
+    };
+
 class ArkClient extends BaseClient<
   BaseClientEvents &
     Events & {
-      // "height" is populated when timelocks based on block numbers are used
-      // else, "medianTime" is populated for seconds based timelocks
-      block: { height?: number; medianTime?: number };
+      block: ArkBlockEvent;
     }
 > {
   public static readonly symbol = 'ARK';
@@ -585,10 +600,12 @@ class ArkClient extends BaseClient<
       const blockData = await this.chainClient!.getBlock(blockHash);
 
       this.emit('block', {
+        kind: ArkBlockEventKind.MedianTime,
         medianTime: blockData.mediantime,
       });
     } else {
       this.emit('block', {
+        kind: ArkBlockEventKind.Height,
         height: block.height,
       });
     }
@@ -633,3 +650,5 @@ class ArkClient extends BaseClient<
 
 export default ArkClient;
 export { CreatedVHtlc, SpentVHtlc };
+export { ArkBlockEventKind };
+export type { ArkBlockEvent };

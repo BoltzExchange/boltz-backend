@@ -2,6 +2,7 @@ use anyhow::Result;
 use tonic::transport::Channel;
 
 #[allow(dead_code)]
+#[allow(clippy::enum_variant_names)]
 mod ark_rpc {
     tonic::include_proto!("fulmine.v1");
 }

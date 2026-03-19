@@ -221,8 +221,8 @@ export class TransactionInfo extends jspb.Message {
     setBoardingTxid(value: string): TransactionInfo;
     getType(): TxType;
     setType(value: TxType): TransactionInfo;
-    getSettled(): boolean;
-    setSettled(value: boolean): TransactionInfo;
+    getSettledBy(): string;
+    setSettledBy(value: string): TransactionInfo;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): TransactionInfo.AsObject;
@@ -242,7 +242,7 @@ export namespace TransactionInfo {
         arkTxid: string,
         boardingTxid: string,
         type: TxType,
-        settled: boolean,
+        settledBy: string,
     }
 }
 

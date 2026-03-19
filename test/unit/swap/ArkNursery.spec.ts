@@ -2,6 +2,7 @@ import { Transaction } from '@scure/btc-signer';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
+import { ArkBlockEventKind } from '../../../lib/chain/ArkClient';
 import type ArkClient from '../../../lib/chain/ArkClient';
 import {
   CurrencyType,
@@ -199,6 +200,108 @@ describe('ArkNursery', () => {
       expect(mockArkNode.on).toHaveBeenCalledWith(
         'block',
         expect.any(Function),
+      );
+    });
+
+    test('should use block height for block-based expiry checks', async () => {
+      const mockArkNode = {
+        on: jest.fn(),
+        symbol: 'ARK',
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      };
+
+      const isolatedNursery = new ArkNursery(
+        Logger.disabledLogger,
+        new OverpaymentProtector(Logger.disabledLogger),
+      );
+
+      SwapRepository.getSwapsExpirable = jest.fn().mockResolvedValue([]);
+      ReverseSwapRepository.getReverseSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      isolatedNursery.init([
+        {
+          symbol: 'ARK',
+          type: CurrencyType.Ark,
+          arkNode: mockArkNode as unknown as ArkClient,
+        } as Currency,
+      ]);
+
+      const blockHandler = (mockArkNode.on as jest.Mock).mock.calls.find(
+        ([event]) => event === 'block',
+      )?.[1];
+
+      expect(blockHandler).toBeDefined();
+
+      await blockHandler({
+        kind: ArkBlockEventKind.Height,
+        height: 1234567,
+      });
+
+      expect(SwapRepository.getSwapsExpirable).toHaveBeenCalledWith(1234567);
+      expect(
+        ReverseSwapRepository.getReverseSwapsExpirable,
+      ).toHaveBeenCalledWith(1234567);
+      expect(ChainSwapRepository.getChainSwapsExpirable).toHaveBeenCalledWith(
+        ['ARK'],
+        1234567,
+      );
+    });
+
+    test('should use median time for second-based expiry checks', async () => {
+      const mockArkNode = {
+        on: jest.fn(),
+        symbol: 'ARK',
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      };
+
+      const isolatedNursery = new ArkNursery(
+        Logger.disabledLogger,
+        new OverpaymentProtector(Logger.disabledLogger),
+      );
+
+      SwapRepository.getSwapsExpirable = jest.fn().mockResolvedValue([]);
+      ReverseSwapRepository.getReverseSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      isolatedNursery.init([
+        {
+          symbol: 'ARK',
+          type: CurrencyType.Ark,
+          arkNode: mockArkNode as unknown as ArkClient,
+        } as Currency,
+      ]);
+
+      const blockHandler = (mockArkNode.on as jest.Mock).mock.calls.find(
+        ([event]) => event === 'block',
+      )?.[1];
+
+      expect(blockHandler).toBeDefined();
+
+      await blockHandler({
+        kind: ArkBlockEventKind.MedianTime,
+        medianTime: 1_234_567,
+      });
+
+      expect(SwapRepository.getSwapsExpirable).toHaveBeenCalledWith(1_234_567);
+      expect(
+        ReverseSwapRepository.getReverseSwapsExpirable,
+      ).toHaveBeenCalledWith(1_234_567);
+      expect(ChainSwapRepository.getChainSwapsExpirable).toHaveBeenCalledWith(
+        ['ARK'],
+        1_234_567,
       );
     });
   });
@@ -610,6 +713,74 @@ describe('ArkNursery', () => {
 
     beforeEach(() => {
       jest.clearAllMocks();
+      SwapRepository.getSwapsExpirable = jest.fn().mockResolvedValue([]);
+    });
+
+    test('should emit expired event for Ark submarine swaps', async () => {
+      const expiredSwap = {
+        id: 'swap123',
+        type: SwapType.Submarine,
+        pair: 'ARK/BTC',
+        orderSide: 0,
+        lockupAddress: 'ark_address',
+        chainCurrency: 'ARK',
+      };
+
+      SwapRepository.getSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([expiredSwap]);
+      ReverseSwapRepository.getReverseSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      let emittedSwap: any = null;
+      nursery.once('swap.expired', (swap) => {
+        emittedSwap = swap;
+      });
+
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
+
+      expect(SwapRepository.getSwapsExpirable).toHaveBeenCalledWith(1234567);
+      expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
+        'ark_address',
+      );
+      expect(emittedSwap).toEqual(expiredSwap);
+    });
+
+    test('should not emit for non-Ark submarine swaps', async () => {
+      const expiredSwap = {
+        id: 'swap123',
+        type: SwapType.Submarine,
+        pair: 'BTC/BTC',
+        orderSide: 0,
+        lockupAddress: 'btc_address',
+        chainCurrency: 'BTC',
+      };
+
+      SwapRepository.getSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([expiredSwap]);
+      ReverseSwapRepository.getReverseSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+      ChainSwapRepository.getChainSwapsExpirable = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      let emittedSwap: any = null;
+      nursery.once('swap.expired', (swap) => {
+        emittedSwap = swap;
+      });
+
+      await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
+
+      expect(
+        mockArkNode.subscription.unsubscribeAddress,
+      ).not.toHaveBeenCalled();
+      expect(emittedSwap).toBeNull();
     });
 
     test('should emit expired event for Ark reverse swaps', async () => {
@@ -636,6 +807,7 @@ describe('ArkNursery', () => {
 
       await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
+      expect(SwapRepository.getSwapsExpirable).toHaveBeenCalledWith(1234567);
       expect(
         ReverseSwapRepository.getReverseSwapsExpirable,
       ).toHaveBeenCalledWith(1234567);
@@ -745,6 +917,7 @@ describe('ArkNursery', () => {
 
       await nursery['checkExpiredSwaps'](mockArkNode, 1234567);
 
+      expect(SwapRepository.getSwapsExpirable).toHaveBeenCalledWith(1234567);
       expect(
         mockArkNode.subscription.unsubscribeAddress,
       ).not.toHaveBeenCalled();

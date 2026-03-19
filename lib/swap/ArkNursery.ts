@@ -4,6 +4,7 @@ import { Op } from 'sequelize';
 import type Logger from '../Logger';
 import { getHexString } from '../Utils';
 import ArkClient, {
+  ArkBlockEventKind,
   type CreatedVHtlc,
   type SpentVHtlc,
 } from '../chain/ArkClient';
@@ -25,6 +26,7 @@ import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
 
 class ArkNursery extends TypedEventEmitter<{
+  'swap.expired': Swap;
   'swap.lockup': {
     swap: Swap;
     lockupTransactionId: string;
@@ -187,8 +189,14 @@ class ArkNursery extends TypedEventEmitter<{
       await this.checkClaims(arkNode, vHtlc);
     });
 
-    arkNode.on('block', async ({ height, medianTime }) => {
-      await this.checkExpiredSwaps(arkNode, height || medianTime || 0);
+    arkNode.on('block', async (block) => {
+      // Seconds-based ARK refunds become spendable by Bitcoin median time past.
+      await this.checkExpiredSwaps(
+        arkNode,
+        block.kind === ArkBlockEventKind.Height
+          ? block.height
+          : block.medianTime,
+      );
     });
   };
 
@@ -309,10 +317,20 @@ class ArkNursery extends TypedEventEmitter<{
   };
 
   private checkExpiredSwaps = async (node: ArkClient, currentTime: number) => {
-    const [reverseSwaps, chainSwaps] = await Promise.all([
+    const [swaps, reverseSwaps, chainSwaps] = await Promise.all([
+      SwapRepository.getSwapsExpirable(currentTime),
       ReverseSwapRepository.getReverseSwapsExpirable(currentTime),
       ChainSwapRepository.getChainSwapsExpirable([node.symbol], currentTime),
     ]);
+
+    for (const swap of swaps) {
+      if (swap.chainCurrency !== node.symbol) {
+        continue;
+      }
+
+      node.subscription.unsubscribeAddress(swap.lockupAddress);
+      this.emit('swap.expired', swap);
+    }
 
     for (const swap of [...reverseSwaps, ...chainSwaps]) {
       const chainCurrency =

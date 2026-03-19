@@ -255,6 +255,7 @@ class SwapManager {
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(
+      this.logger,
       this.walletManager,
       this.rateProvider,
       paymentRequestUtils,
@@ -1094,6 +1095,20 @@ class SwapManager {
         minerFeeOnchainAmount: args.prepayMinerFeeOnchainAmount,
         redeemScript: JSON.stringify(vHtlc.vHtlc.swapTree!),
       });
+
+      if (
+        hints.bip21Params !== undefined &&
+        args.userAddress !== undefined &&
+        args.userAddressSignature !== undefined
+      ) {
+        await ReverseRoutingHintRepository.addHint({
+          swapId: id,
+          address: args.userAddress,
+          symbol: sendingCurrency.symbol,
+          params: hints.bip21Params,
+          signature: args.userAddressSignature,
+        });
+      }
 
       await sendingCurrency.arkNode!.subscription.subscribeAddresses([
         {

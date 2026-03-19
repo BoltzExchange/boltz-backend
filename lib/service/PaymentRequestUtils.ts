@@ -2,13 +2,18 @@ import { networks as networksLiquid } from 'liquidjs-lib';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
 import { encode } from 'querystring';
 import { satoshisToCoins } from '../DenominationConverter';
+import ArkClient from '../chain/ArkClient';
 import ElementsClient from '../chain/ElementsClient';
 import type { Currency } from '../wallet/WalletManager';
+
+type PaymentInstruction = {
+  key: string;
+  value: string;
+};
 
 class PaymentRequestUtils {
   private prefixes = new Map<string, string>([
     ['BTC', 'bitcoin'],
-    ['LTC', 'litecoin'],
     [ElementsClient.symbol, 'liquidnetwork'],
   ]);
 
@@ -25,37 +30,48 @@ class PaymentRequestUtils {
   }
 
   /**
-   * Encode a BIP21 payment request
+   * Encode a BIP-321 payment URI.
    */
-  public encodeBip21 = (
+  public encodePaymentUri = (
     symbol: string,
     address: string,
     satoshis?: number,
     label?: string,
   ): string | undefined => {
-    return this.encodeBip21WithParams(
+    return this.encodePaymentUriWithParams(
       symbol,
       address,
       this.encodeParams(symbol, satoshis, label),
     );
   };
 
-  public encodeBip21WithParams = (
+  /**
+   * Encode a BIP-321 payment URI with parameters.
+   */
+  public encodePaymentUriWithParams = (
     symbol: string,
     address: string,
     params?: string,
   ) => {
-    const prefix = this.getBip21Prefix(symbol);
+    const prefix = this.getPaymentUriPrefix(symbol);
     const isLbtc = symbol === ElementsClient.symbol;
 
     if (prefix === undefined || (isLbtc && this.lbtcAssetHash === undefined)) {
       return;
     }
 
-    if (params === undefined) {
+    const paymentInstruction = this.getPaymentInstruction(symbol, address);
+    const query = this.joinQueryParts(paymentInstruction, params);
+
+    if (paymentInstruction !== undefined) {
+      return `${prefix}:?${query}`;
+    }
+
+    if (query === undefined) {
       return `${prefix}:${address}`;
     }
-    return `${prefix}:${address}?${params}`;
+
+    return `${prefix}:${address}?${query}`;
   };
 
   public encodeParams = (symbol: string, satoshis?: number, label?: string) => {
@@ -79,10 +95,45 @@ class PaymentRequestUtils {
   };
 
   /**
-   * Get the BIP21 prefix for a currency
+   * Get the payment URI scheme for a currency.
    */
-  private getBip21Prefix = (symbol: string): string | undefined => {
+  private getPaymentUriPrefix = (symbol: string): string | undefined => {
+    if (symbol === ArkClient.symbol) {
+      return this.prefixes.get('BTC');
+    }
+
     return this.prefixes.get(symbol);
+  };
+
+  private getPaymentInstruction = (
+    symbol: string,
+    address: string,
+  ): PaymentInstruction | undefined => {
+    if (symbol === ArkClient.symbol) {
+      return {
+        key: 'ark',
+        value: encodeURIComponent(address),
+      };
+    }
+
+    return undefined;
+  };
+
+  private joinQueryParts = (
+    paymentInstruction?: PaymentInstruction,
+    params?: string,
+  ): string | undefined => {
+    const queryParts: string[] = [];
+
+    if (paymentInstruction !== undefined) {
+      queryParts.push(`${paymentInstruction.key}=${paymentInstruction.value}`);
+    }
+
+    if (params !== undefined && params !== '') {
+      queryParts.push(params);
+    }
+
+    return queryParts.length === 0 ? undefined : queryParts.join('&');
   };
 }
 

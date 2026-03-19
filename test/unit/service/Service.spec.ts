@@ -1428,9 +1428,9 @@ describe('Service', () => {
     const mockAddress = '123';
     ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
       symbol: 'BTC',
-      address: jest.fn().mockReturnValue(mockAddress),
+      getAddress: jest.fn().mockReturnValue(mockAddress),
       params: 'params',
-      signature: 'some valid sig',
+      signature: Buffer.from('some valid sig'),
     });
 
     const id = 'bip21Reverse';
@@ -1451,12 +1451,37 @@ describe('Service', () => {
 
     const hint = await ReverseRoutingHintRepository.getHint(id);
     expect(res!.bip21).toEqual(
-      service['paymentRequestUtils'].encodeBip21WithParams(
+      service['paymentRequestUtils'].encodePaymentUriWithParams(
         hint!.symbol,
         mockAddress,
         hint!.params,
       ),
     );
+  });
+
+  test('should get ARK payment URI for reverse swaps', async () => {
+    const mockAddress =
+      'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag';
+    ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({
+      symbol: ArkClient.symbol,
+      getAddress: jest.fn().mockReturnValue(mockAddress),
+      params: 'amount=0.001',
+      signature: Buffer.from('some valid sig'),
+    });
+
+    const id = 'arkReverse';
+    mockGetReverseSwapResult = {
+      id,
+    };
+
+    const invoice = 'arkInvoice';
+    const res = await service.getReverseBip21(invoice);
+
+    expect(ReverseRoutingHintRepository.getHint).toHaveBeenCalledWith(id);
+    expect(res).toEqual({
+      bip21: `bitcoin:?ark=${mockAddress}&amount=0.001`,
+      signature: '736f6d652076616c696420736967',
+    });
   });
 
   test('should return undefined when no BIP-21 was set for reverse swap', async () => {

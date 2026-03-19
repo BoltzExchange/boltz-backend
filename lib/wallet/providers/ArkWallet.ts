@@ -53,7 +53,7 @@ class ArkWallet implements WalletProviderInterface {
   ): Promise<SentTransaction> => {
     const tx = await this.node.getTx(transactionId);
 
-    const addressPubkey = ArkClient.decodeAddress(address).tweakedPubKey;
+    const addressPubkey = this.node.decodeAddress(address).tweakedPubKey;
     const vout = ArkClient.mapOutputs(tx).findIndex(
       (output) =>
         output.amount === amount &&

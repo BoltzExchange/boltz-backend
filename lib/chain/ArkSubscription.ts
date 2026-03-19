@@ -10,7 +10,7 @@ import {
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type * as notificationrpc from '../proto/ark/notification';
 import type * as arkrpc from '../proto/ark/service';
-import ArkClient from './ArkClient';
+import type ArkClient from './ArkClient';
 
 type SubscribedAddress = {
   address: string;
@@ -41,6 +41,7 @@ class AddressMapper {
   private readonly decodedAddresses: Map<string, string>;
 
   constructor(
+    arkClient: ArkClient,
     addresses: string[],
     onInvalidAddress?: (address: string, error: unknown) => void,
   ) {
@@ -49,7 +50,7 @@ class AddressMapper {
     for (const address of addresses) {
       try {
         this.decodedAddresses.set(
-          getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
+          getHexString(arkClient.decodeAddress(address).tweakedPubKey),
           address,
         );
       } catch (error) {
@@ -187,6 +188,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
       >('listVhtlCs', req);
 
       const addressMapper = new AddressMapper(
+        this.client,
         Array.from(this.subscribedAddresses.keys()),
         this.invalidAddressHandler('subscribed'),
       );
@@ -251,6 +253,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
         }
 
         const addressMapper = new AddressMapper(
+          this.client,
           notification.addresses,
           this.invalidAddressHandler('notification'),
         );

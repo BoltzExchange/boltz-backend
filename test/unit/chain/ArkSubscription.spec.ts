@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import type Logger from '../../../lib/Logger';
-import ArkClient from '../../../lib/chain/ArkClient';
+import type ArkClient from '../../../lib/chain/ArkClient';
 import ArkSubscription from '../../../lib/chain/ArkSubscription';
 
 class MockStream extends EventEmitter {
@@ -17,9 +17,12 @@ describe('ArkSubscription', () => {
     verbose: jest.fn(),
   };
 
+  const mockDecodeAddress = jest.fn();
+
   const client = {
     serviceName: () => 'ark',
     symbol: 'ARK',
+    decodeAddress: mockDecodeAddress,
   } as unknown as ArkClient;
 
   const createSubscription = () => {
@@ -58,18 +61,16 @@ describe('ArkSubscription', () => {
     subscription.on('vhtlc.created', created);
 
     const tweakedPubKey = Buffer.alloc(32, 1);
-    jest
-      .spyOn(ArkClient, 'decodeAddress')
-      .mockImplementation((address: string) => {
-        if (address === 'invalid-address') {
-          throw new Error('invalid address');
-        }
+    mockDecodeAddress.mockImplementation((address: string) => {
+      if (address === 'invalid-address') {
+        throw new Error('invalid address');
+      }
 
-        return {
-          serverPubKey: Buffer.alloc(32, 2),
-          tweakedPubKey,
-        };
-      });
+      return {
+        serverPubKey: Buffer.alloc(32, 2),
+        tweakedPubKey,
+      };
+    });
 
     (subscription as any).streamVhtlcs();
 
@@ -110,18 +111,16 @@ describe('ArkSubscription', () => {
     subscription.on('vhtlc.created', created);
 
     const tweakedPubKey = Buffer.alloc(32, 1);
-    jest
-      .spyOn(ArkClient, 'decodeAddress')
-      .mockImplementation((address: string) => {
-        if (address === 'invalid-address') {
-          throw new Error('invalid address');
-        }
+    mockDecodeAddress.mockImplementation((address: string) => {
+      if (address === 'invalid-address') {
+        throw new Error('invalid address');
+      }
 
-        return {
-          serverPubKey: Buffer.alloc(32, 2),
-          tweakedPubKey,
-        };
-      });
+      return {
+        serverPubKey: Buffer.alloc(32, 2),
+        tweakedPubKey,
+      };
+    });
 
     await subscription.subscribeAddresses([
       {

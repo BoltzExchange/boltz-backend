@@ -35,6 +35,7 @@ struct PendingSigningSession {
     sighash: String,
     swap_id: String,
     transaction: String,
+    lockup_transaction_id: String,
 }
 
 /// Information about a swap needed for linking to a funding address.
@@ -208,6 +209,10 @@ impl FundingAddressSigner {
                     sighash: hex::encode(msg),
                     swap_id: swap_id.to_string(),
                     transaction: tx_hex.clone(),
+                    lockup_transaction_id: funding_address
+                        .lockup_transaction_id
+                        .clone()
+                        .ok_or_else(|| anyhow!("lockup transaction id missing"))?,
                 },
                 Some(CACHE_TTL),
             )
@@ -235,6 +240,17 @@ impl FundingAddressSigner {
             .ok_or_else(|| anyhow!("musig session not found for funding address"))?;
 
         self.can_spend(funding_address, &session.swap_id)?;
+
+        if session.lockup_transaction_id
+            != funding_address
+                .lockup_transaction_id
+                .clone()
+                .ok_or_else(|| anyhow!("lockup transaction id missing"))?
+        {
+            return Err(anyhow!(FundingAddressSignerError::Eligibility(
+                "lockup transaction changed mismatch".to_string(),
+            )));
+        }
 
         let their_pubkey = Musig::convert_pub_key(&funding_address.their_public_key()?.to_bytes())?;
         let msg: [u8; 32] = hex::decode(&session.sighash)?
@@ -1300,9 +1316,12 @@ mod test {
             .build();
         let key_pair = get_keypair();
 
-        let mut funding_address = test_funding_address(
+        let mut funding_address = test_funding_address_with_lockup(
             "test_funding_unspendable_status",
             &key_pair.public_key().serialize(),
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            0,
+            100000,
         );
         signer
             .cache
@@ -1315,6 +1334,7 @@ mod test {
                     sighash: "00".repeat(32),
                     swap_id: TEST_SWAP_ID.to_string(),
                     transaction: "00".to_string(),
+                    lockup_transaction_id: funding_address.lockup_transaction_id.clone().unwrap(),
                 },
                 Some(CACHE_TTL),
             )

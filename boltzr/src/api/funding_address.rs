@@ -605,12 +605,24 @@ mod test {
 
         let helper = FundingAddressHelperDatabase::new(get_pool());
         let swap_id = format!("swap-{}", funding_address_response.id);
+        let lockup_transaction_id = format!("lockup-{}", funding_address_response.id);
+        helper
+            .set_transaction(
+                &funding_address_response.id,
+                &lockup_transaction_id,
+                0,
+                100000,
+                "transaction.confirmed",
+                false,
+            )
+            .unwrap();
         helper
             .set_presigned_tx(
                 &funding_address_response.id,
                 Some(SwapTxInfo {
                     swap_id,
                     presigned_tx: vec![],
+                    lockup_transaction_id,
                 }),
             )
             .unwrap();

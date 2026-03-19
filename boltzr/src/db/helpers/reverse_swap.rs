@@ -89,6 +89,7 @@ impl ReverseSwapHelper for ReverseSwapHelperDatabase {
         &self,
         script_pubkeys: Vec<Vec<u8>>,
     ) -> QueryResponse<Vec<ReverseRoutingHint>> {
+        let script_pubkeys = script_pubkeys.into_iter().map(Some).collect::<Vec<_>>();
         Ok(reverseRoutingHints::dsl::reverseRoutingHints
             .select(ReverseRoutingHint::as_select())
             .filter(reverseRoutingHints::dsl::scriptPubkey.eq_any(script_pubkeys))

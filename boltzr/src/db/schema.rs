@@ -77,7 +77,8 @@ diesel::table! {
     reverseRoutingHints (swapId) {
         swapId -> Text,
         symbol -> Text,
-        scriptPubkey -> Binary,
+        address -> Nullable<Text>,
+        scriptPubkey -> Nullable<Binary>,
         blindingPubkey -> Nullable<Binary>,
         params -> Nullable<Text>,
         signature -> Binary,

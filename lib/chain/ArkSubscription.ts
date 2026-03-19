@@ -6,7 +6,7 @@ import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
 import * as notificationrpc from '../proto/ark/notification_pb';
 import * as arkrpc from '../proto/ark/service_pb';
-import ArkClient from './ArkClient';
+import type ArkClient from './ArkClient';
 
 type SubscribedAddress = {
   address: string;
@@ -203,7 +203,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
 
         const decoded = new Map<string, string>(
           notification.addressesList.map((address) => [
-            getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
+            getHexString(this.client.decodeAddress(address).tweakedPubKey),
             address,
           ]),
         );

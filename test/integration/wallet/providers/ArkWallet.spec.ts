@@ -31,7 +31,7 @@ describe('ArkWallet', () => {
   test('should get address', async () => {
     const address = await wallet.getAddress();
 
-    const decoded = ArkClient.decodeAddress(address);
+    const decoded = arkClient.decodeAddress(address);
     expect(decoded.serverPubKey).toBeDefined();
     expect(decoded.serverPubKey).toHaveLength(32);
     expect(decoded.tweakedPubKey).toBeDefined();
@@ -63,7 +63,7 @@ describe('ArkWallet', () => {
 
     const tx = await arkClient.getTx(sentTransaction.transactionId);
 
-    const pubkey = ArkClient.decodeAddress(address).tweakedPubKey;
+    const pubkey = arkClient.decodeAddress(address).tweakedPubKey;
     expect(
       ArkClient.mapOutputs(tx).findIndex(
         (output) =>
@@ -92,7 +92,7 @@ describe('ArkWallet', () => {
 
     const tx = await arkClient.getTx(sentTransaction.transactionId);
 
-    const pubkey = ArkClient.decodeAddress(address).tweakedPubKey;
+    const pubkey = arkClient.decodeAddress(address).tweakedPubKey;
     expect(
       ArkClient.mapOutputs(tx).findIndex(
         (output) =>

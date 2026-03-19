@@ -1,8 +1,11 @@
+import { bech32m } from '@scure/base';
 import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import { ECPair } from '../../../lib/ECPairHelper';
+import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
-import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
+import ArkClient from '../../../lib/chain/ArkClient';
+import { CurrencyType, SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { DecodedInvoice } from '../../../lib/lightning/LightningClient';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
@@ -10,14 +13,27 @@ import ReverseRoutingHints from '../../../lib/swap/ReverseRoutingHints';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
 describe('ReverseRoutingHints', () => {
+  const arkAddress =
+    'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag';
   const sendingCurrency = {
     symbol: 'BTC',
+    type: CurrencyType.BitcoinLike,
+  } as Currency;
+  const arkCurrency = {
+    symbol: ArkClient.symbol,
+    type: CurrencyType.Ark,
+    arkNode: {
+      aspPubkey: ArkClient.decodeAddress(arkAddress, 'tark').serverPubKey,
+      decodeAddress: (address: string) =>
+        ArkClient.decodeAddress(address, 'tark'),
+    },
   } as Currency;
 
   const reverseMinerFees = 123;
 
   const paymentRequestUtils = new PaymentRequestUtils();
   const hints = new ReverseRoutingHints(
+    Logger.disabledLogger,
     {
       wallets: new Map<string, any>([
         [
@@ -39,6 +55,16 @@ describe('ReverseRoutingHints', () => {
         minerFees: new Map<string, any>([
           [
             sendingCurrency.symbol,
+            {
+              [SwapVersion.Taproot]: {
+                reverse: {
+                  claim: reverseMinerFees,
+                },
+              },
+            },
+          ],
+          [
+            arkCurrency.symbol,
             {
               [SwapVersion.Taproot]: {
                 reverse: {
@@ -248,6 +274,151 @@ describe('ReverseRoutingHints', () => {
           userAddressSignature: signature,
         }),
       ).toThrow(Errors.INVALID_ADDRESS_SIGNATURE().message);
+    });
+
+    test('should also get BIP-21 and routing hint for ARK addresses', () => {
+      const amount = 100_000;
+      const keys = ECPair.makeRandom();
+      const signature = Buffer.from(
+        keys.signSchnorr(crypto.sha256(Buffer.from(arkAddress, 'utf-8'))),
+      );
+
+      expect(
+        hints.getHints(arkCurrency, {
+          userAddress: arkAddress,
+          onchainAmount: amount,
+          version: SwapVersion.Taproot,
+          claimPublicKey: Buffer.from(keys.publicKey),
+          userAddressSignature: signature,
+        }),
+      ).toEqual({
+        receivedAmount: 99877,
+        invoiceMemo: getSwapMemo(arkCurrency.symbol, SwapType.ReverseSubmarine),
+        bip21Params: paymentRequestUtils.encodeParams(
+          arkCurrency.symbol,
+          amount - reverseMinerFees,
+        ),
+        routingHint: [
+          [
+            {
+              nodeId: getHexString(Buffer.from(keys.publicKey)),
+              chanId: ReverseRoutingHints['routingHintChanId'],
+              feeBaseMsat: 0,
+              cltvExpiryDelta: 81,
+              feeProportionalMillionths: 21,
+            },
+          ],
+        ],
+      });
+    });
+
+    test('should also accept ARK addresses when backend ASP pubkey is compressed', () => {
+      const amount = 100_000;
+      const keys = ECPair.makeRandom();
+      const signature = Buffer.from(
+        keys.signSchnorr(crypto.sha256(Buffer.from(arkAddress, 'utf-8'))),
+      );
+      const serverPubKey = ArkClient.decodeAddress(
+        arkAddress,
+        'tark',
+      ).serverPubKey;
+
+      expect(
+        hints.getHints(
+          {
+            ...arkCurrency,
+            arkNode: {
+              aspPubkey: Buffer.concat([Buffer.from([0x02]), serverPubKey]),
+              decodeAddress: (address: string) =>
+                ArkClient.decodeAddress(address, 'tark'),
+            } as any,
+          } as Currency,
+          {
+            userAddress: arkAddress,
+            onchainAmount: amount,
+            version: SwapVersion.Taproot,
+            claimPublicKey: Buffer.from(keys.publicKey),
+            userAddressSignature: signature,
+          },
+        ),
+      ).toEqual({
+        receivedAmount: 99877,
+        invoiceMemo: getSwapMemo(arkCurrency.symbol, SwapType.ReverseSubmarine),
+        bip21Params: paymentRequestUtils.encodeParams(
+          arkCurrency.symbol,
+          amount - reverseMinerFees,
+        ),
+        routingHint: [
+          [
+            {
+              nodeId: getHexString(Buffer.from(keys.publicKey)),
+              chanId: ReverseRoutingHints['routingHintChanId'],
+              feeBaseMsat: 0,
+              cltvExpiryDelta: 81,
+              feeProportionalMillionths: 21,
+            },
+          ],
+        ],
+      });
+    });
+
+    test('should throw for invalid ARK addresses', () => {
+      const amount = 100_000;
+      const keys = ECPair.makeRandom();
+
+      expect(() =>
+        hints.getHints(arkCurrency, {
+          userAddress: 'invalid',
+          onchainAmount: amount,
+          version: SwapVersion.Taproot,
+          claimPublicKey: Buffer.from(keys.publicKey),
+          userAddressSignature: Buffer.alloc(1),
+        }),
+      ).toThrow(Errors.INVALID_ADDRESS().message);
+    });
+
+    test('should throw for ARK addresses with an invalid hrp', () => {
+      const amount = 100_000;
+      const keys = ECPair.makeRandom();
+      const wrongNetworkAddress = (() => {
+        const decoded = bech32m.decode(arkAddress, 1023);
+        return bech32m.encode('foo', decoded.words, 1023);
+      })();
+
+      expect(() =>
+        hints.getHints(arkCurrency, {
+          userAddress: wrongNetworkAddress,
+          onchainAmount: amount,
+          version: SwapVersion.Taproot,
+          claimPublicKey: Buffer.from(keys.publicKey),
+          userAddressSignature: Buffer.alloc(1),
+        }),
+      ).toThrow(Errors.INVALID_ADDRESS().message);
+    });
+
+    test('should throw for ARK addresses of another ASP', () => {
+      const amount = 100_000;
+      const keys = ECPair.makeRandom();
+
+      expect(() =>
+        hints.getHints(
+          {
+            ...arkCurrency,
+            arkNode: {
+              aspPubkey: Buffer.alloc(32, 1),
+              decodeAddress: (address: string) =>
+                ArkClient.decodeAddress(address, 'tark'),
+            } as any,
+          } as Currency,
+          {
+            userAddress: arkAddress,
+            onchainAmount: amount,
+            version: SwapVersion.Taproot,
+            claimPublicKey: Buffer.from(keys.publicKey),
+            userAddressSignature: Buffer.alloc(1),
+          },
+        ),
+      ).toThrow(Errors.INVALID_ADDRESS().message);
     });
   });
 

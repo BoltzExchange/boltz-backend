@@ -50,12 +50,13 @@ describe('ArkClient', () => {
   });
 
   test('should get address', async () => {
+    const info = await arkClient.getInfo();
     const address = await arkClient.getAddress();
     expect(address.boardingAddress).toBeDefined();
     expect(address.boardingAddress.startsWith('bcrt')).toEqual(true);
 
     expect(address.address).toBeDefined();
-    expect(address.address.startsWith('tark')).toEqual(true);
+    expect(address.address.startsWith(info.addrPrefix)).toEqual(true);
 
     expect(address.publicKey).toBeDefined();
   });
@@ -210,6 +211,7 @@ describe('ArkClient', () => {
       expect(
         ArkClient.decodeAddress(
           'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag',
+          'tark',
         ),
       ).toEqual({
         serverPubKey: getHexBuffer(
@@ -228,7 +230,7 @@ describe('ArkClient', () => {
       ['undefined address', undefined as unknown as string],
     ])('should throw error for %s', (_, address) => {
       expect(() => {
-        ArkClient.decodeAddress(address);
+        ArkClient.decodeAddress(address, 'tark');
       }).toThrow('invalid address');
     });
   });

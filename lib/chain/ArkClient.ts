@@ -89,6 +89,8 @@ class ArkClient extends BaseClient<
   private static readonly opCsvMultiple = 512;
 
   public pubkey!: Buffer;
+  public aspPubkey!: Buffer;
+  private addressHrp!: string;
   public subscription!: ArkSubscription;
 
   private chainClient?: IChainClient;
@@ -135,10 +137,14 @@ class ArkClient extends BaseClient<
     return this.useLocktimeSeconds;
   }
 
-  public static decodeAddress = (address: string) => {
+  public static decodeAddress = (address: string, expectedHrp: string) => {
     const dec = bech32m.decodeUnsafe(address, 1023);
     if (dec === undefined) {
       throw new Error('invalid address');
+    }
+
+    if (dec.prefix !== expectedHrp) {
+      throw new Error(`invalid address hrp: ${dec.prefix}`);
     }
 
     const data = Buffer.from(bech32m.fromWords(dec.words));
@@ -151,6 +157,9 @@ class ArkClient extends BaseClient<
       tweakedPubKey: data.subarray(33, 65),
     };
   };
+
+  public decodeAddress = (address: string) =>
+    ArkClient.decodeAddress(address, this.addressHrp);
 
   public static mapInputs = (tx: Transaction): TransactionInput[] => {
     const inputs: TransactionInput[] = [];
@@ -230,9 +239,11 @@ class ArkClient extends BaseClient<
     try {
       const info = await this.getInfo();
       this.logger.debug(
-        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.pubkey}`,
+        `Connected to ${this.serviceName()} ${this.symbol} with pubkey: ${info.pubkey} (ASP: ${info.signerPubkey})`,
       );
+      this.addressHrp = info.addrPrefix;
       this.pubkey = getHexBuffer(info.pubkey);
+      this.aspPubkey = getHexBuffer(info.signerPubkey);
 
       this.setClientStatus(ClientStatus.Connected);
     } catch (error) {
@@ -279,6 +290,8 @@ class ArkClient extends BaseClient<
 
     try {
       const info = await this.getInfo();
+      this.addressHrp = info.addrPrefix;
+      this.aspPubkey = getHexBuffer(info.signerPubkey);
       this.pubkey = getHexBuffer(info.pubkey);
 
       this.logger.info(

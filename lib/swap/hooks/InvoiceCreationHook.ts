@@ -46,9 +46,9 @@ class InvoiceCreationHook extends Hook<
   protected parseGrpcAction = (
     res: boltzrpc.InvoiceCreationHookResponse,
   ): HookResult | undefined => {
-    const nodeId = res.getNodePubkey().trim();
+    const nodeId = res.getNodePubkey()?.trim();
 
-    if (nodeId === '') {
+    if (nodeId === undefined || nodeId === '') {
       return undefined;
     }
 

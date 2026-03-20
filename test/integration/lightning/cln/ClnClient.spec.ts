@@ -386,8 +386,11 @@ describe('ClnClient', () => {
 
     clnClient.disconnect();
 
-    clnClient.once('htlc.accepted', (acceptedInvoice) => {
-      expect(acceptedInvoice).toEqual(invoice);
+    const acceptedPromise = new Promise<void>((resolve) => {
+      clnClient.once('htlc.accepted', (acceptedInvoice) => {
+        expect(acceptedInvoice).toEqual(invoice);
+        resolve();
+      });
     });
 
     const payPromise = bitcoinLndClient.sendPayment(invoice);
@@ -404,6 +407,7 @@ describe('ClnClient', () => {
 
     expect(clnClient['holdInvoicesToSubscribe'].size).toEqual(0);
 
+    await acceptedPromise;
     await clnClient.settleHoldInvoice(preimage);
     await payPromise;
   });

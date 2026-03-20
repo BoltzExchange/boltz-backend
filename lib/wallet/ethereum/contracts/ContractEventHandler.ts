@@ -57,6 +57,8 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
 
   private rescanLastHeight = 0;
   private rescanInterval: NodeJS.Timeout | undefined;
+  private missedEventsCheckPromise: Promise<void> | undefined;
+  private missedEventsCheckPending = false;
 
   constructor(private readonly logger: Logger) {
     super();
@@ -84,7 +86,7 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     this.rescanLastHeight = await provider.getBlockNumber();
     this.rescanInterval = setInterval(async () => {
       try {
-        await this.checkMissedEvents(provider);
+        await this.checkMissedEvents();
       } catch (error) {
         this.logger.error(
           `Error checking for missed events of ${this.networkDetails.name} contracts v${version}: ${formatError(error)}`,
@@ -98,6 +100,8 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
       clearInterval(this.rescanInterval);
       this.rescanInterval = undefined;
     }
+
+    this.missedEventsCheckPending = false;
   };
 
   public rescan = async (
@@ -176,13 +180,34 @@ class ContractEventHandler extends TypedEventEmitter<Events> {
     await this.rescan(tx.blockNumber - 1, tx.blockNumber + 1);
   };
 
-  public checkMissedEvents = async (provider: Provider) => {
-    this.logger.debug(
-      `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${this.rescanLastHeight}`,
-    );
-    const currentHeight = await provider.getBlockNumber();
-    await this.rescan(this.rescanLastHeight);
-    this.rescanLastHeight = currentHeight;
+  public checkMissedEvents = async () => {
+    this.missedEventsCheckPending = true;
+
+    if (this.missedEventsCheckPromise) {
+      return this.missedEventsCheckPromise;
+    }
+
+    this.missedEventsCheckPromise = (async () => {
+      while (this.missedEventsCheckPending) {
+        this.missedEventsCheckPending = false;
+
+        const startHeight = this.rescanLastHeight;
+        this.logger.debug(
+          `Checking for missed events of ${this.networkDetails.name} contracts v${this.version} from block ${startHeight}`,
+        );
+
+        const currentHeight = Math.max(
+          await this.provider.getBlockNumber(),
+          startHeight,
+        );
+        await this.rescan(startHeight, currentHeight);
+        this.rescanLastHeight = currentHeight;
+      }
+    })().finally(() => {
+      this.missedEventsCheckPromise = undefined;
+    });
+
+    return this.missedEventsCheckPromise;
   };
 
   private subscribeContractEvents = async () => {

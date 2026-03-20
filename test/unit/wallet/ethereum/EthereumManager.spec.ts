@@ -3,6 +3,7 @@ import type { EthereumConfig } from '../../../../lib/Config';
 import Logger from '../../../../lib/Logger';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import { createDeferred } from '../../../Utils';
 
 describe('EthereumManager derivation path', () => {
   const mnemonic =
@@ -70,6 +71,45 @@ describe('EthereumManager derivation path', () => {
     const signer = manager['getSigner'](mnemonic);
 
     expect(signer.address).toEqual(EthersWallet.fromPhrase(mnemonic).address);
+
+    await manager.destroy();
+  });
+
+  test('coalesces overlapping missed event rescans', async () => {
+    const manager = new EthereumManager(
+      Logger.disabledLogger,
+      networks.Ethereum,
+      createConfig(),
+    );
+    const firstCheckStarted = createDeferred();
+    const releaseFirstCheck = createDeferred();
+    const checkMissedEvents = jest
+      .fn()
+      .mockImplementationOnce(async () => {
+        firstCheckStarted.resolve();
+        await releaseFirstCheck.promise;
+      })
+      .mockResolvedValue(undefined);
+
+    manager['contracts'].push({
+      version: 6n,
+      contractEventHandler: {
+        checkMissedEvents,
+      },
+    } as any);
+
+    manager['scheduleMissedEventChecks']();
+    await firstCheckStarted.promise;
+
+    manager['scheduleMissedEventChecks']();
+    manager['scheduleMissedEventChecks']();
+
+    expect(checkMissedEvents).toHaveBeenCalledTimes(1);
+
+    releaseFirstCheck.resolve();
+    await manager['missedEventsCheckPromise'];
+
+    expect(checkMissedEvents).toHaveBeenCalledTimes(2);
 
     await manager.destroy();
   });

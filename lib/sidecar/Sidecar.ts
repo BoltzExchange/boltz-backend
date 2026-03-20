@@ -384,6 +384,10 @@ class Sidecar extends BaseClient<
               transaction.setEta(entry.status.transaction.eta);
             }
 
+            if (entry.status.transaction.confirmed !== undefined) {
+              transaction.setConfirmed(entry.status.transaction.confirmed);
+            }
+
             update.setTransactionInfo(transaction);
           }
 

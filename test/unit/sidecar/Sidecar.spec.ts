@@ -1,6 +1,8 @@
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getVersion } from '../../../lib/Utils';
+import { SwapUpdateEvent } from '../../../lib/consts/Enums';
+import type * as sidecarrpc from '../../../lib/proto/boltzr_pb';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('Sidecar', () => {
@@ -63,6 +65,67 @@ describe('Sidecar', () => {
       const version = '3.8.0-1ec2944b';
 
       expect(Sidecar['trimDirtySuffix'](`${version}-dirty`)).toEqual(version);
+    });
+  });
+
+  describe('subscribeSwapUpdates', () => {
+    test('should serialize transaction confirmed flag', async () => {
+      const stream = {
+        on: jest.fn().mockReturnThis(),
+        write: jest.fn(),
+        cancel: jest.fn(),
+      };
+      let swapUpdateListener:
+        | ((args: {
+            id: string;
+            status: {
+              status: SwapUpdateEvent;
+              transaction?: {
+                id: string;
+                confirmed?: boolean;
+              };
+            };
+          }) => Promise<void>)
+        | undefined;
+
+      sidecar['client'] = {
+        swapUpdate: jest.fn().mockReturnValue(stream),
+      } as any;
+      sidecar['eventHandler'] = {
+        on: jest.fn((event: string, listener: typeof swapUpdateListener) => {
+          if (event === 'swap.update') {
+            swapUpdateListener = listener;
+          }
+        }),
+      } as any;
+      sidecar['sendWebHook'] = jest.fn().mockResolvedValue(undefined);
+
+      sidecar['subscribeSwapUpdates']();
+
+      expect(swapUpdateListener).toBeDefined();
+
+      await swapUpdateListener!({
+        id: 'swap-id',
+        status: {
+          status: SwapUpdateEvent.TransactionRefunded,
+          transaction: {
+            id: 'refund-tx',
+            confirmed: true,
+          },
+        },
+      });
+
+      expect(stream.write).toHaveBeenCalledTimes(1);
+
+      const request = stream.write.mock
+        .calls[0][0] as sidecarrpc.SwapUpdateRequest;
+      const update = request.getStatusList()[0];
+      const transaction = update.getTransactionInfo()!;
+
+      expect(update.getStatus()).toEqual(SwapUpdateEvent.TransactionRefunded);
+      expect(transaction.getId()).toEqual('refund-tx');
+      expect(transaction.hasConfirmed()).toEqual(true);
+      expect(transaction.getConfirmed()).toEqual(true);
     });
   });
 });

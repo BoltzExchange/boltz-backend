@@ -68,7 +68,9 @@ type SwapNurseryEvents = {
   'coins.failedToSend': ReverseSwap | ChainSwapInfo;
   refund: {
     swap: ReverseSwap | ChainSwapInfo;
-    refundTransaction: string;
+    confirmed: boolean;
+    emitFailure: boolean;
+    refundTransaction: Transaction | LiquidTransaction | string;
   };
   'invoice.settled': ReverseSwap;
 };

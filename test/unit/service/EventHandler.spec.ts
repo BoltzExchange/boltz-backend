@@ -432,12 +432,17 @@ describe('EventHandler', () => {
 
     const failureReason = 'refunded';
     const toEmit = { ...swap, failureReason };
+    const refundTransaction = 'refundTx';
 
     eventHandler.once('swap.update', ({ id, status }) => {
       expect(id).toEqual(swap.id);
       expect(status).toEqual({
         failureReason,
         status: SwapUpdateEvent.TransactionRefunded,
+        transaction: {
+          id: refundTransaction,
+          confirmed: false,
+        },
       });
     });
     eventHandler.once('swap.failure', (args) => {
@@ -447,7 +452,42 @@ describe('EventHandler', () => {
       });
     });
 
-    nursery.emit('refund', { swap: toEmit });
+    nursery.emit('refund', {
+      swap: toEmit,
+      refundTransaction,
+      confirmed: false,
+      emitFailure: true,
+    });
+  });
+
+  test('should emit refund confirmation update without duplicate failure', () => {
+    expect.assertions(3);
+
+    const failureReason = 'refunded';
+    const toEmit = { ...swap, failureReason };
+    const refundTransaction = 'refundTx';
+    const failureListener = jest.fn();
+
+    eventHandler.on('swap.failure', failureListener);
+    eventHandler.once('swap.update', ({ id, status }) => {
+      expect(id).toEqual(swap.id);
+      expect(status).toEqual({
+        failureReason,
+        status: SwapUpdateEvent.TransactionRefunded,
+        transaction: {
+          id: refundTransaction,
+          confirmed: true,
+        },
+      });
+      expect(failureListener).not.toHaveBeenCalled();
+    });
+
+    nursery.emit('refund', {
+      swap: toEmit,
+      refundTransaction,
+      confirmed: true,
+      emitFailure: false,
+    });
   });
 
   test('should emit when lockup fails', () => {

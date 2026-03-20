@@ -96,6 +96,7 @@ impl MrhWatcher {
                             id: tx.txid_hex(),
                             hex: Some(tx.serialize().to_lower_hex_string()),
                             eta: None,
+                            confirmed: None,
                         }),
                         ..Default::default()
                     },

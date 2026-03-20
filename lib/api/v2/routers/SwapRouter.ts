@@ -1868,6 +1868,9 @@ class SwapRouter extends RouterBase {
      *             hex:
      *               type: string
      *               description: Raw hex of the transaction
+     *             confirmed:
+     *               type: boolean
+     *               description: Whether the transaction is confirmed; only set for `transaction.refunded`. Clients can only request cooperative refund signatures after this is `true`
      */
 
     /**

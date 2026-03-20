@@ -4,6 +4,7 @@ import type {
 } from '../../../lib/chain/ArkSubscription';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import type * as notificationrpc from '../../../lib/proto/ark/notification_pb';
+import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, bitcoinClient } from '../Nodes';
 import { createVHtlc } from './Utils';
 
@@ -17,6 +18,8 @@ describe('ArkSubscription', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     arkClient.removeAllListeners();
+    arkClient.subscription.removeAllListeners();
+    arkClient.subscription['subscribedAddresses'].clear();
   });
 
   afterAll(() => {
@@ -150,7 +153,11 @@ describe('ArkSubscription', () => {
       });
 
       const amount = 10_000;
+      const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
       await arkClient.sendOffchain(vHtlc.vHtlc.address, amount, 'test');
+      await waitForFunctionToBeTrue(async () => {
+        return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
+      });
       await arkClient.claimVHtlc(
         vHtlc.preimage,
         arkClient.pubkey,
@@ -170,6 +177,7 @@ describe('ArkSubscription', () => {
         arkClient.subscription.on('vhtlc.created', (event) => {
           if (event.address === vHtlc.vHtlc.address) {
             resolve(event);
+            arkClient.subscription.removeAllListeners('vhtlc.created');
           }
         });
       });
@@ -200,7 +208,11 @@ describe('ArkSubscription', () => {
       const vHtlc = await createVHtlc(arkClient, undefined, arkClient.pubkey);
 
       const amount = 10_000;
+      const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
       await arkClient.sendOffchain(vHtlc.vHtlc.address, amount, 'test');
+      await waitForFunctionToBeTrue(async () => {
+        return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
+      });
       await arkClient.claimVHtlc(
         vHtlc.preimage,
         arkClient.pubkey,

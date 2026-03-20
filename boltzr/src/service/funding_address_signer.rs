@@ -241,12 +241,7 @@ impl FundingAddressSigner {
 
         self.can_spend(funding_address, &session.swap_id)?;
 
-        if session.lockup_transaction_id
-            != funding_address
-                .lockup_transaction_id
-                .clone()
-                .ok_or_else(|| anyhow!("lockup transaction id missing"))?
-        {
+        if Some(&session.lockup_transaction_id) != funding_address.lockup_transaction_id.as_ref() {
             return Err(anyhow!(FundingAddressSignerError::Eligibility(
                 "lockup transaction changed mismatch".to_string(),
             )));
@@ -690,6 +685,41 @@ mod test {
                 currencies,
                 self.timeout_buffer_minutes,
             )
+        }
+    }
+
+    fn dummy_signing_session(lockup_transaction_id: impl Into<String>) -> PendingSigningSession {
+        PendingSigningSession {
+            sec_nonce: "00".to_string(),
+            pub_nonce: "00".to_string(),
+            sighash: "00".repeat(32),
+            swap_id: TEST_SWAP_ID.to_string(),
+            transaction: "00".to_string(),
+            lockup_transaction_id: lockup_transaction_id.into(),
+        }
+    }
+
+    async fn put_pending_signing_session(
+        signer: &FundingAddressSigner,
+        funding_address_id: &str,
+        session: &PendingSigningSession,
+    ) {
+        signer
+            .cache
+            .set(
+                CACHE_KEY,
+                &FundingAddressSigner::cache_field(funding_address_id),
+                session,
+                Some(CACHE_TTL),
+            )
+            .await
+            .unwrap();
+    }
+
+    fn dummy_set_signature_request() -> SetSignatureRequest {
+        SetSignatureRequest {
+            pub_nonce: "test_pub_nonce".to_string(),
+            partial_signature: "test_sig".to_string(),
         }
     }
 
@@ -1303,6 +1333,39 @@ mod test {
         );
     }
 
+    #[tokio::test]
+    async fn test_set_signature_rejects_lockup_transaction_changed() {
+        let signer = TestSignerContext::new()
+            .with_swap(test_swap_info("bcrt1qtest123", TEST_SYMBOL))
+            .with_currencies()
+            .await
+            .build();
+        let key_pair = get_keypair();
+
+        let funding_address = test_funding_address_with_lockup(
+            "test_funding_lockup_changed",
+            &key_pair.public_key().serialize(),
+            "0000000000000000000000000000000000000000000000000000000000000002",
+            0,
+            100000,
+        );
+        let session = dummy_signing_session(
+            "0000000000000000000000000000000000000000000000000000000000000001",
+        );
+        put_pending_signing_session(&signer, &funding_address.id, &session).await;
+
+        let result = signer
+            .set_signature(&funding_address, &key_pair, &dummy_set_signature_request())
+            .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("lockup transaction changed mismatch")
+        );
+    }
+
     #[rstest]
     #[case(FundingAddressStatus::Created)]
     #[case(FundingAddressStatus::Expired)]
@@ -1323,32 +1386,12 @@ mod test {
             0,
             100000,
         );
-        signer
-            .cache
-            .set(
-                CACHE_KEY,
-                &FundingAddressSigner::cache_field(&funding_address.id),
-                &PendingSigningSession {
-                    sec_nonce: "00".to_string(),
-                    pub_nonce: "00".to_string(),
-                    sighash: "00".repeat(32),
-                    swap_id: TEST_SWAP_ID.to_string(),
-                    transaction: "00".to_string(),
-                    lockup_transaction_id: funding_address.lockup_transaction_id.clone().unwrap(),
-                },
-                Some(CACHE_TTL),
-            )
-            .await
-            .unwrap();
+        let session = dummy_signing_session(funding_address.lockup_transaction_id.clone().unwrap());
+        put_pending_signing_session(&signer, &funding_address.id, &session).await;
         funding_address.status = status.to_string();
 
-        let request = SetSignatureRequest {
-            pub_nonce: "test_pub_nonce".to_string(),
-            partial_signature: "test_sig".to_string(),
-        };
-
         let result = signer
-            .set_signature(&funding_address, &key_pair, &request)
+            .set_signature(&funding_address, &key_pair, &dummy_set_signature_request())
             .await;
         assert!(result.is_err());
         assert!(

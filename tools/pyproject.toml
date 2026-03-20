@@ -3,6 +3,4 @@ name = "tools"
 version = "0.1.0"
 description = "Tooling for the boltz-backend"
 requires-python = ">=3.10"
-dependencies = [
-    "openapi-spec-validator>=0.7.2",
-]
+dependencies = ["openapi-spec-validator>=0.8.4"]

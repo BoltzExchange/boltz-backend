@@ -37,7 +37,7 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-toml = "1.0.4"
+toml = "1.0.7"
 tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -55,7 +55,7 @@ axum-prometheus = { version = "0.10.0", default-features = false, optional = tru
 metrics = { version = "0.24.3", optional = true }
 diesel_migrations = "2.3.1"
 r2d2 = "0.8.10"
-diesel = { version = "2.3.6", default-features = false, features = [
+diesel = { version = "2.3.7", default-features = false, features = [
 	"postgres",
 	"r2d2",
 	"chrono",
@@ -74,7 +74,7 @@ opentelemetry-semantic-conventions = { version = "0.31.0", optional = true, feat
 opentelemetry_sdk = { version = "0.31.0", optional = true, features = [
 	"rt-tokio",
 ] }
-opentelemetry-otlp = { version = "0.31.0", optional = true, features = [
+opentelemetry-otlp = { version = "0.31.1", optional = true, features = [
 	"grpc-tonic",
 	"gzip-tonic",
 ] }
@@ -94,7 +94,7 @@ bitcoin = { workspace = true }
 elements = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
-pyroscope = { version = "1.0.2", optional = true, features = [
+pyroscope = { version = "2.0.0", optional = true, features = [
 	"backend-pprof-rs",
 ] }
 csv = "1.4.0"

@@ -55,7 +55,7 @@ message TransactionInfo {
   string ark_txid = 4;
   string boarding_txid = 5;
   TxType type = 6; 
-  bool settled = 7;
+  string settled_by = 7;
 }
 
 message Tree {

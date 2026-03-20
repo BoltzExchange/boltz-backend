@@ -11,6 +11,7 @@ use tracing::{info, instrument};
 const MAX_MESSAGE_SIZE: usize = mb_to_bytes(16);
 
 #[allow(dead_code)]
+#[allow(clippy::enum_variant_names)]
 mod ark_rpc {
     tonic::include_proto!("fulmine.v1");
 }

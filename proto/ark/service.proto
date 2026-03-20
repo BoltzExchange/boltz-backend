@@ -96,6 +96,12 @@ service Service {
       body: "*"
     };
   }
+  rpc SettleVHTLC(SettleVHTLCRequest) returns (SettleVHTLCResponse) {
+    option (google.api.http) = {
+      post: "/v1/vhtlc/settle"
+      body: "*"
+    };
+  }
   // ListVHTLC = list all vhtlc OR filter by vhtlc_id
   rpc ListVHTLC(ListVHTLCRequest) returns (ListVHTLCResponse) {
     option (google.api.http) = {
@@ -119,36 +125,50 @@ service Service {
       get: "/v1/invoice/status"
     };
   }
-  // GetDelegatePublicKey retrieves the Fulmine's public key to be included in VTXO scripts.
-  rpc GetDelegatePublicKey(GetDelegatePublicKeyRequest) returns (GetDelegatePublicKeyResponse) {
-    option (google.api.http) = {
-      get: "/v1/delegate/pubkey"
-    };
-  }
-  // WatchAddressForRollover watches an address for rollover
-  rpc WatchAddressForRollover(WatchAddressForRolloverRequest) returns (WatchAddressForRolloverResponse) {
-    option (google.api.http) = {
-      post: "/v1/delegate/watch"
-      body: "*"
-    };
-  };
-  // UnwatchAddress unsubscribes an address from vtxo rollover
-  rpc UnwatchAddress(UnwatchAddressRequest) returns (UnwatchAddressResponse) {
-    option (google.api.http) = {
-      post: "/v1/delegate/unwatch"
-      body: "*"
-    };
-  };
-  // ListWatchedAddresses lists all watched addresses
-  rpc ListWatchedAddresses(ListWatchedAddressesRequest) returns (ListWatchedAddressesResponse) {
-    option (google.api.http) = {
-      get: "/v1/delegate/watched"
-    };
-  };
   // GetVirtualTxs returns the virtual transactions in hex format for the specified txids.
   rpc GetVirtualTxs(GetVirtualTxsRequest) returns (GetVirtualTxsResponse) {
     option (google.api.http) = {
       get: "/v1/virtualTx/{txids}"
+    };
+  };
+  // GetVtxos returns VTXOs filtered by the specified filter type.
+  // If no filter is provided, returns all VTXOs.
+  rpc GetVtxos(GetVtxosRequest) returns (GetVtxosResponse) {
+    option (google.api.http) = {
+      get: "/v1/vtxos"
+    };
+  }
+  // NextSettlement returns the next scheduled settlement time
+  rpc NextSettlement(NextSettlementRequest) returns (NextSettlementResponse) {
+    option (google.api.http) = {
+      get: "/v1/settlement/next"
+    };
+  };
+  // CreateChainSwap initiates a chain swap between Ark and Bitcoin
+  rpc CreateChainSwap(CreateChainSwapRequest) returns (CreateChainSwapResponse) {
+    option (google.api.http) = {
+      post: "/v1/chainswap"
+      body: "*"
+    };
+  };
+  // ListChainSwaps retrieves all chain swaps
+  rpc ListChainSwaps(ListChainSwapsRequest) returns (ListChainSwapsResponse) {
+    option (google.api.http) = {
+      get: "/v1/chainswaps"
+    };
+  };
+  // RefundChainSwap initiates a cooperative refund for a chain swap
+  rpc RefundChainSwap(RefundChainSwapRequest) returns (RefundChainSwapResponse) {
+    option (google.api.http) = {
+      post: "/v1/chainswap/{id}/refund"
+      body: "*"
+    };
+  };
+
+  // ListDelegates returns delegator tasks filtered by status, paginated by limit/offset.
+  rpc ListDelegates(ListDelegatesRequest) returns (ListDelegatesResponse) {
+    option (google.api.http) = {
+      get: "/v1/delegates"
     };
   };
 }
@@ -281,6 +301,32 @@ message RefundVHTLCWithoutReceiverResponse {
   string redeem_txid = 1;
 }
 
+message SettleVHTLCRequest {
+  string vhtlc_id = 1;
+  oneof settlement_type {
+    ClaimPath claim = 2;
+    RefundPath refund = 3;
+  }
+}
+
+message ClaimPath {
+  string preimage = 1;
+}
+
+message RefundPath {
+  DelegateRefundParams delegate_params = 1;
+}
+
+message DelegateRefundParams {
+  string signed_intent_proof = 1;
+  string intent_message = 2;
+  string partial_forfeit_tx = 3;
+}
+
+message SettleVHTLCResponse {
+  string txid = 1;
+}
+
 message ListVHTLCRequest {
   string vhtlc_id = 1;
 }
@@ -335,42 +381,6 @@ message RelativeLocktime {
   uint32 value = 2;
 }
 
-// Request for getting the delegate public key. No fields required.
-message GetDelegatePublicKeyRequest {
-  // No fields needed
-}
-
-// Response containing the delegate public key.
-message GetDelegatePublicKeyResponse {
-  // The Fulmine's public key to be used for delegate operations, encoded in hex
-  string public_key = 1;
-}
-
-message WatchAddressForRolloverRequest {
-    RolloverAddress rollover_address = 1;
-}
-
-message WatchAddressForRolloverResponse {}
-
-message UnwatchAddressRequest {
-  string address = 1;  // The address to stop watching
-}
-
-message UnwatchAddressResponse {}
-
-message ListWatchedAddressesRequest {
-}
-
-message ListWatchedAddressesResponse {
-  repeated RolloverAddress addresses = 1;  // List of all watched addresses
-}
-
-message RolloverAddress {
-  string address = 1;            // The watched address
-  Tapscripts taproot_tree = 2;   // Full taproot tree as list of hex tapscripts
-  string destination_address = 3; // Where funds will be rolled over to
-}
-
 message Tapscripts {
   repeated string scripts = 1;
 }
@@ -381,4 +391,114 @@ message GetVirtualTxsRequest {
 
 message GetVirtualTxsResponse {
   repeated string txs = 1;
+}
+
+// GetVtxosRequest allows filtering VTXOs by state using oneof for mutual exclusion.
+// If no filter is provided, all VTXOs are returned.
+message GetVtxosRequest {
+  oneof filter {
+    bool spendable_only = 1;
+    bool spent_only = 2;
+    bool recoverable_only = 3;
+  }
+}
+message GetVtxosResponse {
+  repeated Vtxo vtxos = 1;
+}
+
+message NextSettlementRequest {}
+message NextSettlementResponse {
+  int64 next_settlement_at = 1;
+}
+
+enum SwapDirection {
+  SWAP_DIRECTION_UNSPECIFIED = 0;
+  SWAP_DIRECTION_ARK_TO_BTC = 1;
+  SWAP_DIRECTION_BTC_TO_ARK = 2;
+}
+
+message CreateChainSwapRequest {
+  SwapDirection direction = 1;
+  uint64 amount = 2;
+  string btc_address = 3;
+
+}
+message CreateChainSwapResponse {
+  string id = 1;
+  string status = 2;
+  string user_lockup_txid = 3;
+
+  string lockup_address = 4;
+
+  uint64 expected_amount = 5;
+
+  uint64 timeout_block_height = 6;
+  string preimage = 7;
+  string error = 8;
+}
+
+message ChainSwapResponse {
+  string id = 1;
+  string from = 2;
+  string to = 3;
+  uint64 amount = 4;
+  string status = 5;
+  string preimage = 6;
+  string user_lockup_txid = 7;
+  string server_lockup_txid = 8;
+  string claim_txid = 9;
+  string refund_txid = 10;
+  string btc_address = 11;
+  int64 timestamp = 12;
+  string error_message = 13;
+}
+
+message ListChainSwapsRequest {
+  repeated string swap_ids = 1;
+}
+message ListChainSwapsResponse {
+  repeated ChainSwapResponse swaps = 1;
+}
+
+message RefundChainSwapRequest {
+  string id = 1;
+}
+message RefundChainSwapResponse {
+  string message = 1;
+}
+
+
+
+message DelegateIntent {
+  string txid = 1;
+  string message = 2;
+  string proof = 3;
+  repeated Input inputs = 4;
+}
+
+message DelegateForfeitTx {
+  Input input = 1;
+  string forfeit_tx = 2;
+}
+
+message Delegate {
+  string id = 1;
+  DelegateIntent intent = 2;
+  repeated DelegateForfeitTx forfeit_txs = 3;
+  uint64 fee = 4;
+  string delegator_public_key = 5;
+  int64 scheduled_at = 6;
+  string status = 7;
+  string fail_reason = 8;
+  string commitment_txid = 9;
+}
+
+message ListDelegatesRequest {
+  string status = 1;
+  uint32 limit = 2;
+  uint32 offset = 3;
+}
+
+message ListDelegatesResponse {
+  repeated Delegate delegates = 1;
 }

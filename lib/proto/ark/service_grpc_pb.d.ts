@@ -23,15 +23,18 @@ interface IServiceService extends grpc.ServiceDefinition<grpc.UntypedServiceImpl
     createVHTLC: IServiceService_ICreateVHTLC;
     claimVHTLC: IServiceService_IClaimVHTLC;
     refundVHTLCWithoutReceiver: IServiceService_IRefundVHTLCWithoutReceiver;
+    settleVHTLC: IServiceService_ISettleVHTLC;
     listVHTLC: IServiceService_IListVHTLC;
     getInvoice: IServiceService_IGetInvoice;
     payInvoice: IServiceService_IPayInvoice;
     isInvoiceSettled: IServiceService_IIsInvoiceSettled;
-    getDelegatePublicKey: IServiceService_IGetDelegatePublicKey;
-    watchAddressForRollover: IServiceService_IWatchAddressForRollover;
-    unwatchAddress: IServiceService_IUnwatchAddress;
-    listWatchedAddresses: IServiceService_IListWatchedAddresses;
     getVirtualTxs: IServiceService_IGetVirtualTxs;
+    getVtxos: IServiceService_IGetVtxos;
+    nextSettlement: IServiceService_INextSettlement;
+    createChainSwap: IServiceService_ICreateChainSwap;
+    listChainSwaps: IServiceService_IListChainSwaps;
+    refundChainSwap: IServiceService_IRefundChainSwap;
+    listDelegates: IServiceService_IListDelegates;
 }
 
 interface IServiceService_IGetAddress extends grpc.MethodDefinition<ark_service_pb.GetAddressRequest, ark_service_pb.GetAddressResponse> {
@@ -160,6 +163,15 @@ interface IServiceService_IRefundVHTLCWithoutReceiver extends grpc.MethodDefinit
     responseSerialize: grpc.serialize<ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
 }
+interface IServiceService_ISettleVHTLC extends grpc.MethodDefinition<ark_service_pb.SettleVHTLCRequest, ark_service_pb.SettleVHTLCResponse> {
+    path: "/fulmine.v1.Service/SettleVHTLC";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.SettleVHTLCRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.SettleVHTLCRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.SettleVHTLCResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.SettleVHTLCResponse>;
+}
 interface IServiceService_IListVHTLC extends grpc.MethodDefinition<ark_service_pb.ListVHTLCRequest, ark_service_pb.ListVHTLCResponse> {
     path: "/fulmine.v1.Service/ListVHTLC";
     requestStream: false;
@@ -196,42 +208,6 @@ interface IServiceService_IIsInvoiceSettled extends grpc.MethodDefinition<ark_se
     responseSerialize: grpc.serialize<ark_service_pb.IsInvoiceSettledResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.IsInvoiceSettledResponse>;
 }
-interface IServiceService_IGetDelegatePublicKey extends grpc.MethodDefinition<ark_service_pb.GetDelegatePublicKeyRequest, ark_service_pb.GetDelegatePublicKeyResponse> {
-    path: "/fulmine.v1.Service/GetDelegatePublicKey";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<ark_service_pb.GetDelegatePublicKeyRequest>;
-    requestDeserialize: grpc.deserialize<ark_service_pb.GetDelegatePublicKeyRequest>;
-    responseSerialize: grpc.serialize<ark_service_pb.GetDelegatePublicKeyResponse>;
-    responseDeserialize: grpc.deserialize<ark_service_pb.GetDelegatePublicKeyResponse>;
-}
-interface IServiceService_IWatchAddressForRollover extends grpc.MethodDefinition<ark_service_pb.WatchAddressForRolloverRequest, ark_service_pb.WatchAddressForRolloverResponse> {
-    path: "/fulmine.v1.Service/WatchAddressForRollover";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<ark_service_pb.WatchAddressForRolloverRequest>;
-    requestDeserialize: grpc.deserialize<ark_service_pb.WatchAddressForRolloverRequest>;
-    responseSerialize: grpc.serialize<ark_service_pb.WatchAddressForRolloverResponse>;
-    responseDeserialize: grpc.deserialize<ark_service_pb.WatchAddressForRolloverResponse>;
-}
-interface IServiceService_IUnwatchAddress extends grpc.MethodDefinition<ark_service_pb.UnwatchAddressRequest, ark_service_pb.UnwatchAddressResponse> {
-    path: "/fulmine.v1.Service/UnwatchAddress";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<ark_service_pb.UnwatchAddressRequest>;
-    requestDeserialize: grpc.deserialize<ark_service_pb.UnwatchAddressRequest>;
-    responseSerialize: grpc.serialize<ark_service_pb.UnwatchAddressResponse>;
-    responseDeserialize: grpc.deserialize<ark_service_pb.UnwatchAddressResponse>;
-}
-interface IServiceService_IListWatchedAddresses extends grpc.MethodDefinition<ark_service_pb.ListWatchedAddressesRequest, ark_service_pb.ListWatchedAddressesResponse> {
-    path: "/fulmine.v1.Service/ListWatchedAddresses";
-    requestStream: false;
-    responseStream: false;
-    requestSerialize: grpc.serialize<ark_service_pb.ListWatchedAddressesRequest>;
-    requestDeserialize: grpc.deserialize<ark_service_pb.ListWatchedAddressesRequest>;
-    responseSerialize: grpc.serialize<ark_service_pb.ListWatchedAddressesResponse>;
-    responseDeserialize: grpc.deserialize<ark_service_pb.ListWatchedAddressesResponse>;
-}
 interface IServiceService_IGetVirtualTxs extends grpc.MethodDefinition<ark_service_pb.GetVirtualTxsRequest, ark_service_pb.GetVirtualTxsResponse> {
     path: "/fulmine.v1.Service/GetVirtualTxs";
     requestStream: false;
@@ -240,6 +216,60 @@ interface IServiceService_IGetVirtualTxs extends grpc.MethodDefinition<ark_servi
     requestDeserialize: grpc.deserialize<ark_service_pb.GetVirtualTxsRequest>;
     responseSerialize: grpc.serialize<ark_service_pb.GetVirtualTxsResponse>;
     responseDeserialize: grpc.deserialize<ark_service_pb.GetVirtualTxsResponse>;
+}
+interface IServiceService_IGetVtxos extends grpc.MethodDefinition<ark_service_pb.GetVtxosRequest, ark_service_pb.GetVtxosResponse> {
+    path: "/fulmine.v1.Service/GetVtxos";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.GetVtxosRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.GetVtxosRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.GetVtxosResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.GetVtxosResponse>;
+}
+interface IServiceService_INextSettlement extends grpc.MethodDefinition<ark_service_pb.NextSettlementRequest, ark_service_pb.NextSettlementResponse> {
+    path: "/fulmine.v1.Service/NextSettlement";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.NextSettlementRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.NextSettlementRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.NextSettlementResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.NextSettlementResponse>;
+}
+interface IServiceService_ICreateChainSwap extends grpc.MethodDefinition<ark_service_pb.CreateChainSwapRequest, ark_service_pb.CreateChainSwapResponse> {
+    path: "/fulmine.v1.Service/CreateChainSwap";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.CreateChainSwapRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.CreateChainSwapRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.CreateChainSwapResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.CreateChainSwapResponse>;
+}
+interface IServiceService_IListChainSwaps extends grpc.MethodDefinition<ark_service_pb.ListChainSwapsRequest, ark_service_pb.ListChainSwapsResponse> {
+    path: "/fulmine.v1.Service/ListChainSwaps";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.ListChainSwapsRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.ListChainSwapsRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.ListChainSwapsResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.ListChainSwapsResponse>;
+}
+interface IServiceService_IRefundChainSwap extends grpc.MethodDefinition<ark_service_pb.RefundChainSwapRequest, ark_service_pb.RefundChainSwapResponse> {
+    path: "/fulmine.v1.Service/RefundChainSwap";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.RefundChainSwapRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.RefundChainSwapRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.RefundChainSwapResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.RefundChainSwapResponse>;
+}
+interface IServiceService_IListDelegates extends grpc.MethodDefinition<ark_service_pb.ListDelegatesRequest, ark_service_pb.ListDelegatesResponse> {
+    path: "/fulmine.v1.Service/ListDelegates";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<ark_service_pb.ListDelegatesRequest>;
+    requestDeserialize: grpc.deserialize<ark_service_pb.ListDelegatesRequest>;
+    responseSerialize: grpc.serialize<ark_service_pb.ListDelegatesResponse>;
+    responseDeserialize: grpc.deserialize<ark_service_pb.ListDelegatesResponse>;
 }
 
 export const ServiceService: IServiceService;
@@ -259,15 +289,18 @@ export interface IServiceServer extends grpc.UntypedServiceImplementation {
     createVHTLC: grpc.handleUnaryCall<ark_service_pb.CreateVHTLCRequest, ark_service_pb.CreateVHTLCResponse>;
     claimVHTLC: grpc.handleUnaryCall<ark_service_pb.ClaimVHTLCRequest, ark_service_pb.ClaimVHTLCResponse>;
     refundVHTLCWithoutReceiver: grpc.handleUnaryCall<ark_service_pb.RefundVHTLCWithoutReceiverRequest, ark_service_pb.RefundVHTLCWithoutReceiverResponse>;
+    settleVHTLC: grpc.handleUnaryCall<ark_service_pb.SettleVHTLCRequest, ark_service_pb.SettleVHTLCResponse>;
     listVHTLC: grpc.handleUnaryCall<ark_service_pb.ListVHTLCRequest, ark_service_pb.ListVHTLCResponse>;
     getInvoice: grpc.handleUnaryCall<ark_service_pb.GetInvoiceRequest, ark_service_pb.GetInvoiceResponse>;
     payInvoice: grpc.handleUnaryCall<ark_service_pb.PayInvoiceRequest, ark_service_pb.PayInvoiceResponse>;
     isInvoiceSettled: grpc.handleUnaryCall<ark_service_pb.IsInvoiceSettledRequest, ark_service_pb.IsInvoiceSettledResponse>;
-    getDelegatePublicKey: grpc.handleUnaryCall<ark_service_pb.GetDelegatePublicKeyRequest, ark_service_pb.GetDelegatePublicKeyResponse>;
-    watchAddressForRollover: grpc.handleUnaryCall<ark_service_pb.WatchAddressForRolloverRequest, ark_service_pb.WatchAddressForRolloverResponse>;
-    unwatchAddress: grpc.handleUnaryCall<ark_service_pb.UnwatchAddressRequest, ark_service_pb.UnwatchAddressResponse>;
-    listWatchedAddresses: grpc.handleUnaryCall<ark_service_pb.ListWatchedAddressesRequest, ark_service_pb.ListWatchedAddressesResponse>;
     getVirtualTxs: grpc.handleUnaryCall<ark_service_pb.GetVirtualTxsRequest, ark_service_pb.GetVirtualTxsResponse>;
+    getVtxos: grpc.handleUnaryCall<ark_service_pb.GetVtxosRequest, ark_service_pb.GetVtxosResponse>;
+    nextSettlement: grpc.handleUnaryCall<ark_service_pb.NextSettlementRequest, ark_service_pb.NextSettlementResponse>;
+    createChainSwap: grpc.handleUnaryCall<ark_service_pb.CreateChainSwapRequest, ark_service_pb.CreateChainSwapResponse>;
+    listChainSwaps: grpc.handleUnaryCall<ark_service_pb.ListChainSwapsRequest, ark_service_pb.ListChainSwapsResponse>;
+    refundChainSwap: grpc.handleUnaryCall<ark_service_pb.RefundChainSwapRequest, ark_service_pb.RefundChainSwapResponse>;
+    listDelegates: grpc.handleUnaryCall<ark_service_pb.ListDelegatesRequest, ark_service_pb.ListDelegatesResponse>;
 }
 
 export interface IServiceClient {
@@ -313,6 +346,9 @@ export interface IServiceClient {
     refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
+    settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
+    settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
@@ -325,21 +361,27 @@ export interface IServiceClient {
     isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
     isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
     isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
-    getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
-    listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
-    listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
     getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
     getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    getVtxos(request: ark_service_pb.GetVtxosRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    getVtxos(request: ark_service_pb.GetVtxosRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    getVtxos(request: ark_service_pb.GetVtxosRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    nextSettlement(request: ark_service_pb.NextSettlementRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    nextSettlement(request: ark_service_pb.NextSettlementRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    nextSettlement(request: ark_service_pb.NextSettlementRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    createChainSwap(request: ark_service_pb.CreateChainSwapRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    createChainSwap(request: ark_service_pb.CreateChainSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    createChainSwap(request: ark_service_pb.CreateChainSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    listDelegates(request: ark_service_pb.ListDelegatesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
+    listDelegates(request: ark_service_pb.ListDelegatesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
+    listDelegates(request: ark_service_pb.ListDelegatesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class ServiceClient extends grpc.Client implements IServiceClient {
@@ -386,6 +428,9 @@ export class ServiceClient extends grpc.Client implements IServiceClient {
     public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
     public refundVHTLCWithoutReceiver(request: ark_service_pb.RefundVHTLCWithoutReceiverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundVHTLCWithoutReceiverResponse) => void): grpc.ClientUnaryCall;
+    public settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
+    public settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
+    public settleVHTLC(request: ark_service_pb.SettleVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.SettleVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
     public listVHTLC(request: ark_service_pb.ListVHTLCRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListVHTLCResponse) => void): grpc.ClientUnaryCall;
@@ -398,19 +443,25 @@ export class ServiceClient extends grpc.Client implements IServiceClient {
     public isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
     public isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
     public isInvoiceSettled(request: ark_service_pb.IsInvoiceSettledRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.IsInvoiceSettledResponse) => void): grpc.ClientUnaryCall;
-    public getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    public getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    public getDelegatePublicKey(request: ark_service_pb.GetDelegatePublicKeyRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetDelegatePublicKeyResponse) => void): grpc.ClientUnaryCall;
-    public watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    public watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    public watchAddressForRollover(request: ark_service_pb.WatchAddressForRolloverRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.WatchAddressForRolloverResponse) => void): grpc.ClientUnaryCall;
-    public unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    public unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    public unwatchAddress(request: ark_service_pb.UnwatchAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.UnwatchAddressResponse) => void): grpc.ClientUnaryCall;
-    public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
-    public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
-    public listWatchedAddresses(request: ark_service_pb.ListWatchedAddressesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListWatchedAddressesResponse) => void): grpc.ClientUnaryCall;
     public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
     public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
     public getVirtualTxs(request: ark_service_pb.GetVirtualTxsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVirtualTxsResponse) => void): grpc.ClientUnaryCall;
+    public getVtxos(request: ark_service_pb.GetVtxosRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    public getVtxos(request: ark_service_pb.GetVtxosRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    public getVtxos(request: ark_service_pb.GetVtxosRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.GetVtxosResponse) => void): grpc.ClientUnaryCall;
+    public nextSettlement(request: ark_service_pb.NextSettlementRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    public nextSettlement(request: ark_service_pb.NextSettlementRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    public nextSettlement(request: ark_service_pb.NextSettlementRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.NextSettlementResponse) => void): grpc.ClientUnaryCall;
+    public createChainSwap(request: ark_service_pb.CreateChainSwapRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public createChainSwap(request: ark_service_pb.CreateChainSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public createChainSwap(request: ark_service_pb.CreateChainSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.CreateChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    public listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    public listChainSwaps(request: ark_service_pb.ListChainSwapsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListChainSwapsResponse) => void): grpc.ClientUnaryCall;
+    public refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public refundChainSwap(request: ark_service_pb.RefundChainSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.RefundChainSwapResponse) => void): grpc.ClientUnaryCall;
+    public listDelegates(request: ark_service_pb.ListDelegatesRequest, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
+    public listDelegates(request: ark_service_pb.ListDelegatesRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
+    public listDelegates(request: ark_service_pb.ListDelegatesRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: ark_service_pb.ListDelegatesResponse) => void): grpc.ClientUnaryCall;
 }

@@ -33,6 +33,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     invoiceClnThreshold: IBoltzService_IInvoiceClnThreshold;
     calculateTransactionFee: IBoltzService_ICalculateTransactionFee;
     swapCreationHook: IBoltzService_ISwapCreationHook;
+    invoiceCreationHook: IBoltzService_IInvoiceCreationHook;
     transactionHook: IBoltzService_ITransactionHook;
     invoicePaymentHook: IBoltzService_IInvoicePaymentHook;
     setLogLevel: IBoltzService_ISetLogLevel;
@@ -257,6 +258,15 @@ interface IBoltzService_ISwapCreationHook extends grpc.MethodDefinition<boltzrpc
     responseSerialize: grpc.serialize<boltzrpc_pb.SwapCreation>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.SwapCreation>;
 }
+interface IBoltzService_IInvoiceCreationHook extends grpc.MethodDefinition<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest> {
+    path: "/boltzrpc.Boltz/InvoiceCreationHook";
+    requestStream: true;
+    responseStream: true;
+    requestSerialize: grpc.serialize<boltzrpc_pb.InvoiceCreationHookResponse>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.InvoiceCreationHookResponse>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.InvoiceCreationHookRequest>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.InvoiceCreationHookRequest>;
+}
 interface IBoltzService_ITransactionHook extends grpc.MethodDefinition<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest> {
     path: "/boltzrpc.Boltz/TransactionHook";
     requestStream: true;
@@ -339,6 +349,7 @@ export interface IBoltzServer extends grpc.UntypedServiceImplementation {
     invoiceClnThreshold: grpc.handleUnaryCall<boltzrpc_pb.InvoiceClnThresholdRequest, boltzrpc_pb.InvoiceClnThresholdResponse>;
     calculateTransactionFee: grpc.handleUnaryCall<boltzrpc_pb.CalculateTransactionFeeRequest, boltzrpc_pb.CalculateTransactionFeeResponse>;
     swapCreationHook: grpc.handleBidiStreamingCall<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    invoiceCreationHook: grpc.handleBidiStreamingCall<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
     transactionHook: grpc.handleBidiStreamingCall<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
     invoicePaymentHook: grpc.handleBidiStreamingCall<boltzrpc_pb.InvoicePaymentHookResponse, boltzrpc_pb.InvoicePaymentHookRequest>;
     setLogLevel: grpc.handleUnaryCall<boltzrpc_pb.SetLogLevelRequest, boltzrpc_pb.SetLogLevelResponse>;
@@ -420,6 +431,9 @@ export interface IBoltzClient {
     swapCreationHook(): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     swapCreationHook(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     swapCreationHook(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    invoiceCreationHook(): grpc.ClientDuplexStream<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
+    invoiceCreationHook(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
+    invoiceCreationHook(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
     transactionHook(): grpc.ClientDuplexStream<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
     transactionHook(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
     transactionHook(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
@@ -513,6 +527,8 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public calculateTransactionFee(request: boltzrpc_pb.CalculateTransactionFeeRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CalculateTransactionFeeResponse) => void): grpc.ClientUnaryCall;
     public swapCreationHook(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
     public swapCreationHook(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.SwapCreationResponse, boltzrpc_pb.SwapCreation>;
+    public invoiceCreationHook(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
+    public invoiceCreationHook(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.InvoiceCreationHookResponse, boltzrpc_pb.InvoiceCreationHookRequest>;
     public transactionHook(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
     public transactionHook(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.TransactionHookResponse, boltzrpc_pb.TransactionHookRequest>;
     public invoicePaymentHook(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<boltzrpc_pb.InvoicePaymentHookResponse, boltzrpc_pb.InvoicePaymentHookRequest>;

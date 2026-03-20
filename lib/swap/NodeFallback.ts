@@ -43,6 +43,7 @@ class NodeFallback {
     memo?: string,
     descriptionHash?: Buffer,
     routingHints?: HopHint[][],
+    preferredNodeId?: string,
   ): Promise<HolisticInvoice> => {
     this.checkInvoiceMemo(memo);
 
@@ -50,6 +51,7 @@ class NodeFallback {
       currency,
       holdInvoiceAmount,
       referralId,
+      preferredNodeId,
     );
 
     for (const candidate of candidates) {

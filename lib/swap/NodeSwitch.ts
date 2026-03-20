@@ -300,27 +300,53 @@ class NodeSwitch {
     currency: Currency,
     holdInvoiceAmount: number,
     referralId?: string,
+    preferredNodeId?: string,
   ): {
     nodeType: NodeType;
     nodeId: string;
     lightningClient: LightningClient;
   }[] => {
-    const preferredNodeId = this.referralIds.get(referralId || '');
-    const candidates = this.getBolt11Candidates(currency, preferredNodeId);
+    const referralNodeId = this.referralIds.get(referralId || '');
+    let candidates = this.getBolt11Candidates(currency, referralNodeId);
 
     // If CLN threshold preference applies, move CLN to front
     if (
-      preferredNodeId === undefined &&
+      referralNodeId === undefined &&
       holdInvoiceAmount <= this.clnAmountThreshold[SwapType.ReverseSubmarine] &&
       currency.clnClient?.isConnected()
     ) {
       const clnCandidate = candidates.find((c) => c.nodeType === NodeType.CLN);
       if (clnCandidate) {
-        return [
+        candidates = [
           clnCandidate,
           ...candidates.filter((c) => c.nodeId !== clnCandidate.nodeId),
         ];
       }
+    }
+
+    if (preferredNodeId === undefined) {
+      return candidates;
+    }
+
+    const preferredCandidate = candidates.find(
+      (candidate) => candidate.nodeId === preferredNodeId,
+    );
+    if (preferredCandidate !== undefined) {
+      return [
+        preferredCandidate,
+        ...candidates.filter((candidate) => candidate !== preferredCandidate),
+      ];
+    }
+
+    const preferredClient = getLightningClientById(currency, preferredNodeId);
+    if (preferredClient === undefined) {
+      this.logger.warn(
+        `Invoice creation hook requested unknown node ${preferredNodeId} for ${currency.symbol}`,
+      );
+    } else if (!preferredClient.isConnected()) {
+      this.logger.warn(
+        `Invoice creation hook requested disconnected node ${preferredNodeId} for ${currency.symbol}`,
+      );
     }
 
     return candidates;

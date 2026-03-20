@@ -17,6 +17,7 @@ import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
 import Service from '../../../lib/service/Service';
 import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
+import type InvoiceCreationHook from '../../../lib/swap/hooks/InvoiceCreationHook';
 import type EthereumManager from '../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
 
@@ -937,6 +938,26 @@ describe('GrpcService', () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         service.swapManager.creationHook.connectToStream,
+      ).toHaveBeenCalledWith(stream);
+    });
+  });
+
+  describe('invoiceCreationHook', () => {
+    test('should set invoice creation hook stream', () => {
+      (service.swapManager.invoiceCreationHook as any) = {
+        connectToStream: jest.fn(),
+      } as Partial<InvoiceCreationHook>;
+
+      const stream = {
+        good: 'stream',
+      } as any;
+      grpcService.invoiceCreationHook(stream);
+
+      expect(
+        service.swapManager.invoiceCreationHook.connectToStream,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        service.swapManager.invoiceCreationHook.connectToStream,
       ).toHaveBeenCalledWith(stream);
     });
   });

@@ -95,6 +95,7 @@ describe('NodeFallback', () => {
       currency,
       holdInvoiceAmount,
       undefined,
+      undefined,
     );
     expect(routingHints.getRoutingHints).not.toHaveBeenCalled();
     expect(candidate.lightningClient.addHoldInvoice).toHaveBeenCalledTimes(1);
@@ -153,6 +154,45 @@ describe('NodeFallback', () => {
     );
   });
 
+  test('should forward preferred node to candidate selection', async () => {
+    const candidate = {
+      nodeId: lndNodeId,
+      nodeType: NodeType.LND,
+      lightningClient: {
+        raceCall,
+        serviceName: () => 'LND',
+        addHoldInvoice: jest.fn().mockResolvedValue('lnbc1'),
+      },
+    };
+    reverseSwapCandidates = [candidate];
+
+    const holdInvoiceAmount = 10_000;
+    const preimageHash = randomBytes(32);
+    const preferredNodeId = 'preferred-node';
+
+    await fallback.getReverseSwapInvoice(
+      'someId',
+      undefined,
+      undefined,
+      currency,
+      holdInvoiceAmount,
+      preimageHash,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      preferredNodeId,
+    );
+
+    expect(nodeSwitch.getReverseSwapCandidates).toHaveBeenCalledWith(
+      currency,
+      holdInvoiceAmount,
+      undefined,
+      preferredNodeId,
+    );
+  });
+
   test('should get holistic invoice with routing hints', async () => {
     const referralId = 'referralId';
     const routingNode = 'someNode';
@@ -199,6 +239,7 @@ describe('NodeFallback', () => {
       currency,
       holdInvoiceAmount,
       referralId,
+      undefined,
     );
     expect(routingHints.getRoutingHints).toHaveBeenCalledTimes(1);
     expect(routingHints.getRoutingHints).toHaveBeenCalledWith(

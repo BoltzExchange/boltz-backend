@@ -59,6 +59,7 @@ service Boltz {
   rpc CalculateTransactionFee (CalculateTransactionFeeRequest) returns (CalculateTransactionFeeResponse);
 
   rpc SwapCreationHook (stream SwapCreationResponse) returns (stream SwapCreation);
+  rpc InvoiceCreationHook (stream InvoiceCreationHookResponse) returns (stream InvoiceCreationHookRequest);
   rpc TransactionHook (stream TransactionHookResponse) returns (stream TransactionHookRequest);
   rpc InvoicePaymentHook (stream InvoicePaymentHookResponse) returns (stream InvoicePaymentHookRequest);
 
@@ -426,6 +427,17 @@ message TransactionHookRequest {
 
   // Set for UTXO based chains
   optional uint64 vout = 7;
+}
+
+message InvoiceCreationHookResponse {
+  string id = 1;
+  optional string node_pubkey = 2;
+}
+
+message InvoiceCreationHookRequest {
+  string id = 1;
+  uint64 invoice_amount = 2;
+  optional string referral = 3;
 }
 
 message InvoicePaymentHookResponse {

@@ -93,6 +93,7 @@ import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
 import type SwapOutputType from './SwapOutputType';
 import CreationHook from './hooks/CreationHook';
+import InvoiceCreationHook from './hooks/InvoiceCreationHook';
 import RoutingHints from './routing/RoutingHints';
 
 export type InvoiceExpiryRange = {
@@ -177,6 +178,7 @@ class SwapManager {
   public nursery: SwapNursery;
   public routingHints!: RoutingHints;
   public readonly creationHook: CreationHook;
+  public readonly invoiceCreationHook: InvoiceCreationHook;
   public readonly renegotiator: Renegotiator;
   public readonly deferredClaimer: DeferredClaimer;
   public readonly chainSwapSigner: ChainSwapSigner;
@@ -259,6 +261,10 @@ class SwapManager {
     );
 
     this.creationHook = new CreationHook(this.logger, notifications);
+    this.invoiceCreationHook = new InvoiceCreationHook(
+      this.logger,
+      notifications,
+    );
   }
 
   /**
@@ -842,6 +848,14 @@ class SwapManager {
       lightningClient = receivingCurrency.clnClient!;
       nodeId = lightningClient.id;
     } else {
+      const preferredNodeId = (
+        await this.invoiceCreationHook.hook(
+          id,
+          args.holdInvoiceAmount,
+          args.referralId,
+        )
+      )?.nodeId;
+
       const res = await this.nodeFallback.getReverseSwapInvoice(
         id,
         args.referralId,
@@ -854,6 +868,7 @@ class SwapManager {
         hints.invoiceMemo,
         hints.invoiceDescriptionHash,
         hints.routingHint,
+        preferredNodeId,
       );
 
       res.lightningClient.subscribeSingleInvoice(args.preimageHash);

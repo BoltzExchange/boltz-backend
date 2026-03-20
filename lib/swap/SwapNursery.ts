@@ -317,8 +317,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
               false,
             );
 
-            await this.checkFundingAddress(swap);
-
             const { chainClient } = this.currencies.get(chainSymbol)!;
             const wallet = this.walletManager.wallets.get(chainSymbol)!;
 
@@ -848,8 +846,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   ): Promise<void> => {
     let payRes: PaidSwapInvoice | undefined;
 
-    await this.checkFundingAddress(swap);
-
     if (swap.type === SwapType.Submarine) {
       payRes = await this.payInvoice(swap as Swap, outgoingChannelId);
     } else {
@@ -1044,6 +1040,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private handleChainSwapLockup = async (swap: ChainSwapInfo) => {
     const sendingCurrency = this.currencies.get(swap.sendingData.symbol)!;
     const wallet = this.walletManager.wallets.get(swap.sendingData.symbol)!;
+
+    await this.checkFundingAddress(swap);
 
     switch (sendingCurrency.type) {
       case CurrencyType.BitcoinLike:
@@ -1319,7 +1317,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           `Using prepay minerfee for lockup of Reverse Swap ${swap.id}: ${feePerVbyte} sat/vbyte`,
         );
       } else {
-        await this.checkFundingAddress(swap as ChainSwapInfo);
         feePerVbyte = await chainClient.estimateFee();
       }
 
@@ -1557,6 +1554,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap,
     outgoingChannelId?: string,
   ): Promise<PaidSwapInvoice | undefined> => {
+    await this.checkFundingAddress(swap);
+
     const preimage = await this.paymentHandler.payInvoice(
       swap,
       outgoingChannelId,

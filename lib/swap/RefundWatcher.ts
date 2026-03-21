@@ -16,10 +16,10 @@ import type { Currency } from '../wallet/WalletManager';
 class RefundWatcher extends TypedEventEmitter<{
   'refund.confirmed': ReverseSwap | ChainSwapInfo;
 }> {
+  private static readonly defaultRequiredConfirmations = 1;
   private static readonly pendingTransactionsLock = 'pendingTransactions';
 
   private readonly lock = new AsyncLock();
-  private readonly requiredConfirmations = 1;
   private currencies!: Map<string, Currency>;
 
   constructor(
@@ -66,10 +66,11 @@ class RefundWatcher extends TypedEventEmitter<{
       throw new Error(`unknown refund currency: ${swap.refundCurrency}`);
     }
 
+    const requiredConfirmations = this.getRequiredConfirmations(refundCurrency);
     const confirmations = await this.getConfirmations(refundCurrency, tx.id);
 
     // TODO: what if it's getting awfully close to swap timeout and still not confirmed? maybe a check here and alert or bump the fee?
-    if (confirmations < this.requiredConfirmations) {
+    if (confirmations < requiredConfirmations) {
       return;
     }
 
@@ -83,6 +84,12 @@ class RefundWatcher extends TypedEventEmitter<{
     );
     this.emit('refund.confirmed', swap);
   };
+
+  private getRequiredConfirmations = (currency: Currency) =>
+    currency.requiredConfirmations !== undefined &&
+    currency.requiredConfirmations > 0
+      ? Math.ceil(currency.requiredConfirmations)
+      : RefundWatcher.defaultRequiredConfirmations;
 
   private getConfirmations = async (currency: Currency, txId: string) => {
     switch (currency.type) {
@@ -111,7 +118,7 @@ class RefundWatcher extends TypedEventEmitter<{
 
       case CurrencyType.Ark: {
         // We always consider Ark transactions as confirmed
-        return this.requiredConfirmations + 1;
+        return this.getRequiredConfirmations(currency) + 1;
       }
     }
   };

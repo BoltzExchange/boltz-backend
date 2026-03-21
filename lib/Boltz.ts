@@ -545,9 +545,21 @@ class Boltz {
     });
 
     [
-      { network: networks.Ethereum, config: this.config.ethereum?.tokens },
-      { network: networks.Rootstock, config: this.config.rsk?.tokens },
-      { network: networks.Arbitrum, config: this.config.arbitrum?.tokens },
+      {
+        network: networks.Ethereum,
+        config: this.config.ethereum?.tokens,
+        requiredConfirmations: this.config.ethereum?.requiredConfirmations,
+      },
+      {
+        network: networks.Rootstock,
+        config: this.config.rsk?.tokens,
+        requiredConfirmations: this.config.rsk?.requiredConfirmations,
+      },
+      {
+        network: networks.Arbitrum,
+        config: this.config.arbitrum?.tokens,
+        requiredConfirmations: this.config.arbitrum?.requiredConfirmations,
+      },
     ]
       .map((tokens) => {
         const manager = this.ethereumManagers.find(
@@ -570,13 +582,15 @@ class Boltz {
           network: NetworkDetails;
           manager: EthereumManager;
           config: TokenConfig[];
+          requiredConfirmations: number | undefined;
         } => tokens !== undefined && tokens.config !== undefined,
       )
-      .forEach(({ config, manager, network }) => {
+      .forEach(({ config, manager, network, requiredConfirmations }) => {
         config.forEach((token) => {
           result.set(token.symbol, {
             symbol: token.symbol,
             provider: manager.provider,
+            requiredConfirmations,
             type:
               token.symbol === network.symbol
                 ? CurrencyType.Ether

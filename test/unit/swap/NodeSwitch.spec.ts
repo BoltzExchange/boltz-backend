@@ -497,6 +497,91 @@ describe('NodeSwitch', () => {
     },
   );
 
+  test('should prefer invoice creation hook node over referral and threshold', () => {
+    const candidates = new NodeSwitch(Logger.disabledLogger, {
+      referralsIds: { breez: clnClient.id },
+      clnAmountThreshold: {
+        submarine: 2_000_000,
+        reverse: 1_000_000,
+      },
+    }).getReverseSwapCandidates(currency, 1, 'breez', lndClient.id);
+
+    expect(candidates[0]).toEqual({
+      nodeType: NodeType.LND,
+      nodeId: lndClient.id,
+      lightningClient: lndClient,
+    });
+    expect(candidates[1]).toEqual({
+      nodeType: NodeType.CLN,
+      nodeId: clnClient.id,
+      lightningClient: clnClient,
+    });
+  });
+
+  test('should prefer invoice creation hook CLN over default order', () => {
+    const candidates = new NodeSwitch(Logger.disabledLogger, {
+      clnAmountThreshold: {
+        submarine: 2_000_000,
+        reverse: 1_000_000,
+      },
+    }).getReverseSwapCandidates(currency, 2_000_000, undefined, clnClient.id);
+
+    expect(candidates[0]).toEqual({
+      nodeType: NodeType.CLN,
+      nodeId: clnClient.id,
+      lightningClient: clnClient,
+    });
+  });
+
+  test('should ignore unknown invoice creation hook node', () => {
+    const candidates = new NodeSwitch(Logger.disabledLogger, {
+      clnAmountThreshold: {
+        submarine: 2_000_000,
+        reverse: 1_000_000,
+      },
+    }).getReverseSwapCandidates(currency, 2_000_000, undefined, 'unknown');
+
+    expect(candidates[0]).toEqual({
+      nodeType: NodeType.LND,
+      nodeId: lndClient.id,
+      lightningClient: lndClient,
+    });
+  });
+
+  test('should ignore disconnected invoice creation hook node', () => {
+    const disconnectedLnd = createNode(
+      LndClient.serviceName,
+      NodeType.LND,
+      'lnd-down',
+      false,
+    );
+    const currencyWithDisconnected = {
+      clnClient,
+      lndClients: new Map([
+        [lndClient.id, lndClient],
+        [disconnectedLnd.id, disconnectedLnd],
+      ]),
+    } as unknown as Currency;
+
+    const candidates = new NodeSwitch(Logger.disabledLogger, {
+      clnAmountThreshold: {
+        submarine: 2_000_000,
+        reverse: 1_000_000,
+      },
+    }).getReverseSwapCandidates(
+      currencyWithDisconnected,
+      2_000_000,
+      undefined,
+      disconnectedLnd.id,
+    );
+
+    expect(candidates[0]).toEqual({
+      nodeType: NodeType.LND,
+      nodeId: lndClient.id,
+      lightningClient: lndClient,
+    });
+  });
+
   test.each`
     currency                                                                      | expected
     ${{ lndClients: new Map(), clnClient: undefined }}                            | ${[]}

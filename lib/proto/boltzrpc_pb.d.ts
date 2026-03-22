@@ -1722,6 +1722,61 @@ export namespace TransactionHookRequest {
     }
 }
 
+export class InvoiceCreationHookResponse extends jspb.Message { 
+    getId(): string;
+    setId(value: string): InvoiceCreationHookResponse;
+
+    hasNodePubkey(): boolean;
+    clearNodePubkey(): void;
+    getNodePubkey(): string | undefined;
+    setNodePubkey(value: string): InvoiceCreationHookResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoiceCreationHookResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoiceCreationHookResponse): InvoiceCreationHookResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoiceCreationHookResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoiceCreationHookResponse;
+    static deserializeBinaryFromReader(message: InvoiceCreationHookResponse, reader: jspb.BinaryReader): InvoiceCreationHookResponse;
+}
+
+export namespace InvoiceCreationHookResponse {
+    export type AsObject = {
+        id: string,
+        nodePubkey?: string,
+    }
+}
+
+export class InvoiceCreationHookRequest extends jspb.Message { 
+    getId(): string;
+    setId(value: string): InvoiceCreationHookRequest;
+    getInvoiceAmountSats(): number;
+    setInvoiceAmountSats(value: number): InvoiceCreationHookRequest;
+
+    hasReferral(): boolean;
+    clearReferral(): void;
+    getReferral(): string | undefined;
+    setReferral(value: string): InvoiceCreationHookRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InvoiceCreationHookRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: InvoiceCreationHookRequest): InvoiceCreationHookRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InvoiceCreationHookRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InvoiceCreationHookRequest;
+    static deserializeBinaryFromReader(message: InvoiceCreationHookRequest, reader: jspb.BinaryReader): InvoiceCreationHookRequest;
+}
+
+export namespace InvoiceCreationHookRequest {
+    export type AsObject = {
+        id: string,
+        invoiceAmountSats: number,
+        referral?: string,
+    }
+}
+
 export class InvoicePaymentHookResponse extends jspb.Message { 
     getId(): string;
     setId(value: string): InvoicePaymentHookResponse;

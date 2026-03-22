@@ -535,6 +535,15 @@ class GrpcService {
     this.service.swapManager.creationHook.connectToStream(call);
   };
 
+  public invoiceCreationHook = (
+    call: ServerDuplexStream<
+      boltzrpc.InvoiceCreationHookResponse,
+      boltzrpc.InvoiceCreationHookRequest
+    >,
+  ) => {
+    this.service.swapManager.invoiceCreationHook.connectToStream(call);
+  };
+
   public transactionHook = (
     call: ServerDuplexStream<
       boltzrpc.TransactionHookResponse,

@@ -36,6 +36,7 @@ RefundTransactionRepository.getPendingTransactions = jest
 describe('RefundWatcher', () => {
   const mockSidecar = new EventEmitter() as any as Sidecar;
   const watcher = new RefundWatcher(Logger.disabledLogger, mockSidecar);
+  let currencies: Map<string, Currency>;
   let setup: Awaited<ReturnType<typeof getSigner>>;
   let evmProvider: InjectedProvider;
 
@@ -53,38 +54,38 @@ describe('RefundWatcher', () => {
     );
     await evmProvider.init();
 
-    watcher.init(
-      new Map([
-        [
-          'BTC',
-          {
-            symbol: 'BTC',
-            chainClient: bitcoinClient,
-            type: CurrencyType.BitcoinLike,
-          } as unknown as Currency,
-        ],
-        [
-          'RBTC',
-          {
-            symbol: 'RBTC',
-            type: CurrencyType.Ether,
-            provider: evmProvider,
-          } as unknown as Currency,
-        ],
-        [
-          ArkClient.symbol,
-          {
-            symbol: ArkClient.symbol,
-            type: CurrencyType.Ark,
-          } as unknown as Currency,
-        ],
-      ]),
-    );
+    currencies = new Map([
+      [
+        'BTC',
+        {
+          symbol: 'BTC',
+          chainClient: bitcoinClient,
+          type: CurrencyType.BitcoinLike,
+        } as unknown as Currency,
+      ],
+      [
+        'RBTC',
+        {
+          symbol: 'RBTC',
+          type: CurrencyType.Ether,
+          provider: evmProvider,
+        } as unknown as Currency,
+      ],
+      [
+        ArkClient.symbol,
+        {
+          symbol: ArkClient.symbol,
+          type: CurrencyType.Ark,
+        } as unknown as Currency,
+      ],
+    ]);
+    watcher.init(currencies);
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockedExitHandler.shutdownSignal.aborted = false;
+    currencies.get('RBTC')!.requiredConfirmations = undefined;
   });
 
   afterAll(async () => {
@@ -217,6 +218,56 @@ describe('RefundWatcher', () => {
         swapId,
         RefundStatus.Confirmed,
       );
+    });
+
+    test('should use configured required confirmations for EVM refunds', async () => {
+      currencies.get('RBTC')!.requiredConfirmations = 2;
+
+      const getConfirmationsSpy = jest
+        .spyOn(
+          watcher as unknown as {
+            getConfirmations: (
+              currency: Currency,
+              txId: string,
+            ) => Promise<number>;
+          },
+          'getConfirmations',
+        )
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2);
+
+      const refundTx = {
+        id: 'evm-refund-tx',
+        status: RefundStatus.Pending,
+      } as unknown as RefundTransaction;
+      const swap = {
+        id: 'evm-refund',
+        type: SwapType.ReverseSubmarine,
+        refundCurrency: 'RBTC',
+      } as unknown as ReverseSwap;
+
+      await checkRefund(refundTx, swap);
+
+      expect(RefundTransactionRepository.setStatus).not.toHaveBeenCalled();
+
+      const emitPromise = new Promise<ReverseSwap | ChainSwapInfo>(
+        (resolve) => {
+          watcher.on('refund.confirmed', (confirmedSwap) => {
+            resolve(confirmedSwap);
+            watcher.removeAllListeners('refund.confirmed');
+          });
+        },
+      );
+
+      await checkRefund(refundTx, swap);
+
+      await expect(emitPromise).resolves.toMatchObject({ id: swap.id });
+      expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
+        swap.id,
+        RefundStatus.Confirmed,
+      );
+
+      getConfirmationsSpy.mockRestore();
     });
   });
 

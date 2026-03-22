@@ -42,6 +42,7 @@ type Currency = {
   symbol: string;
   type: CurrencyType;
   limits: CurrencyLimits;
+  requiredConfirmations?: number;
 
   // Needed for UTXO based coins
   network?: Network;

@@ -34,7 +34,7 @@ class InvoiceCreationHook extends Hook<
 
     const msg = new boltzrpc.InvoiceCreationHookRequest();
     msg.setId(swapId);
-    msg.setInvoiceAmount(invoiceAmount);
+    msg.setInvoiceAmountSats(invoiceAmount);
 
     if (referral !== undefined) {
       msg.setReferral(referral);

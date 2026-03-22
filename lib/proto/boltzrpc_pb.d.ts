@@ -1751,8 +1751,8 @@ export namespace InvoiceCreationHookResponse {
 export class InvoiceCreationHookRequest extends jspb.Message { 
     getId(): string;
     setId(value: string): InvoiceCreationHookRequest;
-    getInvoiceAmount(): number;
-    setInvoiceAmount(value: number): InvoiceCreationHookRequest;
+    getInvoiceAmountSats(): number;
+    setInvoiceAmountSats(value: number): InvoiceCreationHookRequest;
 
     hasReferral(): boolean;
     clearReferral(): void;
@@ -1772,7 +1772,7 @@ export class InvoiceCreationHookRequest extends jspb.Message {
 export namespace InvoiceCreationHookRequest {
     export type AsObject = {
         id: string,
-        invoiceAmount: number,
+        invoiceAmountSats: number,
         referral?: string,
     }
 }

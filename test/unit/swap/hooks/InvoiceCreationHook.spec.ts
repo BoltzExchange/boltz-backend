@@ -66,7 +66,7 @@ describe('InvoiceCreationHook', () => {
 
       expect(stream.write).toHaveBeenCalledTimes(1);
       expect(written.getId()).toEqual(params.id);
-      expect(written.getInvoiceAmount()).toEqual(params.invoiceAmount);
+      expect(written.getInvoiceAmountSats()).toEqual(params.invoiceAmount);
       expect(written.getReferral()).toEqual(params.referral);
     });
 

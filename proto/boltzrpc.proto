@@ -436,7 +436,7 @@ message InvoiceCreationHookResponse {
 
 message InvoiceCreationHookRequest {
   string id = 1;
-  uint64 invoice_amount = 2;
+  uint64 invoice_amount_sats = 2;
   optional string referral = 3;
 }
 

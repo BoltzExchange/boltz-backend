@@ -3,8 +3,8 @@ use crate::chain::types::{RpcParam, RpcRequest, RpcResponse};
 use anyhow::{Context, anyhow};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use reqwest::Url;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
+use reqwest::{Response, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::sync::Arc;
@@ -108,7 +108,7 @@ impl RpcClient {
             .send()
             .await?;
 
-        let data = response.json::<Vec<RpcResponse<T>>>().await?;
+        let data = self.parse_response::<Vec<RpcResponse<T>>>(response).await?;
 
         Ok(data
             .into_iter()
@@ -138,7 +138,7 @@ impl RpcClient {
             .send()
             .await?;
 
-        let data = response.json::<RpcResponse<T>>().await?;
+        let data = self.parse_response::<RpcResponse<T>>(response).await?;
         if let Some(err) = data.error {
             return Err(anyhow!(err.message));
         }
@@ -146,6 +146,38 @@ impl RpcClient {
         match data.result {
             Some(res) => Ok(res),
             None => Err(anyhow::anyhow!("no result")),
+        }
+    }
+
+    async fn parse_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
+        let status = response.status();
+        let body = response.text().await?;
+
+        serde_json::from_str(&body).map_err(|e| {
+            if serde_json::from_str::<serde_json::Value>(&body).is_ok() {
+                anyhow!(
+                    "{} RPC returned unexpected JSON ({status}): {e}",
+                    self.symbol
+                )
+            } else {
+                anyhow!(self.format_invalid_response(status, &body))
+            }
+        })
+    }
+
+    fn format_invalid_response(&self, status: StatusCode, body: &str) -> String {
+        let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        if body.is_empty() {
+            format!(
+                "{} RPC returned an invalid response ({status})",
+                self.symbol
+            )
+        } else {
+            format!(
+                "{} RPC returned a non-JSON response ({status}): {body}",
+                self.symbol
+            )
         }
     }
 
@@ -178,6 +210,8 @@ impl RpcClient {
 mod test {
     use super::*;
     use rstest::rstest;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn get_config() -> Config {
         Config {
@@ -186,6 +220,19 @@ mod test {
             user: Some("backend".to_string()),
             password: Some("DPGn0yNNWN5YvBBeRX2kEcJBwv8zwrw9Mw9nkIl05o4".to_string()),
             wallet: Some("regtest".to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn get_mock_config(mock_server: &MockServer) -> Config {
+        let url = Url::parse(&mock_server.uri()).unwrap();
+
+        Config {
+            host: url.host_str().unwrap().to_string(),
+            port: url.port().unwrap(),
+            user: Some("backend".to_string()),
+            password: Some("password".to_string()),
+            wallet: None,
             ..Default::default()
         }
     }
@@ -316,5 +363,48 @@ mod test {
             .await
             .unwrap_err();
         assert_eq!(res.to_string(), "Unknown address type 'invalid'");
+    }
+
+    #[tokio::test]
+    async fn test_request_non_json_error() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("Work queue depth exceeded"))
+            .mount(&mock_server)
+            .await;
+
+        let client = RpcClient::new("BTC".to_string(), get_mock_config(&mock_server)).unwrap();
+        let res = client
+            .request::<u64>("getblockcount", None)
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            res.to_string(),
+            "BTC RPC returned a non-JSON response (500 Internal Server Error): Work queue depth exceeded"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_request_batch_non_json_error() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("Work queue depth exceeded"))
+            .mount(&mock_server)
+            .await;
+
+        let client = RpcClient::new("BTC".to_string(), get_mock_config(&mock_server)).unwrap();
+        let params: Vec<Vec<RpcParam<'_>>> = vec![vec![]];
+        let res = client
+            .request_batch::<u64>("getblockcount", &params)
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            res.to_string(),
+            "BTC RPC returned a non-JSON response (500 Internal Server Error): Work queue depth exceeded"
+        );
     }
 }

@@ -1,11 +1,16 @@
 import { SpanKind, SpanStatusCode, context, trace } from '@opentelemetry/api';
 import { existsSync, readFileSync } from 'fs';
-import http from 'http';
+import http, { type IncomingMessage } from 'http';
 import type { ChainConfig } from '../Config';
 import type Logger from '../Logger';
 import Tracing from '../Tracing';
 import { formatError } from '../Utils';
 import Errors from './Errors';
+
+type RpcResponse<T> = {
+  error?: unknown;
+  result: T | null;
+};
 
 class RpcClient {
   private readonly auth: string;
@@ -84,6 +89,33 @@ class RpcClient {
     }
   };
 
+  private formatInvalidResponse = (
+    response: IncomingMessage,
+    buffer: string,
+  ): string => {
+    const status = [response.statusCode, response.statusMessage]
+      .filter((part) => part !== undefined && part !== '')
+      .join(' ');
+    const body = buffer.trim().replace(/\s+/g, ' ');
+
+    if (body === '') {
+      return `${this.symbol} RPC returned an invalid response${status !== '' ? ` (${status})` : ''}`;
+    }
+
+    return `${this.symbol} RPC returned a non-JSON response${status !== '' ? ` (${status})` : ''}: ${body}`;
+  };
+
+  private parseResponse = <T>(
+    response: IncomingMessage,
+    buffer: string,
+  ): RpcResponse<T> => {
+    try {
+      return JSON.parse(buffer) as RpcResponse<T>;
+    } catch {
+      throw new Error(this.formatInvalidResponse(response, buffer));
+    }
+  };
+
   private sendRequest = <T>(
     method: string,
     walletRelated: boolean,
@@ -115,10 +147,25 @@ class RpcClient {
               return;
             }
 
-            const parsedResponse = JSON.parse(buffer);
+            let parsedResponse: RpcResponse<T>;
+            try {
+              parsedResponse = this.parseResponse<T>(response, buffer);
+            } catch (error) {
+              reject(error);
+              return;
+            }
 
             if (parsedResponse.error) {
               reject(parsedResponse.error);
+              return;
+            }
+
+            if (
+              parsedResponse.result === null ||
+              parsedResponse.result === undefined
+            ) {
+              reject('no result in RPC response');
+              return;
             }
 
             resolve(parsedResponse.result);

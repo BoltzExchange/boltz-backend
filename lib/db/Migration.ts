@@ -58,7 +58,7 @@ export const decodeBip21 = (
 
 // TODO: integration tests for actual migrations
 class Migration {
-  private static latestSchemaVersion = 26;
+  private static latestSchemaVersion = 27;
   private static latestDeprecatedSchemaVersion = 11;
 
   private toBackFill: number[] = [];
@@ -761,6 +761,35 @@ class Migration {
           await queryInterface.changeColumn(
             Commitment.tableName,
             'signature',
+            {
+              type: new DataTypes.BLOB(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+        });
+
+        await this.finishMigration(versionRow.version, currencies);
+        break;
+      }
+
+      case 26: {
+        this.logUpdatingTable('reverseRoutingHints');
+
+        await this.sequelize.transaction(async (transaction) => {
+          await this.sequelize.getQueryInterface().addColumn(
+            'reverseRoutingHints',
+            'address',
+            {
+              type: new DataTypes.TEXT(),
+              allowNull: true,
+            },
+            { transaction },
+          );
+
+          await this.sequelize.getQueryInterface().changeColumn(
+            'reverseRoutingHints',
+            'scriptPubkey',
             {
               type: new DataTypes.BLOB(),
               allowNull: true,

@@ -9,10 +9,10 @@ responsibilities to recognize and verify MRH payments.
 
 :::
 
-This page describes the mechanism that encodes a BIP21 URI into the routing
-hints section of an invoice, mainly for Boltz-powered wallets like
+This page describes the mechanism that encodes a BIP321 payment URI into the
+routing hints section of an invoice, mainly for Boltz-powered wallets like
 [Aqua](https://aqua.net/) to pay each other directly without involving a Boltz
-swap and to avoid bloated, hard-to-scan BIP21 QR codes.
+swap and to avoid bloated, hard-to-scan payment URI QR codes.
 
 ## Basics
 
@@ -60,10 +60,10 @@ additional steps that the receiver must take:
   for use elsewhere
 
 It is the client's responsibility to handle payments to magic routing hint
-addresses. To help clients detect these transactions as quickly as possible, we
-emit [a WebSocket event](api-v2#magic-routing-hints) when we observe a
-transaction in the mempool to the MRH address for a swap the client is
-subscribed to.
+addresses. For UTXO based chains, to help clients detect these transactions as
+quickly as possible, we emit [a WebSocket event](api-v2#magic-routing-hints)
+when we observe a transaction in the mempool to the MRH address for a swap the
+client is subscribed to.
 
 Boltz emits a `transaction.direct` status update for MRH transactions related to
 a specific swap. While these status updates are provided for convenience, swap
@@ -81,10 +81,11 @@ routing hint is found, then:
 - Send a
   [request to Boltz API](https://api.boltz.exchange/swagger#/Reverse/get_swap_reverse__invoice__bip21)
   to fetch the chain address of the receiver.
-- Extract the address from the BIP21, hash the address, and verify the signature
-  returned in the API call against the public key in the magic routing hint.
-- Verify the amount of the BIP21 before paying to it. On Liquid, the asset id
-  must be verified, too.
+- Extract the address from the payment URI, hash the address, and verify the
+  signature returned in the API call against the public key in the magic routing
+  hint.
+- Verify the amount of the payment URI before paying to it. On Liquid, the asset
+  id must be verified, too.
 
 <figure><img src="./assets/mrh.svg" alt=""><figcaption><p>Sequence Diagram for Receiver and Sender MRH flows</p></figcaption></figure>
 
@@ -92,7 +93,7 @@ routing hint is found, then:
 
 Magic Routing Hints are designed to ensure the receiver gets the exact same
 amount as with chained swaps, while allowing the sender to reduce their costs.
-The amount in the BIP21 should be honored by the sender.
+The amount in the payment URI should be honored by the sender.
 
 ## Example code
 
@@ -145,8 +146,8 @@ const receiverSide = async () => {
       from: 'BTC',
       to: 'L-BTC',
       invoiceAmount: 10_000,
-      addressSignature: addressSignature.toString('hex'),
-      claimPublicKey: claimKeys.publicKey.toString('hex'),
+      addressSignature: Buffer.from(addressSignature).toString('hex'),
+      claimPublicKey: Buffer.from(claimKeys.publicKey).toString('hex'),
       preimageHash: crypto.sha256(preimage).toString('hex'),
     })
   ).data;
@@ -158,7 +159,9 @@ const receiverSide = async () => {
     throw 'no magic routing hint';
   }
 
-  if (magicRoutingHint.pubkey !== claimKeys.publicKey.toString('hex')) {
+  if (
+    magicRoutingHint.pubkey !== Buffer.from(claimKeys.publicKey).toString('hex')
+  ) {
     throw 'invalid public key in magic routing hint';
   }
 
@@ -173,35 +176,39 @@ const senderSide = async (invoice: string) => {
     return;
   }
 
-  const bip21Res = (
+  const paymentUriRes = (
     await axios.get(`${endpoint}/v2/swap/reverse/${invoice}/bip21`)
   ).data;
 
   const receiverPublicKey = ECPair.fromPublicKey(
     Buffer.from(magicRoutingHint.pubkey, 'hex'),
   );
-  const receiverSignature = Buffer.from(bip21Res.signature, 'hex');
+  const receiverSignature = Buffer.from(paymentUriRes.signature, 'hex');
 
-  const bip21Decoded = new URL(bip21Res.bip21);
-  const bip21Address = bip21Decoded.pathname;
+  const paymentUri = new URL(paymentUriRes.bip21);
+  const directPaymentAddress =
+    paymentUri.searchParams.get('ark') ?? paymentUri.pathname;
 
-  const addressHash = crypto.sha256(Buffer.from(bip21Address, 'utf-8'));
+  const addressHash = crypto.sha256(Buffer.from(directPaymentAddress, 'utf-8'));
 
   if (!receiverPublicKey.verifySchnorr(addressHash, receiverSignature)) {
     throw 'invalid address signature';
   }
 
-  if (bip21Decoded.searchParams.get('assetid') !== lbtcAssetHash) {
-    throw 'invalid BIP21 asset';
+  if (
+    paymentUri.searchParams.has('assetid') &&
+    paymentUri.searchParams.get('assetid') !== lbtcAssetHash
+  ) {
+    throw 'invalid payment URI asset';
   }
 
-  // Amount in the BIP21 is the amount the recipient will actually receive
+  // Amount in the payment URI is the amount the recipient will actually receive
   // The invoice amount includes service and swap onchain fees
   if (
-    Number(bip21Decoded.searchParams.get('amount')) * 10 ** 8 >
+    Number(paymentUri.searchParams.get('amount')) * 10 ** 8 >
     Number(decodedInvoice.satoshis)
   ) {
-    throw 'invalid BIP21 amount';
+    throw 'invalid payment URI amount';
   }
 
   // Pay on Liquid

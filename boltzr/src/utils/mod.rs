@@ -1,4 +1,4 @@
-pub mod bip21;
+pub mod bip321;
 pub mod pair;
 pub mod serde;
 mod system;

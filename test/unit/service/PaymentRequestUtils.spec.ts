@@ -2,10 +2,11 @@ import { networks } from 'liquidjs-lib';
 import type { ParsedUrlQuery } from 'querystring';
 import { decode } from 'querystring';
 import { satoshisToCoins } from '../../../lib/DenominationConverter';
+import ArkClient from '../../../lib/chain/ArkClient';
 import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 
 // https://github.com/tdex-network/tdex-app/blob/44ed63b15cd86e5fab7906f8e65c12e0e24f3101/src/utils/bip21.ts#L4
-const decodeBip21 = (
+const decodePaymentUri = (
   uri: string,
   urnScheme?: string,
 ): { address: string; options: ParsedUrlQuery } => {
@@ -38,25 +39,25 @@ describe('PaymentRequestUtils', () => {
     network: networks.liquid,
   } as any);
 
-  test('should encode BTC BIP21', () => {
+  test('should encode BTC payment URI', () => {
     const symbol = 'BTC';
     const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
     const satoshis = 1123123;
     const label = 'Some payment info';
 
-    expect(pru.encodeBip21(symbol, address, satoshis)).toEqual(
+    expect(pru.encodePaymentUri(symbol, address, satoshis)).toEqual(
       `bitcoin:${address}?amount=${satoshis / 100_000_000}`,
     );
-    expect(pru.encodeBip21(symbol, address, satoshis, label)).toEqual(
+    expect(pru.encodePaymentUri(symbol, address, satoshis, label)).toEqual(
       `bitcoin:${address}?amount=${satoshisToCoins(
         satoshis,
       )}&label=${label.replace(/ /g, '%20')}`,
     );
   });
 
-  test('should not encode BIP-21 with scientific notation', () => {
+  test('should not encode payment URI with scientific notation', () => {
     const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
-    expect(pru.encodeBip21('BTC', address, 42)).toEqual(
+    expect(pru.encodePaymentUri('BTC', address, 42)).toEqual(
       `bitcoin:${address}?amount=0.00000042`,
     );
   });
@@ -72,34 +73,55 @@ describe('PaymentRequestUtils', () => {
       const address = 'bcrt1qxmhp6s7j2n6ffkymnkrtxnxyf40l37h2g3pwlk';
       const label = 'no_amount';
 
-      expect(pru.encodeBip21(symbol, address, satoshis, label)).toEqual(
+      expect(pru.encodePaymentUri(symbol, address, satoshis, label)).toEqual(
         `bitcoin:${address}?label=${label}`,
       );
     },
   );
 
-  test('should encode LTC BIP21', () => {
-    const symbol = 'LTC';
+  test('should encode ARK payment URI with fixed query key', () => {
     const address =
-      'ltc1ppdaqq7q0nagcd6v02n7zslck5dg8ugzmx445as9ytr0prc42zq3qa3e64v';
-    const satoshis = 5678978945;
-    const label = '&asdfa§%&asdf';
+      'ark1qq4hfssprtcgnjzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t5cfuk5fqnen77qug2q6ln643xs0922wvzpzjqkmtcntwged8cedrxqgzfv';
 
-    expect(pru.encodeBip21(symbol, address, satoshis, label)).toEqual(
-      `litecoin:${address}?amount=${satoshisToCoins(
-        satoshis,
-      )}&label=${encodeURIComponent(label)}`,
-    );
+    const uri = pru.encodePaymentUri(ArkClient.symbol, address, 123);
+    expect(uri).toEqual(`bitcoin:?ark=${address}&amount=0.00000123`);
+    expect(decodePaymentUri(uri!)).toEqual({
+      address: '',
+      options: {
+        ark: address,
+        amount: '0.00000123',
+      },
+    });
   });
 
-  test('should encode L-BTC BIP21', () => {
+  test('should properly encode appended ARK payment URI params', () => {
+    const uri = pru.encodePaymentUriWithParams(
+      ArkClient.symbol,
+      'ark-address?with=special&chars=value',
+      'label=Swap%20from%20Lightning&message=hello%2Bworld',
+    );
+
+    expect(uri).toEqual(
+      'bitcoin:?ark=ark-address%3Fwith%3Dspecial%26chars%3Dvalue&label=Swap%20from%20Lightning&message=hello%2Bworld',
+    );
+    expect(decodePaymentUri(uri!)).toEqual({
+      address: '',
+      options: {
+        ark: 'ark-address?with=special&chars=value',
+        label: 'Swap from Lightning',
+        message: 'hello+world',
+      },
+    });
+  });
+
+  test('should encode L-BTC payment URI', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
     const satoshi = 34522334;
     const label = 'Swap from Lightning';
 
-    expect(pru.encodeBip21(symbol, address, satoshi, label)).toEqual(
+    expect(pru.encodePaymentUri(symbol, address, satoshi, label)).toEqual(
       `liquidnetwork:${address}?amount=${satoshisToCoins(
         satoshi,
       )}&label=${encodeURIComponent(label)}&assetid=${
@@ -108,8 +130,8 @@ describe('PaymentRequestUtils', () => {
     );
 
     expect(
-      decodeBip21(
-        pru.encodeBip21(symbol, address, satoshi, label)!,
+      decodePaymentUri(
+        pru.encodePaymentUri(symbol, address, satoshi, label)!,
         'liquidnetwork',
       ),
     ).toEqual({
@@ -122,7 +144,7 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
-  test('should encode testnet L-BTC BIP21', () => {
+  test('should encode testnet L-BTC payment URI', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
@@ -134,8 +156,8 @@ describe('PaymentRequestUtils', () => {
     } as any);
 
     expect(
-      decodeBip21(
-        pruTestnet.encodeBip21(symbol, address, satoshi, label)!,
+      decodePaymentUri(
+        pruTestnet.encodePaymentUri(symbol, address, satoshi, label)!,
         'liquidtestnet',
       ),
     ).toEqual({
@@ -148,7 +170,7 @@ describe('PaymentRequestUtils', () => {
     });
   });
 
-  test('should not encode L-BTC BIP21 when asset hash is missing', () => {
+  test('should not encode L-BTC payment URI when asset hash is missing', () => {
     const symbol = 'L-BTC';
     const address =
       'ert1qmlpr7ujjcjmm95gg7hrmhcetty59yck9rxrg3qm3dsl0juhrhpvqy7m2jq';
@@ -156,7 +178,12 @@ describe('PaymentRequestUtils', () => {
     const label = 'Swap from Lightning';
 
     expect(
-      new PaymentRequestUtils().encodeBip21(symbol, address, satoshi, label),
+      new PaymentRequestUtils().encodePaymentUri(
+        symbol,
+        address,
+        satoshi,
+        label,
+      ),
     ).toBeUndefined();
   });
 });

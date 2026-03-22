@@ -44,7 +44,8 @@ pub struct ReverseSwap {
 pub struct ReverseRoutingHint {
     pub swapId: String,
     pub symbol: String,
-    pub scriptPubkey: Vec<u8>,
+    pub address: Option<String>,
+    pub scriptPubkey: Option<Vec<u8>>,
     pub blindingPubkey: Option<Vec<u8>>,
     pub params: Option<String>,
     pub signature: Vec<u8>,

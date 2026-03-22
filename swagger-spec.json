@@ -202,7 +202,7 @@
                   "properties": {
                     "bip21": {
                       "type": "string",
-                      "description": "BIP21 for the onchain payment request"
+                      "description": "Payment URI for the onchain payment request"
                     },
                     "expectedAmount": {
                       "type": "number",
@@ -824,7 +824,7 @@
         "tags": [
           "Reverse Swap"
         ],
-        "description": "Get the BIP-21 of a Reverse Swap for a direct payment",
+        "description": "Get the payment URI of a Reverse Swap for a direct payment",
         "parameters": [
           {
             "in": "path",
@@ -838,7 +838,7 @@
         ],
         "responses": {
           "200": {
-            "description": "BIP-21 and signature to prove the authenticity of the BIP-21",
+            "description": "Payment URI and signature to prove the authenticity of the address",
             "content": {
               "application/json": {
                 "schema": {
@@ -858,7 +858,7 @@
             }
           },
           "404": {
-            "description": "When no BIP-21 was set for the Reverse Swap",
+            "description": "When no payment URI was set for the Reverse Swap",
             "content": {
               "application/json": {
                 "schema": {
@@ -3959,7 +3959,7 @@
           },
           "bip21": {
             "type": "string",
-            "description": "BIP21 for the onchain payment request"
+            "description": "Payment URI for the onchain payment request"
           },
           "address": {
             "type": "string",
@@ -4246,7 +4246,7 @@
           },
           "address": {
             "type": "string",
-            "description": "Address to be used for a BIP-21 direct payment"
+            "description": "Address to be embedded in the direct payment URI"
           },
           "addressSignature": {
             "type": "string",
@@ -4399,11 +4399,11 @@
         "properties": {
           "bip21": {
             "type": "string",
-            "description": "BIP-21 for the Reverse Swap"
+            "description": "Payment URI for the Reverse Swap"
           },
           "signature": {
             "type": "string",
-            "description": "Signature of the address in the BIP-21 of the public key in the routing hint"
+            "description": "Signature of the address in the payment URI. For BOLT12 reverse swaps, this signature is verified against the offer payee, not a routing-hint public key."
           }
         }
       },
@@ -4585,7 +4585,7 @@
           },
           "bip21": {
             "type": "string",
-            "description": "BIP-21 for the UTXO onchain lockup of the user"
+            "description": "Payment URI for the lockup of the user"
           },
           "claimAddress": {
             "type": "string",

@@ -109,6 +109,15 @@ export const getPort = () => {
   });
 };
 
+export const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+
+  return { promise, resolve };
+};
+
 export const raceCall = <T>(
   promise: (() => Promise<T>) | Promise<T>,
   raceHandler: (reason?: any) => void,

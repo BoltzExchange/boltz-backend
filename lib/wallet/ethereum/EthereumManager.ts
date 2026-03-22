@@ -56,6 +56,9 @@ class EthereumManager {
   public readonly contracts: Contracts[] = [];
   public readonly tokenAddresses = new Map<string, string>();
 
+  private missedEventsCheckPromise: Promise<void> | undefined;
+  private missedEventsCheckPending = false;
+
   constructor(
     private readonly logger: Logger,
     public readonly networkDetails: NetworkDetails,
@@ -162,20 +165,26 @@ class EthereumManager {
     await this.provider.onBlock(async ({ number }) => {
       this.logger.silly(`Got new ${this.networkDetails.name} block: ${number}`);
 
-      if (number - lastBlockNumber > 1) {
-        this.logger.warn(
-          `${this.networkDetails.name} block gap detected: ${number - lastBlockNumber}; rescanning for missed events`,
+      if (number <= lastBlockNumber) {
+        this.logger.debug(
+          `Ignoring stale ${this.networkDetails.name} block notification ${number}; last processed block is ${lastBlockNumber}`,
         );
+        return;
+      }
 
-        for (const c of this.contracts) {
-          c.contractEventHandler
-            .checkMissedEvents(this.provider)
-            .catch((error) => {
-              this.logger.error(
-                `Error checking for missed events of ${this.networkDetails.name} contracts v${c.version}: ${formatError(error)}`,
-              );
-            });
+      const gap = number - lastBlockNumber;
+      if (gap > 1) {
+        if (this.missedEventsCheckPromise === undefined) {
+          this.logger.warn(
+            `${this.networkDetails.name} block gap detected: ${gap}; rescanning for missed events`,
+          );
+        } else {
+          this.logger.info(
+            `${this.networkDetails.name} block gap detected while a missed-events rescan is already running: ${gap}`,
+          );
         }
+
+        this.scheduleMissedEventChecks();
       }
 
       lastBlockNumber = number;
@@ -267,7 +276,9 @@ class EthereumManager {
   };
 
   public destroy = async () => {
+    this.missedEventsCheckPending = false;
     await this.provider.removeAllListeners();
+    await this.missedEventsCheckPromise;
     await this.provider.destroy();
   };
 
@@ -396,6 +407,34 @@ class EthereumManager {
       undefined,
       this.config.derivationPath,
     );
+  };
+
+  private scheduleMissedEventChecks = () => {
+    this.missedEventsCheckPending = true;
+
+    if (this.missedEventsCheckPromise) {
+      return;
+    }
+
+    this.missedEventsCheckPromise = (async () => {
+      while (this.missedEventsCheckPending) {
+        this.missedEventsCheckPending = false;
+
+        await Promise.all(
+          this.contracts.map(async (c) => {
+            try {
+              await c.contractEventHandler.checkMissedEvents();
+            } catch (error) {
+              this.logger.error(
+                `Error checking for missed events of ${this.networkDetails.name} contracts v${c.version}: ${formatError(error)}`,
+              );
+            }
+          }),
+        );
+      }
+    })().finally(() => {
+      this.missedEventsCheckPromise = undefined;
+    });
   };
 }
 

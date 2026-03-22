@@ -366,7 +366,7 @@ describe('ContractEventHandler', () => {
       });
     });
 
-    await contractEventHandler['checkMissedEvents'](setup.provider);
+    await contractEventHandler['checkMissedEvents']();
     await claimPromise;
 
     expect(contractEventHandler['rescanLastHeight']).toEqual(

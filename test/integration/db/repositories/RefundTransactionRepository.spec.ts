@@ -38,6 +38,19 @@ describe('RefundTransactionRepository', () => {
     expect(tx.status).toEqual(RefundStatus.Pending);
   });
 
+  test('should add refund transaction with custom status', async () => {
+    const tx = await RefundTransactionRepository.addTransaction({
+      swapId: 'swapId',
+      symbol: 'BTC',
+      id: 'test',
+      vin: 123,
+      status: RefundStatus.Confirmed,
+    });
+
+    expect(tx).not.toBeNull();
+    expect(tx.status).toEqual(RefundStatus.Confirmed);
+  });
+
   test('should upsert refund transaction', async () => {
     const tx = await RefundTransactionRepository.addTransaction({
       swapId: 'swapId',

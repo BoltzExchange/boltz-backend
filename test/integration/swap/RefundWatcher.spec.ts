@@ -36,6 +36,9 @@ RefundTransactionRepository.getPendingTransactions = jest
 describe('RefundWatcher', () => {
   const mockSidecar = new EventEmitter() as any as Sidecar;
   const watcher = new RefundWatcher(Logger.disabledLogger, mockSidecar);
+  const btcRefundTxId =
+    '0e3e2357e806b6cdb1f70b54c3a3a17b6714ee1f0e68bebb44a74b1efd512098';
+
   let currencies: Map<string, Currency>;
   let setup: Awaited<ReturnType<typeof getSigner>>;
   let evmProvider: InjectedProvider;
@@ -85,6 +88,7 @@ describe('RefundWatcher', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedExitHandler.shutdownSignal.aborted = false;
+    bitcoinClient.getRawTransactionVerbose = jest.fn();
     currencies.get('RBTC')!.requiredConfirmations = undefined;
   });
 
@@ -103,50 +107,46 @@ describe('RefundWatcher', () => {
 
     test('should check pending transactions on block events', async () => {
       const swapId = '1';
-
-      const txId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress('test'),
-        10_000,
-        undefined,
-        undefined,
-        'test',
-      );
+      bitcoinClient.getRawTransactionVerbose = jest.fn().mockResolvedValue({
+        confirmations: 1,
+      });
 
       RefundTransactionRepository.getPendingTransactions = jest
         .fn()
         .mockResolvedValue([
           {
             tx: {
-              id: txId,
+              id: btcRefundTxId,
               status: RefundStatus.Pending,
             } as unknown as RefundTransaction,
             swap: {
               id: swapId,
               refundCurrency: 'BTC',
               type: SwapType.ReverseSubmarine,
-              serverLockupTransactionId: txId,
+              serverLockupTransactionId: btcRefundTxId,
             } as unknown as ReverseSwap,
           },
         ]);
 
-      const emitPromise = new Promise<ReverseSwap | ChainSwapInfo>(
-        (resolve) => {
-          watcher.on('refund.confirmed', (swap) => {
-            resolve(swap);
-            watcher.removeAllListeners('refund.confirmed');
-          });
-        },
-      );
+      const emitPromise = new Promise<{
+        swap: ReverseSwap | ChainSwapInfo;
+        refundTransaction: string;
+      }>((resolve) => {
+        watcher.on('refund.confirmed', (args) => {
+          resolve(args);
+          watcher.removeAllListeners('refund.confirmed');
+        });
+      });
 
-      await bitcoinClient.generate(1);
       mockSidecar.emit('block', {
         symbol: 'BTC',
         height: 1,
         hash: Buffer.alloc(32),
       });
 
-      const swap = await emitPromise;
+      const { swap, refundTransaction } = await emitPromise;
       expect(swap.id).toEqual(swapId);
+      expect(refundTransaction).toEqual(btcRefundTxId);
 
       expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
         swapId,
@@ -158,22 +158,14 @@ describe('RefundWatcher', () => {
   describe('checkRefund', () => {
     const checkRefund = watcher['checkRefund'];
 
-    let txId: string;
-
-    beforeAll(async () => {
-      txId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress('test'),
-        10_000,
-        undefined,
-        undefined,
-        'test',
-      );
-    });
-
     test('should ignore refund with less than required confirmations', async () => {
+      bitcoinClient.getRawTransactionVerbose = jest.fn().mockResolvedValue({
+        confirmations: 0,
+      });
+
       await checkRefund(
         {
-          id: txId,
+          id: btcRefundTxId,
           status: RefundStatus.Pending,
         } as unknown as RefundTransaction,
         {
@@ -186,33 +178,37 @@ describe('RefundWatcher', () => {
     });
 
     test('should handle confirmed refund transactions', async () => {
-      await bitcoinClient.generate(1);
+      bitcoinClient.getRawTransactionVerbose = jest.fn().mockResolvedValue({
+        confirmations: 1,
+      });
 
-      const emitPromise = new Promise<ReverseSwap | ChainSwapInfo>(
-        (resolve) => {
-          watcher.on('refund.confirmed', (swap) => {
-            resolve(swap);
-            watcher.removeAllListeners('refund.confirmed');
-          });
-        },
-      );
+      const emitPromise = new Promise<{
+        swap: ReverseSwap | ChainSwapInfo;
+        refundTransaction: string;
+      }>((resolve) => {
+        watcher.on('refund.confirmed', (args) => {
+          resolve(args);
+          watcher.removeAllListeners('refund.confirmed');
+        });
+      });
 
       const swapId = '1';
       await checkRefund(
         {
-          id: txId,
+          id: btcRefundTxId,
           status: RefundStatus.Pending,
         } as unknown as RefundTransaction,
         {
           id: swapId,
           type: SwapType.ReverseSubmarine,
           refundCurrency: 'BTC',
-          serverLockupTransactionId: txId,
+          serverLockupTransactionId: btcRefundTxId,
         } as unknown as ReverseSwap,
       );
 
-      const swap = await emitPromise;
+      const { swap, refundTransaction } = await emitPromise;
       expect(swap.id).toEqual(swapId);
+      expect(refundTransaction).toEqual(btcRefundTxId);
 
       expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
         swapId,
@@ -250,18 +246,22 @@ describe('RefundWatcher', () => {
 
       expect(RefundTransactionRepository.setStatus).not.toHaveBeenCalled();
 
-      const emitPromise = new Promise<ReverseSwap | ChainSwapInfo>(
-        (resolve) => {
-          watcher.on('refund.confirmed', (confirmedSwap) => {
-            resolve(confirmedSwap);
-            watcher.removeAllListeners('refund.confirmed');
-          });
-        },
-      );
+      const emitPromise = new Promise<{
+        swap: ReverseSwap | ChainSwapInfo;
+        refundTransaction: string;
+      }>((resolve) => {
+        watcher.on('refund.confirmed', (confirmedSwap) => {
+          resolve(confirmedSwap);
+          watcher.removeAllListeners('refund.confirmed');
+        });
+      });
 
       await checkRefund(refundTx, swap);
 
-      await expect(emitPromise).resolves.toMatchObject({ id: swap.id });
+      await expect(emitPromise).resolves.toMatchObject({
+        swap: { id: swap.id },
+        refundTransaction: refundTx.id,
+      });
       expect(RefundTransactionRepository.setStatus).toHaveBeenCalledWith(
         swap.id,
         RefundStatus.Confirmed,
@@ -275,25 +275,28 @@ describe('RefundWatcher', () => {
     const getConfirmations = watcher['getConfirmations'];
 
     test('should get confirmation for bitcoin like currencies', async () => {
-      const txId = await bitcoinClient.sendToAddress(
-        await bitcoinClient.getNewAddress('test'),
-        10_000,
-        undefined,
-        undefined,
-        'test',
-      );
+      bitcoinClient.getRawTransactionVerbose = jest
+        .fn()
+        .mockResolvedValueOnce({
+          confirmations: 0,
+        })
+        .mockResolvedValueOnce({
+          confirmations: 1,
+        })
+        .mockResolvedValueOnce({
+          confirmations: 2,
+        });
+
       await expect(
-        getConfirmations(watcher['currencies'].get('BTC')!, txId),
+        getConfirmations(watcher['currencies'].get('BTC')!, btcRefundTxId),
       ).resolves.toEqual(0);
 
-      await bitcoinClient.generate(1);
       await expect(
-        getConfirmations(watcher['currencies'].get('BTC')!, txId),
+        getConfirmations(watcher['currencies'].get('BTC')!, btcRefundTxId),
       ).resolves.toEqual(1);
 
-      await bitcoinClient.generate(1);
       await expect(
-        getConfirmations(watcher['currencies'].get('BTC')!, txId),
+        getConfirmations(watcher['currencies'].get('BTC')!, btcRefundTxId),
       ).resolves.toEqual(2);
     });
 

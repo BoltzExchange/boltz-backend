@@ -14,7 +14,10 @@ import type { Currency } from '../wallet/WalletManager';
 // TODO: check replacements
 
 class RefundWatcher extends TypedEventEmitter<{
-  'refund.confirmed': ReverseSwap | ChainSwapInfo;
+  'refund.confirmed': {
+    swap: ReverseSwap | ChainSwapInfo;
+    refundTransaction: string;
+  };
 }> {
   private static readonly defaultRequiredConfirmations = 1;
   private static readonly pendingTransactionsLock = 'pendingTransactions';
@@ -82,7 +85,10 @@ class RefundWatcher extends TypedEventEmitter<{
       swap.id,
       RefundStatus.Confirmed,
     );
-    this.emit('refund.confirmed', swap);
+    this.emit('refund.confirmed', {
+      swap,
+      refundTransaction: tx.id,
+    });
   };
 
   private getRequiredConfirmations = (currency: Currency) =>

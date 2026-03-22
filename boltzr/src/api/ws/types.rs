@@ -8,6 +8,8 @@ pub struct TransactionInfo {
     pub hex: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub eta: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmed: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -44,6 +46,7 @@ impl From<swap_update::TransactionInfo> for TransactionInfo {
             id: value.id,
             hex: value.hex,
             eta: value.eta,
+            confirmed: value.confirmed,
         }
     }
 }

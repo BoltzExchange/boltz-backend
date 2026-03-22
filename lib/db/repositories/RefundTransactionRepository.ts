@@ -8,12 +8,14 @@ import ReverseSwapRepository from './ReverseSwapRepository';
 
 class RefundTransactionRepository {
   public static addTransaction = async (
-    refundTransaction: Omit<RefundTransactionType, 'status'>,
+    refundTransaction: Omit<RefundTransactionType, 'status'> & {
+      status?: RefundStatus;
+    },
   ) => {
     const tx = await RefundTransaction.upsert(
       {
         ...refundTransaction,
-        status: RefundStatus.Pending,
+        status: refundTransaction.status ?? RefundStatus.Pending,
       },
       {
         returning: true,

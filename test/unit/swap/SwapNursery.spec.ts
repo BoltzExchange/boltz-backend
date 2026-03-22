@@ -1,7 +1,9 @@
+import { Transaction } from 'bitcoinjs-lib';
 import { EventEmitter } from 'events';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import {
+  CurrencyType,
   OrderSide,
   SwapType,
   SwapUpdateEvent,
@@ -118,6 +120,7 @@ describe('SwapNursery', () => {
 
   const mockCurrency: Currency = {
     symbol: 'BTC',
+    type: CurrencyType.BitcoinLike,
     lndClients: new Map([[mockLndClient.id, mockLndClient]]),
     clnClient: mockClnClient,
     chainClient: mockChainClient,
@@ -1110,6 +1113,231 @@ describe('SwapNursery', () => {
         SwapUpdateEvent.TransactionFailed,
         Errors.COINS_COULD_NOT_BE_SENT().message,
       );
+    });
+  });
+
+  describe('refund.confirmed', () => {
+    const setRefundTransactionUpdateTimeout = (timeout: number) => {
+      (SwapNursery as any).refundTransactionUpdateTimeout = timeout;
+    };
+
+    afterEach(() => {
+      setRefundTransactionUpdateTimeout(1_000);
+    });
+
+    test('should emit parsed refund transaction for confirmed BTC refunds', async () => {
+      const refundTransaction = new Transaction();
+      mockChainClient.getRawTransaction = jest
+        .fn()
+        .mockResolvedValue(refundTransaction.toHex());
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+
+      const refundConfirmedListener = (
+        swapNursery as any
+      ).refundWatcher.on.mock.calls.find(
+        ([event]: [string]) => event === 'refund.confirmed',
+      )?.[1];
+
+      expect(refundConfirmedListener).toBeDefined();
+
+      const swap = {
+        id: 'chain-swap-id',
+        refundCurrency: 'BTC',
+        type: SwapType.Chain,
+      } as unknown as ChainSwapInfo;
+
+      await refundConfirmedListener({
+        swap,
+        refundTransaction: refundTransaction.getId(),
+      });
+
+      expect(mockChainClient.getRawTransaction).toHaveBeenCalledWith(
+        refundTransaction.getId(),
+      );
+      const refundEmits = (swapNursery.emit as jest.Mock).mock.calls
+        .filter(([event]) => event === 'refund')
+        .map(([, args]) => args);
+
+      expect(refundEmits).toHaveLength(1);
+      expect(refundEmits[0]).toEqual({
+        swap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: expect.objectContaining({
+          getId: expect.any(Function),
+          toHex: expect.any(Function),
+        }),
+      });
+      expect(refundEmits[0].refundTransaction.getId()).toEqual(
+        refundTransaction.getId(),
+      );
+      expect(refundEmits[0].refundTransaction.toHex()).toEqual(
+        refundTransaction.toHex(),
+      );
+    });
+
+    test('should not block reverse swap cancellation on refund enrichment', async () => {
+      setRefundTransactionUpdateTimeout(10);
+      const refundTransactionId = 'refund-tx';
+
+      mockChainClient.getRawTransaction = jest
+        .fn()
+        .mockImplementation(() => new Promise<string>(() => {}));
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+
+      const refundConfirmedListener = (
+        swapNursery as any
+      ).refundWatcher.on.mock.calls.find(
+        ([event]: [string]) => event === 'refund.confirmed',
+      )?.[1];
+
+      expect(refundConfirmedListener).toBeDefined();
+
+      const reverseSwap = {
+        id: 'reverse-swap-id',
+        refundCurrency: 'BTC',
+        lightningCurrency: 'BTC',
+        nodeId: mockLndClient.id,
+        type: SwapType.ReverseSubmarine,
+      } as unknown as ReverseSwap;
+
+      await refundConfirmedListener({
+        swap: reverseSwap,
+        refundTransaction: refundTransactionId,
+      });
+
+      expect(LightningNursery.cancelReverseInvoices).toHaveBeenCalledWith(
+        mockLndClient,
+        reverseSwap,
+        true,
+      );
+
+      const refundEmits = (swapNursery.emit as jest.Mock).mock.calls
+        .filter(([event]) => event === 'refund')
+        .map(([, args]) => args);
+
+      expect(refundEmits).toHaveLength(1);
+      expect(refundEmits[0]).toEqual({
+        swap: reverseSwap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: refundTransactionId,
+      });
+    });
+
+    test('should fall back to txid when fetching confirmed refund transaction times out', async () => {
+      setRefundTransactionUpdateTimeout(1);
+
+      const refundTransactionId = 'refund-tx';
+      let resolveRawTransaction!: (value: string) => void;
+      mockChainClient.getRawTransaction = jest.fn().mockImplementation(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveRawTransaction = resolve;
+          }),
+      );
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+
+      const refundConfirmedListener = (
+        swapNursery as any
+      ).refundWatcher.on.mock.calls.find(
+        ([event]: [string]) => event === 'refund.confirmed',
+      )?.[1];
+
+      expect(refundConfirmedListener).toBeDefined();
+
+      const swap = {
+        id: 'chain-swap-id',
+        refundCurrency: 'BTC',
+        type: SwapType.Chain,
+      } as unknown as ChainSwapInfo;
+
+      await refundConfirmedListener({
+        swap,
+        refundTransaction: refundTransactionId,
+      });
+
+      const refundEmits = (swapNursery.emit as jest.Mock).mock.calls
+        .filter(([event]) => event === 'refund')
+        .map(([, args]) => args);
+
+      expect(refundEmits).toHaveLength(1);
+      expect(refundEmits[0]).toEqual({
+        swap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: refundTransactionId,
+      });
+
+      resolveRawTransaction(new Transaction().toHex());
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(
+        (swapNursery.emit as jest.Mock).mock.calls.filter(
+          ([event]) => event === 'refund',
+        ),
+      ).toHaveLength(1);
+    });
+
+    test('should fall back to txid when fetching confirmed refund transaction fails', async () => {
+      const refundTransactionId = 'refund-tx';
+      mockChainClient.getRawTransaction = jest
+        .fn()
+        .mockRejectedValue(new Error('failed to fetch'));
+      jest.spyOn(swapNursery, 'emit');
+
+      await swapNursery.init([mockCurrency]);
+
+      const refundConfirmedListener = (
+        swapNursery as any
+      ).refundWatcher.on.mock.calls.find(
+        ([event]: [string]) => event === 'refund.confirmed',
+      )?.[1];
+
+      expect(refundConfirmedListener).toBeDefined();
+
+      const swap = {
+        id: 'chain-swap-id',
+        refundCurrency: 'BTC',
+        type: SwapType.Chain,
+      } as unknown as ChainSwapInfo;
+
+      await refundConfirmedListener({
+        swap,
+        refundTransaction: refundTransactionId,
+      });
+
+      expect(mockChainClient.getRawTransaction).toHaveBeenCalledWith(
+        refundTransactionId,
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Could not fetch refund transaction ${refundTransactionId}`,
+        ),
+      );
+      expect(
+        (swapNursery.emit as jest.Mock).mock.calls.filter(
+          ([event]) => event === 'refund',
+        ),
+      ).toHaveLength(1);
+      expect(
+        (swapNursery.emit as jest.Mock).mock.calls.find(
+          ([event]) => event === 'refund',
+        )?.[1],
+      ).toEqual({
+        swap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: refundTransactionId,
+      });
     });
   });
 });

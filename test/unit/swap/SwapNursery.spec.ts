@@ -15,6 +15,8 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
+import { Signer } from '../../../lib/proto/boltzrpc_pb';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -203,6 +205,68 @@ describe('SwapNursery', () => {
 
     mockGetSwapResult = null;
     mockGetChainSwapResult = null;
+  });
+
+  describe('signer lockup guards', () => {
+    test('should reject reverse lockups when signer is disabled', () => {
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      signerControlRegistry.reset();
+      signerControlRegistry.disableSigners([Signer.SIGNER_REVERSE_LOCKUP]);
+
+      const guardedNursery = new SwapNursery(
+        mockLogger,
+        {} as any,
+        mockNotifications,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockWalletManager,
+        {} as any,
+        0,
+        mockClaimer,
+        mockChainSwapSigner,
+        {} as any,
+        undefined,
+        undefined,
+        signerControlRegistry,
+      );
+
+      expect(() =>
+        (guardedNursery as any).assertLockupSignerEnabled({
+          type: SwapType.ReverseSubmarine,
+        }),
+      ).toThrow('signer SIGNER_REVERSE_LOCKUP is disabled');
+    });
+
+    test('should reject chain lockups when signer is disabled', () => {
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      signerControlRegistry.reset();
+      signerControlRegistry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
+
+      const guardedNursery = new SwapNursery(
+        mockLogger,
+        {} as any,
+        mockNotifications,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockWalletManager,
+        {} as any,
+        0,
+        mockClaimer,
+        mockChainSwapSigner,
+        {} as any,
+        undefined,
+        undefined,
+        signerControlRegistry,
+      );
+
+      expect(() =>
+        (guardedNursery as any).assertLockupSignerEnabled({
+          type: SwapType.Chain,
+        }),
+      ).toThrow('signer SIGNER_CHAIN_LOCKUP is disabled');
+    });
   });
 
   describe('settleReverseSwapInvoice', () => {

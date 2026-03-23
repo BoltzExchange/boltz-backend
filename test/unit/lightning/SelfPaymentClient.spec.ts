@@ -87,6 +87,7 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           mockPayments as any,
+          true,
         ),
       ).resolves.toEqual({
         isSelf: false,
@@ -96,9 +97,68 @@ describe('SelfPaymentClient', () => {
       expect(getReverseSwapSpy).not.toHaveBeenCalled();
     });
 
-    test.each([[null], [undefined]])(
-      'should return isSelf: false when reverse swap is %s',
-      async (reverseSwapValue) => {
+    test('should block synthetic self lockup when signer is disabled', async () => {
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+      const emitSpy = jest.spyOn(client, 'emit');
+
+      await expect(
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          true,
+        ),
+      ).rejects.toThrow('signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled');
+
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+    });
+
+    test('should allow in-progress self payment when signer is disabled', async () => {
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.InvoiceSettled,
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+      const emitSpy = jest.spyOn(client, 'emit');
+
+      await expect(
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          true,
+        ),
+      ).resolves.toEqual({
+        isSelf: true,
+        result: undefined,
+      });
+
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+    });
+
+    test.each`
+      reverseSwapValue | signerDisabled
+      ${null}          | ${false}
+      ${undefined}     | ${false}
+      ${null}          | ${true}
+      ${undefined}     | ${true}
+    `(
+      'should return isSelf: false when reverse swap is $reverseSwapValue (signer disabled: $signerDisabled)',
+      async ({ reverseSwapValue, signerDisabled }) => {
         client['getReverseSwap'] = jest
           .fn()
           .mockResolvedValue(reverseSwapValue);
@@ -108,6 +168,7 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
+          signerDisabled,
         );
 
         expect(result).toEqual({

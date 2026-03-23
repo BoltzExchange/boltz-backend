@@ -25,12 +25,14 @@ import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import ClnClient from '../../lightning/cln/ClnClient';
+import { Signer } from '../../proto/boltzrpc_pb';
 import { Payment } from '../../proto/lnd/rpc_pb';
 import NodeSwitch from '../../swap/NodeSwitch';
 import SwapNursery from '../../swap/SwapNursery';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
+import type SignerControlRegistry from '../SignerControlRegistry';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import {
   checkArkTransaction,
@@ -58,18 +60,14 @@ class MusigSigner {
 
   private readonly lock = new AsyncLock();
   private readonly allowedRefunds = new Set<string>();
-  private disableCooperative = false;
 
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     private readonly nursery: SwapNursery,
+    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {}
-
-  public setDisableCooperative = (disabled: boolean) => {
-    this.disableCooperative = disabled;
-  };
 
   public allowRefund = async (id: string) => {
     const swap = await SwapRepository.getSwap({ id });
@@ -105,7 +103,11 @@ class MusigSigner {
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 
-    if (this.disableCooperative) {
+    if (
+      this.signerControlRegistry?.isDisabled(
+        Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
+      )
+    ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
         cooperativeSignaturesDisabledMessage,
       );
@@ -154,7 +156,11 @@ class MusigSigner {
       throw Errors.SWAP_NOT_FOUND(swapId);
     }
 
-    if (this.disableCooperative) {
+    if (
+      this.signerControlRegistry?.isDisabled(
+        Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
+      )
+    ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
         cooperativeSignaturesDisabledMessage,
       );
@@ -213,7 +219,11 @@ class MusigSigner {
           throw Errors.SWAP_NOT_FOUND(swapId);
         }
 
-        if (this.disableCooperative) {
+        if (
+          this.signerControlRegistry?.isDisabled(
+            Signer.SIGNER_REVERSE_CLAIM_COOPERATIVE,
+          )
+        ) {
           throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
             cooperativeSignaturesDisabledMessage,
           );

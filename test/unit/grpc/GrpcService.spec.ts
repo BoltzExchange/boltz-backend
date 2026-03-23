@@ -1,3 +1,4 @@
+import { status } from '@grpc/grpc-js';
 import type { ServiceError } from '@grpc/grpc-js';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
@@ -36,6 +37,10 @@ const mockDeriveKeysData = {
   method: 'deriveKeys',
 };
 const mockDeriveKeys = jest.fn().mockReturnValue(mockDeriveKeysData);
+
+const mockDisableSigners = jest.fn().mockImplementation((signers) => signers);
+const mockEnableSigners = jest.fn().mockImplementation(() => []);
+const mockGetDisabledSigners = jest.fn().mockReturnValue([]);
 
 const gewAddressData = 'address';
 const mockGetAddress = jest.fn().mockResolvedValue(gewAddressData);
@@ -136,6 +141,11 @@ jest.mock('../../../lib/service/Service', () => {
           ),
           sweepSymbol: jest.fn().mockResolvedValue(['currency1', 'currency2']),
         },
+      },
+      signerControlRegistry: {
+        disableSigners: mockDisableSigners,
+        enableSigners: mockEnableSigners,
+        getDisabledSigners: mockGetDisabledSigners,
       },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,
@@ -1194,6 +1204,124 @@ describe('GrpcService', () => {
           threshold: 123,
         },
       ]);
+    });
+  });
+
+  describe('signer controls', () => {
+    test('should disable signers', async () => {
+      const signers = [boltzrpc.Signer.SIGNER_CHAIN_LOCKUP];
+      mockDisableSigners.mockReturnValueOnce(signers);
+
+      const request = new boltzrpc.DisableSignersRequest();
+      request.setSignersList(signers);
+
+      await new Promise<void>((resolve, reject) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          expect(response?.toObject().disabledSignersList).toEqual(signers);
+          resolve();
+        });
+      });
+
+      expect(mockDisableSigners).toHaveBeenCalledTimes(1);
+      expect(mockDisableSigners).toHaveBeenCalledWith(signers);
+    });
+
+    test('should enable signers', async () => {
+      const toEnable = [boltzrpc.Signer.SIGNER_CHAIN_LOCKUP];
+      const disabledSigners = [boltzrpc.Signer.SIGNER_REVERSE_LOCKUP];
+      mockEnableSigners.mockReturnValueOnce(disabledSigners);
+
+      const request = new boltzrpc.EnableSignersRequest();
+      request.setSignersList(toEnable);
+
+      await new Promise<void>((resolve, reject) => {
+        grpcService.enableSigners({ request } as any, (error, response) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          expect(response?.toObject().disabledSignersList).toEqual(
+            disabledSigners,
+          );
+          resolve();
+        });
+      });
+
+      expect(mockEnableSigners).toHaveBeenCalledTimes(1);
+      expect(mockEnableSigners).toHaveBeenCalledWith(toEnable);
+    });
+
+    test('should list disabled signers', async () => {
+      const disabledSigners = [
+        boltzrpc.Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ];
+      mockGetDisabledSigners.mockReturnValueOnce(disabledSigners);
+
+      await new Promise<void>((resolve, reject) => {
+        grpcService.getDisabledSigners(
+          { request: new boltzrpc.GetDisabledSignersRequest() } as any,
+          (error, response) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            expect(response?.toObject().disabledSignersList).toEqual(
+              disabledSigners,
+            );
+            resolve();
+          },
+        );
+      });
+
+      expect(mockGetDisabledSigners).toHaveBeenCalledTimes(1);
+      expect(mockGetDisabledSigners).toHaveBeenCalledWith();
+    });
+
+    test('should return INVALID_ARGUMENT for invalid signer input', async () => {
+      const errorMessage = 'at least one signer must be specified';
+
+      const request = new boltzrpc.DisableSignersRequest();
+      request.setSignersList([]);
+
+      await new Promise<void>((resolve) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
+          expect(response).toEqual(null);
+          expect(error).toEqual({
+            code: status.INVALID_ARGUMENT,
+            details: errorMessage,
+            message: errorMessage,
+          });
+          resolve();
+        });
+      });
+
+      expect(mockDisableSigners).not.toHaveBeenCalled();
+    });
+
+    test('should reject unknown signer values before mutating registry', async () => {
+      const request = new boltzrpc.DisableSignersRequest();
+      request.setSignersList([123_456 as any]);
+
+      await new Promise<void>((resolve) => {
+        grpcService.disableSigners({ request } as any, (error, response) => {
+          expect(response).toEqual(null);
+          expect(error).toEqual({
+            code: status.INVALID_ARGUMENT,
+            details: 'invalid signer: 123456',
+            message: 'invalid signer: 123456',
+          });
+          resolve();
+        });
+      });
+
+      expect(mockDisableSigners).not.toHaveBeenCalled();
     });
   });
 

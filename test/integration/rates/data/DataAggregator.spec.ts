@@ -4,15 +4,14 @@ import { baseAsset, checkPrice, quoteAsset } from './Consts';
 
 describe('DataProvider', () => {
   const dataAggregator = new DataAggregator();
+  const pairId = getPairId({ base: baseAsset, quote: quoteAsset });
 
   test('should register pairs', () => {
     dataAggregator.registerPair(baseAsset, quoteAsset);
+    dataAggregator.registerPair(baseAsset, quoteAsset);
 
     expect(dataAggregator.pairs.size).toEqual(1);
-    expect(Array.from(dataAggregator.pairs.values())[0]).toEqual([
-      baseAsset,
-      quoteAsset,
-    ]);
+    expect(Array.from(dataAggregator.pairs.values())[0]).toEqual(pairId);
   });
 
   test('should calculate the median price', async () => {
@@ -20,7 +19,7 @@ describe('DataProvider', () => {
 
     expect(result).toEqual(dataAggregator.latestRates);
 
-    checkPrice(result.get(getPairId({ base: baseAsset, quote: quoteAsset }))!);
+    checkPrice(result.get(pairId)!);
   });
 
   test('should fallback to latest rate when current cannot be fetched', async () => {

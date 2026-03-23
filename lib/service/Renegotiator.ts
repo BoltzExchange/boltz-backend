@@ -118,6 +118,14 @@ class Renegotiator {
             throw Errors.LOCKUP_NOT_REJECTED();
           }
 
+          const transaction =
+            await nursery.ethereumManager.provider.getTransaction(
+              swap.receivingData.transactionId!,
+            );
+          if (transaction === null) {
+            throw Errors.LOCKUP_NOT_REJECTED();
+          }
+
           const isEther = receivingCurrency.type === CurrencyType.Ether;
           const contracts = await nursery.ethereumManager.contractsForAddress(
             swap.receivingData.lockupAddress,
@@ -136,6 +144,13 @@ class Renegotiator {
             throw Errors.LOCKUP_NOT_REJECTED();
           }
 
+          const updatedSwap = await ChainSwapRepository.setExpectedAmounts(
+            swap,
+            percentageFee,
+            swap.receivingData.amount!,
+            serverLockAmount,
+          );
+
           if (isEther) {
             const values = contracts.etherSwap.interface.decodeEventLog(
               'Lockup',
@@ -144,13 +159,8 @@ class Renegotiator {
             );
 
             await nursery.checkEtherSwapLockup(
-              await ChainSwapRepository.setExpectedAmounts(
-                swap,
-                percentageFee,
-                swap.receivingData.amount!,
-                serverLockAmount,
-              ),
-              receipt,
+              updatedSwap,
+              transaction,
               formatEtherSwapValues(values),
             );
           } else {
@@ -161,13 +171,8 @@ class Renegotiator {
             );
 
             await nursery.checkErc20SwapLockup(
-              await ChainSwapRepository.setExpectedAmounts(
-                swap,
-                percentageFee,
-                swap.receivingData.amount!,
-                serverLockAmount,
-              ),
-              receipt,
+              updatedSwap,
+              transaction,
               formatERC20SwapValues(values),
             );
           }

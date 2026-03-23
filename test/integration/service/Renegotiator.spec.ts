@@ -497,6 +497,16 @@ describe('Renegotiator', () => {
         expect(
           swapNursery.ethereumNurseries[0].checkEtherSwapLockup,
         ).toHaveBeenCalledTimes(1);
+        const etherLockupTransaction = (
+          swapNursery.ethereumNurseries[0].checkEtherSwapLockup as jest.Mock
+        ).mock.calls[0][1];
+        expect(etherLockupTransaction).toEqual(
+          expect.objectContaining({
+            data: transaction.data,
+            hash: transaction.hash,
+          }),
+        );
+        expect(etherLockupTransaction).not.toHaveProperty('logs');
         expect(
           swapNursery.ethereumNurseries[0].checkEtherSwapLockup,
         ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
@@ -564,6 +574,16 @@ describe('Renegotiator', () => {
         expect(
           swapNursery.ethereumNurseries[0].checkErc20SwapLockup,
         ).toHaveBeenCalledTimes(1);
+        const erc20LockupTransaction = (
+          swapNursery.ethereumNurseries[0].checkErc20SwapLockup as jest.Mock
+        ).mock.calls[0][1];
+        expect(erc20LockupTransaction).toEqual(
+          expect.objectContaining({
+            data: transaction.data,
+            hash: transaction.hash,
+          }),
+        );
+        expect(erc20LockupTransaction).not.toHaveProperty('logs');
         expect(
           swapNursery.ethereumNurseries[0].checkErc20SwapLockup,
         ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {

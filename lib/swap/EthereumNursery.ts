@@ -1,4 +1,4 @@
-import type { TransactionReceipt, TransactionResponse } from 'ethers';
+import type { TransactionResponse } from 'ethers';
 import { Transaction } from 'ethers';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
@@ -152,7 +152,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
   public checkEtherSwapLockup = async (
     swap: Swap | ChainSwapInfo,
-    transaction: Transaction | TransactionResponse | TransactionReceipt,
+    transaction: Transaction | TransactionResponse,
     etherSwapValues: EtherSwapValues,
   ) => {
     if (
@@ -279,7 +279,7 @@ class EthereumNursery extends TypedEventEmitter<{
 
   public checkErc20SwapLockup = async (
     swap: Swap | ChainSwapInfo,
-    transaction: Transaction | TransactionResponse | TransactionReceipt,
+    transaction: Transaction | TransactionResponse,
     erc20SwapValues: ERC20SwapValues,
   ) => {
     const wallet = this.walletManager.wallets.get(
@@ -466,6 +466,10 @@ class EthereumNursery extends TypedEventEmitter<{
         for (const swap of swaps.filter(
           (s): s is ReverseSwap | ChainSwapInfo => s !== null,
         )) {
+          if (!this.shouldHandleClaim(swap, true)) {
+            continue;
+          }
+
           this.logger.debug(
             `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
@@ -525,6 +529,10 @@ class EthereumNursery extends TypedEventEmitter<{
         for (const swap of swaps.filter(
           (s): s is ReverseSwap | ChainSwapInfo => s !== null,
         )) {
+          if (!this.shouldHandleClaim(swap, false)) {
+            continue;
+          }
+
           this.logger.debug(
             `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
@@ -647,6 +655,25 @@ class EthereumNursery extends TypedEventEmitter<{
     swap.type === SwapType.Submarine
       ? (swap as Swap).expectedAmount
       : (swap as ChainSwapInfo).receivingData.expectedAmount;
+
+  private shouldHandleClaim = (
+    swap: ReverseSwap | ChainSwapInfo,
+    isEtherSwap: boolean,
+  ) => {
+    if (swap.type !== SwapType.Chain) {
+      return true;
+    }
+
+    const chainSwap = swap as ChainSwapInfo;
+    const sendingWallet = this.getEthereumWallet(chainSwap.sendingData.symbol);
+    if (sendingWallet === undefined) {
+      return false;
+    }
+
+    return isEtherSwap
+      ? sendingWallet.symbol === this.ethereumManager.networkDetails.symbol
+      : sendingWallet.type === CurrencyType.ERC20;
+  };
 
   /**
    * Returns a wallet in case there is one with the symbol, and it is an Ethereum one

@@ -1,4 +1,4 @@
-import { getPairId } from '../../Utils';
+import { getPairId, splitPairId } from '../../Utils';
 import { networks } from '../../wallet/ethereum/EvmNetworks';
 import type Exchange from './Exchange';
 import Binance from './exchanges/Binance';
@@ -14,7 +14,7 @@ class DataAggregator {
     new CoinbasePro(),
   ];
 
-  public readonly pairs = new Set<[string, string]>();
+  public readonly pairs = new Set<string>();
 
   public latestRates = new Map<string, number>();
 
@@ -22,7 +22,7 @@ class DataAggregator {
   private readonly invertedPairs = new Set<string>();
 
   public registerPair = (baseAsset: string, quoteAsset: string): void => {
-    this.pairs.add([baseAsset, quoteAsset]);
+    this.pairs.add(getPairId({ base: baseAsset, quote: quoteAsset }));
   };
 
   public fetchPairs = async (): Promise<Map<string, number>> => {
@@ -45,7 +45,8 @@ class DataAggregator {
       }
     };
 
-    this.pairs.forEach(([baseAsset, quoteAsset]) => {
+    this.pairs.forEach((pairId) => {
+      const { base: baseAsset, quote: quoteAsset } = splitPairId(pairId);
       queryPromises.push(queryRate(baseAsset, quoteAsset));
     });
 

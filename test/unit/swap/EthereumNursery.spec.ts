@@ -245,6 +245,12 @@ describe('EthereumNursery', () => {
     ReverseSwapRepository.getReverseSwapsExpirable =
       mockGetReverseSwapsExpirable;
 
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.getChainSwaps = jest.fn().mockResolvedValue([]);
+    ChainSwapRepository.getChainSwapsExpirable = jest
+      .fn()
+      .mockResolvedValue([]);
+
     WrappedSwapRepository.setStatus = mockSetReverseSwapStatus;
 
     nursery.removeAllListeners();
@@ -735,6 +741,62 @@ describe('EthereumNursery', () => {
     expect(emittedEvents).toEqual(1);
   });
 
+  test('should only emit EtherSwap chain claims for the sending side', async () => {
+    mockGetReverseSwapResult = null;
+    const getChainSwap = jest.fn();
+    ChainSwapRepository.getChainSwap = getChainSwap;
+
+    const emittedClaims: any[] = [];
+    nursery.on('claim', (claim) => {
+      emittedClaims.push(claim);
+    });
+
+    getChainSwap.mockResolvedValueOnce({
+      id: 'eth-receiving-side',
+      type: SwapType.Chain,
+      sendingData: {
+        symbol: 'RBTC',
+      },
+      receivingData: {
+        symbol: 'ETH',
+      },
+    });
+
+    await emitEthClaim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash!,
+    });
+
+    expect(emittedClaims).toHaveLength(0);
+
+    const sendingSideSwap = {
+      id: 'eth-sending-side',
+      type: SwapType.Chain,
+      sendingData: {
+        symbol: 'ETH',
+      },
+      receivingData: {
+        symbol: 'BTC',
+      },
+    };
+    getChainSwap.mockResolvedValueOnce(sendingSideSwap);
+
+    await emitEthClaim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash!,
+    });
+
+    expect(emittedClaims).toEqual([
+      {
+        isEtherSwap: true,
+        preimage: examplePreimage,
+        swap: sendingSideSwap,
+      },
+    ]);
+  });
+
   test('should listen for ERC20Swap lockup events', async () => {
     let lockupEmitted = false;
     let lockupFailed = 0;
@@ -1123,6 +1185,62 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
+  });
+
+  test('should only emit ERC20Swap chain claims for the sending side', async () => {
+    mockGetReverseSwapResult = null;
+    const getChainSwap = jest.fn();
+    ChainSwapRepository.getChainSwap = getChainSwap;
+
+    const emittedClaims: any[] = [];
+    nursery.on('claim', (claim) => {
+      emittedClaims.push(claim);
+    });
+
+    getChainSwap.mockResolvedValueOnce({
+      id: 'erc20-receiving-side',
+      type: SwapType.Chain,
+      sendingData: {
+        symbol: 'RBTC',
+      },
+      receivingData: {
+        symbol: 'USDT',
+      },
+    });
+
+    await emitErc20Claim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash!,
+    });
+
+    expect(emittedClaims).toHaveLength(0);
+
+    const sendingSideSwap = {
+      id: 'erc20-sending-side',
+      type: SwapType.Chain,
+      sendingData: {
+        symbol: 'USDT',
+      },
+      receivingData: {
+        symbol: 'BTC',
+      },
+    };
+    getChainSwap.mockResolvedValueOnce(sendingSideSwap);
+
+    await emitErc20Claim({
+      preimage: examplePreimage,
+      preimageHash: examplePreimageHash,
+      transactionHash: exampleTransaction.hash!,
+    });
+
+    expect(emittedClaims).toEqual([
+      {
+        isEtherSwap: false,
+        preimage: examplePreimage,
+        swap: sendingSideSwap,
+      },
+    ]);
   });
 
   test('should handle expired Swaps', async () => {

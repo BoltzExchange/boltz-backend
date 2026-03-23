@@ -1,12 +1,11 @@
 import VersionCheck from '../../lib/VersionCheck';
-import ChainClient from '../../lib/chain/ChainClient';
 import LndClient from '../../lib/lightning/LndClient';
 import ClnClient from '../../lib/lightning/cln/ClnClient';
 
 describe('VersionCheck', () => {
   test('should check version of chain clients', () => {
     const symbol = 'BTC';
-    const limits = VersionCheck['versionLimits'][ChainClient.serviceName];
+    const limits = VersionCheck['chainVersionLimits'][symbol];
 
     let unsupportedVersion = (limits.minimal as number) - 1;
     expect(() =>

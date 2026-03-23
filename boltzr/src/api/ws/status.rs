@@ -1,7 +1,6 @@
 use crate::api::ws::Config;
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
-use crate::api::ws::status_subscriptions::StatusSubscriptions;
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{FundingAddressUpdate, StatusUpdate, SwapStatus, UpdateSender};
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
@@ -17,7 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
-use super::OfferSubscriptions;
+use super::{FundingAddressSubscriptions, OfferSubscriptions, StatusSubscriptions};
 
 const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
@@ -33,10 +32,19 @@ pub trait SwapInfos {
     ) -> anyhow::Result<Option<Vec<SwapStatus>>>;
 }
 
+#[async_trait]
+pub trait FundingAddressInfos {
+    async fn fetch_funding_address_info(
+        &self,
+        ids: Vec<String>,
+    ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>>;
+}
+
 struct WsConnectionGuard<'a> {
     connection_id: ConnectionId,
     status_subscriptions: &'a Arc<StatusSubscriptions>,
     offer_subscriptions: &'a Arc<OfferSubscriptions>,
+    funding_address_subscriptions: &'a Arc<FundingAddressSubscriptions>,
 }
 
 impl Drop for WsConnectionGuard<'_> {
@@ -46,6 +54,8 @@ impl Drop for WsConnectionGuard<'_> {
         self.status_subscriptions
             .connection_dropped(self.connection_id);
         self.offer_subscriptions
+            .connection_dropped(self.connection_id);
+        self.funding_address_subscriptions
             .connection_dropped(self.connection_id);
 
         #[cfg(feature = "metrics")]
@@ -64,6 +74,8 @@ enum SubscriptionChannel {
     SwapUpdate,
     #[serde(rename = "invoice.request")]
     InvoiceRequest,
+    #[serde(rename = "funding.update")]
+    FundingAddressUpdate,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -73,6 +85,8 @@ enum SubscribeRequest {
     SwapUpdate { args: Vec<String> },
     #[serde(rename = "invoice.request")]
     InvoiceRequest { args: Vec<InvoiceRequestParams> },
+    #[serde(rename = "funding.update")]
+    FundingAddressUpdate { args: Vec<String> },
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -147,7 +161,7 @@ enum WsResponse {
     #[serde(rename = "unsubscribe")]
     Unsubscribe(UnsubscribeResponse),
     #[serde(rename = "update")]
-    Update(UpdateResponse<SwapStatus>),
+    Update(UpdateResponse<StatusUpdate>),
     #[serde(rename = "request")]
     InvoiceRequest(UpdateResponse<InvoiceRequest>),
     #[serde(rename = "error")]
@@ -166,17 +180,19 @@ pub struct Status<S> {
 
     status_subscriptions: Arc<StatusSubscriptions>,
     offer_subscriptions: Arc<OfferSubscriptions>,
+    funding_address_subscriptions: Arc<FundingAddressSubscriptions>,
 }
 
 impl<S> Status<S>
 where
-    S: SwapInfos + Clone + Send + Sync + 'static,
+    S: SwapInfos + FundingAddressInfos + Clone + Send + Sync + 'static,
 {
     pub fn new(
         cancellation_token: CancellationToken,
         config: Config,
         swap_infos: S,
-        swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
+        swap_status_update_tx: UpdateSender<SwapStatus>,
+        funding_address_update_tx: UpdateSender<FundingAddressUpdate>,
         offer_subscriptions: OfferSubscriptions,
     ) -> Self {
         Status {
@@ -184,10 +200,14 @@ where
             address: format!("{}:{}", config.host, config.port),
             swap_infos,
             status_subscriptions: Arc::new(StatusSubscriptions::new(
-                cancellation_token,
+                cancellation_token.clone(),
                 swap_status_update_tx,
             )),
             offer_subscriptions: Arc::new(offer_subscriptions),
+            funding_address_subscriptions: Arc::new(FundingAddressSubscriptions::new(
+                cancellation_token,
+                funding_address_update_tx,
+            )),
         }
     }
 
@@ -246,10 +266,14 @@ where
             connection_id,
             status_subscriptions: &self.status_subscriptions,
             offer_subscriptions: &self.offer_subscriptions,
+            funding_address_subscriptions: &self.funding_address_subscriptions,
         };
 
         let mut invoice_request_rx = self.offer_subscriptions.connection_added(connection_id);
         let mut swap_status_update_rx = self.status_subscriptions.connection_added(connection_id);
+        let mut funding_address_update_rx = self
+            .funding_address_subscriptions
+            .connection_added(connection_id);
 
         let mut ping_interval = tokio::time::interval(Duration::from_secs(PING_INTERVAL_SECS));
         let mut activity_check_interval =
@@ -328,7 +352,7 @@ where
                             let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
                                 timestamp,
                                 channel: SubscriptionChannel::SwapUpdate,
-                                args: updates,
+                                args: updates.into_iter().map(StatusUpdate::from).collect(),
                             })) {
                                 Ok(res) => res,
                                 Err(err) => {
@@ -381,6 +405,41 @@ where
                             trace!("Could not send invoice request: {}", err);
                             break;
                         }
+                    }
+                },
+                funding_address_update = funding_address_update_rx.recv() => {
+                    match funding_address_update {
+                        Some(updates) => {
+                            last_activity = Instant::now();
+
+                            let timestamp = match Self::get_timestamp() {
+                                Ok(res) => res,
+                                Err(err) => {
+                                    error!("Could not get UNIX time: {}", err);
+                                    break;
+                                }
+                            };
+
+                            let msg = match serde_json::to_string(&WsResponse::Update(UpdateResponse {
+                                timestamp,
+                                channel: SubscriptionChannel::FundingAddressUpdate,
+                                args: updates.into_iter().map(StatusUpdate::from).collect(),
+                            })) {
+                                Ok(res) => res,
+                                Err(err) => {
+                                    error!("Could not serialize funding address update: {}", err);
+                                    break;
+                                },
+                            };
+                            if let Err(err) = ws_sender.send(Message::text(msg)).await {
+                                trace!("Could not send funding address update: {}", err);
+                                break;
+                            }
+                        },
+                        None => {
+                            error!("Funding address update stream closed");
+                            break;
+                        },
                     }
                 },
                 _ = ping_interval.tick() => {
@@ -479,6 +538,36 @@ where
                         args: args.into_iter().map(|arg| arg.offer).collect(),
                     })))
                 }
+                SubscribeRequest::FundingAddressUpdate { args } => {
+                    self.funding_address_subscriptions
+                        .subscription_added(connection_id, args.clone());
+
+                    // Fetch and inject initial state for funding addresses
+                    match self
+                        .swap_infos
+                        .fetch_funding_address_info(args.clone())
+                        .await
+                    {
+                        Ok(Some(updates)) => {
+                            self.funding_address_subscriptions
+                                .inject_updates(connection_id, updates)
+                                .await;
+                        }
+                        Ok(None) => {}
+                        Err(err) => {
+                            tracing::warn!("Error fetching funding address info: {}", err);
+                        }
+                    }
+
+                    Ok(Some(WsResponse::Subscribe(SubscribeResponse {
+                        timestamp: match get_timestamp() {
+                            Some(time) => time,
+                            None => return Ok(None),
+                        },
+                        args,
+                        channel: SubscriptionChannel::FundingAddressUpdate,
+                    })))
+                }
             },
             WsRequest::Invoice(invoice) => {
                 match invoice.id.parse::<u64>() {
@@ -510,7 +599,8 @@ where
                 let leftover_subscriptions = match unsub.channel {
                     SubscriptionChannel::SwapUpdate => self
                         .status_subscriptions
-                        .subscription_removed(connection_id, unsub.args.clone()),
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                     SubscriptionChannel::InvoiceRequest => {
                         match self
                             .offer_subscriptions
@@ -524,6 +614,10 @@ where
                             }
                         }
                     }
+                    SubscriptionChannel::FundingAddressUpdate => self
+                        .funding_address_subscriptions
+                        .subscription_removed(connection_id, unsub.args.clone())
+                        .unwrap_or_default(),
                 };
 
                 Ok(Some(WsResponse::Unsubscribe(UnsubscribeResponse {
@@ -546,6 +640,7 @@ where
             let id = rng.gen_range(0..=u64::MAX);
             if !self.status_subscriptions.connection_known(id)
                 && !self.offer_subscriptions.connection_id_known(id)
+                && !self.funding_address_subscriptions.connection_known(id)
             {
                 return id;
             }
@@ -563,9 +658,9 @@ where
 #[cfg(test)]
 mod status_test {
     use crate::api::ws::status::{
-        ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
+        ErrorResponse, FundingAddressInfos, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
-    use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
+    use crate::api::ws::types::{FundingAddressUpdate, StatusUpdate, SwapStatus, SwapStatusNoId};
     use crate::api::ws::{Config, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
@@ -596,6 +691,16 @@ mod status_test {
             });
 
             self.status_tx.send((None, res)).unwrap();
+            Ok(None)
+        }
+    }
+
+    #[async_trait]
+    impl FundingAddressInfos for Fetcher {
+        async fn fetch_funding_address_info(
+            &self,
+            _ids: Vec<String>,
+        ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
             Ok(None)
         }
     }
@@ -777,8 +882,14 @@ mod status_test {
                         assert_eq!(
                             res.args,
                             vec![
-                                SwapStatus::default("some".into(), "swap.created".into()),
-                                SwapStatus::default("ids".into(), "swap.created".into()),
+                                StatusUpdate::Swap(SwapStatus::default(
+                                    "some".into(),
+                                    "swap.created".into()
+                                )),
+                                StatusUpdate::Swap(SwapStatus::default(
+                                    "ids".into(),
+                                    "swap.created".into()
+                                )),
                             ]
                         );
                         assert!(
@@ -851,7 +962,10 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![StatusUpdate::Swap(SwapStatus::default(
+                            "ids".into(),
+                            "invoice.set".into()
+                        ))]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -929,7 +1043,10 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![StatusUpdate::Swap(SwapStatus::default(
+                            "ids".into(),
+                            "invoice.set".into()
+                        ))]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -1062,15 +1179,32 @@ mod status_test {
             }
         }
 
+        #[async_trait]
+        impl FundingAddressInfos for CacheFetcher {
+            async fn fetch_funding_address_info(
+                &self,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
+                Ok(None)
+            }
+        }
+
         let port = 13_009;
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+        let (funding_address_update_tx, _funding_address_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
 
-        let cached_updates = vec![
+        let cached_swap_statuses = vec![
             SwapStatus::default("cached1".into(), "swap.created".into()),
             SwapStatus::default("cached2".into(), "invoice.set".into()),
         ];
+        let expected_updates: Vec<StatusUpdate> = cached_swap_statuses
+            .iter()
+            .cloned()
+            .map(StatusUpdate::from)
+            .collect();
 
         let status = Status::new(
             cancel.clone(),
@@ -1079,9 +1213,10 @@ mod status_test {
                 host: "127.0.0.1".to_string(),
             },
             CacheFetcher {
-                updates: cached_updates.clone(),
+                updates: cached_swap_statuses.clone(),
             },
             status_tx.clone(),
+            funding_address_update_tx,
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
         );
         tokio::spawn(async move {
@@ -1133,7 +1268,7 @@ mod status_test {
                 }
                 WsResponse::Update(res) => {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
-                    assert_eq!(res.args, cached_updates);
+                    assert_eq!(res.args, expected_updates);
                     received_update = true;
                     break;
                 }
@@ -1163,10 +1298,22 @@ mod status_test {
             }
         }
 
+        #[async_trait]
+        impl FundingAddressInfos for EmptyCacheFetcher {
+            async fn fetch_funding_address_info(
+                &self,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
+                Ok(None)
+            }
+        }
+
         let port = 12_010;
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+        let (funding_address_update_tx, _funding_address_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
 
         let status = Status::new(
             cancel.clone(),
@@ -1176,6 +1323,7 @@ mod status_test {
             },
             EmptyCacheFetcher,
             status_tx.clone(),
+            funding_address_update_tx,
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
         );
         tokio::spawn(async move {
@@ -1249,10 +1397,22 @@ mod status_test {
             }
         }
 
+        #[async_trait]
+        impl FundingAddressInfos for ErrorFetcher {
+            async fn fetch_funding_address_info(
+                &self,
+                _ids: Vec<String>,
+            ) -> anyhow::Result<Option<Vec<FundingAddressUpdate>>> {
+                Ok(None)
+            }
+        }
+
         let port = 12_011;
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+        let (funding_address_update_tx, _funding_address_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
 
         let status = Status::new(
             cancel.clone(),
@@ -1262,6 +1422,7 @@ mod status_test {
             },
             ErrorFetcher,
             status_tx.clone(),
+            funding_address_update_tx,
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
         );
         tokio::spawn(async move {
@@ -1329,6 +1490,8 @@ mod status_test {
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
+        let (funding_address_update_tx, _funding_address_rx) =
+            tokio::sync::broadcast::channel::<(Option<u64>, Vec<FundingAddressUpdate>)>(16);
 
         let status = Status::new(
             cancel.clone(),
@@ -1340,6 +1503,7 @@ mod status_test {
                 status_tx: status_tx.clone(),
             },
             status_tx.clone(),
+            funding_address_update_tx,
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
         );
         tokio::spawn(async move {

@@ -47,6 +47,7 @@ diesel::table! {
         lockupTransactionVout -> Nullable<Integer>,
         createdAt -> Timestamptz,
         onchainAmount -> Nullable<BigInt>,
+        expectedAmount -> Nullable<BigInt>,
     }
 }
 
@@ -113,6 +114,7 @@ diesel::table! {
         transactionId -> Nullable<Text>,
         transactionVout -> Nullable<Integer>,
         amount -> Nullable<BigInt>,
+        expectedAmount -> Nullable<BigInt>,
     }
 }
 
@@ -141,7 +143,8 @@ diesel::table! {
     script_pubkeys(symbol, script_pubkey) {
         symbol -> Text,
         script_pubkey -> Binary,
-        swap_id -> Text,
+        swap_id -> Nullable<Text>,
+        funding_address_id -> Nullable<Text>,
     }
 }
 
@@ -153,5 +156,24 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    funding_addresses (id) {
+        id -> Text,
+        symbol -> Text,
+        status -> Text,
+        key_index -> Integer,
+        their_public_key -> Binary,
+        tree -> Text,
+        timeout_block_height -> Integer,
+        lockup_transaction_id -> Nullable<Text>,
+        lockup_amount -> Nullable<BigInt>,
+        lockup_transaction_vout -> Nullable<Integer>,
+        swap_id -> Nullable<Text>,
+        presigned_tx -> Nullable<Binary>,
+        created_at -> Timestamptz,
+    }
+}
+
 joinable!(chainSwapData -> chainSwaps (swapId));
 allow_tables_to_appear_in_same_query!(chainSwaps, chainSwapData);
+allow_tables_to_appear_in_same_query!(funding_addresses, script_pubkeys);

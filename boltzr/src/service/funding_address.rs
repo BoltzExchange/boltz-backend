@@ -356,6 +356,14 @@ impl FundingAddressService {
                 Some(SwapTxInfo {
                     swap_id,
                     presigned_tx: signed_tx.serialize().to_vec(),
+                    lockup_transaction_id: funding_address
+                        .lockup_transaction_id
+                        .clone()
+                        .ok_or_else(|| {
+                            FundingAddressError::Internal(
+                                "lockup transaction id missing".to_string(),
+                            )
+                        })?,
                 }),
             )
             .map_err(|e| FundingAddressError::Database(e.to_string()))?;

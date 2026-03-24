@@ -1,5 +1,6 @@
 import fs from 'fs';
 import forge from 'node-forge';
+import os from 'os';
 import path from 'path';
 import Logger from '../../../lib/Logger';
 import {
@@ -8,13 +9,17 @@ import {
 } from '../../../lib/grpc/Certificates';
 
 describe('Certificates', () => {
-  const certsDir = path.join(__dirname, 'certificates');
+  let certsDir: string;
 
   const cleanup = () => {
     if (fs.existsSync(certsDir)) {
       fs.rmSync(certsDir, { recursive: true });
     }
   };
+
+  beforeAll(() => {
+    certsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'boltz-cert-test-'));
+  });
 
   beforeEach(() => {
     cleanup();

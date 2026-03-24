@@ -332,6 +332,7 @@ mod test {
                         id: "txid123".to_string(),
                         hex: None,
                         eta: None,
+                        confirmed: None,
                     }),
                     ..Default::default()
                 },

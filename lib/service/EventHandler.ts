@@ -13,6 +13,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import SwapNursery from '../swap/SwapNursery';
 
 type TransactionInfo = {
+  confirmed?: boolean;
   eta?: number;
 
   id: string;
@@ -240,13 +241,12 @@ class EventHandler extends TypedEventEmitter<{
       );
     });
 
-    this.nursery.on('refund', ({ swap }) => {
-      this.handleFailedSwap(
-        swap,
-        SwapUpdateEvent.TransactionRefunded,
-        swap.failureReason!,
-      );
-    });
+    this.nursery.on(
+      'refund',
+      ({ swap, refundTransaction, confirmed, emitFailure }) => {
+        this.emitRefundUpdate(swap, refundTransaction, confirmed, emitFailure);
+      },
+    );
 
     this.nursery.on('lockup.failed', (swap) => {
       this.emit('swap.update', {
@@ -298,6 +298,40 @@ class EventHandler extends TypedEventEmitter<{
         },
       },
     });
+  };
+
+  private emitRefundUpdate = (
+    swap: AnySwap,
+    refundTransaction: string | Transaction | LiquidTransaction,
+    confirmed: boolean,
+    emitFailure: boolean,
+  ) => {
+    const failureReason = swap.failureReason!;
+
+    if (emitFailure) {
+      this.logger.warn(
+        `${swapTypeToPrettyString(swap.type)} swap ${swap.id} failed: ${failureReason}`,
+      );
+    }
+
+    this.emit('swap.update', {
+      id: swap.id,
+      status: {
+        status: SwapUpdateEvent.TransactionRefunded,
+        failureReason,
+        transaction: {
+          ...EventHandler.formatTransaction(refundTransaction),
+          confirmed,
+        },
+      },
+    });
+
+    if (emitFailure) {
+      this.emit('swap.failure', {
+        swap,
+        reason: failureReason,
+      });
+    }
   };
 }
 

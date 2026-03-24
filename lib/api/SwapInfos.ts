@@ -12,6 +12,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import ServiceErrors from '../service/Errors';
@@ -133,6 +134,9 @@ class SwapInfos {
         );
       }
 
+      case SwapUpdateEvent.TransactionRefunded:
+        return this.getRefundedSwapStatus(swap);
+
       default:
         return this.handleSwapStatusDefault(swap);
     }
@@ -158,6 +162,9 @@ class SwapInfos {
           swap.sendingData.symbol,
           swap.sendingData.transactionId!,
         );
+
+      case SwapUpdateEvent.TransactionRefunded:
+        return this.getRefundedSwapStatus(swap);
 
       case SwapUpdateEvent.TransactionLockupFailed:
         return {
@@ -261,6 +268,48 @@ class SwapInfos {
     return {
       status,
       zeroConfRejected,
+    };
+  };
+
+  private getRefundedSwapStatus = async (
+    swap: ReverseSwap | ChainSwapInfo,
+  ): Promise<SwapUpdate> => {
+    const refundTx = await RefundTransactionRepository.getTransactionForSwap(
+      swap.id,
+    );
+    if (refundTx === null) {
+      return this.handleSwapStatusDefault(swap);
+    }
+
+    let transaction = EventHandler.formatTransaction(refundTx.id);
+
+    try {
+      const transactionHex = (
+        await this.service.getTransaction(refundTx.symbol, refundTx.id)
+      ).hex;
+      transaction = EventHandler.formatTransaction(
+        parseTransaction(
+          getCurrency(this.service.currencies, refundTx.symbol).type,
+          transactionHex,
+        ),
+      );
+    } catch (e) {
+      if (
+        (e as any).message !==
+        ServiceErrors.NOT_SUPPORTED_BY_SYMBOL(refundTx.symbol).message
+      ) {
+        this.logger.warn(
+          `Could not find refund transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(e)}`,
+        );
+      }
+    }
+
+    return {
+      ...this.handleSwapStatusDefault(swap),
+      transaction: {
+        ...transaction,
+        confirmed: refundTx.isFinal,
+      },
     };
   };
 }

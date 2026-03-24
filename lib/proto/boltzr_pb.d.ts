@@ -227,6 +227,11 @@ export namespace SwapUpdate {
         getEta(): number | undefined;
         setEta(value: number): TransactionInfo;
 
+        hasConfirmed(): boolean;
+        clearConfirmed(): void;
+        getConfirmed(): boolean | undefined;
+        setConfirmed(value: boolean): TransactionInfo;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): TransactionInfo.AsObject;
         static toObject(includeInstance: boolean, msg: TransactionInfo): TransactionInfo.AsObject;
@@ -242,6 +247,7 @@ export namespace SwapUpdate {
             id: string,
             hex?: string,
             eta?: number,
+            confirmed?: boolean,
         }
     }
 

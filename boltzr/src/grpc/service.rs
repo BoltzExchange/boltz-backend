@@ -270,6 +270,7 @@ where
                                 id: tx.id,
                                 hex: tx.hex,
                                 eta: tx.eta,
+                                confirmed: tx.confirmed,
                             }),
                         }),
                     }))

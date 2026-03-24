@@ -20,6 +20,7 @@ import {
   parseTransaction,
 } from '../Core';
 import type Logger from '../Logger';
+import { racePromise } from '../PromiseUtils';
 import {
   calculateEthereumTransactionFee,
   formatError,
@@ -48,6 +49,7 @@ import type {
   ERC20SwapValues,
   EtherSwapValues,
 } from '../consts/Types';
+import { RefundStatus } from '../db/models/RefundTransaction';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
@@ -126,6 +128,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   public static readonly reverseSwapLock = 'reverseSwap';
 
   private static retryLock = 'retry';
+  private static readonly refundTransactionUpdateTimeout = 1_000;
 
   public readonly transactionHook: TransactionHook;
 
@@ -727,7 +730,26 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       });
     });
 
-    this.refundWatcher.on('refund.confirmed', async (swap) => {
+    this.refundWatcher.on('refund.confirmed', async (args) => {
+      const refundTransaction = racePromise(
+        this.getRefundTransactionForUpdate(args.swap, args.refundTransaction),
+        (_reject, resolve) => {
+          this.logger.warn(
+            `Timeout while getting refund transaction of ${swapTypeToPrettyString(args.swap.type)} Swap ${args.swap.id}: ${args.refundTransaction}`,
+          );
+          resolve(args.refundTransaction);
+        },
+        SwapNursery.refundTransactionUpdateTimeout,
+      );
+
+      const { swap } = args;
+      this.emit('refund', {
+        swap,
+        confirmed: true,
+        emitFailure: false,
+        refundTransaction: await refundTransaction,
+      });
+
       if (swap.type !== SwapType.ReverseSubmarine) {
         return;
       }
@@ -1023,6 +1045,37 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       case CurrencyType.Ark:
         await this.lockupVtxo(swap, wallet);
         break;
+    }
+  };
+
+  private getRefundTransactionForUpdate = async (
+    swap: ReverseSwap | ChainSwapInfo,
+    refundTransactionId: string,
+  ): Promise<Transaction | LiquidTransaction | string> => {
+    const refundCurrency = this.currencies.get(swap.refundCurrency);
+    if (refundCurrency === undefined) {
+      return refundTransactionId;
+    }
+
+    switch (refundCurrency.type) {
+      case CurrencyType.BitcoinLike:
+      case CurrencyType.Liquid:
+        try {
+          return parseTransaction(
+            refundCurrency.type,
+            await refundCurrency.chainClient!.getRawTransaction(
+              refundTransactionId,
+            ),
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Could not fetch refund transaction ${refundTransactionId} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${formatError(error)}`,
+          );
+          return refundTransactionId;
+        }
+
+      default:
+        return refundTransactionId;
     }
   };
 
@@ -1931,7 +1984,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     this.emit('refund', {
-      refundTransaction: refundTransaction.getId(),
+      confirmed: false,
+      emitFailure: true,
+      refundTransaction,
       swap: await WrappedSwapRepository.setTransactionRefunded(
         swap,
         minerFee,
@@ -1967,7 +2022,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       } in: ${txId}`,
     );
 
+    await RefundTransactionRepository.addTransaction({
+      swapId: swap.id,
+      symbol: chainCurrency.symbol,
+      id: txId,
+      vin: null,
+      status: RefundStatus.Confirmed,
+    });
+
     this.emit('refund', {
+      confirmed: true,
+      emitFailure: true,
       refundTransaction: txId,
       swap: await WrappedSwapRepository.setTransactionRefunded(
         swap,
@@ -2019,6 +2084,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
 
     this.emit('refund', {
+      confirmed: false,
+      emitFailure: true,
       refundTransaction: contractTransaction.hash,
       swap: await WrappedSwapRepository.setTransactionRefunded(
         swap,
@@ -2074,6 +2141,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     });
 
     this.emit('refund', {
+      confirmed: false,
+      emitFailure: true,
       refundTransaction: contractTransaction.hash,
       swap: await WrappedSwapRepository.setTransactionRefunded(
         swap,

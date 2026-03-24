@@ -14,6 +14,7 @@ import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../lib/service/Errors';
@@ -30,6 +31,9 @@ describe('SwapInfos', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    RefundTransactionRepository.getTransactionForSwap = jest
+      .fn()
+      .mockResolvedValue(null);
 
     service.eventHandler.removeAllListeners();
     swapInfos = new SwapInfos(Logger.disabledLogger, service);
@@ -354,6 +358,40 @@ describe('SwapInfos', () => {
           });
         },
       );
+
+      test('should include refund confirmation for refunded swaps', async () => {
+        const transaction = new Transaction();
+        RefundTransactionRepository.getTransactionForSwap = jest
+          .fn()
+          .mockResolvedValue({
+            id: transaction.getId(),
+            symbol: 'BTC',
+            isFinal: true,
+          });
+        service.getTransaction = jest
+          .fn()
+          .mockResolvedValue({ hex: transaction.toHex() });
+        service.currencies = new Map<string, any>([
+          ['BTC', { type: CurrencyType.BitcoinLike }],
+        ]);
+
+        const swap = {
+          status: SwapUpdateEvent.TransactionRefunded,
+          failureReason: 'refunded',
+          id: 'someId',
+          type: SwapType.ReverseSubmarine,
+        } as unknown as ReverseSwap;
+
+        await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+          status: swap.status,
+          failureReason: swap.failureReason,
+          transaction: {
+            id: transaction.getId(),
+            hex: transaction.toHex(),
+            confirmed: true,
+          },
+        });
+      });
     });
 
     describe('handleChainSwapStatus', () => {
@@ -470,6 +508,35 @@ describe('SwapInfos', () => {
           });
         },
       );
+
+      test('should include pending refund confirmation for refunded chain swaps', async () => {
+        RefundTransactionRepository.getTransactionForSwap = jest
+          .fn()
+          .mockResolvedValue({
+            id: 'refundTx',
+            symbol: 'RSK',
+            isFinal: false,
+          });
+        service.getTransaction = jest
+          .fn()
+          .mockRejectedValue(Errors.NOT_SUPPORTED_BY_SYMBOL('RSK'));
+
+        const swap = {
+          status: SwapUpdateEvent.TransactionRefunded,
+          failureReason: 'refunded',
+          id: 'someId',
+          type: SwapType.Chain,
+        } as unknown as ChainSwapInfo;
+
+        await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
+          status: swap.status,
+          failureReason: swap.failureReason,
+          transaction: {
+            id: 'refundTx',
+            confirmed: false,
+          },
+        });
+      });
     });
   });
 

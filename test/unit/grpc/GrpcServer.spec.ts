@@ -5,6 +5,7 @@ import {
 } from '@grpc/grpc-js';
 import fs from 'fs';
 import { createServer } from 'net';
+import os from 'os';
 import path from 'path';
 import Logger from '../../../lib/Logger';
 import {
@@ -75,13 +76,17 @@ describe('GrpcServer', () => {
       ),
   } as unknown as GrpcService;
 
-  const certsDir = path.join(__dirname, 'serverCertificates');
+  let certsDir: string;
 
   const cleanup = () => {
     if (fs.existsSync(certsDir)) {
       fs.rmSync(certsDir, { recursive: true });
     }
   };
+
+  beforeAll(() => {
+    certsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'boltz-grpcserver-test-'));
+  });
 
   beforeEach(() => {
     cleanup();

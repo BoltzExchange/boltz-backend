@@ -479,12 +479,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           reverseSwap.orderSide,
           true,
         );
-
         const chainCurrency = this.currencies.get(chainSymbol)!;
-        const { lightningClient } = NodeSwitch.getReverseSwapNode(
+        const resolved = NodeSwitch.tryResolveReverseSwapNode(
           this.currencies.get(lightningSymbol)!,
           reverseSwap,
         );
+        if (!resolved.ok) {
+          this.logger.warn(
+            `Skipping lockup of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+          );
+          return;
+        }
+        const lightningClient = resolved.lightningClient;
 
         const wallet = this.walletManager.wallets.get(chainSymbol)!;
 
@@ -547,10 +553,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           reverseSwap.orderSide,
           true,
         );
-        const { lightningClient } = NodeSwitch.getReverseSwapNode(
+        const resolved = NodeSwitch.tryResolveReverseSwapNode(
           this.currencies.get(receiveCurrency)!,
           reverseSwap,
         );
+        if (!resolved.ok) {
+          this.logger.warn(
+            `Skipping invoice expiry handling of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+          );
+          return;
+        }
+        const lightningClient = resolved.lightningClient;
 
         const plural = reverseSwap.minerFeeInvoicePreimage === null ? '' : 's';
 
@@ -735,11 +748,18 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       await this.lock.acquire(SwapNursery.reverseSwapLock, async () => {
         const lightningCurrency = this.currencies.get(
           (swap as ReverseSwap).lightningCurrency,
-        )!;
-        const { lightningClient } = NodeSwitch.getReverseSwapNode(
-          lightningCurrency,
+        );
+        const resolved = NodeSwitch.tryResolveReverseSwapNode(
+          lightningCurrency!,
           swap as ReverseSwap,
         );
+        if (!resolved.ok) {
+          this.logger.warn(
+            `Skipping refund cleanup of Reverse Swap ${swap.id}: ${resolved.message}`,
+          );
+          return;
+        }
+        const lightningClient = resolved.lightningClient;
 
         try {
           await LightningNursery.cancelReverseInvoices(
@@ -915,7 +935,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     );
 
     try {
-      const { lightningClient } = NodeSwitch.getReverseSwapNode(
+      const { lightningClient } = NodeSwitch.requireReverseSwapNode(
         this.currencies.get(lightningCurrency)!,
         reverseSwap,
       );
@@ -1156,21 +1176,31 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             swap.orderSide,
             true,
           );
-          const lightningSymbol = getLightningCurrency(
-            base,
-            quote,
-            swap.orderSide,
-            true,
-          );
-
           await this.handleSwapSendFailed(
             swap,
             chainSymbol,
             reason,
-            NodeSwitch.getReverseSwapNode(
-              this.currencies.get(lightningSymbol)!,
-              swap as ReverseSwap,
-            ).lightningClient,
+            (() => {
+              const { base, quote } = splitPairId(swap.pair);
+              const lightningSymbol = getLightningCurrency(
+                base,
+                quote,
+                swap.orderSide,
+                true,
+              );
+              const resolved = NodeSwitch.tryResolveReverseSwapNode(
+                this.currencies.get(lightningSymbol)!,
+                swap as ReverseSwap,
+              );
+              if (!resolved.ok) {
+                this.logger.warn(
+                  `Skipping failed lockup cleanup of Reverse Swap ${swap.id}: ${resolved.message}`,
+                );
+                return undefined;
+              }
+
+              return resolved.lightningClient;
+            })(),
           );
         });
       } else {

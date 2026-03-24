@@ -1418,10 +1418,17 @@ class SwapManager {
       ) {
         const reverseSwap = swap as ReverseSwap;
 
-        const { lightningClient } = NodeSwitch.getReverseSwapNode(
+        const resolved = NodeSwitch.tryResolveReverseSwapNode(
           this.currencies.get(lightningCurrency)!,
           reverseSwap,
         );
+        if (!resolved.ok) {
+          this.logger.warn(
+            `Skipping invoice subscription recreation of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+          );
+          continue;
+        }
+        const lightningClient = resolved.lightningClient;
 
         if (
           lightningClient.type === NodeType.LND &&

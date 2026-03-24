@@ -30,6 +30,19 @@ type NodeSwitchConfig = {
   preferredForNode?: Record<string, string>;
 };
 
+type ReverseSwapNodeResolution =
+  | {
+      ok: true;
+      nodeId: string;
+      nodeType: NodeType;
+      lightningClient: LightningClient;
+    }
+  | {
+      ok: false;
+      reason: string;
+      message: string;
+    };
+
 class NodeSwitch {
   public readonly clnAmountThreshold: {
     [SwapType.Submarine]: number;
@@ -107,7 +120,7 @@ class NodeSwitch {
     this.paymentHook = new InvoicePaymentHook(this.logger);
   }
 
-  public static getReverseSwapNode = (
+  public static requireReverseSwapNode = (
     currency: Currency,
     reverseSwap: ReverseSwap,
   ): {
@@ -115,20 +128,46 @@ class NodeSwitch {
     nodeType: NodeType;
     lightningClient: LightningClient;
   } => {
-    const client = getLightningClientById(currency, reverseSwap.nodeId!);
-    if (client === undefined) {
-      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`,
-      );
-    }
-
-    if (!client.isConnected()) {
-      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`,
-      );
+    const resolved = NodeSwitch.tryResolveReverseSwapNode(
+      currency,
+      reverseSwap,
+    );
+    if (!resolved.ok) {
+      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(resolved.reason);
     }
 
     return {
+      nodeId: resolved.nodeId,
+      nodeType: resolved.nodeType,
+      lightningClient: resolved.lightningClient,
+    };
+  };
+
+  public static tryResolveReverseSwapNode = (
+    currency: Currency,
+    reverseSwap: ReverseSwap,
+  ): ReverseSwapNodeResolution => {
+    const client = getLightningClientById(currency, reverseSwap.nodeId!);
+    if (client === undefined) {
+      const reason = `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`;
+      return {
+        ok: false,
+        reason,
+        message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(reason).message,
+      };
+    }
+
+    if (!client.isConnected()) {
+      const reason = `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`;
+      return {
+        ok: false,
+        reason,
+        message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(reason).message,
+      };
+    }
+
+    return {
+      ok: true,
       nodeId: client.id,
       nodeType: client.type,
       lightningClient: client,

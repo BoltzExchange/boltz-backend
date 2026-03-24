@@ -128,7 +128,7 @@ class SelfPaymentClient
               reverseSwap.orderSide,
               true,
             );
-            const { lightningClient } = NodeSwitch.getReverseSwapNode(
+            const { lightningClient } = NodeSwitch.requireReverseSwapNode(
               this.swapNursery.currencies.get(receiveCurrency)!,
               reverseSwap,
             );

@@ -2,7 +2,10 @@ use crate::api::ws::Config;
 use crate::api::ws::message_limit::{MessageLimitConfig, MessageLimitExceeded, MessageRateLimiter};
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
 use crate::api::ws::status_subscriptions::StatusSubscriptions;
-use crate::api::ws::types::SwapStatus;
+use crate::api::ws::types::{
+    ErrorResponse, SubscribeResponse, SubscriptionChannel, SwapStatus,
+    SwapUpdateSubscriptionRequest, UnsubscribeRequest, UnsubscribeResponse, UpdateResponse,
+};
 use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
@@ -55,32 +58,13 @@ impl Drop for WsConnectionGuard<'_> {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-struct ErrorResponse {
-    error: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-enum SubscriptionChannel {
-    #[serde(rename = "swap.update")]
-    SwapUpdate,
-    #[serde(rename = "invoice.request")]
-    InvoiceRequest,
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "channel")]
 enum SubscribeRequest {
     #[serde(rename = "swap.update")]
-    SwapUpdate { args: Vec<String> },
+    SwapUpdate(SwapUpdateSubscriptionRequest),
     #[serde(rename = "invoice.request")]
     InvoiceRequest { args: Vec<InvoiceRequestParams> },
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct UnsubscribeRequest {
-    channel: SubscriptionChannel,
-    args: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -108,30 +92,6 @@ enum WsRequest {
     InvoiceError(InvoiceError),
     #[serde(rename = "ping")]
     Ping,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct SubscribeResponse {
-    channel: SubscriptionChannel,
-    args: Vec<String>,
-
-    timestamp: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct UnsubscribeResponse {
-    channel: SubscriptionChannel,
-    args: Vec<String>,
-
-    timestamp: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-struct UpdateResponse<T> {
-    channel: SubscriptionChannel,
-    args: Vec<T>,
-
-    timestamp: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
@@ -464,7 +424,8 @@ where
 
         match msg {
             WsRequest::Subscribe(sub) => match sub {
-                SubscribeRequest::SwapUpdate { args } => {
+                SubscribeRequest::SwapUpdate(sub) => {
+                    let args = sub.args;
                     self.status_subscriptions
                         .subscription_added(connection_id, args.clone());
 
@@ -614,10 +575,8 @@ where
 
 #[cfg(test)]
 mod status_test {
-    use crate::api::ws::status::{
-        ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
-    };
-    use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
+    use crate::api::ws::status::{Status, SwapInfos, WsResponse};
+    use crate::api::ws::types::{ErrorResponse, SubscriptionChannel, SwapStatus};
     use crate::api::ws::{Config, MessageLimitConfig, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
@@ -640,28 +599,16 @@ mod status_test {
             _: u64,
             ids: Vec<String>,
         ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
-            let mut res = vec![SwapStatus::default(
+            let mut res = vec![SwapStatus::new(
                 "not relevant".into(),
                 "swap.created".into(),
             )];
             ids.iter().for_each(|id| {
-                res.push(SwapStatus::default(id.clone(), "swap.created".into()));
+                res.push(SwapStatus::new(id.clone(), "swap.created".into()));
             });
 
             self.status_tx.send((None, res)).unwrap();
             Ok(None)
-        }
-    }
-
-    impl SwapStatus {
-        pub fn default(id: String, status: String) -> Self {
-            SwapStatus {
-                id,
-                base: SwapStatusNoId {
-                    status,
-                    ..Default::default()
-                },
-            }
         }
     }
 
@@ -682,7 +629,6 @@ mod status_test {
             }),
         }
     }
-
     #[tokio::test]
     async fn test_connect() {
         let port = 12_001;
@@ -848,8 +794,8 @@ mod status_test {
                         assert_eq!(
                             res.args,
                             vec![
-                                SwapStatus::default("some".into(), "swap.created".into()),
-                                SwapStatus::default("ids".into(), "swap.created".into()),
+                                SwapStatus::new("some".into(), "swap.created".into()),
+                                SwapStatus::new("ids".into(), "swap.created".into()),
                             ]
                         );
                         assert!(
@@ -898,7 +844,7 @@ mod status_test {
             update_tx
                 .send((
                     None,
-                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                    vec![SwapStatus::new("ids".into(), "invoice.set".into())],
                 ))
                 .unwrap();
         });
@@ -922,7 +868,7 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![SwapStatus::new("ids".into(), "invoice.set".into())]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -969,14 +915,14 @@ mod status_test {
             update_tx
                 .send((
                     Some(123),
-                    vec![SwapStatus::default("ids".into(), "ignored".into())],
+                    vec![SwapStatus::new("ids".into(), "ignored".into())],
                 ))
                 .unwrap();
 
             update_tx
                 .send((
                     None,
-                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                    vec![SwapStatus::new("ids".into(), "invoice.set".into())],
                 ))
                 .unwrap();
         });
@@ -1000,7 +946,7 @@ mod status_test {
                     assert_eq!(res.channel, SubscriptionChannel::SwapUpdate);
                     assert_eq!(
                         res.args,
-                        vec![SwapStatus::default("ids".into(), "invoice.set".into())]
+                        vec![SwapStatus::new("ids".into(), "invoice.set".into())]
                     );
                     assert!(
                         res.timestamp.parse::<u128>().unwrap()
@@ -1047,7 +993,7 @@ mod status_test {
             update_tx
                 .send((
                     None,
-                    vec![SwapStatus::default("ids".into(), "invoice.set".into())],
+                    vec![SwapStatus::new("ids".into(), "invoice.set".into())],
                 ))
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -1067,10 +1013,7 @@ mod status_test {
             update_tx
                 .send((
                     None,
-                    vec![SwapStatus::default(
-                        "ids".into(),
-                        "transaction.mempool".into(),
-                    )],
+                    vec![SwapStatus::new("ids".into(), "transaction.mempool".into())],
                 ))
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -1139,8 +1082,8 @@ mod status_test {
             tokio::sync::broadcast::channel::<(Option<u64>, Vec<SwapStatus>)>(16);
 
         let cached_updates = vec![
-            SwapStatus::default("cached1".into(), "swap.created".into()),
-            SwapStatus::default("cached2".into(), "invoice.set".into()),
+            SwapStatus::new("cached1".into(), "swap.created".into()),
+            SwapStatus::new("cached2".into(), "invoice.set".into()),
         ];
 
         let status = Status::new(

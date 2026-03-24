@@ -228,7 +228,7 @@ pub mod test {
         ) -> anyhow::Result<Option<Vec<SwapStatus>>> {
             let mut res = Vec::new();
             ids.iter().for_each(|id| {
-                res.push(SwapStatus::default(id.clone(), "swap.created".into()));
+                res.push(SwapStatus::new(id.clone(), "swap.created".into()));
             });
 
             self.status_tx.send((None, res)).unwrap();

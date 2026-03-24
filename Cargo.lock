@@ -2072,6 +2072,8 @@ name = "boltz-utils"
 version = "3.12.1"
 dependencies = [
  "rustls 0.23.37",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2161,6 +2163,7 @@ version = "3.12.1"
 dependencies = [
  "alloy",
  "anyhow",
+ "async-tungstenite",
  "bitcoin",
  "bitcoin_hashes 0.20.0",
  "boltz-core",
@@ -2169,6 +2172,7 @@ dependencies = [
  "clap",
  "dirs",
  "elements 0.26.1",
+ "futures",
  "hmac",
  "indicatif",
  "inquire",

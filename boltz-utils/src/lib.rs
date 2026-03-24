@@ -1,5 +1,6 @@
 mod drop_guard;
 mod rustls_provider;
+pub mod ws;
 
 pub use drop_guard::{DropGuard, defer};
 pub use rustls_provider::ensure_rustls_crypto_provider;

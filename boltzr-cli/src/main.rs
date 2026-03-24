@@ -16,6 +16,7 @@ mod serde;
 mod tx;
 mod utils;
 mod validators;
+mod ws;
 
 #[derive(Serialize)]
 struct Transaction {
@@ -172,6 +173,18 @@ enum DevCommands {
     HeapDump { path: Option<String> },
     #[command(about = "Sets the log level")]
     SetLogLevel { level: parsers::LogLevel },
+    #[command(about = "Subscribes to swap updates via WebSocket")]
+    SubscribeSwapUpdates {
+        #[arg(
+            long,
+            short,
+            value_parser = validators::url_valid,
+            default_value = "ws://127.0.0.1:9006/v2/ws"
+        )]
+        endpoint: String,
+        #[arg(required = true)]
+        ids: Vec<String>,
+    },
 }
 
 #[derive(Clone, Subcommand)]
@@ -1009,6 +1022,9 @@ async fn run_command(cli: Cli) -> Result<()> {
             DevCommands::SetLogLevel { level } => {
                 let response = get_grpc_client(&cli).await?.set_log_level(*level).await?;
                 print_pretty(&response)?;
+            }
+            DevCommands::SubscribeSwapUpdates { endpoint, ids } => {
+                ws::subscribe_swap_updates(endpoint, ids.clone()).await?;
             }
         },
     }

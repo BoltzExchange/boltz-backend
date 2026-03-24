@@ -1,44 +1,9 @@
 use crate::grpc::service::boltzr::{SwapUpdate, swap_update};
-use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct TransactionInfo {
-    pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hex: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub eta: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confirmed: Option<bool>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct FailureReasonIncorrectAmounts {
-    pub expected: u64,
-    pub actual: u64,
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
-pub struct SwapStatus {
-    pub id: String,
-    #[serde(flatten)]
-    pub base: SwapStatusNoId,
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
-pub struct SwapStatusNoId {
-    pub status: String,
-
-    #[serde(rename = "zeroConfRejected", skip_serializing_if = "Option::is_none")]
-    pub zero_conf_rejected: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transaction: Option<TransactionInfo>,
-
-    #[serde(rename = "failureReason", skip_serializing_if = "Option::is_none")]
-    pub failure_reason: Option<String>,
-    #[serde(rename = "failureDetails", skip_serializing_if = "Option::is_none")]
-    pub failure_details: Option<FailureReasonIncorrectAmounts>,
-}
+pub use boltz_utils::ws::{
+    ErrorResponse, FailureReasonIncorrectAmounts, SubscribeResponse, SubscriptionChannel,
+    SwapStatus, SwapStatusNoId, SwapUpdateSubscriptionRequest, TransactionInfo, UnsubscribeRequest,
+    UnsubscribeResponse, UpdateResponse,
+};
 
 impl From<swap_update::TransactionInfo> for TransactionInfo {
     fn from(value: swap_update::TransactionInfo) -> Self {

@@ -79,10 +79,7 @@ opentelemetry-otlp = { version = "0.31.1", optional = true, features = [
 	"gzip-tonic",
 ] }
 tracing-opentelemetry = { version = "0.32.1", optional = true }
-async-tungstenite = { version = "0.33.0", features = [
-	"tokio-runtime",
-	"tokio-rustls-webpki-roots",
-] }
+async-tungstenite = { workspace = true }
 async-trait = { workspace = true }
 futures-util = "0.3.32"
 async-stream = "0.3.6"

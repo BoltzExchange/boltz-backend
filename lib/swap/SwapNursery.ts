@@ -54,6 +54,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import FundingAddressRepository from '../db/repositories/FundingAddressRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -844,6 +845,41 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private checkFundingAddress = async (swap: Swap | ChainSwapInfo) => {
+    const fundingAddress = await FundingAddressRepository.getBySwapId(swap.id);
+    if (fundingAddress !== null && fundingAddress !== undefined) {
+      if (!fundingAddress.presignedTx) {
+        throw new Error(
+          `Funding address ${fundingAddress.id} has no presigned transaction`,
+        );
+      }
+      const chain = this.currencies.get(fundingAddress.symbol)!.chainClient!;
+
+      const response = await chain.testMempoolAccept([
+        getHexString(fundingAddress.presignedTx),
+      ]);
+      if (fundingAddress.symbol === 'BTC') {
+        if (
+          response.some(
+            (r) =>
+              r.allowed === false &&
+              r['reject-reason'] !== 'min relay fee not met',
+          )
+        ) {
+          throw new Error(
+            `Presigned tx for funding address ${fundingAddress.id} is not valid: ${response.map((r) => r['reject-reason']).join(', ')}`,
+          );
+        }
+      } else {
+        if (response.some((r) => r.allowed == false)) {
+          throw new Error(
+            `Presigned tx for funding address ${fundingAddress.id} is not valid: ${response.map((r) => r['reject-reason']).join(', ')}`,
+          );
+        }
+      }
+    }
+  };
+
   public attemptSettleSwap = async (
     currency: Currency,
     swap: Swap | ChainSwapInfo,
@@ -1046,6 +1082,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
   private handleChainSwapLockup = async (swap: ChainSwapInfo) => {
     const sendingCurrency = this.currencies.get(swap.sendingData.symbol)!;
     const wallet = this.walletManager.wallets.get(swap.sendingData.symbol)!;
+
+    await this.checkFundingAddress(swap);
 
     switch (sendingCurrency.type) {
       case CurrencyType.BitcoinLike:
@@ -1601,6 +1639,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     swap: Swap,
     outgoingChannelId?: string,
   ): Promise<PaidSwapInvoice | undefined> => {
+    await this.checkFundingAddress(swap);
+
     const preimage = await this.paymentHandler.payInvoice(
       swap,
       outgoingChannelId,

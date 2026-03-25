@@ -517,14 +517,13 @@ export namespace ClaimBatchRequest {
 }
 
 export class ClaimBatchResponse extends jspb.Message { 
-    getTransaction(): Uint8Array | string;
-    getTransaction_asU8(): Uint8Array;
-    getTransaction_asB64(): string;
-    setTransaction(value: Uint8Array | string): ClaimBatchResponse;
-    getTransactionId(): string;
-    setTransactionId(value: string): ClaimBatchResponse;
-    getFee(): number;
-    setFee(value: number): ClaimBatchResponse;
+    clearTransactionIdsList(): void;
+    getTransactionIdsList(): Array<string>;
+    setTransactionIdsList(value: Array<string>): ClaimBatchResponse;
+    addTransactionIds(value: string, index?: number): string;
+
+    getFeesPerSwapMap(): jspb.Map<string, number>;
+    clearFeesPerSwapMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClaimBatchResponse.AsObject;
@@ -538,9 +537,9 @@ export class ClaimBatchResponse extends jspb.Message {
 
 export namespace ClaimBatchResponse {
     export type AsObject = {
-        transaction: Uint8Array | string,
-        transactionId: string,
-        fee: number,
+        transactionIdsList: Array<string>,
+
+        feesPerSwapMap: Array<[string, number]>,
     }
 }
 
@@ -1285,6 +1284,10 @@ export class RelevantTransaction extends jspb.Message {
     getSwapIdsList(): Array<string>;
     setSwapIdsList(value: Array<string>): RelevantTransaction;
     addSwapIds(value: string, index?: number): string;
+    clearFundingAddressIdsList(): void;
+    getFundingAddressIdsList(): Array<string>;
+    setFundingAddressIdsList(value: Array<string>): RelevantTransaction;
+    addFundingAddressIds(value: string, index?: number): string;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RelevantTransaction.AsObject;
@@ -1302,6 +1305,7 @@ export namespace RelevantTransaction {
         transaction: Uint8Array | string,
         status: TransactionStatus,
         swapIdsList: Array<string>,
+        fundingAddressIdsList: Array<string>,
     }
 }
 

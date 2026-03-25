@@ -1,9 +1,9 @@
 # 🛟 Swap Restore
 
 Swap Restore is a recovery flow for situations where a swap client lost all
-local swap state and backups. Swap Restore enables refunding failed swaps as
-well as resuming ongoing swaps using a simple mnemonic known as the **Boltz
-Rescue Key**.
+local swap state and backups. Swap Restore enables refunding failed swaps,
+resuming ongoing swaps, and reconstructing standalone Funding Addresses using a
+simple mnemonic known as the **Boltz Rescue Key**.
 
 Swap Restore targets UTXO chains. On EVM chains, swap parameters are persisted
 onchain in contract event logs. Recovery on EVM is performed by reading those
@@ -14,9 +14,10 @@ logs instead of using Swap Restore. For more details, see the
 
 At a high level, Swap Restore means the swap client derives the xpub used for
 swaps from the mnemonic and submits it to `/v2/swap/restore`, receives all
-associated swaps, and reconstructs the local data. With that state restored, the
-app can perform claims for ongoing swaps or refunds for failed ones as needed.
-For claims to work, the client also needs to be able to deterministically derive
+associated swaps and Funding Addresses, and reconstructs the local data. With
+that state restored, the app can perform claims for ongoing swaps, refunds for
+failed ones, or continue managing recovered Funding Addresses as needed. For
+claims to work, the client also needs to be able to deterministically derive
 preimages. One option to do that is to
 [hash the private key of a swap and use that hash as the preimage](#preimages).
 
@@ -39,8 +40,8 @@ with the xpub in the request body:
 }
 ```
 
-The API will respond with an array of swaps belonging to that xpub. A simplified
-example shape is shown below:
+The API will respond with an array of swaps and Funding Addresses belonging to
+that xpub. A simplified example shape is shown below:
 
 ```json
 [
@@ -51,9 +52,25 @@ example shape is shown below:
     "from": "BTC",
     "to": "LBTC",
     ...
+  },
+  {
+    "id": "funding123",
+    "type": "funding",
+    "status": "transaction.confirmed",
+    "chain": "BTC",
+    "keyIndex": 21,
+    "tree": {
+      ...
+    },
+    ...
   }
 ]
 ```
+
+Funding Address entries contain the information needed to continue using or
+refunding them, including the derivation index, Taproot tree, timeout height,
+and, on Liquid, the blinding key. See
+[Funding Addresses](./funding-addresses.md) for more details.
 
 ## Key Derivation
 

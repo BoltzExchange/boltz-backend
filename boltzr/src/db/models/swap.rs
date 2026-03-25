@@ -35,6 +35,7 @@ pub struct Swap {
     pub lockupTransactionVout: Option<i32>,
     pub createdAt: chrono::NaiveDateTime,
     pub onchainAmount: Option<i64>,
+    pub expectedAmount: Option<i64>,
 }
 
 #[async_trait]

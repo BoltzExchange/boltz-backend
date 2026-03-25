@@ -1241,6 +1241,7 @@ mod tests {
                     lockupTransactionVout: None,
                     createdAt: chrono::Utc::now().naive_utc(),
                     onchainAmount: None,
+                    expectedAmount: None,
                 })
             });
 

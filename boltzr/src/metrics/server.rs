@@ -157,6 +157,12 @@ impl Server {
             "number of Webhook calls made"
         );
 
+        describe_counter!(
+            crate::metrics::WEBSOCKET_MESSAGE_LIMIT_CLOSES,
+            Unit::Count,
+            "number of WebSockets closed due to inbound message rate limiting"
+        );
+
         describe_gauge!(
             crate::metrics::WEBSOCKET_OPEN_COUNT,
             Unit::Count,

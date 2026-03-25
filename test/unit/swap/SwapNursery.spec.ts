@@ -536,7 +536,7 @@ describe('SwapNursery', () => {
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Skipping invoice expiry handling of Reverse Swap reverse-swap-id: no available lightning client: node missing-node not found for reverse swap reverse-swap-id',
+        'Skipping invoice expiry handling of Reverse Swap reverse-swap-id: node missing-node not found for reverse swap reverse-swap-id',
       );
     });
   });

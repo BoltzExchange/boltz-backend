@@ -85,7 +85,7 @@ import Errors from './Errors';
 import EthereumNursery from './EthereumNursery';
 import InvoiceNursery from './InvoiceNursery';
 import LightningNursery from './LightningNursery';
-import NodeSwitch from './NodeSwitch';
+import NodeSwitch, { ReverseSwapNodeResolutionStatus } from './NodeSwitch';
 import OverpaymentProtector from './OverpaymentProtector';
 import type { SwapNurseryEvents } from './PaymentHandler';
 import PaymentHandler from './PaymentHandler';
@@ -484,9 +484,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.currencies.get(lightningSymbol)!,
           reverseSwap,
         );
-        if (!resolved.ok) {
+        if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
           this.logger.warn(
-            `Skipping lockup of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+            `Skipping lockup of Reverse Swap ${reverseSwap.id}: ${resolved.reason}`,
           );
           return;
         }
@@ -557,9 +557,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           this.currencies.get(receiveCurrency)!,
           reverseSwap,
         );
-        if (!resolved.ok) {
+        if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
           this.logger.warn(
-            `Skipping invoice expiry handling of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+            `Skipping invoice expiry handling of Reverse Swap ${reverseSwap.id}: ${resolved.reason}`,
           );
           return;
         }
@@ -753,9 +753,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           lightningCurrency!,
           swap as ReverseSwap,
         );
-        if (!resolved.ok) {
+        if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
           this.logger.warn(
-            `Skipping refund cleanup of Reverse Swap ${swap.id}: ${resolved.message}`,
+            `Skipping refund cleanup of Reverse Swap ${swap.id}: ${resolved.reason}`,
           );
           return;
         }
@@ -1192,9 +1192,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
                 this.currencies.get(lightningSymbol)!,
                 swap as ReverseSwap,
               );
-              if (!resolved.ok) {
+              if (
+                resolved.status !== ReverseSwapNodeResolutionStatus.Resolved
+              ) {
                 this.logger.warn(
-                  `Skipping failed lockup cleanup of Reverse Swap ${swap.id}: ${resolved.message}`,
+                  `Skipping failed lockup cleanup of Reverse Swap ${swap.id}: ${resolved.reason}`,
                 );
                 return undefined;
               }

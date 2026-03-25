@@ -30,17 +30,24 @@ type NodeSwitchConfig = {
   preferredForNode?: Record<string, string>;
 };
 
+export enum ReverseSwapNodeResolutionStatus {
+  Resolved = 'resolved',
+  Missing = 'missing',
+  Disconnected = 'disconnected',
+}
+
 type ReverseSwapNodeResolution =
   | {
-      ok: true;
+      status: ReverseSwapNodeResolutionStatus.Resolved;
       nodeId: string;
       nodeType: NodeType;
       lightningClient: LightningClient;
     }
   | {
-      ok: false;
+      status:
+        | ReverseSwapNodeResolutionStatus.Missing
+        | ReverseSwapNodeResolutionStatus.Disconnected;
       reason: string;
-      message: string;
     };
 
 class NodeSwitch {
@@ -132,7 +139,7 @@ class NodeSwitch {
       currency,
       reverseSwap,
     );
-    if (!resolved.ok) {
+    if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
       throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(resolved.reason);
     }
 
@@ -151,23 +158,21 @@ class NodeSwitch {
     if (client === undefined) {
       const reason = `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`;
       return {
-        ok: false,
+        status: ReverseSwapNodeResolutionStatus.Missing,
         reason,
-        message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(reason).message,
       };
     }
 
     if (!client.isConnected()) {
       const reason = `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`;
       return {
-        ok: false,
+        status: ReverseSwapNodeResolutionStatus.Disconnected,
         reason,
-        message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(reason).message,
       };
     }
 
     return {
-      ok: true,
+      status: ReverseSwapNodeResolutionStatus.Resolved,
       nodeId: client.id,
       nodeType: client.type,
       lightningClient: client,

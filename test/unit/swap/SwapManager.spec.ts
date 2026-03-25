@@ -626,7 +626,7 @@ describe('SwapManager', () => {
     expect(mockSubscribeSingleInvoice).not.toHaveBeenCalled();
     expect(sidecar.decodeInvoiceOrOffer).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      'Skipping invoice subscription recreation of Reverse Swap reverse-swap-id: no available lightning client: node missing-node not found for reverse swap reverse-swap-id',
+      'Skipping invoice subscription recreation of Reverse Swap reverse-swap-id: node missing-node not found for reverse swap reverse-swap-id',
     );
   });
 

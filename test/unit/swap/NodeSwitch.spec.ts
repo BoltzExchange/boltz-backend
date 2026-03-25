@@ -14,7 +14,9 @@ import ClnClient from '../../../lib/lightning/cln/ClnClient';
 import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import NodeSwitch, {
+  ReverseSwapNodeResolutionStatus,
+} from '../../../lib/swap/NodeSwitch';
 import type InvoicePaymentHook from '../../../lib/swap/hooks/InvoicePaymentHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
@@ -419,7 +421,7 @@ describe('NodeSwitch', () => {
         nodeId,
       } as ReverseSwap),
     ).toEqual({
-      ok: true,
+      status: ReverseSwapNodeResolutionStatus.Resolved,
       nodeId: node.id,
       nodeType: node.type,
       lightningClient: node,
@@ -443,11 +445,8 @@ describe('NodeSwitch', () => {
         nodeId: 'non-existent-node',
       } as ReverseSwap),
     ).toEqual({
-      ok: false,
+      status: ReverseSwapNodeResolutionStatus.Missing,
       reason: 'node non-existent-node not found for reverse swap swap-123',
-      message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        'node non-existent-node not found for reverse swap swap-123',
-      ).message,
     });
 
     expect(() =>
@@ -483,12 +482,9 @@ describe('NodeSwitch', () => {
         nodeId: 'lnd-disconnected',
       } as ReverseSwap),
     ).toEqual({
-      ok: false,
+      status: ReverseSwapNodeResolutionStatus.Disconnected,
       reason:
         'node lnd-disconnected is not connected for reverse swap swap-456',
-      message: Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        'node lnd-disconnected is not connected for reverse swap swap-456',
-      ).message,
     });
 
     expect(() =>

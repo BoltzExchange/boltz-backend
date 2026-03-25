@@ -88,7 +88,7 @@ import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
-import NodeSwitch from './NodeSwitch';
+import NodeSwitch, { ReverseSwapNodeResolutionStatus } from './NodeSwitch';
 import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
 import type SwapOutputType from './SwapOutputType';
@@ -1422,9 +1422,9 @@ class SwapManager {
           this.currencies.get(lightningCurrency)!,
           reverseSwap,
         );
-        if (!resolved.ok) {
+        if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
           this.logger.warn(
-            `Skipping invoice subscription recreation of Reverse Swap ${reverseSwap.id}: ${resolved.message}`,
+            `Skipping invoice subscription recreation of Reverse Swap ${reverseSwap.id}: ${resolved.reason}`,
           );
           continue;
         }

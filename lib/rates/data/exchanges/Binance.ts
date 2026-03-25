@@ -1,5 +1,6 @@
+import axios from 'axios';
 import type Exchange from '../Exchange';
-import { makeRequest } from '../Exchange';
+import { requestTimeout } from '../Exchange';
 
 class Binance implements Exchange {
   private static readonly API = 'https://api.binance.com/api/v3';
@@ -8,12 +9,11 @@ class Binance implements Exchange {
     baseAsset: string,
     quoteAsset: string,
   ): Promise<number> {
-    const response = await makeRequest(
-      `${
-        Binance.API
-      }/ticker/price?symbol=${baseAsset.toUpperCase()}${quoteAsset.toUpperCase()}`,
+    const { data } = await axios.get(
+      `${Binance.API}/ticker/price?symbol=${baseAsset.toUpperCase()}${quoteAsset.toUpperCase()}`,
+      { timeout: requestTimeout },
     );
-    return Number(response.price);
+    return Number(data.price);
   }
 }
 

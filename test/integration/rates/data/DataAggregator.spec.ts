@@ -2,6 +2,8 @@ import { getPairId } from '../../../../lib/Utils';
 import DataAggregator from '../../../../lib/rates/data/DataAggregator';
 import { baseAsset, checkPrice, quoteAsset } from './Consts';
 
+jest.setTimeout(30_000);
+
 describe('DataProvider', () => {
   const dataAggregator = new DataAggregator();
   const pairId = getPairId({ base: baseAsset, quote: quoteAsset });

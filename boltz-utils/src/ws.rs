@@ -59,7 +59,7 @@ pub enum SwapUpdateWsRequest {
     Subscribe(SwapUpdateSubscribeRequest),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct TransactionInfo {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]

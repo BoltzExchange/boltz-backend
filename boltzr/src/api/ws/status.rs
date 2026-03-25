@@ -1,4 +1,5 @@
 use crate::api::ws::Config;
+use crate::api::ws::message_limit::{MessageLimitConfig, MessageLimitExceeded, MessageRateLimiter};
 use crate::api::ws::offer_subscriptions::{ConnectionId, InvoiceRequestParams};
 use crate::api::ws::status_subscriptions::StatusSubscriptions;
 use crate::api::ws::types::SwapStatus;
@@ -6,6 +7,7 @@ use crate::webhook::InvoiceRequestCallData;
 use async_trait::async_trait;
 use async_tungstenite::tokio::accept_async;
 use async_tungstenite::tungstenite::Message;
+use async_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
 use futures::StreamExt;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -163,6 +165,7 @@ pub struct Status<S> {
     address: String,
 
     swap_infos: S,
+    message_limit: Option<MessageLimitConfig>,
 
     status_subscriptions: Arc<StatusSubscriptions>,
     offer_subscriptions: Arc<OfferSubscriptions>,
@@ -179,10 +182,17 @@ where
         swap_status_update_tx: tokio::sync::broadcast::Sender<(Option<u64>, Vec<SwapStatus>)>,
         offer_subscriptions: OfferSubscriptions,
     ) -> Self {
+        let Config {
+            host,
+            port,
+            message_limit,
+        } = config;
+
         Status {
             cancellation_token: cancellation_token.clone(),
-            address: format!("{}:{}", config.host, config.port),
+            address: format!("{host}:{port}"),
             swap_infos,
+            message_limit,
             status_subscriptions: Arc::new(StatusSubscriptions::new(
                 cancellation_token,
                 swap_status_update_tx,
@@ -255,6 +265,10 @@ where
         let mut activity_check_interval =
             tokio::time::interval(Duration::from_secs(ACTIVITY_CHECK_INTERVAL_SECS));
         let mut last_activity = Instant::now();
+        let mut message_limiter = self
+            .message_limit
+            .clone()
+            .map(|config| MessageRateLimiter::new(config, Instant::now()));
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
@@ -272,7 +286,27 @@ where
 
                         match msg {
                             Message::Text(msg) => {
-                                last_activity = Instant::now();
+                                let now = Instant::now();
+                                last_activity = now;
+
+                                if let Err(err) = Self::check_message_limit(&mut message_limiter, now) {
+                                    #[cfg(feature = "metrics")]
+                                    metrics::counter!(crate::metrics::WEBSOCKET_MESSAGE_LIMIT_CLOSES)
+                                        .increment(1);
+
+                                    warn!("Closing WebSocket {connection_id}: {err}");
+
+                                    if let Err(send_err) = ws_sender
+                                        .send(Message::Close(Some(Self::message_limit_close_frame(err))))
+                                        .await
+                                    {
+                                        trace!(
+                                            "Could not send close frame for rate-limited WebSocket: {}",
+                                            send_err
+                                        );
+                                    }
+                                    break;
+                                }
 
                                 let res = match self.handle_message(connection_id, msg.as_ref()).await {
                                     Ok(res) => res.map(|res| serde_json::to_string(&res)),
@@ -558,6 +592,24 @@ where
             .as_millis()
             .to_string())
     }
+
+    fn check_message_limit(
+        message_limiter: &mut Option<MessageRateLimiter>,
+        now: Instant,
+    ) -> Result<(), MessageLimitExceeded> {
+        let Some(message_limiter) = message_limiter.as_mut() else {
+            return Ok(());
+        };
+
+        message_limiter.try_acquire(now)
+    }
+
+    fn message_limit_close_frame(err: MessageLimitExceeded) -> CloseFrame {
+        CloseFrame {
+            code: CloseCode::Policy,
+            reason: err.to_string().into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -566,9 +618,10 @@ mod status_test {
         ErrorResponse, Status, SubscriptionChannel, SwapInfos, WsResponse,
     };
     use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
-    use crate::api::ws::{Config, OfferSubscriptions};
+    use crate::api::ws::{Config, MessageLimitConfig, OfferSubscriptions};
     use async_trait::async_trait;
     use async_tungstenite::tungstenite::Message;
+    use async_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
     use futures::StreamExt;
     use serde_json::json;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -609,6 +662,24 @@ mod status_test {
                     ..Default::default()
                 },
             }
+        }
+    }
+
+    fn ws_config(port: u16) -> Config {
+        Config {
+            port,
+            host: "127.0.0.1".to_string(),
+            message_limit: None,
+        }
+    }
+
+    fn ws_config_with_message_limit(port: u16, messages_per_minute_per_connection: u32) -> Config {
+        Config {
+            port,
+            host: "127.0.0.1".to_string(),
+            message_limit: Some(MessageLimitConfig {
+                messages_per_minute_per_connection,
+            }),
         }
     }
 
@@ -1074,10 +1145,7 @@ mod status_test {
 
         let status = Status::new(
             cancel.clone(),
-            Config {
-                port,
-                host: "127.0.0.1".to_string(),
-            },
+            ws_config(port),
             CacheFetcher {
                 updates: cached_updates.clone(),
             },
@@ -1170,10 +1238,7 @@ mod status_test {
 
         let status = Status::new(
             cancel.clone(),
-            Config {
-                port,
-                host: "127.0.0.1".to_string(),
-            },
+            ws_config(port),
             EmptyCacheFetcher,
             status_tx.clone(),
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
@@ -1256,10 +1321,7 @@ mod status_test {
 
         let status = Status::new(
             cancel.clone(),
-            Config {
-                port,
-                host: "127.0.0.1".to_string(),
-            },
+            ws_config(port),
             ErrorFetcher,
             status_tx.clone(),
             OfferSubscriptions::new(crate::wallet::Network::Regtest),
@@ -1323,8 +1385,57 @@ mod status_test {
         cancel.cancel();
     }
 
+    #[tokio::test]
+    async fn test_message_limit_closes_connection_after_excess_text_messages() {
+        let port = 12_012;
+        let (cancel, _) = create_server_with_config(ws_config_with_message_limit(port, 1)).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tx.send(Message::text(json!({ "op": "ping" }).to_string()))
+            .await
+            .unwrap();
+
+        loop {
+            let msg = rx.next().await.unwrap().unwrap();
+            if !msg.is_text() {
+                continue;
+            }
+
+            let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+            if let WsResponse::Pong = res {
+                break;
+            }
+        }
+
+        tx.send(Message::text(json!({ "op": "ping" }).to_string()))
+            .await
+            .unwrap();
+
+        loop {
+            let msg = rx.next().await.unwrap().unwrap();
+            if let Message::Close(Some(frame)) = msg {
+                assert_eq!(frame.code, CloseCode::Policy);
+                assert_eq!(frame.reason, "message rate limit exceeded");
+                break;
+            }
+        }
+
+        cancel.cancel();
+    }
+
     async fn create_server(
         port: u16,
+    ) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
+        create_server_with_config(ws_config(port)).await
+    }
+
+    async fn create_server_with_config(
+        config: Config,
     ) -> (CancellationToken, Sender<(Option<u64>, Vec<SwapStatus>)>) {
         let cancel = CancellationToken::new();
         let (status_tx, _status_rx) =
@@ -1332,10 +1443,7 @@ mod status_test {
 
         let status = Status::new(
             cancel.clone(),
-            Config {
-                port,
-                host: "127.0.0.1".to_string(),
-            },
+            config,
             Fetcher {
                 status_tx: status_tx.clone(),
             },

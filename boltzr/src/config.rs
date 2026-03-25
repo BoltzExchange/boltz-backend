@@ -358,6 +358,7 @@ symbol = "L-BTC"
                 ws: crate::ws::Config {
                     host: "0.0.0.0".to_string(),
                     port: 9004,
+                    message_limit: None,
                 },
                 asset_rescue: None,
                 metrics: Some(crate::metrics::server::Config {

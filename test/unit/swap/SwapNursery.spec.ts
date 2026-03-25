@@ -500,6 +500,50 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('invoice expiry handling', () => {
+    test('should warn and skip when reverse swap node is unavailable', async () => {
+      swapNursery.currencies.set('BTC', {
+        ...mockCurrency,
+        clnClient: undefined,
+        lndClients: new Map(),
+      } as Currency);
+
+      const reverseSwap = {
+        id: 'reverse-swap-id',
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        nodeId: 'missing-node',
+        status: SwapUpdateEvent.SwapCreated,
+      } as ReverseSwap;
+
+      jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwap')
+        .mockResolvedValue(reverseSwap);
+
+      await swapNursery.init([mockCurrency]);
+
+      const invoiceExpiredHandler = (
+        swapNursery as any
+      ).invoiceNursery.on.mock.calls.find(
+        ([event]: [string]) => event === 'invoice.expired',
+      )?.[1];
+
+      expect(invoiceExpiredHandler).toBeDefined();
+
+      await invoiceExpiredHandler({
+        id: reverseSwap.id,
+      });
+
+      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+        id: reverseSwap.id,
+      });
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Skipping invoice expiry handling of Reverse Swap reverse-swap-id: node missing-node not found for reverse swap reverse-swap-id',
+      );
+    });
+  });
+
   describe('chainSwap.lockup', () => {
     let baseMockChainSwap: ChainSwapInfo;
     let mockTransaction: any;

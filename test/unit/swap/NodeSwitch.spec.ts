@@ -14,7 +14,9 @@ import ClnClient from '../../../lib/lightning/cln/ClnClient';
 import type DecodedInvoice from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import Errors from '../../../lib/swap/Errors';
-import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import NodeSwitch, {
+  ReverseSwapNodeResolutionStatus,
+} from '../../../lib/swap/NodeSwitch';
 import type InvoicePaymentHook from '../../../lib/swap/hooks/InvoicePaymentHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 
@@ -415,7 +417,18 @@ describe('NodeSwitch', () => {
     ${'cln-1'} | ${clnClient}
   `('should get node for nodeId $nodeId', ({ nodeId, node }) => {
     expect(
-      NodeSwitch.getReverseSwapNode(currency, {
+      NodeSwitch.tryResolveReverseSwapNode(currency, {
+        nodeId,
+      } as ReverseSwap),
+    ).toEqual({
+      status: ReverseSwapNodeResolutionStatus.Resolved,
+      nodeId: node.id,
+      nodeType: node.type,
+      lightningClient: node,
+    });
+
+    expect(
+      NodeSwitch.requireReverseSwapNode(currency, {
         nodeId,
       } as ReverseSwap),
     ).toEqual({
@@ -426,8 +439,18 @@ describe('NodeSwitch', () => {
   });
 
   test('should throw when nodeId not found', () => {
+    expect(
+      NodeSwitch.tryResolveReverseSwapNode(currency, {
+        id: 'swap-123',
+        nodeId: 'non-existent-node',
+      } as ReverseSwap),
+    ).toEqual({
+      status: ReverseSwapNodeResolutionStatus.Missing,
+      reason: 'node non-existent-node not found for reverse swap swap-123',
+    });
+
     expect(() =>
-      NodeSwitch.getReverseSwapNode(currency, {
+      NodeSwitch.requireReverseSwapNode(currency, {
         id: 'swap-123',
         nodeId: 'non-existent-node',
       } as ReverseSwap),
@@ -453,8 +476,19 @@ describe('NodeSwitch', () => {
       ]),
     } as unknown as Currency;
 
+    expect(
+      NodeSwitch.tryResolveReverseSwapNode(currencyWithDisconnected, {
+        id: 'swap-456',
+        nodeId: 'lnd-disconnected',
+      } as ReverseSwap),
+    ).toEqual({
+      status: ReverseSwapNodeResolutionStatus.Disconnected,
+      reason:
+        'node lnd-disconnected is not connected for reverse swap swap-456',
+    });
+
     expect(() =>
-      NodeSwitch.getReverseSwapNode(currencyWithDisconnected, {
+      NodeSwitch.requireReverseSwapNode(currencyWithDisconnected, {
         id: 'swap-456',
         nodeId: 'lnd-disconnected',
       } as ReverseSwap),

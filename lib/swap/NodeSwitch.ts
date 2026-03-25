@@ -30,6 +30,26 @@ type NodeSwitchConfig = {
   preferredForNode?: Record<string, string>;
 };
 
+export enum ReverseSwapNodeResolutionStatus {
+  Resolved = 'resolved',
+  Missing = 'missing',
+  Disconnected = 'disconnected',
+}
+
+type ReverseSwapNodeResolution =
+  | {
+      status: ReverseSwapNodeResolutionStatus.Resolved;
+      nodeId: string;
+      nodeType: NodeType;
+      lightningClient: LightningClient;
+    }
+  | {
+      status:
+        | ReverseSwapNodeResolutionStatus.Missing
+        | ReverseSwapNodeResolutionStatus.Disconnected;
+      reason: string;
+    };
+
 class NodeSwitch {
   public readonly clnAmountThreshold: {
     [SwapType.Submarine]: number;
@@ -107,7 +127,7 @@ class NodeSwitch {
     this.paymentHook = new InvoicePaymentHook(this.logger);
   }
 
-  public static getReverseSwapNode = (
+  public static requireReverseSwapNode = (
     currency: Currency,
     reverseSwap: ReverseSwap,
   ): {
@@ -115,20 +135,44 @@ class NodeSwitch {
     nodeType: NodeType;
     lightningClient: LightningClient;
   } => {
-    const client = getLightningClientById(currency, reverseSwap.nodeId!);
-    if (client === undefined) {
-      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`,
-      );
-    }
-
-    if (!client.isConnected()) {
-      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(
-        `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`,
-      );
+    const resolved = NodeSwitch.tryResolveReverseSwapNode(
+      currency,
+      reverseSwap,
+    );
+    if (resolved.status !== ReverseSwapNodeResolutionStatus.Resolved) {
+      throw Errors.NO_AVAILABLE_LIGHTNING_CLIENT(resolved.reason);
     }
 
     return {
+      nodeId: resolved.nodeId,
+      nodeType: resolved.nodeType,
+      lightningClient: resolved.lightningClient,
+    };
+  };
+
+  public static tryResolveReverseSwapNode = (
+    currency: Currency,
+    reverseSwap: ReverseSwap,
+  ): ReverseSwapNodeResolution => {
+    const client = getLightningClientById(currency, reverseSwap.nodeId!);
+    if (client === undefined) {
+      const reason = `node ${reverseSwap.nodeId} not found for reverse swap ${reverseSwap.id}`;
+      return {
+        status: ReverseSwapNodeResolutionStatus.Missing,
+        reason,
+      };
+    }
+
+    if (!client.isConnected()) {
+      const reason = `node ${reverseSwap.nodeId} is not connected for reverse swap ${reverseSwap.id}`;
+      return {
+        status: ReverseSwapNodeResolutionStatus.Disconnected,
+        reason,
+      };
+    }
+
+    return {
+      status: ReverseSwapNodeResolutionStatus.Resolved,
       nodeId: client.id,
       nodeType: client.type,
       lightningClient: client,

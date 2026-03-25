@@ -163,7 +163,8 @@ const mockWallets = new Map<string, Wallet>([
 ]);
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
-  return jest.fn().mockImplementation(() => {
+  const actual = jest.requireActual('../../../lib/wallet/WalletManager');
+  const mockedImplementation = jest.fn().mockImplementation(() => {
     return {
       wallets: mockWallets,
       ethereumManagers: [
@@ -174,6 +175,13 @@ jest.mock('../../../lib/wallet/WalletManager', () => {
       ],
     };
   });
+
+  return {
+    __esModule: true,
+    default: mockedImplementation,
+    getLightningClientById: actual.getLightningClientById,
+    getLightningClients: actual.getLightningClients,
+  };
 });
 
 const MockedWalletManager = <jest.Mock<WalletManager>>(<any>WalletManager);
@@ -591,6 +599,34 @@ describe('SwapManager', () => {
     expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledTimes(1);
     expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledWith(
       mockGetChainSwapsResult,
+    );
+  });
+
+  test('should skip reverse swap invoice subscription recreation when node is unavailable', async () => {
+    const warnSpy = jest.spyOn(Logger.disabledLogger, 'warn');
+
+    manager['currencies'].set('BTC', {
+      ...btcCurrency,
+      clnClient: undefined,
+      lndClients: new Map(),
+    } as Currency);
+
+    await manager['recreateSubscriptions']([
+      {
+        id: 'reverse-swap-id',
+        type: SwapType.ReverseSubmarine,
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.SwapCreated,
+        nodeId: 'missing-node',
+        invoice: 'lnbc1missing',
+      } as any,
+    ]);
+
+    expect(mockSubscribeSingleInvoice).not.toHaveBeenCalled();
+    expect(sidecar.decodeInvoiceOrOffer).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Skipping invoice subscription recreation of Reverse Swap reverse-swap-id: node missing-node not found for reverse swap reverse-swap-id',
     );
   });
 

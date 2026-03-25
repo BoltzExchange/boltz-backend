@@ -33,7 +33,8 @@ jest.mock('../../../lib/rates/data/DataAggregator', () => {
   }));
 });
 
-const MockedDataAggregator = <jest.Mock<DataAggregator>>DataAggregator;
+const MockedDataAggregator =
+  DataAggregator as unknown as jest.Mock<DataAggregator>;
 
 jest.mock('../../../lib/wallet/WalletManager', () => {
   return jest.fn().mockImplementation(() => ({

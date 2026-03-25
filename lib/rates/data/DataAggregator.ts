@@ -90,25 +90,22 @@ class DataAggregator {
     baseAsset: string,
     quoteAsset: string,
   ): Promise<number | undefined> => {
-    const promises: Promise<number>[] = [];
+    const mappedBaseAsset = this.assetMapper(baseAsset);
+    const mappedQuoteAsset = this.assetMapper(quoteAsset);
 
-    this.exchanges.forEach((exchange) =>
-      promises.push(
-        exchange.getPrice(
-          this.assetMapper(baseAsset),
-          this.assetMapper(quoteAsset),
-        ),
+    const results = await Promise.allSettled(
+      this.exchanges.map((exchange) =>
+        exchange.getPrice(mappedBaseAsset, mappedQuoteAsset),
       ),
     );
 
-    const results = await Promise.all(
-      promises.map((promise) => promise.catch((error) => error)),
-    );
-
-    // Filter all results that are not numeric (failed requests)
-    const validResults: number[] = results.filter(
-      (result) => !isNaN(Number(result)),
-    );
+    const validResults = results
+      .filter(
+        (result): result is PromiseFulfilledResult<number> =>
+          result.status === 'fulfilled',
+      )
+      .map(({ value }) => value)
+      .filter((value) => Number.isFinite(value));
 
     if (validResults.length === 0) {
       return undefined;

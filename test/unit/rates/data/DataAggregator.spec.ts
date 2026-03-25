@@ -10,7 +10,7 @@ jest.mock('../../../../lib/rates/data/exchanges/Binance', () => {
 const mockedExchange = <jest.Mock<Binance>>(<any>Binance);
 
 describe('DataAggregator', () => {
-  const createExchange = (price: number, throwError = false) => {
+  const createExchange = (price: number, { throwError = false } = {}) => {
     const exchange = mockedExchange();
 
     exchange.getPrice = () => {
@@ -70,7 +70,7 @@ describe('DataAggregator', () => {
   });
 
   test('should handle errors', async () => {
-    exchanges.push(createExchange(0, true));
+    exchanges.push(createExchange(0, { throwError: true }));
 
     const price = await getRate(baseAsset, quoteAsset);
     expect(price).toEqual(23);

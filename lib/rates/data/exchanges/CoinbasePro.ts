@@ -1,5 +1,6 @@
+import axios from 'axios';
 import type Exchange from '../Exchange';
-import { makeRequest } from '../Exchange';
+import { requestTimeout } from '../Exchange';
 
 class CoinbasePro implements Exchange {
   private static readonly API = 'https://api.exchange.coinbase.com';
@@ -8,10 +9,11 @@ class CoinbasePro implements Exchange {
     baseAsset: string,
     quoteAsset: string,
   ): Promise<number> {
-    const response = await makeRequest(
+    const { data } = await axios.get(
       `${CoinbasePro.API}/products/${baseAsset}-${quoteAsset}/ticker`,
+      { timeout: requestTimeout },
     );
-    return Number(response.price);
+    return Number(data.price);
   }
 }
 

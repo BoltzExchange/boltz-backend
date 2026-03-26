@@ -1,6 +1,7 @@
 import type { Provider } from 'ethers';
 import { getHexBuffer } from '../../../../lib/Utils';
 import {
+  bumpGasLimit,
   getGasPrices,
   parseBuffer,
 } from '../../../../lib/wallet/ethereum/EthereumUtils';
@@ -29,6 +30,20 @@ describe('EthereumUtils', () => {
 
     expect(parseBuffer(`0x${data}`)).toEqual(getHexBuffer(data));
   });
+
+  test.each`
+    gasLimit   | expected
+    ${0n}      | ${0n}
+    ${1n}      | ${2n}
+    ${4n}      | ${5n}
+    ${21_000n} | ${26_250n}
+    ${100n}    | ${125n}
+  `(
+    'should bump gas limit $gasLimit to $expected',
+    ({ gasLimit, expected }) => {
+      expect(bumpGasLimit(gasLimit)).toEqual(expected);
+    },
+  );
 
   test.each`
     name                          | expected                                                         | feeData

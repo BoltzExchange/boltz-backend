@@ -1,4 +1,5 @@
 import PendingEthereumTransactionRepository from '../../../../lib/db/repositories/PendingEthereumTransactionRepository';
+import { bumpGasLimit } from '../../../../lib/wallet/ethereum/EthereumUtils';
 import SequentialSigner from '../../../../lib/wallet/ethereum/SequentialSigner';
 import type { EthereumSetup } from '../EthereumTools';
 import { fundSignerWallet, getSigner } from '../EthereumTools';
@@ -27,6 +28,12 @@ describe('SequentialSigner', () => {
   });
 
   describe('signTransaction', () => {
+    beforeEach(() => {
+      PendingEthereumTransactionRepository.getTotalSent = jest
+        .fn()
+        .mockResolvedValue(0n);
+    });
+
     test('should sign transactions', async () => {
       const tx = await signer.sendTransaction({
         to: await setup.etherBase.getAddress(),
@@ -34,6 +41,18 @@ describe('SequentialSigner', () => {
       });
 
       expect(tx.hash).toBeDefined();
+      expect(tx.gasLimit).toEqual(bumpGasLimit(21000n));
+      await tx.wait(1);
+    });
+
+    test('should bump explicit gas limits', async () => {
+      const tx = await signer.sendTransaction({
+        to: await setup.etherBase.getAddress(),
+        value: 1_000,
+        gasLimit: 21000n,
+      });
+
+      expect(tx.gasLimit).toEqual(bumpGasLimit(21000n));
       await tx.wait(1);
     });
 

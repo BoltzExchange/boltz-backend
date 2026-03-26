@@ -7,10 +7,11 @@ import type {
   TypedDataDomain,
   TypedDataField,
 } from 'ethers';
-import { AbstractSigner } from 'ethers';
+import { AbstractSigner, getBigInt } from 'ethers';
 import Tracing from '../../Tracing';
 import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
+import { bumpGasLimit } from './EthereumUtils';
 
 class SequentialSigner extends AbstractSigner {
   private static readonly txLock = 'txLock';
@@ -78,8 +79,29 @@ class SequentialSigner extends AbstractSigner {
         }
       }
 
-      return await this.signer.signTransaction(tx);
+      return await this.signer.signTransaction(
+        await this.addGasLimitBuffer(tx),
+      );
     });
+  };
+
+  private addGasLimitBuffer = async (
+    tx: TransactionRequest,
+  ): Promise<TransactionRequest> => {
+    const provider = this.signer.provider;
+    if (provider === null || provider === undefined) {
+      throw new Error('missing provider');
+    }
+
+    const estimatedGasLimit =
+      tx.gasLimit ??
+      (await provider.estimateGas({
+        ...tx,
+        from: tx.from ?? (await this.getAddress()),
+      }));
+
+    tx.gasLimit = bumpGasLimit(getBigInt(estimatedGasLimit));
+    return tx;
   };
 }
 

@@ -3,7 +3,9 @@ import { etherDecimals } from '../../../../lib/consts/Consts';
 import Database from '../../../../lib/db/Database';
 import TransactionLabel from '../../../../lib/db/models/TransactionLabel';
 import TransactionLabelRepository from '../../../../lib/db/repositories/TransactionLabelRepository';
+import { bumpGasLimit } from '../../../../lib/wallet/ethereum/EthereumUtils';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
+import SequentialSigner from '../../../../lib/wallet/ethereum/SequentialSigner';
 import EtherWalletProvider from '../../../../lib/wallet/providers/EtherWalletProvider';
 import type { EthereumSetup } from '../EthereumTools';
 import { fundSignerWallet, getSigner } from '../EthereumTools';
@@ -20,7 +22,7 @@ describe('EtherWalletProvider', () => {
     setup = await getSigner();
     wallet = new EtherWalletProvider(
       Logger.disabledLogger,
-      setup.signer,
+      new SequentialSigner(networks.Ethereum.symbol, setup.signer),
       networks.Ethereum,
     );
   });
@@ -67,6 +69,7 @@ describe('EtherWalletProvider', () => {
 
     const transaction = await setup.provider.getTransaction(transactionId);
     expect(transaction!.value).toEqual(BigInt(amount) * etherDecimals);
+    expect(transaction!.gasLimit).toEqual(bumpGasLimit(21000n));
 
     const labelRes = await TransactionLabelRepository.getLabel(
       transaction!.hash,
@@ -81,6 +84,7 @@ describe('EtherWalletProvider', () => {
     const balance = await setup.provider.getBalance(
       await setup.signer.getAddress(),
     );
+    const transferGasLimit = bumpGasLimit(21000n);
 
     const label = 'integration test tx';
 
@@ -94,13 +98,14 @@ describe('EtherWalletProvider', () => {
     const receipt = await setup.provider.waitForTransaction(transactionId);
 
     const sentInTransaction =
-      transaction!.value + receipt!.gasUsed * transaction!.maxFeePerGas!;
+      transaction!.value + transaction!.gasLimit * transaction!.maxFeePerGas!;
 
     expect(balance).toEqual(sentInTransaction);
+    expect(transaction!.gasLimit).toEqual(transferGasLimit);
 
     expect(
       await setup.provider.getBalance(await setup.signer.getAddress()),
-    ).toEqual(transaction!.maxFeePerGas! * receipt!.gasUsed - receipt!.fee);
+    ).toEqual(transaction!.maxFeePerGas! * transferGasLimit - receipt!.fee);
 
     const labelRes = await TransactionLabelRepository.getLabel(
       transaction!.hash,

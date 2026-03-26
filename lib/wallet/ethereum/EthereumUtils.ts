@@ -8,6 +8,10 @@ export const parseBuffer = (input: string): Buffer => {
   return getHexBuffer(input.slice(2));
 };
 
+export const bumpGasLimit = (gasLimit: bigint): bigint => {
+  return (gasLimit * 125n + 99n) / 100n;
+};
+
 export const getGasPrices = async (provider: Provider): Promise<Overrides> => {
   const feeData = await provider.getFeeData();
 

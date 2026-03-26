@@ -13,8 +13,7 @@ describe('Exchanges', () => {
     checkPrice(price);
   });
 
-  // eslint-disable-next-line jest/no-disabled-tests
-  test.skip('should get price from Bitfinex', async () => {
+  test('should get price from Bitfinex', async () => {
     const bitfinex = new Bitfinex();
     const price = await bitfinex.getPrice(baseAsset, quoteAsset);
 

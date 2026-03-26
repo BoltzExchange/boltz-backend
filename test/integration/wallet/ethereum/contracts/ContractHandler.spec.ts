@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { Signature, Wallet } from 'ethers';
 import Logger from '../../../../../lib/Logger';
 import { getHexBuffer } from '../../../../../lib/Utils';
+import { ethereumPrepayMinerFeeGasLimit } from '../../../../../lib/consts/Consts';
 import { SwapType } from '../../../../../lib/consts/Enums';
 import type { AnySwap } from '../../../../../lib/consts/Types';
 import Database from '../../../../../lib/db/Database';
@@ -14,7 +15,9 @@ import TransactionLabel from '../../../../../lib/db/models/TransactionLabel';
 import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentRepository';
 import TransactionLabelRepository from '../../../../../lib/db/repositories/TransactionLabelRepository';
 import Errors from '../../../../../lib/wallet/ethereum/Errors';
+import { bumpGasLimit } from '../../../../../lib/wallet/ethereum/EthereumUtils';
 import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
+import SequentialSigner from '../../../../../lib/wallet/ethereum/SequentialSigner';
 import type { BatchClaimValues } from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import ContractHandler from '../../../../../lib/wallet/ethereum/contracts/ContractHandler';
 import { computeLockupHash } from '../../../../../lib/wallet/ethereum/contracts/ContractUtils';
@@ -122,6 +125,7 @@ describe('ContractHandler', () => {
     await database.init();
 
     setup = await getSigner();
+    const signer = new SequentialSigner(networks.Ethereum.symbol, setup.signer);
     const contracts = await getContracts(setup.signer);
 
     etherSwap = contracts.etherSwap;
@@ -130,7 +134,7 @@ describe('ContractHandler', () => {
 
     erc20WalletProvider = new ERC20WalletProvider(
       Logger.disabledLogger,
-      setup.signer,
+      signer,
       {
         decimals: 18,
         symbol: 'TRC',
@@ -144,9 +148,9 @@ describe('ContractHandler', () => {
     contractHandler.init(
       features,
       setup.provider,
-      setup.signer,
-      etherSwap,
-      erc20Swap,
+      signer,
+      etherSwap.connect(signer) as EtherSwap,
+      erc20Swap.connect(signer) as ERC20Swap,
     );
     contractHandlerEtherBase.init(
       features,
@@ -204,6 +208,11 @@ describe('ContractHandler', () => {
     ).toEqual(BigInt(0));
 
     const amountPrepay = BigInt(123);
+    const estimatedGasLimit = await etherSwap[
+      'lock(bytes32,address,uint256)'
+    ].estimateGas(preimageHash, randomWallet.address, timelock, {
+      value: amount + amountPrepay,
+    });
 
     const transaction = await contractHandler.lockupEtherPrepayMinerfee(
       swap,
@@ -216,8 +225,9 @@ describe('ContractHandler', () => {
     await transaction.wait(1);
     await wait(150);
 
-    // Sanity check the gas limit
-    expect(Number(transaction.gasLimit)).toBeLessThan(150000);
+    expect(transaction.gasLimit).toEqual(
+      bumpGasLimit(estimatedGasLimit + ethereumPrepayMinerFeeGasLimit),
+    );
 
     // Check that the prepay amount was forwarded to the claim address
     expect(await setup.provider.getBalance(randomWallet.address)).toEqual(
@@ -708,6 +718,16 @@ describe('ContractHandler', () => {
     );
     await approveTransaction.wait(1);
 
+    const estimatedGasLimit = await erc20Swap[
+      'lock(bytes32,uint256,address,address,uint256)'
+    ].estimateGas(
+      preimageHash,
+      amount,
+      await tokenContract.getAddress(),
+      randomWallet.address,
+      timelock,
+    );
+
     const transaction = await contractHandler.lockupTokenPrepayMinerfee(
       swap,
       erc20WalletProvider,
@@ -719,7 +739,9 @@ describe('ContractHandler', () => {
     );
     await transaction.wait(1);
 
-    expect(Number(transaction.gasLimit)).toBeLessThan(200000);
+    expect(transaction.gasLimit).toEqual(
+      bumpGasLimit(estimatedGasLimit + ethereumPrepayMinerFeeGasLimit),
+    );
 
     expect(
       await setup.provider.getBalance(await randomWallet.getAddress()),

@@ -1,7 +1,7 @@
 import type { Signer } from 'ethers';
 import type Logger from '../../Logger';
 import TransactionLabelRepository from '../../db/repositories/TransactionLabelRepository';
-import { getGasPrices } from '../ethereum/EthereumUtils';
+import { bumpGasLimit, getGasPrices } from '../ethereum/EthereumUtils';
 import type { NetworkDetails } from '../ethereum/EvmNetworks';
 import type { SentTransaction, WalletBalance } from './WalletProviderInterface';
 import type WalletProviderInterface from './WalletProviderInterface';
@@ -78,7 +78,8 @@ class EtherWalletProvider implements WalletProviderInterface {
     const { type, maxPriorityFeePerGas, maxFeePerGas } = await getGasPrices(
       this.signer.provider!,
     );
-    const gasCost = EtherWalletProvider.ethTransferGas * BigInt(maxFeePerGas!);
+    const gasCost =
+      bumpGasLimit(EtherWalletProvider.ethTransferGas) * BigInt(maxFeePerGas!);
 
     const value = balance - gasCost;
 

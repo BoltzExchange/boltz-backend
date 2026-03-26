@@ -28,6 +28,7 @@ const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
 
 const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
+const MAX_SWAP_UPDATE_IDS_PER_MESSAGE: usize = 100;
 
 #[async_trait]
 pub trait SwapInfos {
@@ -425,7 +426,10 @@ where
         match msg {
             WsRequest::Subscribe(sub) => match sub {
                 SubscribeRequest::SwapUpdate(sub) => {
-                    let args = sub.args;
+                    let args = match Self::validate_swap_update_ids(sub.args) {
+                        Ok(args) => args,
+                        Err(err) => return Ok(Some(WsResponse::Error(err))),
+                    };
                     self.status_subscriptions
                         .subscription_added(connection_id, args.clone());
 
@@ -554,6 +558,19 @@ where
             .to_string())
     }
 
+    fn validate_swap_update_ids(ids: Vec<String>) -> Result<Vec<String>, ErrorResponse> {
+        if ids.len() > MAX_SWAP_UPDATE_IDS_PER_MESSAGE {
+            return Err(ErrorResponse {
+                error: format!(
+                    "too many swap ids in swap.update subscribe request: max {}",
+                    MAX_SWAP_UPDATE_IDS_PER_MESSAGE
+                ),
+            });
+        }
+
+        Ok(ids)
+    }
+
     fn check_message_limit(
         message_limiter: &mut Option<MessageRateLimiter>,
         now: Instant,
@@ -575,7 +592,7 @@ where
 
 #[cfg(test)]
 mod status_test {
-    use crate::api::ws::status::{Status, SwapInfos, WsResponse};
+    use crate::api::ws::status::{MAX_SWAP_UPDATE_IDS_PER_MESSAGE, Status, SwapInfos, WsResponse};
     use crate::api::ws::types::{ErrorResponse, SubscriptionChannel, SwapStatus};
     use crate::api::ws::{Config, MessageLimitConfig, OfferSubscriptions};
     use async_trait::async_trait;
@@ -1367,6 +1384,79 @@ mod status_test {
                 break;
             }
         }
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_swap_update_subscribe_rejects_too_many_ids() {
+        let port = 12_013;
+        let (cancel, update_tx) = create_server(port).await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+        let ids = (0..=MAX_SWAP_UPDATE_IDS_PER_MESSAGE)
+            .map(|index| format!("swap{index}"))
+            .collect::<Vec<_>>();
+
+        tx.send(Message::text(
+            json!({
+                "op": "subscribe",
+                "channel": "swap.update",
+                "args": ids,
+            })
+            .to_string(),
+        ))
+        .await
+        .unwrap();
+
+        let msg = loop {
+            let msg = tokio::time::timeout(Duration::from_secs(1), rx.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            if msg.is_text() {
+                break msg;
+            }
+        };
+
+        let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+        match res {
+            WsResponse::Error(err) => assert_eq!(
+                err,
+                ErrorResponse {
+                    error: format!(
+                        "too many swap ids in swap.update subscribe request: max {}",
+                        MAX_SWAP_UPDATE_IDS_PER_MESSAGE
+                    ),
+                }
+            ),
+            _ => panic!("expected websocket error response"),
+        }
+
+        update_tx
+            .send((
+                None,
+                vec![SwapStatus::new("swap0".into(), "invoice.set".into())],
+            ))
+            .unwrap();
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), async {
+                loop {
+                    let msg = rx.next().await.unwrap().unwrap();
+                    if msg.is_text() {
+                        return msg;
+                    }
+                }
+            })
+            .await
+            .is_err()
+        );
 
         cancel.cancel();
     }

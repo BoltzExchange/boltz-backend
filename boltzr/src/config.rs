@@ -151,6 +151,7 @@ pub fn parse_config(path: &str) -> Result<GlobalConfig, Box<dyn Error>> {
 
 #[cfg(test)]
 mod test_config {
+    use crate::api::ws::MessageLimitConfig;
     use crate::config::{Config, parse_config};
     use std::fs;
     use std::path::Path;
@@ -245,6 +246,10 @@ derivationPath = "m/44'/60'/0'/0/7"
   [sidecar.ws]
   host = "0.0.0.0"
   port = 9004
+
+    [sidecar.ws.messageLimit]
+    messagesPerMinutePerConnection = 120
+    maxSwapUpdateIdsPerMessage = 250
 
 [[currencies]]
 symbol = "BTC"
@@ -358,7 +363,10 @@ symbol = "L-BTC"
                 ws: crate::ws::Config {
                     host: "0.0.0.0".to_string(),
                     port: 9004,
-                    message_limit: None,
+                    message_limit: Some(MessageLimitConfig {
+                        messages_per_minute_per_connection: 120,
+                        max_swap_update_ids_per_message: Some(250),
+                    }),
                 },
                 asset_rescue: None,
                 metrics: Some(crate::metrics::server::Config {

@@ -9,6 +9,8 @@ pub const MESSAGE_LIMIT_EXCEEDED_REASON: &str = "message rate limit exceeded";
 pub struct MessageLimitConfig {
     #[serde(rename = "messagesPerMinutePerConnection")]
     pub messages_per_minute_per_connection: u32,
+    #[serde(rename = "maxSwapUpdateIdsPerMessage")]
+    pub max_swap_update_ids_per_message: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +61,7 @@ mod tests {
         MessageRateLimiter::new(
             MessageLimitConfig {
                 messages_per_minute_per_connection: limit,
+                max_swap_update_ids_per_message: None,
             },
             Instant::now(),
         )

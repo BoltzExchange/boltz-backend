@@ -28,7 +28,7 @@ const PING_INTERVAL_SECS: u64 = 15;
 const ACTIVITY_CHECK_INTERVAL_SECS: u64 = 60;
 
 const ACTIVITY_TIMEOUT_SECS: u64 = 60 * 10;
-const MAX_SWAP_UPDATE_IDS_PER_MESSAGE: usize = 100;
+const DEFAULT_MAX_SWAP_UPDATE_IDS_PER_MESSAGE: usize = 100;
 
 #[async_trait]
 pub trait SwapInfos {
@@ -127,6 +127,7 @@ pub struct Status<S> {
 
     swap_infos: S,
     message_limit: Option<MessageLimitConfig>,
+    max_swap_update_ids_per_message: usize,
 
     status_subscriptions: Arc<StatusSubscriptions>,
     offer_subscriptions: Arc<OfferSubscriptions>,
@@ -148,12 +149,17 @@ where
             port,
             message_limit,
         } = config;
+        let max_swap_update_ids_per_message = message_limit
+            .as_ref()
+            .and_then(|config| config.max_swap_update_ids_per_message)
+            .unwrap_or(DEFAULT_MAX_SWAP_UPDATE_IDS_PER_MESSAGE);
 
         Status {
             cancellation_token: cancellation_token.clone(),
             address: format!("{host}:{port}"),
             swap_infos,
             message_limit,
+            max_swap_update_ids_per_message,
             status_subscriptions: Arc::new(StatusSubscriptions::new(
                 cancellation_token,
                 swap_status_update_tx,
@@ -426,7 +432,7 @@ where
         match msg {
             WsRequest::Subscribe(sub) => match sub {
                 SubscribeRequest::SwapUpdate(sub) => {
-                    let args = match Self::validate_swap_update_ids(sub.args) {
+                    let args = match self.validate_swap_update_ids(sub.args) {
                         Ok(args) => args,
                         Err(err) => return Ok(Some(WsResponse::Error(err))),
                     };
@@ -558,12 +564,12 @@ where
             .to_string())
     }
 
-    fn validate_swap_update_ids(ids: Vec<String>) -> Result<Vec<String>, ErrorResponse> {
-        if ids.len() > MAX_SWAP_UPDATE_IDS_PER_MESSAGE {
+    fn validate_swap_update_ids(&self, ids: Vec<String>) -> Result<Vec<String>, ErrorResponse> {
+        if ids.len() > self.max_swap_update_ids_per_message {
             return Err(ErrorResponse {
                 error: format!(
                     "too many swap ids in swap.update subscribe request: max {}",
-                    MAX_SWAP_UPDATE_IDS_PER_MESSAGE
+                    self.max_swap_update_ids_per_message
                 ),
             });
         }
@@ -592,7 +598,9 @@ where
 
 #[cfg(test)]
 mod status_test {
-    use crate::api::ws::status::{MAX_SWAP_UPDATE_IDS_PER_MESSAGE, Status, SwapInfos, WsResponse};
+    use crate::api::ws::status::{
+        DEFAULT_MAX_SWAP_UPDATE_IDS_PER_MESSAGE, Status, SwapInfos, WsResponse,
+    };
     use crate::api::ws::types::{ErrorResponse, SubscriptionChannel, SwapStatus};
     use crate::api::ws::{Config, MessageLimitConfig, OfferSubscriptions};
     use async_trait::async_trait;
@@ -638,11 +646,20 @@ mod status_test {
     }
 
     fn ws_config_with_message_limit(port: u16, messages_per_minute_per_connection: u32) -> Config {
+        ws_config_with_limits(port, messages_per_minute_per_connection, None)
+    }
+
+    fn ws_config_with_limits(
+        port: u16,
+        messages_per_minute_per_connection: u32,
+        max_swap_update_ids_per_message: Option<usize>,
+    ) -> Config {
         Config {
             port,
             host: "127.0.0.1".to_string(),
             message_limit: Some(MessageLimitConfig {
                 messages_per_minute_per_connection,
+                max_swap_update_ids_per_message,
             }),
         }
     }
@@ -1398,7 +1415,7 @@ mod status_test {
             .unwrap();
 
         let (mut tx, mut rx) = client.split();
-        let ids = (0..=MAX_SWAP_UPDATE_IDS_PER_MESSAGE)
+        let ids = (0..=DEFAULT_MAX_SWAP_UPDATE_IDS_PER_MESSAGE)
             .map(|index| format!("swap{index}"))
             .collect::<Vec<_>>();
 
@@ -1431,7 +1448,7 @@ mod status_test {
                 ErrorResponse {
                     error: format!(
                         "too many swap ids in swap.update subscribe request: max {}",
-                        MAX_SWAP_UPDATE_IDS_PER_MESSAGE
+                        DEFAULT_MAX_SWAP_UPDATE_IDS_PER_MESSAGE
                     ),
                 }
             ),
@@ -1457,6 +1474,62 @@ mod status_test {
             .await
             .is_err()
         );
+
+        cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_swap_update_subscribe_rejects_too_many_ids_with_custom_limit() {
+        let port = 12_014;
+        let max_swap_update_ids_per_message = 2;
+        let (cancel, _) = create_server_with_config(ws_config_with_limits(
+            port,
+            10,
+            Some(max_swap_update_ids_per_message),
+        ))
+        .await;
+
+        let (client, _) = async_tungstenite::tokio::connect_async(format!("ws://127.0.0.1:{port}"))
+            .await
+            .unwrap();
+
+        let (mut tx, mut rx) = client.split();
+
+        tx.send(Message::text(
+            json!({
+                "op": "subscribe",
+                "channel": "swap.update",
+                "args": vec!["swap0", "swap1", "swap2"],
+            })
+            .to_string(),
+        ))
+        .await
+        .unwrap();
+
+        let msg = loop {
+            let msg = tokio::time::timeout(Duration::from_secs(1), rx.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            if msg.is_text() {
+                break msg;
+            }
+        };
+
+        let res = serde_json::from_str::<WsResponse>(msg.to_text().unwrap()).unwrap();
+        match res {
+            WsResponse::Error(err) => assert_eq!(
+                err,
+                ErrorResponse {
+                    error: format!(
+                        "too many swap ids in swap.update subscribe request: max {}",
+                        max_swap_update_ids_per_message
+                    ),
+                }
+            ),
+            _ => panic!("expected websocket error response"),
+        }
 
         cancel.cancel();
     }

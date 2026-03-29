@@ -2,15 +2,26 @@ import type { ChannelCredentials, ClientReadableStream } from '@grpc/grpc-js';
 import { Metadata } from '@grpc/grpc-js';
 import BaseClient from '../../BaseClient';
 import type Logger from '../../Logger';
-import { formatError, getHexBuffer, getHexString } from '../../Utils';
+import {
+  formatError,
+  fromOptionalProtoInt,
+  fromProtoInt,
+  getHexBuffer,
+  getHexString,
+  toOptionalProtoInt,
+  toProtoInt,
+} from '../../Utils';
 import { ClientStatus } from '../../consts/Enums';
 import { NodeType } from '../../db/models/ReverseSwap';
-import { NodeClient } from '../../proto/cln/node_grpc_pb';
-import * as noderpc from '../../proto/cln/node_pb';
-import { ListfundsOutputs, ListpaysPays } from '../../proto/cln/node_pb';
-import * as primitivesrpc from '../../proto/cln/primitives_pb';
-import { HoldClient } from '../../proto/hold/hold_grpc_pb';
-import * as holdrpc from '../../proto/hold/hold_pb';
+import {
+  ListfundsOutputs_ListfundsOutputsStatus,
+  ListpaysPays_ListpaysPaysStatus,
+  NodeClient,
+} from '../../proto/cln/node';
+import type * as noderpc from '../../proto/cln/node';
+import * as primitivesrpc from '../../proto/cln/primitives';
+import { HoldClient } from '../../proto/hold/hold';
+import * as holdrpc from '../../proto/hold/hold';
 import type Sidecar from '../../sidecar/Sidecar';
 import type { WalletBalance } from '../../wallet/providers/WalletProviderInterface';
 import { msatToSat, satToMsat, scidClnToLnd } from '../ChannelUtils';
@@ -33,8 +44,6 @@ import { HtlcState, InvoiceFeature, InvoiceState } from '../LightningClient';
 import type RoutingFee from '../RoutingFee';
 import { getRoute } from './Router';
 import { ClnConfig, createSsl } from './Types';
-
-import ListpaysPaysStatus = ListpaysPays.ListpaysPaysStatus;
 
 class ClnClient
   extends BaseClient<EventTypes>
@@ -63,7 +72,7 @@ class ClnClient
   private readonly holdMeta = new Metadata();
 
   private trackAllSubscription?: ClientReadableStream<holdrpc.TrackAllResponse>;
-  private holdInvoicesToSubscribe: Set<Uint8Array> = new Set<Uint8Array>();
+  private holdInvoicesToSubscribe = new Set<string>();
 
   public id: string;
 
@@ -221,71 +230,72 @@ class ClnClient
     const info = await this.unaryNodeCall<
       noderpc.GetinfoRequest,
       noderpc.GetinfoResponse
-    >('getinfo', new noderpc.GetinfoRequest(), false);
+    >('getinfo', {});
 
-    const pubkey = getHexString(Buffer.from(info.getId_asU8()));
+    const pubkey = getHexString(info.id);
 
     return {
       pubkey,
-      version: info.getVersion(),
-      uris: info
-        .getAddressList()
+      version: info.version,
+      uris: info.address
         .filter(
-          (address) =>
-            address.hasAddress() && address.getAddress() !== undefined,
+          (address) => address.address !== undefined && address.address !== '',
         )
-        .map(
-          (address) => `${pubkey}@${address.getAddress()}:${address.getPort()}`,
-        ),
-      peers: info.getNumPeers(),
-      blockHeight: info.getBlockheight(),
+        .map((address) => `${pubkey}@${address.address}:${address.port}`),
+      peers: info.numPeers,
+      blockHeight: info.blockheight,
       channels: {
-        active: info.getNumActiveChannels(),
-        inactive: info.getNumInactiveChannels(),
-        pending: info.getNumPendingChannels(),
+        active: info.numActiveChannels,
+        inactive: info.numInactiveChannels,
+        pending: info.numPendingChannels,
       },
     };
   };
 
   public getBalance = async (): Promise<WalletBalance> => {
     const sumOutputs = (
-      outs: ListfundsOutputs.AsObject[],
-      status: ListfundsOutputs.ListfundsOutputsStatus,
+      outs: noderpc.ListfundsOutputs[],
+      status: ListfundsOutputs_ListfundsOutputsStatus,
     ) =>
       outs
         .filter((out) => !out.reserved)
         .filter((out) => out.status === status)
-        .reduce((sum, out) => sum + msatToSat(out.amountMsat!.msat), 0);
+        .reduce(
+          (sum, out) =>
+            sum + msatToSat(fromProtoInt(out.amountMsat?.msat ?? 0)),
+          0,
+        );
 
     const res = await this.listFunds();
 
     return {
       confirmedBalance: sumOutputs(
-        res.outputsList,
-        ListfundsOutputs.ListfundsOutputsStatus.CONFIRMED,
+        res.outputs,
+        ListfundsOutputs_ListfundsOutputsStatus.CONFIRMED,
       ),
       unconfirmedBalance: sumOutputs(
-        res.outputsList,
-        ListfundsOutputs.ListfundsOutputsStatus.UNCONFIRMED,
+        res.outputs,
+        ListfundsOutputs_ListfundsOutputsStatus.UNCONFIRMED,
       ),
     };
   };
 
-  public listFunds = (): Promise<noderpc.ListfundsResponse.AsObject> => {
-    const req = new noderpc.ListfundsRequest();
-    req.setSpent(false);
+  public listFunds = (): Promise<noderpc.ListfundsResponse> => {
+    const req: noderpc.ListfundsRequest = {
+      spent: false,
+    };
 
     return this.unaryNodeCall<
       noderpc.ListfundsRequest,
-      noderpc.ListfundsResponse.AsObject
+      noderpc.ListfundsResponse
     >('listFunds', req);
   };
 
-  public getHoldInfo = (): Promise<holdrpc.GetInfoResponse.AsObject> => {
-    return this.unaryHoldCall<
-      holdrpc.GetInfoRequest,
-      holdrpc.GetInfoResponse.AsObject
-    >('getInfo', new holdrpc.GetInfoRequest());
+  public getHoldInfo = (): Promise<holdrpc.GetInfoResponse> => {
+    return this.unaryHoldCall<holdrpc.GetInfoRequest, holdrpc.GetInfoResponse>(
+      'getInfo',
+      {},
+    );
   };
 
   public listChannels = async (
@@ -295,36 +305,36 @@ class ClnClient
     const res = await this.unaryNodeCall<
       noderpc.ListpeerchannelsRequest,
       noderpc.ListpeerchannelsResponse
-    >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
+    >('listPeerChannels', {});
 
-    return res
-      .getChannelsList()
+    return res.channels
       .filter(
         (chan) =>
-          chan.getShortChannelId() !== undefined &&
-          chan.getShortChannelId() !== '',
+          chan.shortChannelId !== undefined && chan.shortChannelId !== '',
       )
       .filter(
         (chan) =>
           !activeOnly ||
-          (chan.getPeerConnected() &&
-            chan.getState() === primitivesrpc.ChannelState.CHANNELDNORMAL),
+          (chan.peerConnected &&
+            chan.state === primitivesrpc.ChannelState.ChanneldNormal),
       )
-      .filter((chan) => !privateOnly || chan.getPrivate())
+      .filter((chan) => !privateOnly || chan.private)
       .map((chan) => {
         return {
-          private: chan.getPrivate()!,
+          private: chan.private ?? false,
           fundingTransactionId: getHexString(
-            Buffer.from(chan.getFundingTxid_asU8()),
+            chan.fundingTxid ?? Buffer.alloc(0),
           ),
-          capacity: msatToSat(chan.getTotalMsat()!.getMsat()),
-          chanId: scidClnToLnd(chan.getShortChannelId()!),
-          fundingTransactionVout: chan.getFundingOutnum()!,
-          localBalance: msatToSat(chan.getSpendableMsat()!.getMsat()),
-          remoteBalance: msatToSat(chan.getReceivableMsat()!.getMsat()),
-          remotePubkey: getHexString(Buffer.from(chan.getPeerId_asU8())),
-          htlcs: chan.getHtlcsList().map((htlc) => ({
-            preimageHash: Buffer.from(htlc.getPaymentHash_asU8()),
+          capacity: msatToSat(fromProtoInt(chan.totalMsat?.msat ?? 0)),
+          chanId: scidClnToLnd(chan.shortChannelId!),
+          fundingTransactionVout: chan.fundingOutnum!,
+          localBalance: msatToSat(fromProtoInt(chan.spendableMsat?.msat ?? 0)),
+          remoteBalance: msatToSat(
+            fromProtoInt(chan.receivableMsat?.msat ?? 0),
+          ),
+          remotePubkey: getHexString(chan.peerId),
+          htlcs: chan.htlcs.map((htlc) => ({
+            preimageHash: htlc.paymentHash,
           })),
         };
       });
@@ -335,28 +345,27 @@ class ClnClient
   };
 
   public routingHints = async (node: string): Promise<HopHint[][]> => {
-    const req = new noderpc.ListpeerchannelsRequest();
-    req.setId(getHexBuffer(node));
+    const req: noderpc.ListpeerchannelsRequest = {
+      id: getHexBuffer(node),
+    };
 
     const channels = await this.unaryNodeCall<
       noderpc.ListpeerchannelsRequest,
       noderpc.ListpeerchannelsResponse
-    >('listPeerChannels', req, false);
+    >('listPeerChannels', req);
 
-    return channels
-      .getChannelsList()
-      .filter((chan) => chan.getPrivate())
+    return channels.channels
+      .filter((chan) => chan.private)
       .map((channel) => [
         {
           nodeId: node,
-          chanId: scidClnToLnd(channel.getShortChannelId()!),
+          chanId: scidClnToLnd(channel.shortChannelId!),
           feeBaseMsat:
-            channel.getUpdates()?.getRemote()?.getFeeBaseMsat()?.getMsat() || 0,
-          feeProportionalMillionths:
-            channel.getUpdates()?.getRemote()?.getFeeProportionalMillionths() ||
+            fromOptionalProtoInt(channel.updates?.remote?.feeBaseMsat?.msat) ||
             0,
-          cltvExpiryDelta:
-            channel.getUpdates()?.getRemote()?.getCltvExpiryDelta() || 0,
+          feeProportionalMillionths:
+            channel.updates?.remote?.feeProportionalMillionths || 0,
+          cltvExpiryDelta: channel.updates?.remote?.cltvExpiryDelta || 0,
         },
       ]);
   };
@@ -370,126 +379,119 @@ class ClnClient
     descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<string> => {
-    const req = new holdrpc.InvoiceRequest();
-    req.setAmountMsat(satToMsat(value));
-    req.setPaymentHash(preimageHash);
-
-    if (cltvExpiry) {
-      req.setMinFinalCltvExpiry(cltvExpiry);
-    }
-
-    if (expiry) {
-      req.setExpiry(expiry);
-    }
-
-    if (memo) {
-      req.setMemo(memo);
-    }
-
-    if (descriptionHash) {
-      req.setHash(descriptionHash);
-    }
-
-    if (routingHints) {
-      req.setRoutingHintsList(ClnClient.routingHintsToGrpc(routingHints));
-    }
+    const req = holdrpc.InvoiceRequest.create({
+      paymentHash: preimageHash,
+      amountMsat: toProtoInt(satToMsat(value)),
+      memo,
+      hash: descriptionHash,
+      expiry: toOptionalProtoInt(expiry),
+      minFinalCltvExpiry: toOptionalProtoInt(cltvExpiry),
+      routingHints: routingHints
+        ? ClnClient.routingHintsToGrpc(routingHints)
+        : [],
+    });
 
     return (
-      await this.unaryHoldCall<
-        holdrpc.InvoiceRequest,
-        holdrpc.InvoiceResponse.AsObject
-      >('invoice', req)
+      await this.unaryHoldCall<holdrpc.InvoiceRequest, holdrpc.InvoiceResponse>(
+        'invoice',
+        req,
+      )
     ).bolt11;
   };
 
   public lookupHoldInvoice = async (preimageHash: Buffer): Promise<Invoice> => {
-    const req = new holdrpc.ListRequest();
-    req.setPaymentHash(preimageHash);
+    const req: holdrpc.ListRequest = {
+      paymentHash: preimageHash,
+    };
 
     const res = await this.unaryHoldCall<
       holdrpc.ListRequest,
-      holdrpc.ListResponse.AsObject
+      holdrpc.ListResponse
     >('list', req);
-    if (res.invoicesList.length === 0) {
+    if (res.invoices.length === 0) {
       throw Errors.INVOICE_NOT_FOUND();
     }
 
-    const invoice = res.invoicesList[0];
+    const invoice = res.invoices[0];
 
     return {
       state: ClnClient.invoiceStateFromGrpc(invoice.state),
-      htlcs: invoice.htlcsList.map(ClnClient.htlcFromGrpc),
+      htlcs: invoice.htlcs.map(ClnClient.htlcFromGrpc),
     };
   };
 
   public cancelHoldInvoice = async (preimageHash: Buffer): Promise<void> => {
-    const req = new holdrpc.CancelRequest();
-    req.setPaymentHash(preimageHash);
+    const req: holdrpc.CancelRequest = {
+      paymentHash: preimageHash,
+    };
 
-    await this.unaryHoldCall<
-      holdrpc.CancelRequest,
-      holdrpc.CancelRequest.AsObject
-    >('cancel', req);
+    await this.unaryHoldCall<holdrpc.CancelRequest, holdrpc.CancelResponse>(
+      'cancel',
+      req,
+    );
   };
 
   public settleHoldInvoice = async (preimage: Buffer): Promise<void> => {
-    const req = new holdrpc.SettleRequest();
-    req.setPaymentPreimage(preimage);
+    const req: holdrpc.SettleRequest = {
+      paymentPreimage: preimage,
+    };
 
-    await this.unaryHoldCall<
-      holdrpc.SettleRequest,
-      holdrpc.SettleRequest.AsObject
-    >('settle', req);
+    await this.unaryHoldCall<holdrpc.SettleRequest, holdrpc.SettleResponse>(
+      'settle',
+      req,
+    );
   };
 
   public injectHoldInvoice = async (invoice: string, minCltvExpiry: number) => {
-    const req = new holdrpc.InjectRequest();
-    req.setInvoice(invoice);
-    req.setMinCltvExpiry(minCltvExpiry);
+    const req = holdrpc.InjectRequest.create({
+      invoice,
+      minCltvExpiry: toOptionalProtoInt(minCltvExpiry),
+    });
 
-    await this.unaryHoldCall<
-      holdrpc.InjectRequest,
-      holdrpc.InjectResponse.AsObject
-    >('inject', req);
+    await this.unaryHoldCall<holdrpc.InjectRequest, holdrpc.InjectResponse>(
+      'inject',
+      req,
+    );
   };
 
   public decodeInvoice = async (
     invoice: string,
   ): Promise<
     DecodedInvoice & {
-      type: noderpc.DecodeResponse.DecodeType;
+      type: noderpc.DecodeResponse_DecodeType;
       valueMsat: number;
     }
   > => {
     // Just to make sure CLN can parse the invoice
-    const req = new noderpc.DecodeRequest();
-    req.setString(invoice);
+    const req: noderpc.DecodeRequest = {
+      string: invoice,
+    };
 
     const dec = await this.unaryNodeCall<
       noderpc.DecodeRequest,
-      noderpc.DecodeResponse.AsObject
+      noderpc.DecodeResponse
     >('decode', req);
 
     const features = new Set<InvoiceFeature>();
     // We can assume that everyone supports MPP now
     features.add(InvoiceFeature.MPP);
 
-    const routingHints: HopHint[][] = (dec.routes?.hintsList || []).map(
-      (route) =>
-        route.hopsList.map((hint) => ({
-          cltvExpiryDelta: hint.cltvExpiryDelta,
-          feeBaseMsat: hint.feeBaseMsat?.msat || 0,
-          chanId: scidClnToLnd(hint.shortChannelId),
-          feeProportionalMillionths: hint.feeProportionalMillionths,
-          nodeId: getHexString(Buffer.from(hint.pubkey as string, 'base64')),
-        })),
+    const routingHints: HopHint[][] = (dec.routes?.hints || []).map((route) =>
+      route.hops.map((hint) => ({
+        cltvExpiryDelta: hint.cltvExpiryDelta,
+        feeBaseMsat: fromOptionalProtoInt(hint.feeBaseMsat?.msat) || 0,
+        chanId: scidClnToLnd(hint.shortChannelId),
+        feeProportionalMillionths: hint.feeProportionalMillionths,
+        nodeId: getHexString(hint.pubkey),
+      })),
     );
 
     const valueMsat =
-      dec.amountMsat?.msat ||
-      dec.invoiceAmountMsat?.msat ||
-      dec.invreqAmountMsat?.msat ||
-      0;
+      fromOptionalProtoInt(
+        dec.amountMsat?.msat ||
+          dec.invoiceAmountMsat?.msat ||
+          dec.invreqAmountMsat?.msat,
+      ) || 0;
 
     return {
       features,
@@ -499,12 +501,9 @@ class ClnClient
       value: msatToSat(valueMsat || 0),
       cltvExpiry: dec.minFinalCltvExpiry || 0,
       destination: getHexString(
-        Buffer.from(
-          (dec.payee || dec.offerIssuerId || dec.invoiceNodeId || '') as string,
-          'base64',
-        ),
+        dec.payee || dec.offerIssuerId || dec.invoiceNodeId || Buffer.alloc(0),
       ),
-      paymentHash: Buffer.from(dec.paymentHash as string, 'base64'),
+      paymentHash: dec.paymentHash ?? Buffer.alloc(0),
     };
   };
 
@@ -572,36 +571,30 @@ class ClnClient
 
     const decoded = await this.sidecar.decodeInvoiceOrOffer(invoice);
 
-    const req = new noderpc.XpayRequest();
-
-    req.setInvstring(invoice);
-    req.setRetryFor(ClnClient.paymentTimeout);
-    if (this.disableMpp) {
-      req.setLayersList(['auto.no_mpp_support']);
-    }
-
-    const feeAmount = new primitivesrpc.Amount();
-    feeAmount.setMsat(
-      this.routingFee.calculateFee(decoded, maxPaymentFeeRatio),
-    );
-    req.setMaxfee(feeAmount);
-
-    if (cltvDelta) {
-      req.setMaxdelay(cltvDelta);
-    }
+    const req: noderpc.XpayRequest = {
+      invstring: invoice,
+      retryFor: ClnClient.paymentTimeout,
+      layers: this.disableMpp ? ['auto.no_mpp_support'] : [],
+      maxfee: {
+        msat: toProtoInt(
+          this.routingFee.calculateFee(decoded, maxPaymentFeeRatio),
+        ),
+      },
+      maxdelay: cltvDelta,
+    };
 
     try {
       const res = await this.unaryNodeCall<
         noderpc.XpayRequest,
         noderpc.XpayResponse
-      >('xpay', req, false);
+      >('xpay', req);
 
       const fee =
-        BigInt(res.getAmountSentMsat()!.getMsat()) - BigInt(decoded.amountMsat);
+        BigInt(res.amountSentMsat?.msat ?? 0) - BigInt(decoded.amountMsat);
 
       return {
         feeMsat: Number(fee),
-        preimage: Buffer.from(res.getPaymentPreimage_asU8()),
+        preimage: res.paymentPreimage,
       };
     } catch (e) {
       throw this.parseError(e);
@@ -615,27 +608,23 @@ class ClnClient
       return;
     }
 
-    this.holdInvoicesToSubscribe.add(preimageHash);
+    this.holdInvoicesToSubscribe.add(
+      ClnClient.holdInvoiceSubscriptionKey(preimageHash),
+    );
   };
 
   private static routingHintsToGrpc = (
     routingHints: HopHint[][],
   ): holdrpc.RoutingHint[] => {
-    return routingHints.map((hints) => {
-      const routeHint = new holdrpc.RoutingHint();
-      for (const hint of hints) {
-        const hopHint = new holdrpc.Hop();
-        hopHint.setPublicKey(getHexBuffer(hint.nodeId));
-        hopHint.setShortChannelId(Number(hint.chanId));
-        hopHint.setBaseFee(hint.feeBaseMsat);
-        hopHint.setPpmFee(hint.feeProportionalMillionths);
-        hopHint.setCltvExpiryDelta(hint.cltvExpiryDelta);
-
-        routeHint.addHops(hopHint);
-      }
-
-      return routeHint;
-    });
+    return routingHints.map((hints) => ({
+      hops: hints.map((hint) => ({
+        publicKey: getHexBuffer(hint.nodeId),
+        shortChannelId: hint.chanId,
+        baseFee: toProtoInt(hint.feeBaseMsat),
+        ppmFee: toProtoInt(hint.feeProportionalMillionths),
+        cltvExpiryDelta: toProtoInt(hint.cltvExpiryDelta),
+      })),
+    }));
   };
 
   private static invoiceStateFromGrpc = (
@@ -650,12 +639,14 @@ class ClnClient
         return InvoiceState.Cancelled;
       case holdrpc.InvoiceState.PAID:
         return InvoiceState.Settled;
+      case holdrpc.InvoiceState.UNRECOGNIZED:
+        throw new Error('unknown invoice state');
     }
   };
 
-  private static htlcFromGrpc = (htlc: holdrpc.Htlc.AsObject): Htlc => {
+  private static htlcFromGrpc = (htlc: holdrpc.Htlc): Htlc => {
     return {
-      valueMsat: htlc.msat,
+      valueMsat: fromProtoInt(htlc.msat),
       state: ClnClient.htlcStateFromGrpc(htlc.state),
     };
   };
@@ -665,13 +656,15 @@ class ClnClient
   ): HtlcState => {
     switch (state) {
       case holdrpc.InvoiceState.UNPAID:
-        throw 'invalid HTLC state';
+        throw new Error('invalid HTLC state');
       case holdrpc.InvoiceState.ACCEPTED:
         return HtlcState.Accepted;
       case holdrpc.InvoiceState.CANCELLED:
         return HtlcState.Cancelled;
       case holdrpc.InvoiceState.PAID:
         return HtlcState.Settled;
+      case holdrpc.InvoiceState.UNRECOGNIZED:
+        throw new Error('unknown HTLC state');
     }
   };
 
@@ -688,44 +681,37 @@ class ClnClient
   ): Promise<PaymentResponse | undefined> => {
     // Check if the payment succeeded, ...
     const completedAttempts = pays.filter(
-      (attempt) => attempt.getStatus() === ListpaysPaysStatus.COMPLETE,
+      (attempt) => attempt.status === ListpaysPays_ListpaysPaysStatus.COMPLETE,
     );
     if (completedAttempts.length > 0) {
       const fee =
         completedAttempts.reduce(
-          (sum, attempt) =>
-            sum + BigInt(attempt.getAmountSentMsat()?.getMsat() || 0),
+          (sum, attempt) => sum + BigInt(attempt.amountSentMsat?.msat || 0),
           0n,
         ) - BigInt(decoded.valueMsat);
 
       return {
         feeMsat: Number(fee),
-        preimage: Buffer.from(completedAttempts[0].getPreimage_asU8()),
+        preimage: completedAttempts[0].preimage!,
       };
     }
 
     // ... is still pending ...
     const hasPendingPayments = pays.some(
-      (pay) => pay.getStatus() === ListpaysPaysStatus.PENDING,
+      (pay) => pay.status === ListpaysPays_ListpaysPaysStatus.PENDING,
     );
 
     if (hasPendingPayments) {
       const channels = await this.unaryNodeCall<
         noderpc.ListpeerchannelsRequest,
         noderpc.ListpeerchannelsResponse
-      >('listPeerChannels', new noderpc.ListpeerchannelsRequest(), false);
+      >('listPeerChannels', {});
 
-      const hasPendingHtlc = channels
-        .getChannelsList()
-        .some((channel) =>
-          channel
-            .getHtlcsList()
-            .some((htlc) =>
-              decoded.paymentHash.equals(
-                Buffer.from(htlc.getPaymentHash_asU8()),
-              ),
-            ),
-        );
+      const hasPendingHtlc = channels.channels.some((channel) =>
+        channel.htlcs.some((htlc) =>
+          decoded.paymentHash.equals(htlc.paymentHash),
+        ),
+      );
 
       if (hasPendingHtlc) {
         throw ClnClient.paymentPendingError;
@@ -736,7 +722,7 @@ class ClnClient
     // TODO: update when xpay persists errors from previous attempts
     if (
       pays.length > 0 &&
-      pays.every((pay) => pay.getStatus() === ListpaysPaysStatus.FAILED)
+      pays.every((pay) => pay.status === ListpaysPays_ListpaysPaysStatus.FAILED)
     ) {
       throw ClnClient.paymentAllAttemptsFailed;
     }
@@ -747,15 +733,16 @@ class ClnClient
   public listPays = async (invoice: string) => {
     const decoded = await this.decodeInvoice(invoice);
 
-    const listPayReq = new noderpc.ListpaysRequest();
-    listPayReq.setBolt11(invoice);
+    const listPayReq: noderpc.ListpaysRequest = {
+      bolt11: invoice,
+    };
 
     const pays = (
       await this.unaryNodeCall<
         noderpc.ListpaysRequest,
         noderpc.ListpaysResponse
-      >('listPays', listPayReq, false)
-    ).getPaysList();
+      >('listPays', listPayReq)
+    ).pays;
 
     return {
       pays,
@@ -768,32 +755,34 @@ class ClnClient
       this.trackAllSubscription.cancel();
     }
 
-    const req = new holdrpc.TrackAllRequest();
-
-    req.setPaymentHashesList(Array.from(this.holdInvoicesToSubscribe.values()));
+    const req: holdrpc.TrackAllRequest = {
+      paymentHashes: Array.from(this.holdInvoicesToSubscribe.values()).map(
+        (paymentHash) => getHexBuffer(paymentHash),
+      ),
+    };
     this.holdInvoicesToSubscribe.clear();
 
     this.trackAllSubscription = this.holdClient!.trackAll(req);
 
     this.trackAllSubscription.on('data', (update: holdrpc.TrackAllResponse) => {
-      switch (update.getState()) {
+      switch (update.state) {
         case holdrpc.InvoiceState.ACCEPTED:
           this.logger.debug(
             `${ClnClient.serviceName} ${
               this.symbol
-            } accepted invoice: ${update.getBolt11()}`,
+            } accepted invoice: ${update.bolt11}`,
           );
 
-          this.emit('htlc.accepted', update.getBolt11());
+          this.emit('htlc.accepted', update.bolt11);
           break;
 
         case holdrpc.InvoiceState.PAID:
           this.logger.debug(
             `${ClnClient.serviceName} ${
               this.symbol
-            } invoice settled: ${update.getBolt11()}`,
+            } invoice settled: ${update.bolt11}`,
           );
-          this.emit('invoice.settled', update.getBolt11());
+          this.emit('invoice.settled', update.bolt11);
 
           break;
       }
@@ -803,25 +792,22 @@ class ClnClient
     });
   };
 
+  private static holdInvoiceSubscriptionKey = (paymentHash: Buffer): string => {
+    return getHexString(paymentHash);
+  };
+
   private unaryNodeCall = <T, U>(
     methodName: keyof NodeClient,
     params: T,
-    toObject = true,
   ): Promise<U> => {
-    return unaryCall(
-      this.nodeClient!,
-      methodName,
-      params,
-      this.nodeMeta,
-      toObject,
-    );
+    return unaryCall(this.nodeClient!, methodName, params, this.nodeMeta);
   };
 
   private unaryHoldCall = <T, U>(
     methodName: keyof HoldClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.holdClient!, methodName, params, this.holdMeta, true);
+    return unaryCall(this.holdClient!, methodName, params, this.holdMeta);
   };
 
   private handleSubscriptionError = async (

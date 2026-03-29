@@ -7,12 +7,12 @@
     "enabled": false
   },
   "scripts": {
-    "postinstall": "node parseGitCommit.js",
+    "postinstall": "node parseGitCommit.js && npm run proto",
     "proto": "node protos.js",
     "compile": "npm run compile:rust && npm run compile:typescript",
     "compile:release": "npm run compile:rust:release && npm run compile:typescript",
     "compile:typescript": "node parseGitCommit.js && npm run swagger && tsc && npm run postcompile",
-    "postcompile": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && cp swagger-spec.json dist/lib/api/static && rsync -am --include '*/' --include '*.js*' --exclude '*' lib/proto/ dist/lib/proto",
+    "postcompile": "cp package.json dist && cp -R lib/api/static dist/lib/api/static && cp swagger-spec.json dist/lib/api/static",
     "compile:typescript:test": "tsc --project tsconfig.test.json",
     "compile:rust": "cargo build",
     "compile:rust:release": "cargo build --release",
@@ -60,6 +60,7 @@
     "node": ">=22.4"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.11.0",
     "@grpc/grpc-js": "^1.14.3",
     "@iarna/toml": "^2.2.5",
     "@opentelemetry/api": "^1.9.1",
@@ -84,7 +85,6 @@
     "ecpair": "^3.0.1",
     "ethers": "^6.16.0",
     "express": "^5.2.1",
-    "google-protobuf": "^3.21.4",
     "liquidjs-lib": "^6.0.2-liquid.37",
     "node-forge": "^1.4.0",
     "node-schedule": "^2.1.1",
@@ -124,13 +124,13 @@
     "git-cliff": "^2.12.0",
     "globals": "^17.4.0",
     "google-proto-files": "^5.0.1",
-    "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.13.1",
     "jest": "^30.3.0",
     "prettier": "^3.8.1",
     "prettier-plugin-sql": "^0.20.0",
     "sqlite3": "^6.0.1",
     "swagger-jsdoc": "^6.2.8",
+    "ts-proto": "^2.11.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2",
     "vitepress": "^1.6.4"

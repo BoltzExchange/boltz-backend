@@ -4,9 +4,8 @@ import { getHexString, getUnixTime } from '../../../../lib/Utils';
 import Errors from '../../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../../lib/lightning/LightningClient';
 import ClnClient from '../../../../lib/lightning/cln/ClnClient';
-import * as noderpc from '../../../../lib/proto/cln/node_pb';
-import * as primitivesrpc from '../../../../lib/proto/cln/primitives_pb';
-import * as holdrpc from '../../../../lib/proto/hold/hold_pb';
+import * as noderpc from '../../../../lib/proto/cln/node';
+import * as holdrpc from '../../../../lib/proto/hold/hold';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { wait } from '../../../Utils';
 import {
@@ -119,15 +118,13 @@ describe('ClnClient', () => {
 
       expect(res.feeMsat).toEqual(0);
       expect(getHexString(crypto.sha256(res.preimage))).toEqual(
-        getHexString(Buffer.from(invoice.rHash as string, 'base64')),
+        getHexString(invoice.rHash),
       );
     });
 
     test('should handle payment failures', async () => {
       const invoice = await bitcoinLndClient.addInvoice(100);
-      await bitcoinLndClient.cancelHoldInvoice(
-        Buffer.from(invoice.rHash as string, 'base64'),
-      );
+      await bitcoinLndClient.cancelHoldInvoice(invoice.rHash);
 
       await expect(
         clnClient.sendPayment(invoice.paymentRequest),
@@ -137,20 +134,28 @@ describe('ClnClient', () => {
     });
 
     test('should set layers list only when MPP is disabled', async () => {
-      const spy = jest.spyOn(noderpc.XpayRequest.prototype, 'setLayersList');
+      const spy = jest.spyOn(clnClient as any, 'unaryNodeCall');
       const originalDisableMpp = (clnClient as any).disableMpp;
 
       try {
         const invoiceEnabled = await bitcoinLndClient.addInvoice(100);
         await clnClient.sendPayment(invoiceEnabled.paymentRequest);
-        expect(spy).not.toHaveBeenCalled();
+        const xpayEnabled = spy.mock.calls.find(
+          ([method]) => method === 'xpay',
+        );
+        expect((xpayEnabled?.[1] as noderpc.XpayRequest).layers).toEqual([]);
 
         spy.mockClear();
 
         const invoiceDisabled = await bitcoinLndClient.addInvoice(100);
         (clnClient as any).disableMpp = true;
         await clnClient.sendPayment(invoiceDisabled.paymentRequest);
-        expect(spy).toHaveBeenCalledWith(['auto.no_mpp_support']);
+        const xpayDisabled = spy.mock.calls.find(
+          ([method]) => method === 'xpay',
+        );
+        expect((xpayDisabled?.[1] as noderpc.XpayRequest).layers).toEqual([
+          'auto.no_mpp_support',
+        ]);
       } finally {
         (clnClient as any).disableMpp = originalDisableMpp;
         spy.mockRestore();
@@ -221,23 +226,25 @@ describe('ClnClient', () => {
   });
 
   test('should not throw when getting pay status of BOLT12 invoices', async () => {
-    const offerReq = new noderpc.OfferRequest();
-    offerReq.setAmount('any');
+    const offerReq = noderpc.OfferRequest.create({
+      amount: 'any',
+    });
 
-    const offer: noderpc.OfferResponse.AsObject = await clnClient[
+    const offer: noderpc.OfferResponse = await clnClient['unaryNodeCall'](
+      'offer',
+      offerReq,
+    );
+
+    const invoiceReq = noderpc.FetchinvoiceRequest.create({
+      offer: offer.bolt12,
+      amountMsat: {
+        msat: '1000',
+      },
+    });
+
+    const invoice: noderpc.FetchinvoiceResponse = await clnClient[
       'unaryNodeCall'
-    ]('offer', offerReq, true);
-
-    const invoiceReq = new noderpc.FetchinvoiceRequest();
-    invoiceReq.setOffer(offer.bolt12);
-
-    const amount = new primitivesrpc.Amount();
-    amount.setMsat(1_000);
-    invoiceReq.setAmountMsat(amount);
-
-    const invoice: noderpc.FetchinvoiceResponse.AsObject = await clnClient[
-      'unaryNodeCall'
-    ]('fetchInvoice', invoiceReq, true);
+    ]('fetchInvoice', invoiceReq);
 
     await expect(
       clnClient.checkPayStatus(invoice.invoice),
@@ -277,36 +284,36 @@ describe('ClnClient', () => {
   });
 
   test('should inject hold invoices', async () => {
-    const invoiceReq = new noderpc.InvoiceRequest();
-    invoiceReq.setLabel(getHexString(randomBytes(32)));
-
-    const amount = new primitivesrpc.Amount();
-    amount.setMsat(10_000);
-    const amountOrAny = new primitivesrpc.AmountOrAny();
-    amountOrAny.setAmount(amount);
-    invoiceReq.setAmountMsat(amountOrAny);
+    const invoiceReq = noderpc.InvoiceRequest.create({
+      label: getHexString(randomBytes(32)),
+      amountMsat: {
+        amount: {
+          msat: '10000',
+        },
+      },
+    });
 
     const invoiceRes = await clnClient['unaryNodeCall']<
       noderpc.InvoiceRequest,
-      noderpc.InvoiceResponse.AsObject
+      noderpc.InvoiceResponse
     >('invoice', invoiceReq);
     const minCltv = 123;
     await clnClient.injectHoldInvoice(invoiceRes.bolt11, minCltv);
 
-    const listReq = new holdrpc.ListRequest();
-
     const decoded = await clnClient.decodeInvoice(invoiceRes.bolt11);
-    listReq.setPaymentHash(decoded.paymentHash);
+    const listReq = holdrpc.ListRequest.create({
+      paymentHash: decoded.paymentHash,
+    });
 
     const injectedInvoice = (
       await clnClient['unaryHoldCall']<
         holdrpc.ListRequest,
-        holdrpc.ListResponse.AsObject
+        holdrpc.ListResponse
       >('list', listReq)
-    ).invoicesList;
+    ).invoices;
 
     expect(injectedInvoice.length).toEqual(1);
-    expect(injectedInvoice[0].minCltvExpiry).toEqual(minCltv);
+    expect(injectedInvoice[0].minCltvExpiry).toEqual(minCltv.toString());
   });
 
   describe('decodeInvoice', () => {
@@ -355,9 +362,7 @@ describe('ClnClient', () => {
   describe('checkPayStatus', () => {
     test('should throw when all attempts failed', async () => {
       const invoice = await bitcoinLndClient.addInvoice(10_000);
-      await bitcoinLndClient.cancelHoldInvoice(
-        Buffer.from(invoice.rHash as string, 'base64'),
-      );
+      await bitcoinLndClient.cancelHoldInvoice(invoice.rHash);
 
       await expect(
         clnClient.sendPayment(invoice.paymentRequest),
@@ -398,9 +403,9 @@ describe('ClnClient', () => {
 
     clnClient.subscribeSingleInvoice(preimageHash);
     expect(clnClient['holdInvoicesToSubscribe'].size).toEqual(1);
-    expect(clnClient['holdInvoicesToSubscribe'].has(preimageHash)).toEqual(
-      true,
-    );
+    expect(
+      clnClient['holdInvoicesToSubscribe'].has(getHexString(preimageHash)),
+    ).toEqual(true);
 
     await clnClient.connect();
     clnClient.subscribeTrackHoldInvoices();

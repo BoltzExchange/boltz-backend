@@ -33,7 +33,7 @@ import RefundTransactionRepository from '../../../../lib/db/repositories/RefundT
 import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
-import * as noderpc from '../../../../lib/proto/cln/node_pb';
+import * as noderpc from '../../../../lib/proto/cln/node';
 import Errors from '../../../../lib/service/Errors';
 import MusigSigner, {
   RefundRejectionReason,
@@ -860,8 +860,9 @@ describe('MusigSigner', () => {
         const invoice = await bitcoinLndClient2.addHoldInvoice(1, preimageHash);
         await bitcoinLndClient2.cancelHoldInvoice(preimageHash);
 
-        const payRequest = new noderpc.PayRequest();
-        payRequest.setBolt11(invoice);
+        const payRequest = noderpc.PayRequest.create({
+          bolt11: invoice,
+        });
         await expect(
           clnClient['unaryNodeCall']('pay', payRequest),
         ).rejects.toEqual(expect.anything());

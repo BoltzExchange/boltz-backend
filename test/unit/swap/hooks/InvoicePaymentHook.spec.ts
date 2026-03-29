@@ -1,6 +1,6 @@
 import Logger from '../../../../lib/Logger';
 import type NotificationClient from '../../../../lib/notifications/NotificationClient';
-import type * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
+import type * as boltzrpc from '../../../../lib/proto/boltzrpc';
 import type DecodedInvoice from '../../../../lib/sidecar/DecodedInvoice';
 import InvoicePaymentHook from '../../../../lib/swap/hooks/InvoicePaymentHook';
 
@@ -32,8 +32,8 @@ describe('InvoicePaymentHook', () => {
   describe('parseGrpcAction', () => {
     test('should return empty result when no preferences provided', () => {
       const mockResponse = {
-        getNodePubkey: () => '',
-        hasTimePreference: () => false,
+        id: 'id',
+        nodePubkey: '',
       } as boltzrpc.InvoicePaymentHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toEqual({
@@ -43,9 +43,9 @@ describe('InvoicePaymentHook', () => {
 
     test('should return time preference when provided', () => {
       const mockResponse = {
-        getNodePubkey: () => '',
-        hasTimePreference: () => true,
-        getTimePreference: () => -0.5,
+        id: 'id',
+        nodePubkey: '',
+        timePreference: -0.5,
       } as boltzrpc.InvoicePaymentHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toEqual({
@@ -56,8 +56,8 @@ describe('InvoicePaymentHook', () => {
 
     test('should parse node id from action', () => {
       const mockResponse = {
-        getNodePubkey: () => 'lnd-override',
-        hasTimePreference: () => false,
+        id: 'id',
+        nodePubkey: 'lnd-override',
       } as boltzrpc.InvoicePaymentHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toEqual({
@@ -67,9 +67,9 @@ describe('InvoicePaymentHook', () => {
 
     test('should parse node id with time preference', () => {
       const mockResponse = {
-        getNodePubkey: () => 'lnd-override',
-        hasTimePreference: () => true,
-        getTimePreference: () => 0.8,
+        id: 'id',
+        nodePubkey: 'lnd-override',
+        timePreference: 0.8,
       } as boltzrpc.InvoicePaymentHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toEqual({
@@ -91,9 +91,9 @@ describe('InvoicePaymentHook', () => {
         'should accept valid time preference $timePreference',
         ({ timePreference }) => {
           const mockResponse = {
-            getNodePubkey: () => '',
-            hasTimePreference: () => true,
-            getTimePreference: () => timePreference,
+            id: 'id',
+            nodePubkey: '',
+            timePreference,
           } as boltzrpc.InvoicePaymentHookResponse;
 
           expect(hook['parseGrpcAction'](mockResponse)).toEqual({
@@ -113,10 +113,9 @@ describe('InvoicePaymentHook', () => {
         'should return undefined if time preference is invalid: $timePreference',
         ({ timePreference }) => {
           const mockResponse = {
-            getNodePubkey: () => '',
-            hasTimePreference: () => true,
-            getTimePreference: () => timePreference,
-            getId: () => 'test',
+            id: 'test',
+            nodePubkey: '',
+            timePreference,
           } as boltzrpc.InvoicePaymentHookResponse;
 
           expect(hook['parseGrpcAction'](mockResponse)).toBeUndefined();

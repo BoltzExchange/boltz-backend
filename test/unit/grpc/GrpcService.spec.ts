@@ -13,7 +13,7 @@ import PendingEthereumTransactionRepository from '../../../lib/db/repositories/P
 import ReferralRepository from '../../../lib/db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import GrpcService from '../../../lib/grpc/GrpcService';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import * as boltzrpc from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
 import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
@@ -90,29 +90,17 @@ const mockUnblindOutputs = jest
   .mockResolvedValue(mockUnblindOutputsFromIdResult);
 
 const transformOutputs = (outputs: any[]) => {
-  const res = new boltzrpc.UnblindOutputsResponse();
-  res.setOutputsList(
-    outputs.map((out) => {
-      const rpcOut = new boltzrpc.UnblindOutputsResponse.UnblindedOutput();
-      rpcOut.setValue(out.value);
-      rpcOut.setAsset(out.asset);
-      rpcOut.setIsLbtc(out.isLbtc);
-      rpcOut.setScript(out.script);
-      rpcOut.setNonce(out.nonce);
-
-      if (out.rangeProof) {
-        rpcOut.setRangeProof(out.rangeProof);
-      }
-
-      if (out.surjectionProof) {
-        rpcOut.setSurjectionProof(out.surjectionProof);
-      }
-
-      return rpcOut;
-    }),
-  );
-
-  return res;
+  return {
+    outputs: outputs.map((out) => ({
+      value: out.value.toString(),
+      asset: out.asset,
+      isLbtc: out.isLbtc,
+      script: out.script,
+      nonce: out.nonce,
+      rangeProof: out.rangeProof,
+      surjectionProof: out.surjectionProof,
+    })),
+  };
 };
 
 jest.mock('../../../lib/service/Service', () => {
@@ -164,11 +152,7 @@ jest.mock('../../../lib/Core', () => {
 
 const createCall = (data: any) => {
   return {
-    request: {
-      toObject: () => {
-        return data;
-      },
-    },
+    request: data,
   } as any;
 };
 
@@ -255,9 +239,10 @@ describe('GrpcService', () => {
 
     expect(cb).toHaveBeenCalledTimes(1);
 
-    const res = new boltzrpc.DeriveBlindingKeyResponse();
-    res.setPublicKey(getHexString(mockDeriveBlindingKeysResponse.publicKey));
-    res.setPrivateKey(getHexString(mockDeriveBlindingKeysResponse.privateKey));
+    const res: boltzrpc.DeriveBlindingKeyResponse = {
+      publicKey: getHexString(mockDeriveBlindingKeysResponse.publicKey),
+      privateKey: getHexString(mockDeriveBlindingKeysResponse.privateKey),
+    };
 
     expect(cb).toHaveBeenCalledWith(null, res);
 
@@ -268,8 +253,7 @@ describe('GrpcService', () => {
   test('should handle UnblindOutputs with transaction id set', async () => {
     const req: any = {
       request: {
-        hasId: () => true,
-        getId: () => 'id',
+        id: 'id',
       },
     };
 
@@ -283,19 +267,18 @@ describe('GrpcService', () => {
     );
 
     expect(mockUnblindOutputsFromId).toHaveBeenCalledTimes(1);
-    expect(mockUnblindOutputsFromId).toHaveBeenCalledWith(req.request.getId());
+    expect(mockUnblindOutputsFromId).toHaveBeenCalledWith(req.request.id);
   });
 
   test('should handle UnblindOutputs with transaction hex set', async () => {
     for (const [i, request] of [
       {
-        hasId: () => false,
-        getHex: () => 'hex',
+        id: undefined,
+        hex: 'hex',
       },
       {
-        hasId: () => true,
-        getId: () => '',
-        getHex: () => 'hex',
+        id: '',
+        hex: 'hex',
       },
     ].entries()) {
       const req: any = {
@@ -314,7 +297,7 @@ describe('GrpcService', () => {
       expect(mockParseTransaction).toHaveBeenCalledTimes(i + 1);
       expect(mockParseTransaction).toHaveBeenCalledWith(
         CurrencyType.Liquid,
-        request.getHex(),
+        request.hex,
       );
 
       expect(mockUnblindOutputs).toHaveBeenCalledTimes(i + 1);
@@ -334,7 +317,7 @@ describe('GrpcService', () => {
       createCall(callData),
       createCallback((error, response) => {
         expect(error).toEqual(null);
-        expect(response!.getAddress()).toEqual(gewAddressData);
+        expect(response!.address).toEqual(gewAddressData);
       }),
     );
 
@@ -355,27 +338,13 @@ describe('GrpcService', () => {
       fee: 2,
     };
 
-    const call = {
-      request: {
-        getSymbol: () => callData.symbol,
-        getAddress: () => callData.address,
-        getAmount: () => callData.amount,
-        getLabel: () => callData.label,
-        getSendAll: () => callData.sendAll,
-        hasFee: () => true,
-        getFee: () => callData.fee,
-      },
-    } as any;
-
     grpcService.sendCoins(
-      call,
+      createCall(callData),
       createCallback((error, response) => {
         expect(error).toEqual(null);
 
-        expect(response!.getVout()).toEqual(sendCoinsData.vout);
-        expect(response!.getTransactionId()).toEqual(
-          sendCoinsData.transactionId,
-        );
+        expect(response!.vout).toEqual(sendCoinsData.vout);
+        expect(response!.transactionId).toEqual(sendCoinsData.transactionId);
       }),
     );
 
@@ -402,10 +371,8 @@ describe('GrpcService', () => {
       createCallback((error, response) => {
         expect(error).toEqual(null);
 
-        expect(response!.getApiKey()).toEqual(mockAddReferralResponse.apiKey);
-        expect(response!.getApiSecret()).toEqual(
-          mockAddReferralResponse.apiSecret,
-        );
+        expect(response!.apiKey).toEqual(mockAddReferralResponse.apiKey);
+        expect(response!.apiSecret).toEqual(mockAddReferralResponse.apiSecret);
       }),
     );
 
@@ -439,9 +406,9 @@ describe('GrpcService', () => {
         createCall({ symbol }),
         createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
           expect(error).toEqual(null);
-          expect(response.toObject().claimedSymbolsMap).toEqual([
-            ['BTC', { claimedIdsList: ['currency1', 'currency2'] }],
-          ]);
+          expect(response.claimedSymbols).toEqual({
+            BTC: { claimedIds: ['currency1', 'currency2'] },
+          });
           resolve();
         }),
       );
@@ -461,10 +428,10 @@ describe('GrpcService', () => {
         createCall({}),
         createCallback((error, response: boltzrpc.SweepSwapsResponse) => {
           expect(error).toEqual(null);
-          expect(response.toObject().claimedSymbolsMap).toEqual([
-            ['BTC', { claimedIdsList: ['everything1', 'everything2'] }],
-            ['L-BTC', { claimedIdsList: ['everything3'] }],
-          ]);
+          expect(response.claimedSymbols).toEqual({
+            BTC: { claimedIds: ['everything1', 'everything2'] },
+            'L-BTC': { claimedIds: ['everything3'] },
+          });
           resolve();
         }),
       );
@@ -501,10 +468,10 @@ describe('GrpcService', () => {
         );
       });
       expect(res.error).toBeNull();
-      expect(res.response.toObject()).toEqual({
-        chainSwapsList: listedSwaps.chain,
-        reverseSwapsList: listedSwaps.reverse,
-        submarineSwapsList: listedSwaps.submarine,
+      expect(res.response).toEqual({
+        chainSwaps: listedSwaps.chain,
+        reverseSwaps: listedSwaps.reverse,
+        submarineSwaps: listedSwaps.submarine,
       });
 
       expect(service.listSwaps).toHaveBeenCalledTimes(1);
@@ -545,9 +512,9 @@ describe('GrpcService', () => {
           createCall({ symbol, startHeight }),
           createCallback((error, response: boltzrpc.RescanResponse) => {
             expect(error).toEqual(null);
-            expect(response.toObject()).toEqual({
+            expect(response).toEqual({
               startHeight,
-              endHeight: 831106,
+              endHeight: '831106',
             });
             resolve();
           }),
@@ -571,9 +538,9 @@ describe('GrpcService', () => {
           createCall({ symbol, startHeight, includeMempool: true }),
           createCallback((error, response: boltzrpc.RescanResponse) => {
             expect(error).toEqual(null);
-            expect(response.toObject()).toEqual({
+            expect(response).toEqual({
               startHeight,
-              endHeight: 831106,
+              endHeight: '831106',
             });
             resolve();
           }),
@@ -595,7 +562,7 @@ describe('GrpcService', () => {
           createCall({ symbol, id }),
           createCallback((error, response) => {
             expect(error).toEqual(null);
-            expect(response).toBeInstanceOf(boltzrpc.CheckTransactionResponse);
+            expect(response).toEqual({});
             resolve();
           }),
         );
@@ -621,7 +588,7 @@ describe('GrpcService', () => {
           createCall({ txId }),
           createCallback((error, response: boltzrpc.GetLabelResponse) => {
             expect(error).toEqual(null);
-            expect(response.toObject()).toEqual(label);
+            expect(response).toEqual(label);
             resolve();
           }),
         );
@@ -672,20 +639,18 @@ describe('GrpcService', () => {
           createCall({}),
           createCallback((error, response) => {
             expect(error).toEqual(null);
-            resolve(response.toObject());
+            resolve(response);
           }),
         );
       });
 
-      expect(res.transactionsList).toEqual([
+      expect(res.transactions).toEqual([
         {
-          label: '',
           symbol: networks.Rootstock.symbol,
-          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
-          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
-          nonce: txs[0].nonce,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)),
+          nonce: txs[0].nonce.toString(),
           amountSent: txs[0].etherAmount.toString(),
-          amountReceived: '',
         },
       ]);
 
@@ -725,18 +690,17 @@ describe('GrpcService', () => {
           createCall({}),
           createCallback((error, response) => {
             expect(error).toEqual(null);
-            resolve(response.toObject());
+            resolve(response);
           }),
         );
       });
 
-      expect(res.transactionsList).toEqual([
+      expect(res.transactions).toEqual([
         {
-          label: '',
           symbol: networks.Rootstock.symbol,
-          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
-          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
-          nonce: txs[0].nonce,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)),
+          nonce: txs[0].nonce.toString(),
           amountSent: txs[0].etherAmount.toString(),
           amountReceived: claimedAmount.toString(),
         },
@@ -776,18 +740,18 @@ describe('GrpcService', () => {
           createCall({}),
           createCallback((error, response) => {
             expect(error).toEqual(null);
-            resolve(response.toObject());
+            resolve(response);
           }),
         );
       });
 
-      expect(res.transactionsList).toEqual([
+      expect(res.transactions).toEqual([
         {
           symbol: networks.Rootstock.symbol,
           label: 'some label',
-          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
-          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
-          nonce: txs[0].nonce,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)),
+          nonce: txs[0].nonce.toString(),
           amountSent: txs[0].etherAmount.toString(),
           amountReceived: claimedAmount.toString(),
         },
@@ -835,18 +799,17 @@ describe('GrpcService', () => {
           createCall({}),
           createCallback((error, response) => {
             expect(error).toEqual(null);
-            resolve(response.toObject());
+            resolve(response);
           }),
         );
       });
 
-      expect(res.transactionsList).toEqual([
+      expect(res.transactions).toEqual([
         {
-          label: '',
           symbol: tokenSymbol,
-          hash: getHexBuffer(removeHexPrefix(txs[0].hash)).toString('base64'),
-          hex: getHexBuffer(removeHexPrefix(txs[0].hex)).toString('base64'),
-          nonce: txs[0].nonce,
+          hash: getHexBuffer(removeHexPrefix(txs[0].hash)),
+          hex: getHexBuffer(removeHexPrefix(txs[0].hex)),
+          nonce: txs[0].nonce.toString(),
           amountSent: txs[0].etherAmount.toString(),
           amountReceived: claimedAmount.toString(),
         },
@@ -870,10 +833,10 @@ describe('GrpcService', () => {
           createCallback(
             (error, response: boltzrpc.CalculateTransactionFeeResponse) => {
               expect(error).toEqual(null);
-              expect(response.toObject()).toEqual({
-                gwei: 0,
-                absolute: 123321,
+              expect(response).toEqual({
+                absolute: '123321',
                 satPerVbyte: 21,
+                gwei: undefined,
               });
               resolve();
             },
@@ -903,10 +866,10 @@ describe('GrpcService', () => {
           createCallback(
             (error, response: boltzrpc.CalculateTransactionFeeResponse) => {
               expect(error).toEqual(null);
-              expect(response.toObject()).toEqual({
+              expect(response).toEqual({
                 gwei: 3.14,
-                absolute: 3210,
-                satPerVbyte: 0,
+                absolute: '3210',
+                satPerVbyte: undefined,
               });
               resolve();
             },
@@ -988,15 +951,14 @@ describe('GrpcService', () => {
         },
       );
 
-      const list = res.getReferralList();
+      const list = res.referral;
       expect(list).toHaveLength(2);
 
-      expect(list[0].getId()).toEqual('1');
-      expect(list[0].hasConfig()).toEqual(false);
+      expect(list[0].id).toEqual('1');
+      expect(list[0].config).toBeUndefined();
 
-      expect(list[1].getId()).toEqual('2');
-      expect(list[1].hasConfig()).toEqual(true);
-      expect(list[1].getConfig()).toEqual(JSON.stringify({ test: 'data' }));
+      expect(list[1].id).toEqual('2');
+      expect(list[1].config).toEqual(JSON.stringify({ test: 'data' }));
 
       expect(ReferralRepository.getReferrals).toHaveBeenCalledTimes(1);
     });
@@ -1024,12 +986,11 @@ describe('GrpcService', () => {
         },
       );
 
-      const list = res.getReferralList();
+      const list = res.referral;
       expect(list).toHaveLength(1);
 
-      expect(list[0].getId()).toEqual('ref');
-      expect(list[0].hasConfig()).toEqual(true);
-      expect(list[0].getConfig()).toEqual(JSON.stringify({ data: 'test' }));
+      expect(list[0].id).toEqual('ref');
+      expect(list[0].config).toEqual(JSON.stringify({ data: 'test' }));
 
       expect(ReferralRepository.getReferralById).toHaveBeenCalledTimes(1);
       expect(ReferralRepository.getReferralById).toHaveBeenCalledWith('ref');
@@ -1169,7 +1130,7 @@ describe('GrpcService', () => {
         (resolve, reject) => {
           grpcService.invoiceClnThreshold(
             createCall({
-              thresholdsList: [
+              thresholds: [
                 {
                   type: boltzrpc.SwapType.SUBMARINE,
                   threshold: 123,

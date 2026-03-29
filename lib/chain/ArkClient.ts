@@ -10,16 +10,23 @@ import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexBuffer, getHexString, stringify } from '../Utils';
+import {
+  formatError,
+  fromProtoInt,
+  getHexBuffer,
+  getHexString,
+  stringify,
+  toProtoInt,
+} from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
 import { unaryCall } from '../lightning/GrpcUtils';
-import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
-import { ServiceClient } from '../proto/ark/service_grpc_pb';
-import * as arkrpc from '../proto/ark/service_pb';
-import * as arktypes from '../proto/ark/types_pb';
-import { WalletServiceClient } from '../proto/ark/wallet_grpc_pb';
-import * as walletrpc from '../proto/ark/wallet_pb';
+import { NotificationServiceClient } from '../proto/ark/notification';
+import { ServiceClient } from '../proto/ark/service';
+import * as arkrpc from '../proto/ark/service';
+import type * as arktypes from '../proto/ark/types';
+import { WalletServiceClient } from '../proto/ark/wallet';
+import type * as walletrpc from '../proto/ark/wallet';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type Sidecar from '../sidecar/Sidecar';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
@@ -343,17 +350,17 @@ class ArkClient extends BaseClient<
   }
 
   public getInfo = async () => {
-    return await this.unaryCall<
-      arkrpc.GetInfoRequest,
-      arkrpc.GetInfoResponse.AsObject
-    >('getInfo', new arkrpc.GetInfoRequest());
+    return await this.unaryCall<arkrpc.GetInfoRequest, arkrpc.GetInfoResponse>(
+      'getInfo',
+      {},
+    );
   };
 
   public getWalletStatus = async () => {
     return await this.walletUnaryCall<
       walletrpc.StatusRequest,
-      walletrpc.StatusResponse.AsObject
-    >('status', new walletrpc.StatusRequest());
+      walletrpc.StatusResponse
+    >('status', {});
   };
 
   public getBlockHeight = async (): Promise<number> => {
@@ -377,11 +384,11 @@ class ArkClient extends BaseClient<
   public getBalance = async (): Promise<WalletBalance> => {
     const balance = await this.unaryCall<
       arkrpc.GetBalanceRequest,
-      arkrpc.GetBalanceResponse.AsObject
-    >('getBalance', new arkrpc.GetBalanceRequest());
+      arkrpc.GetBalanceResponse
+    >('getBalance', {});
 
     return {
-      confirmedBalance: balance.amount,
+      confirmedBalance: fromProtoInt(balance.amount),
       unconfirmedBalance: 0,
     };
   };
@@ -389,8 +396,8 @@ class ArkClient extends BaseClient<
   public getAddress = async (): Promise<ArkAddress> => {
     const res = await this.unaryCall<
       arkrpc.GetAddressRequest,
-      arkrpc.GetAddressResponse.AsObject
-    >('getAddress', new arkrpc.GetAddressRequest());
+      arkrpc.GetAddressResponse
+    >('getAddress', {});
 
     const [base, queryString] = res.address.split('?');
     const params = new URLSearchParams(queryString || '');
@@ -407,13 +414,14 @@ class ArkClient extends BaseClient<
     amount: number,
     label: string,
   ): Promise<string> => {
-    const req = new arkrpc.SendOffChainRequest();
-    req.setAddress(address);
-    req.setAmount(amount);
+    const req: arkrpc.SendOffChainRequest = {
+      address,
+      amount: toProtoInt(amount),
+    };
 
     const response = await this.unaryCall<
       arkrpc.SendOffChainRequest,
-      arkrpc.SendOffChainResponse.AsObject
+      arkrpc.SendOffChainResponse
     >('sendOffChain', req);
 
     await TransactionLabelRepository.addLabel(
@@ -425,13 +433,14 @@ class ArkClient extends BaseClient<
   };
 
   public signTransaction = async (transaction: string): Promise<string> => {
-    const req = new arkrpc.SignTransactionRequest();
-    req.setTx(transaction);
+    const req: arkrpc.SignTransactionRequest = {
+      tx: transaction,
+    };
 
     const res = await this.unaryCall<
       arkrpc.SignTransactionRequest,
-      arkrpc.SignTransactionResponse.AsObject
-    >('signTransaction', req, true);
+      arkrpc.SignTransactionResponse
+    >('signTransaction', req);
     return res.signedTx;
   };
 
@@ -444,7 +453,7 @@ class ArkClient extends BaseClient<
     claimPublicKey?: Buffer,
     refundPublicKey?: Buffer,
   ): Promise<{
-    vHtlc: arkrpc.CreateVHTLCResponse.AsObject;
+    vHtlc: arkrpc.CreateVHTLCResponse;
     timeouts: Timeouts;
   }> => {
     const convertDelay = (delay: number) => {
@@ -463,27 +472,30 @@ class ArkClient extends BaseClient<
     };
 
     const createDelay = (delay: number) => {
-      const timeout = new arkrpc.RelativeLocktime();
-
-      timeout.setType(
-        this.useLocktimeSeconds
-          ? arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_SECOND
-          : arkrpc.RelativeLocktime.LocktimeType.LOCKTIME_TYPE_BLOCK,
-      );
-      timeout.setValue(delay);
-
-      return timeout;
+      return {
+        type: this.useLocktimeSeconds
+          ? arkrpc.RelativeLocktime_LocktimeType.LOCKTIME_TYPE_SECOND
+          : arkrpc.RelativeLocktime_LocktimeType.LOCKTIME_TYPE_BLOCK,
+        value: delay,
+      } satisfies arkrpc.RelativeLocktime;
     };
 
-    const req = new arkrpc.CreateVHTLCRequest();
-    req.setPreimageHash(getHexString(crypto.ripemd160(preimageHash)));
+    const req: arkrpc.CreateVHTLCRequest = {
+      preimageHash: getHexString(crypto.ripemd160(preimageHash)),
+      senderPubkey: '',
+      receiverPubkey: '',
+      refundLocktime: 0,
+      unilateralClaimDelay: undefined,
+      unilateralRefundDelay: undefined,
+      unilateralRefundWithoutReceiverDelay: undefined,
+    };
 
     if (claimPublicKey) {
-      req.setReceiverPubkey(getHexString(claimPublicKey));
+      req.receiverPubkey = getHexString(claimPublicKey);
     }
 
     if (refundPublicKey) {
-      req.setSenderPubkey(getHexString(refundPublicKey));
+      req.senderPubkey = getHexString(refundPublicKey);
     }
 
     const currentHeight = await this.getBlockHeight();
@@ -505,19 +517,19 @@ class ArkClient extends BaseClient<
       ),
     };
 
-    req.setRefundLocktime(timeouts.refund);
-    req.setUnilateralClaimDelay(createDelay(timeouts.unilateralClaim));
-    req.setUnilateralRefundDelay(createDelay(timeouts.unilateralRefund));
-    req.setUnilateralRefundWithoutReceiverDelay(
-      createDelay(timeouts.unilateralRefundWithoutReceiver),
+    req.refundLocktime = timeouts.refund;
+    req.unilateralClaimDelay = createDelay(timeouts.unilateralClaim);
+    req.unilateralRefundDelay = createDelay(timeouts.unilateralRefund);
+    req.unilateralRefundWithoutReceiverDelay = createDelay(
+      timeouts.unilateralRefundWithoutReceiver,
     );
 
     return {
       timeouts,
       vHtlc: await this.unaryCall<
         arkrpc.CreateVHTLCRequest,
-        arkrpc.CreateVHTLCResponse.AsObject
-      >('createVHTLC', req, true),
+        arkrpc.CreateVHTLCResponse
+      >('createVhtlc', req),
     };
   };
 
@@ -528,25 +540,23 @@ class ArkClient extends BaseClient<
     outpoint: Outpoint,
     label: string,
   ): Promise<string> => {
-    const req = new arkrpc.ClaimVHTLCRequest();
-    req.setPreimage(getHexString(preimage));
-
     const vhtlcId = ArkClient.createVhtlcId(
       crypto.sha256(preimage),
       senderPubkey,
       receiverPubkey,
     );
-    req.setVhtlcId(vhtlcId);
-    req.setOutpoint(this.createOutpoint(outpoint));
-
     this.logger.debug(
       `Claiming vHTLC ${vhtlcId} outpoint: ${outpoint.txId}:${outpoint.vout}`,
     );
 
     const res = await this.unaryCall<
       arkrpc.ClaimVHTLCRequest,
-      arkrpc.ClaimVHTLCResponse.AsObject
-    >('claimVHTLC', req);
+      arkrpc.ClaimVHTLCResponse
+    >('claimVhtlc', {
+      preimage: getHexString(preimage),
+      vhtlcId: vhtlcId,
+      outpoint: this.createOutpoint(outpoint),
+    });
 
     await TransactionLabelRepository.addLabel(
       res.redeemTxid,
@@ -566,23 +576,21 @@ class ArkClient extends BaseClient<
     outpoint: Outpoint,
     label: string,
   ) => {
-    const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
     const vhtlcId = ArkClient.createVhtlcId(
       preimageHash,
       senderPubkey,
       receiverPubkey,
     );
-    req.setVhtlcId(vhtlcId);
-    req.setOutpoint(this.createOutpoint(outpoint));
-
     this.logger.debug(
       `Refunding vHTLC ${vhtlcId} outpoint: ${outpoint.txId}:${outpoint.vout}`,
     );
-
     const res = await this.unaryCall<
       arkrpc.RefundVHTLCWithoutReceiverRequest,
-      arkrpc.RefundVHTLCWithoutReceiverResponse.AsObject
-    >('refundVHTLCWithoutReceiver', req);
+      arkrpc.RefundVHTLCWithoutReceiverResponse
+    >('refundVhtlcWithoutReceiver', {
+      vhtlcId: vhtlcId,
+      outpoint: this.createOutpoint(outpoint),
+    });
 
     await TransactionLabelRepository.addLabel(
       res.redeemTxid,
@@ -594,20 +602,21 @@ class ArkClient extends BaseClient<
   };
 
   public getTx = async (txId: string): Promise<Transaction> => {
-    const req = new arkrpc.GetVirtualTxsRequest();
-    req.setTxidsList([txId]);
+    const req: arkrpc.GetVirtualTxsRequest = {
+      txids: [txId],
+    };
 
     const res = await this.unaryCall<
       arkrpc.GetVirtualTxsRequest,
-      arkrpc.GetVirtualTxsResponse.AsObject
+      arkrpc.GetVirtualTxsResponse
     >('getVirtualTxs', req);
 
-    if (res.txsList.length === 0) {
+    if (res.txs.length === 0) {
       throw new Error('transaction not found');
     }
 
     return Transaction.fromPSBT(
-      Uint8Array.from(Buffer.from(res.txsList[0], 'base64')),
+      Uint8Array.from(Buffer.from(res.txs[0], 'base64')),
     );
   };
 
@@ -635,45 +644,29 @@ class ArkClient extends BaseClient<
   private unaryCall = <T, U>(
     methodName: keyof ServiceClient,
     params: T,
-    asObject: boolean = true,
   ): Promise<U> => {
-    return unaryCall(this.client!, methodName, params, this.meta, asObject);
+    return unaryCall(this.client!, methodName, params, this.meta);
   };
 
   private unaryNotificationCall = <T, U>(
     methodName: keyof NotificationServiceClient,
     params: T,
-    asObject: boolean = true,
   ): Promise<U> => {
-    return unaryCall(
-      this.notificationClient!,
-      methodName,
-      params,
-      this.meta,
-      asObject,
-    );
+    return unaryCall(this.notificationClient!, methodName, params, this.meta);
   };
 
   private walletUnaryCall = <T, U>(
     methodName: keyof WalletServiceClient,
     params: T,
-    asObject: boolean = true,
   ): Promise<U> => {
-    return unaryCall(
-      this.walletClient!,
-      methodName,
-      params,
-      this.meta,
-      asObject,
-    );
+    return unaryCall(this.walletClient!, methodName, params, this.meta);
   };
 
   private createOutpoint = (outpoint: Outpoint) => {
-    const input = new arktypes.Input();
-    input.setTxid(outpoint.txId);
-    input.setVout(outpoint.vout);
-
-    return input;
+    return {
+      txid: outpoint.txId,
+      vout: outpoint.vout,
+    } satisfies arktypes.Input;
   };
 }
 

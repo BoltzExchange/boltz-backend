@@ -1,6 +1,6 @@
 import type Logger from '../../Logger';
 import type NotificationClient from '../../notifications/NotificationClient';
-import * as boltzrpc from '../../proto/boltzrpc_pb';
+import type * as boltzrpc from '../../proto/boltzrpc';
 import type DecodedInvoice from '../../sidecar/DecodedInvoice';
 import Hook from './Hook';
 
@@ -27,10 +27,11 @@ class InvoicePaymentHook extends Hook<
       return undefined;
     }
 
-    const msg = new boltzrpc.InvoicePaymentHookRequest();
-    msg.setId(swapId);
-    msg.setInvoice(invoice);
-    msg.setDecoded(decoded.rawRes);
+    const msg: boltzrpc.InvoicePaymentHookRequest = {
+      id: swapId,
+      invoice,
+      decoded: decoded.rawRes,
+    };
 
     const res = await this.sendHook(swapId, msg);
     this.logHookResult(swapId, res);
@@ -64,17 +65,13 @@ class InvoicePaymentHook extends Hook<
   protected parseGrpcAction = (
     res: boltzrpc.InvoicePaymentHookResponse,
   ): HookResult | undefined => {
-    const nodeId = res.getNodePubkey() || undefined;
+    const nodeId = res.nodePubkey || undefined;
 
-    if (res.hasTimePreference()) {
-      const timePreference = res.getTimePreference();
-      if (
-        timePreference === undefined ||
-        timePreference < -1 ||
-        timePreference > 1
-      ) {
+    if (res.timePreference !== undefined) {
+      const timePreference = res.timePreference;
+      if (timePreference < -1 || timePreference > 1) {
         this.logger.warn(
-          `Invoice payment hook for ${res.getId()} returned invalid time preference ${timePreference}`,
+          `Invoice payment hook for ${res.id} returned invalid time preference ${timePreference}`,
         );
         return undefined;
       }

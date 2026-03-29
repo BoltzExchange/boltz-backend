@@ -1,6 +1,7 @@
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
 import {
+  fromProtoInt,
   getHexBuffer,
   getHexString,
   minutesToMilliseconds,
@@ -353,7 +354,7 @@ class PendingPaymentTracker {
           getHexBuffer(preimageHash),
         );
         return {
-          feeMsat: trackedPayment.feeMsat,
+          feeMsat: fromProtoInt(trackedPayment.feeMsat),
           preimage: getHexBuffer(trackedPayment.paymentPreimage),
         };
       }

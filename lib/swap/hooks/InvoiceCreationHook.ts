@@ -1,6 +1,7 @@
 import type Logger from '../../Logger';
+import { toProtoInt } from '../../Utils';
 import type NotificationClient from '../../notifications/NotificationClient';
-import * as boltzrpc from '../../proto/boltzrpc_pb';
+import type * as boltzrpc from '../../proto/boltzrpc';
 import Hook from './Hook';
 
 type HookResult = {
@@ -32,13 +33,11 @@ class InvoiceCreationHook extends Hook<
       return undefined;
     }
 
-    const msg = new boltzrpc.InvoiceCreationHookRequest();
-    msg.setId(swapId);
-    msg.setInvoiceAmountSats(invoiceAmount);
-
-    if (referral !== undefined) {
-      msg.setReferral(referral);
-    }
+    const msg: boltzrpc.InvoiceCreationHookRequest = {
+      id: swapId,
+      invoiceAmountSats: toProtoInt(invoiceAmount),
+      referral,
+    };
 
     return this.sendHook(swapId, msg);
   };
@@ -46,7 +45,7 @@ class InvoiceCreationHook extends Hook<
   protected parseGrpcAction = (
     res: boltzrpc.InvoiceCreationHookResponse,
   ): HookResult | undefined => {
-    const nodeId = res.getNodePubkey()?.trim();
+    const nodeId = res.nodePubkey?.trim();
 
     if (nodeId === undefined || nodeId === '') {
       return undefined;

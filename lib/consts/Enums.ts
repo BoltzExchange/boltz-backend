@@ -1,4 +1,4 @@
-import * as boltzrpc from '../proto/boltzrpc_pb';
+import * as boltzrpc from '../proto/boltzrpc';
 
 export enum ErrorCodePrefix {
   General = 0,

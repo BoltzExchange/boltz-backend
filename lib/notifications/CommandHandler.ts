@@ -6,6 +6,7 @@ import Tracing from '../Tracing';
 import {
   checkEvmAddress,
   formatError,
+  fromProtoInt,
   getHexString,
   mapToObject,
   stringify,
@@ -498,28 +499,29 @@ class CommandHandler {
   };
 
   private getBalance = async () => {
-    const balances = (await this.service.getBalance()).toObject().balancesMap;
+    const balances = (await this.service.getBalance()).balances;
 
     let message = 'Balances:';
 
-    balances.forEach(([symbol, bals]) => {
+    Object.entries(balances).forEach(([symbol, bals]) => {
       message += `\n\n**${symbol}**\n`;
 
-      bals.walletsMap.forEach(([service, walletBals]) => {
+      Object.entries(bals.wallets).forEach(([service, walletBals]) => {
         message += `\n${service} Wallet: ${satoshisToSatcomma(
-          walletBals.confirmed + walletBals.unconfirmed,
+          fromProtoInt(walletBals.confirmed) +
+            fromProtoInt(walletBals.unconfirmed),
         )} ${symbol}`;
       });
 
-      if (bals.lightningMap.length > 0) {
+      if (Object.keys(bals.lightning).length > 0) {
         message += '\n';
       }
 
-      bals.lightningMap.forEach(([service, lightningBals]) => {
+      Object.entries(bals.lightning).forEach(([service, lightningBals]) => {
         message +=
           `\n${service}:\n` +
-          `  Local: ${satoshisToSatcomma(lightningBals.local)} ${symbol}\n` +
-          `  Remote: ${satoshisToSatcomma(lightningBals.remote)} ${symbol}`;
+          `  Local: ${satoshisToSatcomma(fromProtoInt(lightningBals.local))} ${symbol}\n` +
+          `  Remote: ${satoshisToSatcomma(fromProtoInt(lightningBals.remote))} ${symbol}`;
       });
     });
 

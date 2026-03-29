@@ -5,7 +5,7 @@ import type Swap from '../../../lib/db/models/Swap';
 import LightningErrors from '../../../lib/lightning/Errors';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
-import { Payment } from '../../../lib/proto/lnd/rpc_pb';
+import { Payment_PaymentStatus } from '../../../lib/proto/lnd/rpc';
 import TimeoutDeltaProvider from '../../../lib/service/TimeoutDeltaProvider';
 import type DecodedInvoiceSidecar from '../../../lib/sidecar/DecodedInvoice';
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
@@ -141,7 +141,7 @@ describe('PaymentHandler', () => {
     cltvLimit = 1;
     sendPaymentError = undefined;
     trackPaymentResponse = {
-      status: Payment.PaymentStatus.IN_FLIGHT,
+      status: Payment_PaymentStatus.IN_FLIGHT,
     };
 
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
@@ -164,7 +164,7 @@ describe('PaymentHandler', () => {
     cltvLimit = 100;
     sendPaymentError = error;
     trackPaymentResponse = {
-      status: Payment.PaymentStatus.FAILED,
+      status: Payment_PaymentStatus.FAILED,
     };
 
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
@@ -183,7 +183,7 @@ describe('PaymentHandler', () => {
     cltvLimit = 100;
     sendPaymentError = { details: 'invoice expired' };
     trackPaymentResponse = {
-      status: Payment.PaymentStatus.FAILED,
+      status: Payment_PaymentStatus.FAILED,
     };
 
     expect(mockedEmit).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('PaymentHandler', () => {
     cltvLimit = 100;
     sendPaymentError = LightningErrors.PAYMENT_TIMED_OUT().message;
     trackPaymentResponse = {
-      status: Payment.PaymentStatus.FAILED,
+      status: Payment_PaymentStatus.FAILED,
     };
 
     expect(mockedEmit).not.toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe('PaymentHandler', () => {
     cltvLimit = 100;
     sendPaymentError = 'their node is offline';
     trackPaymentResponse = {
-      status: Payment.PaymentStatus.FAILED,
+      status: Payment_PaymentStatus.FAILED,
     };
 
     await expect(handler.payInvoice(swap, undefined)).resolves.toEqual(
@@ -313,7 +313,7 @@ describe('PaymentHandler', () => {
       cltvLimit = 100;
       sendPaymentError = undefined;
       trackPaymentResponse = {
-        status: Payment.PaymentStatus.SUCCEEDED,
+        status: Payment_PaymentStatus.SUCCEEDED,
       };
     });
 

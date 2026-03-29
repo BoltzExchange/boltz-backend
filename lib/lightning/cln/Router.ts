@@ -1,17 +1,12 @@
-import { getHexBuffer } from '../../Utils';
-import type { NodeClient } from '../../proto/cln/node_grpc_pb';
-import * as noderpc from '../../proto/cln/node_pb';
-import * as primivites from '../../proto/cln/primitives_pb';
+import { getHexBuffer, toProtoInt } from '../../Utils';
+import type { NodeClient } from '../../proto/cln/node';
+import * as noderpc from '../../proto/cln/node';
 import { satToMsat } from '../ChannelUtils';
 import Errors from '../Errors';
 import type { Route } from '../LightningClient';
 
 export const getRoute = async (
-  nodeCaller: <T, U>(
-    methodName: keyof NodeClient,
-    params: T,
-    toObject?: boolean,
-  ) => Promise<U>,
+  nodeCaller: <T, U>(methodName: keyof NodeClient, params: T) => Promise<U>,
   destination: string,
   amount: number,
   cltvLimit: number = Number.MAX_SAFE_INTEGER,
@@ -19,41 +14,38 @@ export const getRoute = async (
   riskFactor: number = 0,
   maxRetries: number = 10,
 ): Promise<Route> => {
-  const req = new noderpc.GetrouteRequest();
-  req.setId(getHexBuffer(destination));
-
-  const amountMsat = new primivites.Amount();
-  amountMsat.setMsat(satToMsat(amount));
-  req.setAmountMsat(amountMsat);
-
-  req.setCltv(finalCltv);
-  req.setRiskfactor(riskFactor);
-
   const excludes: string[] = [];
-  req.setExcludeList(excludes);
+  const req: noderpc.GetrouteRequest = {
+    ...noderpc.GetrouteRequest.create(),
+    id: getHexBuffer(destination),
+    amountMsat: {
+      msat: toProtoInt(satToMsat(amount)),
+    },
+    cltv: finalCltv,
+    riskfactor: toProtoInt(riskFactor),
+    exclude: excludes,
+  };
 
   for (let i = 0; i < maxRetries; i++) {
     const res = await nodeCaller<
       noderpc.GetrouteRequest,
-      noderpc.GetrouteResponse.AsObject
-    >('getRoute', req, true);
+      noderpc.GetrouteResponse
+    >('getRoute', req);
 
-    if (res.routeList.length === 0) {
+    if (res.route.length === 0) {
       throw Errors.NO_ROUTE();
     }
 
-    if (res.routeList[0].delay > cltvLimit) {
-      const highestDelta = findHighestDeltaHop(res.routeList);
+    if (res.route[0].delay > cltvLimit) {
+      const highestDelta = findHighestDeltaHop(res.route);
       excludes.push(`${highestDelta.channel}/${highestDelta.direction}`);
-
-      req.setExcludeList(excludes);
       continue;
     }
 
     return {
-      ctlv: res.routeList[0].delay,
+      ctlv: res.route[0].delay,
       feesMsat: Number(
-        BigInt(res.routeList[0].amountMsat!.msat) - BigInt(satToMsat(amount)),
+        BigInt(res.route[0].amountMsat!.msat) - BigInt(satToMsat(amount)),
       ),
     };
   }
@@ -61,7 +53,7 @@ export const getRoute = async (
   throw Errors.NO_ROUTE();
 };
 
-const findHighestDeltaHop = (route: noderpc.GetrouteRoute.AsObject[]) => {
+const findHighestDeltaHop = (route: noderpc.GetrouteRoute[]) => {
   if (route.length < 2) {
     return route[0];
   }

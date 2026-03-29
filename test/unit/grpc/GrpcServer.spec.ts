@@ -16,8 +16,8 @@ import GrpcServer from '../../../lib/grpc/GrpcServer';
 import type GrpcService from '../../../lib/grpc/GrpcService';
 import { grpcOptions } from '../../../lib/lightning/GrpcUtils';
 import { createSsl } from '../../../lib/lightning/cln/Types';
-import { BoltzClient } from '../../../lib/proto/boltzrpc_grpc_pb';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import { BoltzClient } from '../../../lib/proto/boltzrpc';
+import type * as boltzrpc from '../../../lib/proto/boltzrpc';
 import { getPort } from '../../Utils';
 
 const promisifyCall = <K, T>(
@@ -69,9 +69,7 @@ describe('GrpcServer', () => {
       .fn()
       .mockImplementation(
         (_, callback: sendUnaryData<boltzrpc.GetInfoResponse>) => {
-          const res = new boltzrpc.GetInfoResponse();
-          res.setVersion('1');
-          callback(null, res);
+          callback(null, { version: '1', chains: {} });
         },
       ),
   } as unknown as GrpcService;
@@ -117,9 +115,9 @@ describe('GrpcServer', () => {
         await promisifyCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse>(
           client,
           'getInfo',
-          new boltzrpc.GetInfoRequest(),
+          {},
         )
-      ).getVersion(),
+      ).version,
     ).toEqual('1');
 
     client.close();
@@ -146,9 +144,9 @@ describe('GrpcServer', () => {
         await promisifyCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse>(
           client,
           'getInfo',
-          new boltzrpc.GetInfoRequest(),
+          {},
         )
-      ).getVersion(),
+      ).version,
     ).toEqual('1');
 
     client.close();
@@ -225,7 +223,7 @@ describe('GrpcServer', () => {
       promisifyCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse>(
         client,
         'getInfo',
-        new boltzrpc.GetInfoRequest(),
+        {},
       ),
     ).rejects.toEqual(expect.anything());
 

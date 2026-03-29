@@ -16,6 +16,7 @@ import {
   checkEvmAddress,
   createApiCredential,
   formatError,
+  fromProtoInt,
   getChainCurrency,
   getHexString,
   getLightningCurrency,
@@ -25,6 +26,7 @@ import {
   getSwapMemo,
   getVersion,
   splitPairId,
+  toProtoInt,
 } from '../Utils';
 import ApiErrors from '../api/Errors';
 import { checkPreimageHashLength, errorsNotToLog } from '../api/Utils';
@@ -66,7 +68,7 @@ import type { HopHint } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
 import type RoutingFee from '../lightning/RoutingFee';
 import type NotificationClient from '../notifications/NotificationClient';
-import {
+import type {
   Balances,
   ChainInfo,
   CurrencyInfo,
@@ -74,7 +76,7 @@ import {
   GetBalanceResponse,
   GetInfoResponse,
   LightningInfo,
-} from '../proto/boltzrpc_pb';
+} from '../proto/boltzrpc';
 import FeeProvider from '../rates/FeeProvider';
 import LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import RateProvider from '../rates/RateProvider';
@@ -335,13 +337,18 @@ class Service {
    * Gets general information about this Boltz instance and the nodes it is connected to
    */
   public getInfo = async (): Promise<GetInfoResponse> => {
-    const response = new GetInfoResponse();
-    const map = response.getChainsMap();
-
-    response.setVersion(getVersion());
+    const response: GetInfoResponse = {
+      version: getVersion(),
+      chains: {},
+    };
 
     for (const [symbol, currency] of this.currencies) {
-      const chain = new ChainInfo();
+      const chain: ChainInfo = {
+        version: 0,
+        blocks: '0',
+        connections: '0',
+        error: '',
+      };
 
       if (currency.chainClient) {
         try {
@@ -350,56 +357,58 @@ class Service {
             currency.chainClient.getBlockchainInfo(),
           ]);
 
-          chain.setVersion(networkInfo.version);
-          chain.setConnections(networkInfo.connections);
-
-          chain.setBlocks(blockchainInfo.blocks);
+          chain.version = networkInfo.version;
+          chain.connections = toProtoInt(networkInfo.connections);
+          chain.blocks = toProtoInt(blockchainInfo.blocks);
         } catch (error) {
-          chain.setError(formatError(error));
+          chain.error = formatError(error);
         }
       } else if (currency.provider) {
         try {
           const blockNumber = await currency.provider.getBlockNumber();
 
-          chain.setBlocks(blockNumber);
+          chain.blocks = toProtoInt(blockNumber);
         } catch (error) {
-          chain.setError(formatError(error));
+          chain.error = formatError(error);
         }
       }
 
-      const currencyInfo = new CurrencyInfo();
-      currencyInfo.setChain(chain);
+      const currencyInfo: CurrencyInfo = {
+        chain,
+        lightning: {},
+      };
 
       const lightningClients = getLightningClients(currency);
 
       await Promise.all(
         lightningClients.map(async (client) => {
-          const info = new LightningInfo();
+          const info: LightningInfo = {
+            version: '',
+            channels: undefined,
+            blockHeight: '0',
+            error: '',
+          };
 
           try {
             const infoRes = await client.getInfo();
 
-            const channels = new LightningInfo.Channels();
-
-            channels.setActive(infoRes.channels.active);
-            channels.setInactive(infoRes.channels.inactive);
-            channels.setPending(infoRes.channels.pending);
-
-            info.setChannels(channels);
-
-            info.setVersion(infoRes.version);
-            info.setBlockHeight(infoRes.blockHeight);
+            info.channels = {
+              active: infoRes.channels.active,
+              inactive: infoRes.channels.inactive,
+              pending: infoRes.channels.pending,
+            };
+            info.version = infoRes.version;
+            info.blockHeight = toProtoInt(infoRes.blockHeight);
           } catch (error) {
-            info.setError(
-              typeof error === 'object' ? (error as any).details : error,
-            );
+            info.error =
+              typeof error === 'object' ? (error as any).details : error;
           }
 
-          currencyInfo.getLightningMap().set(client.id, info);
+          currencyInfo.lightning[client.id] = info;
         }),
       );
 
-      map.set(symbol, currencyInfo);
+      response.chains[symbol] = currencyInfo;
     }
 
     return response;
@@ -454,12 +463,12 @@ class Service {
           includeMempool,
         },
       ]);
-      const chainResult = res.resultsList.find(
+      const chainResult = res.results.find(
         (result) => result.symbol === symbol,
       );
 
       if (chainResult !== undefined) {
-        endHeight = chainResult.endHeight;
+        endHeight = fromProtoInt(chainResult.endHeight);
       } else {
         throw new Error(
           `could not find chain rescan result for symbol: ${symbol}`,
@@ -573,11 +582,15 @@ class Service {
    * Gets the balance for either all wallets or just a single one if specified
    */
   public getBalance = async (): Promise<GetBalanceResponse> => {
-    const response = new GetBalanceResponse();
-    const map = response.getBalancesMap();
+    const response: GetBalanceResponse = {
+      balances: {},
+    };
 
     for (const [symbol, wallet] of this.walletManager.wallets) {
-      const balances = new Balances();
+      const balances: Balances = {
+        wallets: {},
+        lightning: {},
+      };
 
       const currency = this.currencies.get(symbol);
 
@@ -589,12 +602,10 @@ class Service {
           .map(async (bf) => {
             const res = await bf.getBalance();
 
-            const walletBal = new Balances.WalletBalance();
-
-            walletBal.setConfirmed(res.confirmedBalance);
-            walletBal.setUnconfirmed(res.unconfirmedBalance);
-
-            balances.getWalletsMap().set(bf.serviceName(), walletBal);
+            balances.wallets[bf.serviceName()] = {
+              confirmed: toProtoInt(res.confirmedBalance),
+              unconfirmed: toProtoInt(res.unconfirmedBalance ?? 0),
+            };
           }),
       );
 
@@ -602,19 +613,15 @@ class Service {
         lightningClients.map(async (client) => {
           const res = await client.getBalance();
 
-          const walletBal = new Balances.WalletBalance();
-
-          walletBal.setConfirmed(res.confirmedBalance);
-          walletBal.setUnconfirmed(res.unconfirmedBalance);
-
-          balances.getWalletsMap().set(client.id, walletBal);
+          balances.wallets[client.id] = {
+            confirmed: toProtoInt(res.confirmedBalance),
+            unconfirmed: toProtoInt(res.unconfirmedBalance ?? 0),
+          };
         }),
       );
 
       await Promise.all(
         lightningClients.map(async (client) => {
-          const lightningBalance = new Balances.LightningBalance();
-
           const channelsList = await client.listChannels();
 
           let localBalance = 0n;
@@ -625,14 +632,14 @@ class Service {
             remoteBalance += BigInt(channel.remoteBalance);
           });
 
-          lightningBalance.setLocal(Number(localBalance));
-          lightningBalance.setRemote(Number(remoteBalance));
-
-          balances.getLightningMap().set(client.id, lightningBalance);
+          balances.lightning[client.id] = {
+            local: toProtoInt(Number(localBalance)),
+            remote: toProtoInt(Number(remoteBalance)),
+          };
         }),
       );
 
-      map.set(symbol, balances);
+      response.balances[symbol] = balances;
     }
 
     return response;
@@ -773,13 +780,10 @@ class Service {
     }
 
     const keys = wallet.getKeysByIndex(index);
-
-    const response = new DeriveKeysResponse();
-
-    response.setPublicKey(getHexString(keys.publicKey));
-    response.setPrivateKey(getHexString(keys.privateKey!));
-
-    return response;
+    return {
+      publicKey: getHexString(keys.publicKey),
+      privateKey: getHexString(keys.privateKey!),
+    };
   };
 
   /**

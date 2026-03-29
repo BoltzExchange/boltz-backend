@@ -1,5 +1,5 @@
 import type Logger from '../../Logger';
-import { minutesToMilliseconds } from '../../Utils';
+import { fromProtoInt, minutesToMilliseconds } from '../../Utils';
 import type {
   HopHint,
   RoutingHintsProvider,
@@ -77,9 +77,11 @@ class RoutingHintsLnd implements RoutingHintsProvider {
         {
           nodeId: channel.remotePubkey,
           chanId: channel.chanId,
-          feeBaseMsat: remotePolicy.feeBaseMsat,
+          feeBaseMsat: fromProtoInt(remotePolicy.feeBaseMsat),
           cltvExpiryDelta: remotePolicy.timeLockDelta,
-          feeProportionalMillionths: remotePolicy.feeRateMilliMsat,
+          feeProportionalMillionths: fromProtoInt(
+            remotePolicy.feeRateMilliMsat,
+          ),
         },
       ]);
     }

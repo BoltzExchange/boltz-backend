@@ -1,7 +1,8 @@
 import type Logger from '../../Logger';
+import { toProtoInt } from '../../Utils';
 import { SwapType } from '../../consts/Enums';
 import type NotificationClient from '../../notifications/NotificationClient';
-import * as boltzrpc from '../../proto/boltzrpc_pb';
+import * as boltzrpc from '../../proto/boltzrpc';
 import Hook from './Hook';
 
 const enum Action {
@@ -55,42 +56,47 @@ class CreationHook extends Hook<
     type: SwapType,
     params: RequestParams,
   ): Promise<boolean> => {
-    const msg = new boltzrpc.SwapCreation();
-    msg.setId(params.id);
-    msg.setSymbolSending(params.symbolSending);
-    msg.setSymbolReceiving(params.symbolReceiving);
-
-    if (params.referral !== undefined) {
-      msg.setReferral(params.referral);
-    }
+    const msg: boltzrpc.SwapCreation = {
+      id: params.id,
+      symbolSending: params.symbolSending,
+      symbolReceiving: params.symbolReceiving,
+      referral: params.referral,
+      submarine: undefined,
+      reverse: undefined,
+      chain: undefined,
+    };
 
     switch (type) {
       case SwapType.Submarine: {
-        const submarine = new boltzrpc.SwapCreation.Submarine();
-        submarine.setInvoiceAmount(
-          (params as RequestParamsSubmarine).invoiceAmount,
-        );
-
-        submarine.setInvoice((params as RequestParamsSubmarine).invoice);
-
-        msg.setSubmarine(submarine);
+        msg.submarine = {
+          invoiceAmount: toProtoInt(
+            (params as RequestParamsSubmarine).invoiceAmount,
+          ),
+          invoice: (params as RequestParamsSubmarine).invoice,
+        };
         break;
       }
 
       case SwapType.ReverseSubmarine: {
-        const reverse = new boltzrpc.SwapCreation.Reverse();
-        reverse.setInvoiceAmount(
-          (params as RequestParamsReverse).invoiceAmount,
-        );
-        msg.setReverse(reverse);
+        msg.reverse = {
+          invoiceAmount: toProtoInt(
+            (params as RequestParamsReverse).invoiceAmount,
+          ),
+        };
         break;
       }
 
       case SwapType.Chain: {
-        const chain = new boltzrpc.SwapCreation.Chain();
-        chain.setUserLockAmount((params as RequestParamsChain).userLockAmount);
-        msg.setChain(chain);
+        msg.chain = {
+          userLockAmount: toProtoInt(
+            (params as RequestParamsChain).userLockAmount,
+          ),
+        };
         break;
+      }
+      default: {
+        const exhaustiveType: never = type;
+        throw new Error(`unsupported swap type: ${exhaustiveType}`);
       }
     }
 
@@ -98,7 +104,7 @@ class CreationHook extends Hook<
   };
 
   protected parseGrpcAction = (res: boltzrpc.SwapCreationResponse): Action =>
-    parseGrpcAction(this.logger, this.name, res.getId(), res.getAction());
+    parseGrpcAction(this.logger, this.name, res.id, res.action);
 
   private handleAction = (action: Action) => {
     if (action === Action.Hold) {

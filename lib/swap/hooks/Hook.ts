@@ -5,7 +5,7 @@ import { formatError } from '../../Utils';
 import type NotificationClient from '../../notifications/NotificationClient';
 
 interface HookResponse {
-  getId(): string;
+  id: string;
 }
 
 abstract class Hook<P, Req, Res extends HookResponse> {
@@ -53,10 +53,10 @@ abstract class Hook<P, Req, Res extends HookResponse> {
 
     this.stream.on('data', (data: Res) => {
       this.logger.silly(
-        `Received gRPC ${this.name} hook response for ${data.getId()}`,
+        `Received gRPC ${this.name} hook response for ${data.id}`,
       );
 
-      const hook = this.pendingHooks.get(data.getId());
+      const hook = this.pendingHooks.get(data.id);
       if (hook !== undefined) {
         hook(this.parseGrpcAction(data));
       }

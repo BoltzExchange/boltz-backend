@@ -27,7 +27,7 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import CommandHandler from '../../../lib/notifications/CommandHandler';
 import { codeBlock } from '../../../lib/notifications/Markup';
 import NotificationClient from '../../../lib/notifications/NotificationClient';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import type { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
 import { wait } from '../../Utils';
 import {
@@ -72,25 +72,22 @@ const mockedNotificationClient = <jest.Mock<NotificationClient>>(
   (<any>NotificationClient)
 );
 
-const createWalletBalance = () => {
-  const walletBalance = new Balances.WalletBalance();
+const createWalletBalance = () => ({
+  confirmed: getRandomNumber().toString(),
+  unconfirmed: getRandomNumber().toString(),
+});
 
-  walletBalance.setConfirmed(getRandomNumber());
-  walletBalance.setUnconfirmed(getRandomNumber());
-
-  return walletBalance;
+const btcBalance: Balances = {
+  wallets: {
+    Core: createWalletBalance(),
+  },
+  lightning: {
+    LND: {
+      local: getRandomNumber().toString(),
+      remote: getRandomNumber().toString(),
+    },
+  },
 };
-
-const btcBalance = new Balances();
-
-btcBalance.getWalletsMap().set('Core', createWalletBalance());
-
-const lightningBalance = new Balances.LightningBalance();
-
-lightningBalance.setLocal(getRandomNumber());
-lightningBalance.setRemote(getRandomNumber());
-
-btcBalance.getLightningMap().set('LND', lightningBalance);
 
 const newAddress = 'bcrt1qymqsjl5qre2zc94wd04nd27p5vkvxqge7f0a8k';
 
@@ -184,11 +181,11 @@ jest.mock('../../../lib/service/Service', () => {
         },
       },
       getBalance: async () => {
-        const res = new GetBalanceResponse();
-
-        res.getBalancesMap().set('BTC', btcBalance);
-
-        return res;
+        return {
+          balances: {
+            BTC: btcBalance,
+          },
+        } satisfies GetBalanceResponse;
       },
       getLockedFunds: jest.fn().mockResolvedValue(mockedLockedFunds),
       getAddress: mockGetAddress,
@@ -552,22 +549,18 @@ describe('CommandHandler', () => {
     sendMessage('getbalance');
     await wait(commandWaitMs);
 
-    const wallet: Balances.WalletBalance = btcBalance
-      .getWalletsMap()
-      .get('Core');
-    const lightning: Balances.LightningBalance = btcBalance
-      .getLightningMap()
-      .get('LND');
+    const wallet = btcBalance.wallets.Core;
+    const lightning = btcBalance.lightning.LND;
 
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(
       'Balances:\n\n' +
         `**BTC**\n\nCore Wallet: ${satoshisToSatcomma(
-          wallet.getConfirmed() + wallet.getUnconfirmed(),
+          Number(wallet.confirmed) + Number(wallet.unconfirmed),
         )} BTC\n\n` +
         'LND:\n' +
-        `  Local: ${satoshisToSatcomma(lightning.getLocal())} BTC\n` +
-        `  Remote: ${satoshisToSatcomma(lightning.getRemote())} BTC`,
+        `  Local: ${satoshisToSatcomma(Number(lightning.local))} BTC\n` +
+        `  Remote: ${satoshisToSatcomma(Number(lightning.remote))} BTC`,
     );
   });
 

@@ -1,7 +1,7 @@
 import { status } from '@grpc/grpc-js';
 import Logger from '../../../../lib/Logger';
 import type NotificationClient from '../../../../lib/notifications/NotificationClient';
-import type * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
+import type * as boltzrpc from '../../../../lib/proto/boltzrpc';
 import InvoiceCreationHook from '../../../../lib/swap/hooks/InvoiceCreationHook';
 
 describe('InvoiceCreationHook', () => {
@@ -44,7 +44,7 @@ describe('InvoiceCreationHook', () => {
     test('should send invoice creation hook request', async () => {
       hook.connectToStream(stream);
 
-      let written: any;
+      let written: boltzrpc.InvoiceCreationHookRequest;
       stream.write = jest.fn().mockImplementation((data: any) => {
         written = data;
       });
@@ -65,9 +65,11 @@ describe('InvoiceCreationHook', () => {
       await expect(promise).resolves.toEqual({ nodeId: 'node-1' });
 
       expect(stream.write).toHaveBeenCalledTimes(1);
-      expect(written.getId()).toEqual(params.id);
-      expect(written.getInvoiceAmountSats()).toEqual(params.invoiceAmount);
-      expect(written.getReferral()).toEqual(params.referral);
+      expect(written!.id).toEqual(params.id);
+      expect(written!.invoiceAmountSats).toEqual(
+        params.invoiceAmount.toString(),
+      );
+      expect(written!.referral).toEqual(params.referral);
     });
 
     test('should resolve undefined after timeout', async () => {
@@ -109,7 +111,8 @@ describe('InvoiceCreationHook', () => {
   describe('parseGrpcAction', () => {
     test('should return undefined when no node is provided', () => {
       const mockResponse = {
-        getNodePubkey: () => '',
+        id: 'id',
+        nodePubkey: '',
       } as boltzrpc.InvoiceCreationHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toBeUndefined();
@@ -117,7 +120,8 @@ describe('InvoiceCreationHook', () => {
 
     test('should parse and trim node id', () => {
       const mockResponse = {
-        getNodePubkey: () => ' node-1 ',
+        id: 'id',
+        nodePubkey: ' node-1 ',
       } as boltzrpc.InvoiceCreationHookResponse;
 
       expect(hook['parseGrpcAction'](mockResponse)).toEqual({

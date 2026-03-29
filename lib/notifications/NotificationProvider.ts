@@ -26,7 +26,7 @@ import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import { msatToSat } from '../lightning/ChannelUtils';
 import type { LightningClient } from '../lightning/LightningClient';
-import type { ChainInfo, LightningInfo } from '../proto/boltzrpc_pb';
+import type { ChainInfo, LightningInfo } from '../proto/boltzrpc';
 import type Service from '../service/Service';
 import type Sidecar from '../sidecar/Sidecar';
 import type WalletManager from '../wallet/WalletManager';
@@ -144,12 +144,12 @@ class NotificationProvider {
   };
 
   private checkConnections = async () => {
-    const info = (await this.service.getInfo()).toObject();
+    const info = await this.service.getInfo();
 
     const promises: Promise<void>[] = [];
 
-    info.chainsMap.forEach(([symbol, currency]) => {
-      currency.lightningMap.forEach(([service, lnInfo]) => {
+    Object.entries(info.chains).forEach(([symbol, currency]) => {
+      Object.entries(currency.lightning).forEach(([service, lnInfo]) => {
         promises.push(this.checkConnection(`${symbol} ${service}`, lnInfo));
       });
       promises.push(this.checkConnection(`${symbol} node`, currency.chain));
@@ -160,7 +160,7 @@ class NotificationProvider {
 
   private checkConnection = async (
     service: string,
-    object: ChainInfo.AsObject | LightningInfo.AsObject | undefined,
+    object: ChainInfo | LightningInfo | undefined,
   ) => {
     if (object !== undefined) {
       if (object.error === '') {

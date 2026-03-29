@@ -1,11 +1,15 @@
 import type { ClientReadableStream } from '@grpc/grpc-js';
 import type Logger from '../Logger';
 import { sleep } from '../PromiseUtils';
-import { formatError, getHexBuffer, getHexString } from '../Utils';
+import {
+  formatError,
+  fromProtoInt,
+  getHexBuffer,
+  getHexString,
+} from '../Utils';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import type { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
-import * as notificationrpc from '../proto/ark/notification_pb';
-import * as arkrpc from '../proto/ark/service_pb';
+import type * as notificationrpc from '../proto/ark/notification';
+import type * as arkrpc from '../proto/ark/service';
 import ArkClient from './ArkClient';
 
 type SubscribedAddress = {
@@ -48,7 +52,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   constructor(
     private readonly logger: Logger,
     private readonly client: ArkClient,
-    private readonly notificationClient: NotificationServiceClient,
+    private readonly notificationClient: notificationrpc.NotificationServiceClient,
     private readonly unaryCall: (typeof ArkClient.prototype)['unaryCall'],
     private readonly unaryNotificationCall: (typeof ArkClient.prototype)['unaryNotificationCall'],
   ) {
@@ -107,24 +111,26 @@ class ArkSubscription extends TypedEventEmitter<Events> {
       this.subscribedAddresses.set(address.address, address.vHtlcId);
     }
 
-    const req = new notificationrpc.SubscribeForAddressesRequest();
-    req.setAddressesList(addresses.map((a) => a.address));
+    const req: notificationrpc.SubscribeForAddressesRequest = {
+      addresses: addresses.map((a) => a.address),
+    };
 
     await this.unaryNotificationCall<
       notificationrpc.SubscribeForAddressesRequest,
-      notificationrpc.SubscribeForAddressesResponse.AsObject
+      notificationrpc.SubscribeForAddressesResponse
     >('subscribeForAddresses', req);
   };
 
   public unsubscribeAddress = async (address: string) => {
     this.subscribedAddresses.delete(address);
 
-    const req = new notificationrpc.UnsubscribeForAddressesRequest();
-    req.setAddressesList([address]);
+    const req: notificationrpc.UnsubscribeForAddressesRequest = {
+      addresses: [address],
+    };
 
     await this.unaryNotificationCall<
       notificationrpc.UnsubscribeForAddressesRequest,
-      notificationrpc.UnsubscribeForAddressesResponse.AsObject
+      notificationrpc.UnsubscribeForAddressesResponse
     >('unsubscribeForAddresses', req);
   };
 
@@ -138,15 +144,16 @@ class ArkSubscription extends TypedEventEmitter<Events> {
 
       for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
         try {
-          const req = new arkrpc.ListVHTLCRequest();
-          req.setVhtlcId(vhtlcId);
+          const req: arkrpc.ListVHTLCRequest = {
+            vhtlcId,
+          };
 
           const res = await this.unaryCall<
             arkrpc.ListVHTLCRequest,
-            arkrpc.ListVHTLCResponse.AsObject
-          >('listVHTLC', req, true);
+            arkrpc.ListVHTLCResponse
+          >('listVhtlc', req);
 
-          for (const vhtlc of res.vhtlcsList) {
+          for (const vhtlc of res.vhtlcs) {
             if (vhtlc.outpoint === undefined) {
               this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
               continue;
@@ -156,7 +163,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
               address,
               txId: vhtlc.outpoint.txid,
               vout: vhtlc.outpoint.vout,
-              amount: vhtlc.amount,
+              amount: fromProtoInt(vhtlc.amount),
             });
 
             if (
@@ -189,26 +196,26 @@ class ArkSubscription extends TypedEventEmitter<Events> {
       this.vHtlcStream.destroy();
     }
 
-    const req = new notificationrpc.GetVtxoNotificationsRequest();
+    const req: notificationrpc.GetVtxoNotificationsRequest = {};
     this.vHtlcStream = this.notificationClient!.getVtxoNotifications(req);
 
-    this.vHtlcStream.on(
+    this.vHtlcStream!.on(
       'data',
       (res: notificationrpc.GetVtxoNotificationsResponse) => {
-        const notification = res.getNotification()?.toObject();
+        const notification = res.notification;
 
         if (notification === undefined) {
           return;
         }
 
         const decoded = new Map<string, string>(
-          notification.addressesList.map((address) => [
+          notification.addresses.map((address) => [
             getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
             address,
           ]),
         );
 
-        for (const vhtlc of notification.newVtxosList) {
+        for (const vhtlc of notification.newVtxos) {
           if (vhtlc.outpoint === undefined) {
             this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
             continue;
@@ -225,11 +232,11 @@ class ArkSubscription extends TypedEventEmitter<Events> {
             address: recipient,
             txId: vhtlc.outpoint.txid,
             vout: vhtlc.outpoint.vout,
-            amount: vhtlc.amount,
+            amount: fromProtoInt(vhtlc.amount),
           });
         }
 
-        for (const vhtlc of notification.spentVtxosList) {
+        for (const vhtlc of notification.spentVtxos) {
           if (vhtlc.outpoint === undefined) {
             this.logger.warn(`No outpoint for spent vHTLC ${vhtlc.script}`);
             continue;
@@ -251,15 +258,15 @@ class ArkSubscription extends TypedEventEmitter<Events> {
       },
     );
 
-    this.vHtlcStream.on('end', () => {
+    this.vHtlcStream!.on('end', () => {
       this.logger.warn('Stream of vHTLCs ended');
     });
 
-    this.vHtlcStream.on('error', (err) => {
+    this.vHtlcStream!.on('error', (err) => {
       this.logger.error(`Error streaming vHTLCs: ${err}`);
     });
 
-    this.vHtlcStream.on('close', () => {
+    this.vHtlcStream!.on('close', () => {
       this.logger.warn('Stream of vHTLCs closed');
       this.reconnect();
     });

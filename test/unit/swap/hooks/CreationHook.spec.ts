@@ -1,7 +1,7 @@
 import { status } from '@grpc/grpc-js';
 import Logger from '../../../../lib/Logger';
 import { SwapType } from '../../../../lib/consts/Enums';
-import * as boltzrpc from '../../../../lib/proto/boltzrpc_pb';
+import * as boltzrpc from '../../../../lib/proto/boltzrpc';
 import CreationHook, { Action } from '../../../../lib/swap/hooks/CreationHook';
 
 describe('CreationHook', () => {
@@ -68,8 +68,8 @@ describe('CreationHook', () => {
       hook.connectToStream(stream);
 
       emitData({
-        getId: () => pendingHookId,
-        getAction: () => action,
+        id: pendingHookId,
+        action,
       });
 
       expect(pendingHook).toHaveBeenCalledTimes(1);
@@ -120,7 +120,7 @@ describe('CreationHook', () => {
     test('should send submarine swap creation hook request', async () => {
       hook.connectToStream(stream);
 
-      let written: any;
+      let written: boltzrpc.SwapCreation;
       stream.write = jest.fn().mockImplementation((data: any) => {
         written = data;
       });
@@ -139,20 +139,20 @@ describe('CreationHook', () => {
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
-      expect(written.getId()).toEqual(params.id);
-      expect(written.getSymbolSending()).toEqual(params.symbolSending);
-      expect(written.getSymbolReceiving()).toEqual(params.symbolReceiving);
-      expect(written.getReferral()).toEqual(params.referral);
-
-      const submarineMessage = written.getSubmarine();
-      expect(submarineMessage.getInvoiceAmount()).toEqual(params.invoiceAmount);
-      expect(submarineMessage.getInvoice()).toEqual(params.invoice);
+      expect(written!.id).toEqual(params.id);
+      expect(written!.symbolSending).toEqual(params.symbolSending);
+      expect(written!.symbolReceiving).toEqual(params.symbolReceiving);
+      expect(written!.referral).toEqual(params.referral);
+      expect(written!.submarine).toEqual({
+        invoiceAmount: params.invoiceAmount.toString(),
+        invoice: params.invoice,
+      });
     });
 
     test('should send reverse swap creation hook request', async () => {
       hook.connectToStream(stream);
 
-      let written: any;
+      let written: boltzrpc.SwapCreation;
       stream.write = jest.fn().mockImplementation((data: any) => {
         written = data;
       });
@@ -170,19 +170,19 @@ describe('CreationHook', () => {
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
-      expect(written.getId()).toEqual(params.id);
-      expect(written.getSymbolSending()).toEqual(params.symbolSending);
-      expect(written.getSymbolReceiving()).toEqual(params.symbolReceiving);
-      expect(written.getReferral()).toEqual(params.referral);
-      expect(written.getReverse().getInvoiceAmount()).toEqual(
-        params.invoiceAmount,
-      );
+      expect(written!.id).toEqual(params.id);
+      expect(written!.symbolSending).toEqual(params.symbolSending);
+      expect(written!.symbolReceiving).toEqual(params.symbolReceiving);
+      expect(written!.referral).toEqual(params.referral);
+      expect(written!.reverse).toEqual({
+        invoiceAmount: params.invoiceAmount.toString(),
+      });
     });
 
     test('should send chain swap creation hook request', async () => {
       hook.connectToStream(stream);
 
-      let written: any;
+      let written: boltzrpc.SwapCreation;
       stream.write = jest.fn().mockImplementation((data: any) => {
         written = data;
       });
@@ -200,13 +200,13 @@ describe('CreationHook', () => {
       await promise;
 
       expect(stream.write).toHaveBeenCalledTimes(1);
-      expect(written.getId()).toEqual(params.id);
-      expect(written.getSymbolSending()).toEqual(params.symbolSending);
-      expect(written.getSymbolReceiving()).toEqual(params.symbolReceiving);
-      expect(written.getReferral()).toEqual(params.referral);
-      expect(written.getChain().getUserLockAmount()).toEqual(
-        params.userLockAmount,
-      );
+      expect(written!.id).toEqual(params.id);
+      expect(written!.symbolSending).toEqual(params.symbolSending);
+      expect(written!.symbolReceiving).toEqual(params.symbolReceiving);
+      expect(written!.referral).toEqual(params.referral);
+      expect(written!.chain).toEqual({
+        userLockAmount: params.userLockAmount.toString(),
+      });
     });
   });
 

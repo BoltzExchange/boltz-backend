@@ -1,7 +1,7 @@
 import type BaseClient from '../BaseClient';
 import type { ClientStatus } from '../consts/Enums';
 import type { NodeType } from '../db/models/ReverseSwap';
-import type * as lndrpc from '../proto/lnd/rpc_pb';
+import type * as lndrpc from '../proto/lnd/rpc';
 import type { BalancerFetcher } from '../wallet/providers/WalletProviderInterface';
 
 enum InvoiceState {
@@ -92,7 +92,7 @@ type EventTypes = {
   'status.changed': ClientStatus;
   'peer.online': string;
   // TODO: get rid of LND types
-  'channel.active': lndrpc.ChannelPoint.AsObject;
+  'channel.active': lndrpc.ChannelPoint;
   'htlc.accepted': string;
   'invoice.settled': string;
   'subscription.error': string | undefined;

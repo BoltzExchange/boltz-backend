@@ -638,6 +638,21 @@ export const objectMap = <K extends string | number | symbol, V, T>(
 ): Record<string, T> =>
   Object.fromEntries(Object.entries(obj).map(([k, v]) => fn(k, v as V)));
 
+export const toProtoInt = (value: string | number | bigint): string =>
+  value.toString();
+
+export const toOptionalProtoInt = (
+  value: string | number | bigint | null | undefined,
+): string | undefined =>
+  value === null || value === undefined ? undefined : value.toString();
+
+export const fromProtoInt = (value: string | number): number => Number(value);
+
+export const fromOptionalProtoInt = (
+  value: string | number | null | undefined,
+): number | undefined =>
+  value === null || value === undefined ? undefined : Number(value);
+
 export const chunkArray = <T>(array: T[], size: number): T[][] => {
   const chunks: T[][] = Array.from({ length: size }, () => []);
 

@@ -10,7 +10,14 @@ import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
 import { LogLevel } from '../Logger';
 import { sleep } from '../PromiseUtils';
-import { formatError, getHexString, getVersion, stringify } from '../Utils';
+import {
+  formatError,
+  fromProtoInt,
+  getHexString,
+  getVersion,
+  stringify,
+  toProtoInt,
+} from '../Utils';
 import type SwapInfos from '../api/SwapInfos';
 import type { SomeTransaction } from '../chain/ChainClient';
 import ElementsClient from '../chain/ElementsClient';
@@ -18,8 +25,8 @@ import { ClientStatus, CurrencyType, SwapUpdateEvent } from '../consts/Enums';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { grpcOptions, unaryCall } from '../lightning/GrpcUtils';
 import { createSsl } from '../lightning/cln/Types';
-import { BoltzRClient } from '../proto/boltzr_grpc_pb';
-import * as sidecarrpc from '../proto/boltzr_pb';
+import { BoltzRClient } from '../proto/boltzr';
+import * as sidecarrpc from '../proto/boltzr';
 import type { SwapUpdate } from '../service/EventHandler';
 import type EventHandler from '../service/EventHandler';
 import DecodedInvoice from './DecodedInvoice';
@@ -188,14 +195,14 @@ class Sidecar extends BaseClient<
     await this.unaryNodeCall<
       sidecarrpc.StartWebHookRetriesRequest,
       sidecarrpc.StartWebHookRetriesResponse
-    >('startWebHookRetries', new sidecarrpc.StartWebHookRetriesRequest());
+    >('startWebHookRetries', {});
   };
 
   public getInfo = () =>
-    this.unaryNodeCall<
-      sidecarrpc.GetInfoRequest,
-      sidecarrpc.GetInfoResponse.AsObject
-    >('getInfo', new sidecarrpc.GetInfoRequest(), true);
+    this.unaryNodeCall<sidecarrpc.GetInfoRequest, sidecarrpc.GetInfoResponse>(
+      'getInfo',
+      {},
+    );
 
   public validateVersion = async () => {
     const info = await this.getInfo();
@@ -237,12 +244,13 @@ class Sidecar extends BaseClient<
         break;
     }
 
-    const req = new sidecarrpc.SetLogLevelRequest();
-    req.setLevel(lvl);
+    const req: sidecarrpc.SetLogLevelRequest = {
+      level: lvl,
+    };
 
     await this.unaryNodeCall<
       sidecarrpc.SetLogLevelRequest,
-      sidecarrpc.SetLogLevelResponse.AsObject
+      sidecarrpc.SetLogLevelResponse
     >('setLogLevel', req);
   };
 
@@ -251,15 +259,11 @@ class Sidecar extends BaseClient<
     isImportant?: boolean,
     sendAlert?: boolean,
   ) => {
-    const req = new sidecarrpc.SendMessageRequest();
-    req.setMessage(message);
-    if (isImportant) {
-      req.setIsImportant(isImportant);
-    }
-
-    if (sendAlert) {
-      req.setSendAlert(sendAlert);
-    }
+    const req: sidecarrpc.SendMessageRequest = {
+      message,
+      isImportant,
+      sendAlert,
+    };
 
     await this.unaryNodeCall<
       sidecarrpc.SendMessageRequest,
@@ -267,8 +271,7 @@ class Sidecar extends BaseClient<
     >('sendMessage', req);
   };
 
-  public getMessages = () =>
-    this.client!.getMessages(new sidecarrpc.GetMessagesRequest());
+  public getMessages = () => this.client!.getMessages({});
 
   public createWebHook = async (
     swapId: string,
@@ -276,11 +279,12 @@ class Sidecar extends BaseClient<
     hashSwapId?: boolean,
     statusInclude?: string[],
   ) => {
-    const req = new sidecarrpc.CreateWebHookRequest();
-    req.setId(swapId);
-    req.setUrl(url);
-    req.setHashSwapId(hashSwapId || false);
-    req.setStatusList(statusInclude || []);
+    const req: sidecarrpc.CreateWebHookRequest = {
+      id: swapId,
+      url,
+      hashSwapId: hashSwapId || false,
+      status: statusInclude || [],
+    };
 
     await this.unaryNodeCall<
       sidecarrpc.CreateWebHookRequest,
@@ -289,18 +293,19 @@ class Sidecar extends BaseClient<
   };
 
   public claimBatch = async (swapIds: string[]) => {
-    const req = new sidecarrpc.ClaimBatchRequest();
-    req.setSwapIdsList(swapIds);
+    const req: sidecarrpc.ClaimBatchRequest = {
+      swapIds,
+    };
 
     const res = await this.unaryNodeCall<
       sidecarrpc.ClaimBatchRequest,
       sidecarrpc.ClaimBatchResponse
-    >('claimBatch', req, false);
+    >('claimBatch', req);
 
     return {
-      transaction: Buffer.from(res.getTransaction_asU8()),
-      transactionId: res.getTransactionId(),
-      fee: res.getFee(),
+      transaction: res.transaction,
+      transactionId: res.transactionId,
+      fee: fromProtoInt(res.fee),
     };
   };
 
@@ -312,102 +317,75 @@ class Sidecar extends BaseClient<
     tokenAddress: string | undefined,
     timeout: number,
   ) => {
-    const req = new sidecarrpc.SignEvmRefundRequest();
-    req.setChain(chain);
-    req.setAddress(contractAddress);
-    req.setPreimageHash(preimageHash);
-    req.setAmount(amount.toString());
-    req.setTimeout(timeout);
-
-    if (tokenAddress) {
-      req.setTokenAddress(tokenAddress);
-    }
+    const req: sidecarrpc.SignEvmRefundRequest = {
+      chain,
+      address: contractAddress,
+      preimageHash,
+      amount: amount.toString(),
+      timeout: toProtoInt(timeout),
+      tokenAddress,
+    };
 
     const res = await this.unaryNodeCall<
       sidecarrpc.SignEvmRefundRequest,
-      sidecarrpc.SignEvmRefundResponse.AsObject
-    >('signEvmRefund', req, true);
-    return Buffer.from(res.signature as string, 'base64');
+      sidecarrpc.SignEvmRefundResponse
+    >('signEvmRefund', req);
+    return res.signature;
   };
 
   public decodeInvoiceOrOffer = async (invoiceOrOffer: string) => {
-    const req = new sidecarrpc.DecodeInvoiceOrOfferRequest();
-    req.setInvoiceOrOffer(invoiceOrOffer);
+    const req: sidecarrpc.DecodeInvoiceOrOfferRequest = {
+      invoiceOrOffer,
+    };
 
     return new DecodedInvoice(
       await this.unaryNodeCall<
         sidecarrpc.DecodeInvoiceOrOfferRequest,
         sidecarrpc.DecodeInvoiceOrOfferResponse
-      >('decodeInvoiceOrOffer', req, false),
+      >('decodeInvoiceOrOffer', req),
     );
   };
 
   public isMarked = async (ip: string) => {
-    const req = new sidecarrpc.IsMarkedRequest();
-    req.setIp(ip);
+    const req: sidecarrpc.IsMarkedRequest = {
+      ip,
+    };
 
     return (
       await this.unaryNodeCall<
         sidecarrpc.IsMarkedRequest,
-        sidecarrpc.IsMarkedResponse.AsObject
+        sidecarrpc.IsMarkedResponse
       >('isMarked', req)
     ).isMarked;
   };
 
   private subscribeSwapUpdates = () => {
     const serializeSwapUpdate = (id: string | undefined, updates: Update[]) => {
-      const req = new sidecarrpc.SwapUpdateRequest();
-
-      if (id !== undefined) {
-        req.setId(id);
-      }
-
-      req.setStatusList(
-        updates.map((entry) => {
-          const update = new sidecarrpc.SwapUpdate();
-          update.setId(entry.id);
-          update.setStatus(entry.status.status);
-
-          if (entry.status.zeroConfRejected !== undefined) {
-            update.setZeroConfRejected(entry.status.zeroConfRejected);
-          }
-
-          if (entry.status.transaction) {
-            const transaction = new sidecarrpc.SwapUpdate.TransactionInfo();
-            transaction.setId(entry.status.transaction.id);
-
-            if (entry.status.transaction.hex !== undefined) {
-              transaction.setHex(entry.status.transaction.hex);
-            }
-
-            if (entry.status.transaction.eta !== undefined) {
-              transaction.setEta(entry.status.transaction.eta);
-            }
-
-            if (entry.status.transaction.confirmed !== undefined) {
-              transaction.setConfirmed(entry.status.transaction.confirmed);
-            }
-
-            update.setTransactionInfo(transaction);
-          }
-
-          if (entry.status.failureReason !== undefined) {
-            update.setFailureReason(entry.status.failureReason);
-          }
-
-          if (entry.status.failureDetails !== undefined) {
-            const details = new sidecarrpc.SwapUpdate.FailureDetails();
-            details.setActual(entry.status.failureDetails.actual);
-            details.setExpected(entry.status.failureDetails.expected);
-
-            update.setFailureDetails(details);
-          }
-
-          return update;
-        }),
-      );
-
-      return req;
+      return {
+        id,
+        status: updates.map((entry) => ({
+          id: entry.id,
+          status: entry.status.status,
+          zeroConfRejected: entry.status.zeroConfRejected,
+          transactionInfo: entry.status.transaction
+            ? {
+                id: entry.status.transaction.id,
+                hex: entry.status.transaction.hex,
+                eta: entry.status.transaction.eta
+                  ? toProtoInt(entry.status.transaction.eta)
+                  : undefined,
+                confirmed: entry.status.transaction.confirmed,
+              }
+            : undefined,
+          failureReason: entry.status.failureReason,
+          failureDetails: entry.status.failureDetails
+            ? {
+                actual: toProtoInt(entry.status.failureDetails.actual),
+                expected: toProtoInt(entry.status.failureDetails.expected),
+              }
+            : undefined,
+        })),
+      } satisfies sidecarrpc.SwapUpdateRequest;
     };
 
     if (this.subscribeSwapUpdatesCall !== undefined) {
@@ -421,7 +399,7 @@ class Sidecar extends BaseClient<
       async (data: sidecarrpc.SwapUpdateResponse) => {
         const status = (
           await Promise.all(
-            data.getSwapIdsList().map(async (id) => ({
+            data.swapIds.map(async (id) => ({
               id,
               status: await this.swapInfos.get(id),
             })),
@@ -432,7 +410,7 @@ class Sidecar extends BaseClient<
         }
 
         this.subscribeSwapUpdatesCall!.write(
-          serializeSwapUpdate(data.getId(), status),
+          serializeSwapUpdate(data.id, status),
         );
       },
     );
@@ -472,14 +450,14 @@ class Sidecar extends BaseClient<
     }
 
     this.subscribeSendSwapUpdatesCall = this.client!.sendSwapUpdate(
-      new sidecarrpc.SendSwapUpdateRequest(),
+      {},
       this.clientMeta,
     );
 
     this.subscribeSendSwapUpdatesCall.on(
       'data',
       async (data: sidecarrpc.SendSwapUpdateResponse) => {
-        const update = data.getUpdate();
+        const update = data.update;
         if (update === undefined) {
           return;
         }
@@ -488,7 +466,7 @@ class Sidecar extends BaseClient<
           await this.handleSentSwapUpdate(update);
         } catch (e) {
           this.logger.error(
-            `Handling sent swap update (${stringify(data.toObject())}) failed: ${formatError(e)}`,
+            `Handling sent swap update (${stringify(data)}) failed: ${formatError(e)}`,
           );
         }
       },
@@ -510,16 +488,16 @@ class Sidecar extends BaseClient<
   };
 
   private handleSentSwapUpdate = async (update: sidecarrpc.SwapUpdate) => {
-    switch (update.getStatus()) {
+    switch (update.status) {
       case SwapUpdateEvent.TransactionDirect: {
-        const transactionInfo = update.getTransactionInfo()!;
+        const transactionInfo = update.transactionInfo!;
         this.eventHandler.emit('swap.update', {
-          id: update.getId(),
+          id: update.id,
           status: {
             status: SwapUpdateEvent.TransactionDirect,
             transaction: {
-              id: transactionInfo.getId(),
-              hex: transactionInfo.getHex(),
+              id: transactionInfo.id,
+              hex: transactionInfo.hex,
             },
           },
           skipCache: true,
@@ -528,11 +506,11 @@ class Sidecar extends BaseClient<
       }
       case SwapUpdateEvent.InvoiceFailedToPay: {
         const swap = await SwapRepository.getSwap({
-          id: update.getId(),
+          id: update.id,
         });
         if (swap === null) {
           this.logger.warn(
-            `Could not find swap for update with id: ${update.getId()}`,
+            `Could not find swap for update with id: ${update.id}`,
           );
           return;
         }
@@ -545,7 +523,7 @@ class Sidecar extends BaseClient<
       }
       default: {
         this.logger.warn(
-          `Got swap update that could not be handled: ${stringify(update.toObject())}`,
+          `Got swap update that could not be handled: ${stringify(update)}`,
         );
         return;
       }
@@ -557,20 +535,17 @@ class Sidecar extends BaseClient<
    * @param requests - The chains to rescan
    */
   public rescanChains = async (requests?: RescanChainRequest[]) => {
-    const req = new sidecarrpc.RescanChainsRequest();
-    for (const request of requests ?? []) {
-      const subReq = new sidecarrpc.RescanChainsRequest.ChainRescan();
-      subReq.setSymbol(request.symbol);
-      subReq.setStartHeight(request.startHeight);
-      if (request.includeMempool !== undefined) {
-        subReq.setIncludeMempool(request.includeMempool);
-      }
-      req.addChains(subReq);
-    }
+    const req: sidecarrpc.RescanChainsRequest = {
+      chains: (requests ?? []).map((request) => ({
+        symbol: request.symbol,
+        startHeight: toProtoInt(request.startHeight),
+        includeMempool: request.includeMempool,
+      })),
+    };
 
     return await this.unaryNodeCall<
       sidecarrpc.RescanChainsRequest,
-      sidecarrpc.RescanChainsResponse.AsObject
+      sidecarrpc.RescanChainsResponse
     >('rescanChains', req);
   };
 
@@ -580,38 +555,41 @@ class Sidecar extends BaseClient<
    * @param txId - The transaction ID to check
    */
   public checkTransaction = async (symbol: string, txId: string) => {
-    const req = new sidecarrpc.CheckTransactionRequest();
-    req.setSymbol(symbol);
-    req.setId(txId);
+    const req: sidecarrpc.CheckTransactionRequest = {
+      symbol,
+      id: txId,
+    };
 
     await this.unaryNodeCall<
       sidecarrpc.CheckTransactionRequest,
-      sidecarrpc.CheckTransactionResponse.AsObject
+      sidecarrpc.CheckTransactionResponse
     >('checkTransaction', req);
   };
 
   public estimateFee = async (symbol: string) => {
-    const req = new sidecarrpc.EstimateFeeRequest();
-    req.setSymbol(symbol);
+    const req: sidecarrpc.EstimateFeeRequest = {
+      symbol,
+    };
 
     const res = await this.unaryNodeCall<
       sidecarrpc.EstimateFeeRequest,
-      sidecarrpc.EstimateFeeResponse.AsObject
+      sidecarrpc.EstimateFeeResponse
     >('estimateFee', req);
-    return res.estimate;
+    return fromProtoInt(res.estimate);
   };
 
   private sendWebHook = async (swapId: string, status: SwapUpdateEvent) => {
-    const req = new sidecarrpc.SendWebHookRequest();
-    req.setId(swapId);
-    req.setStatus(status);
+    const req: sidecarrpc.SendWebHookRequest = {
+      id: swapId,
+      status,
+    };
 
     try {
       const res = await this.unaryNodeCall<
         sidecarrpc.SendWebHookRequest,
         sidecarrpc.SendWebHookResponse
-      >('sendWebHook', req, false);
-      return res.getOk();
+      >('sendWebHook', req);
+      return res.ok;
     } catch (e) {
       // Ignore not found errors
       if ((e as any).code === Status.NOT_FOUND) {
@@ -627,20 +605,17 @@ class Sidecar extends BaseClient<
       this.subscribeBlockAddedCall.cancel();
     }
 
-    this.subscribeBlockAddedCall = this.client!.blockAdded(
-      new sidecarrpc.BlockAddedRequest(),
-      this.clientMeta,
-    );
+    this.subscribeBlockAddedCall = this.client!.blockAdded({}, this.clientMeta);
 
     this.subscribeBlockAddedCall.on('data', async (block: sidecarrpc.Block) => {
-      const hash = Buffer.from(block.getHash_asU8());
+      const hash = block.hash;
       this.logger.debug(
-        `Got ${block.getSymbol()} block ${block.getHeight()} (${getHexString(hash)}) from sidecar`,
+        `Got ${block.symbol} block ${block.height} (${getHexString(hash)}) from sidecar`,
       );
 
       this.emit('block', {
-        height: block.getHeight(),
-        symbol: block.getSymbol(),
+        height: fromProtoInt(block.height),
+        symbol: block.symbol,
         hash,
       });
     });
@@ -664,7 +639,7 @@ class Sidecar extends BaseClient<
     }
 
     this.subscribeRelevantTransactionCall = this.client!.transactionFound(
-      new sidecarrpc.RelevantTransactionRequest(),
+      {},
       this.clientMeta,
     );
 
@@ -683,11 +658,11 @@ class Sidecar extends BaseClient<
       'data',
       async (transaction: sidecarrpc.RelevantTransaction) => {
         const currencyType =
-          transaction.getSymbol() === ElementsClient.symbol
+          transaction.symbol === ElementsClient.symbol
             ? CurrencyType.Liquid
             : CurrencyType.BitcoinLike;
 
-        const status = parseStatus(transaction.getStatus());
+        const status = parseStatus(transaction.status);
 
         // Ignore unsafe 0-conf Liquid transaction
         if (
@@ -698,13 +673,10 @@ class Sidecar extends BaseClient<
         }
 
         this.emit('transaction', {
-          symbol: transaction.getSymbol(),
-          transaction: parseTransaction(
-            currencyType,
-            Buffer.from(transaction.getTransaction_asU8()),
-          ),
+          symbol: transaction.symbol,
+          transaction: parseTransaction(currencyType, transaction.transaction),
           status,
-          swapIds: transaction.getSwapIdsList(),
+          swapIds: transaction.swapIds,
         });
       },
     );
@@ -760,15 +732,8 @@ class Sidecar extends BaseClient<
   private unaryNodeCall = <T, U>(
     methodName: keyof BoltzRClient,
     params: T,
-    toObject = true,
   ): Promise<U> => {
-    return unaryCall(
-      this.client!,
-      methodName,
-      params,
-      this.clientMeta,
-      toObject,
-    );
+    return unaryCall(this.client!, methodName, params, this.clientMeta);
   };
 
   private static trimDirtySuffix = (version: string): string =>

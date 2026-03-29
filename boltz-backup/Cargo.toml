@@ -11,7 +11,7 @@ boltz-utils = { path = "../boltz-utils" }
 aws-sdk-s3 = "1.127.0"
 bytes = { workspace = true }
 chrono = { workspace = true }
-cron = "0.15.0"
+cron = "0.16.0"
 dashmap = { workspace = true }
 flate2 = "1.1.9"
 futures = { workspace = true }

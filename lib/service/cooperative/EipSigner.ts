@@ -17,6 +17,7 @@ import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import CommitmentRepository from '../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
+import { Signer } from '../../proto/boltzrpc_pb';
 import type Sidecar from '../../sidecar/Sidecar';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
@@ -30,6 +31,8 @@ import {
   queryEtherSwapValuesFromTransaction,
 } from '../../wallet/ethereum/contracts/ContractUtils';
 import Errors from '../Errors';
+import type SignerControlRegistry from '../SignerControlRegistry';
+import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import MusigSigner from './MusigSigner';
 
 export type RefundSignatureLock = <T>(cb: () => Promise<T>) => Promise<T>;
@@ -56,6 +59,7 @@ class EipSigner {
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     private readonly sidecar: Sidecar,
+    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {}
 
   public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
@@ -63,6 +67,16 @@ class EipSigner {
 
   public signSwapRefund = async (swapIdOrPreimageHash: string) =>
     this.refundSignatureLock(async () => {
+      if (
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_EVM_REFUND_COOPERATIVE,
+        )
+      ) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          cooperativeSignaturesDisabledMessage,
+        );
+      }
+
       const { swap, chainSymbol, lightningCurrency } =
         await this.getSwap(swapIdOrPreimageHash);
       const manager = this.walletManager.ethereumManagers.find((man) =>
@@ -156,6 +170,16 @@ class EipSigner {
     logIndex?: number,
   ) =>
     this.refundSignatureLock(async () => {
+      if (
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
+        )
+      ) {
+        throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          cooperativeSignaturesDisabledMessage,
+        );
+      }
+
       const manager = this.walletManager.ethereumManagers.find((man) =>
         man.hasSymbol(chainSymbol),
       );

@@ -42,7 +42,9 @@ import type { ChainSwapInfo } from '../../../../lib/db/repositories/ChainSwapRep
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
+import { Signer } from '../../../../lib/proto/boltzrpc_pb';
 import Errors from '../../../../lib/service/Errors';
+import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import ChainSwapSigner from '../../../../lib/service/cooperative/ChainSwapSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import * as Utils from '../../../../lib/service/cooperative/Utils';
@@ -107,6 +109,7 @@ describe('ChainSwapSigner', () => {
   } as WalletManager;
 
   let signer: ChainSwapSigner;
+  let signerControlRegistry: SignerControlRegistry;
 
   beforeAll(async () => {
     await setup();
@@ -121,6 +124,8 @@ describe('ChainSwapSigner', () => {
   });
 
   beforeEach(() => {
+    signerControlRegistry = SignerControlRegistry.getInstance();
+    signerControlRegistry.reset();
     signer = new ChainSwapSigner(
       Logger.disabledLogger,
       new Map<string, Currency>([
@@ -129,6 +134,7 @@ describe('ChainSwapSigner', () => {
       ]),
       walletManager,
       new SwapOutputType(OutputType.Bech32),
+      signerControlRegistry,
     );
   });
 
@@ -369,7 +375,9 @@ describe('ChainSwapSigner', () => {
         },
       });
 
-      signer.setDisableCooperative(true);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+      ]);
 
       await expect(
         signer.signRefund('asdf', Buffer.alloc(0), Buffer.alloc(0), 0),
@@ -429,6 +437,7 @@ describe('ChainSwapSigner', () => {
         ]),
         walletManager,
         new SwapOutputType(OutputType.Bech32),
+        signerControlRegistry,
       );
     });
 
@@ -474,7 +483,9 @@ describe('ChainSwapSigner', () => {
         },
       });
 
-      signerWithArk.setDisableCooperative(true);
+      signerControlRegistry.disableSigners([
+        Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+      ]);
 
       await expect(
         signerWithArk.signRefundArk('asdf', 'transaction', 'checkpoint'),

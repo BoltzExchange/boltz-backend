@@ -13,10 +13,12 @@ import type Swap from '../../db/models/Swap';
 import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
+import { Signer } from '../../proto/boltzrpc_pb';
 import type SwapOutputType from '../../swap/SwapOutputType';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
+import type SignerControlRegistry from '../SignerControlRegistry';
 import type {
   CooperativeClientDetails,
   CooperativeDetails,
@@ -53,20 +55,16 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
 
   private readonly lock = new AsyncLock();
   private readonly swapsToClaim = new Map<string, SwapToClaim<ChainSwapInfo>>();
-  private disableCooperative = false;
 
   constructor(
     logger: Logger,
     private readonly currencies: Map<string, Currency>,
     walletManager: WalletManager,
     swapOutputType: SwapOutputType,
+    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {
     super(logger, walletManager, swapOutputType);
   }
-
-  public setDisableCooperative = (disabled: boolean) => {
-    this.disableCooperative = disabled;
-  };
 
   public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
     this.lock.acquire(ChainSwapSigner.refundSignatureLock, cb);
@@ -107,7 +105,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
         throw Errors.CURRENCY_NOT_UTXO_BASED();
       }
 
-      if (this.disableCooperative) {
+      if (
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+        )
+      ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           cooperativeSignaturesDisabledMessage,
         );
@@ -166,7 +168,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
         );
       }
 
-      if (this.disableCooperative) {
+      if (
+        this.signerControlRegistry?.isDisabled(
+          Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
+        )
+      ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
           cooperativeSignaturesDisabledMessage,
         );
@@ -233,7 +239,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   public getCooperativeDetails = async (
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
-    if (this.disableCooperative) {
+    if (
+      this.signerControlRegistry?.isDisabled(
+        Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
+      )
+    ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
         cooperativeSignaturesDisabledMessage,
       );
@@ -271,7 +281,11 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     return await this.lock.acquire(
       ChainSwapSigner.cooperativeBroadcastLock,
       async () => {
-        if (this.disableCooperative) {
+        if (
+          this.signerControlRegistry?.isDisabled(
+            Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
+          )
+        ) {
           throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
             cooperativeSignaturesDisabledMessage,
           );

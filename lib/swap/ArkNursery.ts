@@ -1,4 +1,5 @@
 import { RawWitness, type Transaction } from '@scure/btc-signer';
+import AsyncLock from 'async-lock';
 import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
@@ -60,6 +61,8 @@ class ArkNursery extends TypedEventEmitter<{
     'condition',
     'utf-8',
   );
+
+  private readonly lock = new AsyncLock();
 
   constructor(
     private readonly logger: Logger,
@@ -179,10 +182,12 @@ class ArkNursery extends TypedEventEmitter<{
 
   private bindEvents = (arkNode: ArkClient) => {
     arkNode.on('vhtlc.created', async (vHtlc) => {
-      await Promise.all([
-        this.checkSubmarineLockup(arkNode, vHtlc),
-        this.checkChainSwapLockup(arkNode, vHtlc),
-      ]);
+      await this.lock.acquire(`vhtlc.created:${vHtlc.address}`, async () => {
+        await Promise.all([
+          this.checkSubmarineLockup(arkNode, vHtlc),
+          this.checkChainSwapLockup(arkNode, vHtlc),
+        ]);
+      });
     });
 
     arkNode.on('vhtlc.spent', async (vHtlc) => {

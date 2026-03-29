@@ -17,6 +17,7 @@ import { unaryCall } from '../lightning/GrpcUtils';
 import { NotificationServiceClient } from '../proto/ark/notification_grpc_pb';
 import { ServiceClient } from '../proto/ark/service_grpc_pb';
 import * as arkrpc from '../proto/ark/service_pb';
+import * as arktypes from '../proto/ark/types_pb';
 import { WalletServiceClient } from '../proto/ark/wallet_grpc_pb';
 import * as walletrpc from '../proto/ark/wallet_pb';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
@@ -46,6 +47,11 @@ export type Timeouts = {
   unilateralClaim: number;
   unilateralRefund: number;
   unilateralRefundWithoutReceiver: number;
+};
+
+type Outpoint = {
+  txId: string;
+  vout: number;
 };
 
 // All values in blocks
@@ -519,16 +525,22 @@ class ArkClient extends BaseClient<
     preimage: Buffer,
     senderPubkey: Buffer,
     receiverPubkey: Buffer,
+    outpoint: Outpoint,
     label: string,
   ): Promise<string> => {
     const req = new arkrpc.ClaimVHTLCRequest();
     req.setPreimage(getHexString(preimage));
-    req.setVhtlcId(
-      ArkClient.createVhtlcId(
-        crypto.sha256(preimage),
-        senderPubkey,
-        receiverPubkey,
-      ),
+
+    const vhtlcId = ArkClient.createVhtlcId(
+      crypto.sha256(preimage),
+      senderPubkey,
+      receiverPubkey,
+    );
+    req.setVhtlcId(vhtlcId);
+    req.setOutpoint(this.createOutpoint(outpoint));
+
+    this.logger.debug(
+      `Claiming vHTLC ${vhtlcId} outpoint: ${outpoint.txId}:${outpoint.vout}`,
     );
 
     const res = await this.unaryCall<
@@ -551,11 +563,20 @@ class ArkClient extends BaseClient<
     preimageHash: Buffer,
     senderPubkey: Buffer,
     receiverPubkey: Buffer,
+    outpoint: Outpoint,
     label: string,
   ) => {
     const req = new arkrpc.RefundVHTLCWithoutReceiverRequest();
-    req.setVhtlcId(
-      ArkClient.createVhtlcId(preimageHash, senderPubkey, receiverPubkey),
+    const vhtlcId = ArkClient.createVhtlcId(
+      preimageHash,
+      senderPubkey,
+      receiverPubkey,
+    );
+    req.setVhtlcId(vhtlcId);
+    req.setOutpoint(this.createOutpoint(outpoint));
+
+    this.logger.debug(
+      `Refunding vHTLC ${vhtlcId} outpoint: ${outpoint.txId}:${outpoint.vout}`,
     );
 
     const res = await this.unaryCall<
@@ -645,6 +666,14 @@ class ArkClient extends BaseClient<
       this.meta,
       asObject,
     );
+  };
+
+  private createOutpoint = (outpoint: Outpoint) => {
+    const input = new arktypes.Input();
+    input.setTxid(outpoint.txId);
+    input.setVout(outpoint.vout);
+
+    return input;
   };
 }
 

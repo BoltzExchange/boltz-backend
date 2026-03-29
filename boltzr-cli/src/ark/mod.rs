@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bitcoin::OutPoint;
 use tonic::transport::Channel;
 
 #[allow(dead_code)]
@@ -39,10 +40,22 @@ impl ArkClient {
         Ok(Self { client })
     }
 
-    pub async fn claim_vhtlc(&mut self, preimage: String, vhtlc_id: String) -> Result<String> {
+    pub async fn claim_vhtlc(
+        &mut self,
+        preimage: String,
+        vhtlc_id: String,
+        outpoint: Option<OutPoint>,
+    ) -> Result<String> {
         let response = self
             .client
-            .claim_vhtlc(ark_rpc::ClaimVhtlcRequest { preimage, vhtlc_id })
+            .claim_vhtlc(ark_rpc::ClaimVhtlcRequest {
+                preimage,
+                vhtlc_id,
+                outpoint: outpoint.map(|outpoint| ark_rpc::Input {
+                    txid: outpoint.txid.to_string(),
+                    vout: outpoint.vout,
+                }),
+            })
             .await?;
         Ok(response.into_inner().redeem_txid)
     }

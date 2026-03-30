@@ -575,6 +575,11 @@ export class ClaimVHTLCRequest extends jspb.Message {
     getPreimage(): string;
     setPreimage(value: string): ClaimVHTLCRequest;
 
+    hasOutpoint(): boolean;
+    clearOutpoint(): void;
+    getOutpoint(): ark_types_pb.Input | undefined;
+    setOutpoint(value?: ark_types_pb.Input): ClaimVHTLCRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClaimVHTLCRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ClaimVHTLCRequest): ClaimVHTLCRequest.AsObject;
@@ -589,6 +594,7 @@ export namespace ClaimVHTLCRequest {
     export type AsObject = {
         vhtlcId: string,
         preimage: string,
+        outpoint?: ark_types_pb.Input.AsObject,
     }
 }
 
@@ -616,6 +622,11 @@ export class RefundVHTLCWithoutReceiverRequest extends jspb.Message {
     getVhtlcId(): string;
     setVhtlcId(value: string): RefundVHTLCWithoutReceiverRequest;
 
+    hasOutpoint(): boolean;
+    clearOutpoint(): void;
+    getOutpoint(): ark_types_pb.Input | undefined;
+    setOutpoint(value?: ark_types_pb.Input): RefundVHTLCWithoutReceiverRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RefundVHTLCWithoutReceiverRequest.AsObject;
     static toObject(includeInstance: boolean, msg: RefundVHTLCWithoutReceiverRequest): RefundVHTLCWithoutReceiverRequest.AsObject;
@@ -629,6 +640,7 @@ export class RefundVHTLCWithoutReceiverRequest extends jspb.Message {
 export namespace RefundVHTLCWithoutReceiverRequest {
     export type AsObject = {
         vhtlcId: string,
+        outpoint?: ark_types_pb.Input.AsObject,
     }
 }
 
@@ -666,6 +678,11 @@ export class SettleVHTLCRequest extends jspb.Message {
     getRefund(): RefundPath | undefined;
     setRefund(value?: RefundPath): SettleVHTLCRequest;
 
+    hasOutpoint(): boolean;
+    clearOutpoint(): void;
+    getOutpoint(): ark_types_pb.Input | undefined;
+    setOutpoint(value?: ark_types_pb.Input): SettleVHTLCRequest;
+
     getSettlementTypeCase(): SettleVHTLCRequest.SettlementTypeCase;
 
     serializeBinary(): Uint8Array;
@@ -683,6 +700,7 @@ export namespace SettleVHTLCRequest {
         vhtlcId: string,
         claim?: ClaimPath.AsObject,
         refund?: RefundPath.AsObject,
+        outpoint?: ark_types_pb.Input.AsObject,
     }
 
     export enum SettlementTypeCase {

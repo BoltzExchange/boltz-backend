@@ -197,6 +197,8 @@ enum ArkCommands {
         sender_pubkey: bitcoin::secp256k1::PublicKey,
         #[arg(value_parser = parsers::parse_public_key)]
         receiver_pubkey: bitcoin::secp256k1::PublicKey,
+        #[arg(long, value_parser = parsers::parse_bitcoin_outpoint)]
+        outpoint: Option<bitcoin::OutPoint>,
     },
 }
 
@@ -711,6 +713,7 @@ async fn run_command(cli: Cli) -> Result<()> {
                 preimage,
                 sender_pubkey,
                 receiver_pubkey,
+                outpoint,
             } => {
                 let mut client = ArkClient::new(&fulmine_host, fulmine_port).await?;
                 let response = client
@@ -721,6 +724,7 @@ async fn run_command(cli: Cli) -> Result<()> {
                             &sender_pubkey.serialize(),
                             &receiver_pubkey.serialize(),
                         ),
+                        *outpoint,
                     )
                     .await?;
                 println!("{}", response);

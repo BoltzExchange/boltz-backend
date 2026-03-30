@@ -1,5 +1,5 @@
 use alloy::primitives::{Address, FixedBytes, U256};
-use bitcoin::secp256k1::PublicKey;
+use bitcoin::{OutPoint, secp256k1::PublicKey};
 use clap::ValueEnum;
 use std::str::FromStr;
 
@@ -114,6 +114,10 @@ pub fn parse_alloy_address(address: &str) -> Result<Address, String> {
 pub fn parse_public_key(public_key: &str) -> Result<PublicKey, String> {
     let bytes = alloy::hex::decode(public_key).map_err(|e| format!("invalid hex: {e}"))?;
     PublicKey::from_slice(&bytes).map_err(|e| format!("invalid public key: {e}"))
+}
+
+pub fn parse_bitcoin_outpoint(outpoint: &str) -> Result<OutPoint, String> {
+    OutPoint::from_str(outpoint).map_err(|e| format!("invalid outpoint: {e}"))
 }
 
 pub fn parse_signature(signature: &str) -> Result<alloy::signers::Signature, String> {
@@ -308,6 +312,35 @@ mod tests {
             expected_prefix,
             err
         );
+    }
+
+    #[rstest]
+    #[case(
+        "0000000000000000000000000000000000000000000000000000000000000000:0",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        0
+    )]
+    #[case(
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff:42",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        42
+    )]
+    fn test_parse_bitcoin_outpoint_valid(
+        #[case] input: &str,
+        #[case] expected_txid: &str,
+        #[case] expected_vout: u32,
+    ) {
+        let outpoint = parse_bitcoin_outpoint(input).unwrap();
+        assert_eq!(outpoint.txid.to_string(), expected_txid);
+        assert_eq!(outpoint.vout, expected_vout);
+    }
+
+    #[rstest]
+    #[case("not-an-outpoint")]
+    #[case("0000000000000000000000000000000000000000000000000000000000000000")]
+    #[case("0000000000000000000000000000000000000000000000000000000000000000:not-a-vout")]
+    fn test_parse_bitcoin_outpoint_invalid(#[case] input: &str) {
+        assert!(parse_bitcoin_outpoint(input).is_err());
     }
 
     #[rstest]

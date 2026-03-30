@@ -289,6 +289,8 @@ message CreateVHTLCResponse {
 message ClaimVHTLCRequest {
   string vhtlc_id = 1;
   string preimage = 2;
+  // Optional outpoint to target a specific VTXO when multiple VTXOs exist at the same VHTLC address.
+  Input outpoint = 3;
 }
 message ClaimVHTLCResponse {
   string redeem_txid = 1;
@@ -296,6 +298,8 @@ message ClaimVHTLCResponse {
 
 message RefundVHTLCWithoutReceiverRequest {
   string vhtlc_id = 1;
+  // Optional outpoint to target a specific VTXO when multiple VTXOs exist at the same VHTLC address.
+  Input outpoint = 2;
 }
 message RefundVHTLCWithoutReceiverResponse {
   string redeem_txid = 1;
@@ -307,6 +311,8 @@ message SettleVHTLCRequest {
     ClaimPath claim = 2;
     RefundPath refund = 3;
   }
+  // Optional outpoint to target a specific VTXO when multiple VTXOs exist at the same VHTLC address.
+  Input outpoint = 4;
 }
 
 message ClaimPath {

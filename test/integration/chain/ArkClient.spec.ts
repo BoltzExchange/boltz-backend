@@ -114,6 +114,26 @@ describe('ArkClient', () => {
     );
 
     const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
+    await arkClient.subscription.subscribeAddresses([
+      {
+        address: vHtlc.address,
+        vHtlcId: vHtlc.id,
+      },
+    ]);
+
+    const createdPromise = new Promise<{ txId: string; vout: number }>(
+      (resolve) => {
+        arkClient.subscription.on('vhtlc.created', (event) => {
+          if (event.address === vHtlc.address) {
+            resolve({
+              txId: event.txId,
+              vout: event.vout,
+            });
+            arkClient.subscription.removeAllListeners('vhtlc.created');
+          }
+        });
+      },
+    );
 
     const amount = 1000;
     await arkClient.sendOffchain(vHtlc.address, amount, 'lockup');
@@ -122,12 +142,17 @@ describe('ArkClient', () => {
       return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
     });
 
+    const created = await createdPromise;
     const info = await arkClient.getInfo();
     const label = 'claim';
     const claimTxId = await arkClient.claimVHtlc(
       preimage,
       refundPublicKey,
       getHexBuffer(info.pubkey),
+      {
+        txId: created.txId,
+        vout: created.vout,
+      },
       label,
     );
     expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(
@@ -159,6 +184,26 @@ describe('ArkClient', () => {
     );
 
     const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
+    await arkClient.subscription.subscribeAddresses([
+      {
+        address: vHtlc.address,
+        vHtlcId: vHtlc.id,
+      },
+    ]);
+
+    const createdPromise = new Promise<{ txId: string; vout: number }>(
+      (resolve) => {
+        arkClient.subscription.on('vhtlc.created', (event) => {
+          if (event.address === vHtlc.address) {
+            resolve({
+              txId: event.txId,
+              vout: event.vout,
+            });
+            arkClient.subscription.removeAllListeners('vhtlc.created');
+          }
+        });
+      },
+    );
 
     const amount = 1000;
     await arkClient.sendOffchain(vHtlc.address, amount, 'lockup');
@@ -167,11 +212,16 @@ describe('ArkClient', () => {
       return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
     });
 
+    const created = await createdPromise;
     const label = 'refund';
     const refundTxId = await arkClient.refundVHtlc(
       crypto.sha256(preimage),
       refundPublicKey,
       claimPublicKey,
+      {
+        txId: created.txId,
+        vout: created.vout,
+      },
       label,
     );
     expect(TransactionLabelRepository.addLabel).toHaveBeenCalledWith(

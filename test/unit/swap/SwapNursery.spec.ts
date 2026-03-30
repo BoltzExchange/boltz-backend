@@ -945,6 +945,213 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('ark swap.lockup', () => {
+    const mockArkNode = {} as any;
+
+    let baseMockSwap: any;
+    let mockPayInvoice: jest.SpyInstance;
+    let mockClaimVtxo: jest.SpyInstance;
+    let mockSetSwapRate: jest.SpyInstance;
+
+    beforeEach(async () => {
+      baseMockSwap = {
+        id: 'test-ark-swap-id',
+        type: SwapType.Submarine,
+        pair: 'BTC/BTC',
+        orderSide: OrderSide.BUY,
+        createdRefundSignature: false,
+        invoice: 'lnbc123...',
+        status: SwapUpdateEvent.TransactionConfirmed,
+      };
+
+      mockPayInvoice = jest
+        .spyOn(swapNursery as any, 'payInvoice')
+        .mockResolvedValue({
+          preimage: Buffer.from('preimage'),
+        });
+      mockClaimVtxo = jest
+        .spyOn(swapNursery as any, 'claimVtxo')
+        .mockResolvedValue(undefined);
+      mockSetSwapRate = jest
+        .spyOn(swapNursery as any, 'setSwapRate')
+        .mockResolvedValue(undefined);
+      jest.spyOn(swapNursery, 'emit');
+
+      (mockCurrency as any).arkNode = mockArkNode;
+
+      await swapNursery.init([mockCurrency]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      delete (mockCurrency as any).arkNode;
+    });
+
+    test('should process the first ARK lockup notification', async () => {
+      mockGetSwapResult = baseMockSwap;
+
+      const eventPromise = new Promise<void>((resolve) => {
+        swapNursery.once('transaction', ({ swap, transaction, confirmed }) => {
+          expect(swap).toEqual(baseMockSwap);
+          expect(transaction).toEqual('ark-lockup-id');
+          expect(confirmed).toEqual(true);
+          resolve();
+        });
+      });
+
+      (swapNursery as any).arkNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        lockupTransactionId: 'ark-lockup-id',
+      });
+
+      await eventPromise;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockPayInvoice).toHaveBeenCalledWith(baseMockSwap);
+      expect(mockClaimVtxo).toHaveBeenCalledWith(
+        baseMockSwap,
+        mockArkNode,
+        Buffer.from('preimage'),
+      );
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+    });
+
+    test('should ignore duplicate ARK lockup notifications after processing started', async () => {
+      mockGetSwapResult = {
+        ...baseMockSwap,
+        status: SwapUpdateEvent.TransactionClaimed,
+      };
+
+      (swapNursery as any).arkNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        lockupTransactionId: 'ark-lockup-id',
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('already being processed'),
+      );
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+      expect(mockClaimVtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+
+    test('should prevent invoice payment when refund signing already started', async () => {
+      mockGetSwapResult = {
+        ...baseMockSwap,
+        createdRefundSignature: true,
+      };
+
+      (swapNursery as any).arkNursery.emit('swap.lockup', {
+        swap: baseMockSwap,
+        lockupTransactionId: 'ark-lockup-id',
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(SwapRepository.getSwap).toHaveBeenCalledWith({
+        id: baseMockSwap.id,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('already signed a refund'),
+      );
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+      expect(mockClaimVtxo).not.toHaveBeenCalled();
+      expect(mockSetSwapRate).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('claimVtxo', () => {
+    const mockArkClient = {
+      claimVHtlc: jest.fn().mockResolvedValue('ark-claim-tx'),
+      pubkey: Buffer.from('03'.repeat(33), 'hex'),
+      symbol: 'ARK',
+    } as any;
+
+    beforeEach(() => {
+      (SwapRepository.setMinerFee as jest.Mock).mockResolvedValue({});
+      (ChainSwapRepository.setClaimMinerFee as jest.Mock).mockResolvedValue({});
+      jest.spyOn(swapNursery, 'emit');
+    });
+
+    test('should pass lockup outpoint when claiming submarine ARK swaps', async () => {
+      const swap = {
+        id: 'submarine-ark-swap',
+        type: SwapType.Submarine,
+        theirRefundPublicKey: '02'.repeat(33),
+        lockupTransactionId: 'submarine-lockup-tx',
+        lockupTransactionVout: 4,
+      } as any;
+
+      await (swapNursery as any).claimVtxo(
+        swap,
+        mockArkClient,
+        Buffer.from('preimage'),
+      );
+
+      expect(mockArkClient.claimVHtlc).toHaveBeenCalledWith(
+        Buffer.from('preimage'),
+        Buffer.from('02'.repeat(33), 'hex'),
+        mockArkClient.pubkey,
+        {
+          txId: 'submarine-lockup-tx',
+          vout: 4,
+        },
+        expect.any(String),
+      );
+      expect(SwapRepository.setMinerFee).toHaveBeenCalledWith(swap, 0);
+    });
+
+    test('should pass receiving outpoint when claiming chain ARK swaps', async () => {
+      const swap = {
+        id: 'chain-ark-swap',
+        type: SwapType.Chain,
+        theirRefundPublicKey: '02'.repeat(33),
+        receivingData: {
+          transactionId: 'chain-lockup-tx',
+          transactionVout: 7,
+        },
+      } as unknown as ChainSwapInfo;
+
+      await (swapNursery as any).claimVtxo(
+        swap,
+        mockArkClient,
+        Buffer.from('preimage'),
+      );
+
+      expect(mockArkClient.claimVHtlc).toHaveBeenCalledWith(
+        Buffer.from('preimage'),
+        Buffer.from('02'.repeat(33), 'hex'),
+        mockArkClient.pubkey,
+        {
+          txId: 'chain-lockup-tx',
+          vout: 7,
+        },
+        expect.any(String),
+      );
+      expect(ChainSwapRepository.setClaimMinerFee).toHaveBeenCalledWith(
+        swap,
+        Buffer.from('preimage'),
+        0,
+      );
+    });
+  });
+
   describe('ark swap.expired', () => {
     const mockExpiredSwap = {
       id: 'ark-submarine-swap',

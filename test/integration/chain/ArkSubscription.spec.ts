@@ -154,14 +154,27 @@ describe('ArkSubscription', () => {
 
       const amount = 10_000;
       const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
+      const createdPromise = new Promise<CreatedVHtlc>((resolve) => {
+        arkClient.subscription.on('vhtlc.created', (event) => {
+          if (event.address === vHtlc.vHtlc.address) {
+            resolve(event);
+            arkClient.subscription.removeAllListeners('vhtlc.created');
+          }
+        });
+      });
       await arkClient.sendOffchain(vHtlc.vHtlc.address, amount, 'test');
       await waitForFunctionToBeTrue(async () => {
         return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
       });
+      const created = await createdPromise;
       await arkClient.claimVHtlc(
         vHtlc.preimage,
         arkClient.pubkey,
         arkClient.pubkey,
+        {
+          txId: created.txId,
+          vout: created.vout,
+        },
         'test',
       );
 
@@ -209,23 +222,37 @@ describe('ArkSubscription', () => {
 
       const amount = 10_000;
       const balanceBefore = (await arkClient.getBalance()).confirmedBalance;
-      await arkClient.sendOffchain(vHtlc.vHtlc.address, amount, 'test');
-      await waitForFunctionToBeTrue(async () => {
-        return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
-      });
-      await arkClient.claimVHtlc(
-        vHtlc.preimage,
-        arkClient.pubkey,
-        arkClient.pubkey,
-        'test',
-      );
-
       await arkClient.subscription.subscribeAddresses([
         {
           address: vHtlc.vHtlc.address,
           vHtlcId: vHtlc.vHtlc.id,
         },
       ]);
+
+      const createdPromise = new Promise<CreatedVHtlc>((resolve) => {
+        arkClient.subscription.on('vhtlc.created', (event) => {
+          if (event.address === vHtlc.vHtlc.address) {
+            resolve(event);
+            arkClient.subscription.removeAllListeners('vhtlc.created');
+          }
+        });
+      });
+
+      await arkClient.sendOffchain(vHtlc.vHtlc.address, amount, 'test');
+      await waitForFunctionToBeTrue(async () => {
+        return (await arkClient.getBalance()).confirmedBalance < balanceBefore;
+      });
+      const created = await createdPromise;
+      await arkClient.claimVHtlc(
+        vHtlc.preimage,
+        arkClient.pubkey,
+        arkClient.pubkey,
+        {
+          txId: created.txId,
+          vout: created.vout,
+        },
+        'test',
+      );
 
       const emitPromise = new Promise<SpentVHtlc>((resolve) => {
         arkClient.subscription.once('vhtlc.spent', (vHtlc) => {

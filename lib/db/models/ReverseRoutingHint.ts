@@ -1,8 +1,8 @@
 import type { Network } from 'bitcoinjs-lib';
-import type { CurrencyType } from 'lib/consts/Enums';
 import type { Sequelize } from 'sequelize';
 import { DataTypes, Model } from 'sequelize';
 import { fromOutputScript } from '../../Core';
+import type { CurrencyType } from '../../consts/Enums';
 import ReverseSwap from './ReverseSwap';
 
 type ReverseRoutingHintsType = {

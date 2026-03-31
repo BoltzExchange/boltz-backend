@@ -1,9 +1,9 @@
-import type { NodeType } from 'lib/db/models/ReverseSwap';
 import type { Job } from 'node-schedule';
 import { scheduleJob } from 'node-schedule';
 import type { CurrencyConfig } from '../Config';
 import type Logger from '../Logger';
 import { stringify } from '../Utils';
+import type { NodeType } from '../db/models/ReverseSwap';
 import type {
   ChannelInfo,
   NodeInfo as INodeInfo,

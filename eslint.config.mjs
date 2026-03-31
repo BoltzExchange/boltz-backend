@@ -13,6 +13,7 @@ export default [
       'dist',
       'tools',
       '.venv',
+      'target',
       'regtest',
       'lib/proto',
       'contracts',

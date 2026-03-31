@@ -5,7 +5,7 @@ import { Transaction } from '@scure/btc-signer';
 import type {
   TransactionInput,
   TransactionOutput,
-} from '@scure/btc-signer/psbt';
+} from '@scure/btc-signer/psbt.js';
 import { crypto } from 'bitcoinjs-lib';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';

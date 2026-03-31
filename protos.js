@@ -23,6 +23,11 @@ const googleApiFiles = [
   path.join(googleApisPath, 'google/api/annotations.proto'),
   path.join(googleApisPath, 'google/api/http.proto'),
 ];
+const protoDependencies = [
+  ['google-proto-files', googleApisPath],
+  ['grpc-tools', protocPath],
+  ['ts-proto', protocGenTsProtoPath],
+];
 
 const baseTsProtoOptions = [
   'emitImportedFiles=false',
@@ -33,6 +38,21 @@ const baseTsProtoOptions = [
 ];
 
 const tsProtoOptions = baseTsProtoOptions.join(',');
+
+const getMissingProtoDependencies = () =>
+  protoDependencies.filter(
+    ([, dependencyPath]) => !fs.existsSync(dependencyPath),
+  );
+
+const areDevDependenciesOmitted = () => {
+  const omittedDependencies = new Set(
+    (process.env.npm_config_omit || '')
+      .split(/[,\s]+/)
+      .filter((value) => value !== ''),
+  );
+
+  return omittedDependencies.has('dev');
+};
 
 const getProtoFiles = (dir) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -86,46 +106,68 @@ const patchGeneratedFiles = () => {
   fs.writeFileSync(clnNodePath, patchedContent);
 };
 
-const protoJobs = [
-  {
-    files: getProtoFiles(protoDir).filter(
-      (file) => !file.startsWith(path.join(protoDir, 'cln')),
-    ),
-    outputDir: libDir,
-    protoPaths: [protoDir, protoDirSidecar, googleApisPath],
-  },
-  {
-    files: getProtoFiles(path.join(protoDir, 'cln')),
-    outputDir: libDir,
-    protoPaths: [protoDir, googleApisPath],
-  },
-  {
-    files: getProtoFiles(protoDirSidecar),
-    outputDir: libDir,
-    protoPaths: [protoDirSidecar, googleApisPath],
-  },
-  {
-    files: googleApiFiles,
-    outputDir: libDir,
-    protoPaths: [googleApisPath],
-  },
-  {
-    files: getProtoFiles(protoDirHold),
-    outputDir: path.join(libDir, 'hold'),
-    protoPaths: [protoDirHold, googleApisPath],
-  },
-];
+const main = () => {
+  const missingProtoDependencies = getMissingProtoDependencies();
 
-for (const job of protoJobs) {
-  try {
-    generateProtoFiles(job);
-  } catch (error) {
-    console.error(`Could not compile protobuf into ${job.outputDir}`);
-    console.error(error);
-    process.exitCode = 1;
+  if (missingProtoDependencies.length !== 0) {
+    const missingPackages = missingProtoDependencies
+      .map(([dependency]) => dependency)
+      .join(', ');
+    const message = `Missing protobuf generation dependencies: ${missingPackages}`;
+
+    if (areDevDependenciesOmitted()) {
+      console.warn(
+        `${message}; skipping protobuf generation because dev dependencies were omitted.`,
+      );
+      return;
+    }
+
+    throw new Error(message);
   }
-}
 
-if (process.exitCode !== 1) {
-  patchGeneratedFiles();
-}
+  const protoJobs = [
+    {
+      files: getProtoFiles(protoDir).filter(
+        (file) => !file.startsWith(path.join(protoDir, 'cln')),
+      ),
+      outputDir: libDir,
+      protoPaths: [protoDir, protoDirSidecar, googleApisPath],
+    },
+    {
+      files: getProtoFiles(path.join(protoDir, 'cln')),
+      outputDir: libDir,
+      protoPaths: [protoDir, googleApisPath],
+    },
+    {
+      files: getProtoFiles(protoDirSidecar),
+      outputDir: libDir,
+      protoPaths: [protoDirSidecar, googleApisPath],
+    },
+    {
+      files: googleApiFiles,
+      outputDir: libDir,
+      protoPaths: [googleApisPath],
+    },
+    {
+      files: getProtoFiles(protoDirHold),
+      outputDir: path.join(libDir, 'hold'),
+      protoPaths: [protoDirHold, googleApisPath],
+    },
+  ];
+
+  for (const job of protoJobs) {
+    try {
+      generateProtoFiles(job);
+    } catch (error) {
+      console.error(`Could not compile protobuf into ${job.outputDir}`);
+      console.error(error);
+      process.exitCode = 1;
+    }
+  }
+
+  if (process.exitCode !== 1) {
+    patchGeneratedFiles();
+  }
+};
+
+main();

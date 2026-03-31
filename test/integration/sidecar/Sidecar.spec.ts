@@ -1,6 +1,6 @@
 import { OrderSide, SwapUpdateEvent } from '../../../lib/consts/Enums';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
-import * as sidecarrpc from '../../../lib/proto/boltzr_pb';
+import type * as sidecarrpc from '../../../lib/proto/boltzr';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { clnClient } from '../Nodes';
 import { sidecar, startSidecar } from './Utils';
@@ -27,9 +27,10 @@ describe('Sidecar', () => {
     test(`should handle status ${SwapUpdateEvent.InvoiceFailedToPay}`, async () => {
       const id = 'failed';
 
-      const update = new sidecarrpc.SwapUpdate();
-      update.setId(id);
-      update.setStatus(SwapUpdateEvent.InvoiceFailedToPay);
+      const update: sidecarrpc.SwapUpdate = {
+        id,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+      };
 
       const swap = {
         id,
@@ -55,24 +56,26 @@ describe('Sidecar', () => {
     test(`should handle status ${SwapUpdateEvent.TransactionDirect}`, async () => {
       eventHandler.emit = jest.fn();
 
-      const update = new sidecarrpc.SwapUpdate();
-      update.setId('test-swap');
-      update.setStatus(SwapUpdateEvent.TransactionDirect);
-      const transactionInfo = new sidecarrpc.SwapUpdate.TransactionInfo();
-      transactionInfo.setId('txid');
-      transactionInfo.setHex('hex');
-      update.setTransactionInfo(transactionInfo as any);
+      const transactionInfo: sidecarrpc.SwapUpdate_TransactionInfo = {
+        id: 'txid',
+        hex: 'hex',
+      };
+      const update: sidecarrpc.SwapUpdate = {
+        id: 'test-swap',
+        status: SwapUpdateEvent.TransactionDirect,
+        transactionInfo,
+      };
 
       await sidecar['handleSentSwapUpdate'](update);
 
       expect(eventHandler.emit).toHaveBeenCalledTimes(1);
       expect(eventHandler.emit).toHaveBeenCalledWith('swap.update', {
-        id: update.getId(),
+        id: update.id,
         status: {
           status: SwapUpdateEvent.TransactionDirect,
           transaction: {
-            id: transactionInfo.getId(),
-            hex: transactionInfo.getHex(),
+            id: transactionInfo.id,
+            hex: transactionInfo.hex,
           },
         },
         skipCache: true,
@@ -86,9 +89,10 @@ describe('Sidecar', () => {
       ${SwapUpdateEvent.InvoiceExpired}
       ${SwapUpdateEvent.TransactionClaimPending}
     `('should ignore status $status', async ({ status }) => {
-      const update = new sidecarrpc.SwapUpdate();
-      update.setId('test');
-      update.setStatus(status);
+      const update: sidecarrpc.SwapUpdate = {
+        id: 'test',
+        status,
+      };
 
       await sidecar['handleSentSwapUpdate'](update);
     });

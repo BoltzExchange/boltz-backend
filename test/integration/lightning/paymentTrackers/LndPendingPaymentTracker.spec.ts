@@ -7,7 +7,7 @@ import { LightningPaymentStatus } from '../../../../lib/db/models/LightningPayme
 import LightningPaymentRepository from '../../../../lib/db/repositories/LightningPaymentRepository';
 import LndClient from '../../../../lib/lightning/LndClient';
 import LndPendingPaymentTracker from '../../../../lib/lightning/paymentTrackers/LndPendingPaymentTracker';
-import { PaymentFailureReason } from '../../../../lib/proto/lnd/rpc_pb';
+import { PaymentFailureReason } from '../../../../lib/proto/lnd/rpc';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
 import { wait } from '../../../Utils';
 import { createInvoice } from '../../../unit/swap/InvoiceUtils';

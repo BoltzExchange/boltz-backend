@@ -47,7 +47,7 @@ import LightningErrors from '../../../lib/lightning/Errors';
 import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RoutingFee from '../../../lib/lightning/RoutingFee';
-import type { CurrencyInfo } from '../../../lib/proto/boltzrpc_pb';
+import type { CurrencyInfo } from '../../../lib/proto/boltzrpc';
 import FeeProvider, { type SwapFees } from '../../../lib/rates/FeeProvider';
 import RateCalculator from '../../../lib/rates/RateCalculator';
 import Errors from '../../../lib/service/Errors';
@@ -947,7 +947,7 @@ describe('Service', () => {
   });
 
   test('should get info', async () => {
-    const info = (await service.getInfo()).toObject();
+    const info = await service.getInfo();
 
     expect(mockGetInfo).toHaveBeenCalledTimes(3);
     expect(mockGetNetworkInfo).toHaveBeenCalledTimes(3);
@@ -955,36 +955,29 @@ describe('Service', () => {
 
     expect(info.version.startsWith(packageJson.version)).toBeTruthy();
 
-    const btcEntry = info.chainsMap.find(([symbol]) => symbol === 'BTC');
-    expect(btcEntry).toBeDefined();
-
-    const [symbol, currency] = btcEntry as [string, CurrencyInfo.AsObject];
-
-    expect(symbol).toEqual('BTC');
+    const currency = info.chains.BTC as CurrencyInfo;
 
     expect(currency.chain).toEqual({
       ...(await mockGetNetworkInfo()),
       ...(await mockGetBlockchainInfo()),
+      blocks: String((await mockGetBlockchainInfo()).blocks),
+      connections: String((await mockGetNetworkInfo()).connections),
       error: '',
     });
 
     const lndInfo = await mockGetInfo();
 
-    expect(currency.lightningMap.length).toEqual(1);
-    expect(currency.lightningMap[0]).toEqual([
-      btcLndClient.id,
-      {
-        error: '',
-        version: lndInfo.version,
-        blockHeight: lndInfo.blockHeight,
-
-        channels: {
-          active: lndInfo.channels.active,
-          inactive: lndInfo.channels.inactive,
-          pending: lndInfo.channels.pending,
-        },
+    expect(Object.keys(currency.lightning)).toHaveLength(1);
+    expect(currency.lightning[btcLndClient.id]).toEqual({
+      error: '',
+      version: lndInfo.version,
+      blockHeight: String(lndInfo.blockHeight),
+      channels: {
+        active: lndInfo.channels.active,
+        inactive: lndInfo.channels.inactive,
+        pending: lndInfo.channels.pending,
       },
-    ]);
+    });
   });
 
   describe('listSwaps', () => {
@@ -1244,60 +1237,45 @@ describe('Service', () => {
 
   test('should get balance', async () => {
     const response = await service.getBalance();
-    const balances = response.getBalancesMap();
+    const balances = response.balances;
 
-    expect(balances.get('LTC')).toBeDefined();
-    expect(balances.get('BTC').toObject()).toEqual({
-      walletsMap: [
-        [
-          btcLndClient.id,
-          {
-            confirmed: lndBalance.confirmedBalance,
-            unconfirmed: lndBalance.unconfirmedBalance,
-          },
-        ],
-        [
-          'mockedCore',
-          {
-            confirmed: mockGetBalanceResult.confirmedBalance,
-            unconfirmed: mockGetBalanceResult.unconfirmedBalance,
-          },
-        ],
-      ],
-      lightningMap: [
-        [
-          btcLndClient.id,
-          {
-            local: channelBalance.localBalance,
-            remote: channelBalance.remoteBalance,
-          },
-        ],
-      ],
+    expect(balances.LTC).toBeDefined();
+    expect(balances.BTC).toEqual({
+      wallets: {
+        [btcLndClient.id]: {
+          confirmed: String(lndBalance.confirmedBalance),
+          unconfirmed: String(lndBalance.unconfirmedBalance),
+        },
+        mockedCore: {
+          confirmed: String(mockGetBalanceResult.confirmedBalance),
+          unconfirmed: String(mockGetBalanceResult.unconfirmedBalance),
+        },
+      },
+      lightning: {
+        [btcLndClient.id]: {
+          local: String(channelBalance.localBalance),
+          remote: String(channelBalance.remoteBalance),
+        },
+      },
     });
 
-    expect(balances.get('ETH').toObject()).toEqual({
-      lightningMap: [],
-      walletsMap: [
-        [
-          'ETH',
-          {
-            unconfirmed: 0,
-            confirmed: etherBalance,
-          },
-        ],
-      ],
+    expect(balances.ETH).toEqual({
+      lightning: {},
+      wallets: {
+        ETH: {
+          unconfirmed: '0',
+          confirmed: String(etherBalance),
+        },
+      },
     });
-    expect(balances.get('TRC').toObject()).toEqual({
-      lightningMap: [],
-      walletsMap: [
-        [
-          'TRC',
-          {
-            unconfirmed: 0,
-            confirmed: tokenBalance,
-          },
-        ],
-      ],
+    expect(balances.TRC).toEqual({
+      lightning: {},
+      wallets: {
+        TRC: {
+          unconfirmed: '0',
+          confirmed: String(tokenBalance),
+        },
+      },
     });
   });
 
@@ -1515,10 +1493,10 @@ describe('Service', () => {
   test('should derive keys', async () => {
     const response = service.deriveKeys('BTC', 123);
 
-    expect(response.getPublicKey()).toEqual(
+    expect(response.publicKey).toEqual(
       getHexString(Buffer.from(mockGetKeysByIndexResult.publicKey)),
     );
-    expect(response.getPrivateKey()).toEqual(
+    expect(response.privateKey).toEqual(
       getHexString(Buffer.from(mockGetKeysByIndexResult.privateKey!)),
     );
 

@@ -1,6 +1,6 @@
 import type Logger from '../Logger';
 import TypedEventEmitter from '../consts/TypedEventEmitter';
-import type * as sidecarrpc from '../proto/boltzr_pb';
+import type * as sidecarrpc from '../proto/boltzr';
 import type Sidecar from '../sidecar/Sidecar';
 
 class NotificationClient extends TypedEventEmitter<{
@@ -28,7 +28,7 @@ class NotificationClient extends TypedEventEmitter<{
     };
 
     messageStream.on('data', (data: sidecarrpc.GetMessagesResponse) => {
-      this.emit('message', data.getMessage());
+      this.emit('message', data.message);
     });
 
     messageStream.on('close', endStream);

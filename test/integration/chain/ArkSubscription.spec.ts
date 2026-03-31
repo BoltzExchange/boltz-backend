@@ -3,7 +3,7 @@ import type {
   SpentVHtlc,
 } from '../../../lib/chain/ArkSubscription';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
-import type * as notificationrpc from '../../../lib/proto/ark/notification_pb';
+import type * as notificationrpc from '../../../lib/proto/ark/notification';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, bitcoinClient } from '../Nodes';
 import { createVHtlc } from './Utils';
@@ -57,7 +57,7 @@ describe('ArkSubscription', () => {
 
     const callArgs = spy.mock.calls[0];
     const request = callArgs[1] as notificationrpc.SubscribeForAddressesRequest;
-    expect(request.getAddressesList()).toEqual([
+    expect(request.addresses).toEqual([
       addresses[0].address,
       addresses[1].address,
     ]);
@@ -98,7 +98,7 @@ describe('ArkSubscription', () => {
     const callArgs = spy.mock.calls[0];
     const request =
       callArgs[1] as notificationrpc.UnsubscribeForAddressesRequest;
-    expect(request.getAddressesList()).toEqual([vHtlc.vHtlc.address]);
+    expect(request.addresses).toEqual([vHtlc.vHtlc.address]);
 
     spy.mockRestore();
   });

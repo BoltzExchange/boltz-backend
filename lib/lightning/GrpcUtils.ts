@@ -13,14 +13,10 @@ export const grpcOptions = (sslTargetNameOverride?: string) => {
   return options;
 };
 
-interface GrpcResponse {
-  toObject: () => any;
-}
-
 type GrpcMethodFunction = (
   params: any,
   meta: Metadata | undefined,
-  listener: (err: ServiceError, response: GrpcResponse) => unknown,
+  listener: (err: ServiceError | null, response: any) => unknown,
 ) => any;
 
 export const unaryCall = <C, T, U>(
@@ -28,17 +24,16 @@ export const unaryCall = <C, T, U>(
   methodName: keyof C,
   params: T,
   meta: Metadata,
-  toObject = true,
 ): Promise<U> => {
   return new Promise((resolve, reject) => {
     (client[methodName] as GrpcMethodFunction)(
       params,
       meta,
-      (err: ServiceError, response: GrpcResponse) => {
+      (err: ServiceError | null, response: U) => {
         if (err) {
           reject(err);
         } else {
-          resolve(toObject ? response.toObject() : response);
+          resolve(response);
         }
       },
     );

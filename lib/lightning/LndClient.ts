@@ -3,15 +3,22 @@ import { Metadata, credentials } from '@grpc/grpc-js';
 import fs from 'fs';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
-import { formatError, getHexBuffer, splitChannelPoint } from '../Utils';
+import {
+  formatError,
+  fromProtoInt,
+  getHexBuffer,
+  splitChannelPoint,
+  toOptionalProtoInt,
+  toProtoInt,
+} from '../Utils';
 import { ClientStatus } from '../consts/Enums';
 import { NodeType } from '../db/models/ReverseSwap';
-import { InvoicesClient } from '../proto/lnd/invoices_grpc_pb';
-import * as invoicesrpc from '../proto/lnd/invoices_pb';
-import { RouterClient } from '../proto/lnd/router_grpc_pb';
-import * as routerrpc from '../proto/lnd/router_pb';
-import { LightningClient as LndLightningClient } from '../proto/lnd/rpc_grpc_pb';
-import * as lndrpc from '../proto/lnd/rpc_pb';
+import { InvoicesClient } from '../proto/lnd/invoices';
+import * as invoicesrpc from '../proto/lnd/invoices';
+import { RouterClient } from '../proto/lnd/router';
+import * as routerrpc from '../proto/lnd/router';
+import { LightningClient as LndLightningClient } from '../proto/lnd/rpc';
+import * as lndrpc from '../proto/lnd/rpc';
 import type Sidecar from '../sidecar/Sidecar';
 import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import { msatToSat } from './ChannelUtils';
@@ -243,34 +250,33 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     methodName: keyof InvoicesClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.invoices!, methodName, params, this.meta, true);
+    return unaryCall(this.invoices!, methodName, params, this.meta);
   };
 
   private unaryRouterCall = <T, U>(
     methodName: keyof RouterClient,
     params: T,
   ): Promise<U> => {
-    return unaryCall(this.router!, methodName, params, this.meta, true);
+    return unaryCall(this.router!, methodName, params, this.meta);
   };
 
   private unaryLightningCall = <T, U>(
     methodName: keyof LndLightningClient,
     params: T,
-    toObject = true,
   ): Promise<U> => {
-    return unaryCall(this.lightning!, methodName, params, this.meta, toObject);
+    return unaryCall(this.lightning!, methodName, params, this.meta);
   };
 
   public getInfo = async (): Promise<NodeInfo> => {
     const info = await this.unaryLightningCall<
       lndrpc.GetInfoRequest,
-      lndrpc.GetInfoResponse.AsObject
-    >('getInfo', new lndrpc.GetInfoRequest());
+      lndrpc.GetInfoResponse
+    >('getInfo', {});
 
     return {
       version: info.version,
       pubkey: info.identityPubkey,
-      uris: info.urisList,
+      uris: info.uris,
       peers: info.numPeers,
       blockHeight: info.blockHeight,
       channels: {
@@ -289,26 +295,20 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     expiry?: number,
     memo?: string,
     routingHints?: HopHint[][],
-  ): Promise<lndrpc.AddInvoiceResponse.AsObject> => {
-    const request = new lndrpc.Invoice();
-    request.setValue(value);
+  ): Promise<lndrpc.AddInvoiceResponse> => {
+    const request = lndrpc.Invoice.create({
+      value: toProtoInt(value),
+      expiry: toOptionalProtoInt(expiry),
+      memo: memo ?? '',
+      routeHints: routingHints
+        ? LndClient.routingHintsToGrpc(routingHints)
+        : [],
+    });
 
-    if (expiry) {
-      request.setExpiry(expiry);
-    }
-
-    if (memo) {
-      request.setMemo(memo);
-    }
-
-    if (routingHints) {
-      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
-    }
-
-    return this.unaryLightningCall<
-      lndrpc.Invoice,
-      lndrpc.AddInvoiceResponse.AsObject
-    >('addInvoice', request);
+    return this.unaryLightningCall<lndrpc.Invoice, lndrpc.AddInvoiceResponse>(
+      'addInvoice',
+      request,
+    );
   };
 
   /**
@@ -323,34 +323,22 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     descriptionHash?: Buffer,
     routingHints?: HopHint[][],
   ): Promise<string> => {
-    const request = new invoicesrpc.AddHoldInvoiceRequest();
-    request.setValue(value);
-    request.setHash(Uint8Array.from(preimageHash));
-
-    if (cltvExpiry) {
-      request.setCltvExpiry(cltvExpiry);
-    }
-
-    if (expiry) {
-      request.setExpiry(expiry);
-    }
-
-    if (memo) {
-      request.setMemo(memo);
-    }
-
-    if (descriptionHash) {
-      request.setDescriptionHash(descriptionHash);
-    }
-
-    if (routingHints) {
-      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
-    }
+    const request = invoicesrpc.AddHoldInvoiceRequest.create({
+      value: toProtoInt(value),
+      hash: Buffer.from(preimageHash),
+      cltvExpiry: toOptionalProtoInt(cltvExpiry),
+      expiry: toOptionalProtoInt(expiry),
+      memo: memo ?? '',
+      descriptionHash: descriptionHash ?? Buffer.alloc(0),
+      routeHints: routingHints
+        ? LndClient.routingHintsToGrpc(routingHints)
+        : [],
+    });
 
     return (
       await this.unaryInvoicesCall<
         invoicesrpc.AddHoldInvoiceRequest,
-        invoicesrpc.AddHoldInvoiceResp.AsObject
+        invoicesrpc.AddHoldInvoiceResp
       >('addHoldInvoice', request)
     ).paymentRequest;
   };
@@ -359,17 +347,17 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     const res = await this.lookupInvoice(preimageHash);
     return {
       state: LndClient.invoiceStateFromGrpc(res.state),
-      htlcs: res.htlcsList.map(LndClient.htlcFromGrpc),
+      htlcs: res.htlcs.map(LndClient.htlcFromGrpc),
     };
   };
 
-  public lookupInvoice = (
-    preimageHash: Buffer,
-  ): Promise<lndrpc.Invoice.AsObject> => {
-    const request = new lndrpc.PaymentHash();
-    request.setRHash(preimageHash);
+  public lookupInvoice = (preimageHash: Buffer): Promise<lndrpc.Invoice> => {
+    const request: lndrpc.PaymentHash = {
+      ...lndrpc.PaymentHash.create(),
+      rHash: preimageHash,
+    };
 
-    return this.unaryLightningCall<lndrpc.PaymentHash, lndrpc.Invoice.AsObject>(
+    return this.unaryLightningCall<lndrpc.PaymentHash, lndrpc.Invoice>(
       'lookupInvoice',
       request,
     );
@@ -378,11 +366,12 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public trackPayment = (
     preimageHash: Buffer,
     streamUntilFinalStatus: boolean = false,
-  ): Promise<lndrpc.Payment.AsObject> => {
-    return new Promise<lndrpc.Payment.AsObject>((resolve, reject) => {
-      const request = new routerrpc.TrackPaymentRequest();
-      request.setNoInflightUpdates(streamUntilFinalStatus);
-      request.setPaymentHash(preimageHash);
+  ): Promise<lndrpc.Payment> => {
+    return new Promise<lndrpc.Payment>((resolve, reject) => {
+      const request: routerrpc.TrackPaymentRequest = {
+        noInflightUpdates: streamUntilFinalStatus,
+        paymentHash: preimageHash,
+      };
 
       const stream = this.router!.trackPaymentV2(request, this.meta);
 
@@ -393,7 +382,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
       stream.on('data', (response: lndrpc.Payment) => {
         endStream();
-        resolve(response.toObject());
+        resolve(response);
       });
 
       stream.on('end', () => {
@@ -425,42 +414,37 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     const decoded = await this.sidecar.decodeInvoiceOrOffer(invoice);
 
     return new Promise<PaymentResponse>((resolve, reject) => {
-      const request = new routerrpc.SendPaymentRequest();
-
-      request.setMaxParts(LndClient.paymentMaxParts);
-      request.setTimeoutSeconds(LndClient.paymentTimeout);
-      request.setTimePref(timePreference || LndClient.paymentTimePreference);
-      request.setFeeLimitSat(
-        msatToSat(this.routingFee.calculateFee(decoded, maxPaymentFeeRatio)),
-      );
-
-      request.setPaymentRequest(invoice);
-
-      if (cltvDelta) {
-        request.setCltvLimit(cltvDelta);
-      }
-
-      if (outgoingChannelId) {
-        request.setOutgoingChanId(outgoingChannelId);
-      }
+      const request = routerrpc.SendPaymentRequest.create({
+        maxParts: LndClient.paymentMaxParts,
+        timeoutSeconds: LndClient.paymentTimeout,
+        timePref: timePreference || LndClient.paymentTimePreference,
+        feeLimitSat: toProtoInt(
+          msatToSat(this.routingFee.calculateFee(decoded, maxPaymentFeeRatio)),
+        ),
+        paymentRequest: invoice,
+        cltvLimit: cltvDelta ?? 0,
+        outgoingChanId: outgoingChannelId
+          ? toOptionalProtoInt(Number.parseInt(outgoingChannelId, 10))
+          : undefined,
+      });
 
       const stream = this.router!.sendPaymentV2(request, this.meta);
 
       stream.on('data', (response: lndrpc.Payment) => {
-        switch (response.getStatus()) {
-          case lndrpc.Payment.PaymentStatus.SUCCEEDED:
+        switch (response.status) {
+          case lndrpc.Payment_PaymentStatus.SUCCEEDED:
             stream.removeAllListeners();
             stream.destroy();
             resolve({
-              feeMsat: response.getFeeMsat(),
-              preimage: getHexBuffer(response.getPaymentPreimage()),
+              feeMsat: fromProtoInt(response.feeMsat),
+              preimage: getHexBuffer(response.paymentPreimage),
             });
             return;
 
-          case lndrpc.Payment.PaymentStatus.FAILED:
+          case lndrpc.Payment_PaymentStatus.FAILED:
             stream.removeAllListeners();
             stream.destroy();
-            reject(response.getFailureReason());
+            reject(response.failureReason);
             break;
         }
       });
@@ -498,20 +482,22 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public resetMissionControl = () => {
     return this.unaryRouterCall<
       routerrpc.ResetMissionControlRequest,
-      routerrpc.ResetMissionControlResponse.AsObject
-    >('resetMissionControl', new routerrpc.ResetMissionControlRequest());
+      routerrpc.ResetMissionControlResponse
+    >('resetMissionControl', {});
   };
 
   /**
    * Cancel a hold invoice
    */
   public cancelHoldInvoice = async (preimageHash: Buffer): Promise<void> => {
-    const request = new invoicesrpc.CancelInvoiceMsg();
-    request.setPaymentHash(Uint8Array.from(preimageHash));
+    const request: invoicesrpc.CancelInvoiceMsg = {
+      ...invoicesrpc.CancelInvoiceMsg.create(),
+      paymentHash: Buffer.from(preimageHash),
+    };
 
     await this.unaryInvoicesCall<
       invoicesrpc.CancelInvoiceMsg,
-      invoicesrpc.CancelInvoiceResp.AsObject
+      invoicesrpc.CancelInvoiceResp
     >('cancelInvoice', request);
   };
 
@@ -519,12 +505,14 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    * Settle a hold invoice with an already accepted HTLC
    */
   public settleHoldInvoice = async (preimage: Buffer): Promise<void> => {
-    const request = new invoicesrpc.SettleInvoiceMsg();
-    request.setPreimage(Uint8Array.from(preimage));
+    const request: invoicesrpc.SettleInvoiceMsg = {
+      ...invoicesrpc.SettleInvoiceMsg.create(),
+      preimage: Buffer.from(preimage),
+    };
 
     await this.unaryInvoicesCall<
       invoicesrpc.SettleInvoiceMsg,
-      invoicesrpc.SettleInvoiceResp.AsObject
+      invoicesrpc.SettleInvoiceResp
     >('settleInvoice', request);
   };
 
@@ -538,32 +526,27 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     finalCltvDelta?: number,
     routingHints?: HopHint[][],
   ): Promise<Route[]> => {
-    const request = new lndrpc.QueryRoutesRequest();
-    request.setAmt(amt);
-    request.setPubKey(destination);
-    request.setUseMissionControl(true);
-    request.setTimePref(LndClient.paymentTimePreference);
-
-    if (cltvLimit) {
-      request.setCltvLimit(cltvLimit);
-    }
-
-    if (finalCltvDelta) {
-      request.setFinalCltvDelta(finalCltvDelta);
-    }
-
-    if (routingHints) {
-      request.setRouteHintsList(LndClient.routingHintsToGrpc(routingHints));
-    }
+    const request: lndrpc.QueryRoutesRequest = {
+      ...lndrpc.QueryRoutesRequest.create(),
+      amt: toProtoInt(amt),
+      pubKey: destination,
+      useMissionControl: true,
+      timePref: LndClient.paymentTimePreference,
+      cltvLimit: cltvLimit ?? 0,
+      finalCltvDelta: finalCltvDelta ?? 0,
+      routeHints: routingHints
+        ? LndClient.routingHintsToGrpc(routingHints)
+        : [],
+    };
 
     const res = await this.unaryLightningCall<
       lndrpc.QueryRoutesRequest,
-      lndrpc.QueryRoutesResponse.AsObject
+      lndrpc.QueryRoutesResponse
     >('queryRoutes', request);
 
-    return res.routesList.map((route) => ({
+    return res.routes.map((route) => ({
       ctlv: route.totalTimeLock,
-      feesMsat: route.totalFeesMsat,
+      feesMsat: fromProtoInt(route.totalFeesMsat),
     }));
   };
 
@@ -571,7 +554,7 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     const res = await this.decodePayReq(invoice);
 
     const features = new Set<InvoiceFeature>();
-    for (const [, feature] of res.featuresMap) {
+    for (const feature of Object.values(res.features)) {
       switch (feature.name) {
         case 'amp':
           features.add(InvoiceFeature.AMP);
@@ -585,11 +568,11 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
     return {
       features,
-      value: res.numSatoshis,
-      cltvExpiry: res.cltvExpiry,
+      value: fromProtoInt(res.numSatoshis),
+      cltvExpiry: fromProtoInt(res.cltvExpiry),
       destination: res.destination,
       paymentHash: getHexBuffer(res.paymentHash),
-      routingHints: LndClient.routingHintsFromGrpc(res.routeHintsList),
+      routingHints: LndClient.routingHintsFromGrpc(res.routeHints),
     };
   };
 
@@ -598,13 +581,12 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    *
    * @param paymentRequest encoded payment request
    */
-  public decodePayReq = (
-    paymentRequest: string,
-  ): Promise<lndrpc.PayReq.AsObject> => {
-    const request = new lndrpc.PayReqString();
-    request.setPayReq(paymentRequest);
+  public decodePayReq = (paymentRequest: string): Promise<lndrpc.PayReq> => {
+    const request: lndrpc.PayReqString = {
+      payReq: paymentRequest,
+    };
 
-    return this.unaryLightningCall<lndrpc.PayReqString, lndrpc.PayReq.AsObject>(
+    return this.unaryLightningCall<lndrpc.PayReqString, lndrpc.PayReq>(
       'decodePayReq',
       request,
     );
@@ -613,31 +595,25 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public decodePayReqRawResponse = (
     paymentRequest: string,
   ): Promise<lndrpc.PayReq> => {
-    const request = new lndrpc.PayReqString();
-    request.setPayReq(paymentRequest);
-
-    return this.unaryLightningCall<lndrpc.PayReqString, lndrpc.PayReq>(
-      'decodePayReq',
-      request,
-      false,
-    );
+    return this.decodePayReq(paymentRequest);
   };
 
   /**
    * Returns the latest advertised, aggregated, and authenticated channel information
    * for the specified node identified by its public key
    */
-  public getNodeInfo = (
-    publicKey: string,
-  ): Promise<lndrpc.NodeInfo.AsObject> => {
-    const request = new lndrpc.NodeInfoRequest();
-    request.setPubKey(publicKey);
-    request.setIncludeChannels(false);
+  public getNodeInfo = (publicKey: string): Promise<lndrpc.NodeInfo> => {
+    const request: lndrpc.NodeInfoRequest = {
+      ...lndrpc.NodeInfoRequest.create(),
+      pubKey: publicKey,
+      includeChannels: false,
+      includeAuthProof: false,
+    };
 
-    return this.unaryLightningCall<
-      lndrpc.NodeInfoRequest,
-      lndrpc.NodeInfo.AsObject
-    >('getNodeInfo', request);
+    return this.unaryLightningCall<lndrpc.NodeInfoRequest, lndrpc.NodeInfo>(
+      'getNodeInfo',
+      request,
+    );
   };
 
   /**
@@ -649,17 +625,18 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   public connectPeer = (
     pubKey: string,
     host: string,
-  ): Promise<lndrpc.ConnectPeerResponse.AsObject> => {
-    const address = new lndrpc.LightningAddress();
-    address.setPubkey(pubKey);
-    address.setHost(host);
-
-    const request = new lndrpc.ConnectPeerRequest();
-    request.setAddr(address);
+  ): Promise<lndrpc.ConnectPeerResponse> => {
+    const request: lndrpc.ConnectPeerRequest = {
+      ...lndrpc.ConnectPeerRequest.create(),
+      addr: {
+        pubkey: pubKey,
+        host,
+      },
+    };
 
     return this.unaryLightningCall<
       lndrpc.ConnectPeerRequest,
-      lndrpc.ConnectPeerResponse.AsObject
+      lndrpc.ConnectPeerResponse
     >('connectPeer', request);
   };
 
@@ -676,19 +653,17 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     amount: number,
     satPerByte: number | undefined,
     label: string,
-  ): Promise<lndrpc.SendCoinsResponse.AsObject> => {
-    const request = new lndrpc.SendCoinsRequest();
-    request.setAddr(address);
-    request.setAmount(amount);
-    request.setLabel(label);
-
-    if (satPerByte) {
-      request.setSatPerByte(satPerByte);
-    }
+  ): Promise<lndrpc.SendCoinsResponse> => {
+    const request = lndrpc.SendCoinsRequest.create({
+      addr: address,
+      amount: toProtoInt(amount),
+      label,
+      satPerByte: toOptionalProtoInt(satPerByte),
+    });
 
     return this.unaryLightningCall<
       lndrpc.SendCoinsRequest,
-      lndrpc.SendCoinsResponse.AsObject
+      lndrpc.SendCoinsResponse
     >('sendCoins', request);
   };
 
@@ -703,19 +678,17 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     address: string,
     satPerByte: number | undefined,
     label: string,
-  ): Promise<lndrpc.SendCoinsResponse.AsObject> => {
-    const request = new lndrpc.SendCoinsRequest();
-    request.setAddr(address);
-    request.setSendAll(true);
-    request.setLabel(label);
-
-    if (satPerByte) {
-      request.setSatPerByte(satPerByte);
-    }
+  ): Promise<lndrpc.SendCoinsResponse> => {
+    const request = lndrpc.SendCoinsRequest.create({
+      addr: address,
+      sendAll: true,
+      label,
+      satPerByte: toOptionalProtoInt(satPerByte),
+    });
 
     return this.unaryLightningCall<
       lndrpc.SendCoinsRequest,
-      lndrpc.SendCoinsResponse.AsObject
+      lndrpc.SendCoinsResponse
     >('sendCoins', request);
   };
 
@@ -724,13 +697,15 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    */
   public getOnchainTransactions = (
     startHeight: number,
-  ): Promise<lndrpc.TransactionDetails.AsObject> => {
-    const request = new lndrpc.GetTransactionsRequest();
-    request.setStartHeight(startHeight);
+  ): Promise<lndrpc.TransactionDetails> => {
+    const request: lndrpc.GetTransactionsRequest = {
+      ...lndrpc.GetTransactionsRequest.create(),
+      startHeight,
+    };
 
     return this.unaryLightningCall<
       lndrpc.GetTransactionsRequest,
-      lndrpc.TransactionDetails.AsObject
+      lndrpc.TransactionDetails
     >('getTransactions', request);
   };
 
@@ -741,13 +716,16 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
    */
   public newAddress = (
     addressType: lndrpc.AddressType = lndrpc.AddressType.NESTED_PUBKEY_HASH,
-  ): Promise<lndrpc.NewAddressResponse.AsObject> => {
-    const request = new lndrpc.NewAddressRequest();
-    request.setType(addressType);
+  ): Promise<lndrpc.NewAddressResponse> => {
+    const request: lndrpc.NewAddressRequest = {
+      ...lndrpc.NewAddressRequest.create(),
+      type: addressType,
+      account: '',
+    };
 
     return this.unaryLightningCall<
       lndrpc.NewAddressRequest,
-      lndrpc.NewAddressResponse.AsObject
+      lndrpc.NewAddressResponse
     >('newAddress', request);
   };
 
@@ -764,19 +742,18 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     fundingAmount: number,
     privateChannel: boolean,
     satPerByte: number,
-  ): Promise<lndrpc.ChannelPoint.AsObject> => {
-    const request = new lndrpc.OpenChannelRequest();
-    request.setPrivate(privateChannel);
-    request.setNodePubkeyString(pubKey);
-    request.setLocalFundingAmount(fundingAmount);
-
-    if (satPerByte) {
-      request.setSatPerByte(satPerByte);
-    }
+  ): Promise<lndrpc.ChannelPoint> => {
+    const request: lndrpc.OpenChannelRequest = {
+      ...lndrpc.OpenChannelRequest.create(),
+      private: privateChannel,
+      nodePubkeyString: pubKey,
+      localFundingAmount: toProtoInt(fundingAmount),
+      satPerByte: toProtoInt(satPerByte),
+    };
 
     return this.unaryLightningCall<
       lndrpc.OpenChannelRequest,
-      lndrpc.ChannelPoint.AsObject
+      lndrpc.ChannelPoint
     >('openChannelSync', request);
   };
 
@@ -787,27 +764,29 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     activeOnly = false,
     privateOnly = false,
   ): Promise<ChannelInfo[]> => {
-    const request = new lndrpc.ListChannelsRequest();
-    request.setActiveOnly(activeOnly);
-    request.setPrivateOnly(privateOnly);
+    const request: lndrpc.ListChannelsRequest = {
+      ...lndrpc.ListChannelsRequest.create(),
+      activeOnly,
+      privateOnly,
+    };
 
     const res = await this.unaryLightningCall<
       lndrpc.ListChannelsRequest,
-      lndrpc.ListChannelsResponse.AsObject
+      lndrpc.ListChannelsResponse
     >('listChannels', request);
 
-    return res.channelsList.map((chan) => {
+    return res.channels.map((chan) => {
       const { id, vout } = splitChannelPoint(chan.channelPoint);
       return {
-        chanId: chan.chanId,
-        capacity: chan.capacity,
-        private: chan.pb_private,
+        chanId: chan.chanId.toString(),
+        capacity: fromProtoInt(chan.capacity),
+        private: chan.private,
         fundingTransactionId: id,
         fundingTransactionVout: vout,
         remotePubkey: chan.remotePubkey,
-        localBalance: chan.localBalance,
-        remoteBalance: chan.remoteBalance,
-        htlcs: chan.pendingHtlcsList.map((htlc) => ({
+        localBalance: fromProtoInt(chan.localBalance),
+        remoteBalance: fromProtoInt(chan.remoteBalance),
+        htlcs: chan.pendingHtlcs.map((htlc) => ({
           preimageHash: Buffer.from(htlc.hashLock),
         })),
       };
@@ -817,56 +796,56 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   /**
    * Gets the latest routing information of a given channel
    */
-  public getChannelInfo = (
-    channelId: string,
-  ): Promise<lndrpc.ChannelEdge.AsObject> => {
-    const request = new lndrpc.ChanInfoRequest();
-    request.setChanId(channelId);
+  public getChannelInfo = (channelId: string): Promise<lndrpc.ChannelEdge> => {
+    const request: lndrpc.ChanInfoRequest = {
+      ...lndrpc.ChanInfoRequest.create(),
+      chanId: channelId,
+      includeAuthProof: false,
+    };
 
-    return this.unaryLightningCall<
-      lndrpc.ChanInfoRequest,
-      lndrpc.ChannelEdge.AsObject
-    >('getChanInfo', request);
+    return this.unaryLightningCall<lndrpc.ChanInfoRequest, lndrpc.ChannelEdge>(
+      'getChanInfo',
+      request,
+    );
   };
 
   /**
    * Gets a list of all peers
    */
-  public listPeers = (): Promise<lndrpc.ListPeersResponse.AsObject> => {
+  public listPeers = (): Promise<lndrpc.ListPeersResponse> => {
     return this.unaryLightningCall<
       lndrpc.ListPeersRequest,
-      lndrpc.ListPeersResponse.AsObject
-    >('listPeers', new lndrpc.ListPeersRequest());
+      lndrpc.ListPeersResponse
+    >('listPeers', lndrpc.ListPeersRequest.create());
   };
 
   public getBalance = async (): Promise<WalletBalance> => {
     const res = await this.getWalletBalance();
 
     return {
-      confirmedBalance: res.confirmedBalance,
-      unconfirmedBalance: res.unconfirmedBalance,
+      confirmedBalance: fromProtoInt(res.confirmedBalance),
+      unconfirmedBalance: fromProtoInt(res.unconfirmedBalance),
     };
   };
 
   /**
    * Gets the balance of the onchain wallet
    */
-  public getWalletBalance =
-    (): Promise<lndrpc.WalletBalanceResponse.AsObject> => {
-      const request = new lndrpc.WalletBalanceRequest();
-
-      return this.unaryLightningCall<
-        lndrpc.WalletBalanceRequest,
-        lndrpc.WalletBalanceResponse.AsObject
-      >('walletBalance', request);
-    };
+  public getWalletBalance = (): Promise<lndrpc.WalletBalanceResponse> => {
+    return this.unaryLightningCall<
+      lndrpc.WalletBalanceRequest,
+      lndrpc.WalletBalanceResponse
+    >('walletBalance', lndrpc.WalletBalanceRequest.create());
+  };
 
   /**
    * Subscribe to events for a single invoice
    */
   public subscribeSingleInvoice = (preimageHash: Buffer): void => {
-    const request = new invoicesrpc.SubscribeSingleInvoiceRequest();
-    request.setRHash(Uint8Array.from(preimageHash));
+    const request: invoicesrpc.SubscribeSingleInvoiceRequest = {
+      ...invoicesrpc.SubscribeSingleInvoiceRequest.create(),
+      rHash: Buffer.from(preimageHash),
+    };
 
     const invoiceSubscription = this.invoices!.subscribeSingleInvoice(
       request,
@@ -880,27 +859,25 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
 
     invoiceSubscription
       .on('data', (invoice: lndrpc.Invoice) => {
-        if (invoice.getState() === lndrpc.Invoice.InvoiceState.ACCEPTED) {
-          const acceptedHtlcs = invoice
-            .getHtlcsList()
-            .filter(
-              (htlc) => htlc.getState() === lndrpc.InvoiceHTLCState.ACCEPTED,
-            );
+        if (invoice.state === lndrpc.Invoice_InvoiceState.ACCEPTED) {
+          const acceptedHtlcs = invoice.htlcs.filter(
+            (htlc) => htlc.state === lndrpc.InvoiceHTLCState.ACCEPTED,
+          );
 
           this.logger.debug(
             `${this.formatNodeLabel()} accepted ${acceptedHtlcs.length} HTLC${
               acceptedHtlcs.length > 1 ? 's' : ''
-            } for invoice: ${invoice.getPaymentRequest()}`,
+            } for invoice: ${invoice.paymentRequest}`,
           );
 
-          this.emit('htlc.accepted', invoice.getPaymentRequest());
+          this.emit('htlc.accepted', invoice.paymentRequest);
 
           deleteSubscription();
-        } else if (invoice.getState() === lndrpc.Invoice.InvoiceState.SETTLED) {
+        } else if (invoice.state === lndrpc.Invoice_InvoiceState.SETTLED) {
           this.logger.debug(
-            `${this.formatNodeLabel()} invoice settled: ${invoice.getPaymentRequest()}`,
+            `${this.formatNodeLabel()} invoice settled: ${invoice.paymentRequest}`,
           );
-          this.emit('invoice.settled', invoice.getPaymentRequest());
+          this.emit('invoice.settled', invoice.paymentRequest);
 
           deleteSubscription();
         }
@@ -917,47 +894,51 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
   private static routingHintsToGrpc = (
     routingHints: HopHint[][],
   ): lndrpc.RouteHint[] => {
-    return routingHints.map((hints) => {
-      const routeHint = new lndrpc.RouteHint();
-      for (const hint of hints) {
-        const hopHint = new lndrpc.HopHint();
-        hopHint.setNodeId(hint.nodeId);
-        hopHint.setChanId(hint.chanId);
-        hopHint.setFeeBaseMsat(hint.feeBaseMsat);
-        hopHint.setFeeProportionalMillionths(hint.feeProportionalMillionths);
-        hopHint.setCltvExpiryDelta(hint.cltvExpiryDelta);
-
-        routeHint.addHopHints(hopHint);
-      }
-
-      return routeHint;
-    });
+    return routingHints.map((hints) => ({
+      hopHints: hints.map((hint) => ({
+        nodeId: hint.nodeId,
+        chanId: hint.chanId,
+        feeBaseMsat: hint.feeBaseMsat,
+        feeProportionalMillionths: hint.feeProportionalMillionths,
+        cltvExpiryDelta: hint.cltvExpiryDelta,
+      })),
+    }));
   };
 
   private static routingHintsFromGrpc = (
-    hints: lndrpc.RouteHint.AsObject[],
+    hints: lndrpc.RouteHint[],
   ): HopHint[][] => {
-    return hints.map((hint) => hint.hopHintsList.map((hop) => hop));
+    return hints.map((hint) =>
+      hint.hopHints.map((hop) => ({
+        nodeId: hop.nodeId,
+        chanId: hop.chanId.toString(),
+        feeBaseMsat: hop.feeBaseMsat,
+        feeProportionalMillionths: hop.feeProportionalMillionths,
+        cltvExpiryDelta: hop.cltvExpiryDelta,
+      })),
+    );
   };
 
   private static invoiceStateFromGrpc = (
-    state: lndrpc.Invoice.InvoiceState,
+    state: lndrpc.Invoice_InvoiceState,
   ): InvoiceState => {
     switch (state) {
-      case lndrpc.Invoice.InvoiceState.OPEN:
+      case lndrpc.Invoice_InvoiceState.OPEN:
         return InvoiceState.Open;
-      case lndrpc.Invoice.InvoiceState.ACCEPTED:
+      case lndrpc.Invoice_InvoiceState.ACCEPTED:
         return InvoiceState.Accepted;
-      case lndrpc.Invoice.InvoiceState.CANCELED:
+      case lndrpc.Invoice_InvoiceState.CANCELED:
         return InvoiceState.Cancelled;
-      case lndrpc.Invoice.InvoiceState.SETTLED:
+      case lndrpc.Invoice_InvoiceState.SETTLED:
         return InvoiceState.Settled;
+      case lndrpc.Invoice_InvoiceState.UNRECOGNIZED:
+        throw new Error('unknown invoice state');
     }
   };
 
-  private static htlcFromGrpc = (htlc: lndrpc.InvoiceHTLC.AsObject): Htlc => {
+  private static htlcFromGrpc = (htlc: lndrpc.InvoiceHTLC): Htlc => {
     return {
-      valueMsat: htlc.amtMsat,
+      valueMsat: fromProtoInt(htlc.amtMsat),
       state: LndClient.htlcStateFromGrpc(htlc.state),
     };
   };
@@ -972,6 +953,8 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
         return HtlcState.Cancelled;
       case lndrpc.InvoiceHTLCState.SETTLED:
         return HtlcState.Settled;
+      case lndrpc.InvoiceHTLCState.UNRECOGNIZED:
+        throw new Error('unknown HTLC state');
     }
   };
 
@@ -995,12 +978,12 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     }
 
     this.peerEventSubscription = this.lightning!.subscribePeerEvents(
-      new lndrpc.PeerEventSubscription(),
+      {},
       this.meta,
     )
       .on('data', (event: lndrpc.PeerEvent) => {
-        if (event.getType() === lndrpc.PeerEvent.EventType.PEER_ONLINE) {
-          this.emit('peer.online', event.getPubKey());
+        if (event.type === lndrpc.PeerEvent_EventType.PEER_ONLINE) {
+          this.emit('peer.online', event.pubKey);
         }
       })
       .on('error', async (error) => {
@@ -1014,15 +997,14 @@ class LndClient extends BaseClient<EventTypes> implements LightningClient {
     }
 
     this.channelEventSubscription = this.lightning!.subscribeChannelEvents(
-      new lndrpc.ChannelEventSubscription(),
+      {},
       this.meta,
     )
       .on('data', (event: lndrpc.ChannelEventUpdate) => {
         if (
-          event.getType() ===
-          lndrpc.ChannelEventUpdate.UpdateType.ACTIVE_CHANNEL
+          event.type === lndrpc.ChannelEventUpdate_UpdateType.ACTIVE_CHANNEL
         ) {
-          this.emit('channel.active', event.getActiveChannel()!.toObject());
+          this.emit('channel.active', event.activeChannel!);
         }
       })
       .on('error', async (error) => {

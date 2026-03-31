@@ -7,7 +7,7 @@ import BalanceChecker, {
 } from '../../../lib/notifications/BalanceChecker';
 import { Emojis } from '../../../lib/notifications/Markup';
 import NotificationClient from '../../../lib/notifications/NotificationClient';
-import { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc_pb';
+import type { Balances, GetBalanceResponse } from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
 
 let mockGetBalanceResponse: any = null;
@@ -38,6 +38,20 @@ jest.mock('../../../lib/notifications/NotificationClient', () => {
 const MockedNotificationClient = <jest.Mock<NotificationClient>>(
   (<any>NotificationClient)
 );
+
+const createBalances = (
+  wallets: Balances['wallets'],
+  lightning: Balances['lightning'] = {},
+): Balances => ({
+  wallets,
+  lightning,
+});
+
+const createGetBalanceResponse = (
+  balances: GetBalanceResponse['balances'],
+): GetBalanceResponse => ({
+  balances,
+});
 
 describe('BalanceChecker', () => {
   const btcCurrency = {
@@ -157,28 +171,23 @@ describe('BalanceChecker', () => {
     const mockCheckCurrency = jest.fn().mockResolvedValue(undefined);
     checker['checkCurrency'] = mockCheckCurrency;
 
-    const btcWalletBalance = new Balances.WalletBalance();
-    btcWalletBalance.setConfirmed(1);
+    const btcBalance = createBalances(
+      {
+        Core: { confirmed: '1', unconfirmed: '0' },
+      },
+      {
+        [lndNodeId]: { local: '2', remote: '3' },
+      },
+    );
 
-    const btcLightningBalance = new Balances.LightningBalance();
-    btcLightningBalance.setLocal(2);
-    btcLightningBalance.setRemote(3);
+    const usdtBalance = createBalances({
+      USDT: { confirmed: '123', unconfirmed: '0' },
+    });
 
-    const btcBalance = new Balances();
-    btcBalance.getWalletsMap().set('Core', btcWalletBalance);
-    btcBalance.getLightningMap().set(lndNodeId, btcLightningBalance);
-
-    const usdtWalletBalance = new Balances.WalletBalance();
-    usdtWalletBalance.setConfirmed(123);
-
-    const usdtBalance = new Balances();
-    usdtBalance.getWalletsMap().set('USDT', usdtWalletBalance);
-
-    mockGetBalanceResponse = new GetBalanceResponse();
-    mockGetBalanceResponse.getBalancesMap().set(btcCurrency.symbol, btcBalance);
-    mockGetBalanceResponse
-      .getBalancesMap()
-      .set(usdtCurrency.symbol, usdtBalance);
+    mockGetBalanceResponse = createGetBalanceResponse({
+      [btcCurrency.symbol]: btcBalance,
+      [usdtCurrency.symbol]: usdtBalance,
+    });
 
     await checker.check();
 
@@ -186,12 +195,12 @@ describe('BalanceChecker', () => {
     expect(mockCheckCurrency).toHaveBeenNthCalledWith(
       1,
       btcCurrency,
-      btcBalance.toObject(),
+      btcBalance,
     );
     expect(mockCheckCurrency).toHaveBeenNthCalledWith(
       2,
       usdtCurrency,
-      usdtBalance.toObject(),
+      usdtBalance,
     );
   });
 
@@ -203,24 +212,18 @@ describe('BalanceChecker', () => {
 
     // Currency with lightning
     await checkCurrency(btcCurrency, {
-      walletsMap: [
-        [
-          'Core',
-          {
-            confirmed: 1,
-            unconfirmed: 0,
-          },
-        ],
-      ],
-      lightningMap: [
-        [
-          lndNodeId,
-          {
-            local: 2,
-            remote: 3,
-          },
-        ],
-      ],
+      wallets: {
+        Core: {
+          confirmed: '1',
+          unconfirmed: '0',
+        },
+      },
+      lightning: {
+        [lndNodeId]: {
+          local: '2',
+          remote: '3',
+        },
+      },
     });
 
     expect(mockCheckBalance).toHaveBeenCalledTimes(3);
@@ -249,16 +252,13 @@ describe('BalanceChecker', () => {
 
     // Currency without lightning
     await checkCurrency(usdtCurrency, {
-      walletsMap: [
-        [
-          'Core',
-          {
-            confirmed: 123,
-            unconfirmed: 0,
-          },
-        ],
-      ],
-      lightningMap: [],
+      wallets: {
+        Core: {
+          confirmed: '123',
+          unconfirmed: '0',
+        },
+      },
+      lightning: {},
     });
 
     expect(mockCheckBalance).toHaveBeenCalledTimes(4);
@@ -522,16 +522,13 @@ describe('BalanceChecker', () => {
     checker['checkBalance'] = mockedCheckBalance;
 
     await checker['checkCurrency'](btcCurrency, {
-      walletsMap: [
-        [
-          'Core',
-          {
-            confirmed: 1,
-            unconfirmed: 0,
-          },
-        ],
-      ],
-      lightningMap: [],
+      wallets: {
+        Core: {
+          confirmed: '1',
+          unconfirmed: '0',
+        },
+      },
+      lightning: {},
     });
 
     expect(mockedCheckBalance).toHaveBeenCalledTimes(1);
@@ -544,31 +541,22 @@ describe('BalanceChecker', () => {
     );
 
     await checker['checkCurrency'](btcCurrency, {
-      walletsMap: [
-        [
-          'Core',
-          {
-            confirmed: 1,
-            unconfirmed: 0,
-          },
-        ],
-        [
-          lndNodeId,
-          {
-            confirmed: 2,
-            unconfirmed: 1,
-          },
-        ],
-      ],
-      lightningMap: [
-        [
-          lndNodeId,
-          {
-            local: 2,
-            remote: 3,
-          },
-        ],
-      ],
+      wallets: {
+        Core: {
+          confirmed: '1',
+          unconfirmed: '0',
+        },
+        [lndNodeId]: {
+          confirmed: '2',
+          unconfirmed: '1',
+        },
+      },
+      lightning: {
+        [lndNodeId]: {
+          local: '2',
+          remote: '3',
+        },
+      },
     });
 
     expect(mockedCheckBalance).toHaveBeenCalledTimes(5);

@@ -82,6 +82,7 @@ boltzr/tarpaulin-report.html
 
 # Version file generated in build process
 lib/Version.ts
+lib/proto/
 
 # Folder from which regtest contracts are deployed
 ./contracts/

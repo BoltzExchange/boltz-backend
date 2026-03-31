@@ -25,7 +25,7 @@ import ReverseSwapRepository from '../../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../db/repositories/WrappedSwapRepository';
 import ClnClient from '../../lightning/cln/ClnClient';
-import { Payment } from '../../proto/lnd/rpc_pb';
+import { Payment_PaymentStatus } from '../../proto/lnd/rpc';
 import NodeSwitch from '../../swap/NodeSwitch';
 import SwapNursery from '../../swap/SwapNursery';
 import type { Currency } from '../../wallet/WalletManager';
@@ -367,7 +367,7 @@ class MusigSigner {
         const pendingPayment = await client.trackPayment(
           getHexBuffer(swap.preimageHash),
         );
-        if (pendingPayment.status !== Payment.PaymentStatus.FAILED) {
+        if (pendingPayment.status !== Payment_PaymentStatus.FAILED) {
           return true;
         }
       } catch {

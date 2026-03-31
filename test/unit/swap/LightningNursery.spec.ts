@@ -9,7 +9,7 @@ import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepos
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import LndClient from '../../../lib/lightning/LndClient';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
-import { Invoice } from '../../../lib/proto/lnd/rpc_pb';
+import { Invoice_InvoiceState } from '../../../lib/proto/lnd/rpc';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -27,7 +27,7 @@ const mockOn = jest.fn().mockImplementation((event: string, callback: any) => {
   }
 });
 
-let mockLookupHoldInvoiceState: Invoice.InvoiceState;
+let mockLookupHoldInvoiceState: Invoice_InvoiceState;
 const mockLookupHoldInvoice = jest.fn().mockImplementation(async () => {
   return {
     state: mockLookupHoldInvoiceState,
@@ -245,7 +245,7 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupHoldInvoiceState = Invoice.InvoiceState.OPEN;
+    mockLookupHoldInvoiceState = Invoice_InvoiceState.OPEN;
 
     mockGetReverseSwapResult = {
       invoice,
@@ -325,7 +325,7 @@ describe('LightningNursery', () => {
       eventsEmitted += 1;
     });
 
-    mockLookupHoldInvoiceState = Invoice.InvoiceState.ACCEPTED;
+    mockLookupHoldInvoiceState = Invoice_InvoiceState.ACCEPTED;
 
     // Accept HTLC(s) for the miner fee invoice
     await emitHtlcAccepted(minerFeeInvoice);

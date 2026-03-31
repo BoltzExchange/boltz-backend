@@ -1,8 +1,8 @@
-import { getHexString } from '../Utils';
+import { fromOptionalProtoInt, fromProtoInt, getHexString } from '../Utils';
 import type { HopHint } from '../lightning/LightningClient';
 import { InvoiceFeature } from '../lightning/LightningClient';
-import type { DecodeInvoiceOrOfferResponse } from '../proto/boltzr_pb';
-import { Feature } from '../proto/boltzr_pb';
+import type { DecodeInvoiceOrOfferResponse } from '../proto/boltzr';
+import { Feature } from '../proto/boltzr';
 
 enum InvoiceType {
   Bolt11,
@@ -11,10 +11,10 @@ enum InvoiceType {
 }
 
 class DecodedInvoice {
-  private readonly decoded: DecodeInvoiceOrOfferResponse.AsObject;
+  private readonly decoded: DecodeInvoiceOrOfferResponse;
 
   constructor(public readonly rawRes: DecodeInvoiceOrOfferResponse) {
-    this.decoded = rawRes.toObject();
+    this.decoded = rawRes;
   }
 
   public get type(): InvoiceType {
@@ -48,7 +48,7 @@ class DecodedInvoice {
       return undefined;
     }
 
-    return Buffer.from(data as string, 'base64');
+    return data;
   }
 
   public get isExpired(): boolean {
@@ -56,7 +56,9 @@ class DecodedInvoice {
   }
 
   public get amountMsat(): number {
-    return this.decoded.bolt11?.msat || this.decoded.bolt12Invoice?.msat || 0;
+    return fromProtoInt(
+      this.decoded.bolt11?.msat || this.decoded.bolt12Invoice?.msat || '0',
+    );
   }
 
   public get paymentHash(): Buffer | undefined {
@@ -68,15 +70,19 @@ class DecodedInvoice {
       return undefined;
     }
 
-    return Buffer.from(data as string, 'base64');
+    return data;
   }
 
   public get expiryTimestamp(): number {
     if (this.decoded.bolt11) {
-      return this.decoded.bolt11.createdAt + this.decoded.bolt11.expiry;
+      return (
+        fromProtoInt(this.decoded.bolt11.createdAt) +
+        fromProtoInt(this.decoded.bolt11.expiry)
+      );
     } else if (this.decoded.bolt12Invoice) {
       return (
-        this.decoded.bolt12Invoice.createdAt + this.decoded.bolt12Invoice.expiry
+        fromProtoInt(this.decoded.bolt12Invoice.createdAt) +
+        fromProtoInt(this.decoded.bolt12Invoice.expiry)
       );
     }
 
@@ -85,13 +91,13 @@ class DecodedInvoice {
 
   public get routingHints(): HopHint[][] {
     if (this.decoded.bolt11) {
-      return this.decoded.bolt11.hintsList.map((route) =>
-        route.hopsList.map((hop) => ({
+      return this.decoded.bolt11.hints.map((route) =>
+        route.hops.map((hop) => ({
           feeBaseMsat: hop.baseFeeMsat,
           chanId: hop.channelId.toString(),
-          cltvExpiryDelta: hop.cltvExpiryDelta,
+          cltvExpiryDelta: fromProtoInt(hop.cltvExpiryDelta),
           feeProportionalMillionths: hop.ppmFee,
-          nodeId: getHexString(Buffer.from(hop.node as string, 'base64')),
+          nodeId: getHexString(hop.node),
         })),
       );
     }
@@ -104,13 +110,9 @@ class DecodedInvoice {
     shortChannelId: string | undefined;
   }[] {
     if (this.decoded.bolt12Invoice) {
-      return this.decoded.bolt12Invoice.pathsList.map((path) => ({
-        nodeId:
-          path.nodeId !== undefined
-            ? Buffer.from(path.nodeId as string, 'base64')
-            : undefined,
-        shortChannelId:
-          path.shortChannelId !== '' ? path.shortChannelId : undefined,
+      return this.decoded.bolt12Invoice.paths.map((path) => ({
+        nodeId: path.nodeId,
+        shortChannelId: path.shortChannelId,
       }));
     }
 
@@ -118,26 +120,27 @@ class DecodedInvoice {
   }
 
   public get features(): Set<InvoiceFeature> {
-    return new Set(
-      (
-        this.decoded.bolt11?.featuresList ||
-        this.decoded.bolt12Invoice?.featuresList ||
-        []
-      ).map((feature) => {
-        switch (feature) {
-          case Feature.BASIC_MPP:
-            return InvoiceFeature.MPP;
-        }
-      }),
-    );
+    const features = new Set<InvoiceFeature>();
+
+    for (const feature of this.decoded.bolt11?.features ||
+      this.decoded.bolt12Invoice?.features ||
+      []) {
+      if (feature === Feature.BASIC_MPP) {
+        features.add(InvoiceFeature.MPP);
+      }
+    }
+
+    return features;
   }
 
   public get minFinalCltv(): number {
     return (
-      this.decoded.bolt11?.minFinalCltvExpiry ||
-      this.decoded.bolt12Invoice?.pathsList.reduce(
+      fromOptionalProtoInt(this.decoded.bolt11?.minFinalCltvExpiry) ||
+      this.decoded.bolt12Invoice?.paths.reduce(
         (max, current) =>
-          current.cltvExpiryDelta > max ? current.cltvExpiryDelta : max,
+          fromProtoInt(current.cltvExpiryDelta) > max
+            ? fromProtoInt(current.cltvExpiryDelta)
+            : max,
         0,
       ) ||
       0
@@ -158,7 +161,7 @@ class DecodedInvoice {
       return undefined;
     }
 
-    return Buffer.from(data as string, 'base64');
+    return data;
   }
 }
 

@@ -6,7 +6,7 @@ import {
   swapTypeToGrpcSwapType,
   swapVersionToString,
 } from '../../../lib/consts/Enums';
-import * as boltzrpc from '../../../lib/proto/boltzrpc_pb';
+import * as boltzrpc from '../../../lib/proto/boltzrpc';
 
 describe('Enums', () => {
   test.each`

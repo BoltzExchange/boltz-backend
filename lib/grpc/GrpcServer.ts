@@ -2,7 +2,7 @@ import type { KeyCertPair } from '@grpc/grpc-js';
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { GrpcConfig } from '../Config';
 import type Logger from '../Logger';
-import { BoltzService } from '../proto/boltzrpc_grpc_pb';
+import { BoltzService } from '../proto/boltzrpc';
 import { CertificatePrefix, getCertificate } from './Certificates';
 import Errors from './Errors';
 import type GrpcService from './GrpcService';

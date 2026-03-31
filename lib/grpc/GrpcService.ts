@@ -7,11 +7,14 @@ import type Logger from '../Logger';
 import { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import {
+  fromOptionalProtoInt,
+  fromProtoInt,
   getHexBuffer,
   getHexString,
   getUnixTime,
   removeHexPrefix,
   stringify,
+  toProtoInt,
 } from '../Utils';
 import type Api from '../api/Api';
 import {
@@ -24,8 +27,8 @@ import type Referral from '../db/models/Referral';
 import PendingEthereumTransactionRepository from '../db/repositories/PendingEthereumTransactionRepository';
 import ReferralRepository from '../db/repositories/ReferralRepository';
 import TransactionLabelRepository from '../db/repositories/TransactionLabelRepository';
-import * as boltzrpc from '../proto/boltzrpc_pb';
-import { LogLevel } from '../proto/boltzrpc_pb';
+import type * as boltzrpc from '../proto/boltzrpc';
+import { LogLevel } from '../proto/boltzrpc';
 import type Service from '../service/Service';
 import Sidecar from '../sidecar/Sidecar';
 
@@ -36,9 +39,9 @@ class GrpcService {
     private readonly api: Api,
   ) {}
 
-  public stop: handleUnaryCall<boltzrpc.StopRequest, boltzrpc.StopRequest> =
+  public stop: handleUnaryCall<boltzrpc.StopRequest, boltzrpc.StopResponse> =
     async (_, callback) => {
-      callback(null, new boltzrpc.StopResponse());
+      callback(null, {});
 
       await Sidecar.stop();
       await wait(500);
@@ -70,7 +73,7 @@ class GrpcService {
     boltzrpc.DeriveKeysResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol, index } = call.request.toObject();
+      const { symbol, index } = call.request;
       return this.service.deriveKeys(symbol, index);
     });
   };
@@ -80,15 +83,13 @@ class GrpcService {
     boltzrpc.DeriveBlindingKeyResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { address } = call.request.toObject();
+      const { address } = call.request;
       const { publicKey, privateKey } =
         this.service.elementsService.deriveBlindingKeys(address);
-
-      const res = new boltzrpc.DeriveBlindingKeyResponse();
-      res.setPublicKey(getHexString(publicKey));
-      res.setPrivateKey(getHexString(privateKey));
-
-      return res;
+      return {
+        publicKey: getHexString(publicKey),
+        privateKey: getHexString(privateKey),
+      };
     });
   };
 
@@ -98,40 +99,27 @@ class GrpcService {
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
       const outputs =
-        call.request.hasId() && call.request.getId() !== ''
+        call.request.id !== undefined && call.request.id !== ''
           ? await this.service.elementsService.unblindOutputsFromId(
-              call.request.getId(),
+              call.request.id,
             )
           : await this.service.elementsService.unblindOutputs(
               parseTransaction(
                 CurrencyType.Liquid,
-                call.request.getHex(),
+                call.request.hex ?? '',
               ) as TransactionLiquid,
             );
-
-      const res = new boltzrpc.UnblindOutputsResponse();
-      res.setOutputsList(
-        outputs.map((out) => {
-          const rpcOut = new boltzrpc.UnblindOutputsResponse.UnblindedOutput();
-          rpcOut.setValue(out.value);
-          rpcOut.setAsset(out.asset);
-          rpcOut.setIsLbtc(out.isLbtc);
-          rpcOut.setScript(out.script);
-          rpcOut.setNonce(out.nonce);
-
-          if (out.rangeProof) {
-            rpcOut.setRangeProof(out.rangeProof);
-          }
-
-          if (out.surjectionProof) {
-            rpcOut.setSurjectionProof(out.surjectionProof);
-          }
-
-          return rpcOut;
-        }),
-      );
-
-      return res;
+      return {
+        outputs: outputs.map((out) => ({
+          value: toProtoInt(out.value),
+          asset: out.asset,
+          isLbtc: out.isLbtc,
+          script: out.script,
+          nonce: out.nonce,
+          rangeProof: out.rangeProof,
+          surjectionProof: out.surjectionProof,
+        })),
+      };
     });
   };
 
@@ -140,13 +128,9 @@ class GrpcService {
     boltzrpc.GetAddressResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol, label } = call.request.toObject();
+      const { symbol, label } = call.request;
       const address = await this.service.getAddress(symbol, label);
-
-      const response = new boltzrpc.GetAddressResponse();
-      response.setAddress(address);
-
-      return response;
+      return { address };
     });
   };
 
@@ -156,21 +140,17 @@ class GrpcService {
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
       const { vout, transactionId } = await this.service.sendCoins(
-        call.request.getSymbol(),
-        call.request.getAddress(),
-        call.request.getAmount(),
-        call.request.getLabel(),
-        call.request.getSendAll(),
-        call.request.hasFee() ? call.request.getFee() : undefined,
+        call.request.symbol,
+        call.request.address,
+        fromProtoInt(call.request.amount),
+        call.request.label,
+        call.request.sendAll,
+        fromOptionalProtoInt(call.request.fee),
       );
-
-      const response = new boltzrpc.SendCoinsResponse();
-      response.setTransactionId(transactionId);
-      if (vout !== undefined) {
-        response.setVout(vout);
-      }
-
-      return response;
+      return {
+        transactionId,
+        vout,
+      };
     });
   };
 
@@ -179,7 +159,7 @@ class GrpcService {
     boltzrpc.AddReferralResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id, feeShare, routingNode } = call.request.toObject();
+      const { id, feeShare, routingNode } = call.request;
 
       const { apiKey, apiSecret } = await this.service.addReferral({
         id,
@@ -190,12 +170,10 @@ class GrpcService {
             : undefined,
       });
 
-      const response = new boltzrpc.AddReferralResponse();
-
-      response.setApiKey(apiKey);
-      response.setApiSecret(apiSecret);
-
-      return response;
+      return {
+        apiKey,
+        apiSecret,
+      };
     });
   };
 
@@ -204,11 +182,11 @@ class GrpcService {
     boltzrpc.SetSwapStatusResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id, status } = call.request.toObject();
+      const { id, status } = call.request;
 
       await this.service.setSwapStatus(id, status);
 
-      return new boltzrpc.SetSwapStatusResponse();
+      return {};
     });
   };
 
@@ -217,10 +195,10 @@ class GrpcService {
     boltzrpc.AllowRefundResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id } = call.request.toObject();
+      const { id } = call.request;
       await this.service.allowRefund(id);
 
-      return new boltzrpc.AllowRefundResponse();
+      return {};
     });
   };
 
@@ -230,33 +208,23 @@ class GrpcService {
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
       const lockedFunds = await this.service.getLockedFunds();
-
-      const response = new boltzrpc.GetLockedFundsResponse();
-      const lockedFundsGrpcMap = response.getLockedFundsMap();
-
-      lockedFunds.forEach((swaps, currency) => {
-        const lockedFundsList = new boltzrpc.LockedFunds();
-
-        swaps.reverseSwaps.forEach((swap) => {
-          const lockedFund = new boltzrpc.LockedFund();
-          lockedFund.setSwapId(swap.id);
-          lockedFund.setOnchainAmount(swap.onchainAmount);
-
-          lockedFundsList.addReverseSwaps(lockedFund);
-        });
-
-        swaps.chainSwaps.forEach((swap) => {
-          const lockedFund = new boltzrpc.LockedFund();
-          lockedFund.setSwapId(swap.id);
-          lockedFund.setOnchainAmount(swap.sendingData.amount!);
-
-          lockedFundsList.addChainSwaps(lockedFund);
-        });
-
-        lockedFundsGrpcMap.set(currency, lockedFundsList);
-      });
-
-      return response;
+      return {
+        lockedFunds: Object.fromEntries(
+          Array.from(lockedFunds.entries()).map(([currency, swaps]) => [
+            currency,
+            {
+              reverseSwaps: swaps.reverseSwaps.map((swap) => ({
+                swapId: swap.id,
+                onchainAmount: toProtoInt(swap.onchainAmount),
+              })),
+              chainSwaps: swaps.chainSwaps.map((swap) => ({
+                swapId: swap.id,
+                onchainAmount: toProtoInt(swap.sendingData.amount!),
+              })),
+            },
+          ]),
+        ),
+      };
     });
   };
 
@@ -265,28 +233,21 @@ class GrpcService {
     boltzrpc.GetPendingSweepsResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const response = new boltzrpc.GetPendingSweepsResponse();
       const pendingSweeps = this.service.getPendingSweeps();
-      const pendingSweepsGrpcMap = response.getPendingSweepsMap();
-
-      pendingSweeps.forEach((swapToClaim, currency) => {
-        const pendingSweepsList = new boltzrpc.PendingSweeps();
-        swapToClaim
-          .map((toClaim) => {
-            const pendingSweep = new boltzrpc.PendingSweep();
-            pendingSweep.setSwapId(toClaim.id);
-            pendingSweep.setOnchainAmount(toClaim.onchainAmount || 0);
-            pendingSweep.setType(swapTypeToPrettyString(toClaim.type));
-            return pendingSweep;
-          })
-          .forEach((pendingSweep) =>
-            pendingSweepsList.addPendingSweeps(pendingSweep),
-          );
-
-        pendingSweepsGrpcMap.set(currency, pendingSweepsList);
-      });
-
-      return response;
+      return {
+        pendingSweeps: Object.fromEntries(
+          Array.from(pendingSweeps.entries()).map(([currency, swapToClaim]) => [
+            currency,
+            {
+              pendingSweeps: swapToClaim.map((toClaim) => ({
+                swapId: toClaim.id,
+                onchainAmount: toProtoInt(toClaim.onchainAmount || 0),
+                type: swapTypeToPrettyString(toClaim.type),
+              })),
+            },
+          ]),
+        ),
+      };
     });
   };
 
@@ -295,7 +256,7 @@ class GrpcService {
     boltzrpc.SweepSwapsResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol } = call.request.toObject();
+      const { symbol } = call.request;
 
       const claimed = symbol
         ? new Map<string, string[]>([
@@ -308,16 +269,16 @@ class GrpcService {
           ])
         : await this.service.swapManager.deferredClaimer.sweep();
 
-      const response = new boltzrpc.SweepSwapsResponse();
-      const grpcMap = response.getClaimedSymbolsMap();
-
-      for (const [symbol, swapIds] of claimed) {
-        const ids = new boltzrpc.SweepSwapsResponse.ClaimedSwaps();
-        ids.setClaimedIdsList(swapIds);
-        grpcMap.set(symbol, ids);
-      }
-
-      return response;
+      return {
+        claimedSymbols: Object.fromEntries(
+          Array.from(claimed.entries()).map(([claimedSymbol, swapIds]) => [
+            claimedSymbol,
+            {
+              claimedIds: swapIds,
+            },
+          ]),
+        ),
+      };
     });
   };
 
@@ -326,19 +287,18 @@ class GrpcService {
     boltzrpc.ListSwapsResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { status, limit } = call.request.toObject();
+      const { status, limit } = call.request;
 
       const swaps = await this.service.listSwaps(
         status !== undefined && status !== '' ? status : undefined,
-        limit,
+        fromOptionalProtoInt(limit),
       );
 
-      const response = new boltzrpc.ListSwapsResponse();
-      response.setChainSwapsList(swaps.chain);
-      response.setReverseSwapsList(swaps.reverse);
-      response.setSubmarineSwapsList(swaps.submarine);
-
-      return response;
+      return {
+        chainSwaps: swaps.chain,
+        reverseSwaps: swaps.reverse,
+        submarineSwaps: swaps.submarine,
+      };
     });
   };
 
@@ -347,19 +307,18 @@ class GrpcService {
     boltzrpc.RescanResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol, startHeight, includeMempool } = call.request.toObject();
+      const { symbol, startHeight, includeMempool } = call.request;
 
       const endHeight = await this.service.rescan(
         symbol,
-        startHeight,
+        fromProtoInt(startHeight),
         includeMempool,
       );
 
-      const response = new boltzrpc.RescanResponse();
-      response.setStartHeight(startHeight);
-      response.setEndHeight(endHeight);
-
-      return response;
+      return {
+        startHeight,
+        endHeight: toProtoInt(endHeight),
+      };
     });
   };
 
@@ -368,11 +327,11 @@ class GrpcService {
     boltzrpc.CheckTransactionResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol, id } = call.request.toObject();
+      const { symbol, id } = call.request;
 
       await this.service.checkTransaction(symbol, id);
 
-      return new boltzrpc.CheckTransactionResponse();
+      return {};
     });
   };
 
@@ -381,16 +340,16 @@ class GrpcService {
     boltzrpc.GetLabelResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { txId } = call.request.toObject();
+      const { txId } = call.request;
       const label = await TransactionLabelRepository.getLabel(txId);
       if (label == null) {
         throw 'no label found';
       }
 
-      const response = new boltzrpc.GetLabelResponse();
-      response.setSymbol(label.symbol);
-      response.setLabel(label.label);
-      return response;
+      return {
+        symbol: label.symbol,
+        label: label.label,
+      };
     });
   };
 
@@ -399,23 +358,22 @@ class GrpcService {
     boltzrpc.GetPendingEvmTransactionsResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const response = new boltzrpc.GetPendingEvmTransactionsResponse();
-      const txsGrpcList = response.getTransactionsList();
+      const transactions: boltzrpc.GetPendingEvmTransactionsResponse_Transaction[] =
+        [];
 
       for (const tx of await PendingEthereumTransactionRepository.getTransactions()) {
-        const txGrpc =
-          new boltzrpc.GetPendingEvmTransactionsResponse.Transaction();
-
-        txGrpc.setSymbol(tx.chain);
-        txGrpc.setHash(getHexBuffer(removeHexPrefix(tx.hash)));
-        txGrpc.setHex(getHexBuffer(removeHexPrefix(tx.hex)));
-        txGrpc.setNonce(tx.nonce);
-        txGrpc.setAmountSent(tx.etherAmount.toString());
+        const txGrpc: boltzrpc.GetPendingEvmTransactionsResponse_Transaction = {
+          symbol: tx.chain,
+          hash: getHexBuffer(removeHexPrefix(tx.hash)),
+          hex: getHexBuffer(removeHexPrefix(tx.hex)),
+          nonce: toProtoInt(tx.nonce),
+          amountSent: tx.etherAmount.toString(),
+        };
 
         {
           const label = await TransactionLabelRepository.getLabel(tx.hash);
           if (label !== null) {
-            txGrpc.setLabel(label.label);
+            txGrpc.label = label.label;
           }
         }
 
@@ -426,7 +384,7 @@ class GrpcService {
           if (manager !== undefined) {
             const received = await manager.getClaimedAmount(tx.hex);
             if (received !== undefined) {
-              txGrpc.setAmountReceived(received.amount.toString());
+              txGrpc.amountReceived = received.amount.toString();
 
               if (received.token !== undefined) {
                 const tokenSymbol = Array.from(
@@ -434,17 +392,17 @@ class GrpcService {
                 ).find(([, address]) => address === received.token);
 
                 if (tokenSymbol !== undefined) {
-                  txGrpc.setSymbol(tokenSymbol[0]);
+                  txGrpc.symbol = tokenSymbol[0];
                 }
               }
             }
           }
         }
 
-        txsGrpcList.push(txGrpc);
+        transactions.push(txGrpc);
       }
 
-      return response;
+      return { transactions };
     });
   };
 
@@ -455,7 +413,7 @@ class GrpcService {
     await GrpcService.handleCallback(call, callback, async () => {
       let level: BackendLevel;
 
-      switch (call.request.getLevel()) {
+      switch (call.request.level) {
         case LogLevel.ERROR:
           level = BackendLevel.Error;
           break;
@@ -479,11 +437,19 @@ class GrpcService {
         case LogLevel.SILLY:
           level = BackendLevel.Silly;
           break;
+
+        case LogLevel.UNRECOGNIZED:
+          throw 'invalid log level';
+
+        default: {
+          const exhaustiveLogLevel: never = call.request.level;
+          throw new Error(`Unhandled log level: ${exhaustiveLogLevel}`);
+        }
       }
 
       await this.service.setLogLevel(level);
 
-      return new boltzrpc.SetLogLevelResponse();
+      return {};
     });
   };
 
@@ -492,13 +458,12 @@ class GrpcService {
     boltzrpc.DevHeapDumpResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const filePath =
-        call.request.getPath() || `${getUnixTime()}.heapsnapshot`;
+      const filePath = call.request.path || `${getUnixTime()}.heapsnapshot`;
 
       this.logger.verbose(`Dumping heap at: ${filePath}`);
       await dumpHeap(filePath);
 
-      return new boltzrpc.DevHeapDumpResponse();
+      return {};
     });
   };
 
@@ -507,22 +472,16 @@ class GrpcService {
     boltzrpc.CalculateTransactionFeeResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { symbol, transactionId } = call.request.toObject();
+      const { symbol, transactionId } = call.request;
 
       const { absolute, satPerVbyte, gwei } =
         await this.service.calculateTransactionFee(symbol, transactionId);
 
-      const res = new boltzrpc.CalculateTransactionFeeResponse();
-      res.setAbsolute(absolute);
-
-      if (satPerVbyte !== undefined) {
-        res.setSatPerVbyte(satPerVbyte);
-      }
-      if (gwei !== undefined) {
-        res.setGwei(gwei);
-      }
-
-      return res;
+      return {
+        absolute: toProtoInt(absolute),
+        satPerVbyte,
+        gwei,
+      };
     });
   };
 
@@ -567,26 +526,21 @@ class GrpcService {
     boltzrpc.GetReferralsResponse
   > = async (call, callback) => {
     const formatReferral = (referral: Referral) => {
-      const ref = new boltzrpc.GetReferralsResponse.Referral();
-      ref.setId(referral.id);
-
-      if (referral.config !== null && referral.config !== undefined) {
-        ref.setConfig(JSON.stringify(referral.config));
-      }
-
-      return ref;
+      return {
+        id: referral.id,
+        config:
+          referral.config !== null && referral.config !== undefined
+            ? JSON.stringify(referral.config)
+            : undefined,
+      } satisfies boltzrpc.GetReferralsResponse_Referral;
     };
 
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id } = call.request.toObject();
+      const { id } = call.request;
 
       if (id == undefined || id === '') {
         const referrals = await ReferralRepository.getReferrals();
-
-        const res = new boltzrpc.GetReferralsResponse();
-        res.setReferralList(referrals.map(formatReferral));
-
-        return res;
+        return { referral: referrals.map(formatReferral) };
       } else {
         const referral = await ReferralRepository.getReferralById(id);
 
@@ -594,10 +548,7 @@ class GrpcService {
           throw `could not find referral with id: ${id}`;
         }
 
-        const res = new boltzrpc.GetReferralsResponse();
-        res.setReferralList([formatReferral(referral)]);
-
-        return res;
+        return { referral: [formatReferral(referral)] };
       }
     });
   };
@@ -607,7 +558,7 @@ class GrpcService {
     boltzrpc.SetReferralResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id, config } = call.request.toObject();
+      const { id, config } = call.request;
 
       const referral = await ReferralRepository.getReferralById(id);
       if (referral === null) {
@@ -627,7 +578,7 @@ class GrpcService {
       );
       await ReferralRepository.setConfig(referral, parsedConfig);
 
-      return new boltzrpc.SetReferralResponse();
+      return {};
     });
   };
 
@@ -636,14 +587,14 @@ class GrpcService {
     boltzrpc.InvoiceClnThresholdResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { thresholdsList } = call.request.toObject();
+      const { thresholds } = call.request;
       this.service.nodeSwitch.updateClnThresholds(
-        thresholdsList.map((t) => ({
-          threshold: t.threshold,
+        thresholds.map((t) => ({
+          threshold: fromProtoInt(t.threshold),
           type: swapTypeFromGrpcSwapType(t.type),
         })),
       );
-      return new boltzrpc.InvoiceClnThresholdResponse();
+      return {};
     });
   };
 
@@ -652,7 +603,7 @@ class GrpcService {
     boltzrpc.DevClearSwapUpdateCacheResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { id } = call.request.toObject();
+      const { id } = call.request;
 
       if (id !== undefined && id != null && id !== '') {
         this.logger.debug(`Clearing cache for swap: ${id}`);
@@ -662,7 +613,7 @@ class GrpcService {
         await this.api.swapInfos.cache.clear();
       }
 
-      return new boltzrpc.DevClearSwapUpdateCacheResponse();
+      return {};
     });
   };
 
@@ -671,7 +622,7 @@ class GrpcService {
     boltzrpc.DevDisableCooperativeResponse
   > = async (call, callback) => {
     await GrpcService.handleCallback(call, callback, async () => {
-      const { disabled } = call.request.toObject();
+      const { disabled } = call.request;
       this.logger.warn(
         `${disabled ? 'Dis' : 'En'}abling cooperative swap signatures`,
       );
@@ -684,7 +635,7 @@ class GrpcService {
         signer.setDisableCooperative(disabled);
       }
 
-      return new boltzrpc.DevDisableCooperativeResponse();
+      return {};
     });
   };
 

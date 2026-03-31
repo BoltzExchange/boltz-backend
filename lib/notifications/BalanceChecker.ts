@@ -1,8 +1,9 @@
 import type { BaseCurrencyConfig, TokenConfig } from '../Config';
 import { satoshisToSatcomma } from '../DenominationConverter';
 import type Logger from '../Logger';
+import { fromProtoInt } from '../Utils';
 import { liquidSymbol } from '../consts/LiquidTypes';
-import type { Balances } from '../proto/boltzrpc_pb';
+import type { Balances } from '../proto/boltzrpc';
 import type Service from '../service/Service';
 import { Emojis } from './Markup';
 import type NotificationClient from './NotificationClient';
@@ -78,53 +79,52 @@ class BalanceChecker {
   }
 
   public check = async (): Promise<void> => {
-    const balances = (await this.service.getBalance()).getBalancesMap() as Map<
-      string,
-      Balances
-    >;
+    const balances = (await this.service.getBalance()).balances;
 
     for (const currency of this.currencies) {
-      const balance = balances.get(currency.symbol);
+      const balance = balances[currency.symbol];
 
       if (balance) {
-        await this.checkCurrency(currency, balance.toObject());
+        await this.checkCurrency(currency, balance);
       }
     }
   };
 
   private checkCurrency = async (
     currency: CurrencyThresholds,
-    balances: Balances.AsObject,
+    balances: Balances,
   ) => {
-    const isOnlyWallet = balances.walletsMap.length === 1;
+    const walletEntries = Object.entries(balances.wallets);
+    const lightningEntries = Object.entries(balances.lightning);
+    const isOnlyWallet = walletEntries.length === 1;
     const lightningServices = new Set(
-      balances.lightningMap.map(([service]) => service),
+      lightningEntries.map(([service]) => service),
     );
 
-    for (const [service, balance] of balances.walletsMap) {
+    for (const [service, balance] of walletEntries) {
       const isMainWallet = isOnlyWallet || !lightningServices.has(service);
       await this.checkBalance(
         currency,
         service,
         BalanceType.Wallet,
-        balance.confirmed + balance.unconfirmed,
+        fromProtoInt(balance.confirmed) + fromProtoInt(balance.unconfirmed),
         isMainWallet,
       );
     }
 
-    for (const [service, lightningBalance] of balances.lightningMap) {
+    for (const [service, lightningBalance] of lightningEntries) {
       await this.checkBalance(
         currency,
         service,
         BalanceType.ChannelLocal,
-        lightningBalance.local,
+        fromProtoInt(lightningBalance.local),
       );
 
       await this.checkBalance(
         currency,
         service,
         BalanceType.ChannelRemote,
-        lightningBalance.remote,
+        fromProtoInt(lightningBalance.remote),
       );
     }
   };

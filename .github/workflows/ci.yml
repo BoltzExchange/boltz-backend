@@ -138,10 +138,8 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
-      - name: Check proto files are up to date
-        run: |
-          npm run proto
-          git diff --exit-code -- lib/proto
+      - name: Generate proto files
+        run: npm run proto
 
       - name: Check swagger spec is up to date
         run: |

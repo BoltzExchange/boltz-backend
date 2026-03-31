@@ -7,14 +7,12 @@ import { InvoiceFeature } from '../../../lib/lightning/LightningClient';
 import LndClient from '../../../lib/lightning/LndClient';
 import RoutingFee from '../../../lib/lightning/RoutingFee';
 import {
+  GetInfoResponse,
   LightningClient,
   LightningService,
-} from '../../../lib/proto/lnd/rpc_grpc_pb';
-import {
-  GetInfoResponse,
   Transaction,
   TransactionDetails,
-} from '../../../lib/proto/lnd/rpc_pb';
+} from '../../../lib/proto/lnd/rpc';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 import { getPort } from '../../Utils';
 import {
@@ -145,7 +143,7 @@ describe('LndClient', () => {
         callback: (error: any, res: GetInfoResponse) => void,
       ) => {
         // "GetInfo" is the only call the LndClient is using on startup
-        callback(null, new GetInfoResponse());
+        callback(null, GetInfoResponse.create());
       };
     }
 
@@ -153,14 +151,16 @@ describe('LndClient', () => {
       _: any | null,
       callback: (error: any, res: TransactionDetails) => void,
     ) => {
-      const response = new TransactionDetails();
-
-      const randomTransaction = new Transaction();
-      randomTransaction.setRawTxHex('f'.repeat(randomDataLength));
-
-      response.addTransactions(randomTransaction);
-
-      callback(null, response);
+      callback(
+        null,
+        TransactionDetails.create({
+          transactions: [
+            Transaction.create({
+              rawTxHex: 'f'.repeat(randomDataLength),
+            }),
+          ],
+        }),
+      );
     };
 
     server.addService(LightningService, serviceImplementation);
@@ -194,9 +194,12 @@ describe('LndClient', () => {
       _: any | null,
       callback: (error: any, res: GetInfoResponse) => void,
     ) => {
-      const response = new GetInfoResponse();
-      response.setIdentityPubkey(mockPubkey);
-      callback(null, response);
+      callback(
+        null,
+        GetInfoResponse.create({
+          identityPubkey: mockPubkey,
+        }),
+      );
     };
 
     // Connect to the mocked LND gRPC server
@@ -237,9 +240,8 @@ describe('LndClient', () => {
         label,
       );
 
-      const { transactionsList } =
-        await bitcoinLndClient.getOnchainTransactions(0);
-      const transaction = transactionsList.find((tx) => tx.txHash === txid);
+      const { transactions } = await bitcoinLndClient.getOnchainTransactions(0);
+      const transaction = transactions.find((tx) => tx.txHash === txid);
 
       expect(transaction).not.toBeUndefined();
       expect(transaction!.label).toEqual(label);
@@ -256,9 +258,8 @@ describe('LndClient', () => {
         label,
       );
 
-      const { transactionsList } =
-        await bitcoinLndClient.getOnchainTransactions(0);
-      const transaction = transactionsList.find((tx) => tx.txHash === txid);
+      const { transactions } = await bitcoinLndClient.getOnchainTransactions(0);
+      const transaction = transactions.find((tx) => tx.txHash === txid);
 
       expect(transaction).not.toBeUndefined();
       expect(transaction!.label).toEqual(label);

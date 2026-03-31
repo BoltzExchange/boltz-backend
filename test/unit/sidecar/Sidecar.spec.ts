@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getVersion } from '../../../lib/Utils';
 import { SwapUpdateEvent } from '../../../lib/consts/Enums';
-import type * as sidecarrpc from '../../../lib/proto/boltzr_pb';
+import type * as sidecarrpc from '../../../lib/proto/boltzr';
 import Sidecar from '../../../lib/sidecar/Sidecar';
 
 describe('Sidecar', () => {
@@ -119,13 +119,12 @@ describe('Sidecar', () => {
 
       const request = stream.write.mock
         .calls[0][0] as sidecarrpc.SwapUpdateRequest;
-      const update = request.getStatusList()[0];
-      const transaction = update.getTransactionInfo()!;
+      const update = request.status[0];
+      const transaction = update.transactionInfo!;
 
-      expect(update.getStatus()).toEqual(SwapUpdateEvent.TransactionRefunded);
-      expect(transaction.getId()).toEqual('refund-tx');
-      expect(transaction.hasConfirmed()).toEqual(true);
-      expect(transaction.getConfirmed()).toEqual(true);
+      expect(update.status).toEqual(SwapUpdateEvent.TransactionRefunded);
+      expect(transaction.id).toEqual('refund-tx');
+      expect(transaction.confirmed).toEqual(true);
     });
   });
 });

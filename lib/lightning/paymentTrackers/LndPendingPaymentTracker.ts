@@ -1,7 +1,10 @@
 import type Logger from '../../Logger';
-import { formatError, getHexBuffer } from '../../Utils';
+import { formatError, fromProtoInt, getHexBuffer } from '../../Utils';
 import { NodeType } from '../../db/models/ReverseSwap';
-import { Payment, PaymentFailureReason } from '../../proto/lnd/rpc_pb';
+import {
+  PaymentFailureReason,
+  Payment_PaymentStatus,
+} from '../../proto/lnd/rpc';
 import LightningNursery from '../../swap/LightningNursery';
 import type { LightningClient, PaymentResponse } from '../LightningClient';
 import LndClient from '../LndClient';
@@ -34,14 +37,14 @@ class LndPendingPaymentTracker extends NodePendingPaymentTracker {
       .trackPayment(getHexBuffer(preimageHash), true)
       .then(async (res) => {
         switch (res.status) {
-          case Payment.PaymentStatus.SUCCEEDED:
+          case Payment_PaymentStatus.SUCCEEDED:
             await this.handleSucceededPayment(client, preimageHash, {
-              feeMsat: res.feeMsat,
+              feeMsat: fromProtoInt(res.feeMsat),
               preimage: getHexBuffer(res.paymentPreimage),
             });
             break;
 
-          case Payment.PaymentStatus.FAILED:
+          case Payment_PaymentStatus.FAILED:
             await this.handleFailedPayment(
               client,
               preimageHash,

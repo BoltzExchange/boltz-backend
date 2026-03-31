@@ -3,6 +3,7 @@ import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transact
 import type Logger from '../Logger';
 import {
   formatError,
+  fromProtoInt,
   getHexBuffer,
   getHexString,
   getLightningCurrency,
@@ -23,7 +24,7 @@ import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
-import { Payment, PaymentFailureReason } from '../proto/lnd/rpc_pb';
+import { PaymentFailureReason, Payment_PaymentStatus } from '../proto/lnd/rpc';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
@@ -233,13 +234,13 @@ class PaymentHandler {
           getHexBuffer(swap.preimageHash),
         );
 
-        if (payment.status === Payment.PaymentStatus.SUCCEEDED) {
+        if (payment.status === Payment_PaymentStatus.SUCCEEDED) {
           this.logger.debug(`Invoice of Swap ${swap.id} is paid already`);
           return this.settleInvoice(swap, {
-            feeMsat: payment.feeMsat,
+            feeMsat: fromProtoInt(payment.feeMsat),
             preimage: getHexBuffer(payment.paymentPreimage),
           });
-        } else if (payment.status === Payment.PaymentStatus.IN_FLIGHT) {
+        } else if (payment.status === Payment_PaymentStatus.IN_FLIGHT) {
           this.logger.info(`Invoice of Swap ${swap.id} is still pending`);
           return undefined;
         }

@@ -279,11 +279,7 @@ describe('PendingPaymentTracker', () => {
       expect(res).not.toBeUndefined();
       expect(typeof res!.feeMsat).toEqual('number');
       expect(res!.preimage).toEqual(
-        Buffer.from(
-          (await bitcoinLndClient.lookupInvoice(preimageHash))
-            .rPreimage as string,
-          'base64',
-        ),
+        (await bitcoinLndClient.lookupInvoice(preimageHash)).rPreimage,
       );
 
       const payments = await LightningPaymentRepository.findByPreimageHash(

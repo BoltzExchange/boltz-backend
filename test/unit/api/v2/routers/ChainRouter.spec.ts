@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
 import { mapToObject } from '../../../../../lib/Utils';
 import ChainRouter from '../../../../../lib/api/v2/routers/ChainRouter';
+import Errors from '../../../../../lib/service/Errors';
 import type Service from '../../../../../lib/service/Service';
 import { mockRequest, mockResponse } from '../../Utils';
 
@@ -201,6 +202,27 @@ describe('ChainRouter', () => {
     });
   });
 
+  test('should return 501 when Ethereum integration is disabled', async () => {
+    (service.getContracts as jest.Mock).mockRejectedValueOnce(
+      Errors.ETHEREUM_NOT_ENABLED(),
+    );
+
+    chainRouter.getRouter();
+    const contractsHandler = mockedRouter.get.mock.calls.find(
+      ([path]) => path === '/contracts',
+    )?.[1];
+
+    expect(contractsHandler).toBeDefined();
+
+    const res = mockResponse();
+    await contractsHandler(mockRequest(), res);
+
+    expect(res.status).toHaveBeenCalledWith(501);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.ETHEREUM_NOT_ENABLED().message,
+    });
+  });
+
   test('should get fee estimation for chain', async () => {
     const currency = 'BTC';
 
@@ -263,6 +285,35 @@ describe('ChainRouter', () => {
     });
   });
 
+  test('should return 404 when transaction cannot be found', async () => {
+    const currency = 'BTC';
+    const id = 'missingTx';
+    (service.getTransaction as jest.Mock).mockRejectedValueOnce(
+      Errors.NO_TRANSACTION(id),
+    );
+
+    chainRouter.getRouter();
+    const transactionHandler = mockedRouter.get.mock.calls.find(
+      ([path]) => path === '/:currency/transaction/:id',
+    )?.[1];
+
+    expect(transactionHandler).toBeDefined();
+
+    const res = mockResponse();
+    await transactionHandler(
+      mockRequest(undefined, undefined, {
+        id,
+        currency,
+      }),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.NO_TRANSACTION(id).message,
+    });
+  });
+
   test('should broadcast transaction', async () => {
     const currency = 'BTC';
     const hex = 'rawTx';
@@ -319,6 +370,28 @@ describe('ChainRouter', () => {
         USDT: '0x123',
       },
     });
+  });
+
+  test('should return 501 when Ethereum integration is disabled for a currency contracts request', async () => {
+    const ethereumManagers = service.walletManager.ethereumManagers;
+    service.walletManager.ethereumManagers = [];
+
+    try {
+      const res = mockResponse();
+      await chainRouter['getContractsForCurrency'](
+        mockRequest(null, undefined, {
+          currency: 'RBTC',
+        }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(501);
+      expect(res.json).toHaveBeenCalledWith({
+        error: Errors.ETHEREUM_NOT_ENABLED().message,
+      });
+    } finally {
+      service.walletManager.ethereumManagers = ethereumManagers;
+    }
   });
 
   test('should 404 when getting contracts for non EVM chain', async () => {

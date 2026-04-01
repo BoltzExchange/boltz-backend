@@ -1,12 +1,22 @@
 import { Router } from 'express';
 import Logger from '../../../../../lib/Logger';
-import { errorResponse } from '../../../../../lib/api/Utils';
+import {
+  errorResponse,
+  resolveErrorStatusCode,
+} from '../../../../../lib/api/Utils';
 import RouterBase from '../../../../../lib/api/v2/routers/RouterBase';
+import Errors from '../../../../../lib/service/Errors';
 import { mockRequest, mockResponse } from '../../Utils';
 
-jest.mock('../../../../../lib/api/Utils', () => ({
-  errorResponse: jest.fn(),
-}));
+jest.mock('../../../../../lib/api/Utils', () => {
+  const actual = jest.requireActual('../../../../../lib/api/Utils');
+
+  return {
+    ...actual,
+    errorResponse: jest.fn(),
+    resolveErrorStatusCode: jest.fn(actual.resolveErrorStatusCode),
+  };
+});
 
 class TestRouter extends RouterBase {
   constructor() {
@@ -52,6 +62,22 @@ describe('RouterBase', () => {
       expect.anything(),
       msg,
       400,
+    );
+  });
+
+  test('should return 409 for duplicate preimage conflicts', async () => {
+    const error = Errors.SWAP_WITH_PREIMAGE_EXISTS();
+    await new TestRouter().call(() => {
+      throw error;
+    });
+
+    expect(resolveErrorStatusCode).toHaveBeenCalledWith(error, 400);
+    expect(errorResponse).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      error,
+      409,
     );
   });
 });

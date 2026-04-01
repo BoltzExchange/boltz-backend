@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type Logger from '../../../Logger';
 import { mapToObject } from '../../../Utils';
+import Errors from '../../../service/Errors';
 import type { NetworkContracts } from '../../../service/Service';
 import type Service from '../../../service/Service';
 import {
@@ -155,6 +156,12 @@ class ChainRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '501':
+     *         description: The Ethereum integration is not enabled
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/contracts', this.handleError(this.getContracts));
 
@@ -262,6 +269,12 @@ class ChainRouter extends RouterBase {
      *                   description: Number of confirmations the transaction has; not set if not confirmed yet
      *       '400':
      *         description: Error that caused the query for the transaction to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: No transaction with that id was found
      *         content:
      *           application/json:
      *             schema:
@@ -417,8 +430,15 @@ class ChainRouter extends RouterBase {
 
   private getContractsForCurrency = async (req: Request, res: Response) => {
     const currency = this.getCurrencyFromPath(req);
-    const manager = this.service.walletManager.ethereumManagers.find(
-      (manager) => manager.hasSymbol(currency),
+    const { ethereumManagers } = this.service.walletManager;
+
+    if (ethereumManagers.length === 0) {
+      errorResponse(this.logger, req, res, Errors.ETHEREUM_NOT_ENABLED());
+      return;
+    }
+
+    const manager = ethereumManagers.find((manager) =>
+      manager.hasSymbol(currency),
     );
 
     if (manager === undefined) {

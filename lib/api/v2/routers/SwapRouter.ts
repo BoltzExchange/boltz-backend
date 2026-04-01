@@ -322,6 +322,12 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: A swap with that invoice or preimage hash exists already
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/submarine', this.handleError(this.createSubmarine));
 
@@ -371,6 +377,12 @@ class SwapRouter extends RouterBase {
      *                   description: Whether 0-conf will be accepted assuming the transaction does not signal RBF and has a reasonably high fee
      *       '400':
      *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: That swap has an invoice already
      *         content:
      *           application/json:
      *             schema:
@@ -507,6 +519,12 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/SubmarinePreimage'
      *       '400':
      *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '404':
+     *         description: That swap does not have a preimage available yet
      *         content:
      *           application/json:
      *             schema:
@@ -1005,6 +1023,12 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: A swap with that preimage hash exists already
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/reverse', this.handleError(this.createReverse));
 
@@ -1419,6 +1443,12 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: A swap with that preimage hash exists already
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.post('/chain', this.handleError(this.createChain));
 
@@ -1545,6 +1575,12 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/ErrorResponse'
      *       '400':
      *         description: Error that caused the request to fail
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: The server claim for that swap succeeded already
      *         content:
      *           application/json:
      *             schema:
@@ -1788,6 +1824,12 @@ class SwapRouter extends RouterBase {
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: The quote cannot be renegotiated because a refund was signed already
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     router.get('/chain/:id/quote', this.handleError(this.chainSwapQuote));
 
@@ -1827,6 +1869,12 @@ class SwapRouter extends RouterBase {
      *               $ref: '#/components/schemas/QuoteResponse'
      *       '400':
      *         description: When the Chain Swap is not eligible for a new quote
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       '409':
+     *         description: The quote cannot be renegotiated because a refund was signed already
      *         content:
      *           application/json:
      *             schema:

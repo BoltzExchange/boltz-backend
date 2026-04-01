@@ -8,6 +8,7 @@ import ReferralStats from '../../../lib/data/ReferralStats';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
+import Errors from '../../../lib/service/Errors';
 import Service from '../../../lib/service/Service';
 import { mockRequest, mockResponse } from './Utils';
 
@@ -490,6 +491,24 @@ describe('Controller', () => {
     });
   });
 
+  test('should 404 when transaction cannot be found', async () => {
+    const requestData = {
+      currency: 'BTC',
+      transactionId: 'missingTx',
+    };
+    mockGetTransaction.mockRejectedValueOnce(
+      Errors.NO_TRANSACTION(requestData.transactionId),
+    );
+
+    const res = mockResponse();
+    await controller.getTransaction(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.NO_TRANSACTION(requestData.transactionId).message,
+    });
+  });
+
   test('should get Swap transaction', async () => {
     // No values provided in request
     const res = mockResponse();
@@ -660,6 +679,28 @@ describe('Controller', () => {
     );
   });
 
+  test('should return 409 for duplicate submarine swap invoices', async () => {
+    const res = mockResponse();
+    const requestData = {
+      type: 'submarine',
+      pairId: 'LTC/BTC',
+      orderSide: 'buy',
+      refundPublicKey: '298ae8cc',
+      invoice: 'lnbc',
+    };
+
+    mockCreateSwapWithInvoice.mockRejectedValueOnce(
+      Errors.SWAP_WITH_INVOICE_EXISTS(),
+    );
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_WITH_INVOICE_EXISTS().message,
+    });
+  });
+
   test('should create submarine swaps with preimage hashes', async () => {
     const res = mockResponse();
 
@@ -789,6 +830,24 @@ describe('Controller', () => {
     expect(res.json).toHaveBeenNthCalledWith(4, await mockSetInvoice());
   });
 
+  test('should return 409 when setting an invoice twice', async () => {
+    const requestData = {
+      id: 'id',
+      invoice: 'lnbc',
+    };
+    mockSetInvoice.mockRejectedValueOnce(
+      Errors.SWAP_HAS_INVOICE_ALREADY(requestData.id),
+    );
+
+    const res = mockResponse();
+    await controller.setInvoice(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_HAS_INVOICE_ALREADY(requestData.id).message,
+    });
+  });
+
   test('should create reverse swaps', async () => {
     const res = mockResponse();
 
@@ -886,6 +945,30 @@ describe('Controller', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(5, 201);
     expect(res.json).toHaveBeenNthCalledWith(5, await mockCreateReverseSwap());
+  });
+
+  test('should return 409 for duplicate reverse swap preimage hashes', async () => {
+    const res = mockResponse();
+    const requestData = {
+      type: 'reverseSubmarine',
+      pairId: 'LTC/BTC',
+      orderSide: 'buy',
+      invoiceAmount: 321,
+      claimPublicKey: '298ae8cc',
+      preimageHash:
+        '98aed2bbba02f46751d1d4f687642df910cd1a6b85ba8adfabdbe7d82c8a4e6c',
+    };
+
+    mockCreateReverseSwap.mockRejectedValueOnce(
+      Errors.SWAP_WITH_PREIMAGE_EXISTS(),
+    );
+
+    await controller.createSwap(mockRequest(requestData), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_WITH_PREIMAGE_EXISTS().message,
+    });
   });
 
   test('should query referrals', async () => {

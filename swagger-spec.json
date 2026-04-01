@@ -144,6 +144,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "A swap with that invoice or preimage hash exists already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -219,6 +229,16 @@
           },
           "400": {
             "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That swap has an invoice already",
             "content": {
               "application/json": {
                 "schema": {
@@ -351,6 +371,16 @@
           },
           "400": {
             "description": "Error that caused the request to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "That swap does not have a preimage available yet",
             "content": {
               "application/json": {
                 "schema": {
@@ -697,6 +727,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "A swap with that preimage hash exists already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -935,6 +975,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "A swap with that preimage hash exists already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1030,6 +1080,16 @@
           },
           "404": {
             "description": "When no Chain Swap with the ID could be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The server claim for that swap succeeded already",
             "content": {
               "application/json": {
                 "schema": {
@@ -1304,6 +1364,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "The quote cannot be renegotiated because a refund was signed already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -1346,6 +1416,16 @@
           },
           "400": {
             "description": "When the Chain Swap is not eligible for a new quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The quote cannot be renegotiated because a refund was signed already",
             "content": {
               "application/json": {
                 "schema": {
@@ -2495,6 +2575,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "The Ethereum integration is not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2651,6 +2741,16 @@
           },
           "400": {
             "description": "Error that caused the query for the transaction to fail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No transaction with that id was found",
             "content": {
               "application/json": {
                 "schema": {

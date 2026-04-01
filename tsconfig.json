@@ -1,6 +1,7 @@
 {
   "include": [
-    "lib"
+    "lib",
+    "test"
   ],
   "compilerOptions": {
     "target": "ES2023", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017','ES2018' or 'ESNEXT'. */
@@ -14,6 +15,10 @@
     "declaration": true,
     "lib": [
       "ES2020"
+    ],
+    "types": [
+      "node",
+      "jest",
     ],
     "strictNullChecks": true, /* Enable strict null checks. */
     "strictFunctionTypes": true, /* Enable strict checking of function types. */

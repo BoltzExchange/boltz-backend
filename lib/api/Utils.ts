@@ -48,6 +48,18 @@ export const errorsNotToLog: string[] = [
   'bad-txns-inputs-missingorspent',
 ];
 
+const defaultErrorStatusCodes = new Map<string, number>([
+  [ServiceErrors.SWAP_WITH_INVOICE_EXISTS().code, 409],
+  [ServiceErrors.SWAP_WITH_PREIMAGE_EXISTS().code, 409],
+  [ServiceErrors.SWAP_HAS_INVOICE_ALREADY('').code, 409],
+  [ServiceErrors.PREIMAGE_NOT_AVAILABLE().code, 404],
+  [ServiceErrors.REFUND_SIGNED_ALREADY().code, 409],
+  [ServiceErrors.SERVER_CLAIM_SUCCEEDED_ALREADY().code, 409],
+  [ServiceErrors.SWAP_NOT_FOUND('').code, 404],
+  [ServiceErrors.NO_TRANSACTION('').code, 404],
+  [ServiceErrors.ETHEREUM_NOT_ENABLED().code, 501],
+]);
+
 /**
  * Validates that all required arguments were provided in the body correctly
  *
@@ -112,27 +124,40 @@ export const errorResponse = (
   error: unknown,
   statusCode = 400,
 ): void => {
+  const resolvedStatusCode = resolveErrorStatusCode(error, statusCode);
+
   if (typeof error === 'string') {
-    writeErrorResponse(logger, req, res, statusCode, { error });
+    writeErrorResponse(logger, req, res, resolvedStatusCode, { error });
   } else {
     const errorObject = error as any;
 
     // Bitcoin Core related errors
     if (errorObject.details) {
-      writeErrorResponse(logger, req, res, statusCode, {
+      writeErrorResponse(logger, req, res, resolvedStatusCode, {
         error: errorObject.details,
       });
       // Custom error when broadcasting a refund transaction fails because
       // the locktime requirement has not been met yet
     } else if (errorObject.timeoutBlockHeight) {
-      writeErrorResponse(logger, req, res, statusCode, error);
+      writeErrorResponse(logger, req, res, resolvedStatusCode, error);
       // Everything else
     } else {
-      writeErrorResponse(logger, req, res, statusCode, {
+      writeErrorResponse(logger, req, res, resolvedStatusCode, {
         error: errorObject.message,
       });
     }
   }
+};
+
+export const resolveErrorStatusCode = (
+  error: unknown,
+  statusCode = 400,
+): number => {
+  if (statusCode !== 400) {
+    return statusCode;
+  }
+
+  return defaultErrorStatusCodes.get((error as any)?.code) ?? statusCode;
 };
 
 export const successResponse = (

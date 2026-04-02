@@ -37,6 +37,38 @@ type Events = {
   'vhtlc.spent': SpentVHtlc;
 };
 
+class AddressMapper {
+  private readonly decodedAddresses: Map<string, string>;
+
+  constructor(
+    addresses: string[],
+    onInvalidAddress?: (address: string, error: unknown) => void,
+  ) {
+    this.decodedAddresses = new Map();
+
+    for (const address of addresses) {
+      try {
+        this.decodedAddresses.set(
+          getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
+          address,
+        );
+      } catch (error) {
+        if (onInvalidAddress !== undefined) {
+          onInvalidAddress(address, error);
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  public getAddress = (script: string) => {
+    return this.decodedAddresses.get(
+      getHexString(getHexBuffer(script).subarray(2)),
+    );
+  };
+}
+
 class ArkSubscription extends TypedEventEmitter<Events> {
   private static readonly reconnectInterval = 2_500;
   private static readonly rescanIntervalMinutes = 5;
@@ -142,50 +174,60 @@ class ArkSubscription extends TypedEventEmitter<Events> {
         `Rescanning ${this.client.serviceName()} ${this.client.symbol}`,
       );
 
-      for (const [address, vhtlcId] of this.subscribedAddresses.entries()) {
-        try {
-          const req: arkrpc.ListVHTLCRequest = {
-            vhtlcId,
-          };
+      if (this.subscribedAddresses.size === 0) {
+        return;
+      }
 
-          const res = await this.unaryCall<
-            arkrpc.ListVHTLCRequest,
-            arkrpc.ListVHTLCResponse
-          >('listVhtlc', req);
+      const req: arkrpc.ListVHTLCsRequest = {
+        vhtlcIds: Array.from(this.subscribedAddresses.values()),
+      };
+      const res = await this.unaryCall<
+        arkrpc.ListVHTLCsRequest,
+        arkrpc.ListVHTLCsResponse
+      >('listVhtlCs', req);
 
-          for (const vhtlc of res.vhtlcs) {
-            if (vhtlc.outpoint === undefined) {
-              this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
-              continue;
-            }
+      const addressMapper = new AddressMapper(
+        Array.from(this.subscribedAddresses.keys()),
+        this.invalidAddressHandler('subscribed'),
+      );
 
-            this.emit('vhtlc.created', {
-              address,
-              txId: vhtlc.outpoint.txid,
+      for (const vhtlc of res.vhtlcs) {
+        if (vhtlc.outpoint === undefined) {
+          this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
+          continue;
+        }
+
+        const address = addressMapper.getAddress(vhtlc.script);
+        if (address === undefined) {
+          this.logger.warn(`No address for vHTLC ${vhtlc.script}`);
+          continue;
+        }
+
+        this.emit('vhtlc.created', {
+          address,
+          txId: vhtlc.outpoint.txid,
+          vout: vhtlc.outpoint.vout,
+          amount: fromProtoInt(vhtlc.amount),
+        });
+
+        if (
+          vhtlc.isSpent &&
+          vhtlc.spentBy !== undefined &&
+          vhtlc.spentBy !== ''
+        ) {
+          this.emit('vhtlc.spent', {
+            outpoint: {
+              txid: vhtlc.outpoint.txid,
               vout: vhtlc.outpoint.vout,
-              amount: fromProtoInt(vhtlc.amount),
-            });
-
-            if (
-              vhtlc.isSpent &&
-              vhtlc.spentBy !== undefined &&
-              vhtlc.spentBy !== ''
-            ) {
-              this.emit('vhtlc.spent', {
-                outpoint: {
-                  txid: vhtlc.outpoint.txid,
-                  vout: vhtlc.outpoint.vout,
-                },
-                spentBy: vhtlc.spentBy,
-              });
-            }
-          }
-        } catch (error) {
-          this.logger.silly(
-            `No ${this.client.serviceName()} ${this.client.symbol} vHTLC found for address ${address}: ${formatError(error)}`,
-          );
+            },
+            spentBy: vhtlc.spentBy,
+          });
         }
       }
+    } catch (error) {
+      this.logger.error(
+        `Error rescanning ${this.client.serviceName()} ${this.client.symbol}: ${formatError(error)}`,
+      );
     } finally {
       this.isRescanning = false;
     }
@@ -208,11 +250,9 @@ class ArkSubscription extends TypedEventEmitter<Events> {
           return;
         }
 
-        const decoded = new Map<string, string>(
-          notification.addresses.map((address) => [
-            getHexString(ArkClient.decodeAddress(address).tweakedPubKey),
-            address,
-          ]),
+        const addressMapper = new AddressMapper(
+          notification.addresses,
+          this.invalidAddressHandler('notification'),
         );
 
         for (const vhtlc of notification.newVtxos) {
@@ -221,9 +261,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
             continue;
           }
 
-          const recipient = decoded.get(
-            getHexString(getHexBuffer(vhtlc.script).subarray(2)),
-          );
+          const recipient = addressMapper.getAddress(vhtlc.script);
           if (recipient === undefined) {
             continue;
           }
@@ -323,6 +361,14 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     } finally {
       this.isReconnecting = false;
     }
+  };
+
+  private invalidAddressHandler = (source: string) => {
+    return (address: string, error: unknown) => {
+      this.logger.warn(
+        `Ignoring invalid ${source} ARK address ${address}: ${formatError(error)}`,
+      );
+    };
   };
 }
 

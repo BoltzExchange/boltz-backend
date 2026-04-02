@@ -9,10 +9,12 @@ import {
   checkPreimageHashLength,
   errorResponse,
   markSwap,
+  resolveErrorStatusCode,
   validateArray,
   validateRequest,
 } from '../../../lib/api/Utils';
 import MarkedSwapRepository from '../../../lib/db/repositories/MarkedSwapRepository';
+import ServiceErrors from '../../../lib/service/Errors';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import { mockRequest, mockResponse } from './Utils';
 
@@ -260,6 +262,40 @@ describe('Utils', () => {
 
     expect(res.status).toHaveBeenNthCalledWith(5, 401);
     expect(res.json).toHaveBeenNthCalledWith(5, { error: error.message });
+  });
+
+  test('should return 409 for duplicate preimage conflicts', () => {
+    const req = mockRequest({});
+    const res = mockResponse();
+    const error = ServiceErrors.SWAP_WITH_PREIMAGE_EXISTS();
+
+    errorResponse(Logger.disabledLogger, req, res, error);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ error: error.message });
+  });
+
+  test.each`
+    error                                             | statusCode
+    ${ServiceErrors.SWAP_WITH_INVOICE_EXISTS()}       | ${409}
+    ${ServiceErrors.SWAP_WITH_PREIMAGE_EXISTS()}      | ${409}
+    ${ServiceErrors.SWAP_HAS_INVOICE_ALREADY('id')}   | ${409}
+    ${ServiceErrors.PREIMAGE_NOT_AVAILABLE()}         | ${404}
+    ${ServiceErrors.REFUND_SIGNED_ALREADY()}          | ${409}
+    ${ServiceErrors.SERVER_CLAIM_SUCCEEDED_ALREADY()} | ${409}
+    ${ServiceErrors.SWAP_NOT_FOUND('id')}             | ${404}
+    ${ServiceErrors.NO_TRANSACTION('txid')}           | ${404}
+    ${ServiceErrors.ETHEREUM_NOT_ENABLED()}           | ${501}
+  `('should map $error.code to $statusCode', ({ error, statusCode }) => {
+    expect(resolveErrorStatusCode(error)).toEqual(statusCode);
+  });
+
+  test('should only override the default 400 status code', () => {
+    expect(
+      resolveErrorStatusCode(ServiceErrors.SWAP_WITH_PREIMAGE_EXISTS(), 401),
+    ).toEqual(401);
+    expect(resolveErrorStatusCode({ message: 'other' })).toEqual(400);
+    expect(resolveErrorStatusCode('other')).toEqual(400);
   });
 
   test('should check preimage hash length', () => {

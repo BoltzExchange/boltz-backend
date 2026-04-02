@@ -156,6 +156,7 @@ describe('SwapRouter', () => {
       .mockReturnValue({ pairId: 'L-BTC/BTC', orderSide: OrderSide.BUY }),
     createSwap: jest.fn().mockResolvedValue({ id: 'randomIdPreimageHash' }),
     createSwapWithInvoice: jest.fn().mockResolvedValue({ id: 'randomId' }),
+    setInvoice: jest.fn().mockResolvedValue({}),
     createReverseSwap: jest.fn().mockResolvedValue({ id: 'reverseId' }),
     createChainSwap: jest.fn().mockResolvedValue({ id: 'chainId' }),
     getReverseBip21: jest.fn().mockResolvedValue({
@@ -358,14 +359,14 @@ describe('SwapRouter', () => {
       });
     });
 
-    test('should return 400 when any requested swap id cannot be found', async () => {
+    test('should return 404 when any requested swap id cannot be found', async () => {
       const res = mockResponse();
       await swapRouter['getSwapStatusMultiple'](
         mockRequest(undefined, { ids: ['notFound'] }),
         res,
       );
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         error: 'could not find swap with id: notFound',
       });
@@ -507,6 +508,34 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'randomId' });
+  });
+
+  test('should return 409 when submarine swap invoice exists already', async () => {
+    (service.createSwapWithInvoice as jest.Mock).mockRejectedValueOnce(
+      Errors.SWAP_WITH_INVOICE_EXISTS(),
+    );
+
+    swapRouter.getRouter();
+    const submarineHandler = mockedRouter.post.mock.calls.find(
+      ([path]) => path === '/submarine',
+    )?.[1];
+
+    expect(submarineHandler).toBeDefined();
+
+    const reqBody = {
+      to: 'BTC',
+      from: 'L-BTC',
+      invoice: 'LNBC1',
+      refundPublicKey: '0021',
+    };
+    const res = mockResponse();
+
+    await submarineHandler(mockRequest(reqBody), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_WITH_INVOICE_EXISTS().message,
+    });
   });
 
   test('should create submarine swaps with webhook', async () => {
@@ -815,6 +844,30 @@ describe('SwapRouter', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         preimage: await service.getSubmarinePreimage(id),
+      });
+    });
+
+    test('should return 404 when preimage is not available yet', async () => {
+      (service.getSubmarinePreimage as jest.Mock).mockRejectedValueOnce(
+        Errors.PREIMAGE_NOT_AVAILABLE(),
+      );
+
+      swapRouter.getRouter();
+      const preimageHandler = mockedRouter.get.mock.calls.find(
+        ([path]) => path === '/submarine/:id/preimage',
+      )?.[1];
+
+      expect(preimageHandler).toBeDefined();
+
+      const res = mockResponse();
+      await preimageHandler(
+        mockRequest(undefined, undefined, { id: 'asdf' }),
+        res,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        error: Errors.PREIMAGE_NOT_AVAILABLE().message,
       });
     });
   });
@@ -1283,6 +1336,58 @@ describe('SwapRouter', () => {
 
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ id: 'reverseId' });
+  });
+
+  test('should return 409 when reverse swap preimage hash exists already', async () => {
+    (service.createReverseSwap as jest.Mock).mockRejectedValueOnce(
+      Errors.SWAP_WITH_PREIMAGE_EXISTS(),
+    );
+
+    swapRouter.getRouter();
+    const reverseHandler = mockedRouter.post.mock.calls.find(
+      ([path]) => path === '/reverse',
+    )?.[1];
+
+    expect(reverseHandler).toBeDefined();
+
+    const reqBody = {
+      to: 'L-BTC',
+      from: 'BTC',
+      claimPublicKey: '21',
+      preimageHash: getHexString(randomBytes(32)),
+    };
+    const res = mockResponse();
+
+    await reverseHandler(mockRequest(reqBody), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_WITH_PREIMAGE_EXISTS().message,
+    });
+  });
+
+  test('should return 409 when a submarine swap invoice is set twice', async () => {
+    (service.setInvoice as jest.Mock).mockRejectedValueOnce(
+      Errors.SWAP_HAS_INVOICE_ALREADY('subId'),
+    );
+
+    swapRouter.getRouter();
+    const setInvoiceHandler = mockedRouter.post.mock.calls.find(
+      ([path]) => path === '/submarine/:id/invoice',
+    )?.[1];
+
+    expect(setInvoiceHandler).toBeDefined();
+
+    const res = mockResponse();
+    await setInvoiceHandler(
+      mockRequest({ invoice: 'LNBC1' }, undefined, { id: 'subId' }),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SWAP_HAS_INVOICE_ALREADY('subId').message,
+    });
   });
 
   test('should create reverse swaps with webhook', async () => {
@@ -2066,6 +2171,29 @@ describe('SwapRouter', () => {
     });
   });
 
+  test('should return 409 when chain swap claim already succeeded', async () => {
+    const chainSwap = { id: 'yo' };
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+    (
+      service.swapManager.chainSwapSigner.getCooperativeDetails as jest.Mock
+    ).mockRejectedValueOnce(Errors.SERVER_CLAIM_SUCCEEDED_ALREADY());
+
+    swapRouter.getRouter();
+    const claimDetailsHandler = mockedRouter.get.mock.calls.find(
+      ([path]) => path === '/chain/:id/claim',
+    )?.[1];
+
+    expect(claimDetailsHandler).toBeDefined();
+
+    const res = mockResponse();
+    await claimDetailsHandler(mockRequest(null, {}, { id: chainSwap.id }), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: Errors.SERVER_CLAIM_SUCCEEDED_ALREADY().message,
+    });
+  });
+
   test.each`
     error                                 | params            | body
     ${'undefined parameter: id'}          | ${{}}             | ${{}}
@@ -2254,6 +2382,27 @@ describe('SwapRouter', () => {
         expect(res.json).toHaveBeenCalledTimes(1);
         expect(res.json).toHaveBeenCalledWith({ amount });
       });
+
+      test('should return 409 when a refund was signed already', async () => {
+        (
+          service.swapManager.renegotiator.getQuote as jest.Mock
+        ).mockRejectedValueOnce(Errors.REFUND_SIGNED_ALREADY());
+
+        swapRouter.getRouter();
+        const quoteHandler = mockedRouter.get.mock.calls.find(
+          ([path]) => path === '/chain/:id/quote',
+        )?.[1];
+
+        expect(quoteHandler).toBeDefined();
+
+        const res = mockResponse();
+        await quoteHandler(mockRequest(null, undefined, { id: 'yo' }), res);
+
+        expect(res.status).toHaveBeenCalledWith(409);
+        expect(res.json).toHaveBeenCalledWith({
+          error: Errors.REFUND_SIGNED_ALREADY().message,
+        });
+      });
     });
 
     describe('accept quotes', () => {
@@ -2304,6 +2453,30 @@ describe('SwapRouter', () => {
 
         expect(res.json).toHaveBeenCalledTimes(1);
         expect(res.json).toHaveBeenCalledWith({});
+      });
+
+      test('should return 409 when accepting a quote after a refund was signed', async () => {
+        (
+          service.swapManager.renegotiator.acceptQuote as jest.Mock
+        ).mockRejectedValueOnce(Errors.REFUND_SIGNED_ALREADY());
+
+        swapRouter.getRouter();
+        const acceptQuoteHandler = mockedRouter.post.mock.calls.find(
+          ([path]) => path === '/chain/:id/quote',
+        )?.[1];
+
+        expect(acceptQuoteHandler).toBeDefined();
+
+        const res = mockResponse();
+        await acceptQuoteHandler(
+          mockRequest({ amount: 321 }, undefined, { id: 'yo' }),
+          res,
+        );
+
+        expect(res.status).toHaveBeenCalledWith(409);
+        expect(res.json).toHaveBeenCalledWith({
+          error: Errors.REFUND_SIGNED_ALREADY().message,
+        });
       });
     });
   });

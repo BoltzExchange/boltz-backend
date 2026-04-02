@@ -122,6 +122,21 @@ type NetworkContracts = {
   tokens: Map<string, string>;
 };
 
+const isTransactionNotFoundError = (error: unknown) => {
+  const formattedError = formatError(error).toLowerCase();
+  const errorCode =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+
+  return (
+    errorCode === -5 ||
+    formattedError === 'not found' ||
+    formattedError.includes('transaction not found') ||
+    formattedError.includes('no such mempool or blockchain transaction')
+  );
+};
+
 type Contracts = {
   ethereum?: NetworkContracts;
   rsk?: NetworkContracts;
@@ -723,8 +738,17 @@ class Service {
     if (currency.chainClient === undefined) {
       throw Errors.NOT_SUPPORTED_BY_SYMBOL(symbol);
     }
-    const res =
-      await currency.chainClient.getRawTransactionVerbose(transactionHash);
+    let res;
+    try {
+      res =
+        await currency.chainClient.getRawTransactionVerbose(transactionHash);
+    } catch (error) {
+      if (isTransactionNotFoundError(error)) {
+        throw Errors.NO_TRANSACTION(transactionHash);
+      }
+
+      throw error;
+    }
 
     return { hex: res.hex, confirmations: res.confirmations };
   };

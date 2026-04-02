@@ -1409,6 +1409,21 @@ describe('Service', () => {
     );
   });
 
+  test('should normalize missing transaction errors when fetching transactions', async () => {
+    const txHash = 'missingTx';
+    service.currencies.get('BTC')!.chainClient!.getRawTransactionVerbose = jest
+      .fn()
+      .mockRejectedValueOnce({
+        code: -5,
+        message:
+          'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.',
+      });
+
+    await expect(service.getTransaction('BTC', txHash)).rejects.toEqual(
+      Errors.NO_TRANSACTION(txHash),
+    );
+  });
+
   test('should get BIP-21 for reverse swaps', async () => {
     const mockAddress = '123';
     ReverseRoutingHintRepository.getHint = jest.fn().mockResolvedValue({

@@ -3,7 +3,7 @@ import type { Request, Response, Router } from 'express';
 import type Logger from '../../../Logger';
 import Tracing from '../../../Tracing';
 import { formatError } from '../../../Utils';
-import { errorResponse } from '../../Utils';
+import { errorResponse, resolveErrorStatusCode } from '../../Utils';
 
 abstract class RouterBase {
   public readonly path: string;
@@ -41,12 +41,13 @@ abstract class RouterBase {
       try {
         await context.with(ctx, handler, this, req, res);
       } catch (e) {
+        const statusCode = resolveErrorStatusCode(e, 400);
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: formatError(e),
         });
-        span.setAttribute('code', 400);
-        errorResponse(this.logger, req, res, e, 400);
+        span.setAttribute('code', statusCode);
+        errorResponse(this.logger, req, res, e, statusCode);
       } finally {
         span.end();
       }

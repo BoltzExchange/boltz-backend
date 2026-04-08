@@ -108,6 +108,11 @@ service Service {
       get: "/v1/vhtlc"
     };
   };
+  rpc ListVHTLCs(ListVHTLCsRequest) returns (ListVHTLCsResponse) {
+    option (google.api.http) = {
+      get: "/v1/vhtlcs"
+    };
+  };
   rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse) {
     option (google.api.http) = {
       post: "/v1/invoice"
@@ -337,6 +342,13 @@ message ListVHTLCRequest {
   string vhtlc_id = 1;
 }
 message ListVHTLCResponse {
+  repeated Vtxo vhtlcs = 1;
+}
+
+message ListVHTLCsRequest {
+  repeated string vhtlc_ids = 1;
+}
+message ListVHTLCsResponse {
   repeated Vtxo vhtlcs = 1;
 }
 

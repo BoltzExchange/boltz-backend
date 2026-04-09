@@ -76,7 +76,7 @@
     "@scure/btc-signer": "^2.0.1",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "async-lock": "^1.4.1",
-    "axios": "^1.14.0",
+    "axios": "^1.15.0",
     "bip32": "^4.0.0",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.7",
@@ -93,7 +93,7 @@
     "redis": "^5.11.0",
     "sequelize": "^6.37.8",
     "slip77": "^0.2.0",
-    "swagger-ui-dist": "^5.32.1",
+    "swagger-ui-dist": "^5.32.2",
     "tiny-secp256k1": "^2.2.4",
     "winston": "^3.19.0",
     "winston-loki": "^6.1.4",
@@ -102,9 +102,9 @@
   "devDependencies": {
     "@boltz/bitcoin-ops": "^2.0.0",
     "@eslint/js": "^9.39.2",
-    "@openzeppelin/contracts": "^5.4.0",
-    "@swc-contrib/mut-cjs-exports": "^14.7.0",
-    "@swc/core": "^1.15.21",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@swc-contrib/mut-cjs-exports": "^14.8.0",
+    "@swc/core": "^1.15.24",
     "@swc/jest": "^0.2.39",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/async-lock": "^1.4.2",
@@ -130,11 +130,11 @@
     "swagger-jsdoc": "^6.2.8",
     "ts-proto": "^2.11.6",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0",
+    "typescript-eslint": "^8.58.1",
     "vitepress": "^1.6.4"
   },
   "optionalDependencies": {
     "@types/nodemailer": "^7.0.11",
-    "nodemailer": "^8.0.4"
+    "nodemailer": "^8.0.5"
   }
 }

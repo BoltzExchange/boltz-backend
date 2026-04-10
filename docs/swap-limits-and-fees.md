@@ -1,4 +1,4 @@
-# 💰 Swap Limits & Fees
+# <Icon icon="tabler:coin" /> Swap Limits & Fees
 
 Understanding how fees and limits work is essential for building a reliable
 Boltz integration. This guide covers the fee structure, amount calculations, and

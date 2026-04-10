@@ -1,4 +1,4 @@
-# 🛟 Swap Restore
+# <Icon icon="tabler:lifebuoy" /> Swap Restore
 
 Swap Restore is a recovery flow for situations where a swap client lost all
 local swap state and backups. Swap Restore enables refunding failed swaps as

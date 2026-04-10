@@ -1,4 +1,4 @@
-# 🐳 Backend Development
+# <Icon icon="tabler:brand-docker" /> Backend Development
 
 This document describes how to set up a Docker regtest environment for Boltz
 Backend development.

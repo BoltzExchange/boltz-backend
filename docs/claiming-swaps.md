@@ -1,4 +1,4 @@
-# 🙋‍♂️ Claims & Refunds
+# <Icon icon="tabler:receipt-refund" /> Claims & Refunds
 
 This document provides an overview of claims and refunds, describes how Boltz
 API clients create claim and refund transactions and outlines emergency

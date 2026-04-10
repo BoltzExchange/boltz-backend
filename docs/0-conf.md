@@ -1,4 +1,4 @@
-# ⏩ 0-conf
+# <Icon icon="tabler:player-track-next" /> 0-conf
 
 The use of 0-conf can make swaps a lot faster by utilizing transactions that are
 not included in a block yet.

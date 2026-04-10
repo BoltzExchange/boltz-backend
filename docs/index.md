@@ -1,10 +1,10 @@
 ---
 next:
-  text: '📙 Clients, SDKs & Libraries'
+  text: 'Clients, SDKs & Libraries'
   link: '/libraries'
 ---
 
-# 👋 Introduction
+# <Icon icon="tabler:hand-three-fingers" /> Introduction
 
 Boltz exposes a RESTful HTTP API that can be used to query information such as
 supported pairs as well as to create and monitor swaps. All swap clients, such

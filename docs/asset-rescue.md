@@ -1,4 +1,4 @@
-# ⛑️ Asset Rescue
+# <Icon icon="tabler:first-aid-kit" /> Asset Rescue
 
 Asset Rescue enables cooperative recovery of Liquid assets accidentally sent to
 swap lockup addresses.

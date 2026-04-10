@@ -1,4 +1,4 @@
-# ⚠️ Common Mistakes
+# <Icon icon="tabler:alert-triangle" /> Common Mistakes
 
 This document collects frequently encountered misunderstandings and common
 mistakes when integrating Boltz API.

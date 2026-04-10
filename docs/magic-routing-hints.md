@@ -1,4 +1,4 @@
-# 🪄 Magic Routing Hints
+# <Icon icon="tabler:wand" /> Magic Routing Hints
 
 ::: warning
 

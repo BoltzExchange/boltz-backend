@@ -1,4 +1,4 @@
-# 🤖 REST API (latest)
+# <Icon icon="tabler:api" /> REST API (latest)
 
 This page introduces Boltz API v2, the latest and recommended API for all
 integrations.

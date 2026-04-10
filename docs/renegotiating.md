@@ -1,4 +1,4 @@
-# ♻️ Renegotiating Chain Swaps
+# <Icon icon="tabler:refresh" /> Renegotiating Chain Swaps
 
 Renegotiation allows Chain Swaps that failed due to an incorrect lockup amount
 to be salvaged instead of requiring a refund. It applies only to Chain Swaps,

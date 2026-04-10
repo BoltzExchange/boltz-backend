@@ -91,3 +91,139 @@
 .DocSearch {
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
+
+/**
+ * Inline logo used inside markdown H1 headings.
+ */
+
+.vp-doc h1 .heading-logo {
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+  vertical-align: -0.15em;
+  margin-right: 0.1em;
+}
+
+/**
+ * Sidebar & nav: Tabler icon injection
+ * --------------------------------------------------------------------------
+ * Each sidebar link gets a Tabler SVG rendered via CSS mask-image so it
+ * inherits the theme text color (works in light + dark mode).
+ */
+
+.VPSidebar .VPLink .text,
+.VPNavBar .VPNavBarMenu .VPLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+}
+
+.VPSidebar .VPLink .text::before,
+.VPNavBar .VPNavBarMenu a[href="https://docs.boltz.exchange"]::before {
+  content: '';
+  display: inline-block;
+  width: 1.35em;
+  height: 1.35em;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
+}
+
+.VPSidebar a[href="/index.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/hand-three-fingers.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/hand-three-fingers.svg');
+}
+.VPSidebar a[href="/libraries.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/books.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/books.svg');
+}
+.VPSidebar a[href="/api-v2.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/api.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/api.svg');
+}
+.VPSidebar a[href="/lifecycle.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/arrows-exchange.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/arrows-exchange.svg');
+}
+.VPSidebar a[href="/swap-limits-and-fees.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/coin.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/coin.svg');
+}
+.VPSidebar a[href="/renegotiating.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/refresh.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/refresh.svg');
+}
+.VPSidebar a[href="/claiming-swaps.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/receipt-refund.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/receipt-refund.svg');
+}
+.VPSidebar a[href="/commitment-swaps.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/lock.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/lock.svg');
+}
+.VPSidebar a[href="/swap-restore.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/lifebuoy.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/lifebuoy.svg');
+}
+.VPSidebar a[href="/asset-rescue.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/first-aid-kit.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/first-aid-kit.svg');
+}
+.VPSidebar a[href="/common-mistakes.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/alert-triangle.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/alert-triangle.svg');
+}
+.VPSidebar a[href="/dont-trust-verify.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/shield-check.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/shield-check.svg');
+}
+.VPSidebar a[href="/magic-routing-hints.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/wand.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/wand.svg');
+}
+.VPSidebar a[href="/0-conf.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/player-track-next.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/player-track-next.svg');
+}
+.VPSidebar a[href="/webhooks.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/webhook.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/webhook.svg');
+}
+.VPSidebar a[href="/bolt12.html"] .text::before {
+  background-color: transparent;
+  background-image: url('/assets/logo.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+.VPSidebar a[href="/pro.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/award.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/award.svg');
+}
+.VPSidebar a[href="/claim-covenants.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/file-description.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/file-description.svg');
+}
+.VPSidebar a[href="/partner-program.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/users-group.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/users-group.svg');
+}
+.VPSidebar a[href="/backend-development.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/brand-docker.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/brand-docker.svg');
+}
+.VPSidebar a[href="/api-v1.html"] .text::before {
+  mask-image: url('https://api.iconify.design/tabler/api-off.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/api-off.svg');
+}
+.VPNavBar .VPNavBarMenu a[href="https://docs.boltz.exchange"]::before {
+  mask-image: url('https://api.iconify.design/tabler/home.svg');
+  -webkit-mask-image: url('https://api.iconify.design/tabler/home.svg');
+}

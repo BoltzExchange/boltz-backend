@@ -1,4 +1,4 @@
-# ✨ BOLT12
+# <img src="/assets/logo.svg" class="heading-logo" alt="" /> BOLT12
 
 Information about swaps with the new BOLT12 standard and some accompanying tips
 & tricks for how to handle BOLT12 offers.

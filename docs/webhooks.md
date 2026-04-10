@@ -1,4 +1,4 @@
-# 🪝 Webhooks
+# <Icon icon="tabler:webhook" /> Webhooks
 
 Get notified about swap status updates.
 

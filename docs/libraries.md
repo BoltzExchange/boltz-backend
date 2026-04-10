@@ -1,4 +1,4 @@
-# 📙 Clients, SDKs & Libraries
+# <Icon icon="tabler:books" /> Clients, SDKs & Libraries
 
 ::: danger ⚠️ DO NOT INTEGRATE BOLTZ API FROM SCRATCH ⚠️
 

@@ -1,4 +1,4 @@
-# 🏅 Pro
+# <Icon icon="tabler:award" /> Pro
 
 Boltz Pro is a service designed to dynamically adjust swap fees based on Boltz's
 liquidity needs, helping to maintain wallet and Lightning channel balances.

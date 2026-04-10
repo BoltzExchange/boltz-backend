@@ -1,4 +1,4 @@
-# 🔐 Commitment Swaps
+# <Icon icon="tabler:lock" /> Commitment Swaps
 
 Commitment swaps allow locking funds first and committing to a swap after,
 without knowing the amount when creating the swap. This document explains how

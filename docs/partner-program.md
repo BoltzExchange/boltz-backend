@@ -1,4 +1,4 @@
-# 🤝 Partner Program
+# <Icon icon="tabler:users-group" /> Partner Program
 
 The Boltz Partner Program provides eligible partners with rewards for impactful,
 high quality integrations of Boltz API

@@ -125,7 +125,7 @@
   width: 1.35em;
   height: 1.35em;
   flex-shrink: 0;
-  background-color: currentColor;
+  background-color: currentcolor;
   mask-repeat: no-repeat;
   mask-size: contain;
   mask-position: center;

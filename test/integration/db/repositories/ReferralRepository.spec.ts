@@ -684,19 +684,76 @@ describe('ReferralRepository', () => {
         ).toThrow('hidePair must be a boolean');
       });
     });
+  });
 
-    describe('lookups', () => {
-      test('should return null when referral does not exist', async () => {
-        await expect(
-          ReferralRepository.getReferralById('missing'),
-        ).resolves.toBe(null);
-        await expect(
-          ReferralRepository.getReferralByApiKey('missing-key'),
-        ).resolves.toBe(null);
-        await expect(
-          ReferralRepository.getReferralByRoutingNode('missing-node'),
-        ).resolves.toBe(null);
+  describe('setApiKeys', () => {
+    test('should rotate api credentials', async () => {
+      const ref = await ReferralRepository.addReferral({
+        ...fixture,
+        apiKey: 'oldKey',
+        apiSecret: 'oldSecret',
+        config: {
+          maxRoutingFee: 0.001,
+        },
       });
+
+      await ReferralRepository.setApiKeys(ref, 'newKey', 'newSecret');
+
+      await expect(
+        ReferralRepository.getReferralByApiKey('oldKey'),
+      ).resolves.toBeNull();
+
+      const rotated = await ReferralRepository.getReferralByApiKey('newKey');
+      expect(rotated?.id).toEqual(fixture.id);
+      expect(rotated?.apiSecret).toEqual('newSecret');
+      expect(rotated?.feeShare).toEqual(fixture.feeShare);
+      expect(rotated?.config).toEqual({
+        maxRoutingFee: 0.001,
+      });
+    });
+
+    test('should preserve config merge after rotating api credentials', async () => {
+      ReferralRepository.setConfiguredReferrals({
+        test: {
+          pairs: {
+            'BTC/BTC': {
+              showHidden: true,
+            },
+          },
+        },
+      });
+
+      const ref = await ReferralRepository.addReferral({
+        ...fixture,
+        apiKey: 'oldKey',
+        apiSecret: 'oldSecret',
+        config: undefined,
+      });
+
+      await ReferralRepository.setApiKeys(ref, 'newKey', 'newSecret');
+
+      const rotated = await ReferralRepository.getReferralByApiKey('newKey');
+      expect(rotated?.config).toEqual({
+        pairs: {
+          'BTC/BTC': {
+            showHidden: true,
+          },
+        },
+      });
+    });
+  });
+
+  describe('lookups', () => {
+    test('should return null when referral does not exist', async () => {
+      await expect(ReferralRepository.getReferralById('missing')).resolves.toBe(
+        null,
+      );
+      await expect(
+        ReferralRepository.getReferralByApiKey('missing-key'),
+      ).resolves.toBe(null);
+      await expect(
+        ReferralRepository.getReferralByRoutingNode('missing-node'),
+      ).resolves.toBe(null);
     });
   });
 });

@@ -73,6 +73,17 @@ impl BoltzClient {
         Ok(response.into_inner())
     }
 
+    pub async fn rotate_referral_keys(
+        &mut self,
+        id: String,
+    ) -> Result<boltz_rpc::RotateReferralKeysResponse> {
+        let response = self
+            .client
+            .rotate_referral_keys(boltz_rpc::RotateReferralKeysRequest { id })
+            .await?;
+        Ok(response.into_inner())
+    }
+
     pub async fn allow_refund(&mut self, id: String) -> Result<boltz_rpc::AllowRefundResponse> {
         let response = self
             .client

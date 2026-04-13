@@ -1,5 +1,5 @@
 use anyhow::Result;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::RequestBuilder;
 use serde::{Deserialize, de::DeserializeOwned};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

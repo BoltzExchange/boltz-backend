@@ -28,8 +28,8 @@ tonic-prost = { workspace = true }
 prost = { workspace = true }
 dirs = { workspace = true }
 async-tungstenite = { workspace = true }
-hmac = "0.12.1"
-sha2 = "0.10.9"
+hmac = "0.13.0"
+sha2 = "0.11.0"
 inquire = { version = "0.9.4", default-features = false, features = [
     "crossterm",
 ] }

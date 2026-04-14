@@ -5,6 +5,7 @@ use crate::chain::types::Type;
 use crate::chain::utils::encode_address;
 use crate::db::helpers::offer::OfferHelper;
 use crate::db::helpers::reverse_swap::ReverseSwapHelper;
+use crate::db::models::ReverseRoutingHint;
 use crate::lightning::cln::cln_rpc::{
     Amount, FetchinvoiceRequest, GetinfoRequest, GetinfoResponse, ListchannelsChannels,
     ListchannelsRequest, ListconfigsRequest, ListconfigsResponse, ListnodesNodes, ListnodesRequest,
@@ -172,26 +173,8 @@ impl Cln {
             .reverse_swap_helper
             .get_routing_hint(&hex::encode(decoded.payment_hash().0))
             .and_then(|res| {
-                res.map(|mrh| {
-                    let address_type = Type::from_str(&mrh.symbol)?;
-                    let address = encode_address(
-                        address_type,
-                        mrh.scriptPubkey,
-                        mrh.blindingPubkey,
-                        self.network,
-                    )?;
-
-                    Ok(MagicRoutingHint {
-                        bip21: utils::bip21::encode(
-                            self.network,
-                            address_type,
-                            address.as_str(),
-                            mrh.params.as_deref(),
-                        ),
-                        signature: hex::encode(mrh.signature),
-                    })
-                })
-                .transpose()
+                res.map(|mrh| encode_magic_routing_hint(self.network, mrh))
+                    .transpose()
             })?;
 
         Ok((invoice, magic_routing_hint))
@@ -314,13 +297,47 @@ impl BaseClient for Cln {
     }
 }
 
+fn get_mrh_address(network: wallet::Network, mrh: &ReverseRoutingHint) -> anyhow::Result<String> {
+    if let Some(address) = mrh.address.clone() {
+        return Ok(address);
+    }
+
+    let address_type = Type::from_str(&mrh.symbol)?;
+    let script_pubkey = mrh
+        .scriptPubkey
+        .clone()
+        .ok_or(anyhow!("missing routing hint script pubkey"))?;
+    encode_address(
+        address_type,
+        script_pubkey,
+        mrh.blindingPubkey.clone(),
+        network,
+    )
+}
+
+fn encode_magic_routing_hint(
+    network: wallet::Network,
+    mrh: ReverseRoutingHint,
+) -> anyhow::Result<MagicRoutingHint> {
+    let address = get_mrh_address(network, &mrh)?;
+    Ok(MagicRoutingHint {
+        bip21: utils::bip321::encode(
+            network,
+            &mrh.symbol,
+            Some(address.as_str()),
+            mrh.params.as_deref(),
+        )?,
+        signature: hex::encode(mrh.signature),
+    })
+}
+
 #[cfg(test)]
 pub mod test {
     use super::*;
     use crate::api::ws::OfferSubscriptions;
     use crate::lightning::cln::cln_rpc::{OfferRequest, OfferResponse};
     use rstest::*;
-    use std::path::Path;
+    use std::{path::Path, str::FromStr};
 
     impl Cln {
         pub async fn offer(&mut self) -> anyhow::Result<OfferResponse> {
@@ -399,6 +416,58 @@ pub mod test {
         )
         .await
         .unwrap()
+    }
+
+    #[test]
+    fn test_encode_magic_routing_hint_for_ark() {
+        let address = "ark1qq4hfssprtcgnjzf8qlw2f78yvjau5kldfugg29k34y7j96q2w4t5cfuk5fqnen77qug2q6ln643xs0922wvzpzjqkmtcntwged8cedrxqgzfv";
+        let magic_routing_hint = encode_magic_routing_hint(
+            wallet::Network::Mainnet,
+            ReverseRoutingHint {
+                swapId: "swap".to_string(),
+                symbol: "ARK".to_string(),
+                address: Some(address.to_string()),
+                scriptPubkey: None,
+                blindingPubkey: None,
+                params: Some("amount=0.00000123".to_string()),
+                signature: vec![1, 2, 3],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            magic_routing_hint.bip21,
+            format!("bitcoin:?ark={address}&amount=0.00000123")
+        );
+        assert_eq!(magic_routing_hint.signature, "010203");
+    }
+
+    #[test]
+    fn test_encode_magic_routing_hint_scriptpubkey() {
+        let address = "lq1qqv0ae3h4ja8su0wha8f2wzlc33ssqyvf2lvu3kwyt6s3vk063m7l2c0rkcqekntg5g5f8wkx3qzgyskeg2s4jh4uhnxn70m58";
+        let decoded_address = elements::Address::from_str(address).unwrap();
+        let magic_routing_hint = encode_magic_routing_hint(
+            wallet::Network::Mainnet,
+            ReverseRoutingHint {
+                swapId: "swap".to_string(),
+                symbol: "L-BTC".to_string(),
+                address: None,
+                scriptPubkey: Some(decoded_address.script_pubkey().to_bytes()),
+                blindingPubkey: decoded_address
+                    .blinding_pubkey
+                    .as_ref()
+                    .map(|pubkey| pubkey.serialize().to_vec()),
+                params: Some("amount=3".to_string()),
+                signature: vec![1, 2, 3],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            magic_routing_hint.bip21,
+            format!("liquidnetwork:{address}?amount=3")
+        );
+        assert_eq!(magic_routing_hint.signature, "010203");
     }
 
     #[rstest]

@@ -505,7 +505,7 @@ export const getLightningCurrency = (
 };
 
 /**
- * Gets the memo for the BIP21 payment request or the invoice of a swap
+ * Gets the memo for the payment URI or the invoice of a swap
  */
 export const getSwapMemo = (
   sendingCurrency: string,

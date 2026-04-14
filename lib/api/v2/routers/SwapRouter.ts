@@ -269,7 +269,7 @@ class SwapRouter extends RouterBase {
      *           description: ID of the created Submarine Swap
      *         bip21:
      *           type: string
-     *           description: BIP21 for the onchain payment request
+     *           description: Payment URI for the onchain payment request
      *         address:
      *           type: string
      *           description: Onchain HTLC address
@@ -368,7 +368,7 @@ class SwapRouter extends RouterBase {
      *               properties:
      *                 bip21:
      *                   type: string
-     *                   description: BIP21 for the onchain payment request
+     *                   description: Payment URI for the onchain payment request
      *                 expectedAmount:
      *                   type: number
      *                   description: Amount that is expected to be sent to the onchain HTLC address in satoshis
@@ -935,7 +935,7 @@ class SwapRouter extends RouterBase {
      *           description: Referral ID to be used for the Reverse Swap
      *         address:
      *           type: string
-     *           description: Address to be used for a BIP-21 direct payment
+     *           description: Address to be embedded in the direct payment URI
      *         addressSignature:
      *           type: string
      *           description: Signature of the claim public key of the SHA256 hash of the address for the direct payment
@@ -1189,10 +1189,10 @@ class SwapRouter extends RouterBase {
      *       properties:
      *         bip21:
      *           type: string
-     *           description: BIP-21 for the Reverse Swap
+     *           description: Payment URI for the Reverse Swap
      *         signature:
      *           type: string
-     *           description: Signature of the address in the BIP-21 of the public key in the routing hint
+     *           description: Signature of the address in the payment URI. For BOLT12 reverse swaps, this signature is verified against the offer payee, not a routing-hint public key.
      */
 
     /**
@@ -1200,7 +1200,7 @@ class SwapRouter extends RouterBase {
      * /swap/reverse/{invoice}/bip21:
      *   get:
      *     tags: [Reverse Swap]
-     *     description: Get the BIP-21 of a Reverse Swap for a direct payment
+     *     description: Get the payment URI of a Reverse Swap for a direct payment
      *     parameters:
      *       - in: path
      *         name: invoice
@@ -1210,13 +1210,13 @@ class SwapRouter extends RouterBase {
      *         description: Invoice of the Reverse Swap
      *     responses:
      *       '200':
-     *         description: BIP-21 and signature to prove the authenticity of the BIP-21
+     *         description: Payment URI and signature to prove the authenticity of the address
      *         content:
      *           application/json:
      *             schema:
      *               $ref: '#/components/schemas/ReverseBip21'
      *       '404':
-     *         description: When no BIP-21 was set for the Reverse Swap
+     *         description: When no payment URI was set for the Reverse Swap
      *         content:
      *           application/json:
      *             schema:
@@ -1392,7 +1392,7 @@ class SwapRouter extends RouterBase {
      *           description: Address that should be specified as refund address for EVM lockup transactions
      *         bip21:
      *           type: string
-     *           description: BIP-21 for the UTXO onchain lockup of the user
+     *           description: Payment URI for the lockup of the user
      *         claimAddress:
      *           type: string
      *           description: EVM address with which the Chain Swap can be claimed

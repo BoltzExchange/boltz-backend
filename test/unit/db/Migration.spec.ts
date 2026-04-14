@@ -23,6 +23,7 @@ const mockGetVersion = jest.fn().mockImplementation(async () => {
 });
 
 const mockCreateVersion = jest.fn().mockResolvedValue(undefined);
+const mockUpdateVersion = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../../../lib/db/repositories/DatabaseVersionRepository');
 
@@ -36,6 +37,7 @@ describe('Migration', () => {
 
     DatabaseVersionRepository.getVersion = mockGetVersion;
     DatabaseVersionRepository.createVersion = mockCreateVersion;
+    DatabaseVersionRepository.updateVersion = mockUpdateVersion;
 
     jest.clearAllMocks();
   });
@@ -112,5 +114,45 @@ describe('Migration', () => {
       currencies.get(symbol)!.network,
     );
     expect(decodedAddress).toBeDefined();
+  });
+
+  test('should migrate reverse routing hints to schema version 27', async () => {
+    mockGetVersionResult = {
+      version: 26,
+    };
+
+    const addColumn = jest.fn().mockResolvedValue(undefined);
+    const changeColumn = jest.fn().mockResolvedValue(undefined);
+    (MockedSequelize as any).getQueryInterface = jest.fn().mockReturnValue({
+      addColumn,
+      changeColumn,
+    });
+    (MockedSequelize as any).transaction = jest
+      .fn()
+      .mockImplementation(async (callback: () => Promise<void>) => {
+        await callback();
+      });
+
+    await migration.migrate(emptyCurrenciesMap);
+
+    expect(addColumn).toHaveBeenCalledTimes(1);
+    expect(addColumn).toHaveBeenCalledWith(
+      'reverseRoutingHints',
+      'address',
+      expect.objectContaining({
+        allowNull: true,
+      }),
+      expect.anything(),
+    );
+    expect(changeColumn).toHaveBeenCalledTimes(1);
+    expect(changeColumn).toHaveBeenCalledWith(
+      'reverseRoutingHints',
+      'scriptPubkey',
+      expect.objectContaining({
+        allowNull: true,
+      }),
+      expect.anything(),
+    );
+    expect(mockUpdateVersion).toHaveBeenCalledWith(27);
   });
 });

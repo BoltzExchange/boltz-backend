@@ -1,8 +1,8 @@
 import { crypto } from 'bitcoinjs-lib';
 import { ECPair } from '../ECPairHelper';
-import { getHexString, getSwapMemo } from '../Utils';
-import type { SwapVersion } from '../consts/Enums';
-import { SwapType } from '../consts/Enums';
+import type Logger from '../Logger';
+import { formatError, getHexString, getSwapMemo } from '../Utils';
+import { CurrencyType, SwapType, type SwapVersion } from '../consts/Enums';
 import { transactionToLndScid } from '../lightning/ChannelUtils';
 import type { HopHint } from '../lightning/LightningClient';
 import type RateProvider from '../rates/RateProvider';
@@ -22,6 +22,7 @@ type SwapHints = {
 };
 
 class ReverseRoutingHints {
+  // TODO: do we want a different chan id for ARK?
   private static readonly routingHintChanId = transactionToLndScid(
     542409,
     1308,
@@ -29,6 +30,7 @@ class ReverseRoutingHints {
   );
 
   constructor(
+    private readonly logger: Logger,
     private readonly walletManager: WalletManager,
     private readonly rateProvider: RateProvider,
     private readonly paymentRequestUtils: PaymentRequestUtils,
@@ -72,11 +74,11 @@ class ReverseRoutingHints {
     }
 
     try {
-      this.walletManager.wallets
-        .get(sendingCurrency.symbol)!
-        .decodeAddress(args.userAddress);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      this.validateAddress(sendingCurrency, args.userAddress);
     } catch (e) {
+      this.logger.warn(
+        `Reverse routing hint address validation failed for ${sendingCurrency.symbol} address ${args.userAddress}: ${formatError(e)}`,
+      );
       throw Errors.INVALID_ADDRESS();
     }
 
@@ -186,6 +188,46 @@ class ReverseRoutingHints {
       crypto.sha256(Buffer.from(userAddress, 'utf-8')),
       userAddressSignature,
     );
+
+  private validateAddress = (
+    sendingCurrency: Currency,
+    userAddress: string,
+  ) => {
+    if (sendingCurrency.type === CurrencyType.Ark) {
+      const arkNode = sendingCurrency.arkNode;
+      if (arkNode === undefined) {
+        throw new Error('invalid symbol');
+      }
+
+      const serverPubKey = this.normalizeArkServerPubkey(
+        arkNode.decodeAddress(userAddress).serverPubKey,
+      );
+      const normalizedAspPubkey = this.normalizeArkServerPubkey(
+        arkNode.aspPubkey,
+      );
+
+      if (!serverPubKey.equals(normalizedAspPubkey)) {
+        throw new Error('invalid ARK ASP');
+      }
+      return;
+    }
+
+    this.walletManager.wallets
+      .get(sendingCurrency.symbol)!
+      .decodeAddress(userAddress);
+  };
+
+  private normalizeArkServerPubkey = (pubkey: Buffer): Buffer => {
+    if (pubkey.length === 32) {
+      return pubkey;
+    }
+
+    if (pubkey.length === 33) {
+      return pubkey.subarray(1);
+    }
+
+    throw new Error(`invalid ARK ASP pubkey length: ${pubkey.length}`);
+  };
 }
 
 export default ReverseRoutingHints;

@@ -772,9 +772,9 @@ class Service {
     }
 
     return {
-      bip21: this.paymentRequestUtils.encodeBip21WithParams(
+      bip21: this.paymentRequestUtils.encodePaymentUriWithParams(
         hint.symbol,
-        hint.address(currency.type, currency.network!),
+        hint.getAddress(currency.type, currency.network),
         hint.params,
       ),
       signature: getHexString(hint.signature),
@@ -1578,7 +1578,7 @@ class Service {
     return {
       expectedAmount,
       acceptZeroConf,
-      bip21: this.paymentRequestUtils.encodeBip21(
+      bip21: this.paymentRequestUtils.encodePaymentUri(
         chainCurrency,
         swap.lockupAddress,
         expectedAmount,
@@ -2434,7 +2434,7 @@ class Service {
       claimDetails: res.claimDetails,
       lockupDetails: {
         ...res.lockupDetails,
-        bip21: this.paymentRequestUtils.encodeBip21(
+        bip21: this.paymentRequestUtils.encodePaymentUri(
           receivingCurrency.symbol,
           res.lockupDetails.lockupAddress,
           res.lockupDetails.amount,

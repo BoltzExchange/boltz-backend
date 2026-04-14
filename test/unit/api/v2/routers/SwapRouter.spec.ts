@@ -1678,7 +1678,7 @@ describe('SwapRouter', () => {
     });
   });
 
-  test('should get BIP-21 of reverse swaps', async () => {
+  test('should get payment URI of reverse swaps', async () => {
     const invoice = 'bip21Swap';
 
     const res = mockResponse();
@@ -1697,7 +1697,7 @@ describe('SwapRouter', () => {
     });
   });
 
-  test('should write 404 when no BIP-21 of reverse swap was set', async () => {
+  test('should write 404 when no payment URI of reverse swap was set', async () => {
     const invoice = 'noBip21Swap';
 
     service.getReverseBip21 = jest.fn().mockResolvedValue(undefined);

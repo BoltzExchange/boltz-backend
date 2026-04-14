@@ -174,7 +174,8 @@ mod test {
             Ok(vec![ReverseRoutingHint {
                 swapId: "123".to_string(),
                 symbol: "BTC".to_string(),
-                scriptPubkey: vec![],
+                address: None,
+                scriptPubkey: Some(vec![]),
                 blindingPubkey: None,
                 params: None,
                 signature: vec![],
@@ -235,7 +236,8 @@ mod test {
             Ok(vec![ReverseRoutingHint {
                 swapId: "123".to_string(),
                 symbol: "BTC".to_string(),
-                scriptPubkey: vec![],
+                address: None,
+                scriptPubkey: Some(vec![]),
                 blindingPubkey: None,
                 params: None,
                 signature: vec![],
@@ -282,7 +284,8 @@ mod test {
             Ok(vec![ReverseRoutingHint {
                 swapId: "123".to_string(),
                 symbol: "BTC".to_string(),
-                scriptPubkey: vec![],
+                address: None,
+                scriptPubkey: Some(vec![]),
                 blindingPubkey: None,
                 params: None,
                 signature: vec![],

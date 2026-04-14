@@ -10,6 +10,7 @@ import { setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString, getUnixTime } from '../../../lib/Utils';
+import ArkClient from '../../../lib/chain/ArkClient';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
   CurrencyType,
@@ -23,6 +24,7 @@ import Database from '../../../lib/db/Database';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import ScriptPubKeyRepository from '../../../lib/db/repositories/ScriptPubKeyRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -61,6 +63,7 @@ const mockSetInvoice = jest.fn().mockImplementation(async (arg) => {
 jest.mock('../../../lib/db/repositories/SwapRepository');
 
 const mockAddReverseSwap = jest.fn().mockResolvedValue(undefined);
+const mockAddHint = jest.fn().mockResolvedValue(undefined);
 
 let mockGetReverseSwapsResult: any[] = [];
 const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
@@ -68,6 +71,7 @@ const mockGetReverseSwaps = jest.fn().mockImplementation(async () => {
 });
 
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
+jest.mock('../../../lib/db/repositories/ReverseRoutingHintRepository');
 
 let mockGetChainSwapsResult: any[] = [];
 const mockGetChainSwaps = jest.fn().mockImplementation(async () => {
@@ -413,6 +417,37 @@ describe('SwapManager', () => {
     lndClients: new Map(),
   } as any as Currency;
 
+  const mockCreateVHtlc = jest.fn().mockResolvedValue({
+    vHtlc: {
+      id: 'ark-vhtlc-id',
+      address:
+        'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag',
+      swapTree: {
+        claim: [],
+        refund: [],
+      },
+    },
+    timeouts: {
+      claim: 21,
+      refund: 42,
+    },
+  });
+  const mockSubscribeArkAddresses = jest.fn().mockResolvedValue(undefined);
+  const arkCurrency = {
+    symbol: ArkClient.symbol,
+    type: CurrencyType.Ark,
+    lndClients: new Map(),
+    arkNode: {
+      createVHtlc: mockCreateVHtlc,
+      pubkey: getHexBuffer(
+        '026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa8',
+      ),
+      subscription: {
+        subscribeAddresses: mockSubscribeArkAddresses,
+      },
+    },
+  } as any as Currency;
+
   const rbtcCurrency = {
     symbol: 'RBTC',
     type: CurrencyType.Ether,
@@ -435,6 +470,7 @@ describe('SwapManager', () => {
 
     ReverseSwapRepository.addReverseSwap = mockAddReverseSwap;
     ReverseSwapRepository.getReverseSwaps = mockGetReverseSwaps;
+    ReverseRoutingHintRepository.addHint = mockAddHint;
 
     ChainSwapRepository.getChainSwaps = mockGetChainSwaps;
 
@@ -470,6 +506,7 @@ describe('SwapManager', () => {
     manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
     manager['currencies'].set(rbtcCurrency.symbol, rbtcCurrency);
     manager['currencies'].set(lbtcCurrency.symbol, lbtcCurrency);
+    manager['currencies'].set(arkCurrency.symbol, arkCurrency);
 
     manager['nodeFallback'] = {
       getReverseSwapInvoice: jest.fn().mockResolvedValue({
@@ -567,10 +604,11 @@ describe('SwapManager', () => {
 
     await manager.init([btcCurrency, ltcCurrency], []);
 
-    expect(manager.currencies.size).toEqual(4);
+    expect(manager.currencies.size).toEqual(5);
 
     expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
     expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
+    expect(manager.currencies.get(arkCurrency.symbol)).toEqual(arkCurrency);
 
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
@@ -1489,6 +1527,67 @@ describe('SwapManager', () => {
     expect(
       manager['nodeFallback'].getReverseSwapInvoice,
     ).not.toHaveBeenCalled();
+  });
+
+  test('should persist reverse routing hints for ARK reverse swaps', async () => {
+    const preimageHash = getHexBuffer(
+      '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
+    );
+    const claimKey = getHexBuffer(
+      '026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa8',
+    );
+    const userAddress =
+      'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag';
+    const userAddressSignature = randomBytes(64);
+
+    (manager as any)['reverseRoutingHints'] = {
+      getHints: jest.fn().mockReturnValue({
+        invoiceMemo: 'ark',
+        receivedAmount: 420,
+        bip21Params: 'amount=0.0000042',
+      }),
+    } as any;
+
+    const reverseSwap = await manager.createReverseSwap({
+      version: SwapVersion.Taproot,
+      orderSide: OrderSide.BUY,
+      baseCurrency: arkCurrency.symbol,
+      quoteCurrency: btcCurrency.symbol,
+      percentageFee: 500,
+      onchainAmount: 9_500,
+      holdInvoiceAmount: 10_000,
+      onchainTimeoutBlockDelta: 123,
+      lightningTimeoutBlockDelta: 125,
+      claimCovenant: false,
+      preimageHash,
+      claimPublicKey: claimKey,
+      userAddress,
+      userAddressSignature,
+    });
+
+    expect(mockCreateVHtlc).toHaveBeenCalledTimes(1);
+    expect(mockCreateVHtlc).toHaveBeenCalledWith(
+      preimageHash,
+      123,
+      claimKey,
+      undefined,
+    );
+    expect(mockAddHint).toHaveBeenCalledTimes(1);
+    expect(mockAddHint).toHaveBeenCalledWith({
+      swapId: reverseSwap.id,
+      address: userAddress,
+      symbol: arkCurrency.symbol,
+      params: 'amount=0.0000042',
+      signature: userAddressSignature,
+    });
+    expect(mockSubscribeArkAddresses).toHaveBeenCalledTimes(1);
+    expect(mockSubscribeArkAddresses).toHaveBeenCalledWith([
+      {
+        address:
+          'tark1qr340xg400jtxat9hdd0ungyu6s05zjtdf85uj9smyzxshf98ndakjpdlzx4q6n5was20sqf5kff8999rupjsl2ptlz3nqtkl6hv27fvrc05ag',
+        vHtlcId: 'ark-vhtlc-id',
+      },
+    ]);
   });
 
   test('should create reverse swap with covenant', async () => {

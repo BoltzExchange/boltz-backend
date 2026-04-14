@@ -421,6 +421,8 @@ enum ReferralCommands {
         fee_share: u32,
         routing_node: Option<String>,
     },
+    #[command(about = "Rotates the API credentials of a referral")]
+    Rotate { id: String },
     #[command(about = "Sets the configuration of a referral")]
     SetConfig {
         id: String,
@@ -885,6 +887,25 @@ async fn run_command(cli: Cli) -> Result<()> {
                 let response = get_grpc_client(&cli)
                     .await?
                     .add_referral(id.to_string(), *fee_share, routing_node.clone())
+                    .await?;
+                print_pretty(&response)?;
+            }
+            ReferralCommands::Rotate { id } => {
+                let confirmed = inquire::Confirm::new(&format!(
+                    "Rotate API credentials for referral '{}'? This will invalidate the current keys.",
+                    id
+                ))
+                .with_default(false)
+                .prompt()?;
+
+                if !confirmed {
+                    println!("Aborted");
+                    return Ok(());
+                }
+
+                let response = get_grpc_client(&cli)
+                    .await?
+                    .rotate_referral_keys(id.clone())
                     .await?;
                 print_pretty(&response)?;
             }

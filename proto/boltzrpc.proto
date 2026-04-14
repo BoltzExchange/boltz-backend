@@ -27,6 +27,8 @@ service Boltz {
 
   /* Adds a new referral ID to the database */
   rpc AddReferral (AddReferralRequest) returns (AddReferralResponse);
+  /* Rotates the API keys of a referral */
+  rpc RotateReferralKeys (RotateReferralKeysRequest) returns (RotateReferralKeysResponse);
 
   /* Modifies the status of a swap */
   rpc SetSwapStatus (SetSwapStatusRequest) returns (SetSwapStatusResponse);
@@ -203,6 +205,14 @@ message AddReferralRequest {
   optional string routing_node = 3;
 }
 message AddReferralResponse {
+  string api_key = 1;
+  string api_secret = 2;
+}
+
+message RotateReferralKeysRequest {
+  string id = 1;
+}
+message RotateReferralKeysResponse {
   string api_key = 1;
   string api_secret = 2;
 }

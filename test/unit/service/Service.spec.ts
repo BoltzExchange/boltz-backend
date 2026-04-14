@@ -98,13 +98,21 @@ jest.mock('../../../lib/db/repositories/ReverseSwapRepository', () => {
 
 const mockAddReferral = jest.fn().mockImplementation(async () => {});
 
+let referralById: any = undefined;
+const mockGetReferralById = jest.fn().mockImplementation(async () => {
+  return referralById;
+});
+const mockSetApiKeys = jest.fn().mockImplementation(async () => {});
+
 let referralByRoutingNode: any = undefined;
 const mockGetReferralByRoutingNode = jest.fn().mockImplementation(async () => {
   return referralByRoutingNode;
 });
 
 ReferralRepository.addReferral = mockAddReferral;
+ReferralRepository.getReferralById = mockGetReferralById;
 ReferralRepository.getReferralByRoutingNode = mockGetReferralByRoutingNode;
+ReferralRepository.setApiKeys = mockSetApiKeys;
 
 const mockedSwap = {
   id: 'swapId',
@@ -841,6 +849,9 @@ describe('Service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    referralById = undefined;
+    referralByRoutingNode = undefined;
 
     PairRepository.addPair = mockAddPair;
     PairRepository.getPairs = mockGetPairs;
@@ -1917,6 +1928,51 @@ describe('Service', () => {
 
     await expect(service.addReferral(referral)).rejects.toEqual(
       new Error('referral IDs cannot be empty'),
+    );
+  });
+
+  test('should rotate referral credentials', async () => {
+    const oldApiKey = 'oldkey000';
+    const oldApiSecret = 'oldsecret000';
+
+    const referral = {
+      id: 'adsf',
+      feeShare: 25,
+      routingNode: '03',
+      apiKey: oldApiKey,
+      apiSecret: oldApiSecret,
+      config: {
+        maxRoutingFee: 0.001,
+      },
+    };
+
+    referralById = referral;
+
+    const response = await service.rotateReferralKeys(referral.id);
+
+    expect(response.apiKey).toBeDefined();
+    expect(response.apiSecret).toBeDefined();
+    expect(response.apiKey).not.toEqual(oldApiKey);
+    expect(response.apiSecret).not.toEqual(oldApiSecret);
+
+    expect(mockGetReferralById).toHaveBeenCalledTimes(1);
+    expect(mockGetReferralById).toHaveBeenCalledWith(referral.id);
+
+    expect(mockSetApiKeys).toHaveBeenCalledTimes(1);
+    expect(mockSetApiKeys).toHaveBeenCalledWith(
+      referral,
+      response.apiKey,
+      response.apiSecret,
+    );
+
+    await expect(service.rotateReferralKeys('')).rejects.toEqual(
+      new Error('referral IDs cannot be empty'),
+    );
+
+    referralById = null;
+
+    await expect(service.rotateReferralKeys('missing')).rejects.toEqual(
+      new Error('could not find referral with id: missing'),
     );
   });
 

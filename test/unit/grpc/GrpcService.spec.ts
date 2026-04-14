@@ -55,6 +55,14 @@ const mockAddReferral = jest
   .fn()
   .mockImplementation(() => mockAddReferralResponse);
 
+const mockRotateReferralKeysResponse = {
+  apiKey: 'rotated-key',
+  apiSecret: 'rotated-secret',
+};
+const mockRotateReferralKeys = jest
+  .fn()
+  .mockImplementation(() => mockRotateReferralKeysResponse);
+
 const mockDeriveBlindingKeysResponse = {
   publicKey: getHexBuffer('aa'),
   privateKey: getHexBuffer('bb'),
@@ -131,6 +139,7 @@ jest.mock('../../../lib/service/Service', () => {
       getAddress: mockGetAddress,
       sendCoins: mockSendCoins,
       addReferral: mockAddReferral,
+      rotateReferralKeys: mockRotateReferralKeys,
       rescan: jest.fn().mockResolvedValue(831106),
       checkTransaction: jest.fn().mockResolvedValue(undefined),
     };
@@ -163,6 +172,23 @@ const createCallback = (
     callback(error, response);
   };
 };
+
+const callUnaryAsPromise = <T>(
+  method: (
+    call: any,
+    callback: (error: any, response?: T | null) => void,
+  ) => void,
+  call: any,
+): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    method(call, (error, response) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response!);
+      }
+    });
+  });
 
 TransactionLabelRepository.getLabel = jest.fn().mockResolvedValue(null);
 
@@ -396,6 +422,49 @@ describe('GrpcService', () => {
       ...callData,
       routingNode: undefined,
     });
+  });
+
+  test('should handle RotateReferralKeys', async () => {
+    const id = 'someId';
+
+    const response =
+      await callUnaryAsPromise<boltzrpc.RotateReferralKeysResponse>(
+        grpcService.rotateReferralKeys,
+        createCall({ id }),
+      );
+
+    expect(response.apiKey).toEqual(mockRotateReferralKeysResponse.apiKey);
+    expect(response.apiSecret).toEqual(
+      mockRotateReferralKeysResponse.apiSecret,
+    );
+    expect(mockRotateReferralKeys).toHaveBeenCalledTimes(1);
+    expect(mockRotateReferralKeys).toHaveBeenCalledWith(id);
+  });
+
+  test('should propagate empty id errors from RotateReferralKeys', async () => {
+    mockRotateReferralKeys.mockRejectedValueOnce(
+      new Error('referral IDs cannot be empty'),
+    );
+
+    await expect(
+      callUnaryAsPromise<boltzrpc.RotateReferralKeysResponse>(
+        grpcService.rotateReferralKeys,
+        createCall({ id: '' }),
+      ),
+    ).rejects.toEqual(new Error('referral IDs cannot be empty'));
+  });
+
+  test('should propagate not found errors from RotateReferralKeys', async () => {
+    mockRotateReferralKeys.mockRejectedValueOnce(
+      'could not find referral with id: ref',
+    );
+
+    await expect(
+      callUnaryAsPromise<boltzrpc.RotateReferralKeysResponse>(
+        grpcService.rotateReferralKeys,
+        createCall({ id: 'ref' }),
+      ),
+    ).rejects.toEqual({ message: 'could not find referral with id: ref' });
   });
 
   test('should sweep swaps of one currency', async () => {

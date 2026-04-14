@@ -177,6 +177,22 @@ class GrpcService {
     });
   };
 
+  public rotateReferralKeys: handleUnaryCall<
+    boltzrpc.RotateReferralKeysRequest,
+    boltzrpc.RotateReferralKeysResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { apiKey, apiSecret } = await this.service.rotateReferralKeys(
+        call.request.id,
+      );
+
+      return {
+        apiKey,
+        apiSecret,
+      };
+    });
+  };
+
   public setSwapStatus: handleUnaryCall<
     boltzrpc.SetSwapStatusRequest,
     boltzrpc.SetSwapStatusResponse

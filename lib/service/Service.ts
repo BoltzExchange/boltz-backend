@@ -1056,6 +1056,34 @@ class Service {
     };
   };
 
+  public rotateReferralKeys = async (
+    id: string,
+  ): Promise<{
+    apiKey: string;
+    apiSecret: string;
+  }> => {
+    if (id === '') {
+      throw new Error('referral IDs cannot be empty');
+    }
+
+    const referral = await ReferralRepository.getReferralById(id);
+    if (referral === null) {
+      throw new Error(`could not find referral with id: ${id}`);
+    }
+
+    const apiKey = createApiCredential();
+    const apiSecret = createApiCredential();
+
+    await ReferralRepository.setApiKeys(referral, apiKey, apiSecret);
+
+    this.logger.info(`Rotated API keys for referral: ${id}`);
+
+    return {
+      apiKey,
+      apiSecret,
+    };
+  };
+
   public setSwapStatus = async (id: string, status: string) => {
     if (
       ![

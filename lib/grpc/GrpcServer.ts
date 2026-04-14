@@ -32,6 +32,7 @@ class GrpcServer {
       getAddress: grpcService.getAddress,
       sendCoins: grpcService.sendCoins,
       addReferral: grpcService.addReferral,
+      rotateReferralKeys: grpcService.rotateReferralKeys,
       sweepSwaps: grpcService.sweepSwaps,
       listSwaps: grpcService.listSwaps,
       rescan: grpcService.rescan,

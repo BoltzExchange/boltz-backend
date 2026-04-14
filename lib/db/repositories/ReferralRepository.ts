@@ -176,6 +176,17 @@ class ReferralRepository {
     });
   };
 
+  public static setApiKeys = async (
+    ref: Referral,
+    apiKey: string,
+    apiSecret: string,
+  ) => {
+    return await ref.update({
+      apiKey,
+      apiSecret,
+    });
+  };
+
   private static sanityCheckConfig = (
     config: ReferralConfig | null | undefined,
   ) => {

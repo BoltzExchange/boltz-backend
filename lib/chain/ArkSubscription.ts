@@ -1,4 +1,4 @@
-import type { ClientReadableStream } from '@grpc/grpc-js';
+import type { ClientReadableStream, Metadata } from '@grpc/grpc-js';
 import type Logger from '../Logger';
 import { sleep } from '../PromiseUtils';
 import {
@@ -85,6 +85,7 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     private readonly logger: Logger,
     private readonly client: ArkClient,
     private readonly notificationClient: notificationrpc.NotificationServiceClient,
+    private readonly metadata: Metadata,
     private readonly unaryCall: (typeof ArkClient.prototype)['unaryCall'],
     private readonly unaryNotificationCall: (typeof ArkClient.prototype)['unaryNotificationCall'],
   ) {
@@ -239,7 +240,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     }
 
     const req: notificationrpc.GetVtxoNotificationsRequest = {};
-    this.vHtlcStream = this.notificationClient!.getVtxoNotifications(req);
+    this.vHtlcStream = this.notificationClient!.getVtxoNotifications(
+      req,
+      this.metadata,
+    );
 
     this.vHtlcStream!.on(
       'data',

@@ -14,4 +14,5 @@ pub const CHAIN_SYMBOL: &str = "BTC";
 pub struct Config {
     pub host: String,
     pub port: u16,
+    pub macaroonpath: Option<String>,
 }

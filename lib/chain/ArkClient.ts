@@ -7,6 +7,7 @@ import type {
   TransactionOutput,
 } from '@scure/btc-signer/psbt.js';
 import { crypto } from 'bitcoinjs-lib';
+import fs from 'fs';
 import type { BaseClientEvents } from '../BaseClient';
 import BaseClient from '../BaseClient';
 import type Logger from '../Logger';
@@ -40,6 +41,7 @@ import type { IChainClient } from './ChainClient';
 export type ArkConfig = {
   host: string;
   port: number;
+  macaroonpath?: string;
 
   minWalletBalance?: number;
   maxZeroConfAmount?: number;
@@ -139,6 +141,21 @@ class ArkClient extends BaseClient<
       refund: 32,
       refundWithoutReceiver: 64,
     };
+
+    if (
+      this.config.macaroonpath !== undefined &&
+      this.config.macaroonpath !== ''
+    ) {
+      if (!fs.existsSync(this.config.macaroonpath)) {
+        throw new Error(
+          `could not find configured macaroon file for ${this.serviceName()} ${this.symbol}`,
+        );
+      }
+
+      const adminMacaroon = fs.readFileSync(this.config.macaroonpath);
+      this.meta.add('macaroon', adminMacaroon.toString('hex'));
+    }
+
     this.logger.debug(
       `${this.serviceName()} ${this.symbol} delays: ${stringify(this.delays)}`,
     );
@@ -272,6 +289,7 @@ class ArkClient extends BaseClient<
       this.logger,
       this,
       this.notificationClient,
+      this.meta,
       this.unaryCall,
       this.unaryNotificationCall,
     );

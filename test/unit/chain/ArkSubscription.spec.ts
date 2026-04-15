@@ -1,3 +1,4 @@
+import { Metadata } from '@grpc/grpc-js';
 import { EventEmitter } from 'events';
 import type Logger from '../../../lib/Logger';
 import ArkClient from '../../../lib/chain/ArkClient';
@@ -27,6 +28,8 @@ describe('ArkSubscription', () => {
     const notificationClient = {
       getVtxoNotifications: jest.fn().mockReturnValue(stream),
     };
+    const metadata = new Metadata();
+    metadata.add('macaroon', 'deadbeef');
     const unaryCall = jest.fn();
     const unaryNotificationCall = jest.fn();
 
@@ -34,11 +37,14 @@ describe('ArkSubscription', () => {
       mockLogger as unknown as Logger,
       client,
       notificationClient as any,
+      metadata,
       unaryCall as any,
       unaryNotificationCall as any,
     );
 
     return {
+      metadata,
+      notificationClient,
       stream,
       unaryCall,
       unaryNotificationCall,
@@ -101,6 +107,17 @@ describe('ArkSubscription', () => {
       vout: 1,
       amount: 21,
     });
+  });
+
+  test('passes metadata when opening the vHTLC notification stream', () => {
+    const { subscription, notificationClient, metadata } = createSubscription();
+
+    (subscription as any).streamVhtlcs();
+
+    expect(notificationClient.getVtxoNotifications).toHaveBeenCalledWith(
+      {},
+      metadata,
+    );
   });
 
   test('ignores invalid subscribed addresses during rescan and still emits valid vHTLCs', async () => {

@@ -269,7 +269,7 @@ where
 
         let results = multicall.aggregate3().await?;
         let mut discovered = HashMap::<TokenPair, Vec<u64>>::new();
-        for ((pair, fee), result) in call_fees.into_iter().zip(results.into_iter()) {
+        for ((pair, fee), result) in call_fees.into_iter().zip(results) {
             if let Ok(pool) = result
                 && pool != Address::ZERO
             {

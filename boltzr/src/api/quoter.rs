@@ -93,7 +93,7 @@ where
     }
 
     // Descending order
-    quotes.sort_by(|a, b| b.quote.cmp(&a.quote));
+    quotes.sort_by_key(|b| std::cmp::Reverse(b.quote));
 
     Ok((StatusCode::OK, Json(quotes)).into_response())
 }
@@ -126,7 +126,7 @@ where
     }
 
     // Ascending order
-    quotes.sort_by(|a, b| a.quote.cmp(&b.quote));
+    quotes.sort_by_key(|a| a.quote);
 
     Ok((StatusCode::OK, Json(quotes)).into_response())
 }

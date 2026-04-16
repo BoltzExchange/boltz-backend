@@ -493,7 +493,7 @@ mod test {
     fn get_provider() -> impl Provider<AnyNetwork> + Clone + 'static {
         ProviderBuilder::new()
             .network::<AnyNetwork>()
-            .connect_http("https://arbitrum-one-rpc.publicnode.com".parse().unwrap())
+            .connect_http("https://arb1.arbitrum.io/rpc".parse().unwrap())
     }
 
     async fn quote_exact_input_single<P, N>(

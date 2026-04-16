@@ -120,6 +120,67 @@ describe('ArkSubscription', () => {
     );
   });
 
+  test('skips subscribe call when address list is empty', async () => {
+    const { subscription, unaryNotificationCall } = createSubscription();
+
+    await subscription.subscribeAddresses([]);
+
+    expect(unaryNotificationCall).not.toHaveBeenCalled();
+  });
+
+  test('skips unsubscribe call when address list is empty', async () => {
+    const { subscription, unaryNotificationCall } = createSubscription();
+
+    await subscription.unsubscribeAddresses([]);
+
+    expect(unaryNotificationCall).not.toHaveBeenCalled();
+  });
+
+  test('getSubscribedVhtlcState returns empty state when no addresses are subscribed', async () => {
+    const { subscription, unaryCall } = createSubscription();
+
+    const state = await subscription.getSubscribedVhtlcState();
+
+    expect(state).toEqual({ created: [], spent: [] });
+    expect(unaryCall).not.toHaveBeenCalled();
+  });
+
+  test('batches unsubscribe requests for multiple addresses', async () => {
+    const { subscription, unaryNotificationCall } = createSubscription();
+
+    await subscription.subscribeAddresses([
+      {
+        address: 'address-one',
+        vHtlcId: 'vhtlc-one',
+      },
+      {
+        address: 'address-two',
+        vHtlcId: 'vhtlc-two',
+      },
+    ]);
+
+    unaryNotificationCall.mockResolvedValue({});
+
+    await subscription.unsubscribeAddresses([
+      'address-one',
+      'address-two',
+      'address-one',
+    ]);
+
+    expect(unaryNotificationCall).toHaveBeenLastCalledWith(
+      'unsubscribeForAddresses',
+      {
+        addresses: ['address-one', 'address-two'],
+      },
+    );
+    expect(subscription['subscribedAddresses'].has('address-one')).toEqual(
+      false,
+    );
+    expect(subscription['subscribedAddresses'].has('address-two')).toEqual(
+      false,
+    );
+  });
+
   test('ignores invalid subscribed addresses during rescan and still emits valid vHTLCs', async () => {
     const { subscription, unaryCall } = createSubscription();
 

@@ -40,6 +40,7 @@ import {
 import type { Timeouts } from '../chain/ArkClient';
 import ArkClient from '../chain/ArkClient';
 import { LegacyReverseSwapOutputType } from '../consts/Consts';
+import DefaultMap from '../consts/DefaultMap';
 import {
   CurrencyType,
   FinalChainSwapEvents,
@@ -171,6 +172,16 @@ type CreatedChainSwap = {
   claimDetails: CreatedChainSwapDetails;
   lockupDetails: CreatedChainSwapDetails;
 };
+
+type ArkSubscribedAddress = {
+  address: string;
+  vHtlcId: string;
+};
+
+type ArkStartupSubscriptions = DefaultMap<
+  ArkClient,
+  Map<string, ArkSubscribedAddress>
+>;
 
 class SwapManager {
   public currencies = new Map<string, Currency>();
@@ -322,9 +333,20 @@ class SwapManager {
           },
         }),
       ]);
-    await this.recreateSubscriptions(pendingSwaps);
-    await this.recreateSubscriptions(pendingReverseSwaps);
-    await this.recreateChainSwapSubscriptions(pendingChainSwaps);
+
+    const arkStartupSubscriptions: ArkStartupSubscriptions = new DefaultMap(
+      () => new Map(),
+    );
+    await this.recreateSubscriptions(pendingSwaps, arkStartupSubscriptions);
+    await this.recreateSubscriptions(
+      pendingReverseSwaps,
+      arkStartupSubscriptions,
+    );
+    await this.recreateChainSwapSubscriptions(
+      pendingChainSwaps,
+      arkStartupSubscriptions,
+    );
+    await this.subscribeStartupArkAddresses(arkStartupSubscriptions);
 
     for (const currency of this.currencies.values()) {
       if (currency.clnClient === undefined) {
@@ -1393,7 +1415,35 @@ class SwapManager {
     return undefined;
   };
 
-  private recreateSubscriptions = async (swaps: Swap[] | ReverseSwap[]) => {
+  private queueArkSubscription = (
+    startupSubscriptions: ArkStartupSubscriptions,
+    arkNode: ArkClient,
+    address: string,
+    vHtlcId: string,
+  ) => {
+    startupSubscriptions.get(arkNode).set(address, {
+      address,
+      vHtlcId,
+    });
+  };
+
+  private subscribeStartupArkAddresses = async (
+    startupSubscriptions: ArkStartupSubscriptions,
+  ) => {
+    await Promise.all(
+      Array.from(startupSubscriptions.entries()).map(
+        async ([arkNode, subscriptions]) =>
+          arkNode.subscription.subscribeAddresses(
+            Array.from(subscriptions.values()),
+          ),
+      ),
+    );
+  };
+
+  private recreateSubscriptions = async (
+    swaps: Swap[] | ReverseSwap[],
+    startupSubscriptions: ArkStartupSubscriptions,
+  ) => {
     for (const swap of swaps) {
       const isReverse = swap.type === SwapType.ReverseSubmarine;
 
@@ -1457,43 +1507,44 @@ class SwapManager {
         );
 
         if (arkNode !== undefined) {
-          await arkNode.subscription.subscribeAddresses([
-            {
-              address: swap.lockupAddress,
-              vHtlcId: ArkClient.createVhtlcId(
-                getHexBuffer(swap.preimageHash),
-                arkNode.pubkey,
-                getHexBuffer((swap as ReverseSwap).claimPublicKey!),
-              ),
-            },
-          ]);
-        }
-      } else {
-        if (!isReverse) {
-          const arkNode = this.getArkNodeOrWarn(
-            chainCurrency,
-            swap.type,
-            swap.id,
+          this.queueArkSubscription(
+            startupSubscriptions,
+            arkNode,
+            swap.lockupAddress,
+            ArkClient.createVhtlcId(
+              getHexBuffer(swap.preimageHash),
+              arkNode.pubkey,
+              getHexBuffer((swap as ReverseSwap).claimPublicKey!),
+            ),
           );
+        }
+      } else if (!isReverse) {
+        const arkNode = this.getArkNodeOrWarn(
+          chainCurrency,
+          swap.type,
+          swap.id,
+        );
 
-          if (arkNode !== undefined) {
-            await arkNode.subscription.subscribeAddresses([
-              {
-                address: swap.lockupAddress,
-                vHtlcId: ArkClient.createVhtlcId(
-                  getHexBuffer(swap.preimageHash),
-                  getHexBuffer((swap as Swap).refundPublicKey!),
-                  arkNode.pubkey,
-                ),
-              },
-            ]);
-          }
+        if (arkNode !== undefined) {
+          this.queueArkSubscription(
+            startupSubscriptions,
+            arkNode,
+            swap.lockupAddress,
+            ArkClient.createVhtlcId(
+              getHexBuffer(swap.preimageHash),
+              getHexBuffer((swap as Swap).refundPublicKey!),
+              arkNode.pubkey,
+            ),
+          );
         }
       }
     }
   };
 
-  private recreateChainSwapSubscriptions = async (swaps: ChainSwapInfo[]) => {
+  private recreateChainSwapSubscriptions = async (
+    swaps: ChainSwapInfo[],
+    startupSubscriptions: ArkStartupSubscriptions,
+  ) => {
     for (const swap of swaps) {
       switch (swap.chainSwap.status) {
         case SwapUpdateEvent.SwapCreated:
@@ -1505,16 +1556,16 @@ class SwapManager {
           );
 
           if (arkNode !== undefined) {
-            await arkNode.subscription.subscribeAddresses([
-              {
-                address: swap.receivingData.lockupAddress,
-                vHtlcId: ArkClient.createVhtlcId(
-                  getHexBuffer(swap.preimageHash),
-                  getHexBuffer(swap.receivingData.theirPublicKey!),
-                  arkNode.pubkey,
-                ),
-              },
-            ]);
+            this.queueArkSubscription(
+              startupSubscriptions,
+              arkNode,
+              swap.receivingData.lockupAddress,
+              ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                getHexBuffer(swap.receivingData.theirPublicKey!),
+                arkNode.pubkey,
+              ),
+            );
           }
           break;
         }
@@ -1528,16 +1579,16 @@ class SwapManager {
           );
 
           if (arkNode !== undefined) {
-            await arkNode.subscription.subscribeAddresses([
-              {
-                address: swap.sendingData.lockupAddress,
-                vHtlcId: ArkClient.createVhtlcId(
-                  getHexBuffer(swap.preimageHash),
-                  arkNode.pubkey,
-                  getHexBuffer(swap.sendingData.theirPublicKey!),
-                ),
-              },
-            ]);
+            this.queueArkSubscription(
+              startupSubscriptions,
+              arkNode,
+              swap.sendingData.lockupAddress,
+              ArkClient.createVhtlcId(
+                getHexBuffer(swap.preimageHash),
+                arkNode.pubkey,
+                getHexBuffer(swap.sendingData.theirPublicKey!),
+              ),
+            );
           }
           break;
         }

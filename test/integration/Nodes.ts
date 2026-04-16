@@ -174,6 +174,7 @@ export const arkClient = new ArkClient(
   {
     host: '127.0.0.1',
     port: 7000,
+    macaroonpath: `${resolve(__dirname, '..', '..')}/regtest/data/fulmine/macaroons/admin.macaroon`,
     useLocktimeSeconds: true,
   },
   mockSidecar,

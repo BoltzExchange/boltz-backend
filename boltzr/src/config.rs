@@ -268,6 +268,11 @@ symbol = "BTC"
 
 [[currencies]]
 symbol = "L-BTC"
+
+[ark]
+host = "fulmine"
+port = 7000
+macaroonpath = "/tmp/fulmine/admin.macaroon"
         "#,
         )
         .unwrap();
@@ -297,6 +302,15 @@ symbol = "L-BTC"
 
         assert_eq!(currencies[1].symbol, "L-BTC");
         assert!(currencies[1].lnds.is_none());
+
+        assert_eq!(
+            config.ark.unwrap(),
+            crate::ark::Config {
+                host: "fulmine".to_string(),
+                port: 7000,
+                macaroonpath: Some("/tmp/fulmine/admin.macaroon".to_string()),
+            }
+        );
 
         assert_eq!(
             config.postgres,

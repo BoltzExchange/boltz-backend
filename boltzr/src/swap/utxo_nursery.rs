@@ -196,7 +196,7 @@ impl UtxoNursery {
             .collect::<Vec<_>>()
             .await;
 
-        for (tx, status) in tx_vec.into_iter().zip(zero_conf_safe.into_iter()) {
+        for (tx, status) in tx_vec.into_iter().zip(zero_conf_safe) {
             let swap_ids = relevant_swaps.remove(&tx).context("swap ids not found")?;
 
             if let Err(e) = self.relevant_txs.send(RelevantTx {

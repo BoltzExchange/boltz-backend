@@ -32,6 +32,11 @@ type SpentVHtlc = {
   spentBy: string;
 };
 
+type SubscribedVhtlcState = {
+  created: CreatedVHtlc[];
+  spent: SpentVHtlc[];
+};
+
 type Events = {
   'vhtlc.created': CreatedVHtlc;
   'vhtlc.spent': SpentVHtlc;
@@ -140,6 +145,10 @@ class ArkSubscription extends TypedEventEmitter<Events> {
   };
 
   public subscribeAddresses = async (addresses: SubscribedAddress[]) => {
+    if (addresses.length === 0) {
+      return;
+    }
+
     for (const address of addresses) {
       this.subscribedAddresses.set(address.address, address.vHtlcId);
     }
@@ -154,17 +163,92 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     >('subscribeForAddresses', req);
   };
 
-  public unsubscribeAddress = async (address: string) => {
-    this.subscribedAddresses.delete(address);
+  public unsubscribeAddresses = async (addresses: string[]) => {
+    if (addresses.length === 0) {
+      return;
+    }
+
+    const dedupedAddresses = Array.from(new Set(addresses));
+    for (const address of dedupedAddresses) {
+      this.subscribedAddresses.delete(address);
+    }
 
     const req: notificationrpc.UnsubscribeForAddressesRequest = {
-      addresses: [address],
+      addresses: dedupedAddresses,
     };
 
     await this.unaryNotificationCall<
       notificationrpc.UnsubscribeForAddressesRequest,
       notificationrpc.UnsubscribeForAddressesResponse
     >('unsubscribeForAddresses', req);
+  };
+
+  public unsubscribeAddress = async (address: string) => {
+    await this.unsubscribeAddresses([address]);
+  };
+
+  public getSubscribedVhtlcState = async (): Promise<SubscribedVhtlcState> => {
+    if (this.subscribedAddresses.size === 0) {
+      return {
+        created: [],
+        spent: [],
+      };
+    }
+
+    const req: arkrpc.ListVHTLCsRequest = {
+      vhtlcIds: Array.from(this.subscribedAddresses.values()),
+    };
+    const res = await this.unaryCall<
+      arkrpc.ListVHTLCsRequest,
+      arkrpc.ListVHTLCsResponse
+    >('listVhtlCs', req);
+
+    const addressMapper = new AddressMapper(
+      Array.from(this.subscribedAddresses.keys()),
+      this.invalidAddressHandler('subscribed'),
+    );
+
+    const created: CreatedVHtlc[] = [];
+    const spent: SpentVHtlc[] = [];
+
+    for (const vhtlc of res.vhtlcs) {
+      if (vhtlc.outpoint === undefined) {
+        this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
+        continue;
+      }
+
+      const address = addressMapper.getAddress(vhtlc.script);
+      if (address === undefined) {
+        this.logger.warn(`No address for vHTLC ${vhtlc.script}`);
+        continue;
+      }
+
+      created.push({
+        address,
+        txId: vhtlc.outpoint.txid,
+        vout: vhtlc.outpoint.vout,
+        amount: fromProtoInt(vhtlc.amount),
+      });
+
+      if (
+        vhtlc.isSpent &&
+        vhtlc.spentBy !== undefined &&
+        vhtlc.spentBy !== ''
+      ) {
+        spent.push({
+          outpoint: {
+            txid: vhtlc.outpoint.txid,
+            vout: vhtlc.outpoint.vout,
+          },
+          spentBy: vhtlc.spentBy,
+        });
+      }
+    }
+
+    return {
+      created,
+      spent,
+    };
   };
 
   public rescan = async () => {
@@ -175,55 +259,14 @@ class ArkSubscription extends TypedEventEmitter<Events> {
         `Rescanning ${this.client.serviceName()} ${this.client.symbol}`,
       );
 
-      if (this.subscribedAddresses.size === 0) {
-        return;
+      const vhtlcs = await this.getSubscribedVhtlcState();
+
+      for (const vhtlc of vhtlcs.created) {
+        this.emit('vhtlc.created', vhtlc);
       }
 
-      const req: arkrpc.ListVHTLCsRequest = {
-        vhtlcIds: Array.from(this.subscribedAddresses.values()),
-      };
-      const res = await this.unaryCall<
-        arkrpc.ListVHTLCsRequest,
-        arkrpc.ListVHTLCsResponse
-      >('listVhtlCs', req);
-
-      const addressMapper = new AddressMapper(
-        Array.from(this.subscribedAddresses.keys()),
-        this.invalidAddressHandler('subscribed'),
-      );
-
-      for (const vhtlc of res.vhtlcs) {
-        if (vhtlc.outpoint === undefined) {
-          this.logger.warn(`No outpoint for vHTLC ${vhtlc.script}`);
-          continue;
-        }
-
-        const address = addressMapper.getAddress(vhtlc.script);
-        if (address === undefined) {
-          this.logger.warn(`No address for vHTLC ${vhtlc.script}`);
-          continue;
-        }
-
-        this.emit('vhtlc.created', {
-          address,
-          txId: vhtlc.outpoint.txid,
-          vout: vhtlc.outpoint.vout,
-          amount: fromProtoInt(vhtlc.amount),
-        });
-
-        if (
-          vhtlc.isSpent &&
-          vhtlc.spentBy !== undefined &&
-          vhtlc.spentBy !== ''
-        ) {
-          this.emit('vhtlc.spent', {
-            outpoint: {
-              txid: vhtlc.outpoint.txid,
-              vout: vhtlc.outpoint.vout,
-            },
-            spentBy: vhtlc.spentBy,
-          });
-        }
+      for (const vhtlc of vhtlcs.spent) {
+        this.emit('vhtlc.spent', vhtlc);
       }
     } catch (error) {
       this.logger.error(

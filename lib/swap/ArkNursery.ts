@@ -26,6 +26,8 @@ import type { Currency } from '../wallet/WalletManager';
 import Errors from './Errors';
 import type OverpaymentProtector from './OverpaymentProtector';
 
+type UnsubscribeHandler = (address: string) => void | Promise<void>;
+
 class ArkNursery extends TypedEventEmitter<{
   'swap.expired': Swap;
   'swap.lockup': {
@@ -104,9 +106,38 @@ class ArkNursery extends TypedEventEmitter<{
     }
   };
 
+  public reconcileStartupVhtlcs = async (
+    arkNode: ArkClient,
+    vhtlcs: {
+      created: CreatedVHtlc[];
+      spent: SpentVHtlc[];
+    },
+  ): Promise<Set<string>> => {
+    const addressesToUnsubscribe = new Set<string>();
+    const collectUnsubscribe: UnsubscribeHandler = (address) => {
+      addressesToUnsubscribe.add(address);
+    };
+
+    for (const vHtlc of vhtlcs.created) {
+      await this.lock.acquire(`vhtlc.created:${vHtlc.address}`, async () => {
+        await Promise.all([
+          this.checkSubmarineLockup(arkNode, vHtlc, collectUnsubscribe),
+          this.checkChainSwapLockup(arkNode, vHtlc, collectUnsubscribe),
+        ]);
+      });
+    }
+
+    for (const vHtlc of vhtlcs.spent) {
+      await this.checkClaims(arkNode, vHtlc, collectUnsubscribe);
+    }
+
+    return addressesToUnsubscribe;
+  };
+
   public checkChainSwapLockup = async (
     arkNode: ArkClient,
     vHtlc: CreatedVHtlc,
+    onUnsubscribe?: UnsubscribeHandler,
   ) => {
     let swap = await ChainSwapRepository.getChainSwapByData(
       {
@@ -133,7 +164,7 @@ class ArkNursery extends TypedEventEmitter<{
       return;
     }
 
-    arkNode.subscription.unsubscribeAddress(vHtlc.address);
+    await this.handleUnsubscribe(arkNode, vHtlc.address, onUnsubscribe);
 
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
@@ -208,6 +239,7 @@ class ArkNursery extends TypedEventEmitter<{
   private checkSubmarineLockup = async (
     arkNode: ArkClient,
     vHtlc: CreatedVHtlc,
+    onUnsubscribe?: UnsubscribeHandler,
   ) => {
     const swap = await SwapRepository.getSwap({
       status: {
@@ -220,7 +252,7 @@ class ArkNursery extends TypedEventEmitter<{
       return;
     }
 
-    arkNode.subscription.unsubscribeAddress(vHtlc.address);
+    await this.handleUnsubscribe(arkNode, vHtlc.address, onUnsubscribe);
 
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
@@ -263,7 +295,11 @@ class ArkNursery extends TypedEventEmitter<{
     });
   };
 
-  private checkClaims = async (arkNode: ArkClient, vHtlc: SpentVHtlc) => {
+  private checkClaims = async (
+    arkNode: ArkClient,
+    vHtlc: SpentVHtlc,
+    onUnsubscribe?: UnsubscribeHandler,
+  ) => {
     this.logger.debug(
       `Checking claims for ${ArkClient.symbol} vHTLC in: ${vHtlc.spentBy}`,
     );
@@ -305,7 +341,11 @@ class ArkNursery extends TypedEventEmitter<{
           reverseSwap,
           preimage,
         });
-        arkNode.subscription.unsubscribeAddress(reverseSwap.lockupAddress);
+        await this.handleUnsubscribe(
+          arkNode,
+          reverseSwap.lockupAddress,
+          onUnsubscribe,
+        );
       }
 
       if (chainSwap !== null && chainSwap !== undefined) {
@@ -314,11 +354,25 @@ class ArkNursery extends TypedEventEmitter<{
           swap: chainSwap,
           preimage,
         });
-        arkNode.subscription.unsubscribeAddress(
+        await this.handleUnsubscribe(
+          arkNode,
           chainSwap.sendingData.lockupAddress,
+          onUnsubscribe,
         );
       }
     }
+  };
+
+  private handleUnsubscribe = async (
+    arkNode: ArkClient,
+    address: string,
+    onUnsubscribe?: UnsubscribeHandler,
+  ) => {
+    if (onUnsubscribe !== undefined) {
+      await onUnsubscribe(address);
+      return;
+    }
+    arkNode.subscription.unsubscribeAddress(address);
   };
 
   private checkExpiredSwaps = async (node: ArkClient, currentTime: number) => {

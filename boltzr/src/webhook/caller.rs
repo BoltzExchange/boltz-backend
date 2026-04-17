@@ -714,14 +714,7 @@ mod caller_test {
         web_hook_helper
             .expect_should_be_skipped()
             .times(2)
-            .returning(move |_, _| {
-                if is_first_call {
-                    is_first_call = false;
-                    true
-                } else {
-                    false
-                }
-            });
+            .returning(move |_, _| std::mem::take(&mut is_first_call));
 
         let id = "gm";
         let port = 10004;

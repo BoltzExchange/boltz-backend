@@ -740,8 +740,8 @@ where
         let chain_clients = self
             .manager
             .get_currencies()
-            .iter()
-            .filter_map(|(_, currency)| currency.chain.clone());
+            .values()
+            .filter_map(|currency| currency.chain.clone());
 
         for client in chain_clients {
             let tx = tx.clone();

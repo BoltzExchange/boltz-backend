@@ -1,5 +1,9 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bitcoin::OutPoint;
+use std::path::Path;
+use std::str::FromStr;
+use tonic::metadata::MetadataValue;
+use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
 #[allow(dead_code)]
@@ -8,9 +12,30 @@ mod ark_rpc {
     tonic::include_proto!("fulmine.v1");
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+struct MacaroonInterceptor {
+    macaroon: Option<MetadataValue<tonic::metadata::Ascii>>,
+}
+
+impl tonic::service::Interceptor for MacaroonInterceptor {
+    fn call(
+        &mut self,
+        request: tonic::Request<()>,
+    ) -> std::result::Result<tonic::Request<()>, tonic::Status> {
+        let mut request = request;
+        if let Some(macaroon) = &self.macaroon {
+            request.metadata_mut().insert("macaroon", macaroon.clone());
+        }
+        Ok(request)
+    }
+}
+
+type ArkServiceClient =
+    ark_rpc::service_client::ServiceClient<InterceptedService<Channel, MacaroonInterceptor>>;
+
+#[derive(Clone)]
 pub struct ArkClient {
-    client: ark_rpc::service_client::ServiceClient<Channel>,
+    client: ArkServiceClient,
 }
 
 impl ArkClient {
@@ -32,11 +57,36 @@ impl ArkClient {
         alloy::hex::encode(hash.as_byte_array())
     }
 
-    pub async fn new(host: &str, port: u16) -> Result<Self> {
+    pub async fn new(host: &str, port: u16, macaroon_path: Option<&Path>) -> Result<Self> {
+        let macaroon = match macaroon_path.filter(|path| !path.as_os_str().is_empty()) {
+            Some(path) => {
+                if !path.exists() {
+                    return Err(anyhow!(
+                        "failed to find configured Fulmine macaroon: {}",
+                        path.display()
+                    ));
+                }
+
+                Some(MetadataValue::from_str(&alloy::hex::encode(
+                    tokio::fs::read(path).await.map_err(|e| {
+                        anyhow!(
+                            "failed to read Fulmine macaroon from {}: {}",
+                            path.display(),
+                            e
+                        )
+                    })?,
+                ))?)
+            }
+            None => None,
+        };
+
         let channel = Channel::from_shared(format!("http://{}:{}", host, port))?
             .connect()
             .await?;
-        let client = ark_rpc::service_client::ServiceClient::new(channel);
+        let client = ark_rpc::service_client::ServiceClient::with_interceptor(
+            channel,
+            MacaroonInterceptor { macaroon },
+        );
         Ok(Self { client })
     }
 

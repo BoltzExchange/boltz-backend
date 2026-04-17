@@ -10,7 +10,9 @@ import { setup } from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString, getUnixTime } from '../../../lib/Utils';
+import ArkClient from '../../../lib/chain/ArkClient';
 import ChainClient from '../../../lib/chain/ChainClient';
+import DefaultMap from '../../../lib/consts/DefaultMap';
 import {
   CurrencyType,
   FinalChainSwapEvents,
@@ -425,6 +427,8 @@ describe('SwapManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetReverseSwapsResult = [];
+    mockGetChainSwapsResult = [];
 
     btcCurrency.clnClient = undefined;
 
@@ -529,6 +533,9 @@ describe('SwapManager', () => {
     manager['recreateChainSwapSubscriptions'] =
       mockRecreateChainSwapSubscriptions;
 
+    const mockSubscribeStartupArkAddresses = jest.fn().mockImplementation();
+    manager['subscribeStartupArkAddresses'] = mockSubscribeStartupArkAddresses;
+
     mockGetReverseSwapsResult = [
       {
         pair: 'BTC/BTC',
@@ -591,14 +598,20 @@ describe('SwapManager', () => {
     });
 
     expect(mockRecreateSubscriptions).toHaveBeenCalledTimes(2);
-    expect(mockRecreateSubscriptions).toHaveBeenCalledWith([]);
+    expect(mockRecreateSubscriptions).toHaveBeenCalledWith([], expect.any(Map));
     expect(mockRecreateSubscriptions).toHaveBeenCalledWith(
       mockGetReverseSwapsResult,
+      expect.any(Map),
     );
 
     expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledTimes(1);
     expect(mockRecreateChainSwapSubscriptions).toHaveBeenCalledWith(
       mockGetChainSwapsResult,
+      expect.any(Map),
+    );
+    expect(mockSubscribeStartupArkAddresses).toHaveBeenCalledTimes(1);
+    expect(mockSubscribeStartupArkAddresses).toHaveBeenCalledWith(
+      expect.any(Map),
     );
   });
 
@@ -611,23 +624,160 @@ describe('SwapManager', () => {
       lndClients: new Map(),
     } as Currency);
 
-    await manager['recreateSubscriptions']([
-      {
-        id: 'reverse-swap-id',
-        type: SwapType.ReverseSubmarine,
-        pair: 'BTC/BTC',
-        orderSide: OrderSide.BUY,
-        status: SwapUpdateEvent.SwapCreated,
-        nodeId: 'missing-node',
-        invoice: 'lnbc1missing',
-      } as any,
-    ]);
+    await manager['recreateSubscriptions'](
+      [
+        {
+          id: 'reverse-swap-id',
+          type: SwapType.ReverseSubmarine,
+          pair: 'BTC/BTC',
+          orderSide: OrderSide.BUY,
+          status: SwapUpdateEvent.SwapCreated,
+          nodeId: 'missing-node',
+          invoice: 'lnbc1missing',
+        } as any,
+      ],
+      new DefaultMap(() => new Map()),
+    );
 
     expect(mockSubscribeSingleInvoice).not.toHaveBeenCalled();
     expect(sidecar.decodeInvoiceOrOffer).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       'Skipping invoice subscription recreation of Reverse Swap reverse-swap-id: node missing-node not found for reverse swap reverse-swap-id',
     );
+  });
+
+  test('should batch ARK startup subscriptions per node', async () => {
+    const refundPublicKey =
+      '03f1c589378d79bb4a38be80bd085f5454a07d7f5c515fa0752f1b443816442ac2';
+    const claimPublicKey =
+      '026c94d2958888e70fd32349b3c195803976e0865a54ab1755f19c2c820fcbafa8';
+    const theirPublicKey =
+      '02c9c71ee3fee0c400ff64e51e955313e77ea499fc609973c71c5a4104a8d903bb';
+    const arkSubscription = {
+      subscribeAddresses: jest.fn().mockResolvedValue(undefined),
+    };
+    const arkNode = {
+      symbol: 'ARK',
+      pubkey: Buffer.alloc(32, 3),
+      subscription: arkSubscription,
+    } as any as ArkClient;
+    const arkCurrency = {
+      symbol: 'ARK',
+      type: CurrencyType.Ark,
+      arkNode,
+      lndClients: new Map(),
+    } as any as Currency;
+    manager.chainSwapSigner.init = jest.fn().mockResolvedValue(undefined);
+
+    SwapRepository.getSwaps = jest.fn().mockResolvedValue([
+      {
+        id: 'swap-id',
+        type: SwapType.Submarine,
+        pair: 'BTC/ARK',
+        orderSide: OrderSide.BUY,
+        lockupAddress: 'ark_submarine_address',
+        preimageHash:
+          '4d57a64c3b4f19cd4a8c79e3038dba7024bbf77ee4f768f0c1b42fbb590c835c',
+        refundPublicKey,
+      },
+    ]);
+
+    mockGetReverseSwapsResult = [
+      {
+        id: 'reverse-id',
+        type: SwapType.ReverseSubmarine,
+        pair: 'ARK/BTC',
+        orderSide: OrderSide.BUY,
+        status: SwapUpdateEvent.TransactionConfirmed,
+        lockupAddress: 'ark_reverse_address',
+        preimageHash:
+          '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
+        claimPublicKey,
+      },
+    ];
+
+    mockGetChainSwapsResult = [
+      {
+        id: 'chain-receive-id',
+        type: SwapType.Chain,
+        preimageHash:
+          '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+        chainSwap: {
+          status: SwapUpdateEvent.SwapCreated,
+        },
+        receivingData: {
+          symbol: 'ARK',
+          lockupAddress: 'ark_chain_receive_address',
+          theirPublicKey,
+        },
+        sendingData: {
+          symbol: 'BTC',
+        },
+      },
+      {
+        id: 'chain-send-id',
+        type: SwapType.Chain,
+        preimageHash:
+          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
+        chainSwap: {
+          status: SwapUpdateEvent.TransactionServerConfirmed,
+        },
+        receivingData: {
+          symbol: 'BTC',
+        },
+        sendingData: {
+          symbol: 'ARK',
+          lockupAddress: 'ark_chain_send_address',
+          theirPublicKey,
+        },
+      },
+    ];
+
+    await manager.init([btcCurrency, ltcCurrency, arkCurrency], []);
+
+    expect(arkSubscription.subscribeAddresses).toHaveBeenCalledTimes(1);
+    expect(arkSubscription.subscribeAddresses).toHaveBeenCalledWith([
+      {
+        address: 'ark_submarine_address',
+        vHtlcId: ArkClient.createVhtlcId(
+          getHexBuffer(
+            '4d57a64c3b4f19cd4a8c79e3038dba7024bbf77ee4f768f0c1b42fbb590c835c',
+          ),
+          getHexBuffer(refundPublicKey),
+          arkNode.pubkey,
+        ),
+      },
+      {
+        address: 'ark_reverse_address',
+        vHtlcId: ArkClient.createVhtlcId(
+          getHexBuffer(
+            '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
+          ),
+          arkNode.pubkey,
+          getHexBuffer(claimPublicKey),
+        ),
+      },
+      {
+        address: 'ark_chain_receive_address',
+        vHtlcId: ArkClient.createVhtlcId(
+          getHexBuffer(
+            '1558d179d9e3de706997e3b6bb33f704a5b8086b27538fd04ef5e313467333b8',
+          ),
+          getHexBuffer(theirPublicKey),
+          arkNode.pubkey,
+        ),
+      },
+      {
+        address: 'ark_chain_send_address',
+        vHtlcId: ArkClient.createVhtlcId(
+          getHexBuffer(
+            '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
+          ),
+          arkNode.pubkey,
+          getHexBuffer(theirPublicKey),
+        ),
+      },
+    ]);
   });
 
   test('should return invoice expiry range', () => {

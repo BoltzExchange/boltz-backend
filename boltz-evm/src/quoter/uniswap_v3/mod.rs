@@ -269,7 +269,7 @@ where
 
         let results = multicall.aggregate3().await?;
         let mut discovered = HashMap::<TokenPair, Vec<u64>>::new();
-        for ((pair, fee), result) in call_fees.into_iter().zip(results.into_iter()) {
+        for ((pair, fee), result) in call_fees.into_iter().zip(results) {
             if let Ok(pool) = result
                 && pool != Address::ZERO
             {
@@ -493,7 +493,7 @@ mod test {
     fn get_provider() -> impl Provider<AnyNetwork> + Clone + 'static {
         ProviderBuilder::new()
             .network::<AnyNetwork>()
-            .connect_http("https://arbitrum-one-rpc.publicnode.com".parse().unwrap())
+            .connect_http("https://arb1.arbitrum.io/rpc".parse().unwrap())
     }
 
     async fn quote_exact_input_single<P, N>(

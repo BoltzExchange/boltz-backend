@@ -121,6 +121,8 @@ enum Commands {
         fulmine_host: String,
         #[arg(long, default_value_t = 7000)]
         fulmine_port: u16,
+        #[arg(long, help = "Path to the Fulmine macaroon file")]
+        fulmine_macaroon: Option<PathBuf>,
     },
     #[command(about = "Utility tools", alias = "t")]
     Tools {
@@ -709,6 +711,7 @@ async fn run_command(cli: Cli) -> Result<()> {
         Commands::Ark {
             fulmine_host,
             fulmine_port,
+            fulmine_macaroon,
             ref command,
         } => match command {
             ArkCommands::Claim {
@@ -717,7 +720,9 @@ async fn run_command(cli: Cli) -> Result<()> {
                 receiver_pubkey,
                 outpoint,
             } => {
-                let mut client = ArkClient::new(&fulmine_host, fulmine_port).await?;
+                let macaroon_path = fulmine_macaroon.map(utils::resolve_home).transpose()?;
+                let mut client =
+                    ArkClient::new(&fulmine_host, fulmine_port, macaroon_path.as_deref()).await?;
                 let response = client
                     .claim_vhtlc(
                         alloy::hex::encode(preimage.0),

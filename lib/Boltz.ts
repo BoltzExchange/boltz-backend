@@ -394,8 +394,12 @@ class Boltz {
 
       Array.from(this.currencies.values()).forEach((currency) => {
         if (currency.arkNode) {
-          this.logger.debug(`Rescanning ${currency.symbol} node`);
-          rescanPromises.push(currency.arkNode.subscription.rescan());
+          this.logger.debug(
+            `Reconciling ${currency.symbol} node subscriptions`,
+          );
+          rescanPromises.push(
+            this.reconcileStartupArkSubscriptions(currency.arkNode),
+          );
         }
       });
 
@@ -408,6 +412,25 @@ class Boltz {
 
       // eslint-disable-next-line n/no-process-exit
       process.exit(1);
+    }
+  };
+
+  private reconcileStartupArkSubscriptions = async (arkNode: ArkClient) => {
+    try {
+      const vhtlcs = await arkNode.subscription.getSubscribedVhtlcState();
+      const addressesToUnsubscribe =
+        await this.service.swapManager.nursery.arkNursery.reconcileStartupVhtlcs(
+          arkNode,
+          vhtlcs,
+        );
+
+      await arkNode.subscription.unsubscribeAddresses(
+        Array.from(addressesToUnsubscribe),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error reconciling ${arkNode.serviceName()} ${arkNode.symbol} startup subscriptions: ${formatError(error)}`,
+      );
     }
   };
 

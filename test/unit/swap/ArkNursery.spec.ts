@@ -306,6 +306,198 @@ describe('ArkNursery', () => {
     });
   });
 
+  describe('reconcileStartupVhtlcs', () => {
+    test('collects created lockups for batched unsubscribe without unsubscribing immediately', async () => {
+      const mockArkNode = {
+        symbol: 'ARK',
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      } as unknown as ArkClient;
+
+      const swap = {
+        id: 'swap123',
+        type: SwapType.Submarine,
+        expectedAmount: 100000,
+      };
+
+      const updatedSwap = {
+        ...swap,
+        lockupTransactionId: 'txid',
+        onchainAmount: 100000,
+      };
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      SwapRepository.setLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      let emittedEvent: any = null;
+      nursery.once('swap.lockup', (data) => {
+        emittedEvent = data;
+      });
+
+      const addressesToUnsubscribe = await nursery.reconcileStartupVhtlcs(
+        mockArkNode,
+        {
+          created: [
+            {
+              address: 'ark_address',
+              txId: 'txid',
+              vout: 0,
+              amount: 100000,
+            },
+          ],
+          spent: [],
+        },
+      );
+
+      expect(
+        mockArkNode.subscription.unsubscribeAddress,
+      ).not.toHaveBeenCalled();
+      expect(Array.from(addressesToUnsubscribe)).toEqual(['ark_address']);
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+    });
+
+    test('collects chain swap lockups for batched unsubscribe without unsubscribing immediately', async () => {
+      const mockArkNode = {
+        symbol: 'ARK',
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      } as unknown as ArkClient;
+
+      const chainSwap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        receivingData: {
+          symbol: 'ARK',
+          expectedAmount: 100000,
+        },
+      };
+
+      const updatedChainSwap = {
+        ...chainSwap,
+        receivingData: {
+          ...chainSwap.receivingData,
+          lockupTransactionId: 'txid',
+          amount: 100000,
+        },
+      };
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(chainSwap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedChainSwap);
+
+      let emittedEvent: any = null;
+      nursery.once('chainSwap.lockup', (data) => {
+        emittedEvent = data;
+      });
+
+      const addressesToUnsubscribe = await nursery.reconcileStartupVhtlcs(
+        mockArkNode,
+        {
+          created: [
+            {
+              address: 'ark_chain_lockup_address',
+              txId: 'txid',
+              vout: 0,
+              amount: 100000,
+            },
+          ],
+          spent: [],
+        },
+      );
+
+      expect(
+        mockArkNode.subscription.unsubscribeAddress,
+      ).not.toHaveBeenCalled();
+      expect(Array.from(addressesToUnsubscribe)).toEqual([
+        'ark_chain_lockup_address',
+      ]);
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(updatedChainSwap);
+      expect(emittedEvent.lockupTransactionId).toEqual('txid');
+    });
+
+    test('collects spent claims for batched unsubscribe without unsubscribing immediately', async () => {
+      const mockArkNode = {
+        symbol: 'ARK',
+        getTx: jest.fn().mockResolvedValue(claimTx),
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      } as unknown as ArkClient;
+
+      const reverseSwap = {
+        id: 'rev',
+        lockupAddress: 'ark_reverse_address',
+      };
+      const chainSwap = {
+        id: 'chain',
+        sendingData: {
+          lockupAddress: 'ark_chain_address',
+        },
+      };
+
+      ReverseSwapRepository.getReverseSwap = jest
+        .fn()
+        .mockResolvedValue(reverseSwap);
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+
+      let reverseClaim: any = null;
+      let chainClaim: any = null;
+      nursery.once('reverseSwap.claimed', (data) => {
+        reverseClaim = data;
+      });
+      nursery.once('chainSwap.claimed', (data) => {
+        chainClaim = data;
+      });
+
+      const addressesToUnsubscribe = await nursery.reconcileStartupVhtlcs(
+        mockArkNode,
+        {
+          created: [],
+          spent: [
+            {
+              outpoint: {
+                txid: 'txid',
+                vout: 0,
+              },
+              spentBy: 'txid',
+            },
+          ],
+        },
+      );
+
+      expect(mockArkNode.getTx).toHaveBeenCalledWith('txid');
+      expect(
+        mockArkNode.subscription.unsubscribeAddress,
+      ).not.toHaveBeenCalled();
+      expect(Array.from(addressesToUnsubscribe)).toEqual([
+        'ark_reverse_address',
+        'ark_chain_address',
+      ]);
+      expect(reverseClaim).toEqual({
+        reverseSwap,
+        preimage: claimTxPreimage,
+      });
+      expect(chainClaim).toEqual({
+        swap: chainSwap,
+        preimage: claimTxPreimage,
+      });
+    });
+  });
+
   describe('checkSubmarineLockup', () => {
     const mockArkNode = {
       symbol: 'ARK',

@@ -305,7 +305,11 @@ impl BaseClient for Cln {
             "Connected to {} CLN {} ({})",
             self.symbol,
             info.version,
-            info.alias.unwrap_or(hex::encode(info.id))
+            if info.alias.is_empty() {
+                hex::encode(info.id)
+            } else {
+                info.alias
+            }
         );
 
         self.hold.connect().await?;

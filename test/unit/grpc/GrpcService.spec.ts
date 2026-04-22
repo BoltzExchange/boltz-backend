@@ -424,6 +424,24 @@ describe('GrpcService', () => {
     });
   });
 
+  test.each(['__proto__', 'constructor', 'prototype'])(
+    'should propagate reserved referral id error for AddReferral: %s',
+    async (id) => {
+      mockAddReferral.mockRejectedValueOnce(
+        new Error(`referral IDs cannot use reserved names: ${id}`),
+      );
+
+      await expect(
+        callUnaryAsPromise<boltzrpc.AddReferralResponse>(
+          grpcService.addReferral,
+          createCall({ id, feeShare: 1 }),
+        ),
+      ).rejects.toEqual(
+        new Error(`referral IDs cannot use reserved names: ${id}`),
+      );
+    },
+  );
+
   test('should handle RotateReferralKeys', async () => {
     const id = 'someId';
 

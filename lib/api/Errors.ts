@@ -11,4 +11,5 @@ export default {
     `invalid swap status: ${status}`,
   INVALID_EXTRA_FEES_PERCENTAGE: (percentage: number): string =>
     `invalid extra fees percentage: ${percentage}`,
+  INVALID_EXTRA_FEES_ID: (id: string): string => `invalid extra fees id: ${id}`,
 };

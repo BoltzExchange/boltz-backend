@@ -28,6 +28,20 @@ describe('ReferralRepository', () => {
     await database.close();
   });
 
+  test.each(['__proto__', 'constructor', 'prototype'])(
+    'should reject reserved referral id "%s" when adding a referral',
+    async (id) => {
+      await expect(
+        ReferralRepository.addReferral({
+          ...fixture,
+          id,
+        }),
+      ).rejects.toEqual(
+        new Error(`referral IDs cannot use reserved names: ${id}`),
+      );
+    },
+  );
+
   describe('setConfig', () => {
     test('should set config', async () => {
       const newCfg = {
@@ -683,6 +697,19 @@ describe('ReferralRepository', () => {
           }),
         ).toThrow('hidePair must be a boolean');
       });
+
+      test.each(['__proto__', 'constructor', 'prototype'])(
+        'should reject reserved configured referral id "%s"',
+        (id) => {
+          expect(() =>
+            ReferralRepository.setConfiguredReferrals({
+              [id]: {
+                maxRoutingFee: 0.001,
+              },
+            }),
+          ).toThrow(`referral IDs cannot use reserved names: ${id}`);
+        },
+      );
     });
   });
 

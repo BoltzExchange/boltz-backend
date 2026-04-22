@@ -2631,6 +2631,15 @@ describe('SwapRouter', () => {
         expect(swapRouter['parseExtraFees'](data)).toEqual(data);
       });
     });
+
+    test.each(['__proto__', 'constructor', 'prototype'])(
+      'should reject prototype-pollution id "%s"',
+      (id) => {
+        expect(() =>
+          swapRouter['parseExtraFees']({ id, percentage: 1 }),
+        ).toThrow(ApiErrors.INVALID_EXTRA_FEES_ID(id));
+      },
+    );
   });
 
   describe('getReferralFromHeader', () => {

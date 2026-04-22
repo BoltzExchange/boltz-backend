@@ -14,11 +14,12 @@ pub trait SwapHelper {
     fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
     fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
     fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-    fn update_status(
+    fn update_status_if_matches(
         &self,
         id: &str,
         status: SwapUpdate,
         failure_reason: Option<String>,
+        condition: SwapCondition,
     ) -> QueryResponse<usize>;
 }
 
@@ -60,7 +61,7 @@ impl SwapHelper for SwapHelperDatabase {
     }
 
     #[instrument(
-        name = "db::SwapHelperDatabase::update_status",
+        name = "db::SwapHelperDatabase::update_status_if_matches",
         skip_all,
         fields(
             swap_id = %id,
@@ -68,15 +69,17 @@ impl SwapHelper for SwapHelperDatabase {
             has_failure_reason = failure_reason.is_some()
         )
     )]
-    fn update_status(
+    fn update_status_if_matches(
         &self,
         id: &str,
         status: SwapUpdate,
         failure_reason: Option<String>,
+        condition: SwapCondition,
     ) -> QueryResponse<usize> {
         if let Some(failure_reason) = failure_reason {
             Ok(update(swaps::dsl::swaps)
                 .filter(swaps::dsl::id.eq(id))
+                .filter(condition)
                 .set((
                     swaps::dsl::status.eq(status.to_string()),
                     swaps::dsl::failureReason.eq(failure_reason),
@@ -85,6 +88,7 @@ impl SwapHelper for SwapHelperDatabase {
         } else {
             Ok(update(swaps::dsl::swaps)
                 .filter(swaps::dsl::id.eq(id))
+                .filter(condition)
                 .set(swaps::dsl::status.eq(status.to_string()))
                 .execute(&mut self.pool.get()?)?)
         }
@@ -107,11 +111,12 @@ pub mod test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
+            fn update_status_if_matches(
                 &self,
                 id: &str,
                 status: SwapUpdate,
                 failure_reason: Option<String>,
+                condition: SwapCondition,
             ) -> QueryResponse<usize>;
         }
     );

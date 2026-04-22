@@ -2019,8 +2019,9 @@ class SwapRouter extends RouterBase {
      *                   minimum: 0
      *                 limit:
      *                   type: number
-     *                   description: Number of keys to scan from startIndex. Must be provided together with startIndex. Must be at least 1
+     *                   description: Number of keys to scan from startIndex. Must be provided together with startIndex. Must be between 1 and 1000
      *                   minimum: 1
+     *                   maximum: 1000
      *         - type: object
      *           required: ["publicKey"]
      *           properties:

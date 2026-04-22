@@ -333,15 +333,24 @@ class ChainSwapRepository {
     fee: number,
     userLockAmount: number,
     serverLockAmount: number,
+    acceptZeroConf?: boolean,
   ): Promise<ChainSwapInfo> =>
     Database.sequelize.transaction(async (transaction) => {
-      swap.chainSwap = await swap.chainSwap.update(
-        {
-          fee,
-          failureReason: null,
-        },
-        { transaction },
-      );
+      const chainSwapUpdate: {
+        fee: number;
+        failureReason: null;
+        acceptZeroConf?: boolean;
+      } = {
+        fee,
+        failureReason: null,
+      };
+      if (acceptZeroConf !== undefined) {
+        chainSwapUpdate.acceptZeroConf = acceptZeroConf;
+      }
+
+      swap.chainSwap = await swap.chainSwap.update(chainSwapUpdate, {
+        transaction,
+      });
       swap.receivingData = await swap.receivingData.update(
         {
           expectedAmount: userLockAmount,

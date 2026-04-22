@@ -254,11 +254,12 @@ mod test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
+            fn update_status_if_matches(
                 &self,
                 id: &str,
                 status: SwapUpdate,
                 failure_reason: Option<String>,
+                condition: SwapCondition,
             ) -> QueryResponse<usize>;
         }
     }

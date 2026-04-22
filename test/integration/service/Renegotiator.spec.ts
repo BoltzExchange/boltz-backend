@@ -136,6 +136,7 @@ describe('Renegotiator', () => {
         server: 123,
       }),
     },
+    acceptZeroConf: jest.fn().mockReturnValue(true),
   } as any as RateProvider;
 
   const balanceCheck = {
@@ -262,12 +263,20 @@ describe('Renegotiator', () => {
 
     describe('UTXO based chain', () => {
       test.each`
-        confirmed
-        ${true}
-        ${false}
+        confirmed | swapAcceptZeroConf | rateProviderAcceptZeroConf | expectedAcceptZeroConf | expectedRateProviderCalls
+        ${true}   | ${true}            | ${true}                    | ${true}                | ${1}
+        ${false}  | ${true}            | ${true}                    | ${true}                | ${1}
+        ${false}  | ${true}            | ${false}                   | ${false}               | ${1}
+        ${false}  | ${false}           | ${true}                    | ${false}               | ${0}
       `(
-        'should check chain swap lockups of confirmed ($confirmed) transactions',
-        async ({ confirmed }) => {
+        'should check chain swap lockups (confirmed=$confirmed, swapAcceptZeroConf=$swapAcceptZeroConf, rateProviderAcceptZeroConf=$rateProviderAcceptZeroConf)',
+        async ({
+          confirmed,
+          swapAcceptZeroConf,
+          rateProviderAcceptZeroConf,
+          expectedAcceptZeroConf,
+          expectedRateProviderCalls,
+        }) => {
           const transactionId = await bitcoinClient.sendToAddress(
             await bitcoinClient.getNewAddress(''),
             100_000,
@@ -282,6 +291,7 @@ describe('Renegotiator', () => {
 
           ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
             chainSwap: {},
+            acceptZeroConf: swapAcceptZeroConf,
             receivingData: {
               transactionId,
               symbol: 'BTC',
@@ -295,12 +305,26 @@ describe('Renegotiator', () => {
             .fn()
             .mockImplementation(async (swap) => swap);
 
+          (rateProvider.acceptZeroConf as jest.Mock).mockReturnValueOnce(
+            rateProviderAcceptZeroConf,
+          );
+
           negotiator['validateEligibility'] = jest
             .fn()
             .mockImplementation(async () => {});
 
           const quote = 94_877;
           await negotiator.acceptQuote('someId', quote);
+
+          expect(rateProvider.acceptZeroConf).toHaveBeenCalledTimes(
+            expectedRateProviderCalls,
+          );
+          if (expectedRateProviderCalls > 0) {
+            expect(rateProvider.acceptZeroConf).toHaveBeenCalledWith(
+              'BTC',
+              100_000,
+            );
+          }
 
           expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledTimes(
             1,
@@ -310,6 +334,7 @@ describe('Renegotiator', () => {
             5_000,
             100_000,
             quote,
+            expectedAcceptZeroConf,
           );
 
           expect(
@@ -465,6 +490,7 @@ describe('Renegotiator', () => {
 
         ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
           chainSwap: {},
+          acceptZeroConf: true,
           receivingData: {
             symbol: 'RBTC',
             amount: 100_000,
@@ -486,12 +512,19 @@ describe('Renegotiator', () => {
         const quote = 94_877;
         await negotiator.acceptQuote(swapId, quote);
 
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledTimes(1);
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledWith(
+          'RBTC',
+          100_000,
+        );
+
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledTimes(1);
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledWith(
           expect.anything(),
           5_000,
           100_000,
           quote,
+          true,
         );
 
         expect(
@@ -542,6 +575,7 @@ describe('Renegotiator', () => {
 
         ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
           chainSwap: {},
+          acceptZeroConf: true,
           receivingData: {
             symbol: 'TBTC',
             amount: 100_000,
@@ -563,12 +597,19 @@ describe('Renegotiator', () => {
         const quote = 94_877;
         await negotiator.acceptQuote(swapId, quote);
 
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledTimes(1);
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledWith(
+          'TBTC',
+          100_000,
+        );
+
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledTimes(1);
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledWith(
           expect.anything(),
           5_000,
           100_000,
           quote,
+          true,
         );
 
         expect(
@@ -620,6 +661,7 @@ describe('Renegotiator', () => {
         ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
           id: swapId,
           chainSwap: {},
+          acceptZeroConf: true,
           receivingData: {
             symbol: 'ARK',
             amount: 100_000,
@@ -645,12 +687,19 @@ describe('Renegotiator', () => {
 
         await negotiator.acceptQuote(swapId, 94_877);
 
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledTimes(1);
+        expect(rateProvider.acceptZeroConf).toHaveBeenCalledWith(
+          'ARK',
+          100_000,
+        );
+
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledTimes(1);
         expect(ChainSwapRepository.setExpectedAmounts).toHaveBeenCalledWith(
           expect.anything(),
           5_000,
           100_000,
           94_877,
+          true,
         );
 
         expect(

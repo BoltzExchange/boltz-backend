@@ -2,7 +2,8 @@ use crate::api::ServerState;
 use crate::api::errors::AxumError;
 use crate::api::ws::status::SwapInfos;
 use crate::service::{
-    KeyVecIterator, MAX_GAP_LIMIT, Pagination, PubkeyIterator, SingleKeyIterator, XpubIterator,
+    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator,
+    SingleKeyIterator, XpubIterator,
 };
 use crate::swap::manager::SwapManager;
 use crate::utils::serde::{PublicKeyDeserialize, PublicKeyVecDeserialize, XpubDeserialize};
@@ -64,13 +65,19 @@ impl TryFrom<RescueParams> for Box<dyn PubkeyIterator + Send> {
                     }
                 }
 
-                if let Some(pagination_params) = &pagination
-                    && pagination_params.limit == 0
-                {
-                    return Err(AxumError::new(
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                        anyhow::anyhow!("limit must be at least 1"),
-                    ));
+                if let Some(pagination_params) = &pagination {
+                    if pagination_params.limit == 0 {
+                        return Err(AxumError::new(
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            anyhow::anyhow!("limit must be at least 1"),
+                        ));
+                    }
+                    if pagination_params.limit > MAX_PAGINATION_LIMIT {
+                        return Err(AxumError::new(
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            anyhow::anyhow!("limit must not exceed {}", MAX_PAGINATION_LIMIT),
+                        ));
+                    }
                 }
 
                 let iterator = XpubIterator::new(xpub.0, derivation_path, gap_limit)
@@ -363,5 +370,20 @@ mod test {
         let body = res.into_body().collect().await.unwrap().to_bytes();
         let error = serde_json::from_slice::<ApiError>(&body).unwrap();
         assert_eq!(error.error, "limit must be at least 1");
+    }
+
+    #[tokio::test]
+    async fn test_swap_restore_with_pagination_limit_exceeds_max() {
+        let res = make_restore_request_with_pagination(
+            "/v2/swap/restore",
+            VALID_XPUB,
+            Some(0),
+            Some(MAX_PAGINATION_LIMIT + 1),
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let error = serde_json::from_slice::<ApiError>(&body).unwrap();
+        assert!(error.error.contains("limit must not exceed"));
     }
 }

@@ -12,6 +12,7 @@ use std::{
 };
 
 pub const MAX_GAP_LIMIT: u32 = 150;
+pub const MAX_PAGINATION_LIMIT: u32 = 1000;
 
 const DEFAULT_GAP_LIMIT: u32 = 50;
 const DEFAULT_DERIVATION_PATH: &str = "m/44/0/0/0";
@@ -66,6 +67,13 @@ impl Pagination {
     }
 }
 
+fn buffered_end(start: u32, end: u32) -> Result<u32> {
+    let delta = end.checked_sub(start).ok_or_else(|| {
+        anyhow::anyhow!("derive_keys end ({}) is less than start ({})", end, start)
+    })?;
+    Ok(end.saturating_add(delta))
+}
+
 impl XpubIterator {
     pub fn new(
         xpub: Xpub,
@@ -116,7 +124,7 @@ impl PubkeyIterator for XpubIterator {
 
         // Add extra keys to the map to avoid keys not being found because of the gap limit
         // for swaps with multiple keys
-        for i in start..(end + (end - start)) {
+        for i in start..buffered_end(start, end)? {
             let key = self
                 .xpub
                 .derive_pub(
@@ -172,7 +180,8 @@ impl PubkeyIterator for KeyVecIterator {
         let mut result = Vec::new();
 
         // Add some buffer to avoid keys not being found because of the gap limit
-        let actual_end = std::cmp::min((end + (end - start)) as usize, self.keys.len());
+        let buffered_end = buffered_end(start, end)?;
+        let actual_end = std::cmp::min(buffered_end as usize, self.keys.len());
         for (i, key) in self.keys[start as usize..actual_end].iter().enumerate() {
             let key = hex::encode(key.inner.serialize());
 
@@ -241,6 +250,28 @@ mod tests {
             limit: 1,
         };
         assert!(overflow.end().is_err());
+    }
+
+    #[test]
+    fn test_buffered_end() {
+        assert_eq!(buffered_end(0, 5).unwrap(), 10);
+        assert_eq!(buffered_end(5, 5).unwrap(), 5);
+        assert_eq!(buffered_end(10, 20).unwrap(), 30);
+
+        // Saturates at u32::MAX instead of wrapping around.
+        assert_eq!(
+            buffered_end(u32::MAX - 100, u32::MAX - 1).unwrap(),
+            u32::MAX
+        );
+        assert_eq!(buffered_end(u32::MAX - 1, u32::MAX).unwrap(), u32::MAX);
+        assert_eq!(
+            buffered_end(u32::MAX - MAX_PAGINATION_LIMIT, u32::MAX).unwrap(),
+            u32::MAX
+        );
+
+        // Rejects ranges where end < start to avoid underflow.
+        assert!(buffered_end(10, 5).is_err());
+        assert!(buffered_end(u32::MAX, 0).is_err());
     }
 
     mod xpub_iterator {

@@ -1,6 +1,6 @@
 use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::db::helpers::referral::ReferralHelper;
-use crate::db::helpers::swap::SwapHelper;
+use crate::db::helpers::swap::{SwapCondition, SwapHelper};
 use crate::db::models::{Referral, SwapType};
 use crate::swap::expiration::ExpirationChecker;
 use crate::swap::{SwapUpdate, serialize_swap_updates};
@@ -12,6 +12,17 @@ use std::time::Duration;
 use tracing::{info, instrument, trace};
 
 const FAILURE_REASON_CUSTOM_EXPIRATION: &str = "swap expired";
+
+fn custom_expirable_swaps_condition() -> SwapCondition {
+    Box::new(
+        crate::db::schema::swaps::dsl::status
+            .eq_any(serialize_swap_updates(&[
+                SwapUpdate::SwapCreated,
+                SwapUpdate::InvoiceSet,
+            ]))
+            .and(crate::db::schema::swaps::dsl::referral.is_not_null()),
+    )
+}
 
 pub struct CustomExpirationChecker {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
@@ -56,14 +67,7 @@ impl ExpirationChecker for CustomExpirationChecker {
     #[instrument(name = "CustomExpirationChecker::check", skip_all)]
     fn check(&self) -> anyhow::Result<()> {
         let referrals = self.get_referrals()?;
-        let swaps = self.swap_repo.get_all(Box::new(
-            crate::db::schema::swaps::dsl::status
-                .eq_any(serialize_swap_updates(&[
-                    SwapUpdate::SwapCreated,
-                    SwapUpdate::InvoiceSet,
-                ]))
-                .and(crate::db::schema::swaps::dsl::referral.is_not_null()),
-        ))?;
+        let swaps = self.swap_repo.get_all(custom_expirable_swaps_condition())?;
 
         trace!(
             "Checking for custom expirations of {} Submarine Swaps",
@@ -90,16 +94,30 @@ impl ExpirationChecker for CustomExpirationChecker {
                 continue;
             }
 
-            info!(
-                "Failing Submarine Swap {} because of a custom expiration from the referral",
-                swap.id
-            );
-
             let status = SwapUpdate::InvoiceFailedToPay;
             let failure_reason = FAILURE_REASON_CUSTOM_EXPIRATION;
 
-            self.swap_repo
-                .update_status(&swap.id, status, Some(failure_reason.to_string()))?;
+            // Conditional update to avoid racing with a concurrent status transition
+            // (e.g. invoice pending/paid) that happens between the snapshot and here.
+            let updated = self.swap_repo.update_status_if_matches(
+                &swap.id,
+                status,
+                Some(failure_reason.to_string()),
+                custom_expirable_swaps_condition(),
+            )?;
+
+            if updated == 0 {
+                trace!(
+                    "Skipping custom expiration failure for Submarine Swap {} because its status has changed",
+                    swap.id
+                );
+                continue;
+            }
+
+            info!(
+                "Failed Submarine Swap {} because of a custom expiration from the referral",
+                swap.id
+            );
 
             self.update_tx.send(SwapStatus {
                 id: swap.id,
@@ -122,7 +140,11 @@ mod test {
     use crate::db::helpers::referral::{ReferralCondition, ReferralHelper};
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::Swap;
-    use mockall::{mock, predicate};
+    use crate::db::schema::swaps::dsl::swaps;
+    use diesel::QueryDsl;
+    use diesel::debug_query;
+    use diesel::pg::Pg;
+    use mockall::mock;
 
     mock! {
         SwapHelper {}
@@ -135,11 +157,12 @@ mod test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
+            fn update_status_if_matches(
                 &self,
                 id: &str,
                 status: SwapUpdate,
                 failure_reason: Option<String>,
+                condition: SwapCondition,
             ) -> QueryResponse<usize>;
         }
     }
@@ -243,13 +266,13 @@ mod test {
             }])
         });
         swap_repo
-            .expect_update_status()
-            .with(
-                predicate::eq(swap_id),
-                predicate::eq(SwapUpdate::InvoiceFailedToPay),
-                predicate::eq(Some(FAILURE_REASON_CUSTOM_EXPIRATION.to_string())),
-            )
-            .returning(|_, _, _| Ok(1));
+            .expect_update_status_if_matches()
+            .withf(move |id, status, failure_reason, _condition| {
+                id == swap_id
+                    && *status == SwapUpdate::InvoiceFailedToPay
+                    && failure_reason.as_deref() == Some(FAILURE_REASON_CUSTOM_EXPIRATION)
+            })
+            .returning(|_, _, _, _| Ok(1));
 
         let (tx, mut rx) = tokio::sync::broadcast::channel(1);
         let checker =
@@ -269,5 +292,61 @@ mod test {
                 },
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_check_expired_skips_when_concurrently_updated() {
+        let mut referral_repo = MockReferralHelper::new();
+        referral_repo.expect_get_all().returning(|_| {
+            Ok(vec![Referral {
+                id: "pro".to_string(),
+                config: Some(serde_json::json!({ "expirations": { "0": 120 }})),
+            }])
+        });
+
+        let mut swap_repo = MockSwapHelper::new();
+
+        let swap_id = "id";
+        swap_repo.expect_get_all().returning(|_| {
+            Ok(vec![Swap {
+                id: swap_id.to_string(),
+                pair: "BTC/BTC".to_string(),
+                referral: Some("pro".to_string()),
+                status: SwapUpdate::InvoiceSet.to_string(),
+                createdAt: Local::now().naive_utc() - Duration::from_secs(212),
+                ..Default::default()
+            }])
+        });
+        swap_repo
+            .expect_update_status_if_matches()
+            .withf(move |id, status, failure_reason, _condition| {
+                id == swap_id
+                    && *status == SwapUpdate::InvoiceFailedToPay
+                    && failure_reason.as_deref() == Some(FAILURE_REASON_CUSTOM_EXPIRATION)
+            })
+            .returning(|_, _, _, _| Ok(0));
+
+        let (tx, mut rx) = tokio::sync::broadcast::channel(1);
+        let checker =
+            CustomExpirationChecker::new(tx, Arc::new(swap_repo), Arc::new(referral_repo));
+
+        checker.check().unwrap();
+
+        assert!(matches!(
+            rx.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn test_custom_expirable_swaps_condition_matches_expected_statuses() {
+        let query = swaps.filter(custom_expirable_swaps_condition());
+        let sql = debug_query::<Pg, _>(&query).to_string();
+
+        for status in [SwapUpdate::SwapCreated, SwapUpdate::InvoiceSet] {
+            assert!(sql.contains(&status.to_string()));
+        }
+
+        assert!(sql.contains(r#""swaps"."referral" IS NOT NULL"#));
     }
 }

@@ -1,6 +1,6 @@
 use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::currencies::Currencies;
-use crate::db::helpers::swap::SwapHelper;
+use crate::db::helpers::swap::{SwapCondition, SwapHelper};
 use crate::db::models::LightningSwap;
 use crate::lightning::invoice;
 use crate::swap::expiration::ExpirationChecker;
@@ -17,6 +17,22 @@ pub struct InvoiceExpirationChecker {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
     currencies: Currencies,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
+}
+
+fn expirable_invoice_swaps_condition() -> SwapCondition {
+    Box::new(
+        crate::db::schema::swaps::dsl::status
+            .ne_all(serialize_swap_updates(&[
+                SwapUpdate::SwapExpired,
+                SwapUpdate::InvoicePending,
+                SwapUpdate::InvoicePaid,
+                SwapUpdate::InvoiceFailedToPay,
+                SwapUpdate::TransactionClaimed,
+                SwapUpdate::TransactionLockupFailed,
+                SwapUpdate::TransactionClaimPending,
+            ]))
+            .and(crate::db::schema::swaps::dsl::invoice.is_not_null()),
+    )
 }
 
 impl InvoiceExpirationChecker {
@@ -44,18 +60,9 @@ impl ExpirationChecker for InvoiceExpirationChecker {
 
     #[instrument(name = "InvoiceExpirationChecker::check", skip_all)]
     fn check(&self) -> anyhow::Result<()> {
-        let swaps = self.swap_repo.get_all(Box::new(
-            crate::db::schema::swaps::dsl::status
-                .ne_all(serialize_swap_updates(&[
-                    SwapUpdate::SwapExpired,
-                    SwapUpdate::InvoicePending,
-                    SwapUpdate::InvoiceFailedToPay,
-                    SwapUpdate::TransactionClaimed,
-                    SwapUpdate::TransactionLockupFailed,
-                    SwapUpdate::TransactionClaimPending,
-                ]))
-                .and(crate::db::schema::swaps::dsl::invoice.is_not_null()),
-        ))?;
+        let swaps = self
+            .swap_repo
+            .get_all(expirable_invoice_swaps_condition())?;
         trace!(
             "Checking for expired invoices of {} Submarine Swaps",
             swaps.len()
@@ -80,16 +87,30 @@ impl ExpirationChecker for InvoiceExpirationChecker {
                 continue;
             }
 
-            info!(
-                "Failing Submarine Swap {} because its invoice expired already",
-                swap.id
-            );
-
             let status = SwapUpdate::InvoiceFailedToPay;
             let failure_reason = FAILURE_REASON_EXPIRED_INVOICE;
 
-            self.swap_repo
-                .update_status(&swap.id, status, Some(failure_reason.to_string()))?;
+            // Conditional update to avoid racing with a concurrent invoice payment
+            // that transitions the swap to a terminal/paid state after we loaded it.
+            let updated = self.swap_repo.update_status_if_matches(
+                &swap.id,
+                status,
+                Some(failure_reason.to_string()),
+                expirable_invoice_swaps_condition(),
+            )?;
+
+            if updated == 0 {
+                trace!(
+                    "Skipping expired invoice failure for Submarine Swap {} because its status has changed",
+                    swap.id
+                );
+                continue;
+            }
+
+            info!(
+                "Failed Submarine Swap {} because its invoice expired already",
+                swap.id
+            );
 
             self.update_tx.send(SwapStatus {
                 id: swap.id,
@@ -113,10 +134,14 @@ mod test {
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::Swap;
+    use crate::db::schema::swaps::dsl::swaps;
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};
     use bip39::Mnemonic;
-    use mockall::{mock, predicate};
+    use diesel::QueryDsl;
+    use diesel::debug_query;
+    use diesel::pg::Pg;
+    use mockall::mock;
     use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -132,11 +157,12 @@ mod test {
             fn get_by_id(&self, id: &str) -> QueryResponse<Swap>;
             fn get_all(&self, condition: SwapCondition) -> QueryResponse<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> QueryResponse<Vec<Swap>>;
-            fn update_status(
+            fn update_status_if_matches(
                 &self,
                 id: &str,
                 status: SwapUpdate,
                 failure_reason: Option<String>,
+                condition: SwapCondition,
             ) -> QueryResponse<usize>;
         }
     }
@@ -191,6 +217,26 @@ mod test {
         checker.check().unwrap();
     }
 
+    #[test]
+    fn test_expirable_invoice_swaps_condition_excludes_all_filtered_statuses() {
+        let query = swaps.filter(expirable_invoice_swaps_condition());
+        let sql = debug_query::<Pg, _>(&query).to_string();
+
+        for status in [
+            SwapUpdate::SwapExpired,
+            SwapUpdate::InvoicePending,
+            SwapUpdate::InvoicePaid,
+            SwapUpdate::InvoiceFailedToPay,
+            SwapUpdate::TransactionClaimed,
+            SwapUpdate::TransactionLockupFailed,
+            SwapUpdate::TransactionClaimPending,
+        ] {
+            assert!(sql.contains(&status.to_string()));
+        }
+
+        assert!(sql.contains(r#""swaps"."invoice" IS NOT NULL"#));
+    }
+
     #[tokio::test]
     async fn test_check_expired_invoice() {
         let swap_id = "expired";
@@ -208,13 +254,13 @@ mod test {
                 }
             ])
         });
-        swap.expect_update_status()
-            .with(
-                predicate::eq(swap_id),
-                predicate::eq(SwapUpdate::InvoiceFailedToPay),
-                predicate::eq(Some(FAILURE_REASON_EXPIRED_INVOICE.to_string())),
-            )
-            .returning(|_, _, _| Ok(1));
+        swap.expect_update_status_if_matches()
+            .withf(move |id, status, failure_reason, _condition| {
+                id == swap_id
+                    && *status == SwapUpdate::InvoiceFailedToPay
+                    && failure_reason.as_deref() == Some(FAILURE_REASON_EXPIRED_INVOICE)
+            })
+            .returning(|_, _, _, _| Ok(1));
 
         let (tx, mut rx) = tokio::sync::broadcast::channel(1);
         let checker = InvoiceExpirationChecker::new(tx, get_currencies().await, Arc::new(swap));
@@ -233,5 +279,41 @@ mod test {
                 },
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_check_expired_invoice_skips_when_concurrently_updated() {
+        let swap_id = "raced";
+
+        let mut swap = MockSwapHelper::new();
+        swap.expect_get_all().returning(|_| {
+            Ok(vec![
+                Swap {
+                    id: swap_id.to_string(),
+                    pair: "L-BTC/BTC".to_string(),
+                    orderSide: 1,
+                    status: "invoice.set".to_string(),
+                    invoice: Some("lnbcrt1230p1pnwzkshsp584p434kjslfl030shwps75nvy4leq5k6psvdxn4kzsxjnptlmr3spp5nxqauehzqkx3xswjtrgx9lh5pqjxkyx0kszj0nc4m4jn7uk9gc5qdq8v9ekgesxqyjw5qcqp29qxpqysgqu6ft6p8c36khp082xng2xzmta25nlg803qjncal3fhzw8eshrsdyevhlgs970a09n95r3gtvqvvyk24vyv4506cu6cxl8ytaywrjkhcp468qnl".to_string()),
+                    ..Default::default()
+                }
+            ])
+        });
+        swap.expect_update_status_if_matches()
+            .withf(move |id, status, failure_reason, _condition| {
+                id == swap_id
+                    && *status == SwapUpdate::InvoiceFailedToPay
+                    && failure_reason.as_deref() == Some(FAILURE_REASON_EXPIRED_INVOICE)
+            })
+            .returning(|_, _, _, _| Ok(0));
+
+        let (tx, mut rx) = tokio::sync::broadcast::channel(1);
+        let checker = InvoiceExpirationChecker::new(tx, get_currencies().await, Arc::new(swap));
+
+        checker.check().unwrap();
+
+        assert!(matches!(
+            rx.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
     }
 }

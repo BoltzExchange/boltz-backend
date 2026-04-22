@@ -570,7 +570,7 @@ mod tests {
             fn get_by_id(&self, id: &str) -> Result<Swap>;
             fn get_all(&self, condition: SwapCondition) -> Result<Vec<Swap>>;
             fn get_all_nullable(&self, condition: SwapNullableCondition) -> Result<Vec<Swap>>;
-            fn update_status(&self, id: &str, status: SwapUpdate, failure_reason: Option<String>) -> Result<usize>;
+            fn update_status_if_matches(&self, id: &str, status: SwapUpdate, failure_reason: Option<String>, condition: SwapCondition) -> Result<usize>;
         }
     }
 

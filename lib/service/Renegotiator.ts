@@ -69,6 +69,16 @@ class Renegotiator {
           throw Errors.INVALID_QUOTE();
         }
 
+        // Only re-evaluate the zero-conf acceptance when the swap already
+        // accepts zero-conf; renegotiation must never upgrade a swap from
+        // non-zero-conf to zero-conf, only (potentially) downgrade it
+        const acceptZeroConf =
+          swap.acceptZeroConf &&
+          this.rateProvider.acceptZeroConf(
+            receivingCurrency.symbol,
+            swap.receivingData.amount!,
+          );
+
         await this.balanceCheck.checkBalance(
           swap.sendingData.symbol,
           serverLockAmount,
@@ -94,6 +104,7 @@ class Renegotiator {
               percentageFee,
               swap.receivingData.amount!,
               serverLockAmount,
+              acceptZeroConf,
             ),
             receivingCurrency.chainClient,
             this.walletManager.wallets.get(receivingCurrency.symbol)!,
@@ -149,6 +160,7 @@ class Renegotiator {
             percentageFee,
             swap.receivingData.amount!,
             serverLockAmount,
+            acceptZeroConf,
           );
 
           if (isEther) {
@@ -182,6 +194,7 @@ class Renegotiator {
             percentageFee,
             swap.receivingData.amount!,
             serverLockAmount,
+            acceptZeroConf,
           );
           await this.swapNursery.arkNursery.checkChainSwapLockup(
             receivingCurrency.arkNode,

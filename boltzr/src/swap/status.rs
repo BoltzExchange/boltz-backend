@@ -35,6 +35,8 @@ pub enum SwapUpdate {
     InvoiceSet,
     #[strum(serialize = "invoice.pending")]
     InvoicePending,
+    #[strum(serialize = "invoice.paid")]
+    InvoicePaid,
     #[strum(serialize = "invoice.failedToPay")]
     InvoiceFailedToPay,
 

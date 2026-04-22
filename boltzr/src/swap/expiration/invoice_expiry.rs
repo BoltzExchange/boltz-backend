@@ -1,6 +1,6 @@
 use crate::api::ws::types::{SwapStatus, SwapStatusNoId};
 use crate::currencies::Currencies;
-use crate::db::helpers::swap::SwapHelper;
+use crate::db::helpers::swap::{SwapCondition, SwapHelper};
 use crate::db::models::LightningSwap;
 use crate::lightning::invoice;
 use crate::swap::expiration::ExpirationChecker;
@@ -17,6 +17,22 @@ pub struct InvoiceExpirationChecker {
     update_tx: tokio::sync::broadcast::Sender<SwapStatus>,
     currencies: Currencies,
     swap_repo: Arc<dyn SwapHelper + Sync + Send>,
+}
+
+fn expirable_invoice_swaps_condition() -> SwapCondition {
+    Box::new(
+        crate::db::schema::swaps::dsl::status
+            .ne_all(serialize_swap_updates(&[
+                SwapUpdate::SwapExpired,
+                SwapUpdate::InvoicePending,
+                SwapUpdate::InvoicePaid,
+                SwapUpdate::InvoiceFailedToPay,
+                SwapUpdate::TransactionClaimed,
+                SwapUpdate::TransactionLockupFailed,
+                SwapUpdate::TransactionClaimPending,
+            ]))
+            .and(crate::db::schema::swaps::dsl::invoice.is_not_null()),
+    )
 }
 
 impl InvoiceExpirationChecker {
@@ -44,18 +60,9 @@ impl ExpirationChecker for InvoiceExpirationChecker {
 
     #[instrument(name = "InvoiceExpirationChecker::check", skip_all)]
     fn check(&self) -> anyhow::Result<()> {
-        let swaps = self.swap_repo.get_all(Box::new(
-            crate::db::schema::swaps::dsl::status
-                .ne_all(serialize_swap_updates(&[
-                    SwapUpdate::SwapExpired,
-                    SwapUpdate::InvoicePending,
-                    SwapUpdate::InvoiceFailedToPay,
-                    SwapUpdate::TransactionClaimed,
-                    SwapUpdate::TransactionLockupFailed,
-                    SwapUpdate::TransactionClaimPending,
-                ]))
-                .and(crate::db::schema::swaps::dsl::invoice.is_not_null()),
-        ))?;
+        let swaps = self
+            .swap_repo
+            .get_all(expirable_invoice_swaps_condition())?;
         trace!(
             "Checking for expired invoices of {} Submarine Swaps",
             swaps.len()
@@ -113,9 +120,13 @@ mod test {
     use crate::db::helpers::QueryResponse;
     use crate::db::helpers::swap::{SwapCondition, SwapHelper, SwapNullableCondition};
     use crate::db::models::Swap;
+    use crate::db::schema::swaps::dsl::swaps;
     use crate::swap::SwapUpdate;
     use crate::wallet::{Bitcoin, Network};
     use bip39::Mnemonic;
+    use diesel::QueryDsl;
+    use diesel::debug_query;
+    use diesel::pg::Pg;
     use mockall::{mock, predicate};
     use std::collections::HashMap;
     use std::str::FromStr;
@@ -189,6 +200,26 @@ mod test {
         let checker = InvoiceExpirationChecker::new(tx, get_currencies().await, Arc::new(swap));
 
         checker.check().unwrap();
+    }
+
+    #[test]
+    fn test_expirable_invoice_swaps_condition_excludes_all_filtered_statuses() {
+        let query = swaps.filter(expirable_invoice_swaps_condition());
+        let sql = debug_query::<Pg, _>(&query).to_string();
+
+        for status in [
+            SwapUpdate::SwapExpired,
+            SwapUpdate::InvoicePending,
+            SwapUpdate::InvoicePaid,
+            SwapUpdate::InvoiceFailedToPay,
+            SwapUpdate::TransactionClaimed,
+            SwapUpdate::TransactionLockupFailed,
+            SwapUpdate::TransactionClaimPending,
+        ] {
+            assert!(sql.contains(&status.to_string()));
+        }
+
+        assert!(sql.contains(r#""swaps"."invoice" IS NOT NULL"#));
     }
 
     #[tokio::test]

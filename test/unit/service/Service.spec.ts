@@ -1931,6 +1931,23 @@ describe('Service', () => {
     );
   });
 
+  test.each(['__proto__', 'constructor', 'prototype'])(
+    'should reject reserved referral id "%s"',
+    async (id) => {
+      await expect(
+        service.addReferral({
+          id,
+          feeShare: 25,
+          routingNode: '03',
+        }),
+      ).rejects.toEqual(
+        new Error(`referral IDs cannot use reserved names: ${id}`),
+      );
+
+      expect(mockAddReferral).not.toHaveBeenCalled();
+    },
+  );
+
   test('should rotate referral credentials', async () => {
     const oldApiKey = 'oldkey000';
     const oldApiSecret = 'oldsecret000';

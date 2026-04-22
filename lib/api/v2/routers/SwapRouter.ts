@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type Logger from '../../../Logger';
 import { getHexString, stringify } from '../../../Utils';
 import { SwapUpdateEvent, SwapVersion } from '../../../consts/Enums';
+import { unsafeKeys } from '../../../data/Utils';
 import ChainSwapRepository from '../../../db/repositories/ChainSwapRepository';
 import ReferralRepository from '../../../db/repositories/ReferralRepository';
 import SwapRepository from '../../../db/repositories/SwapRepository';
@@ -3293,6 +3294,10 @@ class SwapRouter extends RouterBase {
       { name: 'id', type: 'string' },
       { name: 'percentage', type: 'number', optional: true },
     ]);
+
+    if (unsafeKeys.has(res.id)) {
+      throw ApiErrors.INVALID_EXTRA_FEES_ID(res.id);
+    }
 
     if (
       res.percentage !== undefined &&

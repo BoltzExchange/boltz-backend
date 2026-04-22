@@ -1,6 +1,7 @@
 import type Logger from '../Logger';
 import { getHexString, stringify } from '../Utils';
 import { SwapType, swapTypeToPrettyString } from '../consts/Enums';
+import { assertSafeReferralId } from '../data/Utils';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import { NodeType } from '../db/models/ReverseSwap';
 import LightningPaymentRepository from '../db/repositories/LightningPaymentRepository';
@@ -107,6 +108,7 @@ class NodeSwitch {
     for (const [referralId, nodeId] of Object.entries(
       cfg?.referralsIds || {},
     )) {
+      assertSafeReferralId(referralId);
       const parsed = this.parseNodeId(nodeId, `referral id ${referralId}`);
       if (parsed === undefined) {
         continue;

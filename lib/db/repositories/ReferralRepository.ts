@@ -5,6 +5,7 @@ import {
   SuccessSwapUpdateEvents,
   SwapType,
 } from '../../consts/Enums';
+import { assertSafeReferralId } from '../../data/Utils';
 import Database from '../Database';
 import type {
   DirectionalPremium,
@@ -63,6 +64,7 @@ class ReferralRepository {
     }
 
     for (const [id, config] of Object.entries(referrals)) {
+      assertSafeReferralId(id);
       ReferralRepository.sanityCheckConfig(config);
       ReferralRepository.referralConfigs[id] = config;
     }
@@ -71,6 +73,7 @@ class ReferralRepository {
   public static addReferral = async (
     referral: ReferralType,
   ): Promise<Referral> => {
+    assertSafeReferralId(referral.id);
     ReferralRepository.sanityCheckConfig(referral.config);
 
     return await Referral.create(referral);

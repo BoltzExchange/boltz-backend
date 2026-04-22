@@ -51,6 +51,7 @@ import {
   SwapVersion,
 } from '../consts/Enums';
 import type { AnySwap, PairConfig } from '../consts/Types';
+import { assertSafeReferralId } from '../data/Utils';
 import type Referral from '../db/models/Referral';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
@@ -1028,6 +1029,8 @@ class Service {
     if (referral.id === '') {
       throw new Error('referral IDs cannot be empty');
     }
+
+    assertSafeReferralId(referral.id);
 
     if (referral.feeShare > 100 || referral.feeShare < 0) {
       throw new Error('referral fee share must be between 0 and 100');

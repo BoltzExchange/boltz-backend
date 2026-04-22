@@ -65,8 +65,8 @@ impl OfferSubscriptions {
     }
 
     pub fn connection_dropped(&self, connection_id: ConnectionId) {
-        self.offer_subscriptions.remove(&connection_id);
         self.all_offers.retain(|_, (_, id)| *id != connection_id);
+        self.offer_subscriptions.remove(&connection_id);
     }
 
     pub fn connection_id_known(&self, connection_id: ConnectionId) -> bool {
@@ -74,18 +74,28 @@ impl OfferSubscriptions {
     }
 
     pub async fn request_invoice(&self, hook: InvoiceHook<types::False>) -> Result<bool> {
-        match self.all_offers.get(&self.hash_offer(&hook.offer)?.1) {
-            Some(connection_id) => {
-                self.pending_hooks.insert(hook.id(), hook.clone());
-                self.offer_subscriptions
-                    .get_mut(&connection_id.1)
-                    .unwrap()
-                    .send(hook)
-                    .await?;
-                Ok(true)
+        let offer_id = self.hash_offer(&hook.offer)?.1;
+        let connection_id = match self.all_offers.get(&offer_id) {
+            Some(entry) => entry.value().1,
+            None => return Ok(false),
+        };
+
+        let sender = match self.offer_subscriptions.get(&connection_id) {
+            Some(entry) => entry.value().clone(),
+            None => {
+                self.all_offers
+                    .remove_if(&offer_id, |_, (_, owner)| *owner == connection_id);
+                return Ok(false);
             }
-            None => Ok(false),
+        };
+
+        let hook_id = hook.id();
+        self.pending_hooks.insert(hook_id, hook.clone());
+        if let Err(err) = sender.send(hook).await {
+            self.pending_hooks.remove(&hook_id);
+            return Err(err.into());
         }
+        Ok(true)
     }
 
     pub fn received_invoice_response(
@@ -152,7 +162,10 @@ impl OfferSubscriptions {
         offers: &[String],
     ) -> Result<Vec<String>> {
         for offer in offers {
-            self.all_offers.remove(&self.hash_offer(offer)?.1);
+            self.all_offers
+                .remove_if(&self.hash_offer(offer)?.1, |_, (_, owner)| {
+                    *owner == connection_id
+                });
         }
 
         Ok(self
@@ -366,6 +379,75 @@ mod test {
             subs.offers_unsubscribe(connection_id, &["nonexistent_offer".to_string()])
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn request_invoice_stale_mapping_does_not_panic() {
+        let subs = OfferSubscriptions::new(Network::Regtest);
+
+        let id = 1;
+        subs.connection_added(id);
+        subs.offers_subscribe(
+            id,
+            &[InvoiceRequestParams {
+                offer: OFFER.to_string(),
+                signature: hex::encode(sign_message(OFFER_SUBSCRIBE_MESSAGE).serialize()),
+            }],
+        )
+        .unwrap();
+
+        let (_, offer_id) = subs.hash_offer(OFFER).unwrap();
+        assert!(subs.all_offers.contains_key(&offer_id));
+
+        // Simulate the race window inside `connection_dropped`: the sender has
+        // been removed but `all_offers` has not yet been pruned.
+        subs.offer_subscriptions.remove(&id);
+
+        let hook = InvoiceHook::new(OFFER.to_string(), &[0u8; 32], None);
+        assert!(!subs.request_invoice(hook.clone()).await.unwrap());
+
+        // The stale entry should have been cleaned up opportunistically.
+        assert!(!subs.all_offers.contains_key(&offer_id));
+        // And no pending hook should linger from the failed request.
+        assert!(!subs.pending_hooks.contains_key(&hook.id()));
+    }
+
+    #[test]
+    fn offers_unsubscribe_not_owner() {
+        let subs = OfferSubscriptions::new(Network::Regtest);
+
+        let owner = 21;
+        let attacker = 42;
+        subs.connection_added(owner);
+        subs.connection_added(attacker);
+
+        subs.offers_subscribe(
+            owner,
+            &[InvoiceRequestParams {
+                offer: OFFER.to_string(),
+                signature: hex::encode(sign_message(OFFER_SUBSCRIBE_MESSAGE).serialize()),
+            }],
+        )
+        .unwrap();
+
+        let (_, offer_id) = subs.hash_offer(OFFER).unwrap();
+
+        let remaining_for_attacker = subs
+            .offers_unsubscribe(attacker, &[OFFER.to_string()])
+            .unwrap();
+
+        assert!(remaining_for_attacker.is_empty());
+        assert!(subs.all_offers.contains_key(&offer_id));
+        assert_eq!(
+            subs.all_offers.get(&offer_id).unwrap().value(),
+            &(OFFER.to_string(), owner)
+        );
+
+        let remaining_for_owner = subs
+            .offers_unsubscribe(owner, &[OFFER.to_string()])
+            .unwrap();
+        assert!(remaining_for_owner.is_empty());
+        assert!(!subs.all_offers.contains_key(&offer_id));
     }
 
     #[test]

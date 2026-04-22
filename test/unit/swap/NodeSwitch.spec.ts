@@ -120,6 +120,20 @@ describe('NodeSwitch', () => {
       expect(preferredNodes.get(nodeTwo.toLowerCase())).toEqual(clnClient.id);
     });
 
+    test.each(['__proto__', 'constructor', 'prototype'])(
+      'should reject reserved referral id in node switch config: %s',
+      (id) => {
+        expect(
+          () =>
+            new NodeSwitch(Logger.disabledLogger, {
+              referralsIds: {
+                [id]: lndClient.id,
+              },
+            }),
+        ).toThrow(`referral IDs cannot use reserved names: ${id}`);
+      },
+    );
+
     test('should parse config with clnAmountThreshold as object', () => {
       const config = {
         clnAmountThreshold: {

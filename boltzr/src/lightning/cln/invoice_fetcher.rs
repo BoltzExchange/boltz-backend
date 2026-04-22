@@ -79,7 +79,10 @@ impl InvoiceFetcher {
             )
             .await
             {
-                (Ok(invoice), false) => Ok(invoice),
+                (Ok((invoice, decoded)), false) => {
+                    Self::validate_invoice_signer(&offer.signer, &decoded)?;
+                    Ok((invoice, decoded))
+                }
                 (Err(err), false) => Err(err),
                 // When the Websocket times out, try the Webhook
                 (_, true) => {
@@ -103,7 +106,7 @@ impl InvoiceFetcher {
             let hook_id = hook.id();
             self.invoice_caller.call(hook.with_url(url)).await?;
 
-            Self::wait_for_response(
+            let (invoice, decoded) = Self::wait_for_response(
                 hook_id,
                 INVOICE_FETCH_TIMEOUT_WEBHOOK_SECONDS,
                 receiver,
@@ -119,7 +122,10 @@ impl InvoiceFetcher {
                 },
             )
             .await
-            .0
+            .0?;
+
+            Self::validate_invoice_signer(&offer.signer, &decoded)?;
+            Ok((invoice, decoded))
         } else {
             Err(anyhow!("no way to reach client"))
         }
@@ -133,6 +139,15 @@ impl InvoiceFetcher {
             Invoice::Bolt12(invoice) => invoice,
             _ => return Err(anyhow!("invalid invoice")),
         })
+    }
+
+    fn validate_invoice_signer(expected_signer: &[u8], invoice: &Bolt12Invoice) -> Result<()> {
+        if invoice.signing_pubkey().serialize().as_slice() != expected_signer {
+            return Err(anyhow!(
+                "invoice signing pubkey does not match offer issuer"
+            ));
+        }
+        Ok(())
     }
 
     async fn wait_for_response<T, R>(
@@ -180,6 +195,32 @@ mod test {
     fn test_decode_bolt12_invoice() {
         assert!(
             InvoiceFetcher::decode_bolt12_invoice(wallet::Network::Mainnet, BOLT12_INVOICE).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_validate_invoice_signer_matches() {
+        let invoice =
+            InvoiceFetcher::decode_bolt12_invoice(wallet::Network::Mainnet, BOLT12_INVOICE)
+                .unwrap();
+        let signer = invoice.signing_pubkey().serialize().to_vec();
+
+        assert!(InvoiceFetcher::validate_invoice_signer(&signer, &invoice).is_ok());
+    }
+
+    #[test]
+    fn test_validate_invoice_signer_mismatch() {
+        let invoice =
+            InvoiceFetcher::decode_bolt12_invoice(wallet::Network::Mainnet, BOLT12_INVOICE)
+                .unwrap();
+        let attacker_signer = vec![0u8; 33];
+
+        let err = InvoiceFetcher::validate_invoice_signer(&attacker_signer, &invoice)
+            .err()
+            .unwrap();
+        assert_eq!(
+            err.to_string(),
+            "invoice signing pubkey does not match offer issuer"
         );
     }
 

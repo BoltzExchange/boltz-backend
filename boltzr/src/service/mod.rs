@@ -22,7 +22,8 @@ mod rescue;
 pub use country_codes::MarkingsConfig;
 pub use pair_stats::HistoricalConfig;
 pub use pubkey_iterator::{
-    KeyVecIterator, MAX_GAP_LIMIT, Pagination, PubkeyIterator, SingleKeyIterator, XpubIterator,
+    KeyVecIterator, MAX_GAP_LIMIT, MAX_PAGINATION_LIMIT, Pagination, PubkeyIterator,
+    SingleKeyIterator, XpubIterator,
 };
 
 pub struct Service {

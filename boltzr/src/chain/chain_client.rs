@@ -243,9 +243,8 @@ impl ChainClient {
             .await
     }
 
-    fn round_to_3_decimal_places(x: f64) -> f64 {
-        let factor = 1000.0; // 10^3 for 3 decimal places
-        (x * factor).round() / factor
+    fn round_to_1_decimal_place(x: f64) -> f64 {
+        (x * 10.0).round() / 10.0
     }
 
     async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
@@ -285,9 +284,7 @@ impl ChainClient {
             .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(2)]))
             .await?
             .feerate;
-        Ok(Self::round_to_3_decimal_places(
-            fee * BTC_KVB_SAT_VBYTE_FACTOR as f64,
-        ))
+        Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64)
     }
 
     fn cache_key_raw_tx<'a>(&self, tx_id: &'a str) -> (String, &'a str) {
@@ -643,10 +640,8 @@ impl Client for ChainClient {
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        Ok(f64::max(
-            self.estimate_fee_raw(self.fee_floor).await?,
-            self.fee_floor,
-        ))
+        let fee = f64::max(self.estimate_fee_raw(self.fee_floor).await?, self.fee_floor);
+        Ok(Self::round_to_1_decimal_place(fee))
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
@@ -886,6 +881,19 @@ pub mod test {
     async fn test_chain_type() {
         let client = get_client().await;
         assert_eq!(client.chain_type(), Type::Bitcoin);
+    }
+
+    #[rstest]
+    #[case(0.0, 0.0)]
+    #[case(0.04, 0.0)]
+    #[case(0.05, 0.1)]
+    #[case(0.1, 0.1)]
+    #[case(1.23, 1.2)]
+    #[case(1.25, 1.3)]
+    #[case(1.2499, 1.2)]
+    #[case(12.34, 12.3)]
+    fn test_round_to_1_decimal_place(#[case] input: f64, #[case] expected: f64) {
+        assert_eq!(ChainClient::round_to_1_decimal_place(input), expected);
     }
 
     #[tokio::test]

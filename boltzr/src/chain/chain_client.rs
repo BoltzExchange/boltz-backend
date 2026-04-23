@@ -247,7 +247,7 @@ impl ChainClient {
         (x * 10.0).round() / 10.0
     }
 
-    async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
+    async fn estimate_fee_raw(&self, floor: f64) -> f64 {
         let (bitcoind_fee, local_tip) = if self.mempool_space.is_some() {
             let (bitcoind_res, tip_res) =
                 tokio::join!(self.estimate_fee_bitcoind(), self.blockchain_info());
@@ -267,15 +267,15 @@ impl ChainClient {
                         local_tip,
                         bitcoind_fee,
                     ) {
-                        return Ok(mempool_fee);
+                        return mempool_fee;
                     }
                 }
-                None => error!("No fees from {} mempool.space", self.symbol()),
+                None => debug!("No fees from {} mempool.space", self.symbol()),
             }
         }
 
         // On regtest estimatesmartfee can fail, use the floor to keep working
-        Ok(bitcoind_fee.unwrap_or(floor))
+        bitcoind_fee.unwrap_or(floor)
     }
 
     async fn estimate_fee_bitcoind(&self) -> anyhow::Result<f64> {
@@ -640,7 +640,7 @@ impl Client for ChainClient {
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        let fee = f64::max(self.estimate_fee_raw(self.fee_floor).await?, self.fee_floor);
+        let fee = f64::max(self.estimate_fee_raw(self.fee_floor).await, self.fee_floor);
         Ok(Self::round_to_1_decimal_place(fee))
     }
 

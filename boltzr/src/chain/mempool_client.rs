@@ -1,6 +1,7 @@
 use async_tungstenite::tungstenite::Message;
 use boltz_utils::defer;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use tokio::sync::Notify;
 use tokio::time::{Duration, Instant, timeout};
@@ -160,7 +161,7 @@ impl Client {
 
         match *block {
             Some(block) => Ok((block, cached.fees.fastest)),
-            None => Err(anyhow::anyhow!("no fees found")),
+            None => Err(anyhow::anyhow!("no block height available")),
         }
     }
 
@@ -368,24 +369,24 @@ impl MempoolSpace {
     }
 
     pub fn combine_urls(legacy: Option<&str>, extra: Option<&[String]>) -> Vec<String> {
-        let mut parts: Vec<String> = Vec::new();
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut insert = |raw: &str| {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                seen.insert(trimmed.to_string());
+            }
+        };
         if let Some(src) = legacy {
             for part in src.split(',') {
-                let trimmed = part.trim();
-                if !trimmed.is_empty() {
-                    parts.push(trimmed.to_string());
-                }
+                insert(part);
             }
         }
         if let Some(src) = extra {
             for url in src {
-                let trimmed = url.trim();
-                if !trimmed.is_empty() {
-                    parts.push(trimmed.to_string());
-                }
+                insert(url);
             }
         }
-        parts
+        seen.into_iter().collect()
     }
 
     pub fn value_trusted(
@@ -415,19 +416,26 @@ impl MempoolSpace {
         }
 
         if let Some(bitcoind_fee) = bitcoind_fee {
-            let ceiling = (thresholds.max_fee_multiplier * bitcoind_fee)
-                .max(bitcoind_fee + thresholds.max_fee_delta);
-            if mempool_fee > ceiling {
+            if !bitcoind_fee.is_finite() {
                 warn!(
-                    "Mempool.space {} fee {} exceeds ceiling {} (bitcoind {}, {}x, +{})",
-                    symbol,
-                    mempool_fee,
-                    ceiling,
-                    bitcoind_fee,
-                    thresholds.max_fee_multiplier,
-                    thresholds.max_fee_delta,
+                    "Mempool.space {} skipping ceiling check: bitcoind fee {} is not finite",
+                    symbol, bitcoind_fee,
                 );
-                return false;
+            } else {
+                let ceiling = (thresholds.max_fee_multiplier * bitcoind_fee)
+                    .max(bitcoind_fee + thresholds.max_fee_delta);
+                if mempool_fee > ceiling {
+                    warn!(
+                        "Mempool.space {} fee {} exceeds ceiling {} (bitcoind {}, {}x, +{})",
+                        symbol,
+                        mempool_fee,
+                        ceiling,
+                        bitcoind_fee,
+                        thresholds.max_fee_multiplier,
+                        thresholds.max_fee_delta,
+                    );
+                    return false;
+                }
             }
         }
 
@@ -1127,6 +1135,17 @@ pub mod test {
             &["a", "b", "c", "d"]
         )]
         #[case::all_empty(Some(""), Some(&[""] as &[&str]), &[])]
+        #[case::dedup_across_sources(
+            Some("a,b"),
+            Some(&["b", "c"] as &[&str]),
+            &["a", "b", "c"]
+        )]
+        #[case::dedup_within_legacy(Some("a, a, b"), None, &["a", "b"])]
+        #[case::dedup_with_whitespace(
+            Some("a"),
+            Some(&[" a ", "b"] as &[&str]),
+            &["a", "b"]
+        )]
         fn test_combine_urls(
             #[case] legacy: Option<&str>,
             #[case] extra: Option<&[&str]>,
@@ -1134,11 +1153,11 @@ pub mod test {
         ) {
             let extra_vec: Option<Vec<String>> =
                 extra.map(|e| e.iter().map(|s| s.to_string()).collect());
-            let expected_vec: Vec<String> = expected.iter().map(|s| s.to_string()).collect();
-            assert_eq!(
-                MempoolSpace::combine_urls(legacy, extra_vec.as_deref()),
-                expected_vec
-            );
+            let got: HashSet<String> = MempoolSpace::combine_urls(legacy, extra_vec.as_deref())
+                .into_iter()
+                .collect();
+            let expected_set: HashSet<String> = expected.iter().map(|s| s.to_string()).collect();
+            assert_eq!(got, expected_set);
         }
 
         // Thresholds: multiplier=3, delta=25, block_lag=2
@@ -1176,6 +1195,10 @@ pub mod test {
         #[case::nan_no_refs(100, f64::NAN, None, None, false)]
         // zero still passes (floor enforced higher up)
         #[case::zero_ok(100, 0.0, Some(100), Some(5.0), true)]
+        // non-finite bitcoind_fee: skip ceiling, don't let NaN math bypass the cap
+        #[case::bitcoind_nan(100, 1_000_000.0, Some(100), Some(f64::NAN), true)]
+        #[case::bitcoind_pos_inf(100, 1_000_000.0, Some(100), Some(f64::INFINITY), true)]
+        #[case::bitcoind_neg_inf(100, 1_000_000.0, Some(100), Some(f64::NEG_INFINITY), true)]
         fn test_value_trusted(
             #[case] mempool_height: u64,
             #[case] mempool_fee: f64,

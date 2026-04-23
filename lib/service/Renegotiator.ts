@@ -1,3 +1,4 @@
+import type { OverPaymentConfig } from '../Config';
 import { parseTransaction } from '../Core';
 import type Logger from '../Logger';
 import { isTxConfirmed } from '../Utils';
@@ -20,6 +21,7 @@ import FeeProvider from '../rates/FeeProvider';
 import type RateProvider from '../rates/RateProvider';
 import { TransactionStatus } from '../sidecar/Sidecar';
 import ErrorsSwap from '../swap/Errors';
+import { getAllowedPositiveSlippageFromConfig } from '../swap/OverpaymentProtector';
 import type SwapNursery from '../swap/SwapNursery';
 import type { Currency } from '../wallet/WalletManager';
 import type WalletManager from '../wallet/WalletManager';
@@ -46,6 +48,7 @@ class Renegotiator {
     private readonly eipSigner: EipSigner,
     private readonly rateProvider: RateProvider,
     private readonly balanceCheck: BalanceCheck,
+    private readonly overPaymentConfig?: OverPaymentConfig,
   ) {}
 
   public getQuote = async (swapId: string): Promise<number> => {
@@ -268,7 +271,14 @@ class Renegotiator {
       throw Errors.PAIR_NOT_FOUND(swap.pair);
     }
 
-    if (swap.receivingData.amount! > pair.limits.maximal) {
+    if (
+      swap.receivingData.amount! >
+      pair.limits.maximal +
+        getAllowedPositiveSlippageFromConfig(
+          pair.limits.maximal,
+          this.overPaymentConfig,
+        )
+    ) {
       throw Errors.EXCEED_MAXIMAL_AMOUNT(
         swap.receivingData.amount!,
         pair.limits.maximal,

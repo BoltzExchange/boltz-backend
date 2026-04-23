@@ -263,6 +263,7 @@ class SwapManager {
       this.eipSigner,
       rateProvider,
       balanceCheck,
+      swapConfig.overpayment,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(

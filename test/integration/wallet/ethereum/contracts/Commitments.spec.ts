@@ -4,6 +4,7 @@ import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Wallet as EthersWallet } from 'ethers';
+import type { OverPaymentConfig } from '../../../../../lib/Config';
 import Logger from '../../../../../lib/Logger';
 import { generateSwapId, getHexString } from '../../../../../lib/Utils';
 import { etherDecimals } from '../../../../../lib/consts/Consts';
@@ -767,11 +768,14 @@ describe('Commitments', () => {
 
     const createInitializedCommitments = (
       wallets: Map<string, Wallet> = new Map(),
+      overPaymentConfig?: OverPaymentConfig,
     ) => {
       const commitments = new Commitments(
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overPaymentConfig,
       );
 
       const contract = {
@@ -1126,7 +1130,7 @@ describe('Commitments', () => {
         timelock - 100,
       );
 
-      const overpaidAmount = BigInt(expectedAmount * 3) * etherDecimals;
+      const overpaidAmount = BigInt(expectedAmount + 10_001) * etherDecimals;
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         zeroPreimageHash,
@@ -1153,7 +1157,7 @@ describe('Commitments', () => {
       ).rejects.toThrow('overpaid amount:');
     });
 
-    test('should accept overpay at always-allowed boundary', async () => {
+    test('should accept overpay at configured exempt boundary', async () => {
       const commitments = createInitializedCommitments();
       const etherSwapAddress = await etherSwap.getAddress();
 
@@ -1166,7 +1170,7 @@ describe('Commitments', () => {
         timelock - 100,
       );
 
-      const overpaidAmount = BigInt(expectedAmount + 121) * etherDecimals;
+      const overpaidAmount = BigInt(expectedAmount + 10_000) * etherDecimals;
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         zeroPreimageHash,
@@ -1193,6 +1197,58 @@ describe('Commitments', () => {
         id,
         signature,
         tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).not.toBeNull();
+      expect(commitment!.swapId).toEqual(id);
+    });
+
+    test('should accept overpay with custom percentage override', async () => {
+      const commitments = createInitializedCommitments(new Map(), {
+        exemptAmount: 0,
+        maxPercentage: 1,
+      });
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 10_000;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const overpaidAmount = BigInt(expectedAmount + 350) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: overpaidAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: overpaidAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+        undefined,
+        3.5,
       );
 
       const commitment = await CommitmentRepository.getBySwapId(id);

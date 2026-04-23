@@ -2,10 +2,41 @@ import type { OverPaymentConfig } from '../Config';
 import type Logger from '../Logger';
 import { SwapType } from '../consts/Enums';
 
+export type PositiveSlippageTolerance = {
+  exemptAmount: number;
+  maxPercentage: number;
+};
+
 export const overpaymentDefaultConfig: Required<OverPaymentConfig> = {
   exemptAmount: 10_000,
   maxPercentage: 2,
 };
+
+export const resolvePositiveSlippageTolerance = (
+  config?: OverPaymentConfig,
+  maxPercentageOverride?: number,
+): PositiveSlippageTolerance => ({
+  exemptAmount: config?.exemptAmount ?? overpaymentDefaultConfig.exemptAmount,
+  maxPercentage:
+    (maxPercentageOverride ??
+      config?.maxPercentage ??
+      overpaymentDefaultConfig.maxPercentage) / 100,
+});
+
+export const getAllowedPositiveSlippage = (
+  amount: number,
+  tolerance: PositiveSlippageTolerance,
+): number => Math.max(tolerance.exemptAmount, amount * tolerance.maxPercentage);
+
+export const getAllowedPositiveSlippageFromConfig = (
+  amount: number,
+  config?: OverPaymentConfig,
+  maxPercentageOverride?: number,
+): number =>
+  getAllowedPositiveSlippage(
+    amount,
+    resolvePositiveSlippageTolerance(config, maxPercentageOverride),
+  );
 
 class OverpaymentProtector {
   private static readonly defaultConfig = overpaymentDefaultConfig;
@@ -14,15 +45,17 @@ class OverpaymentProtector {
   private readonly overPaymentMaxPercentage: number;
 
   constructor(logger: Logger, config?: OverPaymentConfig) {
-    this.overPaymentExemptAmount =
-      config?.exemptAmount ?? OverpaymentProtector.defaultConfig.exemptAmount;
+    const tolerance = resolvePositiveSlippageTolerance({
+      ...OverpaymentProtector.defaultConfig,
+      ...config,
+    });
+
+    this.overPaymentExemptAmount = tolerance.exemptAmount;
     logger.debug(
       `Onchain payment overpayment exempt amount: ${this.overPaymentExemptAmount}`,
     );
 
-    this.overPaymentMaxPercentage =
-      (config?.maxPercentage ??
-        OverpaymentProtector.defaultConfig.maxPercentage) / 100;
+    this.overPaymentMaxPercentage = tolerance.maxPercentage;
     logger.debug(
       `Maximal accepted onchain overpayment: ${this.overPaymentMaxPercentage * 100}%`,
     );
@@ -39,10 +72,10 @@ class OverpaymentProtector {
     } else {
       return (
         actual - expected >
-          Math.max(
-            this.overPaymentExemptAmount,
-            expected * this.overPaymentMaxPercentage,
-          ) || actual > expected * 2
+          getAllowedPositiveSlippage(expected, {
+            exemptAmount: this.overPaymentExemptAmount,
+            maxPercentage: this.overPaymentMaxPercentage,
+          }) || actual > expected * 2
       );
     }
   };

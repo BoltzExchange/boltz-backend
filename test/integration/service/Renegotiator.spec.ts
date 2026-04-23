@@ -1,5 +1,6 @@
 import { Transaction } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
+import type { OverPaymentConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
 import {
@@ -145,6 +146,19 @@ describe('Renegotiator', () => {
 
   let negotiator: Renegotiator;
 
+  const createNegotiator = (overPaymentConfig?: OverPaymentConfig) =>
+    new Renegotiator(
+      Logger.disabledLogger,
+      currencies,
+      walletManager,
+      swapNursery,
+      chainSwapSigner,
+      eipSigner,
+      rateProvider,
+      balanceCheck,
+      overPaymentConfig,
+    );
+
   beforeAll(async () => {
     const { provider, signer } = await getSigner();
     currencies.set('RBTC', {
@@ -168,16 +182,7 @@ describe('Renegotiator', () => {
   });
 
   beforeEach(() => {
-    negotiator = new Renegotiator(
-      Logger.disabledLogger,
-      currencies,
-      walletManager,
-      swapNursery,
-      chainSwapSigner,
-      eipSigner,
-      rateProvider,
-      balanceCheck,
-    );
+    negotiator = createNegotiator();
 
     ExtraFeeRepository.get = jest.fn().mockResolvedValue(null);
 
@@ -966,20 +971,71 @@ describe('Renegotiator', () => {
       ).rejects.toEqual(Errors.PAIR_NOT_FOUND('not/found'));
     });
 
-    test('should throw when limit is more than maxima', async () => {
+    test('should allow positive slippage above maxima within tolerance', async () => {
       await expect(
         negotiator['calculateNewQuote']({
           pair: 'BTC/BTC',
           chainSwap: {},
           receivingData: {
             symbol: 'BTC',
-            amount: 100_001,
+            amount: 110_000,
           },
           sendingData: {
             symbol: 'BTC',
           },
         } as any),
-      ).rejects.toEqual(Errors.EXCEED_MAXIMAL_AMOUNT(100_001, 100_000));
+      ).resolves.toEqual({ percentageFee: 5_500, serverLockAmount: 104_377 });
+    });
+
+    test('should throw when limit is more than maxima tolerance', async () => {
+      await expect(
+        negotiator['calculateNewQuote']({
+          pair: 'BTC/BTC',
+          chainSwap: {},
+          receivingData: {
+            symbol: 'BTC',
+            amount: 110_001,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        } as any),
+      ).rejects.toEqual(Errors.EXCEED_MAXIMAL_AMOUNT(110_001, 100_000));
+    });
+
+    test('should use configured positive slippage tolerance above maxima', async () => {
+      negotiator = createNegotiator({
+        exemptAmount: 0,
+        maxPercentage: 1,
+      });
+
+      await expect(
+        negotiator['calculateNewQuote']({
+          pair: 'BTC/BTC',
+          chainSwap: {},
+          receivingData: {
+            symbol: 'BTC',
+            amount: 101_000,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        } as any),
+      ).resolves.toEqual({ percentageFee: 5_050, serverLockAmount: 95_827 });
+
+      await expect(
+        negotiator['calculateNewQuote']({
+          pair: 'BTC/BTC',
+          chainSwap: {},
+          receivingData: {
+            symbol: 'BTC',
+            amount: 101_001,
+          },
+          sendingData: {
+            symbol: 'BTC',
+          },
+        } as any),
+      ).rejects.toEqual(Errors.EXCEED_MAXIMAL_AMOUNT(101_001, 100_000));
     });
 
     test('should throw when limit is less than minima', async () => {

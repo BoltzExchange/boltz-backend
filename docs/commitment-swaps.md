@@ -147,12 +147,13 @@ POST /v2/commitment/{currency}
 }
 ```
 
-| Field             | Required | Description                                            |
-| ----------------- | -------- | ------------------------------------------------------ |
-| `swapId`          | Yes      | ID of the swap this commitment is for                  |
-| `signature`       | Yes      | EIP-712 commitment signature (hex encoded)             |
-| `transactionHash` | Yes      | Transaction hash containing the lockup                 |
-| `logIndex`        | No       | Log index if multiple lockups exist in the transaction |
+| Field                      | Required | Description                                              |
+| -------------------------- | -------- | -------------------------------------------------------- |
+| `swapId`                   | Yes      | ID of the swap this commitment is for                    |
+| `signature`                | Yes      | EIP-712 commitment signature (hex encoded)               |
+| `transactionHash`          | Yes      | Transaction hash containing the lockup                   |
+| `logIndex`                 | No       | Log index if multiple lockups exist in the transaction   |
+| `maxOverpaymentPercentage` | No       | Override for the configured positive-slippage percentage |
 
 **Response:** `201 Created` with empty object `{}`
 
@@ -189,7 +190,8 @@ For Submarine Swaps where you send EVM assets to receive Lightning:
    your tokens.
 
 4. **Create the commitment signature** using EIP-712 with the actual locked
-   amount
+   amount. The committed amount must not be below the swap amount and may only
+   exceed it within the configured positive-slippage tolerance.
 
 5. **Submit the commitment**:
 

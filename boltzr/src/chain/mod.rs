@@ -37,6 +37,28 @@ impl Transactions {
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
+pub struct Mempool {
+    /// Extra mempool.space URLs; merged with the top-level mempoolSpace
+    pub urls: Option<Vec<String>>,
+
+    /// Reject mempool.space fees above max(multiplier * bitcoind_fee, bitcoind_fee + delta)
+    #[serde(rename = "maxFeeMultiplier")]
+    pub max_fee_multiplier: Option<f64>,
+
+    /// Absolute sat/vbyte delta added to bitcoind's estimate; used alongside the multiplier
+    #[serde(rename = "maxFeeDelta")]
+    pub max_fee_delta: Option<f64>,
+
+    /// Reject cached mempool.space fees older than this many seconds
+    #[serde(rename = "maxAgeSecs")]
+    pub max_age_secs: Option<u64>,
+
+    /// Reject mempool.space fees when its reported block tip trails the local node by more than this many blocks
+    #[serde(rename = "maxBlockLag")]
+    pub max_block_lag: Option<u64>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct Config {
     host: String,
     port: u16,
@@ -48,6 +70,8 @@ pub struct Config {
 
     #[serde(rename = "mempoolSpace")]
     mempool_space: Option<String>,
+
+    mempool: Option<Mempool>,
 
     wallet: Option<String>,
 

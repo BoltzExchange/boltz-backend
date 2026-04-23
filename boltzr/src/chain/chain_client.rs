@@ -1,4 +1,4 @@
-use crate::chain::mempool_client::MempoolSpace;
+use crate::chain::mempool_client::{MempoolSpace, Thresholds};
 use crate::chain::rpc_client::RpcClient;
 use crate::chain::types::{
     BlockInfo, BlockchainInfo, NetworkInfo, RawMempool, RawTransactionVerbose, RpcParam,
@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use boltz_cache::Cache;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::broadcast::{Receiver, Sender, channel, error::RecvError};
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
@@ -38,6 +39,7 @@ pub struct ChainClient {
     cache: Cache,
     client_type: Type,
     fee_floor: f64,
+    mempool_thresholds: Thresholds,
     zmq_client: ZmqClient,
     mempool_space: Option<MempoolSpace>,
     tx_sender: Sender<(Transactions, bool)>,
@@ -56,6 +58,11 @@ impl ChainClient {
     const DEFAULT_FEE_FLOOR_BTC: f64 = 0.2;
     const DEFAULT_FEE_FLOOR_ELEMENTS: f64 = 0.1;
 
+    const DEFAULT_MEMPOOL_MAX_FEE_MULTIPLIER: f64 = 10.0;
+    const DEFAULT_MEMPOOL_MAX_FEE_DELTA: f64 = 25.0;
+    const DEFAULT_MEMPOOL_MAX_AGE_SECS: u64 = 300;
+    const DEFAULT_MEMPOOL_MAX_BLOCK_LAG: u64 = 2;
+
     pub fn new(
         cancellation_token: CancellationToken,
         cache: Cache,
@@ -71,16 +78,47 @@ impl ChainClient {
         let fee_floor = config.fee_floor.unwrap_or(default_floor);
         debug!("Using {symbol} fee floor: {fee_floor:0.2}");
 
+        let mempool_cfg = config.mempool.as_ref();
+        let mempool_thresholds = Thresholds {
+            max_fee_multiplier: mempool_cfg
+                .and_then(|m| m.max_fee_multiplier)
+                .unwrap_or(Self::DEFAULT_MEMPOOL_MAX_FEE_MULTIPLIER),
+            max_fee_delta: mempool_cfg
+                .and_then(|m| m.max_fee_delta)
+                .unwrap_or(Self::DEFAULT_MEMPOOL_MAX_FEE_DELTA),
+            max_block_lag: mempool_cfg
+                .and_then(|m| m.max_block_lag)
+                .unwrap_or(Self::DEFAULT_MEMPOOL_MAX_BLOCK_LAG),
+        };
+        let mempool_max_age = Duration::from_secs(
+            mempool_cfg
+                .and_then(|m| m.max_age_secs)
+                .unwrap_or(Self::DEFAULT_MEMPOOL_MAX_AGE_SECS),
+        );
+
+        let mempool_urls = MempoolSpace::combine_urls(
+            config.mempool_space.as_deref(),
+            mempool_cfg.and_then(|m| m.urls.as_deref()),
+        );
+        let mempool_space = if mempool_urls.is_empty() {
+            None
+        } else {
+            Some(MempoolSpace::new(
+                cancellation_token.clone(),
+                symbol.clone(),
+                mempool_urls,
+                Some(mempool_max_age),
+            ))
+        };
+
         let client = Self {
             cache,
             network,
             fee_floor,
+            mempool_thresholds,
             client_type,
             client: RpcClient::new(symbol.clone(), config.clone())?,
-            mempool_space: config
-                .mempool_space
-                .clone()
-                .map(|url| MempoolSpace::new(cancellation_token.clone(), symbol.clone(), url)),
+            mempool_space,
             zmq_client: ZmqClient::new(client_type, network, config),
             tx_sender: channel(ZMQ_TX_CHANNEL_SIZE).0,
             block_sender: channel(ZMQ_BLOCK_CHANNEL_SIZE).0,
@@ -205,31 +243,48 @@ impl ChainClient {
             .await
     }
 
-    fn round_to_3_decimal_places(x: f64) -> f64 {
-        let factor = 1000.0; // 10^3 for 3 decimal places
-        (x * factor).round() / factor
+    fn round_to_1_decimal_place(x: f64) -> f64 {
+        (x * 10.0).round() / 10.0
     }
 
-    async fn estimate_fee_raw(&self, floor: f64) -> anyhow::Result<f64> {
+    async fn estimate_fee_raw(&self, floor: f64) -> f64 {
+        let (bitcoind_fee, local_tip) = if self.mempool_space.is_some() {
+            let (bitcoind_res, tip_res) =
+                tokio::join!(self.estimate_fee_bitcoind(), self.blockchain_info());
+            (bitcoind_res.ok(), tip_res.ok().map(|info| info.blocks))
+        } else {
+            (self.estimate_fee_bitcoind().await.ok(), None)
+        };
+
         if let Some(mempool_space) = &self.mempool_space {
-            match mempool_space.get_fees().await {
-                Some(fee) => return Ok(fee),
-                None => error!("No fees from {} mempool.space", self.symbol()),
+            match mempool_space.get_fees_and_height().await {
+                Some((mempool_height, mempool_fee)) => {
+                    if MempoolSpace::value_trusted(
+                        &self.symbol(),
+                        self.mempool_thresholds,
+                        mempool_height,
+                        mempool_fee,
+                        local_tip,
+                        bitcoind_fee,
+                    ) {
+                        return mempool_fee;
+                    }
+                }
+                None => debug!("No fees from {} mempool.space", self.symbol()),
             }
         }
 
-        match self
+        // On regtest estimatesmartfee can fail, use the floor to keep working
+        bitcoind_fee.unwrap_or(floor)
+    }
+
+    async fn estimate_fee_bitcoind(&self) -> anyhow::Result<f64> {
+        let fee = self
             .client
             .request::<SmartFeeEstimate>("estimatesmartfee", Some(&[RpcParam::Int(2)]))
-            .await
-            .map(|fee| fee.feerate)
-        {
-            Ok(fee) => Ok(Self::round_to_3_decimal_places(
-                fee * BTC_KVB_SAT_VBYTE_FACTOR as f64,
-            )),
-            // On regtest estimatesmartfee can fail
-            Err(_) => Ok(floor),
-        }
+            .await?
+            .feerate;
+        Ok(fee * BTC_KVB_SAT_VBYTE_FACTOR as f64)
     }
 
     fn cache_key_raw_tx<'a>(&self, tx_id: &'a str) -> (String, &'a str) {
@@ -585,10 +640,8 @@ impl Client for ChainClient {
     }
 
     async fn estimate_fee(&self) -> anyhow::Result<f64> {
-        Ok(f64::max(
-            self.estimate_fee_raw(self.fee_floor).await?,
-            self.fee_floor,
-        ))
+        let fee = f64::max(self.estimate_fee_raw(self.fee_floor).await, self.fee_floor);
+        Ok(Self::round_to_1_decimal_place(fee))
     }
 
     async fn raw_transaction(&self, tx_id: &str) -> anyhow::Result<String> {
@@ -828,6 +881,19 @@ pub mod test {
     async fn test_chain_type() {
         let client = get_client().await;
         assert_eq!(client.chain_type(), Type::Bitcoin);
+    }
+
+    #[rstest]
+    #[case(0.0, 0.0)]
+    #[case(0.04, 0.0)]
+    #[case(0.05, 0.1)]
+    #[case(0.1, 0.1)]
+    #[case(1.23, 1.2)]
+    #[case(1.25, 1.3)]
+    #[case(1.2499, 1.2)]
+    #[case(12.34, 12.3)]
+    fn test_round_to_1_decimal_place(#[case] input: f64, #[case] expected: f64) {
+        assert_eq!(ChainClient::round_to_1_decimal_place(input), expected);
     }
 
     #[tokio::test]

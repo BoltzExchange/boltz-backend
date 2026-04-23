@@ -1,9 +1,10 @@
 use async_tungstenite::tungstenite::Message;
 use boltz_utils::defer;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use tokio::sync::Notify;
-use tokio::time::{Duration, timeout};
+use tokio::time::{Duration, Instant, timeout};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
@@ -33,10 +34,23 @@ struct Request {
     data: Vec<DataType>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 struct Fees {
     #[serde(rename = "fastestFee")]
     fastest: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CachedFees {
+    fees: Fees,
+    at: Instant,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Thresholds {
+    pub max_block_lag: u64,
+    pub max_fee_multiplier: f64,
+    pub max_fee_delta: f64,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -67,8 +81,10 @@ pub struct Client {
     url: String,
     symbol: String,
 
+    max_age: Option<Duration>,
+
     last_block: Arc<RwLock<Option<u64>>>,
-    last_fees: Arc<RwLock<Option<Fees>>>,
+    last_fees: Arc<RwLock<Option<CachedFees>>>,
 }
 
 impl Client {
@@ -78,12 +94,14 @@ impl Client {
         ready_notify: Arc<Notify>,
         symbol: String,
         url: String,
+        max_age: Option<Duration>,
     ) -> Self {
         Self {
             url,
             symbol,
             cancellation_token,
             ready_notify,
+            max_age,
             last_block: Arc::new(RwLock::new(None)),
             last_fees: Arc::new(RwLock::new(None)),
         }
@@ -119,25 +137,47 @@ impl Client {
     }
 
     pub fn get_latest(&self) -> Result<(u64, f64), anyhow::Error> {
-        let fee = self
+        let cached = *self
             .last_fees
             .read()
-            .map_err(|err| anyhow::anyhow!("failed to read last_fees: {}", err))?
-            .as_ref()
-            .map(|fees| fees.fastest);
+            .map_err(|err| anyhow::anyhow!("failed to read last_fees: {}", err))?;
 
-        if let Some(fee) = fee {
-            let block = self
-                .last_block
-                .read()
-                .map_err(|err| anyhow::anyhow!("failed to read last_block: {}", err))?;
+        let Some(cached) = cached else {
+            return Err(anyhow::anyhow!("no fees found"));
+        };
 
-            if let Some(block) = *block {
-                return Ok((block, fee));
-            }
+        if let Some((age, max_age)) = self.staleness(&cached) {
+            return Err(anyhow::anyhow!(
+                "fees are stale: age {:?} exceeds max {:?}",
+                age,
+                max_age
+            ));
         }
 
-        Err(anyhow::anyhow!("no fees found"))
+        let block = self
+            .last_block
+            .read()
+            .map_err(|err| anyhow::anyhow!("failed to read last_block: {}", err))?;
+
+        match *block {
+            Some(block) => Ok((block, cached.fees.fastest)),
+            None => Err(anyhow::anyhow!("no block height available")),
+        }
+    }
+
+    /// Returns (age, max_age) if `cached` has exceeded `max_age`; `None` if fresh or no max set.
+    fn staleness(&self, cached: &CachedFees) -> Option<(Duration, Duration)> {
+        let max_age = self.max_age?;
+        let age = cached.at.elapsed();
+        (age > max_age).then_some((age, max_age))
+    }
+
+    fn has_stale_fees(&self) -> bool {
+        self.last_fees
+            .read()
+            .ok()
+            .and_then(|cached| *cached)
+            .is_some_and(|cached| self.staleness(&cached).is_some())
     }
 
     async fn connect_websocket(&mut self, url: &str) -> anyhow::Result<()> {
@@ -231,7 +271,10 @@ impl Client {
             self.last_fees
                 .write()
                 .map_err(|err| anyhow::anyhow!("failed to write to last_fees: {}", err))?
-                .replace(msg.fees);
+                .replace(CachedFees {
+                    fees: msg.fees,
+                    at: Instant::now(),
+                });
             self.notify_waiters_if_ready();
         }
 
@@ -301,22 +344,102 @@ pub struct MempoolSpace {
 }
 
 impl MempoolSpace {
-    pub fn new(cancellation_token: CancellationToken, symbol: String, urls: String) -> Self {
+    pub fn new(
+        cancellation_token: CancellationToken,
+        symbol: String,
+        urls: Vec<String>,
+        max_age: Option<Duration>,
+    ) -> Self {
         let ready_notify = Arc::new(Notify::new());
         Self {
             clients: urls
-                .split(",")
+                .into_iter()
                 .map(|url| {
                     Client::new(
                         cancellation_token.clone(),
                         ready_notify.clone(),
                         symbol.clone(),
-                        url.trim().to_string(),
+                        url,
+                        max_age,
                     )
                 })
                 .collect(),
             ready_notify,
         }
+    }
+
+    pub fn combine_urls(legacy: Option<&str>, extra: Option<&[String]>) -> Vec<String> {
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut insert = |raw: &str| {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                seen.insert(trimmed.to_string());
+            }
+        };
+        if let Some(src) = legacy {
+            for part in src.split(',') {
+                insert(part);
+            }
+        }
+        if let Some(src) = extra {
+            for url in src {
+                insert(url);
+            }
+        }
+        seen.into_iter().collect()
+    }
+
+    pub fn value_trusted(
+        symbol: &str,
+        thresholds: Thresholds,
+        mempool_height: u64,
+        mempool_fee: f64,
+        local_tip: Option<u64>,
+        bitcoind_fee: Option<f64>,
+    ) -> bool {
+        if !mempool_fee.is_finite() || mempool_fee < 0.0 {
+            warn!(
+                "Mempool.space {} reported invalid fee {} (not finite or negative)",
+                symbol, mempool_fee,
+            );
+            return false;
+        }
+
+        if let Some(tip) = local_tip
+            && tip.saturating_sub(mempool_height) > thresholds.max_block_lag
+        {
+            warn!(
+                "Mempool.space {} block tip lags: mempool {} vs local {} (max lag {})",
+                symbol, mempool_height, tip, thresholds.max_block_lag,
+            );
+            return false;
+        }
+
+        if let Some(bitcoind_fee) = bitcoind_fee {
+            if !bitcoind_fee.is_finite() {
+                warn!(
+                    "Mempool.space {} skipping ceiling check: bitcoind fee {} is not finite",
+                    symbol, bitcoind_fee,
+                );
+            } else {
+                let ceiling = (thresholds.max_fee_multiplier * bitcoind_fee)
+                    .max(bitcoind_fee + thresholds.max_fee_delta);
+                if mempool_fee > ceiling {
+                    warn!(
+                        "Mempool.space {} fee {} exceeds ceiling {} (bitcoind {}, {}x, +{})",
+                        symbol,
+                        mempool_fee,
+                        ceiling,
+                        bitcoind_fee,
+                        thresholds.max_fee_multiplier,
+                        thresholds.max_fee_delta,
+                    );
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 
     pub async fn connect(&self) -> anyhow::Result<()> {
@@ -329,9 +452,20 @@ impl MempoolSpace {
         Ok(())
     }
 
-    pub async fn get_fees(&self) -> Option<f64> {
-        if let Some(fees) = self.collect_best_fees() {
+    pub async fn get_fees_and_height(&self) -> Option<(u64, f64)> {
+        if let Some(fees) = self.collect_best_fees_and_height() {
             return Some(fees);
+        }
+
+        if self.clients.iter().all(Client::has_stale_fees) {
+            debug!(
+                "{} mempool.space cached fees are stale; skipping startup wait",
+                self.clients
+                    .first()
+                    .map(|client| client.symbol.as_str())
+                    .unwrap_or("unknown")
+            );
+            return None;
         }
 
         let wait_for_fees = async {
@@ -343,7 +477,7 @@ impl MempoolSpace {
                 tokio::pin!(notified);
                 notified.as_mut().enable();
 
-                if let Some(fees) = self.collect_best_fees() {
+                if let Some(fees) = self.collect_best_fees_and_height() {
                     return Some(fees);
                 }
 
@@ -372,7 +506,7 @@ impl MempoolSpace {
         }
     }
 
-    fn collect_best_fees(&self) -> Option<f64> {
+    fn collect_best_fees_and_height(&self) -> Option<(u64, f64)> {
         let fees = self
             .clients
             .iter()
@@ -389,30 +523,28 @@ impl MempoolSpace {
             })
             .collect::<Vec<_>>();
 
-        if let Some(best_height) = fees.iter().map(|(_, height, _)| height).max().cloned() {
-            let best_fees = fees
-                .into_iter()
-                .filter(|(client, height, _)| {
-                    if *height == best_height {
-                        true
-                    } else {
-                        tracing::debug!(
-                            "{} {} is not at best height: {} != {}",
-                            client.symbol,
-                            client.url,
-                            best_height,
-                            height
-                        );
-                        false
-                    }
-                })
-                .map(|(_, _, fee)| fee)
-                .collect::<Vec<_>>();
+        let best_height = fees.iter().map(|(_, height, _)| height).max().cloned()?;
 
-            Self::median(best_fees)
-        } else {
-            None
-        }
+        let best_fees = fees
+            .into_iter()
+            .filter(|(client, height, _)| {
+                if *height == best_height {
+                    true
+                } else {
+                    tracing::debug!(
+                        "{} {} is not at best height: {} != {}",
+                        client.symbol,
+                        client.url,
+                        best_height,
+                        height
+                    );
+                    false
+                }
+            })
+            .map(|(_, _, fee)| fee)
+            .collect::<Vec<_>>();
+
+        Self::median(best_fees).map(|fee| (best_height, fee))
     }
 
     fn median(mut vec: Vec<f64>) -> Option<f64> {
@@ -439,6 +571,7 @@ impl MempoolSpace {
 pub mod test {
     use super::*;
     use boltz_utils::ensure_rustls_crypto_provider;
+    use rstest::rstest;
     use serial_test::serial;
 
     const MEMPOOL_API: &str = "https://mempool.space/api";
@@ -457,6 +590,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
 
             {
@@ -487,6 +621,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
             assert!(client.get_latest().is_err());
         }
@@ -498,6 +633,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
 
             let new_fee = 2.1;
@@ -507,7 +643,7 @@ pub mod test {
             .unwrap();
             client.handle_fees(msg.as_bytes()).unwrap();
             assert_eq!(
-                client.last_fees.read().unwrap().clone().unwrap().fastest,
+                client.last_fees.read().unwrap().unwrap().fees.fastest,
                 new_fee
             );
         }
@@ -519,6 +655,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
 
             let latest_block = 21_021;
@@ -544,6 +681,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
 
             let latest_block = 21_021;
@@ -557,6 +695,56 @@ pub mod test {
             assert_eq!((*client.last_block.read().unwrap()).unwrap(), latest_block);
         }
 
+        #[tokio::test(start_paused = true)]
+        async fn test_get_latest_rejects_stale_fees() {
+            let max_age = Duration::from_secs(60);
+            let client = Client::new(
+                CancellationToken::new(),
+                Arc::new(Notify::new()),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+                Some(max_age),
+            );
+
+            client.last_fees.write().unwrap().replace(CachedFees {
+                fees: Fees { fastest: 5.0 },
+                at: Instant::now(),
+            });
+            client.last_block.write().unwrap().replace(100);
+
+            assert_eq!(client.get_latest().unwrap(), (100, 5.0));
+
+            tokio::time::advance(max_age + Duration::from_secs(1)).await;
+
+            let err = client.get_latest().unwrap_err();
+            assert!(
+                err.to_string().contains("stale"),
+                "expected stale error, got: {}",
+                err
+            );
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn test_get_latest_without_max_age_never_stale() {
+            let client = Client::new(
+                CancellationToken::new(),
+                Arc::new(Notify::new()),
+                "BTC".to_string(),
+                MEMPOOL_API.to_string(),
+                None,
+            );
+
+            client.last_fees.write().unwrap().replace(CachedFees {
+                fees: Fees { fastest: 5.0 },
+                at: Instant::now(),
+            });
+            client.last_block.write().unwrap().replace(100);
+
+            tokio::time::advance(Duration::from_secs(3600)).await;
+
+            assert_eq!(client.get_latest().unwrap(), (100, 5.0));
+        }
+
         #[test]
         fn test_handle_blocks_stale() {
             let mut client = Client::new(
@@ -564,6 +752,7 @@ pub mod test {
                 Arc::new(Notify::new()),
                 "BTC".to_string(),
                 MEMPOOL_API.to_string(),
+                None,
             );
 
             let latest_block = 21_021;
@@ -598,11 +787,11 @@ pub mod test {
         #[test]
         fn test_parse_urls() {
             let second_api = "http://localhost:8080";
-            let urls = format!("{MEMPOOL_API}, {second_api}");
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                urls.to_string(),
+                vec![MEMPOOL_API.to_string(), second_api.to_string()],
+                None,
             );
             assert_eq!(mempool_space.clients.len(), 2);
             assert_eq!(mempool_space.clients[0].url, MEMPOOL_API);
@@ -618,11 +807,12 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 cancellation_token.clone(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                vec![MEMPOOL_API.to_string()],
+                None,
             );
             mempool_space.connect().await.unwrap();
 
-            let fees = mempool_space.get_fees().await.unwrap();
+            let (_, fees) = mempool_space.get_fees_and_height().await.unwrap();
             assert!(fees > 0.9);
             cancellation_token.cancel();
         }
@@ -632,7 +822,8 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                format!("{}, {}", MEMPOOL_API, "http://localhost:8080"),
+                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                None,
             );
 
             mempool_space.clients[0]
@@ -644,7 +835,10 @@ pub mod test {
                 .last_fees
                 .write()
                 .unwrap()
-                .replace(Fees { fastest: 1.0 });
+                .replace(CachedFees {
+                    fees: Fees { fastest: 1.0 },
+                    at: Instant::now(),
+                });
 
             mempool_space.clients[1]
                 .last_block
@@ -655,9 +849,12 @@ pub mod test {
                 .last_fees
                 .write()
                 .unwrap()
-                .replace(Fees { fastest: 100.0 });
+                .replace(CachedFees {
+                    fees: Fees { fastest: 100.0 },
+                    at: Instant::now(),
+                });
 
-            let fees = mempool_space.get_fees().await.unwrap();
+            let (_, fees) = mempool_space.get_fees_and_height().await.unwrap();
             assert_eq!(fees, 100.0);
         }
 
@@ -666,18 +863,22 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                vec![MEMPOOL_API.to_string()],
+                None,
             ));
 
             let mut waiters = Vec::new();
             for _ in 0..5 {
                 let mempool_space = mempool_space.clone();
                 waiters.push(tokio::spawn(async move {
-                    let fees =
-                        tokio::time::timeout(Duration::from_secs(5), mempool_space.get_fees())
-                            .await
-                            .expect("get_fees waiter timed out");
-                    fees.expect("expected fees once notify_waiters is triggered")
+                    let fees = tokio::time::timeout(
+                        Duration::from_secs(5),
+                        mempool_space.get_fees_and_height(),
+                    )
+                    .await
+                    .expect("get_fees waiter timed out");
+                    let (_, fee) = fees.expect("expected fees once notify_waiters is triggered");
+                    fee
                 }));
             }
 
@@ -695,7 +896,10 @@ pub mod test {
                 .last_fees
                 .write()
                 .unwrap()
-                .replace(Fees { fastest: fees });
+                .replace(CachedFees {
+                    fees: Fees { fastest: fees },
+                    at: Instant::now(),
+                });
             mempool_space.clients[0].notify_waiters_if_ready();
 
             for waiter in waiters {
@@ -708,10 +912,11 @@ pub mod test {
             let mempool_space = MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                vec![MEMPOOL_API.to_string()],
+                None,
             );
 
-            assert!(mempool_space.get_fees().await.is_none());
+            assert!(mempool_space.get_fees_and_height().await.is_none());
         }
 
         #[tokio::test]
@@ -719,11 +924,12 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                vec![MEMPOOL_API.to_string()],
+                None,
             ));
 
             let ms = mempool_space.clone();
-            let waiter = tokio::spawn(async move { ms.get_fees().await });
+            let waiter = tokio::spawn(async move { ms.get_fees_and_height().await });
 
             tokio::time::sleep(Duration::from_millis(50)).await;
             assert!(!waiter.is_finished());
@@ -735,7 +941,10 @@ pub mod test {
                 .last_fees
                 .write()
                 .unwrap()
-                .replace(Fees { fastest: fees });
+                .replace(CachedFees {
+                    fees: Fees { fastest: fees },
+                    at: Instant::now(),
+                });
             mempool_space.clients[0].notify_waiters_if_ready();
 
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -753,7 +962,7 @@ pub mod test {
                 .await
                 .expect("waiter timed out")
                 .unwrap();
-            assert_eq!(res, Some(fees));
+            assert_eq!(res, Some((21_021, fees)));
         }
 
         #[tokio::test]
@@ -761,11 +970,12 @@ pub mod test {
             let mempool_space = Arc::new(MempoolSpace::new(
                 CancellationToken::new(),
                 "BTC".to_string(),
-                MEMPOOL_API.to_string(),
+                vec![MEMPOOL_API.to_string()],
+                None,
             ));
 
             let ms = mempool_space.clone();
-            let waiter = tokio::spawn(async move { ms.get_fees().await });
+            let waiter = tokio::spawn(async move { ms.get_fees_and_height().await });
 
             tokio::time::sleep(Duration::from_millis(50)).await;
             assert!(!waiter.is_finished());
@@ -794,7 +1004,224 @@ pub mod test {
                 .await
                 .expect("waiter timed out")
                 .unwrap();
-            assert_eq!(res, Some(fees));
+            assert_eq!(res, Some((900_000, fees)));
+        }
+
+        #[tokio::test]
+        async fn test_get_fees_and_height_returns_height() {
+            let mempool_space = MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                None,
+            );
+
+            mempool_space.clients[0]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(100);
+            mempool_space.clients[0]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(CachedFees {
+                    fees: Fees { fastest: 1.0 },
+                    at: Instant::now(),
+                });
+
+            mempool_space.clients[1]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(101);
+            mempool_space.clients[1]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(CachedFees {
+                    fees: Fees { fastest: 42.0 },
+                    at: Instant::now(),
+                });
+
+            let (height, fee) = mempool_space.get_fees_and_height().await.unwrap();
+            assert_eq!(height, 101);
+            assert_eq!(fee, 42.0);
+        }
+
+        #[tokio::test]
+        async fn test_get_fees_and_height_returns_none_immediately_for_stale_cache() {
+            let max_age = Duration::from_millis(10);
+            let mempool_space = MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                vec![MEMPOOL_API.to_string()],
+                Some(max_age),
+            );
+
+            mempool_space.clients[0]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(CachedFees {
+                    fees: Fees { fastest: 5.0 },
+                    at: Instant::now() - Duration::from_millis(20),
+                });
+            mempool_space.clients[0]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(100);
+
+            let res = tokio::time::timeout(
+                Duration::from_millis(100),
+                mempool_space.get_fees_and_height(),
+            )
+            .await
+            .expect("stale cache should not wait for startup timeout");
+            assert_eq!(res, None);
+        }
+
+        #[tokio::test(start_paused = true)]
+        async fn test_get_fees_and_height_waits_when_not_all_clients_stale() {
+            let max_age = Duration::from_secs(60);
+            let mempool_space = MempoolSpace::new(
+                CancellationToken::new(),
+                "BTC".to_string(),
+                vec![MEMPOOL_API.to_string(), "http://localhost:8080".to_string()],
+                Some(max_age),
+            );
+
+            // Client 0 has cache that will go stale; client 1 is still initializing.
+            mempool_space.clients[0]
+                .last_fees
+                .write()
+                .unwrap()
+                .replace(CachedFees {
+                    fees: Fees { fastest: 5.0 },
+                    at: Instant::now(),
+                });
+            mempool_space.clients[0]
+                .last_block
+                .write()
+                .unwrap()
+                .replace(100);
+
+            tokio::time::advance(max_age + Duration::from_secs(1)).await;
+
+            // Client 0 is now stale; client 1 has never received data (not stale).
+            // Not all clients stale → should go into wait loop and hit full timeout.
+            let start = Instant::now();
+            let res = mempool_space.get_fees_and_height().await;
+            let elapsed = start.elapsed();
+
+            assert_eq!(res, None);
+            assert!(
+                elapsed >= Duration::from_secs(FEES_WAIT_TIMEOUT_SECONDS),
+                "expected full wait timeout ({}s), got {:?}",
+                FEES_WAIT_TIMEOUT_SECONDS,
+                elapsed,
+            );
+        }
+
+        #[rstest]
+        #[case::both_none(None, None, &[])]
+        #[case::legacy_only(Some("a"), None, &["a"])]
+        #[case::extra_only(None, Some(&["b"] as &[&str]), &["b"])]
+        #[case::both(Some("a,b"), Some(&["c"] as &[&str]), &["a", "b", "c"])]
+        #[case::trimmed(
+            Some(" a , b "),
+            Some(&[" c ", "", " d "] as &[&str]),
+            &["a", "b", "c", "d"]
+        )]
+        #[case::all_empty(Some(""), Some(&[""] as &[&str]), &[])]
+        #[case::dedup_across_sources(
+            Some("a,b"),
+            Some(&["b", "c"] as &[&str]),
+            &["a", "b", "c"]
+        )]
+        #[case::dedup_within_legacy(Some("a, a, b"), None, &["a", "b"])]
+        #[case::dedup_with_whitespace(
+            Some("a"),
+            Some(&[" a ", "b"] as &[&str]),
+            &["a", "b"]
+        )]
+        fn test_combine_urls(
+            #[case] legacy: Option<&str>,
+            #[case] extra: Option<&[&str]>,
+            #[case] expected: &[&str],
+        ) {
+            let extra_vec: Option<Vec<String>> =
+                extra.map(|e| e.iter().map(|s| s.to_string()).collect());
+            let got: HashSet<String> = MempoolSpace::combine_urls(legacy, extra_vec.as_deref())
+                .into_iter()
+                .collect();
+            let expected_set: HashSet<String> = expected.iter().map(|s| s.to_string()).collect();
+            assert_eq!(got, expected_set);
+        }
+
+        // Thresholds: multiplier=3, delta=25, block_lag=2
+        // Ceiling = max(3 * bitcoind, bitcoind + 25)
+        #[rstest]
+        // delta dominates (bitcoind=5 → ceiling = 30)
+        #[case::delta_happy(100, 10.0, Some(100), Some(5.0), true)]
+        #[case::delta_edge(100, 30.0, Some(100), Some(5.0), true)]
+        #[case::delta_over(100, 30.1, Some(100), Some(5.0), false)]
+        // very low bitcoind (bitcoind=1 → ceiling = 26)
+        #[case::tiny_bitcoind_edge(100, 26.0, Some(100), Some(1.0), true)]
+        #[case::tiny_bitcoind_over(100, 26.1, Some(100), Some(1.0), false)]
+        #[case::tiny_bitcoind_far_over(100, 1_000.0, Some(100), Some(1.0), false)]
+        // multiplier dominates (bitcoind=100 → ceiling = 300)
+        #[case::mult_edge(100, 300.0, Some(100), Some(100.0), true)]
+        #[case::mult_over(100, 300.1, Some(100), Some(100.0), false)]
+        // crossover (bitcoind=12.5 → both limbs equal 37.5)
+        #[case::crossover_edge(100, 37.5, Some(100), Some(12.5), true)]
+        #[case::crossover_over(100, 37.6, Some(100), Some(12.5), false)]
+        // block lag
+        #[case::lag_edge(98, 5.0, Some(100), Some(5.0), true)]
+        #[case::lag_over(97, 5.0, Some(100), Some(5.0), false)]
+        // missing references: best-effort, still trusted
+        #[case::no_bitcoind(100, 1_000_000.0, Some(100), None, true)]
+        #[case::no_local_tip(50, 5.0, None, Some(5.0), true)]
+        #[case::no_references(100, 5.0, None, None, true)]
+        // mempool ahead of local (saturating sub = 0)
+        #[case::mempool_ahead(110, 5.0, Some(100), Some(5.0), true)]
+        // invalid fee values
+        #[case::nan(100, f64::NAN, Some(100), Some(5.0), false)]
+        #[case::positive_inf(100, f64::INFINITY, Some(100), Some(5.0), false)]
+        #[case::negative_inf(100, f64::NEG_INFINITY, Some(100), Some(5.0), false)]
+        #[case::negative(100, -1.0, Some(100), Some(5.0), false)]
+        // invalid fee rejected even without references
+        #[case::nan_no_refs(100, f64::NAN, None, None, false)]
+        // zero still passes (floor enforced higher up)
+        #[case::zero_ok(100, 0.0, Some(100), Some(5.0), true)]
+        // non-finite bitcoind_fee: skip ceiling, don't let NaN math bypass the cap
+        #[case::bitcoind_nan(100, 1_000_000.0, Some(100), Some(f64::NAN), true)]
+        #[case::bitcoind_pos_inf(100, 1_000_000.0, Some(100), Some(f64::INFINITY), true)]
+        #[case::bitcoind_neg_inf(100, 1_000_000.0, Some(100), Some(f64::NEG_INFINITY), true)]
+        fn test_value_trusted(
+            #[case] mempool_height: u64,
+            #[case] mempool_fee: f64,
+            #[case] local_tip: Option<u64>,
+            #[case] bitcoind_fee: Option<f64>,
+            #[case] expected: bool,
+        ) {
+            let t = Thresholds {
+                max_block_lag: 2,
+                max_fee_multiplier: 3.0,
+                max_fee_delta: 25.0,
+            };
+            assert_eq!(
+                MempoolSpace::value_trusted(
+                    "BTC",
+                    t,
+                    mempool_height,
+                    mempool_fee,
+                    local_tip,
+                    bitcoind_fee,
+                ),
+                expected
+            );
         }
 
         #[test]

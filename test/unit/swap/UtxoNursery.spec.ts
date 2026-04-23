@@ -7,7 +7,11 @@ import { createMusig, setup, tweakMusig } from '../../../lib/Core';
 import * as Core from '../../../lib/Core';
 import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
-import { getHexBuffer, transactionHashToId } from '../../../lib/Utils';
+import {
+  getHexBuffer,
+  getHexString,
+  transactionHashToId,
+} from '../../../lib/Utils';
 import ChainClient from '../../../lib/chain/ChainClient';
 import {
   CurrencyType,
@@ -17,6 +21,7 @@ import {
   SwapVersion,
 } from '../../../lib/consts/Enums';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../../../lib/db/repositories/ClaimTransactionRepository';
 import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
@@ -217,6 +222,8 @@ describe('UtxoNursery', () => {
     ChainSwapRepository.getChainSwapsExpirable = jest
       .fn()
       .mockResolvedValue([]);
+
+    ClaimTransactionRepository.addTransaction = jest.fn().mockResolvedValue({});
 
     WrappedSwapRepository.setStatus = mockSetStatus;
 
@@ -791,6 +798,13 @@ describe('UtxoNursery', () => {
       transactionId: transactionHashToId(transaction.ins[0].hash),
     });
 
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+      swapId: mockGetReverseSwapResult.id,
+      symbol: btcChainClient.symbol,
+      id: transaction.getId(),
+    });
+
     jest.clearAllMocks();
 
     // Should ignore transactions that are refunds of a Reverse Swap
@@ -810,6 +824,155 @@ describe('UtxoNursery', () => {
     await checkReverseSwapsClaims(btcChainClient, transaction);
 
     expect(mockGetReverseSwap).not.toHaveBeenCalled();
+  });
+
+  describe('chain swap claim persistence', () => {
+    const spentHash = Buffer.alloc(32, 7);
+    const spentVout = 3;
+    const transactionId = 'chainClaimTxId';
+    const fakeTransaction = {
+      getId: () => transactionId,
+      ins: [
+        {
+          hash: spentHash,
+          index: spentVout,
+          // Non-cooperative chain swap claim has 4 witness elements
+          witness: [
+            Buffer.alloc(0),
+            Buffer.alloc(0),
+            Buffer.alloc(0),
+            Buffer.alloc(0),
+          ],
+        },
+      ],
+    } as any;
+
+    test('should persist when spend matches sendingData (user claim)', async () => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id: 'chainSwapId',
+        preimage: getHexString(Buffer.alloc(32, 1)),
+        chainSwap: { id: 'chainSwapId' },
+        sendingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+        receivingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      let eventEmitted = false;
+      nursery.once('chainSwap.claimed', ({ swap }) => {
+        expect(swap).toEqual(mockChainSwap);
+        eventEmitted = true;
+      });
+
+      await nursery['checkSwapClaims'](btcChainClient, fakeTransaction);
+
+      expect(eventEmitted).toEqual(true);
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: mockChainSwap.id,
+        symbol: btcChainClient.symbol,
+        id: transactionId,
+      });
+    });
+
+    test('should not persist when spend matches receivingData (server claim)', async () => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id: 'chainSwapId',
+        preimage: getHexString(Buffer.alloc(32, 1)),
+        chainSwap: { id: 'chainSwapId' },
+        sendingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+        receivingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      let eventEmitted = false;
+      nursery.once('chainSwap.claimed', () => {
+        eventEmitted = true;
+      });
+
+      await nursery['checkSwapClaims'](btcChainClient, fakeTransaction);
+
+      expect(eventEmitted).toEqual(true);
+      expect(ClaimTransactionRepository.addTransaction).not.toHaveBeenCalled();
+    });
+
+    test('should persist cooperative user claims (witness length 1)', async () => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id: 'chainSwapId',
+        preimage: getHexString(Buffer.alloc(32, 1)),
+        chainSwap: { id: 'chainSwapId' },
+        sendingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+        receivingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      const coopTransaction = {
+        getId: () => transactionId,
+        ins: [
+          {
+            hash: spentHash,
+            index: spentVout,
+            // Cooperative musig aggregated signature has one witness element
+            witness: [Buffer.alloc(0)],
+          },
+        ],
+      } as any;
+
+      let eventEmitted = false;
+      nursery.once('chainSwap.claimed', () => {
+        eventEmitted = true;
+      });
+
+      await nursery['checkSwapClaims'](btcChainClient, coopTransaction);
+
+      // Cooperative claims are filtered from the emit, but still persisted
+      expect(eventEmitted).toEqual(false);
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+        swapId: mockChainSwap.id,
+        symbol: btcChainClient.symbol,
+        id: transactionId,
+      });
+    });
   });
 
   test('should handle confirmed Reverse Swap lockups via block events', async () => {

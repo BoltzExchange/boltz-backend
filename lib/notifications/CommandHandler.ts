@@ -28,6 +28,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
 import FeeRepository from '../db/repositories/FeeRepository';
 import ReverseRoutingHintRepository from '../db/repositories/ReverseRoutingHintRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -381,13 +382,18 @@ class CommandHandler {
     reverseSwaps: ReverseSwap[],
     chainSwaps: ChainSwapInfo[],
   ) => {
-    const reverseRoutingHints = new Map<string, ReverseRoutingHint>(
-      (
-        await ReverseRoutingHintRepository.getHints(
-          reverseSwaps.map((s) => s.id),
-        )
-      ).map((h) => [h.swapId, h]),
-    );
+    const [reverseRoutingHints, claimTransactions] = await Promise.all([
+      ReverseRoutingHintRepository.getHints(reverseSwaps.map((s) => s.id)).then(
+        (hints) =>
+          new Map<string, ReverseRoutingHint>(hints.map((h) => [h.swapId, h])),
+      ),
+      ClaimTransactionRepository.getTransactionsForSwaps([
+        ...reverseSwaps.map((s) => s.id),
+        ...chainSwaps.map((s) => s.id),
+      ]).then(
+        (txs) => new Map<string, string>(txs.map((t) => [t.swapId, t.id])),
+      ),
+    ]);
 
     for (const swap of swaps) {
       await this.sendSwapInfo(swap);
@@ -430,10 +436,23 @@ class CommandHandler {
           }
         }
       }
+
+      const claimTransactionId = claimTransactions.get(reverseSwap.id);
+      if (claimTransactionId !== undefined) {
+        reverseSwap.dataValues.claimTransactionId = claimTransactionId;
+      }
+
       await this.sendSwapInfo(reverseSwap);
     }
 
-    for (const chainSwap of chainSwaps) {
+    for (const chainSwap of chainSwaps as (ChainSwapInfo & {
+      claimTransactionId?: string;
+    })[]) {
+      const claimTransactionId = claimTransactions.get(chainSwap.id);
+      if (claimTransactionId !== undefined) {
+        chainSwap.claimTransactionId = claimTransactionId;
+      }
+
       await this.sendSwapInfo(chainSwap);
     }
 

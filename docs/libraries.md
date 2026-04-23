@@ -28,7 +28,7 @@ without running a node and rebalancing existing Lightning nodes; it also
 provides a full-fledged Go library for Boltz API. Used by e.g.:
 [Boltz BTCPay Plugin](https://github.com/BoltzExchange/boltz-btcpay-plugin/)
 
-Supported currencies: Bitcoin, Lightning, Liquid
+Supported currencies: `LN`, `BTC`, `LBTC`
 
 ## Client-Side Integrations
 
@@ -40,7 +40,7 @@ WebAssembly support, and bindings for Kotlin, Flutter, Python, React Native, and
 Swift. Used by e.g.: [Klever Wallet](https://klever.io/) and
 [Misty Breez](https://breez.technology/misty/)
 
-Supported currencies: Bitcoin, Lightning, Liquid
+Supported currencies: `LN`, `BTC`, `LBTC`
 
 ## Other Libraries
 
@@ -50,7 +50,7 @@ Our reference library in TypeScript. Used by e.g.:
 [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) and
 [Boltz Backend](https://github.com/BoltzExchange/boltz-backend)
 
-Supported currencies: Bitcoin, Lightning, Liquid, Rootstock
+Supported currencies: `LN`, `BTC`, `LBTC`, `RBTC`, `TBTC`, `USDT`
 
 ### [Boltz Rust](https://github.com/SatoshiPortal/boltz-rust) (Rust)
 
@@ -61,4 +61,4 @@ Python. Used by e.g.:
 [Aqua Wallet](https://github.com/AquaWallet/aqua-wallet) via
 [Boltz Dart](https://github.com/SatoshiPortal/boltz-dart)
 
-Supported currencies: Bitcoin, Lightning, Liquid
+Supported currencies: `LN`, `BTC`, `LBTC`

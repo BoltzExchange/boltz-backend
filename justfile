@@ -51,12 +51,12 @@ clippy:
 # Check formatting for everything CI checks.
 fmt-check:
     cargo fmt --check
-    npm run prettier:check
+    npm run prettier:check -- --cache
 
 # Auto-format Rust and TypeScript/SQL/etc.
 fmt:
     cargo fmt
-    npm run prettier:write
+    npm run prettier:write -- --cache
 
 # === Aggregate ===
 

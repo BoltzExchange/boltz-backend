@@ -1,3 +1,9 @@
+---
+description:
+  Boltz Pro dynamically adjusts swap fees based on Boltz's liquidity needs to
+  keep wallets and Lightning channels balanced.
+---
+
 # 🏅 Pro
 
 Boltz Pro is a service designed to dynamically adjust swap fees based on Boltz's

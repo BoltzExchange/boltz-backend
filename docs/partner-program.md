@@ -1,3 +1,8 @@
+---
+description:
+  Rewards program for impactful, high-quality integrations of the Boltz API.
+---
+
 # 🤝 Partner Program
 
 The Boltz Partner Program provides eligible partners with rewards for impactful,

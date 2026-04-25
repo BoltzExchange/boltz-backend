@@ -1,3 +1,9 @@
+---
+description:
+  Endpoint reference for the latest Boltz REST API v2, recommended for all
+  integrations.
+---
+
 # 🤖 REST API (latest)
 
 This page introduces Boltz API v2, the latest and recommended API for all

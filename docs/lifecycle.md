@@ -1,3 +1,9 @@
+---
+description:
+  Swap types offered by Boltz and the states each swap type traverses during its
+  lifecycle.
+---
+
 # 🔁 Swap Types & States
 
 Boltz offers several different swap types. This document describes the types and

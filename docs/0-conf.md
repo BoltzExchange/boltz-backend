@@ -1,3 +1,9 @@
+---
+description:
+  How Boltz handles 0-conf transactions to speed up swaps and the risks each
+  party takes.
+---
+
 # ⏩ 0-conf
 
 The use of 0-conf can make swaps a lot faster by utilizing transactions that are

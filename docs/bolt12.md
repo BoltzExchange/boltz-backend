@@ -1,3 +1,8 @@
+---
+description:
+  Swapping with the BOLT12 standard, including tips for handling BOLT12 offers.
+---
+
 # ✨ BOLT12
 
 Information about swaps with the new BOLT12 standard and some accompanying tips

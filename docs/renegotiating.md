@@ -1,3 +1,9 @@
+---
+description:
+  Salvaging Chain Swaps that failed due to an incorrect lockup amount instead of
+  refunding them.
+---
+
 # ♻️ Renegotiating Chain Swaps
 
 Renegotiation allows Chain Swaps that failed due to an incorrect lockup amount

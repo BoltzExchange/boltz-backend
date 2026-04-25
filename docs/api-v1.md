@@ -1,5 +1,6 @@
 ---
 next: false
+description: Endpoint reference for the deprecated Boltz REST API v1.
 ---
 
 # 🤖 REST API v1 (deprecated)

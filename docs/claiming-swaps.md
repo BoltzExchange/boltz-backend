@@ -1,3 +1,9 @@
+---
+description:
+  How clients build claim and refund transactions, plus emergency procedures for
+  recovering funds from failed swaps.
+---
+
 # 🙋‍♂️ Claims & Refunds
 
 This document provides an overview of claims and refunds, describes how Boltz

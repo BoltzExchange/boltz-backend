@@ -2,6 +2,7 @@
 next:
   text: '📙 Clients, SDKs & Libraries'
   link: '/libraries'
+description: Introduction to the Boltz API and overview of swap integration.
 ---
 
 # 👋 Introduction

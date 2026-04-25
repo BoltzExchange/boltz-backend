@@ -1,3 +1,9 @@
+---
+description:
+  Recovery flow for clients that lost local swap state, using the Boltz Rescue
+  Key mnemonic.
+---
+
 # 🛟 Swap Restore
 
 Swap Restore is a recovery flow for situations where a swap client lost all

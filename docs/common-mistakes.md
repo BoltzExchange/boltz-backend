@@ -1,3 +1,9 @@
+---
+description:
+  Frequently encountered misunderstandings and pitfalls when integrating Boltz
+  API.
+---
+
 # ⚠️ Common Mistakes
 
 This document collects frequently encountered misunderstandings and common

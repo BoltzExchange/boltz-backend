@@ -1,3 +1,8 @@
+---
+description:
+  Fee structure, amount calculations and limits for all Boltz swap types.
+---
+
 # 💰 Swap Limits & Fees
 
 Understanding how fees and limits work is essential for building a reliable

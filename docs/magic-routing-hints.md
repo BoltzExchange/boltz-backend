@@ -1,3 +1,9 @@
+---
+description:
+  Advanced feature for cheaper, faster Lightning settlement and the additional
+  verification responsibilities it places on clients.
+---
+
 # 🪄 Magic Routing Hints
 
 ::: warning

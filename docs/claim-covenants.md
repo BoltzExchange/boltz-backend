@@ -1,3 +1,8 @@
+---
+description:
+  Using Liquid covenants to reduce interactivity requirements of Reverse Swaps.
+---
+
 # 📜 Claim Covenants
 
 To reduce the interactivity requirements of Reverse Swaps, one can make use of

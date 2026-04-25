@@ -1,3 +1,9 @@
+---
+description:
+  How API clients should verify information returned by Boltz to minimize trust
+  assumptions.
+---
+
 # 🚫 Don't trust. Verify!
 
 This document gives an overview of how Boltz API clients should verify

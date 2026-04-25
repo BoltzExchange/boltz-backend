@@ -1,3 +1,9 @@
+---
+description:
+  Official clients, SDKs and libraries for integrating with Boltz — start here
+  instead of integrating from scratch.
+---
+
 # 📙 Clients, SDKs & Libraries
 
 ::: danger ⚠️ DO NOT INTEGRATE BOLTZ API FROM SCRATCH ⚠️

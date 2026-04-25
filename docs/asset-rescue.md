@@ -1,3 +1,9 @@
+---
+description:
+  Cooperative recovery flow for Liquid assets accidentally sent to Boltz swap
+  lockup addresses.
+---
+
 # ⛑️ Asset Rescue
 
 Asset Rescue enables cooperative recovery of Liquid assets accidentally sent to

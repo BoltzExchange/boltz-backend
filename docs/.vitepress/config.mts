@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import llmstxt from 'vitepress-plugin-llms';
 
 const docsRoot = 'https://docs.boltz.exchange';
 
@@ -53,4 +54,11 @@ export default defineConfig({
   },
   // Ignore dead links to localhost
   ignoreDeadLinks: [/https?:\/\/localhost/],
+  vite: {
+    // Note: `vitepress preview` serves llms.txt / llms-full.txt as
+    // `text/plain` without a charset, so browsers fall back to Windows-1252
+    // and mojibake the UTF-8 emoji/dash bytes. The files on disk are valid
+    // UTF-8 and production (GitHub Pages) sets `charset=utf-8` correctly.
+    plugins: [llmstxt()],
+  },
 });

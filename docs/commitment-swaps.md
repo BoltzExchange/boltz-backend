@@ -1,3 +1,9 @@
+---
+description:
+  Locking funds first and committing to a swap afterwards, without knowing the
+  amount when creating it.
+---
+
 # 🔐 Commitment Swaps
 
 Commitment swaps allow locking funds first and committing to a swap after,

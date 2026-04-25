@@ -1,3 +1,8 @@
+---
+description:
+  How to set up a Docker regtest environment for Boltz Backend development.
+---
+
 # 🐳 Backend Development
 
 This document describes how to set up a Docker regtest environment for Boltz

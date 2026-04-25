@@ -476,17 +476,17 @@ class EthereumNursery extends TypedEventEmitter<{
             `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
-          await ClaimTransactionRepository.addTransaction({
-            swapId: swap.id,
-            symbol: this.ethereumManager.networkDetails.symbol,
-            id: transactionHash,
-          });
-
           this.emit('claim', {
             swap,
             preimage,
             isEtherSwap: true,
             transactionHash,
+          });
+
+          await ClaimTransactionRepository.persistTransaction(this.logger, {
+            swapId: swap.id,
+            symbol: this.ethereumManager.networkDetails.symbol,
+            id: transactionHash,
           });
         }
       },
@@ -550,17 +550,17 @@ class EthereumNursery extends TypedEventEmitter<{
             `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
-          await ClaimTransactionRepository.addTransaction({
-            swapId: swap.id,
-            symbol: this.getUserClaimChainSymbol(swap),
-            id: transactionHash,
-          });
-
           this.emit('claim', {
             swap,
             preimage,
             isEtherSwap: false,
             transactionHash,
+          });
+
+          await ClaimTransactionRepository.persistTransaction(this.logger, {
+            swapId: swap.id,
+            symbol: this.getUserClaimChainSymbol(swap),
+            id: transactionHash,
           });
         }
       },

@@ -750,6 +750,33 @@ describe('EthereumNursery', () => {
     expect(emittedEvents).toEqual(1);
   });
 
+  test('should still emit EtherSwap claim when persistence fails', async () => {
+    mockGetReverseSwapResult = {
+      id: 'reverseEthResilience',
+      type: SwapType.ReverseSubmarine,
+    };
+
+    ClaimTransactionRepository.addTransaction = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+
+    let emittedEvents = 0;
+    nursery.on('claim', () => {
+      emittedEvents += 1;
+    });
+
+    await expect(
+      emitEthClaim({
+        preimage: examplePreimage,
+        preimageHash: examplePreimageHash,
+        transactionHash: exampleTransaction.hash!,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+  });
+
   test('should only emit EtherSwap chain claims for the sending side', async () => {
     mockGetReverseSwapResult = null;
     const getChainSwap = jest.fn();
@@ -1210,6 +1237,35 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
+  });
+
+  test('should still emit ERC20Swap claim when persistence fails', async () => {
+    mockGetReverseSwapResult = {
+      id: 'reverseErc20Resilience',
+      pair: 'USDT/BTC',
+      orderSide: OrderSide.BUY,
+      type: SwapType.ReverseSubmarine,
+    };
+
+    ClaimTransactionRepository.addTransaction = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+
+    let emittedEvents = 0;
+    nursery.on('claim', () => {
+      emittedEvents += 1;
+    });
+
+    await expect(
+      emitErc20Claim({
+        preimage: examplePreimage,
+        preimageHash: examplePreimageHash,
+        transactionHash: exampleTransaction.hash!,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
   });
 
   test('should only emit ERC20Swap chain claims for the sending side', async () => {

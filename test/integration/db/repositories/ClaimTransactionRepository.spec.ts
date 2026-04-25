@@ -55,6 +55,45 @@ describe('ClaimTransactionRepository', () => {
     expect(fetched!.id).toEqual('test2');
   });
 
+  describe('persistTransaction', () => {
+    test('should persist transaction', async () => {
+      await ClaimTransactionRepository.persistTransaction(
+        Logger.disabledLogger,
+        { swapId: 'swapId', symbol: 'RBTC', id: 'persistTest' },
+      );
+
+      const fetched =
+        await ClaimTransactionRepository.getTransactionForSwap('swapId');
+      expect(fetched).not.toBeNull();
+      expect(fetched!.id).toEqual('persistTest');
+    });
+
+    test('should swallow and log errors from addTransaction', async () => {
+      const addSpy = jest
+        .spyOn(ClaimTransactionRepository, 'addTransaction')
+        .mockRejectedValueOnce(new Error('db down'));
+      const errorSpy = jest.fn();
+      const logger = {
+        ...Logger.disabledLogger,
+        error: errorSpy,
+      } as unknown as Logger;
+
+      await expect(
+        ClaimTransactionRepository.persistTransaction(logger, {
+          swapId: 'swapId',
+          symbol: 'RBTC',
+          id: 'persistFail',
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0][0]).toContain('swapId');
+      expect(errorSpy.mock.calls[0][0]).toContain('db down');
+
+      addSpy.mockRestore();
+    });
+  });
+
   describe('getTransactionForSwap', () => {
     test('should get transaction for swap', async () => {
       const swapId = 'swapId';

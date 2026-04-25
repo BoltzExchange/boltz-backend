@@ -1,4 +1,6 @@
 import { Op } from 'sequelize';
+import type Logger from '../../Logger';
+import { formatError } from '../../Utils';
 import ClaimTransaction, {
   type ClaimTransactionType,
 } from '../models/ClaimTransaction';
@@ -12,6 +14,19 @@ class ClaimTransactionRepository {
     });
 
     return tx[0];
+  };
+
+  public static persistTransaction = async (
+    logger: Logger,
+    claimTransaction: ClaimTransactionType,
+  ) => {
+    try {
+      await ClaimTransactionRepository.addTransaction(claimTransaction);
+    } catch (err) {
+      logger.error(
+        `Could not persist claim transaction for swap ${claimTransaction.swapId}: ${formatError(err)}`,
+      );
+    }
   };
 
   public static getTransactionForSwap = async (swapId: string) => {

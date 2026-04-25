@@ -826,6 +826,38 @@ describe('UtxoNursery', () => {
     expect(mockGetReverseSwap).not.toHaveBeenCalled();
   });
 
+  test('should still emit reverseSwap.claimed when persistence fails', async () => {
+    RefundTransactionRepository.getTransaction = jest
+      .fn()
+      .mockResolvedValue(null);
+
+    const transaction = Transaction.fromHex(sampleTransactions.claim);
+
+    mockGetReverseSwapResult = { id: 'reverseClaimResilience' };
+
+    ClaimTransactionRepository.addTransaction = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+
+    let eventEmitted = false;
+    nursery.once('reverseSwap.claimed', () => {
+      eventEmitted = true;
+    });
+
+    try {
+      await expect(
+        nursery['checkSwapClaims'](btcChainClient, transaction),
+      ).resolves.toBeUndefined();
+
+      expect(eventEmitted).toEqual(true);
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
+    } finally {
+      mockGetReverseSwapResult = null;
+    }
+  });
+
   describe('chain swap claim persistence', () => {
     const spentHash = Buffer.alloc(32, 7);
     const spentVout = 3;
@@ -919,6 +951,47 @@ describe('UtxoNursery', () => {
 
       expect(eventEmitted).toEqual(true);
       expect(ClaimTransactionRepository.addTransaction).not.toHaveBeenCalled();
+    });
+
+    test('should still emit when persistence fails (sendingData)', async () => {
+      RefundTransactionRepository.getTransaction = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const mockChainSwap = {
+        id: 'chainSwapId',
+        preimage: getHexString(Buffer.alloc(32, 1)),
+        chainSwap: { id: 'chainSwapId' },
+        sendingData: {
+          transactionId: transactionHashToId(spentHash),
+          transactionVout: spentVout,
+        },
+        receivingData: {
+          transactionId: 'other',
+          transactionVout: 0,
+        },
+      };
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(mockChainSwap);
+
+      ClaimTransactionRepository.addTransaction = jest
+        .fn()
+        .mockRejectedValue(new Error('db down'));
+
+      let eventEmitted = false;
+      nursery.once('chainSwap.claimed', () => {
+        eventEmitted = true;
+      });
+
+      await expect(
+        nursery['checkSwapClaims'](btcChainClient, fakeTransaction),
+      ).resolves.toBeUndefined();
+
+      expect(eventEmitted).toEqual(true);
+      expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(
+        1,
+      );
     });
 
     test('should persist cooperative user claims (witness length 1)', async () => {

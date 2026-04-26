@@ -1,5 +1,4 @@
 use crate::{target_fee::FeeTarget, utils::Destination};
-use anyhow::Result;
 use bitcoin::{Address as BitcoinAddress, Transaction as BitcoinTransaction};
 use elements::hex::ToHex;
 use elements::pset::serialize::Serialize;
@@ -8,6 +7,19 @@ use elements::{Address as ElementsAddress, BlockHash, Transaction as ElementsTra
 pub use crate::bitcoin::InputDetail as BitcoinInputDetail;
 pub use crate::elements::InputDetail as ElementsInputDetail;
 
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum WrapperError {
+    #[error("cannot convert Elements input detail to Bitcoin input detail")]
+    NotBitcoin,
+    #[error("cannot convert Bitcoin input detail to Elements input detail")]
+    NotElements,
+    #[error(transparent)]
+    Bitcoin(#[from] crate::bitcoin::TxError),
+    #[error(transparent)]
+    Elements(#[from] crate::elements::TxError),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputDetail {
     Bitcoin(Box<BitcoinInputDetail>),
@@ -15,26 +27,22 @@ pub enum InputDetail {
 }
 
 impl TryInto<BitcoinInputDetail> for InputDetail {
-    type Error = anyhow::Error;
+    type Error = WrapperError;
 
-    fn try_into(self) -> Result<BitcoinInputDetail> {
+    fn try_into(self) -> Result<BitcoinInputDetail, Self::Error> {
         match self {
             InputDetail::Bitcoin(input) => Ok(*input),
-            InputDetail::Elements(_) => Err(anyhow::anyhow!(
-                "cannot convert Elements input detail to Bitcoin input detail"
-            )),
+            InputDetail::Elements(_) => Err(WrapperError::NotBitcoin),
         }
     }
 }
 
 impl TryInto<ElementsInputDetail> for InputDetail {
-    type Error = anyhow::Error;
+    type Error = WrapperError;
 
-    fn try_into(self) -> Result<ElementsInputDetail> {
+    fn try_into(self) -> Result<ElementsInputDetail, Self::Error> {
         match self {
-            InputDetail::Bitcoin(_) => Err(anyhow::anyhow!(
-                "cannot convert Bitcoin input detail to Elements input detail"
-            )),
+            InputDetail::Bitcoin(_) => Err(WrapperError::NotElements),
             InputDetail::Elements(input) => Ok(*input),
         }
     }
@@ -83,7 +91,7 @@ impl Transaction {
     }
 }
 
-pub fn construct_tx(params: &Params) -> Result<(Transaction, u64)> {
+pub fn construct_tx(params: &Params) -> Result<(Transaction, u64), WrapperError> {
     match params {
         Params::Bitcoin(params) => {
             let secp = bitcoin::secp256k1::Secp256k1::new();

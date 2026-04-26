@@ -1,10 +1,9 @@
 use crate::{
-    bitcoin::InputDetail,
+    bitcoin::{InputDetail, scripts::TreeError},
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
-    target_fee::{FeeTarget, target_fee},
+    target_fee::{FeeError, FeeTarget, target_fee},
     utils::{Destination, InputType, OutputType},
 };
-use anyhow::Result;
 use bitcoin::{
     Address, Amount, EcdsaSighashType, ScriptBuf, Sequence, TapSighashType, TxIn, TxOut, Witness,
     absolute::LockTime,
@@ -12,22 +11,57 @@ use bitcoin::{
     hashes::{Hash, sha256, sha256d},
     key::Keypair,
     opcodes::OP_0,
-    script::{Builder, PushBytesBuf},
+    script::{Builder, PushBytesBuf, PushBytesError},
     secp256k1::{Message, Secp256k1, Signing, Verification},
     sighash::{Prevouts, SighashCache},
     taproot::{self, LeafVersion},
-    transaction::{Transaction, Version},
+    transaction::{InputsIndexError, Transaction, Version},
 };
 
 const SIGHASH_TYPE_LEGACY: EcdsaSighashType = EcdsaSighashType::All;
 const SIGHASH_TYPE_TAPROOT: TapSighashType = TapSighashType::Default;
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum TxError {
+    #[error("fee is greater than input sum")]
+    FeeExceedsInputs,
+    #[error("output sum is greater than input sum")]
+    OutputsExceedInputs,
+    #[error("invalid fee rate")]
+    InvalidFeeRate,
+    #[error("could not finalize taproot builder for input {0}")]
+    TaprootFinalize(usize),
+    #[error("could not create control block for input {0}")]
+    ControlBlock(usize),
+    #[error(transparent)]
+    Tree(#[from] TreeError),
+    #[error(transparent)]
+    LockTime(#[from] bitcoin::absolute::ConversionError),
+    #[error(transparent)]
+    Taproot(#[from] bitcoin::sighash::TaprootError),
+    #[error(transparent)]
+    InputsIndex(#[from] InputsIndexError),
+    #[error(transparent)]
+    PushBytes(#[from] PushBytesError),
+    #[error(transparent)]
+    Secp(#[from] bitcoin::secp256k1::Error),
+}
+
+impl From<FeeError> for TxError {
+    fn from(e: FeeError) -> Self {
+        match e {
+            FeeError::InvalidFeeRate => TxError::InvalidFeeRate,
+        }
+    }
+}
 
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
-) -> Result<(Transaction, u64)> {
+) -> Result<(Transaction, u64), TxError> {
     target_fee(fee, |fee, _is_fee_estimation| {
         construct_raw(secp, inputs, destination, Amount::from_sat(fee))
     })
@@ -38,7 +72,7 @@ pub fn construct_raw<C: Signing + Verification>(
     inputs: &[&InputDetail],
     destination: &Destination<&Address>,
     fee: Amount,
-) -> Result<Transaction> {
+) -> Result<Transaction, TxError> {
     let input_sum = inputs
         .iter()
         .map(|input| input.tx_out.value)
@@ -48,7 +82,7 @@ pub fn construct_raw<C: Signing + Verification>(
         Destination::Single(address) => vec![TxOut {
             value: input_sum
                 .checked_sub(fee)
-                .ok_or(anyhow::anyhow!("fee is greater than input sum"))?,
+                .ok_or(TxError::FeeExceedsInputs)?,
             script_pubkey: address.script_pubkey(),
         }],
         Destination::Multiple(outputs) => {
@@ -59,7 +93,7 @@ pub fn construct_raw<C: Signing + Verification>(
                 .sum::<Amount>();
 
             if output_sum + fee > input_sum {
-                return Err(anyhow::anyhow!("output sum is greater than input sum"));
+                return Err(TxError::OutputsExceedInputs);
             }
 
             let mut res = Vec::with_capacity(outputs.outputs.len() + 1);
@@ -184,21 +218,12 @@ pub fn construct_raw<C: Signing + Verification>(
                     .tree
                     .build()?
                     .finalize(secp, uncooperative.internal_key)
-                    .map_err(|e| {
-                        anyhow::anyhow!(
-                            "could not finalize taproot builder for input {}: {:?}",
-                            i,
-                            e
-                        )
-                    })?
+                    .map_err(|_| TxError::TaprootFinalize(i))?
                     .control_block(&(
                         leaf.output.clone(),
-                        LeafVersion::from_consensus(leaf.version)?,
+                        LeafVersion::from_consensus(leaf.version).map_err(TreeError::Taproot)?,
                     ))
-                    .ok_or(anyhow::anyhow!(
-                        "could not create control block for input {}",
-                        i
-                    ))?;
+                    .ok_or(TxError::ControlBlock(i))?;
 
                 let mut witness = Witness::new();
 
@@ -257,7 +282,7 @@ fn legacy_signature<C: Signing>(
     secp: &Secp256k1<C>,
     sighash: &&sha256d::Hash,
     keys: &Keypair,
-) -> Result<ecdsa::Signature> {
+) -> Result<ecdsa::Signature, TxError> {
     Ok(ecdsa::Signature {
         sighash_type: SIGHASH_TYPE_LEGACY,
         signature: secp.sign_ecdsa_grind_r(
@@ -1153,11 +1178,7 @@ mod tests {
         let fee = Amount::from_sat(amount.to_sat() + 1);
         let result = construct_raw(&secp, &[&input], &Destination::Single(&address), fee);
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "fee is greater than input sum"
-        );
+        assert_eq!(result.unwrap_err(), TxError::FeeExceedsInputs);
     }
 
     #[test]
@@ -1198,10 +1219,6 @@ mod tests {
             fee,
         );
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "output sum is greater than input sum"
-        );
+        assert_eq!(result.unwrap_err(), TxError::OutputsExceedInputs);
     }
 }

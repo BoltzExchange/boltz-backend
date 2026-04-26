@@ -391,7 +391,7 @@ async fn connect_client<T: BaseClient>(client: anyhow::Result<T>) -> Option<T> {
 
 fn parse_network(network: Option<String>) -> anyhow::Result<wallet::Network> {
     match network {
-        Some(network) => wallet::Network::try_from(network.as_str()),
+        Some(network) => Ok(wallet::Network::try_from(network.as_str())?),
         None => {
             warn!("Network not set; defaulting to regtest");
             Ok(wallet::Network::Regtest)

@@ -12,10 +12,10 @@ bitcoin = ["dep:bitcoin"]
 elements = ["dep:elements", "dep:bitcoin"]
 
 [dependencies]
-anyhow = { workspace = true }
 bitcoin = { workspace = true, optional = true }
 elements = { workspace = true, optional = true }
 hex = { workspace = true }
+thiserror = { workspace = true }
 secp256k1 = { version = "0.32.0-beta.2", features = [
     "rand",
     "global-context",

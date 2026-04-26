@@ -9,9 +9,9 @@ mod asset_rescue;
 mod scripts;
 mod tx;
 
-pub use asset_rescue::{AssetPair, construct_asset_rescue};
+pub use asset_rescue::{AssetPair, AssetRescueError, construct_asset_rescue};
 pub use scripts::*;
-pub use tx::construct_tx;
+pub use tx::{TxError, construct_tx};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UncooperativeDetails {

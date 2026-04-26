@@ -1,11 +1,27 @@
-use crate::Network;
-use anyhow::Result;
+use crate::{Network, network::NetworkError};
 use bitcoin::{Address as BitcoinAddress, Script as BitcoinScript};
 use elements::{
     Address as ElementsAddress, Script as ElementsScript,
     secp256k1_zkp::PublicKey as ElementsPublicKey,
 };
 use std::str::FromStr;
+
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum AddressError {
+    #[error("cannot convert Elements address to Bitcoin address")]
+    NotBitcoin,
+    #[error("cannot convert Bitcoin address to Elements address")]
+    NotElements,
+    #[error("failed to parse script")]
+    InvalidScript,
+    #[error(transparent)]
+    Parse(#[from] elements::AddressError),
+    #[error(transparent)]
+    Network(#[from] NetworkError),
+    #[error(transparent)]
+    Secp(#[from] elements::secp256k1_zkp::UpstreamError),
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Address {
@@ -14,36 +30,33 @@ pub enum Address {
 }
 
 impl TryFrom<&str> for Address {
-    type Error = anyhow::Error;
+    type Error = AddressError;
 
-    fn try_from(value: &str) -> Result<Self> {
-        Ok(BitcoinAddress::from_str(value)
-            .map(|a| Address::Bitcoin(a.assume_checked()))
-            .or_else(|_| ElementsAddress::from_str(value).map(Address::Elements))?)
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if let Ok(addr) = BitcoinAddress::from_str(value) {
+            return Ok(Address::Bitcoin(addr.assume_checked()));
+        }
+        Ok(Address::Elements(ElementsAddress::from_str(value)?))
     }
 }
 
 impl TryInto<BitcoinAddress> for Address {
-    type Error = anyhow::Error;
+    type Error = AddressError;
 
-    fn try_into(self) -> Result<BitcoinAddress> {
+    fn try_into(self) -> Result<BitcoinAddress, Self::Error> {
         match self {
             Address::Bitcoin(a) => Ok(a),
-            Address::Elements(_) => Err(anyhow::anyhow!(
-                "cannot convert Elements address to Bitcoin address"
-            )),
+            Address::Elements(_) => Err(AddressError::NotBitcoin),
         }
     }
 }
 
 impl TryInto<ElementsAddress> for Address {
-    type Error = anyhow::Error;
+    type Error = AddressError;
 
-    fn try_into(self) -> Result<ElementsAddress> {
+    fn try_into(self) -> Result<ElementsAddress, Self::Error> {
         match self {
-            Address::Bitcoin(_) => Err(anyhow::anyhow!(
-                "cannot convert Bitcoin address to Elements address"
-            )),
+            Address::Bitcoin(_) => Err(AddressError::NotElements),
             Address::Elements(a) => Ok(a),
         }
     }
@@ -68,18 +81,17 @@ impl std::fmt::Display for Address {
 }
 
 impl Address {
-    pub fn from_bitcoin_script(network: Network, script: &[u8]) -> Result<Self> {
-        Ok(
-            BitcoinAddress::from_script(BitcoinScript::from_bytes(script), network.bitcoin())
-                .map(Address::Bitcoin)?,
-        )
+    pub fn from_bitcoin_script(network: Network, script: &[u8]) -> Result<Self, AddressError> {
+        BitcoinAddress::from_script(BitcoinScript::from_bytes(script), network.bitcoin())
+            .map(Address::Bitcoin)
+            .map_err(|_| AddressError::InvalidScript)
     }
 
     pub fn from_elements_script(
         network: Network,
         script: Vec<u8>,
         blinding_pubkey: Option<&[u8]>,
-    ) -> Result<Self> {
+    ) -> Result<Self, AddressError> {
         ElementsAddress::from_script(
             &ElementsScript::from(script),
             blinding_pubkey
@@ -88,7 +100,7 @@ impl Address {
             network.liquid()?,
         )
         .map(Address::Elements)
-        .ok_or_else(|| anyhow::anyhow!("failed to parse script"))
+        .ok_or(AddressError::InvalidScript)
     }
 }
 

@@ -6,7 +6,7 @@ pub mod bitcoin;
 pub mod elements;
 #[cfg(feature = "musig")]
 pub mod musig;
-#[cfg(all(feature = "bitcoin", feature = "elements"))]
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub mod network;
 pub mod utils;
 #[cfg(all(feature = "bitcoin", feature = "elements"))]
@@ -20,13 +20,17 @@ mod target_fee;
 mod client;
 
 #[cfg(all(feature = "bitcoin", feature = "elements"))]
-pub use address::Address;
+pub use address::{Address, AddressError};
+#[cfg(feature = "bitcoin")]
+pub use bitcoin::TxError as BitcoinTxError;
+#[cfg(feature = "elements")]
+pub use elements::{AssetRescueError, TxError as ElementsTxError};
 #[cfg(feature = "musig")]
-pub use musig::Musig;
-#[cfg(all(feature = "bitcoin", feature = "elements"))]
-pub use network::Network;
+pub use musig::{Musig, MusigError};
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
+pub use network::{Network, NetworkError};
 pub use preimage_detector::detect_preimage;
 pub use target_fee::FeeTarget;
 pub use utils::Destination;
 #[cfg(all(feature = "bitcoin", feature = "elements"))]
-pub use wrapper::Transaction;
+pub use wrapper::{Transaction, WrapperError};

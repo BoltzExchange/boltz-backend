@@ -357,11 +357,11 @@ fn generate_internal_keys(
                 [prepend_tie_breaker(&their_pubkey, tie_breaker), our_pubkey],
             ]
         })
-        .map(move |keys| {
+        .map(move |keys| -> Result<_> {
             Ok(Musig::setup(
                 Musig::convert_keypair(privkey)?,
                 keys.iter()
-                    .map(|key| Musig::convert_pub_key(key))
+                    .map(|key| Ok(Musig::convert_pub_key(key)?))
                     .collect::<Result<Vec<_>>>()?,
             )?
             .agg_pk())

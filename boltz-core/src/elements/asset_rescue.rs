@@ -1,9 +1,9 @@
 use crate::{
     FeeTarget, Network,
-    elements::tx::{ExplicitOutput, UnblindedOutput, create_output},
-    target_fee::target_fee,
+    elements::tx::{ExplicitOutput, TxError, UnblindedOutput, create_output},
+    network::NetworkError,
+    target_fee::{FeeError, target_fee},
 };
-use anyhow::{Context, Result};
 use elements::{
     Address, LockTime, OutPoint, Script, Sequence, Transaction, TxIn, TxOut,
     confidential::{AssetBlindingFactor, ValueBlindingFactor},
@@ -22,6 +22,47 @@ enum OutputType {
     NestedSegwit,
     SegwitV0,
     SegwitV1,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum AssetRescueError {
+    #[error("asset input is not a Taproot")]
+    AssetInputNotTaproot,
+    #[error("asset input is LBTC")]
+    AssetInputIsLbtc,
+    #[error("LBTC input has different asset id")]
+    LbtcInputWrongAsset,
+    #[error("change is negative")]
+    NegativeChange,
+    #[error("change is zero")]
+    ZeroChange,
+    #[error("LBTC destination has to be blinded")]
+    LbtcDestinationNotBlinded,
+    #[error("output has unknown type")]
+    UnknownOutputType,
+    #[error("input has no blinding key")]
+    MissingBlindingKey,
+    #[error("input has no explicit asset")]
+    MissingExplicitAsset,
+    #[error("input has no explicit value")]
+    MissingExplicitValue,
+    #[error("invalid fee rate")]
+    InvalidFeeRate,
+    #[error(transparent)]
+    Network(#[from] NetworkError),
+    #[error(transparent)]
+    Tx(#[from] TxError),
+    #[error(transparent)]
+    Unblind(#[from] elements::UnblindError),
+}
+
+impl From<FeeError> for AssetRescueError {
+    fn from(e: FeeError) -> Self {
+        match e {
+            FeeError::InvalidFeeRate => AssetRescueError::InvalidFeeRate,
+        }
+    }
 }
 
 /// Contains the input with an asset and the address to which it should be swept
@@ -44,9 +85,9 @@ pub fn construct_asset_rescue<C: Signing + Verification>(
     asset_pair: &AssetPair,
     lbtc_pair: &AssetPair,
     fee: FeeTarget,
-) -> Result<(Transaction, u64)> {
+) -> Result<(Transaction, u64), AssetRescueError> {
     if !asset_pair.tx_out.script_pubkey.is_v1_p2tr() {
-        return Err(anyhow::anyhow!("asset input is not a Taproot"));
+        return Err(AssetRescueError::AssetInputNotTaproot);
     }
 
     let asset_unblinded = UnblindedAssetPair {
@@ -60,10 +101,10 @@ pub fn construct_asset_rescue<C: Signing + Verification>(
 
     let liquid_asset_id = network.liquid_asset_id()?;
     if asset_unblinded.unblinded.asset().to_hex() == liquid_asset_id {
-        return Err(anyhow::anyhow!("asset input is LBTC"));
+        return Err(AssetRescueError::AssetInputIsLbtc);
     }
     if lbtc_unblinded.unblinded.asset().to_hex() != liquid_asset_id {
-        return Err(anyhow::anyhow!("LBTC input has different asset id"));
+        return Err(AssetRescueError::LbtcInputWrongAsset);
     }
 
     let (mut tx, fee) = target_fee(fee, |fee, is_fee_estimation| {
@@ -91,7 +132,7 @@ fn construct_raw<C: Signing + Verification>(
     lbtc_pair: &UnblindedAssetPair,
     fee: u64,
     is_fee_estimation: bool,
-) -> Result<Transaction> {
+) -> Result<Transaction, AssetRescueError> {
     let mut tx = Transaction {
         version: 2,
         lock_time: LockTime::ZERO,
@@ -155,19 +196,19 @@ fn blind_outputs<C: Signing>(
     lbtc_pair: &UnblindedAssetPair,
     fee: u64,
     is_fee_estimation: bool,
-) -> Result<Vec<TxOut>> {
+) -> Result<Vec<TxOut>, AssetRescueError> {
     let change = lbtc_pair
         .unblinded
         .amount()
         .checked_sub(fee)
-        .ok_or(anyhow::anyhow!("change is negative"))?;
+        .ok_or(AssetRescueError::NegativeChange)?;
 
     if change == 0 {
-        return Err(anyhow::anyhow!("change is zero"));
+        return Err(AssetRescueError::ZeroChange);
     }
 
     if !lbtc_pair.asset_pair.destination.is_blinded() {
-        return Err(anyhow::anyhow!("LBTC destination has to be blinded"));
+        return Err(AssetRescueError::LbtcDestinationNotBlinded);
     }
 
     let unblinded = &[asset_pair.unblinded, lbtc_pair.unblinded];
@@ -212,7 +253,7 @@ fn blind_outputs<C: Signing>(
     Ok(vec![asset_output.3, change_output.3, fee_output.3])
 }
 
-fn output_type(output: &TxOut) -> Result<OutputType> {
+fn output_type(output: &TxOut) -> Result<OutputType, AssetRescueError> {
     if output.script_pubkey.is_p2pkh() {
         Ok(OutputType::Legacy)
     } else if output.script_pubkey.is_p2sh() {
@@ -222,20 +263,20 @@ fn output_type(output: &TxOut) -> Result<OutputType> {
     } else if output.script_pubkey.is_v1_p2tr() {
         Ok(OutputType::SegwitV1)
     } else {
-        Err(anyhow::anyhow!("output has unknown type"))
+        Err(AssetRescueError::UnknownOutputType)
     }
 }
 
 fn unblind_outputs<C: Verification>(
     secp: &Secp256k1<C>,
     input: &AssetPair,
-) -> Result<UnblindedOutput> {
+) -> Result<UnblindedOutput, AssetRescueError> {
     Ok(if input.tx_out.value.is_confidential() {
         let sec = input.tx_out.unblind(
             secp,
             input
                 .blinding_key
-                .context("input has no blinding key")?
+                .ok_or(AssetRescueError::MissingBlindingKey)?
                 .secret_key(),
         )?;
         UnblindedOutput::Unblinded(sec)
@@ -245,12 +286,12 @@ fn unblind_outputs<C: Verification>(
                 .tx_out
                 .asset
                 .explicit()
-                .context("input has no explicit asset")?,
+                .ok_or(AssetRescueError::MissingExplicitAsset)?,
             amount: input
                 .tx_out
                 .value
                 .explicit()
-                .context("input has no explicit value")?,
+                .ok_or(AssetRescueError::MissingExplicitValue)?,
         })
     })
 }
@@ -273,6 +314,8 @@ mod tests {
         secp256k1_zkp::{Message, SecretKey},
         sighash::{Prevouts, SighashCache},
     };
+    type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
     use rstest::rstest;
     use serde::Deserialize;
     use serial_test::serial;

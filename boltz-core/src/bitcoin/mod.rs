@@ -10,7 +10,7 @@ mod scripts;
 mod tx;
 
 pub use scripts::*;
-pub use tx::construct_tx;
+pub use tx::{TxError, construct_tx};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UncooperativeDetails {

@@ -1,10 +1,9 @@
 use crate::{
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
-    elements::InputDetail,
-    target_fee::{FeeTarget, target_fee},
+    elements::{InputDetail, scripts::TreeError},
+    target_fee::{FeeError, FeeTarget, target_fee},
     utils::{Destination, InputType, OutputType},
 };
-use anyhow::Result;
 use bitcoin::Witness;
 use elements::{
     Address, AssetId, BlockHash, EcdsaSighashType, LockTime, RangeProofMessage, SchnorrSig,
@@ -26,6 +25,53 @@ const SIGHASH_TYPE_LEGACY: EcdsaSighashType = EcdsaSighashType::All;
 const SIGHASH_TYPE_TAPROOT: SchnorrSighashType = SchnorrSighashType::Default;
 
 const DUMMY_BLINDED_OUTPUT: u64 = 1;
+
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum TxError {
+    #[error("fee is greater than input sum")]
+    FeeExceedsInputs,
+    #[error("output sum is greater than input sum")]
+    OutputsExceedInputs,
+    #[error("invalid fee rate")]
+    InvalidFeeRate,
+    #[error("all inputs must have the same asset")]
+    MixedAssets,
+    #[error("input {0} has no blinding key")]
+    MissingBlindingKey(usize),
+    #[error("input {0} has no explicit asset")]
+    MissingExplicitAsset(usize),
+    #[error("input {0} has no explicit value")]
+    MissingExplicitValue(usize),
+    #[error("could not finalize taproot builder for input {0}")]
+    TaprootFinalize(usize),
+    #[error("could not create control block for input {0}")]
+    ControlBlock(usize),
+    #[error(transparent)]
+    Tree(#[from] TreeError),
+    #[error(transparent)]
+    LockTime(#[from] elements::locktime::Error),
+    #[error(transparent)]
+    Sighash(#[from] elements::sighash::Error),
+    #[error(transparent)]
+    Address(#[from] elements::AddressError),
+    #[error(transparent)]
+    Unblind(#[from] elements::UnblindError),
+    #[error(transparent)]
+    Confidential(#[from] elements::ConfidentialTxOutError),
+    #[error(transparent)]
+    Secp(#[from] elements::secp256k1_zkp::UpstreamError),
+    #[error(transparent)]
+    SecpZkp(#[from] elements::secp256k1_zkp::Error),
+}
+
+impl From<FeeError> for TxError {
+    fn from(e: FeeError) -> Self {
+        match e {
+            FeeError::InvalidFeeRate => TxError::InvalidFeeRate,
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExplicitOutput {
@@ -86,13 +132,13 @@ pub fn construct_tx<C: Signing + Verification>(
     inputs: &[&InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
-) -> Result<(Transaction, u64)> {
+) -> Result<(Transaction, u64), TxError> {
     let unblinded = unblind_outputs(secp, inputs)?;
     if !unblinded
         .iter()
         .all(|input| input.asset() == unblinded[0].asset())
     {
-        return Err(anyhow::anyhow!("all inputs must have the same asset"));
+        return Err(TxError::MixedAssets);
     }
 
     target_fee(fee, |fee, is_fee_estimation| {
@@ -118,7 +164,7 @@ fn construct_raw<C: Signing + Verification>(
     destination: &Destination<&Address>,
     fee: u64,
     is_fee_estimation: bool,
-) -> Result<Transaction> {
+) -> Result<Transaction, TxError> {
     let mut tx = Transaction {
         version: 2,
         lock_time: if let Some(lock_time) = inputs
@@ -218,12 +264,13 @@ fn construct_raw<C: Signing + Verification>(
                 let control_block = uncooperative
                     .tree
                     .build()?
-                    .finalize(secp, uncooperative.internal_key)?
-                    .control_block(&(leaf.output.clone(), LeafVersion::from_u8(leaf.version)?))
-                    .ok_or(anyhow::anyhow!(
-                        "could not create control block for input {}",
-                        i
-                    ))?;
+                    .finalize(secp, uncooperative.internal_key)
+                    .map_err(|_| TxError::TaprootFinalize(i))?
+                    .control_block(&(
+                        leaf.output.clone(),
+                        LeafVersion::from_u8(leaf.version).map_err(TreeError::Taproot)?,
+                    ))
+                    .ok_or(TxError::ControlBlock(i))?;
 
                 let mut witness = Witness::new();
                 witness.push(sig.to_vec());
@@ -268,7 +315,7 @@ fn construct_raw<C: Signing + Verification>(
 fn unblind_outputs<C: Verification>(
     secp: &Secp256k1<C>,
     inputs: &[&InputDetail],
-) -> Result<Vec<UnblindedOutput>> {
+) -> Result<Vec<UnblindedOutput>, TxError> {
     let mut unblinded = Vec::with_capacity(inputs.len());
 
     for (i, input) in inputs.iter().enumerate() {
@@ -277,20 +324,20 @@ fn unblind_outputs<C: Verification>(
                 let sec = input.tx_out.unblind(secp, blinding_key.secret_key())?;
                 unblinded.push(UnblindedOutput::Unblinded(sec));
             } else {
-                return Err(anyhow::anyhow!("input {i} has no blinding key"));
+                return Err(TxError::MissingBlindingKey(i));
             }
         } else {
             unblinded.push(UnblindedOutput::Explicit(ExplicitOutput {
-                asset: if let Some(asset_id) = input.tx_out.asset.explicit() {
-                    asset_id
-                } else {
-                    return Err(anyhow::anyhow!("input {i} has no explicit asset"));
-                },
-                amount: if let Some(amount) = input.tx_out.value.explicit() {
-                    amount
-                } else {
-                    return Err(anyhow::anyhow!("input {i} has no explicit value"));
-                },
+                asset: input
+                    .tx_out
+                    .asset
+                    .explicit()
+                    .ok_or(TxError::MissingExplicitAsset(i))?,
+                amount: input
+                    .tx_out
+                    .value
+                    .explicit()
+                    .ok_or(TxError::MissingExplicitValue(i))?,
             }));
         }
     }
@@ -304,7 +351,7 @@ fn blind_outputs<C: Signing>(
     destination: &Destination<&Address>,
     fee: u64,
     is_fee_estimation: bool,
-) -> Result<Vec<TxOut>> {
+) -> Result<Vec<TxOut>, TxError> {
     let mut input_sum = unblinded.iter().map(|input| input.amount()).sum::<u64>();
 
     // We need a blinded dummy output if there is some blinded input and none of our outputs are blinded
@@ -358,7 +405,7 @@ fn blind_outputs<C: Signing>(
         Destination::Single(address) => {
             let amount = input_sum
                 .checked_sub(fee)
-                .ok_or(anyhow::anyhow!("fee is greater than input sum"))?;
+                .ok_or(TxError::FeeExceedsInputs)?;
 
             let (blinded, asset_bf, value_bf, output) = create_output(
                 secp,
@@ -397,7 +444,7 @@ fn blind_outputs<C: Signing>(
                 }
                 > input_sum
             {
-                return Err(anyhow::anyhow!("output sum is greater than input sum"));
+                return Err(TxError::OutputsExceedInputs);
             }
 
             for (address, amount) in destination.outputs {
@@ -494,7 +541,7 @@ pub fn create_output<C: Signing>(
     amount: u64,
     is_fee_estimation: bool,
     last_blinding_params: Option<&[(u64, AssetBlindingFactor, ValueBlindingFactor)]>,
-) -> Result<(bool, AssetBlindingFactor, ValueBlindingFactor, TxOut)> {
+) -> Result<(bool, AssetBlindingFactor, ValueBlindingFactor, TxOut), TxError> {
     // When we are just creating the transaction for the fee estimation,
     // we can skip blinding because Discount CT gives the blinding a 100% discount
     if !is_fee_estimation && let Some(blinding_key) = blinding_pubkey {
@@ -558,7 +605,7 @@ fn legacy_signature<C: Signing>(
     secp: &Secp256k1<C>,
     sighash: &Sighash,
     keys: &Keypair,
-) -> Result<Vec<u8>> {
+) -> Result<Vec<u8>, TxError> {
     let mut sig = secp
         .sign_ecdsa_grind_r(
             &Message::from_digest_slice(sighash.as_raw_hash().as_ref())?,
@@ -1695,11 +1742,7 @@ pub mod tests {
             false,
         );
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "fee is greater than input sum"
-        );
+        assert!(matches!(result.unwrap_err(), TxError::FeeExceedsInputs));
     }
 
     #[test]
@@ -1729,11 +1772,7 @@ pub mod tests {
             false,
         );
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "output sum is greater than input sum"
-        );
+        assert!(matches!(result.unwrap_err(), TxError::OutputsExceedInputs));
     }
 
     #[test]

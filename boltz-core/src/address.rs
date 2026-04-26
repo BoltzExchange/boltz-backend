@@ -23,7 +23,7 @@ pub enum AddressError {
     Secp(#[from] elements::secp256k1_zkp::UpstreamError),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Address {
     Bitcoin(BitcoinAddress),
     Elements(ElementsAddress),

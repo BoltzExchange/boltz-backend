@@ -311,7 +311,6 @@ impl SwapManager for Manager {
                         Vec<boltz_core::bitcoin::InputDetail>,
                         boltz_core::WrapperError,
                     >>()?;
-                let inputs = inputs.iter().collect::<Vec<_>>();
 
                 let params =
                     boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
@@ -330,7 +329,6 @@ impl SwapManager for Manager {
                         Vec<boltz_core::elements::InputDetail>,
                         boltz_core::WrapperError,
                     >>()?;
-                let inputs = inputs.iter().collect::<Vec<_>>();
 
                 let params =
                     boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {

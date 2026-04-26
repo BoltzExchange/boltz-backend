@@ -26,7 +26,8 @@ pub struct Outputs<'a, A> {
     pub outputs: &'a [(A, u64)],
 }
 
-pub trait Transaction {
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
+pub(crate) trait Transaction {
     fn input_len(&self) -> usize;
     fn vsize(&self) -> usize;
 }

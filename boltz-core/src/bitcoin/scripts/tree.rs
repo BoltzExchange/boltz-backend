@@ -21,7 +21,7 @@ pub enum TreeError {
     Pubkey(#[from] bitcoin::secp256k1::Error),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tapleaf {
     pub version: u8,
     #[serde(serialize_with = "serializer::serialize")]
@@ -29,7 +29,7 @@ pub struct Tapleaf {
     pub output: ScriptBuf,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tree {
     #[serde(rename = "claimLeaf")]
     pub claim_leaf: Tapleaf,

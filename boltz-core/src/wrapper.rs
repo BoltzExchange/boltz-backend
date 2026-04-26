@@ -50,7 +50,7 @@ impl TryInto<ElementsInputDetail> for InputDetail {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BitcoinParams<'a> {
-    pub inputs: &'a [&'a BitcoinInputDetail],
+    pub inputs: &'a [BitcoinInputDetail],
     pub destination: &'a Destination<'a, &'a BitcoinAddress>,
     pub fee: FeeTarget,
 }
@@ -58,7 +58,7 @@ pub struct BitcoinParams<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElementsParams<'a> {
     pub genesis_hash: BlockHash,
-    pub inputs: &'a [&'a ElementsInputDetail],
+    pub inputs: &'a [ElementsInputDetail],
     pub destination: &'a Destination<'a, &'a ElementsAddress>,
     pub fee: FeeTarget,
 }
@@ -91,6 +91,7 @@ impl Transaction {
     }
 }
 
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx(params: &Params) -> Result<(Transaction, u64), WrapperError> {
     match params {
         Params::Bitcoin(params) => {

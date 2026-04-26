@@ -79,6 +79,7 @@ struct UnblindedAssetPair<'a> {
     unblinded: UnblindedOutput,
 }
 
+#[must_use = "ignoring the result discards the constructed rescue transaction"]
 pub fn construct_asset_rescue<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     network: Network,

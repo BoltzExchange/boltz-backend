@@ -10,7 +10,10 @@ mod scripts;
 mod tx;
 
 pub use asset_rescue::{AssetPair, AssetRescueError, construct_asset_rescue};
-pub use scripts::*;
+pub use scripts::{
+    ClaimCovenantParams, Tapleaf, Tree, TreeError, create_covenant_claim_leaf, reverse_script,
+    reverse_tree, swap_script, swap_tree,
+};
 pub use tx::{TxError, construct_tx};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

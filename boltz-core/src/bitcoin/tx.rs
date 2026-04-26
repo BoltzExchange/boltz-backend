@@ -56,9 +56,10 @@ impl From<FeeError> for TxError {
     }
 }
 
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<(Transaction, u64), TxError> {
@@ -67,9 +68,10 @@ pub fn construct_tx<C: Signing + Verification>(
     })
 }
 
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     destination: &Destination<&Address>,
     fee: Amount,
 ) -> Result<Transaction, TxError> {
@@ -581,7 +583,7 @@ mod tests {
         let fee = 1_000;
         let (mut tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -648,7 +650,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -700,7 +702,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -737,7 +739,7 @@ mod tests {
         let fee_rate = 3.0;
         let (mut tx, fee) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -805,7 +807,7 @@ mod tests {
         let fee_rate = 3.0;
         let (tx, fee) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -846,7 +848,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -887,7 +889,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -919,7 +921,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -960,7 +962,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -992,7 +994,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1033,7 +1035,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1083,7 +1085,7 @@ mod tests {
         let fee_rate = 4.0;
         let (tx, fee) = construct_tx(
             &secp,
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -1124,7 +1126,7 @@ mod tests {
         let fee = 500;
         let (tx, _) = construct_tx(
             &secp,
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,
@@ -1176,7 +1178,12 @@ mod tests {
         };
 
         let fee = Amount::from_sat(amount.to_sat() + 1);
-        let result = construct_raw(&secp, &[&input], &Destination::Single(&address), fee);
+        let result = construct_raw(
+            &secp,
+            std::slice::from_ref(&input),
+            &Destination::Single(&address),
+            fee,
+        );
 
         assert_eq!(result.unwrap_err(), TxError::FeeExceedsInputs);
     }
@@ -1211,7 +1218,7 @@ mod tests {
         let outputs = [(&dest, amount.to_sat() - fee.to_sat() + 1)];
         let result = construct_raw(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,

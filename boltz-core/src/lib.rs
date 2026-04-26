@@ -12,8 +12,10 @@ pub mod utils;
 #[cfg(all(feature = "bitcoin", feature = "elements"))]
 pub mod wrapper;
 
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 mod consts;
 mod preimage_detector;
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 mod target_fee;
 
 #[cfg(test)]
@@ -30,6 +32,7 @@ pub use musig::{Musig, MusigError};
 #[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub use network::{Network, NetworkError};
 pub use preimage_detector::detect_preimage;
+#[cfg(any(feature = "bitcoin", feature = "elements"))]
 pub use target_fee::FeeTarget;
 pub use utils::Destination;
 #[cfg(all(feature = "bitcoin", feature = "elements"))]

@@ -1,3 +1,70 @@
+//! MuSig2 cooperative signing.
+//!
+//! This module wraps `secp256k1`'s MuSig2 primitives in a phantom-typed
+//! state machine ([`MusigBuilder`]) so the type system enforces the
+//! protocol order: a method can only be called when the builder is in the
+//! state that method is allowed in. Six type aliases name the reachable
+//! states ([`Setup`], [`WithMessage`], [`WithNonce`], [`WithAggregatedNonces`],
+//! [`WithSession`], [`SignedSession`]).
+//!
+//! The full protocol flow is: [`Musig::setup`] → [`Setup::message`] →
+//! [`WithMessage::generate_nonce`] → exchange [`WithNonce::pub_nonce`] with
+//! co-signers → [`WithNonce::aggregate_nonces`] → [`WithAggregatedNonces::initialize_session`]
+//! → [`WithSession::partial_sign`] → exchange partial signatures via
+//! [`MusigBuilder::partial_add`] → [`SignedSession::partial_aggregate`].
+//!
+//! For nonce-handling escape hatches see [`WithMessage::dangerous_set_nonce`]
+//! and [`WithNonce::dangerous_secnonce`]. Reusing a secret nonce leaks the
+//! private key — read those `# Safety` blocks before persisting nonce state
+//! across processes.
+//!
+//! # Example: 2-of-2 cooperative signing
+//!
+//! Each party drives its own [`MusigBuilder`] through the protocol and they
+//! exchange the public nonce and partial signature in between.
+//!
+//! ```
+//! use boltz_core::musig::Musig;
+//! use secp256k1::{Keypair, rand};
+//!
+//! let our_key = Keypair::new(&mut rand::rng());
+//! let their_key = Keypair::new(&mut rand::rng());
+//! let pub_keys = vec![our_key.public_key(), their_key.public_key()];
+//! let msg = [0x42u8; 32];
+//!
+//! // Each party initializes its own builder up to the nonce phase.
+//! let our = Musig::setup(our_key, pub_keys.clone())?
+//!     .message(msg)
+//!     .generate_nonce(&mut rand::rng());
+//! let their = Musig::setup(their_key, pub_keys)?
+//!     .message(msg)
+//!     .generate_nonce(&mut rand::rng());
+//!
+//! // Exchange public nonces.
+//! let our_pub_nonce = *our.pub_nonce();
+//! let their_pub_nonce = *their.pub_nonce();
+//!
+//! // Each party aggregates the other's nonce, opens the session, and signs.
+//! let our = our
+//!     .aggregate_nonces(vec![(their_key.public_key(), their_pub_nonce)])?
+//!     .initialize_session()?
+//!     .partial_sign()?;
+//! let their = their
+//!     .aggregate_nonces(vec![(our_key.public_key(), our_pub_nonce)])?
+//!     .initialize_session()?
+//!     .partial_sign()?;
+//!
+//! // Counterparty sends their partial signature; we absorb it and aggregate.
+//! let their_partial = their.our_partial_signature();
+//! let combined = our.partial_add(their_key.public_key(), their_partial)?;
+//!
+//! let agg_pk = combined.agg_pk();
+//! let final_sig = combined.partial_aggregate()?;
+//! final_sig.verify(&agg_pk, &msg)?;
+//! # Ok::<(), boltz_core::musig::MusigError>(())
+//! ```
+#![deny(missing_docs)]
+
 use secp256k1::musig::{
     AggregatedNonce, AggregatedSignature, KeyAggCache, PartialSignature, PublicNonce, SecretNonce,
     Session, SessionSecretRand,
@@ -6,49 +73,131 @@ use secp256k1::rand::rngs::ThreadRng;
 use secp256k1::{Keypair, PublicKey, Scalar, SecretKey, rand};
 use std::marker::PhantomData;
 
+/// Re-export of `secp256k1::XOnlyPublicKey` used as the aggregated MuSig2 public key.
 pub use secp256k1::XOnlyPublicKey;
 
+/// Errors produced by the MuSig2 builder.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MusigError {
+    /// The local public key was not present in the list passed to [`Musig::setup`].
     #[error("our public key is not in the list of public keys")]
     OurKeyNotInList,
+    /// A public key was looked up that does not appear in the participant list.
     #[error("key not found in public keys")]
     KeyNotFound,
+    /// Tried to aggregate nonces before [`WithMessage::generate_nonce`] was called.
     #[error("our nonce is not generated yet")]
     OurNonceNotGenerated,
+    /// The set of nonces passed to [`WithNonce::aggregate_nonces`] does not match the participant count.
     #[error("incorrect number of nonces")]
     IncorrectNonceCount,
+    /// No nonce was supplied for the participant identified by this hex-encoded public key.
     #[error("nonce not found for key: {0}")]
     NonceNotFoundForKey(String),
+    /// In [`WithNonce::aggregate_nonces_ordered`] our own nonce is not at our participant index.
     #[error("our nonce is at incorrect index")]
     OurNonceWrongIndex,
+    /// A partial signature passed to [`MusigBuilder::partial_add`] failed verification.
     #[error("partial signature is not valid")]
     InvalidPartialSignature,
+    /// At [`SignedSession::partial_aggregate`] some participants had not contributed a partial signature.
     #[error("partial signature is missing")]
     MissingPartialSignature,
+    /// Underlying `secp256k1` error.
     #[error(transparent)]
     Secp(#[from] secp256k1::Error),
+    /// Failed to parse a public nonce, partial signature, or related MuSig2 byte payload.
     #[error(transparent)]
     Parse(#[from] secp256k1::musig::ParseError),
+    /// Tweak supplied to [`Setup::xonly_tweak_add`] is invalid.
     #[error(transparent)]
     InvalidTweak(#[from] secp256k1::musig::InvalidTweakErr),
+    /// A scalar value passed to [`Musig::convert_scalar_be`] exceeds the curve order.
     #[error(transparent)]
     OutOfRange(#[from] secp256k1::scalar::OutOfRangeError),
+    /// A byte slice did not have the expected fixed length for the value being parsed.
     #[error(transparent)]
     Slice(#[from] std::array::TryFromSliceError),
 }
 
-pub struct NoMessage;
-pub struct MissingNonce;
-pub struct NonceGenerated;
-pub struct NoncesAggregated;
-pub struct SessionInitialized;
+/// Compile-time state markers for [`MusigBuilder`].
+///
+/// These types parameterize the builder so each method is only callable in
+/// the appropriate phase of the MuSig2 protocol. They are sealed: external
+/// crates cannot implement [`State`] or [`Signedness`].
+pub mod state {
+    /// Marks a state in the protocol progression
+    /// (initial → message set → nonce generated → nonces aggregated → session ready).
+    pub trait State: sealed::Sealed {}
+    /// Marks whether the local partial signature has been produced yet.
+    pub trait Signedness: sealed::Sealed {}
 
-pub struct Unsigned;
-pub struct Signed;
+    /// Initial state: builder constructed, no message bound yet.
+    pub struct NoMessage;
+    /// Message has been set; local nonce not yet generated.
+    pub struct MissingNonce;
+    /// Local nonce generated; awaiting co-signer nonces.
+    pub struct NonceGenerated;
+    /// All nonces aggregated; session not yet initialized.
+    pub struct NoncesAggregated;
+    /// Session initialized; ready to sign / verify partial signatures.
+    pub struct SessionInitialized;
 
-pub struct MusigBuilder<S, T> {
+    /// The local participant has not produced a partial signature yet.
+    pub struct Unsigned;
+    /// The local participant has produced a partial signature.
+    pub struct Signed;
+
+    impl State for NoMessage {}
+    impl State for MissingNonce {}
+    impl State for NonceGenerated {}
+    impl State for NoncesAggregated {}
+    impl State for SessionInitialized {}
+
+    impl Signedness for Unsigned {}
+    impl Signedness for Signed {}
+
+    mod sealed {
+        pub trait Sealed {}
+        impl Sealed for super::NoMessage {}
+        impl Sealed for super::MissingNonce {}
+        impl Sealed for super::NonceGenerated {}
+        impl Sealed for super::NoncesAggregated {}
+        impl Sealed for super::SessionInitialized {}
+        impl Sealed for super::Unsigned {}
+        impl Sealed for super::Signed {}
+    }
+}
+
+use state::{
+    MissingNonce, NoMessage, NonceGenerated, NoncesAggregated, SessionInitialized, Signed,
+    Signedness, State, Unsigned,
+};
+
+/// Builder right after [`Musig::setup`]: ready to absorb a message.
+pub type Setup = MusigBuilder<NoMessage, Unsigned>;
+/// Builder after [`MusigBuilder::message`]: ready to generate a nonce.
+pub type WithMessage = MusigBuilder<MissingNonce, Unsigned>;
+/// Builder after [`MusigBuilder::generate_nonce`]: ready to aggregate co-signer nonces.
+pub type WithNonce = MusigBuilder<NonceGenerated, Unsigned>;
+/// Builder after [`MusigBuilder::aggregate_nonces`]: ready to initialize the session.
+pub type WithAggregatedNonces = MusigBuilder<NoncesAggregated, Unsigned>;
+/// Builder after [`MusigBuilder::initialize_session`]: ready to produce a partial signature.
+pub type WithSession = MusigBuilder<SessionInitialized, Unsigned>;
+/// Builder after [`MusigBuilder::partial_sign`]: ready to aggregate partial signatures.
+pub type SignedSession = MusigBuilder<SessionInitialized, Signed>;
+
+/// Phantom-typed state machine that drives a MuSig2 signing session.
+///
+/// The two type parameters track which protocol step the builder is in
+/// (`S: State`) and whether the local participant has produced their
+/// partial signature yet (`T: Signedness`). The reachable states are spelled
+/// out by the [`Setup`], [`WithMessage`], [`WithNonce`],
+/// [`WithAggregatedNonces`], [`WithSession`], and [`SignedSession`] type
+/// aliases. See the [module-level example](self) for end-to-end usage.
+#[must_use = "MusigBuilder advances the signing state machine; dropping it discards signing progress"]
+pub struct MusigBuilder<S: State, T: Signedness> {
     key: Keypair,
     msg: Option<[u8; 32]>,
     nonce: Option<(SecretNonce, PublicNonce)>,
@@ -64,11 +213,13 @@ pub struct MusigBuilder<S, T> {
     _signed: PhantomData<T>,
 }
 
-impl<S, T> MusigBuilder<S, T> {
+impl<S: State, T: Signedness> MusigBuilder<S, T> {
+    /// The aggregated x-only public key for this signing session.
     pub fn agg_pk(&self) -> XOnlyPublicKey {
         self.aggcache.agg_pk()
     }
 
+    /// Number of participants in this signing session.
     pub fn num_participants(&self) -> usize {
         self.pub_keys.len()
     }
@@ -85,7 +236,10 @@ impl<S, T> MusigBuilder<S, T> {
     }
 }
 
-impl MusigBuilder<NoMessage, Unsigned> {
+impl Setup {
+    /// Construct a new MuSig2 builder for the given local key and participant set.
+    ///
+    /// Returns [`MusigError::OurKeyNotInList`] if `key`'s public key is not in `pub_keys`.
     pub fn new(key: Keypair, pub_keys: Vec<PublicKey>) -> Result<Self, MusigError> {
         let our_pubkey = key.public_key();
         if !pub_keys.contains(&our_pubkey) {
@@ -109,12 +263,14 @@ impl MusigBuilder<NoMessage, Unsigned> {
         })
     }
 
+    /// Apply an x-only tweak to the aggregated public key (BIP-341 taproot tweak).
     pub fn xonly_tweak_add(mut self, tweak: &Scalar) -> Result<Self, MusigError> {
         self.aggcache.pubkey_xonly_tweak_add(tweak)?;
         Ok(self)
     }
 
-    pub fn message(self, msg: [u8; 32]) -> MusigBuilder<MissingNonce, Unsigned> {
+    /// Bind the 32-byte message that will be signed and advance to [`WithMessage`].
+    pub fn message(self, msg: [u8; 32]) -> WithMessage {
         MusigBuilder {
             key: self.key,
             msg: Some(msg),
@@ -131,18 +287,16 @@ impl MusigBuilder<NoMessage, Unsigned> {
     }
 }
 
-impl MusigBuilder<MissingNonce, Unsigned> {
-    pub fn generate_nonce<R: rand::Rng + ?Sized>(
-        self,
-        rng: &mut R,
-    ) -> MusigBuilder<NonceGenerated, Unsigned> {
+impl WithMessage {
+    /// Generate a fresh MuSig2 nonce pair from `rng` and advance to [`WithNonce`].
+    pub fn generate_nonce<R: rand::Rng + ?Sized>(self, rng: &mut R) -> WithNonce {
         let session_secrand = SessionSecretRand::from_rng(rng);
-        let (secret, public) = self.aggcache.nonce_gen(
-            session_secrand,
-            self.key.public_key(),
-            &self.msg.unwrap(),
-            None,
-        );
+        let msg = self
+            .msg
+            .expect("WithMessage state guarantees message is set");
+        let (secret, public) =
+            self.aggcache
+                .nonce_gen(session_secrand, self.key.public_key(), &msg, None);
 
         MusigBuilder {
             key: self.key,
@@ -159,12 +313,47 @@ impl MusigBuilder<MissingNonce, Unsigned> {
         }
     }
 
-    /// Reusing the same nonce will lead to leaking the private key
+    /// Inject a caller-supplied MuSig2 nonce pair instead of generating one.
+    ///
+    /// This bypasses the secure nonce generation in [`Self::generate_nonce`]
+    /// and is intended only for restoring builder state across processes
+    /// (e.g. resuming a half-finished signing session from on-disk storage)
+    /// or for deterministic test vectors. Production code should use
+    /// [`Self::generate_nonce`].
+    ///
+    /// # Safety
+    ///
+    /// MuSig2 derives security from the secret nonce being **uniformly random
+    /// and used at most once across the lifetime of the signing key**. The
+    /// caller is responsible for upholding the following invariants; violating
+    /// any of them allows an attacker to recover the secret key from two
+    /// resulting partial signatures:
+    ///
+    /// - `sec_nonce` MUST come from a cryptographically secure RNG (or an
+    ///   equally unpredictable source — never a counter, timestamp, hash of
+    ///   the message, or output of a non-CSPRNG).
+    /// - The pair `(sec_nonce, pub_nonce)` MUST never have been used to
+    ///   produce a partial signature with this `Keypair` against any message,
+    ///   *including across process restarts, replicas, and backups*.
+    /// - `sec_nonce` MUST NOT be logged or sent to any other party. If persisted
+    ///   for resumption, the storage backend becomes part of the trusted signing
+    ///   boundary: anyone who can read the nonce and observe the resulting
+    ///   partial signature can recover the signing key. Keep persisted nonces
+    ///   short-lived, access-controlled, restored at most once, and deleted
+    ///   immediately after the partial signature is produced. The pre-signature
+    ///   `pub_nonce` may be shared.
+    /// - `pub_nonce` MUST be the public counterpart of `sec_nonce` — supplying
+    ///   a mismatched pair will produce signatures that fail verification.
+    ///
+    /// Reusing the same `sec_nonce` for two different messages, two different
+    /// co-signer sets, or two different aggregated nonces leaks the private
+    /// key. Treat any state restored through this method as single-use: once
+    /// `partial_sign` runs, the nonce is burned forever.
     pub fn dangerous_set_nonce(
         self,
         sec_nonce: &[u8],
         pub_nonce: &[u8],
-    ) -> Result<MusigBuilder<NonceGenerated, Unsigned>, MusigError> {
+    ) -> Result<WithNonce, MusigError> {
         Ok(MusigBuilder {
             key: self.key,
             msg: self.msg,
@@ -184,20 +373,59 @@ impl MusigBuilder<MissingNonce, Unsigned> {
     }
 }
 
-impl MusigBuilder<NonceGenerated, Unsigned> {
+impl WithNonce {
+    /// The public nonce to share with co-signers.
     pub fn pub_nonce(&self) -> &PublicNonce {
-        self.nonce.as_ref().map(|(_, pubnonce)| pubnonce).unwrap()
+        self.nonce
+            .as_ref()
+            .map(|(_, pubnonce)| pubnonce)
+            .expect("WithNonce state guarantees nonce is set")
     }
 
-    /// Reusing the same nonce will lead to leaking the private key
+    /// Extract the raw secret nonce, consuming the builder.
+    ///
+    /// This exists so callers can serialize a half-finished signing session —
+    /// for example, persist `(sec_nonce, pub_nonce)` to disk and resume later
+    /// via [`MusigBuilder::dangerous_set_nonce`]. Production code that signs
+    /// in a single process should never need this: feed the builder straight
+    /// through `aggregate_nonces` → `initialize_session` → `partial_sign` and
+    /// let the secret nonce drop on the floor.
+    ///
+    /// # Safety
+    ///
+    /// The returned [`SecretNonce`] is single-use signing material: any code
+    /// path that obtains it must guarantee the following invariants. Failure
+    /// to do so allows an attacker who observes two resulting partial
+    /// signatures to recover the private key.
+    ///
+    /// - The nonce MUST be used to produce **at most one** partial signature.
+    ///   That includes signing the same `(message, co-signer set, aggregated
+    ///   nonce)` combination twice — every combination counts as a separate
+    ///   use.
+    /// - The nonce MUST NOT be reused across replicas, retries, restored
+    ///   backups, or after a crash. Treat it as consumed the moment it leaves
+    ///   this method, even if the resulting signature was never broadcast.
+    /// - The nonce MUST NOT be logged, sent over the wire, or shared with any
+    ///   other party (including co-signers — they only ever see the public
+    ///   nonce).
+    /// - When persisting for resumption, treat the storage backend as part of
+    ///   the trusted signing boundary. Anyone who can read the nonce and
+    ///   observe the resulting partial signature can recover the signing key.
+    ///   Keep persisted nonces short-lived, access-controlled, delete them from
+    ///   storage as soon as the partial signature is produced, and never
+    ///   restore the same blob more than once.
     pub fn dangerous_secnonce(self) -> SecretNonce {
-        self.nonce.unwrap().0
+        self.nonce
+            .expect("WithNonce state guarantees nonce is set")
+            .0
     }
 
+    /// Aggregate co-signer public nonces (any order; this method matches them by public key)
+    /// and advance to [`WithAggregatedNonces`]. Our own nonce is appended automatically if missing.
     pub fn aggregate_nonces(
         self,
         mut nonces: Vec<(PublicKey, PublicNonce)>,
-    ) -> Result<MusigBuilder<NoncesAggregated, Unsigned>, MusigError> {
+    ) -> Result<WithAggregatedNonces, MusigError> {
         if !nonces.iter().any(|(pk, _)| pk == &self.key.public_key()) {
             if let Some((_, our_nonce)) = &self.nonce {
                 nonces.push((self.key.public_key(), *our_nonce));
@@ -225,16 +453,21 @@ impl MusigBuilder<NonceGenerated, Unsigned> {
         self.aggregate_nonces_ordered(ordered)
     }
 
+    /// Aggregate co-signer public nonces, where `nonces[i]` corresponds to participant `i`
+    /// in the same order as the public keys passed to [`Musig::setup`].
     pub fn aggregate_nonces_ordered(
         self,
         nonces: Vec<PublicNonce>,
-    ) -> Result<MusigBuilder<NoncesAggregated, Unsigned>, MusigError> {
+    ) -> Result<WithAggregatedNonces, MusigError> {
         if nonces.len() != self.num_participants() {
             return Err(MusigError::IncorrectNonceCount);
         }
 
         if let Some((_, our_nonce)) = &self.nonce {
-            if nonces[self.our_index()?] != *our_nonce {
+            let our_index = self
+                .our_index()
+                .expect("our public key is in pub_keys (checked at builder construction)");
+            if nonces[our_index] != *our_nonce {
                 return Err(MusigError::OurNonceWrongIndex);
             }
         } else {
@@ -257,11 +490,16 @@ impl MusigBuilder<NonceGenerated, Unsigned> {
     }
 }
 
-impl MusigBuilder<NoncesAggregated, Unsigned> {
-    pub fn initialize_session(
-        self,
-    ) -> Result<MusigBuilder<SessionInitialized, Unsigned>, MusigError> {
-        let session = Session::new(&self.aggcache, self.aggnonce.unwrap(), &self.msg.unwrap());
+impl WithAggregatedNonces {
+    /// Open a MuSig2 signing session bound to the message and aggregated nonces.
+    pub fn initialize_session(self) -> Result<WithSession, MusigError> {
+        let aggnonce = self
+            .aggnonce
+            .expect("WithAggregatedNonces state guarantees aggnonce is set");
+        let msg = self
+            .msg
+            .expect("WithAggregatedNonces state guarantees message is set");
+        let session = Session::new(&self.aggcache, aggnonce, &msg);
 
         Ok(MusigBuilder {
             key: self.key,
@@ -279,20 +517,26 @@ impl MusigBuilder<NoncesAggregated, Unsigned> {
     }
 }
 
-impl<T> MusigBuilder<SessionInitialized, T> {
+impl<T: Signedness> MusigBuilder<SessionInitialized, T> {
+    /// Verify a partial signature claimed to be produced by `public_key` against this session.
     pub fn partial_verify(
         &self,
         public_key: PublicKey,
         sig: PartialSignature,
     ) -> Result<bool, MusigError> {
         let index = self.key_index(public_key)?;
-        let nonce = self.pub_nonces.as_ref().unwrap()[index];
-        Ok(self
+        let nonce = self
+            .pub_nonces
+            .as_ref()
+            .expect("SessionInitialized state guarantees pub_nonces is set")[index];
+        let session = self
             .session
-            .unwrap()
-            .partial_verify(&self.aggcache, &sig, &nonce, public_key))
+            .expect("SessionInitialized state guarantees session is set");
+        Ok(session.partial_verify(&self.aggcache, &sig, &nonce, public_key))
     }
 
+    /// Verify the partial signature, then store it for the participant identified by `public_key`.
+    /// Returns [`MusigError::InvalidPartialSignature`] if verification fails.
     pub fn partial_add(
         mut self,
         public_key: PublicKey,
@@ -309,14 +553,22 @@ impl<T> MusigBuilder<SessionInitialized, T> {
     }
 }
 
-impl MusigBuilder<SessionInitialized, Unsigned> {
-    pub fn partial_sign(mut self) -> Result<MusigBuilder<SessionInitialized, Signed>, MusigError> {
-        let partial_sig = self.session.unwrap().partial_sign(
-            self.nonce.take().unwrap().0,
-            &self.key,
-            &self.aggcache,
-        );
-        let our_index = self.our_index()?;
+impl WithSession {
+    /// Produce the local participant's partial signature and advance to [`SignedSession`].
+    pub fn partial_sign(mut self) -> Result<SignedSession, MusigError> {
+        let session = self
+            .session
+            .expect("SessionInitialized state guarantees session is set");
+        let secret_nonce = self
+            .nonce
+            .take()
+            .expect("SessionInitialized + Unsigned state guarantees nonce is set")
+            .0;
+        let partial_sig = session.partial_sign(secret_nonce, &self.key, &self.aggcache);
+        let our_index = self
+            .our_index()
+            .expect("our public key is in pub_keys (checked at builder construction)");
+        debug_assert!(self.partial_sigs[our_index].is_none());
         self.partial_sigs[our_index] = Some(partial_sig);
 
         Ok(MusigBuilder {
@@ -335,13 +587,20 @@ impl MusigBuilder<SessionInitialized, Unsigned> {
     }
 }
 
-impl<T> MusigBuilder<T, Signed> {
+impl<T: State> MusigBuilder<T, Signed> {
+    /// The local participant's partial signature, ready to send to co-signers.
     pub fn our_partial_signature(&self) -> PartialSignature {
-        self.partial_sigs[self.our_index().unwrap()].unwrap()
+        let our_index = self
+            .our_index()
+            .expect("our public key is in pub_keys (checked at builder construction)");
+        self.partial_sigs[our_index]
+            .expect("Signed state guarantees our partial signature is filled")
     }
 }
 
-impl MusigBuilder<SessionInitialized, Signed> {
+impl SignedSession {
+    /// Combine all participants' partial signatures into a final BIP-340 aggregate signature.
+    /// Returns [`MusigError::MissingPartialSignature`] if any participant has not contributed.
     pub fn partial_aggregate(self) -> Result<AggregatedSignature, MusigError> {
         let partial_sigs: Result<Vec<_>, MusigError> = self
             .partial_sigs
@@ -349,40 +608,48 @@ impl MusigBuilder<SessionInitialized, Signed> {
             .map(|s| s.as_ref().ok_or(MusigError::MissingPartialSignature))
             .collect();
 
-        Ok(self.session.unwrap().partial_sig_agg(&partial_sigs?))
+        let session = self
+            .session
+            .expect("SessionInitialized state guarantees session is set");
+        Ok(session.partial_sig_agg(&partial_sigs?))
     }
 }
 
+/// Zero-sized facade for entry points and byte-payload conversion helpers.
 pub struct Musig;
 
 impl Musig {
-    pub fn setup(
-        key: Keypair,
-        pub_keys: Vec<PublicKey>,
-    ) -> Result<MusigBuilder<NoMessage, Unsigned>, MusigError> {
-        MusigBuilder::new(key, pub_keys)
+    /// Construct a new [`Setup`] builder for the given local key and participant set.
+    pub fn setup(key: Keypair, pub_keys: Vec<PublicKey>) -> Result<Setup, MusigError> {
+        Setup::new(key, pub_keys)
     }
 
+    /// Build a `Keypair` from a 32-byte secret key.
     pub fn convert_keypair(sk: [u8; 32]) -> Result<Keypair, MusigError> {
         Ok(Keypair::from_secret_key(&SecretKey::from_secret_bytes(sk)?))
     }
 
+    /// Parse a serialized (33- or 65-byte) compressed/uncompressed public key.
     pub fn convert_pub_key(pub_key: &[u8]) -> Result<PublicKey, MusigError> {
         Ok(PublicKey::from_slice(pub_key)?)
     }
 
+    /// Parse a serialized 66-byte MuSig2 public nonce.
     pub fn convert_pub_nonce(pub_nonce: &[u8]) -> Result<PublicNonce, MusigError> {
         Ok(PublicNonce::from_byte_array(pub_nonce.try_into()?)?)
     }
 
+    /// Parse a 32-byte big-endian scalar (e.g. a BIP-341 taproot tweak).
     pub fn convert_scalar_be(scalar: &[u8]) -> Result<Scalar, MusigError> {
         Ok(Scalar::from_be_bytes(scalar.try_into()?)?)
     }
 
+    /// Parse a serialized 32-byte MuSig2 partial signature.
     pub fn convert_partial_signature(sig: &[u8]) -> Result<PartialSignature, MusigError> {
         Ok(PartialSignature::from_byte_array(sig.try_into()?)?)
     }
 
+    /// Convenience accessor for the thread-local RNG used by `secp256k1`.
     pub fn rng() -> ThreadRng {
         rand::rng()
     }
@@ -394,6 +661,18 @@ mod tests {
     use rstest::rstest;
     use secp256k1::musig::new_nonce_pair;
     use secp256k1::rand::Rng;
+    use static_assertions::assert_impl_all;
+
+    // MusigBuilder is held across `.await` points in async signing flows;
+    // any future field that isn't `Send + Sync` must fail the build here.
+    assert_impl_all!(Setup: Send, Sync);
+    assert_impl_all!(WithMessage: Send, Sync);
+    assert_impl_all!(WithNonce: Send, Sync);
+    assert_impl_all!(WithAggregatedNonces: Send, Sync);
+    assert_impl_all!(WithSession: Send, Sync);
+    assert_impl_all!(SignedSession: Send, Sync);
+    assert_impl_all!(Musig: Send, Sync);
+    assert_impl_all!(MusigError: Send, Sync);
 
     #[test]
     fn test_our_key_not_in_list() {

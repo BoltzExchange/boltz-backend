@@ -110,12 +110,14 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: boltz-core feature matrix
-        run: |
-          set -euxo pipefail
-          for features in "" "bitcoin" "musig" "elements" "bitcoin,musig" "elements,musig" "bitcoin,elements" "bitcoin,elements,musig"; do
-            cargo check -p boltz-core --no-default-features --features "$features"
-          done
+        run: just boltz-core-features
+
+      - name: boltz-core docs
+        run: just boltz-core-docs
 
       - name: Tests
         run: cargo test

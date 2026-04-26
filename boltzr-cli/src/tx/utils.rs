@@ -81,7 +81,7 @@ pub fn construct_transaction(
                 handle_output_type(&secp, &swap_tree_or_redeem_script, &tx, &keys)?;
 
             Params::Bitcoin(BitcoinParams {
-                inputs: &[&BitcoinInputDetail {
+                inputs: &[BitcoinInputDetail {
                     input_type,
                     output_type,
                     outpoint: BitcoinOutPoint::new(tx.compute_txid(), vout),
@@ -101,7 +101,7 @@ pub fn construct_transaction(
                 handle_output_type_elements(&secp, &swap_tree_or_redeem_script, &tx, &keys)?;
 
             Params::Elements(ElementsParams {
-                inputs: &[&ElementsInputDetail {
+                inputs: &[ElementsInputDetail {
                     input_type,
                     output_type,
                     outpoint: ElementsOutPoint::new(tx.txid(), vout),

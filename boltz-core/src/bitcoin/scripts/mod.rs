@@ -9,4 +9,4 @@ pub use reverse_script::reverse_script;
 pub use reverse_tree::reverse_tree;
 pub use swap_script::swap_script;
 pub use swap_tree::swap_tree;
-pub use tree::*;
+pub use tree::{Tapleaf, Tree, TreeError};

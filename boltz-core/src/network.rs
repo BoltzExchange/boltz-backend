@@ -14,7 +14,7 @@ pub enum NetworkError {
     SignetUnsupported(&'static str),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Network {
     Mainnet,
     Testnet,

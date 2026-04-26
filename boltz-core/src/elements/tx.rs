@@ -74,26 +74,26 @@ impl From<FeeError> for TxError {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ExplicitOutput {
-    pub asset: AssetId,
-    pub amount: u64,
+pub(crate) struct ExplicitOutput {
+    pub(crate) asset: AssetId,
+    pub(crate) amount: u64,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum UnblindedOutput {
+pub(crate) enum UnblindedOutput {
     Unblinded(TxOutSecrets),
     Explicit(ExplicitOutput),
 }
 
 impl UnblindedOutput {
-    pub fn amount(&self) -> u64 {
+    pub(crate) fn amount(&self) -> u64 {
         match self {
             UnblindedOutput::Unblinded(sec) => sec.value,
             UnblindedOutput::Explicit(out) => out.amount,
         }
     }
 
-    pub fn asset(&self) -> AssetId {
+    pub(crate) fn asset(&self) -> AssetId {
         match self {
             UnblindedOutput::Unblinded(sec) => sec.asset,
             UnblindedOutput::Explicit(out) => out.asset,
@@ -126,10 +126,11 @@ impl From<&UnblindedOutput> for (u64, AssetBlindingFactor, ValueBlindingFactor) 
     }
 }
 
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     genesis_hash: BlockHash,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<(Transaction, u64), TxError> {
@@ -159,7 +160,7 @@ pub fn construct_tx<C: Signing + Verification>(
 fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     genesis_hash: BlockHash,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     unblinded: &[UnblindedOutput],
     destination: &Destination<&Address>,
     fee: u64,
@@ -314,7 +315,7 @@ fn construct_raw<C: Signing + Verification>(
 
 fn unblind_outputs<C: Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
 ) -> Result<Vec<UnblindedOutput>, TxError> {
     let mut unblinded = Vec::with_capacity(inputs.len());
 
@@ -532,7 +533,7 @@ fn blind_outputs<C: Signing>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn create_output<C: Signing>(
+pub(crate) fn create_output<C: Signing>(
     secp: &Secp256k1<C>,
     unblinded: &[UnblindedOutput],
     asset: (AssetId, AssetBlindingFactor),
@@ -1084,7 +1085,7 @@ pub mod tests {
         let (mut tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1167,7 +1168,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1227,7 +1228,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1262,7 +1263,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1312,7 +1313,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1347,7 +1348,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1397,7 +1398,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1432,7 +1433,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1482,7 +1483,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1537,7 +1538,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
@@ -1595,7 +1596,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
@@ -1645,7 +1646,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,

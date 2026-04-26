@@ -2065,6 +2065,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
+ "static_assertions",
  "thiserror 2.0.18",
 ]
 

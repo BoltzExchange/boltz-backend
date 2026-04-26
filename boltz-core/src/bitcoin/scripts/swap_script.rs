@@ -34,7 +34,7 @@ pub fn swap_script(
     script
 }
 
-pub fn push_int(script: &mut ScriptBuf, data: i64) {
+pub(crate) fn push_int(script: &mut ScriptBuf, data: i64) {
     let mut lock_time_buf = [0u8; 8];
     let len = write_scriptint(&mut lock_time_buf, data);
     script.push_slice(&<&PushBytes>::from(&lock_time_buf)[..len])

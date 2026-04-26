@@ -9,7 +9,7 @@ use bitcoin::{
 mod scripts;
 mod tx;
 
-pub use scripts::*;
+pub use scripts::{Tapleaf, Tree, TreeError, reverse_script, reverse_tree, swap_script, swap_tree};
 pub use tx::{TxError, construct_tx};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

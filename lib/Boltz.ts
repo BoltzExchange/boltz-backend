@@ -34,6 +34,7 @@ import NotificationProvider from './notifications/NotificationProvider';
 import Service from './service/Service';
 import Sidecar from './sidecar/Sidecar';
 import NodeSwitch from './swap/NodeSwitch';
+import OverpaymentProtector from './swap/OverpaymentProtector';
 import type { Currency } from './wallet/WalletManager';
 import WalletManager from './wallet/WalletManager';
 import EthereumManager from './wallet/ethereum/EthereumManager';
@@ -133,6 +134,11 @@ class Boltz {
       );
     });
 
+    const overpaymentProtector = new OverpaymentProtector(
+      this.logger,
+      this.config.swap.overpayment,
+    );
+
     this.ethereumManagers = [
       { network: networks.Ethereum, config: this.config.ethereum },
       { network: networks.Rootstock, config: this.config.rsk },
@@ -144,7 +150,7 @@ class Boltz {
             this.logger,
             network,
             config!,
-            this.config.swap.overpayment,
+            overpaymentProtector,
           );
         } catch (error) {
           this.logger.warn(
@@ -192,6 +198,7 @@ class Boltz {
         this.sidecar,
         this.config.swap,
         this.routingFee,
+        overpaymentProtector,
       );
 
       if (notificationClient !== undefined) {

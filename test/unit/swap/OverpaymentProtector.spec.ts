@@ -1,58 +1,64 @@
 import type { OverPaymentConfig } from '../../../lib/Config';
 import Logger from '../../../lib/Logger';
 import { SwapType } from '../../../lib/consts/Enums';
-import OverpaymentProtector, {
-  getAllowedPositiveSlippage,
-  getAllowedPositiveSlippageFromConfig,
-  overpaymentDefaultConfig,
-  resolvePositiveSlippageTolerance,
-} from '../../../lib/swap/OverpaymentProtector';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 
 describe('OverpaymentProtector', () => {
-  describe('resolvePositiveSlippageTolerance', () => {
-    test('should resolve undefined config to defaults', () => {
-      expect(resolvePositiveSlippageTolerance()).toEqual({
-        exemptAmount: overpaymentDefaultConfig.exemptAmount,
-        maxPercentage: overpaymentDefaultConfig.maxPercentage / 100,
-      });
+  describe('constructor', () => {
+    test('should use config when given as parameter', () => {
+      const config: OverPaymentConfig = {
+        exemptAmount: 123,
+        maxPercentage: 432,
+      };
+      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
+
+      expect(protector['exemptAmount']).toEqual(config.exemptAmount);
+      expect(protector['maxPercentage']).toEqual(config.maxPercentage);
     });
 
-    test('should resolve partial config to defaults', () => {
-      expect(resolvePositiveSlippageTolerance({ exemptAmount: 123 })).toEqual({
+    test('should coalesce exempt amount', () => {
+      const config: OverPaymentConfig = {
+        maxPercentage: 432,
+      };
+      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
+
+      expect(protector['exemptAmount']).toEqual(
+        OverpaymentProtector['defaultConfig'].exemptAmount,
+      );
+      expect(protector['maxPercentage']).toEqual(config.maxPercentage);
+    });
+
+    test('should coalesce max fee percentage', () => {
+      const config: OverPaymentConfig = {
         exemptAmount: 123,
-        maxPercentage: overpaymentDefaultConfig.maxPercentage / 100,
-      });
-      expect(resolvePositiveSlippageTolerance({ maxPercentage: 4 })).toEqual({
-        exemptAmount: overpaymentDefaultConfig.exemptAmount,
-        maxPercentage: 0.04,
-      });
+      };
+      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
+
+      expect(protector['exemptAmount']).toEqual(config.exemptAmount);
+      expect(protector['maxPercentage']).toEqual(
+        OverpaymentProtector['defaultConfig'].maxPercentage,
+      );
+    });
+
+    test('should handle undefined config', () => {
+      const protector = new OverpaymentProtector(Logger.disabledLogger);
+
+      expect(protector['exemptAmount']).toEqual(
+        OverpaymentProtector['defaultConfig'].exemptAmount,
+      );
+      expect(protector['maxPercentage']).toEqual(
+        OverpaymentProtector['defaultConfig'].maxPercentage,
+      );
     });
 
     test('should preserve zero config values', () => {
-      expect(
-        resolvePositiveSlippageTolerance({
-          exemptAmount: 0,
-          maxPercentage: 0,
-        }),
-      ).toEqual({
+      const protector = new OverpaymentProtector(Logger.disabledLogger, {
         exemptAmount: 0,
         maxPercentage: 0,
       });
-    });
 
-    test('should prefer percentage override over config and defaults', () => {
-      expect(
-        resolvePositiveSlippageTolerance(
-          {
-            exemptAmount: 123,
-            maxPercentage: 4,
-          },
-          6,
-        ),
-      ).toEqual({
-        exemptAmount: 123,
-        maxPercentage: 0.06,
-      });
+      expect(protector['exemptAmount']).toEqual(0);
+      expect(protector['maxPercentage']).toEqual(0);
     });
   });
 
@@ -64,78 +70,67 @@ describe('OverpaymentProtector', () => {
       ${100}       | ${{ exemptAmount: 123 }}                 | ${undefined}          | ${123}
       ${10_000}    | ${{ exemptAmount: 0, maxPercentage: 1 }} | ${3.5}                | ${350}
     `(
-      'should calculate allowed slippage from resolved config',
+      'should calculate allowed slippage from configured tolerance',
       ({ amount, config, maxPercentageOverride, expected }) => {
         expect(
-          getAllowedPositiveSlippageFromConfig(
-            amount,
+          new OverpaymentProtector(
+            Logger.disabledLogger,
             config,
-            maxPercentageOverride,
-          ),
+          ).getAllowedPositiveSlippage(amount, maxPercentageOverride),
         ).toBeCloseTo(expected);
       },
     );
 
     test('should use the larger configured tolerance', () => {
       expect(
-        getAllowedPositiveSlippage(10_000, {
+        new OverpaymentProtector(Logger.disabledLogger, {
           exemptAmount: 123,
-          maxPercentage: 0.02,
-        }),
+          maxPercentage: 2,
+        }).getAllowedPositiveSlippage(10_000),
       ).toEqual(200);
     });
-  });
 
-  describe('constructor', () => {
-    test('should use config when given as parameter', () => {
-      const config: OverPaymentConfig = {
-        exemptAmount: 123,
-        maxPercentage: 432,
-      };
-      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
+    test.each`
+      amount  | config                                      | maxPercentageOverride | expected
+      ${101}  | ${{ exemptAmount: 0, maxPercentage: 1 }}    | ${undefined}          | ${2}
+      ${333}  | ${{ exemptAmount: 0, maxPercentage: 1 }}    | ${undefined}          | ${4}
+      ${999}  | ${{ exemptAmount: 0, maxPercentage: 0.05 }} | ${undefined}          | ${1}
+      ${1}    | ${{ exemptAmount: 0, maxPercentage: 1 }}    | ${undefined}          | ${1}
+      ${1000} | ${{ exemptAmount: 0, maxPercentage: 1 }}    | ${0.05}               | ${1}
+    `(
+      'should round non-integer slippage up to the next integer',
+      ({ amount, config, maxPercentageOverride, expected }) => {
+        expect(
+          new OverpaymentProtector(
+            Logger.disabledLogger,
+            config,
+          ).getAllowedPositiveSlippage(amount, maxPercentageOverride),
+        ).toEqual(expected);
+      },
+    );
 
-      expect(protector['overPaymentExemptAmount']).toEqual(config.exemptAmount);
-      expect(protector['overPaymentMaxPercentage']).toEqual(
-        config.maxPercentage! / 100,
-      );
-    });
+    test.each`
+      amount    | config                                   | maxPercentageOverride
+      ${10_000} | ${{ exemptAmount: 0, maxPercentage: 2 }} | ${undefined}
+      ${5_000}  | ${{ exemptAmount: 0, maxPercentage: 1 }} | ${4}
+    `(
+      'should leave already-integer slippage unchanged',
+      ({ amount, config, maxPercentageOverride }) => {
+        const protector = new OverpaymentProtector(
+          Logger.disabledLogger,
+          config,
+        );
+        const result = protector.getAllowedPositiveSlippage(
+          amount,
+          maxPercentageOverride,
+        );
 
-    test('should coalesce exempt amount', () => {
-      const config: OverPaymentConfig = {
-        maxPercentage: 432,
-      };
-      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
-
-      expect(protector['overPaymentExemptAmount']).toEqual(
-        OverpaymentProtector['defaultConfig'].exemptAmount,
-      );
-      expect(protector['overPaymentMaxPercentage']).toEqual(
-        config.maxPercentage! / 100,
-      );
-    });
-
-    test('should coalesce max fee percentage', () => {
-      const config: OverPaymentConfig = {
-        exemptAmount: 123,
-      };
-      const protector = new OverpaymentProtector(Logger.disabledLogger, config);
-
-      expect(protector['overPaymentExemptAmount']).toEqual(config.exemptAmount);
-      expect(protector['overPaymentMaxPercentage']).toEqual(
-        OverpaymentProtector['defaultConfig'].maxPercentage / 100,
-      );
-    });
-
-    test('should handle undefined config', () => {
-      const protector = new OverpaymentProtector(Logger.disabledLogger);
-
-      expect(protector['overPaymentExemptAmount']).toEqual(
-        OverpaymentProtector['defaultConfig'].exemptAmount,
-      );
-      expect(protector['overPaymentMaxPercentage']).toEqual(
-        OverpaymentProtector['defaultConfig'].maxPercentage / 100,
-      );
-    });
+        expect(Number.isInteger(result)).toBe(true);
+        expect(result).toEqual(
+          amount * ((maxPercentageOverride ?? config.maxPercentage) / 100),
+        );
+      },
+    );
   });
 
   describe('isUnacceptableOverpay', () => {

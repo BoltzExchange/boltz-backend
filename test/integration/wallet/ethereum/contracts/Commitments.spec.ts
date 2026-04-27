@@ -22,6 +22,7 @@ import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentR
 import PairRepository from '../../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../../../lib/service/TimeoutDeltaProvider';
+import OverpaymentProtector from '../../../../../lib/swap/OverpaymentProtector';
 import Wallet from '../../../../../lib/wallet/Wallet';
 import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
 import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
@@ -52,6 +53,8 @@ describe('Commitments', () => {
   const eventHandler = {
     handleEvent: jest.fn(),
   } as unknown as ConsolidatedEventHandler;
+
+  const overpaymentProtector = new OverpaymentProtector(Logger.disabledLogger);
 
   const fetchSignerNonce = async () => {
     const address = await setup.signer.getAddress();
@@ -133,6 +136,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       expect(commitments['commitmentTimelockMinutes']).toEqual(14 * 24 * 60);
@@ -145,6 +150,7 @@ describe('Commitments', () => {
         networks.Ethereum,
         eventHandler,
         customTimelock,
+        overpaymentProtector,
       );
 
       expect(commitments['commitmentTimelockMinutes']).toEqual(customTimelock);
@@ -157,6 +163,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -175,6 +183,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -222,6 +232,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -262,6 +274,7 @@ describe('Commitments', () => {
         networks.Ethereum,
         eventHandler,
         commitmentTimelockMinutes,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -342,6 +355,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contractV5 = {
@@ -382,6 +397,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -408,6 +425,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       commitments.init(setup.provider as any, setup.signer, [], new Map());
@@ -424,6 +443,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -453,6 +474,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -482,6 +505,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contractV5 = {
@@ -525,6 +550,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -553,6 +580,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       commitments.init(setup.provider as any, setup.signer, [], new Map());
@@ -569,6 +598,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -775,7 +806,7 @@ describe('Commitments', () => {
         networks.Ethereum,
         eventHandler,
         undefined,
-        overPaymentConfig,
+        new OverpaymentProtector(Logger.disabledLogger, overPaymentConfig),
       );
 
       const contract = {

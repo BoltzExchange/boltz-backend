@@ -38,6 +38,7 @@ import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import Errors from '../../../lib/swap/Errors';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
 import SwapOutputType from '../../../lib/swap/SwapOutputType';
 import Wallet from '../../../lib/wallet/Wallet';
@@ -468,6 +469,7 @@ describe('SwapManager', () => {
       {} as any,
       sidecar,
       {} as any,
+      new OverpaymentProtector(Logger.disabledLogger),
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);

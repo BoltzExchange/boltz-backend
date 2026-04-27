@@ -8,15 +8,12 @@ import {
   Transaction,
   getAddress,
 } from 'ethers';
-import type {
-  ArbitrumConfig,
-  EthereumConfig,
-  OverPaymentConfig,
-} from '../../Config';
+import type { ArbitrumConfig, EthereumConfig } from '../../Config';
 import type Logger from '../../Logger';
 import { formatError, stringify } from '../../Utils';
 import { CurrencyType } from '../../consts/Enums';
 import ChainTipRepository from '../../db/repositories/ChainTipRepository';
+import type OverpaymentProtector from '../../swap/OverpaymentProtector';
 import Errors from '../Errors';
 import Wallet from '../Wallet';
 import ERC20WalletProvider from '../providers/ERC20WalletProvider';
@@ -63,7 +60,7 @@ class EthereumManager {
     private readonly logger: Logger,
     public readonly networkDetails: NetworkDetails,
     private readonly config: EthereumConfig | ArbitrumConfig,
-    private readonly overPaymentConfig?: OverPaymentConfig,
+    private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     if (
       config === null ||
@@ -109,7 +106,7 @@ class EthereumManager {
       this.networkDetails,
       this.contractEventHandler,
       this.config.commitmentTimelock,
-      this.overPaymentConfig,
+      this.overpaymentProtector,
     );
   }
 

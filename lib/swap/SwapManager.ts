@@ -90,6 +90,7 @@ import type WalletManager from '../wallet/WalletManager';
 import Errors from './Errors';
 import NodeFallback from './NodeFallback';
 import NodeSwitch, { ReverseSwapNodeResolutionStatus } from './NodeSwitch';
+import type OverpaymentProtector from './OverpaymentProtector';
 import ReverseRoutingHints from './ReverseRoutingHints';
 import SwapNursery from './SwapNursery';
 import type SwapOutputType from './SwapOutputType';
@@ -213,6 +214,7 @@ class SwapManager {
     lockupTransactionTracker: LockupTransactionTracker,
     private readonly sidecar: Sidecar,
     balanceCheck: BalanceCheck,
+    overpaymentProtector: OverpaymentProtector,
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
@@ -250,7 +252,7 @@ class SwapManager {
       this.deferredClaimer,
       this.chainSwapSigner,
       lockupTransactionTracker,
-      swapConfig.overpayment,
+      overpaymentProtector,
       swapConfig.paymentTimeoutMinutes,
     );
 
@@ -263,7 +265,7 @@ class SwapManager {
       this.eipSigner,
       rateProvider,
       balanceCheck,
-      swapConfig.overpayment,
+      overpaymentProtector,
     );
 
     this.reverseRoutingHints = new ReverseRoutingHints(

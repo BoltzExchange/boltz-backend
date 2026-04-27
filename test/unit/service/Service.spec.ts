@@ -58,6 +58,7 @@ import Service, {
 import { InvoiceType } from '../../../lib/sidecar/DecodedInvoice';
 import type Sidecar from '../../../lib/sidecar/Sidecar';
 import NodeSwitch from '../../../lib/swap/NodeSwitch';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import SwapManager from '../../../lib/swap/SwapManager';
 import type Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -840,6 +841,7 @@ describe('Service', () => {
         cltvDelta: 20,
       },
       new RoutingFee(Logger.disabledLogger),
+      new OverpaymentProtector(Logger.disabledLogger),
     );
 
   const service = createService();

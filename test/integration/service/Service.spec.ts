@@ -3,6 +3,7 @@ import { CurrencyType } from '../../../lib/consts/Enums';
 import RoutingFee from '../../../lib/lightning/RoutingFee';
 import Errors from '../../../lib/service/Errors';
 import Service from '../../../lib/service/Service';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import { bitcoinClient, elementsClient } from '../Nodes';
 
@@ -101,6 +102,7 @@ describe('Service', () => {
       cltvDelta: 20,
     },
     new RoutingFee(Logger.disabledLogger),
+    new OverpaymentProtector(Logger.disabledLogger),
   );
 
   beforeAll(async () => {

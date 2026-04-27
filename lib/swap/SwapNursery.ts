@@ -4,7 +4,6 @@ import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import type { ContractTransactionResponse } from 'ethers';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import type { OverPaymentConfig } from '../Config';
 import type {
   ClaimDetails,
   LiquidClaimDetails,
@@ -88,7 +87,7 @@ import EthereumNursery from './EthereumNursery';
 import InvoiceNursery from './InvoiceNursery';
 import LightningNursery from './LightningNursery';
 import NodeSwitch, { ReverseSwapNodeResolutionStatus } from './NodeSwitch';
-import OverpaymentProtector from './OverpaymentProtector';
+import type OverpaymentProtector from './OverpaymentProtector';
 import type { SwapNurseryEvents } from './PaymentHandler';
 import PaymentHandler from './PaymentHandler';
 import RefundWatcher from './RefundWatcher';
@@ -145,7 +144,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     private readonly claimer: DeferredClaimer,
     private readonly chainSwapSigner: ChainSwapSigner,
     lockupTransactionTracker: LockupTransactionTracker,
-    overPaymentConfig?: OverPaymentConfig,
+    overpaymentProtector: OverpaymentProtector,
     paymentTimeoutMinutes?: number,
   ) {
     super();
@@ -154,10 +153,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
 
     this.transactionHook = new TransactionHook(this.logger, notifications);
 
-    const overpaymentProtector = new OverpaymentProtector(
-      this.logger,
-      overPaymentConfig,
-    );
     this.arkNursery = new ArkNursery(this.logger, overpaymentProtector);
     this.utxoNursery = new UtxoNursery(
       this.logger,

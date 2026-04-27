@@ -92,6 +92,7 @@ import { InvoiceType } from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
 import SwapErrors from '../swap/Errors';
 import NodeSwitch from '../swap/NodeSwitch';
+import type OverpaymentProtector from '../swap/OverpaymentProtector';
 import type { SwapNurseryEvents } from '../swap/PaymentHandler';
 import SwapManager from '../swap/SwapManager';
 import SwapOutputType from '../swap/SwapOutputType';
@@ -188,6 +189,7 @@ class Service {
     public readonly sidecar: Sidecar,
     public readonly swapConfig: Pick<SwapConfig, 'cltvDelta'>,
     public readonly routingFee: RoutingFee,
+    overpaymentProtector: OverpaymentProtector,
   ) {
     this.prepayMinerFee = config.prepayminerfee;
     this.logger.debug(
@@ -250,6 +252,7 @@ class Service {
       this.lockupTransactionTracker,
       this.sidecar,
       this.balanceCheck,
+      overpaymentProtector,
     );
     this.walletManager.ethereumManagers.forEach((manager) => {
       manager.commitments.setRefundSignatureLock(

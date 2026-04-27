@@ -1,7 +1,6 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Signature, type Signer } from 'ethers';
-import type { OverPaymentConfig } from '../../../Config';
 import type Logger from '../../../Logger';
 import { formatError, getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
@@ -18,7 +17,7 @@ import CommitmentRepository from '../../../db/repositories/CommitmentRepository'
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../service/TimeoutDeltaProvider';
 import type { RefundSignatureLock } from '../../../service/cooperative/EipSigner';
-import { getAllowedPositiveSlippageFromConfig } from '../../../swap/OverpaymentProtector';
+import type OverpaymentProtector from '../../../swap/OverpaymentProtector';
 import type Wallet from '../../Wallet';
 import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
 import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
@@ -57,8 +56,8 @@ class Commitments {
     private readonly logger: Logger,
     private readonly network: NetworkDetails,
     private readonly eventHandler: ConsolidatedEventHandler,
-    commitmentTimelockMinutes?: number,
-    private readonly overPaymentConfig?: OverPaymentConfig,
+    commitmentTimelockMinutes: number | undefined,
+    private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     this.commitmentTimelockMinutes =
       commitmentTimelockMinutes ?? Commitments.defaultCommitmentTimelockMinutes;
@@ -325,9 +324,8 @@ class Commitments {
     const overpayment = actualAmount - expectedAmount;
     if (
       overpayment >
-      getAllowedPositiveSlippageFromConfig(
+      this.overpaymentProtector.getAllowedPositiveSlippage(
         expectedAmount,
-        this.overPaymentConfig,
         maxOverpaymentPercentage,
       )
     ) {

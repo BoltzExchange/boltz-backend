@@ -23,6 +23,7 @@ import type EipSigner from '../../../lib/service/cooperative/EipSigner';
 import { TransactionStatus } from '../../../lib/sidecar/Sidecar';
 import ErrorsSwap from '../../../lib/swap/Errors';
 import type EthereumNursery from '../../../lib/swap/EthereumNursery';
+import OverpaymentProtector from '../../../lib/swap/OverpaymentProtector';
 import type SwapNursery from '../../../lib/swap/SwapNursery';
 import type UtxoNursery from '../../../lib/swap/UtxoNursery';
 import type WalletManager from '../../../lib/wallet/WalletManager';
@@ -156,7 +157,7 @@ describe('Renegotiator', () => {
       eipSigner,
       rateProvider,
       balanceCheck,
-      overPaymentConfig,
+      new OverpaymentProtector(Logger.disabledLogger, overPaymentConfig),
     );
 
   beforeAll(async () => {

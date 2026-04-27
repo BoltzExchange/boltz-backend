@@ -1,8 +1,15 @@
 use crate::utils::Transaction;
 
+/// How a transaction's fee should be selected.
+///
+/// Implements `From<u64>` ([`FeeTarget::Absolute`]) and `From<f64>`
+/// ([`FeeTarget::Relative`]) for ergonomic call sites.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FeeTarget {
+    /// Pay exactly this many satoshis as fee, regardless of transaction size.
     Absolute(u64),
+    /// Pay this fee rate, in sat/vB. The transaction is built once to
+    /// estimate its virtual size, then rebuilt with the resulting fee.
     Relative(f64),
 }
 
@@ -22,6 +29,15 @@ impl From<u64> for FeeTarget {
 impl From<f64> for FeeTarget {
     fn from(value: f64) -> Self {
         Self::Relative(value)
+    }
+}
+
+impl std::fmt::Display for FeeTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FeeTarget::Absolute(fee) => write!(f, "{} sat", fee),
+            FeeTarget::Relative(rate) => write!(f, "{} sat/vB", rate),
+        }
     }
 }
 
@@ -93,6 +109,12 @@ mod tests {
 
         let relative = 21.21;
         assert_eq!(FeeTarget::from(relative), FeeTarget::Relative(relative));
+    }
+
+    #[test]
+    fn test_display() {
+        assert_eq!(FeeTarget::Absolute(1000).to_string(), "1000 sat");
+        assert_eq!(FeeTarget::Relative(2.5).to_string(), "2.5 sat/vB");
     }
 
     #[test]

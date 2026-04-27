@@ -7,30 +7,40 @@ use elements::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Errors returned by Elements [`Tree`] / [`Tapleaf`] operations.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum TreeError {
+    /// The claim leaf script does not contain a 32-byte x-only public key push.
     #[error("claim leaf does not contain a public key")]
     ClaimMissingPubkey,
+    /// The refund leaf script does not contain a 32-byte x-only public key push.
     #[error("refund leaf does not contain a public key")]
     RefundMissingPubkey,
+    /// Failed to decode a Taproot leaf version.
     #[error(transparent)]
     Taproot(#[from] TaprootError),
+    /// The Taproot tree builder rejected the leaf layout.
     #[error(transparent)]
     Builder(#[from] TaprootBuilderError),
+    /// Failed to parse an x-only public key from a leaf script push.
     #[error(transparent)]
     Pubkey(#[from] elements::secp256k1_zkp::UpstreamError),
 }
 
+/// One leaf of an Elements Taproot script tree.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tapleaf {
+    /// Tapscript leaf version (typically `0xC0`).
     pub version: u8,
+    /// The leaf script.
     #[serde(serialize_with = "serializer::serialize")]
     #[serde(deserialize_with = "serializer::deserialize")]
     pub output: Script,
 }
 
 impl Tapleaf {
+    /// Compute the BIP-341 tagged leaf hash of this leaf.
     pub fn leaf_hash(&self) -> Result<TapLeafHash, TreeError> {
         Ok(TapLeafHash::from_script(
             &self.output,
@@ -39,17 +49,28 @@ impl Tapleaf {
     }
 }
 
+/// The Elements Taproot script tree used by Boltz swaps.
+///
+/// Layout matches the Bitcoin tree but optionally adds a third covenant
+/// claim leaf for reverse swaps that pin the claim transaction's outputs
+/// via Liquid's introspection opcodes (see
+/// [`ClaimCovenantParams`](crate::elements::ClaimCovenantParams)).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tree {
+    /// Leaf gating the claim spend (preimage + claim signature).
     #[serde(rename = "claimLeaf")]
     pub claim_leaf: Tapleaf,
+    /// Leaf gating the refund spend (refund signature after `lock_time`).
     #[serde(rename = "refundLeaf")]
     pub refund_leaf: Tapleaf,
+    /// Optional covenant variant of the claim leaf, pinning the claim
+    /// transaction's outputs (asset, value, destination).
     #[serde(rename = "covenantClaimLeaf", skip_serializing_if = "Option::is_none")]
     pub covenant_claim_leaf: Option<Tapleaf>,
 }
 
 impl Tree {
+    /// Build a [`TaprootBuilder`] populated with this tree's leaves.
     pub fn build(&self) -> Result<TaprootBuilder, TreeError> {
         if let Some(covenant_claim_leaf) = &self.covenant_claim_leaf {
             Ok(TaprootBuilder::new()
@@ -83,11 +104,13 @@ impl Tree {
         }
     }
 
+    /// Extract the claim x-only public key from the claim leaf script.
     pub fn claim_pubkey(&self) -> Result<XOnlyPublicKey, TreeError> {
         self.get_pubkey(&self.claim_leaf)?
             .ok_or(TreeError::ClaimMissingPubkey)
     }
 
+    /// Extract the refund x-only public key from the refund leaf script.
     pub fn refund_pubkey(&self) -> Result<XOnlyPublicKey, TreeError> {
         self.get_pubkey(&self.refund_leaf)?
             .ok_or(TreeError::RefundMissingPubkey)

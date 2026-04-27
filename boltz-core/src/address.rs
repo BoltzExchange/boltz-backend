@@ -1,3 +1,6 @@
+//! Chain-agnostic [`Address`] that holds either a Bitcoin or an
+//! Elements address.
+
 use crate::{Network, network::NetworkError};
 use bitcoin::{Address as BitcoinAddress, Script as BitcoinScript};
 use elements::{
@@ -6,26 +9,40 @@ use elements::{
 };
 use std::str::FromStr;
 
+/// Errors returned when parsing or constructing an [`Address`].
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum AddressError {
+    /// The value held an Elements address but a Bitcoin address was requested.
     #[error("cannot convert Elements address to Bitcoin address")]
     NotBitcoin,
+    /// The value held a Bitcoin address but an Elements address was requested.
     #[error("cannot convert Bitcoin address to Elements address")]
     NotElements,
+    /// The provided script could not be decoded into an address.
     #[error("failed to parse script")]
     InvalidScript,
+    /// Failed to parse an address string.
     #[error(transparent)]
     Parse(#[from] elements::AddressError),
+    /// The selected [`Network`] does not support the requested operation.
     #[error(transparent)]
     Network(#[from] NetworkError),
+    /// Failed to parse a blinding public key.
     #[error(transparent)]
     Secp(#[from] elements::secp256k1_zkp::UpstreamError),
 }
 
+/// Either a Bitcoin or an Elements (Liquid) address.
+///
+/// Use [`Address::try_from`] to parse a string of unknown chain. Use
+/// [`Address::from_bitcoin_script`] or [`Address::from_elements_script`] when
+/// the chain is known and the address is constructed from a scriptPubKey.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Address {
+    /// A Bitcoin address.
     Bitcoin(BitcoinAddress),
+    /// An Elements (Liquid) address, optionally blinded.
     Elements(ElementsAddress),
 }
 
@@ -81,12 +98,16 @@ impl std::fmt::Display for Address {
 }
 
 impl Address {
+    /// Decode `script` as a Bitcoin scriptPubKey on `network`.
     pub fn from_bitcoin_script(network: Network, script: &[u8]) -> Result<Self, AddressError> {
         BitcoinAddress::from_script(BitcoinScript::from_bytes(script), network.bitcoin())
             .map(Address::Bitcoin)
             .map_err(|_| AddressError::InvalidScript)
     }
 
+    /// Decode `script` as an Elements scriptPubKey on `network`.
+    ///
+    /// Pass `Some(blinding_pubkey)` to produce a confidential (blinded) address.
     pub fn from_elements_script(
         network: Network,
         script: Vec<u8>,

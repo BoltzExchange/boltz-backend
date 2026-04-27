@@ -13,15 +13,28 @@ use elements::{
 
 pub const PREIMAGE_SIZE: i64 = 32;
 
+/// Pinned outputs that a reverse-swap covenant claim leaf enforces via
+/// Liquid's introspection opcodes.
+///
+/// Used by [`create_covenant_claim_leaf`] and the
+/// [`reverse_tree`](crate::elements::reverse_tree) covenant variant: the
+/// claim transaction must publish output number `index` paying
+/// `expected_amount` of `asset_id` to `output`'s `scriptPubKey`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimCovenantParams {
+    /// Index of the output the covenant pins.
     pub index: u32,
 
+    /// Address whose `scriptPubKey` the pinned output must match.
     pub output: Address,
+    /// Asset id the pinned output must carry.
     pub asset_id: AssetId,
+    /// Explicit value the pinned output must carry, in the asset's base unit.
     pub expected_amount: u64,
 }
 
+/// Build the covenant claim [`Tapleaf`] enforcing `params` on a
+/// reverse-swap claim transaction. See [`ClaimCovenantParams`].
 pub fn create_covenant_claim_leaf(
     preimage_hash: hash160::Hash,
     params: &ClaimCovenantParams,
@@ -69,12 +82,12 @@ macro_rules! slice_segwit_script {
 fn script_introspection_value(output: &Address) -> (i64, Vec<u8>) {
     let mut script = output.script_pubkey().to_bytes();
 
-    match script[0] {
-        val if val == OP_PUSHBYTES_0.into_u8() => {
+    match script.first().copied() {
+        Some(val) if val == OP_PUSHBYTES_0.into_u8() => {
             slice_segwit_script!(script);
             (0, script)
         }
-        val if val == OP_PUSHNUM_1.into_u8() => {
+        Some(val) if val == OP_PUSHNUM_1.into_u8() => {
             slice_segwit_script!(script);
             (1, script)
         }

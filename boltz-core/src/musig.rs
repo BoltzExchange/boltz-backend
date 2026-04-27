@@ -467,7 +467,7 @@ impl WithNonce {
             let our_index = self
                 .our_index()
                 .expect("our public key is in pub_keys (checked at builder construction)");
-            if nonces[our_index] != *our_nonce {
+            if nonces.get(our_index) != Some(our_nonce) {
                 return Err(MusigError::OurNonceWrongIndex);
             }
         } else {
@@ -525,10 +525,12 @@ impl<T: Signedness> MusigBuilder<SessionInitialized, T> {
         sig: PartialSignature,
     ) -> Result<bool, MusigError> {
         let index = self.key_index(public_key)?;
-        let nonce = self
+        let nonce = *self
             .pub_nonces
             .as_ref()
-            .expect("SessionInitialized state guarantees pub_nonces is set")[index];
+            .expect("SessionInitialized state guarantees pub_nonces is set")
+            .get(index)
+            .expect("pub_nonces.len() == pub_keys.len() (builder invariant)");
         let session = self
             .session
             .expect("SessionInitialized state guarantees session is set");
@@ -547,7 +549,10 @@ impl<T: Signedness> MusigBuilder<SessionInitialized, T> {
         }
 
         let index = self.key_index(public_key)?;
-        self.partial_sigs[index] = Some(sig);
+        *self
+            .partial_sigs
+            .get_mut(index)
+            .expect("partial_sigs.len() == pub_keys.len() (builder invariant)") = Some(sig);
 
         Ok(self)
     }
@@ -568,8 +573,12 @@ impl WithSession {
         let our_index = self
             .our_index()
             .expect("our public key is in pub_keys (checked at builder construction)");
-        debug_assert!(self.partial_sigs[our_index].is_none());
-        self.partial_sigs[our_index] = Some(partial_sig);
+        let our_slot = self
+            .partial_sigs
+            .get_mut(our_index)
+            .expect("partial_sigs.len() == pub_keys.len() (builder invariant)");
+        debug_assert!(our_slot.is_none());
+        *our_slot = Some(partial_sig);
 
         Ok(MusigBuilder {
             key: self.key,
@@ -593,7 +602,9 @@ impl<T: State> MusigBuilder<T, Signed> {
         let our_index = self
             .our_index()
             .expect("our public key is in pub_keys (checked at builder construction)");
-        self.partial_sigs[our_index]
+        self.partial_sigs
+            .get(our_index)
+            .expect("partial_sigs.len() == pub_keys.len() (builder invariant)")
             .expect("Signed state guarantees our partial signature is filled")
     }
 }

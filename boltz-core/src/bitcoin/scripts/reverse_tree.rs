@@ -8,6 +8,14 @@ use bitcoin::{
     taproot::TAPROOT_LEAF_TAPSCRIPT,
 };
 
+/// Build the Taproot script tree for a reverse swap.
+///
+/// Identical layout to [`swap_tree`](crate::bitcoin::swap_tree) with an
+/// extra `OP_SIZE 32 OP_EQUALVERIFY` guard on the claim leaf. Lightning
+/// HTLCs are keyed by a 32-byte preimage, so without this consensus-level
+/// check the claim transaction could reveal a preimage of any length —
+/// leaving the Lightning side unable to settle the corresponding invoice
+/// and the reverse swap effectively stuck.
 pub fn reverse_tree(
     preimage_hash: hash160::Hash,
     claim_pubkey: &XOnlyPublicKey,

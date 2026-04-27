@@ -15,6 +15,19 @@ use elements::{
     taproot::TAPROOT_LEAF_TAPSCRIPT,
 };
 
+/// Build the Elements Taproot script tree for a reverse swap.
+///
+/// The claim leaf carries an `OP_SIZE 32 OP_EQUALVERIFY` guard ahead of
+/// the preimage hash check. Lightning HTLCs are keyed by a 32-byte
+/// preimage, so without this consensus-level check the claim transaction
+/// could reveal a preimage of any length — leaving the Lightning side
+/// unable to settle the corresponding invoice and the reverse swap
+/// effectively stuck.
+///
+/// Pass `claim_covenant_params = Some(...)` to add a covenant leaf that
+/// pins the claim transaction's outputs (asset, amount, destination) at
+/// script-construction time, so the user can reveal the preimage to a
+/// third-party claimer without trusting them to forward the funds.
 pub fn reverse_tree(
     preimage_hash: hash160::Hash,
     claim_pubkey: &XOnlyPublicKey,

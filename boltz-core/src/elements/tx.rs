@@ -26,41 +26,65 @@ const SIGHASH_TYPE_TAPROOT: SchnorrSighashType = SchnorrSighashType::Default;
 
 const DUMMY_BLINDED_OUTPUT: u64 = 1;
 
+/// Errors returned by Elements [`construct_tx`].
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum TxError {
+    /// The selected fee is larger than the sum of (unblinded) input values.
     #[error("fee is greater than input sum")]
     FeeExceedsInputs,
+    /// The explicit outputs sum to more than the inputs (before fee).
     #[error("output sum is greater than input sum")]
     OutputsExceedInputs,
+    /// The relative fee rate is non-finite or negative.
     #[error("invalid fee rate")]
     InvalidFeeRate,
+    /// Called with an empty `inputs` slice.
+    #[error("inputs must not be empty")]
+    EmptyInputs,
+    /// An internal output index was out of range during blinding (a builder-state bug).
+    #[error("output index {0} out of range")]
+    OutputIndexOutOfBounds(usize),
+    /// Inputs span more than one asset (only single-asset spends are supported here).
     #[error("all inputs must have the same asset")]
     MixedAssets,
+    /// The named confidential input did not carry a blinding key.
     #[error("input {0} has no blinding key")]
     MissingBlindingKey(usize),
+    /// The named explicit input did not expose its asset.
     #[error("input {0} has no explicit asset")]
     MissingExplicitAsset(usize),
+    /// The named explicit input did not expose its value.
     #[error("input {0} has no explicit value")]
     MissingExplicitValue(usize),
+    /// The Taproot builder could not finalize the script tree for the named input.
     #[error("could not finalize taproot builder for input {0}")]
     TaprootFinalize(usize),
+    /// No control block was found for the named input's spend leaf.
     #[error("could not create control block for input {0}")]
     ControlBlock(usize),
+    /// A swap [`Tree`](crate::elements::Tree) operation failed.
     #[error(transparent)]
     Tree(#[from] TreeError),
+    /// Failed to convert a height/time value into a [`LockTime`].
     #[error(transparent)]
     LockTime(#[from] elements::locktime::Error),
+    /// Failed to compute a sighash.
     #[error(transparent)]
     Sighash(#[from] elements::sighash::Error),
+    /// Failed to parse an Elements address.
     #[error(transparent)]
     Address(#[from] elements::AddressError),
+    /// Failed to unblind a confidential input.
     #[error(transparent)]
     Unblind(#[from] elements::UnblindError),
+    /// Failed to construct a confidential output (range proof, surjection proof, ...).
     #[error(transparent)]
     Confidential(#[from] elements::ConfidentialTxOutError),
+    /// A secp256k1 (upstream) operation failed.
     #[error(transparent)]
     Secp(#[from] elements::secp256k1_zkp::UpstreamError),
+    /// A secp256k1-zkp operation (range proof, surjection proof) failed.
     #[error(transparent)]
     SecpZkp(#[from] elements::secp256k1_zkp::Error),
 }
@@ -126,6 +150,19 @@ impl From<&UnblindedOutput> for (u64, AssetBlindingFactor, ValueBlindingFactor) 
     }
 }
 
+/// Build, sign, and finalize an Elements transaction spending `inputs`
+/// to `destination`, paying `fee` for chain `genesis_hash`.
+///
+/// Confidential inputs are unblinded with their `blinding_key`, the
+/// asset-blinding factors of explicit outputs are zeroed, and the
+/// resulting outputs (excluding any explicit fee output) are blinded
+/// when paying to a confidential address. Returns the signed
+/// transaction and the fee that was actually charged, in satoshis.
+///
+/// All inputs must share a single asset id; this function does not
+/// support multi-asset spends. See
+/// [`construct_asset_rescue`](crate::elements::construct_asset_rescue)
+/// for the dual-asset (rescue + L-BTC) flow.
 #[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
@@ -135,10 +172,8 @@ pub fn construct_tx<C: Signing + Verification>(
     fee: FeeTarget,
 ) -> Result<(Transaction, u64), TxError> {
     let unblinded = unblind_outputs(secp, inputs)?;
-    if !unblinded
-        .iter()
-        .all(|input| input.asset() == unblinded[0].asset())
-    {
+    let asset_id = unblinded.first().ok_or(TxError::EmptyInputs)?.asset();
+    if !unblinded.iter().all(|input| input.asset() == asset_id) {
         return Err(TxError::MixedAssets);
     }
 
@@ -148,6 +183,7 @@ pub fn construct_tx<C: Signing + Verification>(
             genesis_hash,
             inputs,
             &unblinded,
+            asset_id,
             destination,
             fee,
             is_fee_estimation,
@@ -157,11 +193,13 @@ pub fn construct_tx<C: Signing + Verification>(
 
 // TODO: claim covenant support
 
+#[allow(clippy::too_many_arguments)]
 fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     genesis_hash: BlockHash,
     inputs: &[InputDetail],
     unblinded: &[UnblindedOutput],
+    asset_id: AssetId,
     destination: &Destination<&Address>,
     fee: u64,
     is_fee_estimation: bool,
@@ -188,7 +226,14 @@ fn construct_raw<C: Signing + Verification>(
                 ..Default::default()
             })
             .collect(),
-        output: blind_outputs(secp, unblinded, destination, fee, is_fee_estimation)?,
+        output: blind_outputs(
+            secp,
+            unblinded,
+            asset_id,
+            destination,
+            fee,
+            is_fee_estimation,
+        )?,
     };
 
     let prevouts = inputs
@@ -200,7 +245,7 @@ fn construct_raw<C: Signing + Verification>(
     let sighash_cache = tx.clone();
     let mut sighash_cache = SighashCache::new(&sighash_cache);
 
-    for (i, input) in inputs.iter().enumerate() {
+    for ((i, input), tx_in) in inputs.iter().enumerate().zip(tx.input.iter_mut()) {
         match &input.output_type {
             OutputType::Legacy(witness_script) => {
                 let sighash = sighash_cache.legacy_sighash(i, witness_script, SIGHASH_TYPE_LEGACY);
@@ -217,7 +262,7 @@ fn construct_raw<C: Signing + Verification>(
                     }
                 };
 
-                tx.input[i].script_sig = script_sig
+                tx_in.script_sig = script_sig
                     .push_slice(&witness_script.serialize())
                     .into_script();
             }
@@ -226,7 +271,7 @@ fn construct_raw<C: Signing + Verification>(
                     .push_opcode(OP_PUSHBYTES_0)
                     .push_slice(sha256::Hash::hash(witness_script.as_bytes()).as_ref());
 
-                tx.input[i].script_sig = Builder::new()
+                tx_in.script_sig = Builder::new()
                     .push_slice(nested.into_script().as_bytes())
                     .into_script();
             }
@@ -235,7 +280,7 @@ fn construct_raw<C: Signing + Verification>(
 
         match &input.output_type {
             OutputType::Taproot(None) => {
-                tx.input[i].witness.script_witness = stubbed_cooperative_witness().to_vec();
+                tx_in.witness.script_witness = stubbed_cooperative_witness().to_vec();
             }
             OutputType::Taproot(Some(uncooperative)) => {
                 let leaf = if let InputType::Claim(_) = input.input_type {
@@ -283,7 +328,7 @@ fn construct_raw<C: Signing + Verification>(
                 witness.push(leaf.output.as_bytes());
                 witness.push(control_block.serialize());
 
-                tx.input[i].witness.script_witness = witness.to_vec();
+                tx_in.witness.script_witness = witness.to_vec();
             }
             OutputType::SegwitV0(witness_script) | OutputType::Compatibility(witness_script) => {
                 let sighash = sighash_cache.segwitv0_sighash(
@@ -304,7 +349,7 @@ fn construct_raw<C: Signing + Verification>(
 
                 witness.push(witness_script.as_bytes());
 
-                tx.input[i].witness.script_witness = witness.to_vec();
+                tx_in.witness.script_witness = witness.to_vec();
             }
             _ => {}
         }
@@ -349,6 +394,7 @@ fn unblind_outputs<C: Verification>(
 fn blind_outputs<C: Signing>(
     secp: &Secp256k1<C>,
     unblinded: &[UnblindedOutput],
+    asset_id: AssetId,
     destination: &Destination<&Address>,
     fee: u64,
     is_fee_estimation: bool,
@@ -370,7 +416,6 @@ fn blind_outputs<C: Signing>(
         }
     };
 
-    let asset_id = unblinded[0].asset();
     let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
 
     let mut last_to_blind = None;
@@ -523,7 +568,9 @@ fn blind_outputs<C: Signing>(
             ),
         )?;
 
-        outputs[index] = (amount, asset_bf, value_bf, output);
+        *outputs
+            .get_mut(index)
+            .ok_or(TxError::OutputIndexOutOfBounds(index))? = (amount, asset_bf, value_bf, output);
     }
 
     Ok(outputs
@@ -1722,6 +1769,22 @@ pub mod tests {
     }
 
     #[test]
+    fn test_construct_tx_empty_inputs() {
+        let secp = Secp256k1::new();
+        let address = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();
+
+        let result = construct_tx(
+            &secp,
+            BlockHash::all_zeros(),
+            &[],
+            &Destination::Single(&address),
+            FeeTarget::Absolute(0),
+        );
+
+        assert!(matches!(result.unwrap_err(), TxError::EmptyInputs));
+    }
+
+    #[test]
     fn test_blind_outputs_fee_too_high() {
         let secp = Secp256k1::new();
         let address = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();
@@ -1738,6 +1801,7 @@ pub mod tests {
         let result = blind_outputs(
             &secp,
             &unblinded,
+            asset_id,
             &Destination::Single(&address),
             fee,
             false,
@@ -1765,6 +1829,7 @@ pub mod tests {
         let result = blind_outputs(
             &secp,
             &unblinded,
+            asset_id,
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,

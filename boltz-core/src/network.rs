@@ -1,3 +1,8 @@
+//! The [`Network`] enum naming the chains `boltz-core` supports
+//! (mainnet, testnet, signet, regtest), with conversions to upstream
+//! `bitcoin::Network` and Liquid `AddressParams` / genesis hash /
+//! L-BTC asset id.
+
 #[cfg(feature = "bitcoin")]
 use bitcoin::Network as BitcoinNetwork;
 #[cfg(feature = "elements")]
@@ -5,24 +10,40 @@ use elements::{BlockHash as ElementsBlockHash, address::AddressParams as Element
 #[cfg(feature = "elements")]
 use std::str::FromStr;
 
+/// Errors returned by [`Network`] operations.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum NetworkError {
+    /// The provided string did not match a known network name.
     #[error("invalid network: {0}")]
     Invalid(String),
+    /// The requested operation is not defined for the Bitcoin signet network
+    /// (e.g. there is no Liquid signet equivalent). The argument names the
+    /// missing capability.
     #[error("Signet is not supported for {0}")]
     SignetUnsupported(&'static str),
 }
 
+/// One of the chains supported by `boltz-core`.
+///
+/// `Network` is chain-agnostic: it picks the same network on Bitcoin and
+/// Liquid (e.g. `Mainnet` maps to Bitcoin mainnet **and** Liquid). Liquid
+/// has no signet equivalent, so methods that target Liquid return
+/// [`NetworkError::SignetUnsupported`] for [`Network::Signet`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Network {
+    /// Production network.
     Mainnet,
+    /// Public test network.
     Testnet,
+    /// Bitcoin signet (no Liquid equivalent).
     Signet,
+    /// Local regression test network.
     Regtest,
 }
 
 impl Network {
+    /// The corresponding upstream `bitcoin::Network`.
     #[cfg(feature = "bitcoin")]
     pub fn bitcoin(&self) -> BitcoinNetwork {
         match self {
@@ -33,6 +54,9 @@ impl Network {
         }
     }
 
+    /// The Liquid `AddressParams` for this network.
+    ///
+    /// Returns [`NetworkError::SignetUnsupported`] for [`Network::Signet`].
     #[cfg(feature = "elements")]
     pub fn liquid(&self) -> Result<&'static ElementsAddressParams, NetworkError> {
         match self {
@@ -43,6 +67,10 @@ impl Network {
         }
     }
 
+    /// The Liquid genesis block hash for this network, used as the
+    /// per-chain identifier in Elements transaction signing.
+    ///
+    /// Returns [`NetworkError::SignetUnsupported`] for [`Network::Signet`].
     #[cfg(feature = "elements")]
     pub fn liquid_genesis_hash(&self) -> Result<ElementsBlockHash, NetworkError> {
         match self {
@@ -62,6 +90,9 @@ impl Network {
         }
     }
 
+    /// The hex-encoded Liquid Bitcoin (L-BTC) asset id for this network.
+    ///
+    /// Returns [`NetworkError::SignetUnsupported`] for [`Network::Signet`].
     #[cfg(feature = "elements")]
     pub fn liquid_asset_id(&self) -> Result<&'static str, NetworkError> {
         match self {
@@ -93,6 +124,18 @@ impl TryFrom<&str> for Network {
     }
 }
 
+impl std::fmt::Display for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Network::Mainnet => "mainnet",
+            Network::Testnet => "testnet",
+            Network::Signet => "signet",
+            Network::Regtest => "regtest",
+        };
+        f.write_str(name)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -120,5 +163,15 @@ mod test {
             Network::try_from(network).unwrap_err(),
             NetworkError::Invalid(network.to_string())
         );
+    }
+
+    #[rstest]
+    #[case(Network::Mainnet, "mainnet")]
+    #[case(Network::Testnet, "testnet")]
+    #[case(Network::Signet, "signet")]
+    #[case(Network::Regtest, "regtest")]
+    fn test_display(#[case] network: Network, #[case] expected: &str) {
+        assert_eq!(network.to_string(), expected);
+        assert_eq!(Network::try_from(expected).unwrap(), network);
     }
 }

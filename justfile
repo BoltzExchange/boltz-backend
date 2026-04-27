@@ -3,19 +3,31 @@ _default:
 
 # === Rust workspace ===
 
+boltz_core_feature_sets := '"" "bitcoin" "musig" "elements" "bitcoin,musig" "elements,musig" "bitcoin,elements" "bitcoin,elements,musig"'
+
 # Compile boltz-core under every supported feature combination.
 boltz-core-features:
     #!/usr/bin/env bash
     set -euo pipefail
-    for features in "" "bitcoin" "musig" "elements" "bitcoin,musig" "elements,musig" "bitcoin,elements" "bitcoin,elements,musig"; do
+    for features in {{ boltz_core_feature_sets }}; do
         echo "=== features: ${features:-<none>} ==="
         cargo check -p boltz-core --no-default-features --features "$features"
     done
 
 # Build boltz-core rustdoc with warnings as errors and run all doctests.
 boltz-core-docs:
-    RUSTDOCFLAGS='-D warnings' cargo doc -p boltz-core --all-features --no-deps
-    cargo test -p boltz-core --all-features --doc
+    RUSTDOCFLAGS='-D warnings' cargo doc -p boltz-core --no-deps
+    cargo test -p boltz-core --doc
+
+# Build boltz-core rustdoc/doctests under every supported feature combination.
+boltz-core-docs-features:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for features in {{ boltz_core_feature_sets }}; do
+        echo "=== docs features: ${features:-<none>} ==="
+        RUSTDOCFLAGS='-D warnings' cargo doc -p boltz-core --no-default-features --features "$features" --no-deps
+        cargo test -p boltz-core --no-default-features --features "$features" --doc
+    done
 
 # Compile boltzr under every supported feature combination.
 boltzr-features:

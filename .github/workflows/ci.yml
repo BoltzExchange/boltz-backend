@@ -110,6 +110,32 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      - name: Tests
+        run: cargo test
+
+  build-boltz-core:
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        node-version: [24]
+        rust-version: [stable]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          submodules: 'true'
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-environment
+        with:
+          node-version: ${{ matrix.node-version }}
+          rust-version: ${{ matrix.rust-version }}
+          cache-prefix: cargo-boltz-core
+
       - name: Install just
         uses: extractions/setup-just@v4
 
@@ -118,9 +144,6 @@ jobs:
 
       - name: boltz-core docs
         run: just boltz-core-docs-features
-
-      - name: Tests
-        run: cargo test
 
   api-generation-validation:
     timeout-minutes: 60

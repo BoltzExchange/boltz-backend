@@ -84,6 +84,28 @@ informs e.g. if the user sending too little or too much was the reason for the
 swap to fail. The states `invoice.failedToPay` and `swap.expired` are final.
 Boltz is _not_ monitoring user's refund transactions.
 
+A 0-conf rejection of the client's lockup transaction is _not_ a separate
+status: it is reported as `transaction.mempool` with `zeroConfRejected: true`.
+The `Refund` column marks states in which Boltz will provide a cooperative
+key-path refund signature; an `x` additionally requires the swap to be Taproot
+and no pending or successful lightning payment to exist for the swap. A
+non-cooperative script-path refund is always possible after the swap expired
+once the client has locked up coins.
+
+| Status                      | Cooperative refund |
+| --------------------------- | ------------------ |
+| `swap.created`              |                    |
+| `invoice.set`               |                    |
+| `transaction.mempool`       |                    |
+| `transaction.confirmed`     |                    |
+| `invoice.pending`           |                    |
+| `invoice.paid`              |                    |
+| `invoice.failedToPay`       | x                  |
+| `transaction.claim.pending` |                    |
+| `transaction.claimed`       |                    |
+| `transaction.lockupFailed`  | x                  |
+| `swap.expired`              | x                  |
+
 ### Reverse Submarine Swaps
 
 Reverse Submarine Swaps move bitcoin from **Lightning to the chain**. Again,
@@ -133,6 +155,23 @@ If the user successfully set up the Lightning payment and Boltz successfully
 locked up bitcoin on the chain, but the user did not claim the locked chain
 bitcoin until swap expiry, Boltz will automatically refund its own locked chain
 bitcoin. The final status of such a swap will be `transaction.refunded`.
+
+The `Claim` column marks states in which Boltz will provide a cooperative
+key-path claim signature; an `x` additionally requires the swap to be Taproot. A
+non-cooperative script-path claim is always possible while Boltz's lockup is
+spendable.
+
+| Status                  | Cooperative claim |
+| ----------------------- | ----------------- |
+| `swap.created`          |                   |
+| `minerfee.paid`         |                   |
+| `transaction.mempool`   | x                 |
+| `transaction.confirmed` | x                 |
+| `invoice.settled`       | x                 |
+| `invoice.expired`       |                   |
+| `transaction.failed`    |                   |
+| `swap.expired`          |                   |
+| `transaction.refunded`  |                   |
 
 ### Chain Swaps
 
@@ -227,3 +266,25 @@ The state `transaction.lockupFailed` is _not_ final and changes to
 informs e.g. if the user sending too little or too much was the reason for the
 swap to fail. The states `swap.expired` and `transaction.refunded` are final.
 Boltz is _not_ monitoring user's refund transactions.
+
+A 0-conf rejection on the client's lockup transaction is _not_ a separate
+status: it is reported as `transaction.mempool` with `zeroConfRejected: true`.
+The `Claim` and `Refund` columns mark states in which Boltz will provide a
+cooperative key-path signature; an `x` additionally requires the swap to be
+Taproot and, for refunds, Boltz's own lockup refund transaction to be confirmed.
+Non-cooperative script-path claims and refunds are always possible while the
+respective lockup is spendable.
+
+| Status                         | Cooperative claim | Cooperative refund                        |
+| ------------------------------ | ----------------- | ----------------------------------------- |
+| `swap.created`                 |                   |                                           |
+| `transaction.mempool`          |                   |                                           |
+| `transaction.confirmed`        |                   |                                           |
+| `transaction.server.mempool`   | x                 |                                           |
+| `transaction.server.confirmed` | x                 |                                           |
+| `transaction.claim.pending`    | x                 |                                           |
+| `transaction.claimed`          |                   |                                           |
+| `transaction.lockupFailed`     |                   | x (or renegotiate via the quote endpoint) |
+| `swap.expired`                 |                   | x                                         |
+| `transaction.failed`           |                   | x                                         |
+| `transaction.refunded`         |                   | x                                         |

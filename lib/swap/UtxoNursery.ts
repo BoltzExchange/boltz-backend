@@ -32,6 +32,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -397,6 +398,12 @@ class UtxoNursery extends TypedEventEmitter<{
         ? getHexBuffer(reverseSwap.preimage)
         : detectPreimage(inputIndex, transaction),
     });
+
+    await ClaimTransactionRepository.persistTransaction(this.logger, {
+      swapId: reverseSwap.id,
+      symbol: chainClient.symbol,
+      id: transaction.getId(),
+    });
   };
 
   private checkChainSwapClaim = async (
@@ -424,10 +431,30 @@ class UtxoNursery extends TypedEventEmitter<{
       return;
     }
 
+    // Only persist user claims: the user claims by spending the server's lockup (sendingData).
+    // Spends of the user's lockup (receivingData) are Boltz's own claims. This runs before
+    // the witness-length filter so cooperative user claims (witness length 1) are persisted too.
+    const isUserClaim =
+      transactionHashToId(input.hash) === swap.sendingData.transactionId &&
+      input.index === swap.sendingData.transactionVout;
+
+    const persistUserClaim = async () => {
+      if (!isUserClaim) {
+        return;
+      }
+      await ClaimTransactionRepository.persistTransaction(this.logger, {
+        swapId: swap.id,
+        symbol: chainClient.symbol,
+        id: transaction.getId(),
+      });
+    };
+
     if (transaction.ins[inputIndex].witness.length !== 4) {
       this.logger.debug(
         `Not scanning ${chainClient.symbol} transaction ${transaction.getId()} for claims because it is a cooperative claim or refund transaction`,
       );
+
+      await persistUserClaim();
       return;
     }
 
@@ -443,6 +470,8 @@ class UtxoNursery extends TypedEventEmitter<{
         ? getHexBuffer(swap.preimage)
         : detectPreimage(inputIndex, transaction),
     });
+
+    await persistUserClaim();
   };
 
   private listenBlocks = (chainClient: IChainClient, wallet: Wallet) => {

@@ -23,6 +23,7 @@ import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
 import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import type Wallet from '../wallet/Wallet';
@@ -64,6 +65,7 @@ class EthereumNursery extends TypedEventEmitter<{
     swap: ReverseSwap | ChainSwapInfo;
     preimage: Buffer;
     isEtherSwap: boolean;
+    transactionHash: string;
   };
 }> {
   private readonly contractTransactionTracker: EthereumTransactionConfirmationTracker;
@@ -474,7 +476,18 @@ class EthereumNursery extends TypedEventEmitter<{
             `Found claim in ${this.ethereumManager.networkDetails.name} EtherSwap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
-          this.emit('claim', { swap, preimage, isEtherSwap: true });
+          this.emit('claim', {
+            swap,
+            preimage,
+            isEtherSwap: true,
+            transactionHash,
+          });
+
+          await ClaimTransactionRepository.persistTransaction(this.logger, {
+            swapId: swap.id,
+            symbol: this.ethereumManager.networkDetails.symbol,
+            id: transactionHash,
+          });
         }
       },
     );
@@ -537,7 +550,18 @@ class EthereumNursery extends TypedEventEmitter<{
             `Found claim in ${this.ethereumManager.networkDetails.name} ERC20Swap contract for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${transactionHash}`,
           );
 
-          this.emit('claim', { swap, preimage, isEtherSwap: false });
+          this.emit('claim', {
+            swap,
+            preimage,
+            isEtherSwap: false,
+            transactionHash,
+          });
+
+          await ClaimTransactionRepository.persistTransaction(this.logger, {
+            swapId: swap.id,
+            symbol: this.getUserClaimChainSymbol(swap),
+            id: transactionHash,
+          });
         }
       },
     );
@@ -649,6 +673,17 @@ class EthereumNursery extends TypedEventEmitter<{
     }
 
     return (swap as ChainSwapInfo).receivingData.symbol;
+  };
+
+  private getUserClaimChainSymbol = (
+    swap: ReverseSwap | ChainSwapInfo,
+  ): string => {
+    if (swap.type === SwapType.ReverseSubmarine) {
+      const { base, quote } = splitPairId(swap.pair);
+      return getChainCurrency(base, quote, swap.orderSide, true);
+    }
+
+    return (swap as ChainSwapInfo).sendingData.symbol;
   };
 
   private getSwapExpectedReceivingAmount = (swap: Swap | ChainSwapInfo) =>

@@ -19,6 +19,7 @@ import Stats from '../../../lib/data/Stats';
 import Database from '../../../lib/db/Database';
 import ReverseRoutingHint from '../../../lib/db/models/ReverseRoutingHint';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../../../lib/db/repositories/ClaimTransactionRepository';
 import FeeRepository from '../../../lib/db/repositories/FeeRepository';
 import PairRepository from '../../../lib/db/repositories/PairRepository';
 import ReverseRoutingHintRepository from '../../../lib/db/repositories/ReverseRoutingHintRepository';
@@ -236,6 +237,12 @@ describe('CommandHandler', () => {
     await ReverseSwapRepository.addReverseSwap(reverseSwapExample);
     await ReverseSwapRepository.addReverseSwap(pendingReverseSwapExample);
     await ReverseRoutingHintRepository.addHint(reverseRoutingHintExample);
+
+    await ClaimTransactionRepository.addTransaction({
+      swapId: reverseSwapExample.id,
+      symbol: 'RBTC',
+      id: 'reverseClaimTxHash',
+    });
   });
 
   beforeEach(() => {
@@ -346,6 +353,7 @@ describe('CommandHandler', () => {
         scriptPubkey: reverseRoutingHint!.scriptPubkey.toString('hex'),
         signature: reverseRoutingHint!.signature.toString('hex'),
       };
+      reverseSwapWithHint!.dataValues.claimTransactionId = 'reverseClaimTxHash';
 
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
       expect(mockSendMessage).toHaveBeenCalledWith(
@@ -370,6 +378,53 @@ describe('CommandHandler', () => {
 
       expect(mockSendMessage).toHaveBeenCalledTimes(4);
       expect(mockSendMessage).toHaveBeenCalledWith(`${errorMessage}${id}`);
+    });
+
+    test('should attach claim transaction id to chain swaps', async () => {
+      const chainSwapId = 'chainClaimed';
+      const mockChainSwap = {
+        id: chainSwapId,
+        type: SwapType.Chain,
+        chainSwap: { dataValues: {} },
+        sendingData: {},
+        receivingData: {},
+      } as any;
+
+      const getSwapsSpy = jest
+        .spyOn(SwapRepository, 'getSwaps')
+        .mockResolvedValue([]);
+      const getReverseSwapsSpy = jest
+        .spyOn(ReverseSwapRepository, 'getReverseSwaps')
+        .mockResolvedValue([]);
+      const getChainSwapsByDataSpy = jest
+        .spyOn(ChainSwapRepository, 'getChainSwapsByData')
+        .mockResolvedValue([mockChainSwap]);
+      const getClaimsSpy = jest
+        .spyOn(ClaimTransactionRepository, 'getTransactionsForSwaps')
+        .mockResolvedValue([
+          { swapId: chainSwapId, id: 'chainClaimTxHash' } as any,
+        ]);
+
+      try {
+        sendMessage(`swapinfo ${chainSwapId}`);
+        await wait(commandWaitMs);
+
+        expect(
+          ClaimTransactionRepository.getTransactionsForSwaps,
+        ).toHaveBeenCalledWith([chainSwapId]);
+
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          `Chain Swap \`${chainSwapId}\`:\n\`\`\`${stringify({
+            ...mockChainSwap,
+            claimTransactionId: 'chainClaimTxHash',
+          })}\`\`\``,
+        );
+      } finally {
+        getSwapsSpy.mockRestore();
+        getReverseSwapsSpy.mockRestore();
+        getChainSwapsByDataSpy.mockRestore();
+        getClaimsSpy.mockRestore();
+      }
     });
 
     test.each`

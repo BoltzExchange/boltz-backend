@@ -16,6 +16,7 @@ import type {
 } from '../../../lib/consts/Types';
 import type Swap from '../../../lib/db/models/Swap';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import ClaimTransactionRepository from '../../../lib/db/repositories/ClaimTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
@@ -250,6 +251,8 @@ describe('EthereumNursery', () => {
     ChainSwapRepository.getChainSwapsExpirable = jest
       .fn()
       .mockResolvedValue([]);
+
+    ClaimTransactionRepository.addTransaction = jest.fn().mockResolvedValue({});
 
     WrappedSwapRepository.setStatus = mockSetReverseSwapStatus;
 
@@ -700,7 +703,7 @@ describe('EthereumNursery', () => {
     let emittedEvents = 0;
 
     mockGetReverseSwapResult = {
-      some: 'data',
+      id: 'reverseEth',
       type: SwapType.ReverseSubmarine,
     };
 
@@ -726,6 +729,12 @@ describe('EthereumNursery', () => {
     });
 
     expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+      swapId: mockGetReverseSwapResult.id,
+      symbol: networks.Ethereum.symbol,
+      id: exampleTransaction.hash!,
+    });
 
     // No suitable Swap in database
     mockGetReverseSwapResult = null;
@@ -739,6 +748,33 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
+  });
+
+  test('should still emit EtherSwap claim when persistence fails', async () => {
+    mockGetReverseSwapResult = {
+      id: 'reverseEthResilience',
+      type: SwapType.ReverseSubmarine,
+    };
+
+    ClaimTransactionRepository.addTransaction = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+
+    let emittedEvents = 0;
+    nursery.on('claim', () => {
+      emittedEvents += 1;
+    });
+
+    await expect(
+      emitEthClaim({
+        preimage: examplePreimage,
+        preimageHash: examplePreimageHash,
+        transactionHash: exampleTransaction.hash!,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
   });
 
   test('should only emit EtherSwap chain claims for the sending side', async () => {
@@ -793,8 +829,15 @@ describe('EthereumNursery', () => {
         isEtherSwap: true,
         preimage: examplePreimage,
         swap: sendingSideSwap,
+        transactionHash: exampleTransaction.hash!,
       },
     ]);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+      swapId: sendingSideSwap.id,
+      symbol: networks.Ethereum.symbol,
+      id: exampleTransaction.hash!,
+    });
   });
 
   test('should listen for ERC20Swap lockup events', async () => {
@@ -1147,7 +1190,10 @@ describe('EthereumNursery', () => {
     let emittedEvents = 0;
 
     mockGetReverseSwapResult = {
-      some: 'data',
+      id: 'reverseErc20',
+      pair: 'USDT/BTC',
+      orderSide: OrderSide.BUY,
+      type: SwapType.ReverseSubmarine,
     };
 
     nursery.on('claim', ({ swap, preimage }) => {
@@ -1172,6 +1218,12 @@ describe('EthereumNursery', () => {
     });
 
     expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+      swapId: mockGetReverseSwapResult.id,
+      symbol: 'USDT',
+      id: exampleTransaction.hash!,
+    });
 
     // No suitable Swap in database
     mockGetReverseSwapResult = null;
@@ -1185,6 +1237,35 @@ describe('EthereumNursery', () => {
     expect(mockGetReverseSwap).toHaveBeenCalledTimes(2);
 
     expect(emittedEvents).toEqual(1);
+  });
+
+  test('should still emit ERC20Swap claim when persistence fails', async () => {
+    mockGetReverseSwapResult = {
+      id: 'reverseErc20Resilience',
+      pair: 'USDT/BTC',
+      orderSide: OrderSide.BUY,
+      type: SwapType.ReverseSubmarine,
+    };
+
+    ClaimTransactionRepository.addTransaction = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+
+    let emittedEvents = 0;
+    nursery.on('claim', () => {
+      emittedEvents += 1;
+    });
+
+    await expect(
+      emitErc20Claim({
+        preimage: examplePreimage,
+        preimageHash: examplePreimageHash,
+        transactionHash: exampleTransaction.hash!,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(emittedEvents).toEqual(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
   });
 
   test('should only emit ERC20Swap chain claims for the sending side', async () => {
@@ -1239,8 +1320,15 @@ describe('EthereumNursery', () => {
         isEtherSwap: false,
         preimage: examplePreimage,
         swap: sendingSideSwap,
+        transactionHash: exampleTransaction.hash!,
       },
     ]);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledTimes(1);
+    expect(ClaimTransactionRepository.addTransaction).toHaveBeenCalledWith({
+      swapId: sendingSideSwap.id,
+      symbol: sendingSideSwap.sendingData.symbol,
+      id: exampleTransaction.hash!,
+    });
   });
 
   test('should handle expired Swaps', async () => {

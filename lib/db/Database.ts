@@ -8,6 +8,7 @@ import Migration from './Migration';
 import ChainSwap from './models/ChainSwap';
 import ChainSwapData from './models/ChainSwapData';
 import ChainTip from './models/ChainTip';
+import ClaimTransaction from './models/ClaimTransaction';
 import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
 import ExtraFee from './models/ExtraFee';
@@ -121,6 +122,7 @@ class Database {
       ReverseRoutingHint.sync(),
       PendingLockupTransaction.sync(),
       RefundTransaction.sync(),
+      ClaimTransaction.sync(),
       ScriptPubKey.sync(),
     ]);
   };
@@ -163,6 +165,7 @@ class Database {
     PendingEthereumTransaction.load(Database.sequelize);
     Rebroadcast.load(Database.sequelize);
     RefundTransaction.load(Database.sequelize);
+    ClaimTransaction.load(Database.sequelize);
     ScriptPubKey.load(Database.sequelize);
     Commitment.load(Database.sequelize);
 

@@ -4,6 +4,7 @@ import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
 import { Wallet as EthersWallet } from 'ethers';
+import type { OverPaymentConfig } from '../../../../../lib/Config';
 import Logger from '../../../../../lib/Logger';
 import { generateSwapId, getHexString } from '../../../../../lib/Utils';
 import { etherDecimals } from '../../../../../lib/consts/Consts';
@@ -21,6 +22,7 @@ import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentR
 import PairRepository from '../../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../../../lib/service/TimeoutDeltaProvider';
+import OverpaymentProtector from '../../../../../lib/swap/OverpaymentProtector';
 import Wallet from '../../../../../lib/wallet/Wallet';
 import type ConsolidatedEventHandler from '../../../../../lib/wallet/ethereum/ConsolidatedEventHandler';
 import { networks } from '../../../../../lib/wallet/ethereum/EvmNetworks';
@@ -51,6 +53,8 @@ describe('Commitments', () => {
   const eventHandler = {
     handleEvent: jest.fn(),
   } as unknown as ConsolidatedEventHandler;
+
+  const overpaymentProtector = new OverpaymentProtector(Logger.disabledLogger);
 
   const fetchSignerNonce = async () => {
     const address = await setup.signer.getAddress();
@@ -132,6 +136,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       expect(commitments['commitmentTimelockMinutes']).toEqual(14 * 24 * 60);
@@ -144,6 +150,7 @@ describe('Commitments', () => {
         networks.Ethereum,
         eventHandler,
         customTimelock,
+        overpaymentProtector,
       );
 
       expect(commitments['commitmentTimelockMinutes']).toEqual(customTimelock);
@@ -156,6 +163,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -174,6 +183,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -221,6 +232,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const wallets = new Map();
@@ -261,6 +274,7 @@ describe('Commitments', () => {
         networks.Ethereum,
         eventHandler,
         commitmentTimelockMinutes,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -341,6 +355,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contractV5 = {
@@ -381,6 +397,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -407,6 +425,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       commitments.init(setup.provider as any, setup.signer, [], new Map());
@@ -423,6 +443,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -452,6 +474,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -481,6 +505,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contractV5 = {
@@ -524,6 +550,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -552,6 +580,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       commitments.init(setup.provider as any, setup.signer, [], new Map());
@@ -568,6 +598,8 @@ describe('Commitments', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        overpaymentProtector,
       );
 
       const contract = {
@@ -767,11 +799,14 @@ describe('Commitments', () => {
 
     const createInitializedCommitments = (
       wallets: Map<string, Wallet> = new Map(),
+      overPaymentConfig?: OverPaymentConfig,
     ) => {
       const commitments = new Commitments(
         Logger.disabledLogger,
         networks.Ethereum,
         eventHandler,
+        undefined,
+        new OverpaymentProtector(Logger.disabledLogger, overPaymentConfig),
       );
 
       const contract = {
@@ -1126,7 +1161,7 @@ describe('Commitments', () => {
         timelock - 100,
       );
 
-      const overpaidAmount = BigInt(expectedAmount * 3) * etherDecimals;
+      const overpaidAmount = BigInt(expectedAmount + 10_001) * etherDecimals;
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         zeroPreimageHash,
@@ -1153,7 +1188,7 @@ describe('Commitments', () => {
       ).rejects.toThrow('overpaid amount:');
     });
 
-    test('should accept overpay at always-allowed boundary', async () => {
+    test('should accept overpay at configured exempt boundary', async () => {
       const commitments = createInitializedCommitments();
       const etherSwapAddress = await etherSwap.getAddress();
 
@@ -1166,7 +1201,7 @@ describe('Commitments', () => {
         timelock - 100,
       );
 
-      const overpaidAmount = BigInt(expectedAmount + 121) * etherDecimals;
+      const overpaidAmount = BigInt(expectedAmount + 10_000) * etherDecimals;
 
       const tx = await etherSwap['lock(bytes32,address,uint256)'](
         zeroPreimageHash,
@@ -1193,6 +1228,58 @@ describe('Commitments', () => {
         id,
         signature,
         tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).not.toBeNull();
+      expect(commitment!.swapId).toEqual(id);
+    });
+
+    test('should accept overpay with custom percentage override', async () => {
+      const commitments = createInitializedCommitments(new Map(), {
+        exemptAmount: 0,
+        maxPercentage: 1,
+      });
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 10_000;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+
+      const { id, preimageHash } = await createSwap(
+        etherSwapAddress,
+        expectedAmount,
+        timelock - 100,
+      );
+
+      const overpaidAmount = BigInt(expectedAmount + 350) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: overpaidAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: overpaidAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+        undefined,
+        3.5,
       );
 
       const commitment = await CommitmentRepository.getBySwapId(id);

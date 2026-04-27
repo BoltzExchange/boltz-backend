@@ -1,7 +1,6 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { Signature, type Signer } from 'ethers';
-import type { OverPaymentConfig } from '../../../Config';
 import type Logger from '../../../Logger';
 import { formatError, getHexBuffer } from '../../../Utils';
 import { etherDecimals } from '../../../consts/Consts';
@@ -18,7 +17,7 @@ import CommitmentRepository from '../../../db/repositories/CommitmentRepository'
 import SwapRepository from '../../../db/repositories/SwapRepository';
 import TimeoutDeltaProvider from '../../../service/TimeoutDeltaProvider';
 import type { RefundSignatureLock } from '../../../service/cooperative/EipSigner';
-import { overpaymentDefaultConfig } from '../../../swap/OverpaymentProtector';
+import type OverpaymentProtector from '../../../swap/OverpaymentProtector';
 import type Wallet from '../../Wallet';
 import type ERC20WalletProvider from '../../providers/ERC20WalletProvider';
 import type ConsolidatedEventHandler from '../ConsolidatedEventHandler';
@@ -43,8 +42,6 @@ class Commitments {
   // Two weeks
   private static readonly defaultCommitmentTimelockMinutes = 14 * 24 * 60;
 
-  private static readonly alwaysAllowedOverpayment = 121;
-
   private provider!: InjectedProvider;
   private signer!: Signer;
   private wallets!: Map<string, Wallet>;
@@ -54,20 +51,16 @@ class Commitments {
     throw new Error('refund signature lock not set');
   };
   private readonly commitmentTimelockMinutes: number;
-  private readonly maxOverpaymentPercentage: number;
 
   constructor(
     private readonly logger: Logger,
     private readonly network: NetworkDetails,
     private readonly eventHandler: ConsolidatedEventHandler,
-    commitmentTimelockMinutes?: number,
-    overPaymentConfig?: OverPaymentConfig,
+    commitmentTimelockMinutes: number | undefined,
+    private readonly overpaymentProtector: OverpaymentProtector,
   ) {
     this.commitmentTimelockMinutes =
       commitmentTimelockMinutes ?? Commitments.defaultCommitmentTimelockMinutes;
-    this.maxOverpaymentPercentage =
-      (overPaymentConfig?.maxPercentage ??
-        overpaymentDefaultConfig.maxPercentage) / 100;
 
     if (this.commitmentTimelockMinutes <= 0) {
       throw new Error('commitment timelock must be greater than 0');
@@ -217,16 +210,11 @@ class Commitments {
         throw new Error('invalid maxOverpaymentPercentage');
       }
 
-      const allowedOverpaymentPercentage =
-        maxOverpaymentPercentage === undefined
-          ? this.maxOverpaymentPercentage
-          : maxOverpaymentPercentage / 100;
-
       if (currency === this.network.symbol) {
         this.checkAcceptedAmount(
           swapAmount,
           Math.floor(Number(event.amount / etherDecimals)),
-          allowedOverpaymentPercentage,
+          maxOverpaymentPercentage,
         );
 
         signatureValid = await (contract as EtherSwap).checkCommitmentSignature(
@@ -257,7 +245,7 @@ class Commitments {
         this.checkAcceptedAmount(
           swapAmount,
           erc20Wallet.normalizeTokenAmount(event.amount),
-          allowedOverpaymentPercentage,
+          maxOverpaymentPercentage,
         );
 
         signatureValid = await (contract as ERC20Swap).checkCommitmentSignature(
@@ -325,7 +313,7 @@ class Commitments {
   private checkAcceptedAmount = (
     expectedAmount: number,
     actualAmount: number,
-    allowedOverpaymentPercentage: number,
+    maxOverpaymentPercentage?: number,
   ) => {
     if (actualAmount < expectedAmount) {
       throw new Error(
@@ -335,8 +323,11 @@ class Commitments {
 
     const overpayment = actualAmount - expectedAmount;
     if (
-      overpayment > Commitments.alwaysAllowedOverpayment &&
-      overpayment > expectedAmount * allowedOverpaymentPercentage
+      overpayment >
+      this.overpaymentProtector.getAllowedPositiveSlippage(
+        expectedAmount,
+        maxOverpaymentPercentage,
+      )
     ) {
       throw new Error(`overpaid amount: ${actualAmount} > ${expectedAmount}`);
     }

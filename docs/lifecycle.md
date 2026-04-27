@@ -202,8 +202,9 @@ A Chain Swap is eligible for renegotiation only if:
 - The swap status is `transaction.lockupFailed`
 - The status was set because of over- or underpayment
 - No refund signature has been created yet for the swap
-- The actual amount locked by the client still falls within the pair's minimal
-  and maximal limits
+- The actual amount locked by the client respects the pair's minimal limit and
+  does not exceed the maximal limit beyond the configured positive-slippage
+  tolerance
 - There is at least 60 minutes remaining until the swap expires
 
 Requesting and accepting a new quote is optional; swap clients may revert to

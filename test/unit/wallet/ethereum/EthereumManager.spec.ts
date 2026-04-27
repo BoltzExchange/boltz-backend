@@ -1,6 +1,7 @@
 import { Wallet as EthersWallet, HDNodeWallet } from 'ethers';
 import type { EthereumConfig } from '../../../../lib/Config';
 import Logger from '../../../../lib/Logger';
+import OverpaymentProtector from '../../../../lib/swap/OverpaymentProtector';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
 import { networks } from '../../../../lib/wallet/ethereum/EvmNetworks';
 import { createDeferred } from '../../../Utils';
@@ -8,6 +9,8 @@ import { createDeferred } from '../../../Utils';
 describe('EthereumManager derivation path', () => {
   const mnemonic =
     'test test test test test test test test test test test junk';
+
+  const overpaymentProtector = new OverpaymentProtector(Logger.disabledLogger);
 
   const createConfig = (
     overrides: Partial<EthereumConfig> = {},
@@ -35,6 +38,7 @@ describe('EthereumManager derivation path', () => {
       Logger.disabledLogger,
       networks.Ethereum,
       createConfig({ derivationPath }),
+      overpaymentProtector,
     );
     const signer = manager['getSigner'](mnemonic);
 
@@ -52,6 +56,7 @@ describe('EthereumManager derivation path', () => {
         Logger.disabledLogger,
         networks.Ethereum,
         createConfig({ derivationPath }),
+        overpaymentProtector,
       );
 
       expect(() => manager['getSigner'](mnemonic)).toThrow(
@@ -67,6 +72,7 @@ describe('EthereumManager derivation path', () => {
       Logger.disabledLogger,
       networks.Ethereum,
       createConfig(),
+      overpaymentProtector,
     );
     const signer = manager['getSigner'](mnemonic);
 
@@ -80,6 +86,7 @@ describe('EthereumManager derivation path', () => {
       Logger.disabledLogger,
       networks.Ethereum,
       createConfig(),
+      overpaymentProtector,
     );
     const firstCheckStarted = createDeferred();
     const releaseFirstCheck = createDeferred();

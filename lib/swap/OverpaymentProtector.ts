@@ -2,31 +2,37 @@ import type { OverPaymentConfig } from '../Config';
 import type Logger from '../Logger';
 import { SwapType } from '../consts/Enums';
 
-export const overpaymentDefaultConfig: Required<OverPaymentConfig> = {
-  exemptAmount: 10_000,
-  maxPercentage: 2,
-};
-
 class OverpaymentProtector {
-  private static readonly defaultConfig = overpaymentDefaultConfig;
+  private static readonly defaultConfig: Required<OverPaymentConfig> = {
+    exemptAmount: 10_000,
+    maxPercentage: 2,
+  };
 
-  private readonly overPaymentExemptAmount: number;
-  private readonly overPaymentMaxPercentage: number;
+  private readonly exemptAmount: number;
+  private readonly maxPercentage: number;
 
   constructor(logger: Logger, config?: OverPaymentConfig) {
-    this.overPaymentExemptAmount =
+    this.exemptAmount =
       config?.exemptAmount ?? OverpaymentProtector.defaultConfig.exemptAmount;
-    logger.debug(
-      `Onchain payment overpayment exempt amount: ${this.overPaymentExemptAmount}`,
-    );
+    this.maxPercentage =
+      config?.maxPercentage ?? OverpaymentProtector.defaultConfig.maxPercentage;
 
-    this.overPaymentMaxPercentage =
-      (config?.maxPercentage ??
-        OverpaymentProtector.defaultConfig.maxPercentage) / 100;
     logger.debug(
-      `Maximal accepted onchain overpayment: ${this.overPaymentMaxPercentage * 100}%`,
+      `Onchain payment overpayment exempt amount: ${this.exemptAmount}`,
+    );
+    logger.debug(
+      `Maximal accepted onchain overpayment: ${this.maxPercentage}%`,
     );
   }
+
+  public getAllowedPositiveSlippage = (
+    amount: number,
+    maxPercentageOverride?: number,
+  ): number =>
+    Math.max(
+      this.exemptAmount,
+      Math.ceil((amount * (maxPercentageOverride ?? this.maxPercentage)) / 100),
+    );
 
   public isUnacceptableOverpay = (
     type: SwapType,
@@ -36,15 +42,12 @@ class OverpaymentProtector {
     // For chain swaps we renegotiate overpayments
     if (type === SwapType.Chain) {
       return actual > expected;
-    } else {
-      return (
-        actual - expected >
-          Math.max(
-            this.overPaymentExemptAmount,
-            expected * this.overPaymentMaxPercentage,
-          ) || actual > expected * 2
-      );
     }
+
+    return (
+      actual - expected > this.getAllowedPositiveSlippage(expected) ||
+      actual > expected * 2
+    );
   };
 }
 

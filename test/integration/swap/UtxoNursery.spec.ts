@@ -156,6 +156,7 @@ describe('UtxoNursery', () => {
     lockupTracker,
     sidecar,
     {} as any,
+    new OverpaymentProtector(Logger.disabledLogger),
   );
 
   beforeAll(async () => {

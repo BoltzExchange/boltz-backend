@@ -197,6 +197,7 @@ describe('SwapNursery', () => {
       mockClaimer,
       mockChainSwapSigner,
       {} as any,
+      {} as any,
     );
 
     // Set up private/public properties using property access notation
@@ -438,6 +439,7 @@ describe('SwapNursery', () => {
         0,
         mockClaimer,
         mockChainSwapSigner,
+        {} as any,
         {} as any,
       );
 

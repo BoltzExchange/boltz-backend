@@ -1,6 +1,7 @@
 import { MaxUint256 } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
+import OverpaymentProtector from '../../../../lib/swap/OverpaymentProtector';
 import Errors from '../../../../lib/wallet/Errors';
 import type Wallet from '../../../../lib/wallet/Wallet';
 import EthereumManager from '../../../../lib/wallet/ethereum/EthereumManager';
@@ -36,6 +37,8 @@ describe('EthereumManager', () => {
   let manager: EthereumManager;
   let wallets: Map<string, Wallet>;
 
+  const overpaymentProtector = new OverpaymentProtector(Logger.disabledLogger);
+
   const oldContracts = {
     version: 1,
     features: new Set(),
@@ -59,28 +62,33 @@ describe('EthereumManager', () => {
     await fundSignerWallet(setup.signer, setup.etherBase);
     const contracts = await getContracts(setup.signer);
 
-    manager = new EthereumManager(Logger.disabledLogger, networks.Ethereum, {
-      providerEndpoint,
-      networkName: 'Anvil',
-      contracts: [
-        {
-          etherSwap: await contracts.etherSwap.getAddress(),
-          erc20Swap: await contracts.erc20Swap.getAddress(),
-        },
-      ],
-      tokens: [
-        {
-          symbol: networks.Ethereum.symbol,
-          minWalletBalance: 100_000,
-        },
-        {
-          symbol: 'USDT',
-          decimals: 18,
-          minWalletBalance: 100_000,
-          contractAddress: await contracts.token.getAddress(),
-        },
-      ],
-    } as any);
+    manager = new EthereumManager(
+      Logger.disabledLogger,
+      networks.Ethereum,
+      {
+        providerEndpoint,
+        networkName: 'Anvil',
+        contracts: [
+          {
+            etherSwap: await contracts.etherSwap.getAddress(),
+            erc20Swap: await contracts.erc20Swap.getAddress(),
+          },
+        ],
+        tokens: [
+          {
+            symbol: networks.Ethereum.symbol,
+            minWalletBalance: 100_000,
+          },
+          {
+            symbol: 'USDT',
+            decimals: 18,
+            minWalletBalance: 100_000,
+            contractAddress: await contracts.token.getAddress(),
+          },
+        ],
+      } as any,
+      overpaymentProtector,
+    );
     manager['contracts'].push(oldContracts);
 
     wallets = await manager.init(setup.mnemonic);
@@ -103,7 +111,12 @@ describe('EthereumManager', () => {
   `('constructor should throw with invalid config $config', ({ config }) => {
     expect(
       () =>
-        new EthereumManager(Logger.disabledLogger, networks.Ethereum, config),
+        new EthereumManager(
+          Logger.disabledLogger,
+          networks.Ethereum,
+          config,
+          overpaymentProtector,
+        ),
     ).toThrow(Errors.MISSING_SWAP_CONTRACTS().message);
   });
 

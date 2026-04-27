@@ -65,10 +65,11 @@ be refunded instead.
 
 ### Amount Within Pair Limits
 
-The actual locked amount must fall within the pair's minimum and maximum limits.
-Boltz also validates liquidity availability before accepting renegotiation. If
-the new amount exceeds pair limits or liquidity is insufficient, renegotiation
-is not possible.
+The actual locked amount must respect the pair's minimum limit. Positive
+slippage above the maximum limit is accepted only within the configured
+overpayment tolerance. Boltz also validates liquidity availability before
+accepting renegotiation. If the new amount exceeds the allowed limit or
+liquidity is insufficient, renegotiation is not possible.
 
 ## API
 

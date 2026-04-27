@@ -59,6 +59,6 @@ export default defineConfig({
     // `text/plain` without a charset, so browsers fall back to Windows-1252
     // and mojibake the UTF-8 emoji/dash bytes. The files on disk are valid
     // UTF-8 and production (GitHub Pages) sets `charset=utf-8` correctly.
-    plugins: [llmstxt()],
+    plugins: [llmstxt({ excludeIndexPage: false })],
   },
 });

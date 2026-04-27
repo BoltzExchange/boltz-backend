@@ -307,8 +307,10 @@ impl SwapManager for Manager {
                 let inputs = inputs
                     .into_iter()
                     .map(|input| input.try_into())
-                    .collect::<Result<Vec<boltz_core::bitcoin::InputDetail>>>()?;
-                let inputs = inputs.iter().collect::<Vec<_>>();
+                    .collect::<std::result::Result<
+                        Vec<boltz_core::bitcoin::InputDetail>,
+                        boltz_core::WrapperError,
+                    >>()?;
 
                 let params =
                     boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
@@ -317,14 +319,16 @@ impl SwapManager for Manager {
                         fee: fee.into(),
                     });
 
-                boltz_core::wrapper::construct_tx(&params)
+                Ok(boltz_core::wrapper::construct_tx(&params)?)
             }
             Type::Elements => {
                 let inputs = inputs
                     .into_iter()
                     .map(|input| input.try_into())
-                    .collect::<Result<Vec<boltz_core::elements::InputDetail>>>()?;
-                let inputs = inputs.iter().collect::<Vec<_>>();
+                    .collect::<std::result::Result<
+                        Vec<boltz_core::elements::InputDetail>,
+                        boltz_core::WrapperError,
+                    >>()?;
 
                 let params =
                     boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {
@@ -334,7 +338,7 @@ impl SwapManager for Manager {
                         fee: fee.into(),
                     });
 
-                boltz_core::wrapper::construct_tx(&params)
+                Ok(boltz_core::wrapper::construct_tx(&params)?)
             }
         }
     }

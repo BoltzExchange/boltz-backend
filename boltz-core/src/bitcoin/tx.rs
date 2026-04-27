@@ -1,10 +1,9 @@
 use crate::{
-    bitcoin::InputDetail,
+    bitcoin::{InputDetail, scripts::TreeError},
     consts::{ECDSA_BYTES_TO_GRIND, PREIMAGE_DUMMY, STUB_SCHNORR_SIGNATURE_LENGTH},
-    target_fee::{FeeTarget, target_fee},
+    target_fee::{FeeError, FeeTarget, target_fee},
     utils::{Destination, InputType, OutputType},
 };
-use anyhow::Result;
 use bitcoin::{
     Address, Amount, EcdsaSighashType, ScriptBuf, Sequence, TapSighashType, TxIn, TxOut, Witness,
     absolute::LockTime,
@@ -12,33 +11,89 @@ use bitcoin::{
     hashes::{Hash, sha256, sha256d},
     key::Keypair,
     opcodes::OP_0,
-    script::{Builder, PushBytesBuf},
+    script::{Builder, PushBytesBuf, PushBytesError},
     secp256k1::{Message, Secp256k1, Signing, Verification},
     sighash::{Prevouts, SighashCache},
     taproot::{self, LeafVersion},
-    transaction::{Transaction, Version},
+    transaction::{InputsIndexError, Transaction, Version},
 };
 
 const SIGHASH_TYPE_LEGACY: EcdsaSighashType = EcdsaSighashType::All;
 const SIGHASH_TYPE_TAPROOT: TapSighashType = TapSighashType::Default;
 
+/// Errors returned by Bitcoin [`construct_tx`].
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum TxError {
+    /// The selected fee is larger than the sum of input values.
+    #[error("fee is greater than input sum")]
+    FeeExceedsInputs,
+    /// The explicit outputs sum to more than the inputs (before fee).
+    #[error("output sum is greater than input sum")]
+    OutputsExceedInputs,
+    /// The relative fee rate is non-finite or negative.
+    #[error("invalid fee rate")]
+    InvalidFeeRate,
+    /// The Taproot builder could not finalize the script tree for the named input.
+    #[error("could not finalize taproot builder for input {0}")]
+    TaprootFinalize(usize),
+    /// No control block was found for the named input's spend leaf.
+    #[error("could not create control block for input {0}")]
+    ControlBlock(usize),
+    /// A swap [`Tree`](crate::bitcoin::Tree) operation failed.
+    #[error(transparent)]
+    Tree(#[from] TreeError),
+    /// Failed to convert a height/time value into a [`LockTime`].
+    #[error(transparent)]
+    LockTime(#[from] bitcoin::absolute::ConversionError),
+    /// Failed to compute a Taproot sighash.
+    #[error(transparent)]
+    Taproot(#[from] bitcoin::sighash::TaprootError),
+    /// An input index was out of range while computing a sighash.
+    #[error(transparent)]
+    InputsIndex(#[from] InputsIndexError),
+    /// A script-push payload exceeded the consensus size limit.
+    #[error(transparent)]
+    PushBytes(#[from] PushBytesError),
+    /// A secp256k1 operation (key parse, signature) failed.
+    #[error(transparent)]
+    Secp(#[from] bitcoin::secp256k1::Error),
+}
+
+impl From<FeeError> for TxError {
+    fn from(e: FeeError) -> Self {
+        match e {
+            FeeError::InvalidFeeRate => TxError::InvalidFeeRate,
+        }
+    }
+}
+
+/// Build, sign, and finalize a Bitcoin transaction spending `inputs` to
+/// `destination`, paying `fee`.
+///
+/// For [`FeeTarget::Relative`] the transaction is constructed twice:
+/// once with a stub fee to measure its virtual size, then again with
+/// the resulting absolute fee. Returns the signed transaction and the
+/// fee that was actually charged, in satoshis.
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     destination: &Destination<&Address>,
     fee: FeeTarget,
-) -> Result<(Transaction, u64)> {
+) -> Result<(Transaction, u64), TxError> {
     target_fee(fee, |fee, _is_fee_estimation| {
         construct_raw(secp, inputs, destination, Amount::from_sat(fee))
     })
 }
 
+#[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[&InputDetail],
+    inputs: &[InputDetail],
     destination: &Destination<&Address>,
     fee: Amount,
-) -> Result<Transaction> {
+) -> Result<Transaction, TxError> {
     let input_sum = inputs
         .iter()
         .map(|input| input.tx_out.value)
@@ -48,7 +103,7 @@ pub fn construct_raw<C: Signing + Verification>(
         Destination::Single(address) => vec![TxOut {
             value: input_sum
                 .checked_sub(fee)
-                .ok_or(anyhow::anyhow!("fee is greater than input sum"))?,
+                .ok_or(TxError::FeeExceedsInputs)?,
             script_pubkey: address.script_pubkey(),
         }],
         Destination::Multiple(outputs) => {
@@ -59,7 +114,7 @@ pub fn construct_raw<C: Signing + Verification>(
                 .sum::<Amount>();
 
             if output_sum + fee > input_sum {
-                return Err(anyhow::anyhow!("output sum is greater than input sum"));
+                return Err(TxError::OutputsExceedInputs);
             }
 
             let mut res = Vec::with_capacity(outputs.outputs.len() + 1);
@@ -114,7 +169,7 @@ pub fn construct_raw<C: Signing + Verification>(
 
     let mut sighash_cache = SighashCache::new(tx.clone());
 
-    for (i, input) in inputs.iter().enumerate() {
+    for ((i, input), tx_in) in inputs.iter().enumerate().zip(tx.input.iter_mut()) {
         match &input.output_type {
             OutputType::Legacy(witness_script) => {
                 let sighash = sighash_cache.legacy_signature_hash(
@@ -139,7 +194,7 @@ pub fn construct_raw<C: Signing + Verification>(
 
                 script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
 
-                tx.input[i].script_sig = script_sig;
+                tx_in.script_sig = script_sig;
             }
             OutputType::Compatibility(witness_script) => {
                 let nested = Builder::new()
@@ -147,14 +202,14 @@ pub fn construct_raw<C: Signing + Verification>(
                     .push_slice(sha256::Hash::hash(witness_script.as_bytes()).as_byte_array());
                 let nested = PushBytesBuf::try_from(nested.into_bytes())?;
 
-                tx.input[i].script_sig = Builder::new().push_slice(nested).into_script();
+                tx_in.script_sig = Builder::new().push_slice(nested).into_script();
             }
             _ => {}
         };
 
         match &input.output_type {
             OutputType::Taproot(None) => {
-                tx.input[i].witness = stubbed_cooperative_witness();
+                tx_in.witness = stubbed_cooperative_witness();
             }
             OutputType::Taproot(Some(uncooperative)) => {
                 let leaf = if let InputType::Claim(_) = input.input_type {
@@ -184,21 +239,12 @@ pub fn construct_raw<C: Signing + Verification>(
                     .tree
                     .build()?
                     .finalize(secp, uncooperative.internal_key)
-                    .map_err(|e| {
-                        anyhow::anyhow!(
-                            "could not finalize taproot builder for input {}: {:?}",
-                            i,
-                            e
-                        )
-                    })?
+                    .map_err(|_| TxError::TaprootFinalize(i))?
                     .control_block(&(
                         leaf.output.clone(),
-                        LeafVersion::from_consensus(leaf.version)?,
+                        LeafVersion::from_consensus(leaf.version).map_err(TreeError::Taproot)?,
                     ))
-                    .ok_or(anyhow::anyhow!(
-                        "could not create control block for input {}",
-                        i
-                    ))?;
+                    .ok_or(TxError::ControlBlock(i))?;
 
                 let mut witness = Witness::new();
 
@@ -211,7 +257,7 @@ pub fn construct_raw<C: Signing + Verification>(
                 witness.push(leaf.output.as_bytes());
                 witness.push(control_block.serialize());
 
-                tx.input[i].witness = witness;
+                tx_in.witness = witness;
             }
             OutputType::SegwitV0(witness_script) | OutputType::Compatibility(witness_script) => {
                 let sighash = sighash_cache.p2wsh_signature_hash(
@@ -236,7 +282,7 @@ pub fn construct_raw<C: Signing + Verification>(
 
                 witness.push(witness_script.as_bytes());
 
-                tx.input[i].witness = witness;
+                tx_in.witness = witness;
             }
             _ => {}
         }
@@ -257,7 +303,7 @@ fn legacy_signature<C: Signing>(
     secp: &Secp256k1<C>,
     sighash: &&sha256d::Hash,
     keys: &Keypair,
-) -> Result<ecdsa::Signature> {
+) -> Result<ecdsa::Signature, TxError> {
     Ok(ecdsa::Signature {
         sighash_type: SIGHASH_TYPE_LEGACY,
         signature: secp.sign_ecdsa_grind_r(
@@ -556,7 +602,7 @@ mod tests {
         let fee = 1_000;
         let (mut tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -623,7 +669,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -675,7 +721,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -712,7 +758,7 @@ mod tests {
         let fee_rate = 3.0;
         let (mut tx, fee) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -780,7 +826,7 @@ mod tests {
         let fee_rate = 3.0;
         let (tx, fee) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -821,7 +867,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -862,7 +908,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -894,7 +940,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -935,7 +981,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -967,7 +1013,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1008,7 +1054,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1058,7 +1104,7 @@ mod tests {
         let fee_rate = 4.0;
         let (tx, fee) = construct_tx(
             &secp,
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -1099,7 +1145,7 @@ mod tests {
         let fee = 500;
         let (tx, _) = construct_tx(
             &secp,
-            inputs.iter().collect::<Vec<_>>().as_slice(),
+            &inputs,
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,
@@ -1151,13 +1197,14 @@ mod tests {
         };
 
         let fee = Amount::from_sat(amount.to_sat() + 1);
-        let result = construct_raw(&secp, &[&input], &Destination::Single(&address), fee);
-
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "fee is greater than input sum"
+        let result = construct_raw(
+            &secp,
+            std::slice::from_ref(&input),
+            &Destination::Single(&address),
+            fee,
         );
+
+        assert_eq!(result.unwrap_err(), TxError::FeeExceedsInputs);
     }
 
     #[test]
@@ -1190,7 +1237,7 @@ mod tests {
         let outputs = [(&dest, amount.to_sat() - fee.to_sat() + 1)];
         let result = construct_raw(
             &secp,
-            &[&input],
+            std::slice::from_ref(&input),
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,
@@ -1198,10 +1245,6 @@ mod tests {
             fee,
         );
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "output sum is greater than input sum"
-        );
+        assert_eq!(result.unwrap_err(), TxError::OutputsExceedInputs);
     }
 }

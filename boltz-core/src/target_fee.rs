@@ -1,10 +1,23 @@
 use crate::utils::Transaction;
-use anyhow::Result;
 
+/// How a transaction's fee should be selected.
+///
+/// Implements `From<u64>` ([`FeeTarget::Absolute`]) and `From<f64>`
+/// ([`FeeTarget::Relative`]) for ergonomic call sites.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FeeTarget {
+    /// Pay exactly this many satoshis as fee, regardless of transaction size.
     Absolute(u64),
+    /// Pay this fee rate, in sat/vB. The transaction is built once to
+    /// estimate its virtual size, then rebuilt with the resulting fee.
     Relative(f64),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub(crate) enum FeeError {
+    #[error("invalid fee rate")]
+    InvalidFeeRate,
 }
 
 impl From<u64> for FeeTarget {
@@ -19,15 +32,26 @@ impl From<f64> for FeeTarget {
     }
 }
 
-pub fn target_fee<T: Transaction, C: Fn(u64, bool) -> Result<T>>(
-    fee_target: FeeTarget,
-    construct_tx: C,
-) -> Result<(T, u64)> {
+impl std::fmt::Display for FeeTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FeeTarget::Absolute(fee) => write!(f, "{} sat", fee),
+            FeeTarget::Relative(rate) => write!(f, "{} sat/vB", rate),
+        }
+    }
+}
+
+pub(crate) fn target_fee<T, E, C>(fee_target: FeeTarget, construct_tx: C) -> Result<(T, u64), E>
+where
+    T: Transaction,
+    E: From<FeeError>,
+    C: Fn(u64, bool) -> Result<T, E>,
+{
     match fee_target {
         FeeTarget::Absolute(fee) => Ok((construct_tx(fee, false)?, fee)),
         FeeTarget::Relative(fee_rate) => {
             if !fee_rate.is_finite() || fee_rate < 0.0 {
-                anyhow::bail!("invalid fee rate");
+                return Err(FeeError::InvalidFeeRate.into());
             }
 
             let tx = construct_tx(1, true)?;
@@ -41,8 +65,15 @@ pub fn target_fee<T: Transaction, C: Fn(u64, bool) -> Result<T>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::anyhow;
     use std::cell::Cell;
+
+    #[derive(Debug, Clone, PartialEq, thiserror::Error)]
+    enum MockError {
+        #[error("{0}")]
+        Construction(&'static str),
+        #[error(transparent)]
+        Fee(#[from] FeeError),
+    }
 
     #[derive(Debug, Clone, PartialEq)]
     struct MockTransaction {
@@ -81,12 +112,18 @@ mod tests {
     }
 
     #[test]
+    fn test_display() {
+        assert_eq!(FeeTarget::Absolute(1000).to_string(), "1000 sat");
+        assert_eq!(FeeTarget::Relative(2.5).to_string(), "2.5 sat/vB");
+    }
+
+    #[test]
     fn test_absolute_fee_target() {
         let target_fee_value = 1000u64;
         let mock_vsize = 250;
         let mock_input_count = 2;
 
-        let result = target_fee(
+        let result: Result<_, MockError> = target_fee(
             FeeTarget::Absolute(target_fee_value),
             |fee, is_fee_estimation| {
                 assert!(!is_fee_estimation);
@@ -111,18 +148,19 @@ mod tests {
         let expected_fee = ((mock_vsize + mock_input_count) as f64 * fee_rate).ceil() as u64;
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, expected_fee);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, expected_fee);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -143,18 +181,19 @@ mod tests {
         assert_eq!(expected_fee, 152);
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, expected_fee);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, expected_fee);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -173,18 +212,19 @@ mod tests {
         assert_eq!(expected_fee, 13);
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, expected_fee);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, expected_fee);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -200,18 +240,19 @@ mod tests {
         let mock_input_count = 2;
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, 0);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, 0);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -222,13 +263,15 @@ mod tests {
 
     #[test]
     fn test_constructor_error_propagation() {
-        let result = target_fee::<MockTransaction, _>(
+        let result = target_fee::<MockTransaction, MockError, _>(
             FeeTarget::Absolute(1000),
-            |_fee, _is_fee_estimation| Err(anyhow!("Construction failed")),
+            |_fee, _is_fee_estimation| Err(MockError::Construction("Construction failed")),
         );
 
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Construction failed");
+        assert_eq!(
+            result.unwrap_err(),
+            MockError::Construction("Construction failed")
+        );
     }
 
     #[test]
@@ -241,18 +284,19 @@ mod tests {
         assert_eq!(expected_fee, 2);
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, expected_fee);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, expected_fee);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -271,18 +315,19 @@ mod tests {
         assert_eq!(expected_fee, 550000);
 
         let call_count = Cell::new(0);
-        let result = target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
-            let count = call_count.get() + 1;
-            call_count.set(count);
-            if count == 1 {
-                assert_eq!(fee, 1);
-                assert!(is_fee_estimation);
-            } else {
-                assert_eq!(fee, expected_fee);
-                assert!(!is_fee_estimation);
-            }
-            Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
-        });
+        let result: Result<_, MockError> =
+            target_fee(FeeTarget::Relative(fee_rate), |fee, is_fee_estimation| {
+                let count = call_count.get() + 1;
+                call_count.set(count);
+                if count == 1 {
+                    assert_eq!(fee, 1);
+                    assert!(is_fee_estimation);
+                } else {
+                    assert_eq!(fee, expected_fee);
+                    assert!(!is_fee_estimation);
+                }
+                Ok(MockTransaction::new(fee, mock_vsize, mock_input_count))
+            });
 
         assert!(result.is_ok());
         let (tx, fee) = result.unwrap();
@@ -293,24 +338,22 @@ mod tests {
 
     #[test]
     fn test_invalid_fee_rate() {
-        assert_eq!(
-            target_fee(
-                FeeTarget::Relative(f64::INFINITY),
-                |_fee, _is_fee_estimation| { Ok(MockTransaction::new(0, 0, 0)) }
-            )
-            .err()
-            .unwrap()
-            .to_string(),
-            "invalid fee rate"
+        let infinity: Result<_, MockError> = target_fee(
+            FeeTarget::Relative(f64::INFINITY),
+            |_fee, _is_fee_estimation| Ok(MockTransaction::new(0, 0, 0)),
         );
         assert_eq!(
+            infinity.unwrap_err(),
+            MockError::Fee(FeeError::InvalidFeeRate)
+        );
+
+        let negative: Result<_, MockError> =
             target_fee(FeeTarget::Relative(-2.1), |_fee, _is_fee_estimation| {
                 Ok(MockTransaction::new(0, 0, 0))
-            })
-            .err()
-            .unwrap()
-            .to_string(),
-            "invalid fee rate"
+            });
+        assert_eq!(
+            negative.unwrap_err(),
+            MockError::Fee(FeeError::InvalidFeeRate)
         );
     }
 }

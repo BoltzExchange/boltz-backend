@@ -9,6 +9,8 @@ use elements::{
     taproot::TAPROOT_LEAF_TAPSCRIPT,
 };
 
+/// Build the Elements Taproot script tree for a submarine swap (the
+/// Liquid analogue of `bitcoin::swap_tree`).
 pub fn swap_tree(
     preimage_hash: hash160::Hash,
     claim_pubkey: &XOnlyPublicKey,

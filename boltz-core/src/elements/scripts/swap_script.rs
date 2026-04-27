@@ -7,6 +7,8 @@ use elements::{
     secp256k1_zkp::PublicKey,
 };
 
+/// Build the legacy / segwit-v0 Elements submarine swap script
+/// (the Liquid analogue of `bitcoin::swap_script`).
 pub fn swap_script(
     preimage_hash: hash160::Hash,
     claim_pubkey: &PublicKey,

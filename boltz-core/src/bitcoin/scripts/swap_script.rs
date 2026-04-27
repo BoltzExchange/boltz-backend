@@ -7,6 +7,11 @@ use bitcoin::{
     secp256k1::PublicKey,
 };
 
+/// Build the legacy / segwit-v0 submarine swap script.
+///
+/// The script lets `claim_pubkey` spend by revealing the preimage of
+/// `preimage_hash` (HASH160), and lets `refund_pubkey` spend after
+/// `lock_time` has elapsed (CLTV).
 pub fn swap_script(
     preimage_hash: hash160::Hash,
     claim_pubkey: &PublicKey,
@@ -34,7 +39,7 @@ pub fn swap_script(
     script
 }
 
-pub fn push_int(script: &mut ScriptBuf, data: i64) {
+pub(crate) fn push_int(script: &mut ScriptBuf, data: i64) {
     let mut lock_time_buf = [0u8; 8];
     let len = write_scriptint(&mut lock_time_buf, data);
     script.push_slice(&<&PushBytes>::from(&lock_time_buf)[..len])

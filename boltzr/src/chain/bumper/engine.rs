@@ -166,7 +166,8 @@ impl Bumper {
 
         match self.chain_client.chain_type() {
             Type::Bitcoin => match scripts.first() {
-                Some(script) => Address::from_bitcoin_script(self.chain_client.network(), script),
+                Some(script) => Address::from_bitcoin_script(self.chain_client.network(), script)
+                    .map_err(anyhow::Error::from),
                 None => Err(anyhow::anyhow!("no output script")),
             },
             Type::Elements => {

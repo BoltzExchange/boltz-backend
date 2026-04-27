@@ -1,4 +1,3 @@
-use anyhow::{Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
@@ -6,6 +5,20 @@ use serde_json::json;
 use std::sync::Arc;
 
 const REGTEST_HOST: &str = "127.0.0.1";
+
+pub type Result<T> = std::result::Result<T, ClientError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("rpc error: {0}")]
+    Rpc(String),
+    #[error("no result")]
+    NoResult,
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
+    #[error(transparent)]
+    InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
+}
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -18,7 +31,7 @@ pub enum RpcParam<'a> {
 }
 
 impl Serialize for RpcParam<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -104,16 +117,13 @@ impl RpcClient {
 
         let data = response.json::<RpcResponse<T>>()?;
         if let Some(err) = data.error {
-            return Err(anyhow!(err.message));
+            return Err(ClientError::Rpc(err.message));
         }
 
-        match data.result {
-            Some(res) => Ok(res),
-            None => Err(anyhow::anyhow!("no result")),
-        }
+        data.result.ok_or(ClientError::NoResult)
     }
 
-    fn get_headers(&self) -> anyhow::Result<HeaderMap> {
+    fn get_headers(&self) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
         headers.insert("Authorization", HeaderValue::from_str(&self.cookie)?);
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));

@@ -8,6 +8,13 @@ use bitcoin::{
     taproot::TAPROOT_LEAF_TAPSCRIPT,
 };
 
+/// Build the Taproot script tree for a submarine swap.
+///
+/// The returned [`Tree`] has two leaves: a claim leaf gated on the
+/// preimage of `preimage_hash` plus `claim_pubkey`'s signature, and a
+/// refund leaf gated on `refund_pubkey`'s signature after `lock_time`.
+/// The cooperative key-path spend is left to the caller (typically
+/// MuSig2 over the two pubkeys).
 pub fn swap_tree(
     preimage_hash: hash160::Hash,
     claim_pubkey: &XOnlyPublicKey,

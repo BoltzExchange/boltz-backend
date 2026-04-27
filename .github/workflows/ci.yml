@@ -113,6 +113,38 @@ jobs:
       - name: Tests
         run: cargo test
 
+  build-boltz-core:
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        node-version: [24]
+        rust-version: [stable]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          submodules: 'true'
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-environment
+        with:
+          node-version: ${{ matrix.node-version }}
+          rust-version: ${{ matrix.rust-version }}
+          cache-prefix: cargo-boltz-core
+
+      - name: Install just
+        uses: extractions/setup-just@v4
+
+      - name: boltz-core feature matrix
+        run: just boltz-core-features
+
+      - name: boltz-core docs
+        run: just boltz-core-docs-features
+
   api-generation-validation:
     timeout-minutes: 60
     strategy:

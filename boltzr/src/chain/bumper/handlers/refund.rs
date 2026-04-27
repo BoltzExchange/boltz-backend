@@ -134,7 +134,7 @@ where
         };
 
         let (tx, _) = construct_tx(&Params::Bitcoin(BitcoinParams {
-            inputs: &[&refund_details.try_into()?],
+            inputs: &[refund_details.try_into()?],
             fee: fee_target.into(),
             destination: &Destination::Single(&destination.try_into()?),
         }))?;

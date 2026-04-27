@@ -1,30 +1,61 @@
 use crate::bitcoin::scripts::utils::serializer;
-use anyhow::Result;
 use bitcoin::{
     ScriptBuf, TapLeafHash, XOnlyPublicKey,
     script::Instruction,
-    taproot::{LeafVersion, TaprootBuilder},
+    taproot::{LeafVersion, TaprootBuilder, TaprootBuilderError, TaprootError},
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Errors returned by [`Tree`] / [`Tapleaf`] operations.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum TreeError {
+    /// The claim leaf script does not contain a 32-byte x-only public key push.
+    #[error("claim leaf does not contain a public key")]
+    ClaimMissingPubkey,
+    /// The refund leaf script does not contain a 32-byte x-only public key push.
+    #[error("refund leaf does not contain a public key")]
+    RefundMissingPubkey,
+    /// Failed to decode a Taproot leaf version.
+    #[error(transparent)]
+    Taproot(#[from] TaprootError),
+    /// The Taproot tree builder rejected the leaf layout.
+    #[error(transparent)]
+    Builder(#[from] TaprootBuilderError),
+    /// Failed to parse an x-only public key from a leaf script push.
+    #[error(transparent)]
+    Pubkey(#[from] bitcoin::secp256k1::Error),
+}
+
+/// One leaf of a Taproot script tree: a script and its leaf version.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tapleaf {
+    /// Tapscript leaf version (typically `0xC0`).
     pub version: u8,
+    /// The leaf script.
     #[serde(serialize_with = "serializer::serialize")]
     #[serde(deserialize_with = "serializer::deserialize")]
     pub output: ScriptBuf,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// The two-leaf Taproot script tree used by Boltz swaps.
+///
+/// Both submarine and reverse swaps commit to a tree with one claim leaf
+/// and one refund leaf. The cooperative path is the key-path spend of the
+/// containing Taproot output.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Tree {
+    /// Leaf gating the claim spend (preimage + claim signature).
     #[serde(rename = "claimLeaf")]
     pub claim_leaf: Tapleaf,
+    /// Leaf gating the refund spend (refund signature after `lock_time`).
     #[serde(rename = "refundLeaf")]
     pub refund_leaf: Tapleaf,
 }
 
 impl Tapleaf {
-    pub fn leaf_hash(&self) -> Result<TapLeafHash> {
+    /// Compute the BIP-341 tagged leaf hash of this leaf.
+    pub fn leaf_hash(&self) -> Result<TapLeafHash, TreeError> {
         Ok(TapLeafHash::from_script(
             &self.output,
             LeafVersion::from_consensus(self.version)?,
@@ -33,7 +64,8 @@ impl Tapleaf {
 }
 
 impl Tree {
-    pub fn build(&self) -> Result<TaprootBuilder> {
+    /// Build a [`TaprootBuilder`] populated with this tree's two leaves.
+    pub fn build(&self) -> Result<TaprootBuilder, TreeError> {
         Ok(TaprootBuilder::new()
             .add_leaf_with_ver(
                 1,
@@ -47,21 +79,19 @@ impl Tree {
             )?)
     }
 
-    pub fn claim_pubkey(&self) -> Result<XOnlyPublicKey> {
-        match self.get_pubkey(&self.claim_leaf)? {
-            Some(pubkey) => Ok(pubkey),
-            None => Err(anyhow::anyhow!("claim leaf does not contain a public key")),
-        }
+    /// Extract the claim x-only public key from the claim leaf script.
+    pub fn claim_pubkey(&self) -> Result<XOnlyPublicKey, TreeError> {
+        self.get_pubkey(&self.claim_leaf)?
+            .ok_or(TreeError::ClaimMissingPubkey)
     }
 
-    pub fn refund_pubkey(&self) -> Result<XOnlyPublicKey> {
-        match self.get_pubkey(&self.refund_leaf)? {
-            Some(pubkey) => Ok(pubkey),
-            None => Err(anyhow::anyhow!("refund leaf does not contain a public key")),
-        }
+    /// Extract the refund x-only public key from the refund leaf script.
+    pub fn refund_pubkey(&self) -> Result<XOnlyPublicKey, TreeError> {
+        self.get_pubkey(&self.refund_leaf)?
+            .ok_or(TreeError::RefundMissingPubkey)
     }
 
-    fn get_pubkey(&self, leaf: &Tapleaf) -> Result<Option<XOnlyPublicKey>> {
+    fn get_pubkey(&self, leaf: &Tapleaf) -> Result<Option<XOnlyPublicKey>, TreeError> {
         for instr in leaf.output.instructions().flatten() {
             if let Instruction::PushBytes(bytes) = instr {
                 if bytes.len() != 32 {

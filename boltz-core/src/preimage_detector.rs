@@ -2,6 +2,15 @@ use crate::utils::TxIn;
 
 const PREIMAGE_SIZE: usize = 32;
 
+/// Scan a transaction input for a 32-byte HTLC preimage.
+///
+/// Inspects the witness stack first (positions 0 and 1, where claim
+/// preimages live in p2wsh and Taproot swaps respectively) and then
+/// falls back to data pushes from the `scriptSig` (legacy / nested
+/// segwit). Returns the first 32-byte push found, or `None` if no
+/// candidate is present. The input is not validated against any
+/// particular swap script — the caller is responsible for confirming
+/// the spend it came from is in fact a claim spend.
 pub fn detect_preimage<T: TxIn>(input: &T) -> Option<[u8; 32]> {
     let witness = input.witness();
 

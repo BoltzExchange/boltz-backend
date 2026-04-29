@@ -512,6 +512,7 @@ describe('ArkNursery', () => {
 
     test('should return early when no swap is found', async () => {
       SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+      SwapRepository.setLockupTransaction = jest.fn();
 
       await nursery['checkSubmarineLockup'](mockArkNode, {
         address: 'ark_address',
@@ -526,6 +527,7 @@ describe('ArkNursery', () => {
         },
         lockupAddress: 'ark_address',
       });
+      expect(SwapRepository.setLockupTransaction).not.toHaveBeenCalled();
       expect(
         mockArkNode.subscription.unsubscribeAddress,
       ).not.toHaveBeenCalled();
@@ -538,7 +540,16 @@ describe('ArkNursery', () => {
         expectedAmount: 100000,
       };
 
+      const updatedSwap = {
+        ...swap,
+        lockupTransactionId: 'txid',
+        onchainAmount: 50000,
+      };
+
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      SwapRepository.setLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
 
       let emittedEvent: any = null;
       nursery.once('swap.lockup.failed', (data) => {
@@ -555,8 +566,15 @@ describe('ArkNursery', () => {
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_address',
       );
+      expect(SwapRepository.setLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        50000,
+        true,
+        0,
+      );
       expect(emittedEvent).not.toBeNull();
-      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.swap).toEqual(updatedSwap);
       expect(emittedEvent.reason).toEqual(
         Errors.INSUFFICIENT_AMOUNT(50000, 100000).message,
       );
@@ -569,7 +587,16 @@ describe('ArkNursery', () => {
         expectedAmount: 100000,
       };
 
+      const updatedSwap = {
+        ...swap,
+        lockupTransactionId: 'txid',
+        onchainAmount: 150000,
+      };
+
       SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      SwapRepository.setLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
 
       const protector = new OverpaymentProtector(Logger.disabledLogger, {
         exemptAmount: 1000,
@@ -592,11 +619,65 @@ describe('ArkNursery', () => {
       expect(mockArkNode.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_address',
       );
+      expect(SwapRepository.setLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        150000,
+        true,
+        0,
+      );
       expect(emittedEvent).not.toBeNull();
-      expect(emittedEvent.swap).toEqual(swap);
+      expect(emittedEvent.swap).toEqual(updatedSwap);
       expect(emittedEvent.reason).toEqual(
         Errors.OVERPAID_AMOUNT(150000, 100000).message,
       );
+    });
+
+    test('should persist lockup transaction before running validation', async () => {
+      const swap = {
+        id: 'swap123',
+        type: SwapType.Submarine,
+        expectedAmount: 100000,
+      };
+
+      const callOrder: string[] = [];
+
+      SwapRepository.getSwap = jest.fn().mockResolvedValue(swap);
+      SwapRepository.setLockupTransaction = jest.fn().mockImplementation(() => {
+        callOrder.push('setLockupTransaction');
+        return Promise.resolve({
+          ...swap,
+          lockupTransactionId: 'txid',
+          onchainAmount: 50000,
+        });
+      });
+
+      const protector = new OverpaymentProtector(Logger.disabledLogger);
+      protector.isUnacceptableOverpay = jest.fn().mockImplementation(() => {
+        callOrder.push('overpayCheck');
+        return false;
+      });
+      const testNursery = new ArkNursery(Logger.disabledLogger, protector);
+
+      const failurePromise = new Promise<void>((resolve) => {
+        testNursery.once('swap.lockup.failed', () => {
+          callOrder.push('emitFailed');
+          resolve();
+        });
+      });
+
+      await testNursery['checkSubmarineLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 50000,
+      } as any);
+
+      await failurePromise;
+
+      expect(callOrder[0]).toEqual('setLockupTransaction');
+      expect(callOrder).toContain('emitFailed');
+      expect(protector.isUnacceptableOverpay).not.toHaveBeenCalled();
     });
 
     test('should emit success for valid lockup', async () => {

@@ -241,7 +241,7 @@ class ArkNursery extends TypedEventEmitter<{
     vHtlc: CreatedVHtlc,
     onUnsubscribe?: UnsubscribeHandler,
   ) => {
-    const swap = await SwapRepository.getSwap({
+    let swap = await SwapRepository.getSwap({
       status: {
         [Op.in]: [SwapUpdateEvent.SwapCreated, SwapUpdateEvent.InvoiceSet],
       },
@@ -256,6 +256,15 @@ class ArkNursery extends TypedEventEmitter<{
 
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
+    );
+
+    swap = await SwapRepository.setLockupTransaction(
+      swap,
+      vHtlc.txId,
+      vHtlc.amount,
+      // TODO: how to handle out of round?
+      true,
+      vHtlc.vout,
     );
 
     if (swap.expectedAmount! > vHtlc.amount) {
@@ -283,14 +292,7 @@ class ArkNursery extends TypedEventEmitter<{
     }
 
     this.emit('swap.lockup', {
-      swap: await SwapRepository.setLockupTransaction(
-        swap,
-        vHtlc.txId,
-        vHtlc.amount,
-        // TODO: how to handle out of round?
-        true,
-        vHtlc.vout,
-      ),
+      swap,
       lockupTransactionId: vHtlc.txId,
     });
   };

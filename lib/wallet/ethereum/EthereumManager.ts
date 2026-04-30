@@ -320,10 +320,11 @@ class EthereumManager {
     );
 
   public contractsForAddress = async (address: string) => {
+    const target = getAddress(address);
     for (const c of this.contracts) {
       if (
-        (await c.etherSwap.getAddress()) === address ||
-        (await c.erc20Swap.getAddress()) === address
+        getAddress(await c.etherSwap.getAddress()) === target ||
+        getAddress(await c.erc20Swap.getAddress()) === target
       ) {
         return c;
       }
@@ -346,7 +347,7 @@ class EthereumManager {
     }
 
     const decoded = contracts.decodeClaimData(
-      (await contracts.erc20Swap.getAddress()) !== tx.to,
+      getAddress(await contracts.erc20Swap.getAddress()) !== getAddress(tx.to),
       tx.data,
     );
 

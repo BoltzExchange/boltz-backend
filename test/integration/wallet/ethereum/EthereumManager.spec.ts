@@ -1,4 +1,4 @@
-import { MaxUint256 } from 'ethers';
+import { MaxUint256, ZeroAddress } from 'ethers';
 import Logger from '../../../../lib/Logger';
 import Database from '../../../../lib/db/Database';
 import OverpaymentProtector from '../../../../lib/swap/OverpaymentProtector';
@@ -204,7 +204,9 @@ describe('EthereumManager', () => {
       manager.contractsForAddress(await oldContracts.erc20Swap.getAddress()),
     ).resolves.toEqual(oldContracts);
 
-    await expect(manager.contractsForAddress('0x')).resolves.toBeUndefined();
+    await expect(
+      manager.contractsForAddress(ZeroAddress),
+    ).resolves.toBeUndefined();
   });
 
   describe('getClaimedAmount', () => {

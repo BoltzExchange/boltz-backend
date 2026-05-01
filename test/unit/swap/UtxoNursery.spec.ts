@@ -381,13 +381,7 @@ describe('UtxoNursery', () => {
       { lockupAddress: address },
       {
         status: {
-          [Op.or]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionLockupFailed,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-            SwapUpdateEvent.TransactionConfirmed,
-          ],
+          [Op.in]: ChainSwapRepository.getUserLockupTransactionStatuses(),
         },
       },
     );
@@ -1431,10 +1425,92 @@ describe('UtxoNursery', () => {
           outputValue,
           true,
           0,
+          undefined,
         );
 
         getOutputValueSpy.mockRestore();
       },
     );
+
+    test('should ignore duplicate lockup checks after chain swap lockup failed', async () => {
+      const checkChainSwapTransaction = nursery['checkChainSwapTransaction'];
+
+      const ourKeys = ECPair.makeRandom();
+      const theirPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+
+      const tree = swapTree(
+        false,
+        randomBytes(32),
+        Buffer.from(ourKeys.publicKey),
+        theirPublicKey,
+        210,
+      );
+
+      const transaction = new Transaction();
+      transaction.addOutput(
+        Scripts.p2trOutput(
+          tweakMusig(
+            CurrencyType.BitcoinLike,
+            createMusig(ourKeys, theirPublicKey),
+            tree,
+          ),
+        ),
+        123,
+      );
+
+      mockGetKeysByIndexResult = ourKeys;
+
+      const mockChainSwap = {
+        id: 'testChainSwap',
+        type: SwapType.Chain,
+        receivingData: {
+          keyIndex: 123,
+          expectedAmount: 100,
+          theirPublicKey: theirPublicKey.toString('hex'),
+          swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
+        },
+      };
+
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue({
+          ...mockChainSwap,
+          status: SwapUpdateEvent.TransactionLockupFailed,
+        });
+
+      const getOutputValueSpy = jest
+        .spyOn(Core, 'getOutputValue')
+        .mockReturnValue(500);
+
+      const emitSpy = jest.spyOn(nursery, 'emit');
+
+      await checkChainSwapTransaction(
+        mockChainSwap as any,
+        btcChainClient,
+        btcWallet,
+        transaction,
+        TransactionStatus.Confirmed,
+      );
+
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        mockChainSwap,
+        transaction.getId(),
+        500,
+        true,
+        0,
+        undefined,
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        'chainSwap.lockup.failed',
+        expect.anything(),
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        'chainSwap.lockup',
+        expect.anything(),
+      );
+
+      emitSpy.mockRestore();
+      getOutputValueSpy.mockRestore();
+    });
   });
 });

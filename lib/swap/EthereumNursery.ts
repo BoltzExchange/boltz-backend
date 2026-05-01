@@ -21,7 +21,10 @@ import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type { ERC20SwapValues, EtherSwapValues } from '../consts/Types';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
-import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type {
+  ChainSwapInfo,
+  UserLockupTransactionOptions,
+} from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
@@ -156,6 +159,7 @@ class EthereumNursery extends TypedEventEmitter<{
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | TransactionResponse,
     etherSwapValues: EtherSwapValues,
+    options?: UserLockupTransactionOptions,
   ) => {
     if (
       this.getSwapReceivingCurrency(swap) !==
@@ -182,7 +186,19 @@ class EthereumNursery extends TypedEventEmitter<{
             transaction.hash!,
             lockupAmount,
             true,
+            undefined,
+            options,
           );
+
+    if (
+      swap.type === SwapType.Chain &&
+      !ChainSwapRepository.canActOnUserLockup(swap as ChainSwapInfo, options)
+    ) {
+      this.logger.debug(
+        `Not acting on lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because lockup failed already`,
+      );
+      return;
+    }
 
     if (etherSwapValues.claimAddress !== this.ethereumManager.address) {
       this.emit('lockup.failed', {
@@ -283,6 +299,7 @@ class EthereumNursery extends TypedEventEmitter<{
     swap: Swap | ChainSwapInfo,
     transaction: Transaction | TransactionResponse,
     erc20SwapValues: ERC20SwapValues,
+    options?: UserLockupTransactionOptions,
   ) => {
     const wallet = this.walletManager.wallets.get(
       this.getSwapReceivingCurrency(swap),
@@ -313,7 +330,19 @@ class EthereumNursery extends TypedEventEmitter<{
             transaction.hash!,
             lockupAmount,
             true,
+            undefined,
+            options,
           );
+
+    if (
+      swap.type === SwapType.Chain &&
+      !ChainSwapRepository.canActOnUserLockup(swap as ChainSwapInfo, options)
+    ) {
+      this.logger.debug(
+        `Not acting on lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because lockup failed already`,
+      );
+      return;
+    }
 
     if (erc20SwapValues.claimAddress !== this.ethereumManager.address) {
       this.emit('lockup.failed', {

@@ -23,6 +23,10 @@ type ChainSwapDataTypeInsert = ChainSwapDataType & {
   scriptPubKey?: Buffer;
 };
 
+type UserLockupTransactionOptions = {
+  allowLockupFailedUpdate?: boolean;
+};
+
 class ChainSwapInfo {
   constructor(
     public chainSwap: ChainSwap,
@@ -120,6 +124,33 @@ class ChainSwapInfo {
 }
 
 class ChainSwapRepository {
+  private static readonly defaultUserLockupTransactionStatuses = [
+    SwapUpdateEvent.SwapCreated,
+    SwapUpdateEvent.TransactionMempool,
+    SwapUpdateEvent.TransactionZeroConfRejected,
+    SwapUpdateEvent.TransactionConfirmed,
+  ];
+
+  public static getUserLockupTransactionStatuses = (
+    options?: UserLockupTransactionOptions,
+  ) => {
+    const statuses = [
+      ...ChainSwapRepository.defaultUserLockupTransactionStatuses,
+    ];
+    if (options?.allowLockupFailedUpdate) {
+      statuses.push(SwapUpdateEvent.TransactionLockupFailed);
+    }
+
+    return statuses;
+  };
+
+  public static canActOnUserLockup = (
+    swap: ChainSwapInfo,
+    options?: UserLockupTransactionOptions,
+  ): boolean =>
+    swap.status !== SwapUpdateEvent.TransactionLockupFailed ||
+    options?.allowLockupFailedUpdate === true;
+
   public static getChainSwap = async (
     options: WhereOptions,
   ): Promise<ChainSwapInfo | null> => {
@@ -306,27 +337,52 @@ class ChainSwapRepository {
     onchainAmount: number,
     confirmed: boolean,
     lockupTransactionVout?: number,
-  ): Promise<ChainSwapInfo> =>
-    Database.sequelize.transaction(async (transaction) => {
-      swap.chainSwap = await swap.chainSwap.update(
-        {
-          status: confirmed
-            ? SwapUpdateEvent.TransactionConfirmed
-            : SwapUpdateEvent.TransactionMempool,
-        },
-        { transaction },
-      );
-      swap.receivingData = await swap.receivingData.update(
-        {
-          amount: onchainAmount,
-          transactionId: lockupTransactionId,
-          transactionVout: lockupTransactionVout,
-        },
-        { transaction },
-      );
+    options?: UserLockupTransactionOptions,
+  ): Promise<ChainSwapInfo> => {
+    const update = async () =>
+      Database.sequelize.transaction(async (transaction) => {
+        const [updatedRows] = await ChainSwap.update(
+          {
+            status: confirmed
+              ? SwapUpdateEvent.TransactionConfirmed
+              : SwapUpdateEvent.TransactionMempool,
+          },
+          {
+            transaction,
+            where: {
+              id: swap.id,
+              status: {
+                [Op.in]:
+                  ChainSwapRepository.getUserLockupTransactionStatuses(options),
+              },
+            },
+          },
+        );
 
-      return swap;
-    });
+        if (updatedRows === 0) {
+          return;
+        }
+
+        await ChainSwapData.update(
+          {
+            amount: onchainAmount,
+            transactionId: lockupTransactionId,
+            transactionVout: lockupTransactionVout,
+          },
+          {
+            transaction,
+            where: {
+              swapId: swap.id,
+              symbol: swap.receivingData.symbol,
+            },
+          },
+        );
+      });
+
+    return update().then(
+      async () => (await ChainSwapRepository.getChainSwap({ id: swap.id }))!,
+    );
+  };
 
   public static setExpectedAmounts = (
     swap: ChainSwapInfo,
@@ -423,4 +479,4 @@ class ChainSwapRepository {
 }
 
 export default ChainSwapRepository;
-export { ChainSwapInfo, ChainSwapDataTypeInsert };
+export { ChainSwapInfo, ChainSwapDataTypeInsert, UserLockupTransactionOptions };

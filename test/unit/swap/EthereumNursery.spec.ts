@@ -1186,6 +1186,202 @@ describe('EthereumNursery', () => {
     await lockupFailedPromise;
   });
 
+  test('should ignore EtherSwap chain lockup after lockup failed', async () => {
+    const chainSwap = {
+      id: 'chain-eth-failed',
+      type: SwapType.Chain,
+      receivingData: {
+        symbol: 'ETH',
+        expectedAmount: 10,
+        timeoutBlockHeight: 11102219,
+      },
+    };
+
+    const setUserLockupTransaction = jest.fn().mockResolvedValue({
+      ...chainSwap,
+      status: SwapUpdateEvent.TransactionLockupFailed,
+    });
+    ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
+
+    const emitSpy = jest.spyOn(nursery, 'emit');
+
+    await nursery.checkEtherSwapLockup(
+      chainSwap as any,
+      exampleTransaction as any,
+      {
+        claimAddress: mockAddress,
+        amount: BigInt('100000000000'),
+        preimageHash: getHexString(examplePreimageHash),
+        timelock: chainSwap.receivingData.timeoutBlockHeight,
+      } as any,
+    );
+
+    expect(setUserLockupTransaction).toHaveBeenCalledWith(
+      chainSwap,
+      exampleTransaction.hash,
+      10,
+      true,
+      undefined,
+      undefined,
+    );
+    expect(emitSpy).not.toHaveBeenCalledWith('eth.lockup', expect.anything());
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      'lockup.failed',
+      expect.anything(),
+    );
+
+    emitSpy.mockRestore();
+  });
+
+  test('should act on EtherSwap chain lockup when allowLockupFailedUpdate is set', async () => {
+    const chainSwap = {
+      id: 'chain-eth-allow',
+      type: SwapType.Chain,
+      receivingData: {
+        symbol: 'ETH',
+        expectedAmount: 10,
+        timeoutBlockHeight: 11102219,
+      },
+    };
+
+    const updatedSwap = {
+      ...chainSwap,
+      status: SwapUpdateEvent.TransactionConfirmed,
+    };
+
+    const setUserLockupTransaction = jest.fn().mockResolvedValue(updatedSwap);
+    ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
+
+    const lockupPromise = new Promise<void>((resolve) => {
+      nursery.once('eth.lockup', ({ swap, transactionHash }) => {
+        expect(swap).toEqual(updatedSwap);
+        expect(transactionHash).toEqual(exampleTransaction.hash);
+        resolve();
+      });
+    });
+
+    await nursery.checkEtherSwapLockup(
+      chainSwap as any,
+      exampleTransaction as any,
+      {
+        claimAddress: mockAddress,
+        amount: BigInt('100000000000'),
+        preimageHash: getHexString(examplePreimageHash),
+        timelock: chainSwap.receivingData.timeoutBlockHeight,
+      } as any,
+      { allowLockupFailedUpdate: true },
+    );
+
+    expect(setUserLockupTransaction).toHaveBeenCalledWith(
+      chainSwap,
+      exampleTransaction.hash,
+      10,
+      true,
+      undefined,
+      { allowLockupFailedUpdate: true },
+    );
+    await lockupPromise;
+  });
+
+  test('should ignore ERC20Swap chain lockup after lockup failed', async () => {
+    const chainSwap = {
+      id: 'chain-erc20-failed',
+      type: SwapType.Chain,
+      receivingData: {
+        symbol: 'USDT',
+        expectedAmount: 10,
+        timeoutBlockHeight: 11102222,
+      },
+    };
+
+    const setUserLockupTransaction = jest.fn().mockResolvedValue({
+      ...chainSwap,
+      status: SwapUpdateEvent.TransactionLockupFailed,
+    });
+    ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
+
+    const emitSpy = jest.spyOn(nursery, 'emit');
+
+    await nursery.checkErc20SwapLockup(
+      chainSwap as any,
+      exampleTransaction as any,
+      {
+        amount: BigInt('1000'),
+        claimAddress: mockAddress,
+        tokenAddress: mockTokenAddress,
+        timelock: chainSwap.receivingData.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+    );
+
+    expect(setUserLockupTransaction).toHaveBeenCalledWith(
+      chainSwap,
+      exampleTransaction.hash,
+      10,
+      true,
+      undefined,
+      undefined,
+    );
+    expect(emitSpy).not.toHaveBeenCalledWith('erc20.lockup', expect.anything());
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      'lockup.failed',
+      expect.anything(),
+    );
+
+    emitSpy.mockRestore();
+  });
+
+  test('should act on ERC20Swap chain lockup when allowLockupFailedUpdate is set', async () => {
+    const chainSwap = {
+      id: 'chain-erc20-allow',
+      type: SwapType.Chain,
+      receivingData: {
+        symbol: 'USDT',
+        expectedAmount: 10,
+        timeoutBlockHeight: 11102222,
+      },
+    };
+
+    const updatedSwap = {
+      ...chainSwap,
+      status: SwapUpdateEvent.TransactionConfirmed,
+    };
+
+    const setUserLockupTransaction = jest.fn().mockResolvedValue(updatedSwap);
+    ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
+
+    const lockupPromise = new Promise<void>((resolve) => {
+      nursery.once('erc20.lockup', ({ swap, transactionHash }) => {
+        expect(swap).toEqual(updatedSwap);
+        expect(transactionHash).toEqual(exampleTransaction.hash);
+        resolve();
+      });
+    });
+
+    await nursery.checkErc20SwapLockup(
+      chainSwap as any,
+      exampleTransaction as any,
+      {
+        amount: BigInt('1000'),
+        claimAddress: mockAddress,
+        tokenAddress: mockTokenAddress,
+        timelock: chainSwap.receivingData.timeoutBlockHeight,
+        preimageHash: getHexString(examplePreimageHash),
+      } as any,
+      { allowLockupFailedUpdate: true },
+    );
+
+    expect(setUserLockupTransaction).toHaveBeenCalledWith(
+      chainSwap,
+      exampleTransaction.hash,
+      10,
+      true,
+      undefined,
+      { allowLockupFailedUpdate: true },
+    );
+    await lockupPromise;
+  });
+
   test('should listen to ERC20Swap claim events', async () => {
     let emittedEvents = 0;
 

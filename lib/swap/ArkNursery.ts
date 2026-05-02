@@ -18,7 +18,10 @@ import {
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
-import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type {
+  ChainSwapInfo,
+  UserLockupTransactionOptions,
+} from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
@@ -122,7 +125,9 @@ class ArkNursery extends TypedEventEmitter<{
       await this.lock.acquire(`vhtlc.created:${vHtlc.address}`, async () => {
         await Promise.all([
           this.checkSubmarineLockup(arkNode, vHtlc, collectUnsubscribe),
-          this.checkChainSwapLockup(arkNode, vHtlc, collectUnsubscribe),
+          this.checkChainSwapLockup(arkNode, vHtlc, {
+            onUnsubscribe: collectUnsubscribe,
+          }),
         ]);
       });
     }
@@ -137,7 +142,9 @@ class ArkNursery extends TypedEventEmitter<{
   public checkChainSwapLockup = async (
     arkNode: ArkClient,
     vHtlc: CreatedVHtlc,
-    onUnsubscribe?: UnsubscribeHandler,
+    options?: UserLockupTransactionOptions & {
+      onUnsubscribe?: UnsubscribeHandler;
+    },
   ) => {
     let swap = await ChainSwapRepository.getChainSwapByData(
       {
@@ -145,13 +152,8 @@ class ArkNursery extends TypedEventEmitter<{
       },
       {
         status: {
-          [Op.in]: [
-            SwapUpdateEvent.SwapCreated,
-            SwapUpdateEvent.TransactionMempool,
-            SwapUpdateEvent.TransactionLockupFailed,
-            SwapUpdateEvent.TransactionZeroConfRejected,
-            SwapUpdateEvent.TransactionConfirmed,
-          ],
+          [Op.in]:
+            ChainSwapRepository.getUserLockupTransactionStatuses(options),
         },
       },
     );
@@ -164,7 +166,11 @@ class ArkNursery extends TypedEventEmitter<{
       return;
     }
 
-    await this.handleUnsubscribe(arkNode, vHtlc.address, onUnsubscribe);
+    await this.handleUnsubscribe(
+      arkNode,
+      vHtlc.address,
+      options?.onUnsubscribe,
+    );
 
     this.logger.info(
       `Found ${ArkClient.symbol} lockup vHTLC for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${vHtlc.txId}:${vHtlc.vout}`,
@@ -175,7 +181,15 @@ class ArkNursery extends TypedEventEmitter<{
       vHtlc.amount,
       true,
       vHtlc.vout,
+      options,
     );
+
+    if (!ChainSwapRepository.canActOnUserLockup(swap, options)) {
+      this.logger.debug(
+        `Not acting on lockup vHTLC of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because lockup failed already`,
+      );
+      return;
+    }
 
     if (swap.receivingData.expectedAmount! > vHtlc.amount) {
       this.emit('chainSwap.lockup.failed', {

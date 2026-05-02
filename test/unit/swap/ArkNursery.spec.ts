@@ -791,13 +791,7 @@ describe('ArkNursery', () => {
         },
         {
           status: {
-            [Op.in]: [
-              SwapUpdateEvent.SwapCreated,
-              SwapUpdateEvent.TransactionMempool,
-              SwapUpdateEvent.TransactionLockupFailed,
-              SwapUpdateEvent.TransactionZeroConfRejected,
-              SwapUpdateEvent.TransactionConfirmed,
-            ],
+            [Op.in]: ChainSwapRepository.getUserLockupTransactionStatuses(),
           },
         },
       );
@@ -853,6 +847,7 @@ describe('ArkNursery', () => {
         50000,
         true,
         0,
+        undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
@@ -914,12 +909,119 @@ describe('ArkNursery', () => {
         150000,
         true,
         0,
+        undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);
       expect(emittedEvent.reason).toEqual(
         Errors.OVERPAID_AMOUNT(150000, 100000).message,
       );
+    });
+
+    test('should ignore duplicate lockup checks after chain swap lockup failed', async () => {
+      const swap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        receivingData: {
+          symbol: mockArkNode.symbol,
+          expectedAmount: 100000,
+        },
+      };
+
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue({
+          ...swap,
+          status: SwapUpdateEvent.TransactionLockupFailed,
+        });
+
+      const emitSpy = jest.spyOn(nursery, 'emit');
+
+      await nursery['checkChainSwapLockup'](mockArkNode, {
+        address: 'ark_address',
+        txId: 'txid',
+        vout: 0,
+        amount: 150000,
+      } as any);
+
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        150000,
+        true,
+        0,
+        undefined,
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        'chainSwap.lockup',
+        expect.anything(),
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        'chainSwap.lockup.failed',
+        expect.anything(),
+      );
+
+      emitSpy.mockRestore();
+    });
+
+    test('should act on failed lockup when allowLockupFailedUpdate is set', async () => {
+      const swap = {
+        id: 'chain123',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionLockupFailed,
+        receivingData: {
+          symbol: mockArkNode.symbol,
+          expectedAmount: 100000,
+        },
+      };
+
+      const updatedSwap = {
+        ...swap,
+        status: SwapUpdateEvent.TransactionConfirmed,
+        receivingData: {
+          ...swap.receivingData,
+          lockupTransactionId: 'txid',
+          amount: 100000,
+        },
+      };
+
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
+      ChainSwapRepository.setUserLockupTransaction = jest
+        .fn()
+        .mockResolvedValue(updatedSwap);
+
+      let emittedEvent: any = null;
+      nursery.once('chainSwap.lockup', (data) => {
+        emittedEvent = data;
+      });
+
+      await nursery['checkChainSwapLockup'](
+        mockArkNode,
+        {
+          address: 'ark_address',
+          txId: 'txid',
+          vout: 0,
+          amount: 100000,
+        } as any,
+        { allowLockupFailedUpdate: true },
+      );
+
+      expect(ChainSwapRepository.setUserLockupTransaction).toHaveBeenCalledWith(
+        swap,
+        'txid',
+        100000,
+        true,
+        0,
+        { allowLockupFailedUpdate: true },
+      );
+      expect(emittedEvent).not.toBeNull();
+      expect(emittedEvent.swap).toEqual(updatedSwap);
+      expect(emittedEvent.lockupTransactionId).toEqual('txid');
     });
 
     test('should emit success for valid lockup', async () => {
@@ -969,6 +1071,7 @@ describe('ArkNursery', () => {
         100000,
         true,
         0,
+        undefined,
       );
       expect(emittedEvent).not.toBeNull();
       expect(emittedEvent.swap).toEqual(updatedSwap);

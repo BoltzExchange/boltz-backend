@@ -30,7 +30,10 @@ import {
 import TypedEventEmitter from '../consts/TypedEventEmitter';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
-import type { ChainSwapInfo } from '../db/repositories/ChainSwapRepository';
+import type {
+  ChainSwapInfo,
+  UserLockupTransactionOptions,
+} from '../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../db/repositories/ChainSwapRepository';
 import ClaimTransactionRepository from '../db/repositories/ClaimTransactionRepository';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
@@ -127,6 +130,7 @@ class UtxoNursery extends TypedEventEmitter<{
     wallet: Wallet,
     transaction: Transaction | LiquidTransaction,
     status: TransactionStatus,
+    options?: UserLockupTransactionOptions,
   ) => {
     const tweakedKey = tweakMusig(
       wallet.type,
@@ -153,7 +157,15 @@ class UtxoNursery extends TypedEventEmitter<{
       outputValue,
       status === TransactionStatus.Confirmed,
       swapOutput.vout,
+      options,
     );
+
+    if (!ChainSwapRepository.canActOnUserLockup(swap, options)) {
+      this.logger.debug(
+        `Not acting on lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because lockup failed already`,
+      );
+      return;
+    }
 
     if (swap.receivingData.expectedAmount > outputValue || outputValue === 0) {
       let reason: string;
@@ -304,13 +316,7 @@ class UtxoNursery extends TypedEventEmitter<{
         },
         {
           status: {
-            [Op.or]: [
-              SwapUpdateEvent.SwapCreated,
-              SwapUpdateEvent.TransactionMempool,
-              SwapUpdateEvent.TransactionLockupFailed,
-              SwapUpdateEvent.TransactionZeroConfRejected,
-              SwapUpdateEvent.TransactionConfirmed,
-            ],
+            [Op.in]: ChainSwapRepository.getUserLockupTransactionStatuses(),
           },
         },
       );

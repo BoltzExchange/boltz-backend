@@ -463,6 +463,48 @@ describe('ChainSwapRepository', () => {
     },
   );
 
+  test('should not overwrite failed user lockup transactions by default', async () => {
+    const swap = await createChainSwap(SwapUpdateEvent.TransactionLockupFailed);
+    const queried = (await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    }))!;
+
+    const updated = await ChainSwapRepository.setUserLockupTransaction(
+      queried,
+      'tx',
+      queried.receivingData.expectedAmount! + 1,
+      true,
+      1,
+    );
+
+    expect(updated.status).toEqual(SwapUpdateEvent.TransactionLockupFailed);
+    expect(updated.receivingData.transactionId).toBeNull();
+    expect(updated.receivingData.transactionVout).toBeNull();
+    expect(updated.receivingData.amount).toBeNull();
+  });
+
+  test('should update failed user lockup transactions when explicitly allowed', async () => {
+    const swap = await createChainSwap(SwapUpdateEvent.TransactionLockupFailed);
+    const queried = (await ChainSwapRepository.getChainSwap({
+      id: swap.chainSwap.id,
+    }))!;
+    const onchainAmount = queried.receivingData.expectedAmount! + 1;
+
+    const updated = await ChainSwapRepository.setUserLockupTransaction(
+      queried,
+      'tx',
+      onchainAmount,
+      true,
+      1,
+      { allowLockupFailedUpdate: true },
+    );
+
+    expect(updated.status).toEqual(SwapUpdateEvent.TransactionConfirmed);
+    expect(updated.receivingData.transactionId).toEqual('tx');
+    expect(updated.receivingData.transactionVout).toEqual(1);
+    expect(updated.receivingData.amount).toEqual(onchainAmount);
+  });
+
   test('should set expected amounts', async () => {
     const swap = await createChainSwap();
 

@@ -358,6 +358,7 @@ describe('Renegotiator', () => {
             confirmed
               ? TransactionStatus.Confirmed
               : TransactionStatus.ZeroConfSafe,
+            { allowLockupFailedUpdate: true },
           );
         },
       );
@@ -548,13 +549,18 @@ describe('Renegotiator', () => {
         expect(etherLockupTransaction).not.toHaveProperty('logs');
         expect(
           swapNursery.ethereumNurseries[0].checkEtherSwapLockup,
-        ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
-          amount,
-          timelock,
-          preimageHash,
-          claimAddress: await signer.getAddress(),
-          refundAddress: await etherBase.getAddress(),
-        });
+        ).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.anything(),
+          {
+            amount,
+            timelock,
+            preimageHash,
+            claimAddress: await signer.getAddress(),
+            refundAddress: await etherBase.getAddress(),
+          },
+          { allowLockupFailedUpdate: true },
+        );
       });
 
       test('should handle ERC20 lockups', async () => {
@@ -633,14 +639,19 @@ describe('Renegotiator', () => {
         expect(erc20LockupTransaction).not.toHaveProperty('logs');
         expect(
           swapNursery.ethereumNurseries[0].checkErc20SwapLockup,
-        ).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
-          amount,
-          timelock,
-          preimageHash,
-          tokenAddress: await token.getAddress(),
-          claimAddress: await signer.getAddress(),
-          refundAddress: await etherBase.getAddress(),
-        });
+        ).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.anything(),
+          {
+            amount,
+            timelock,
+            preimageHash,
+            tokenAddress: await token.getAddress(),
+            claimAddress: await signer.getAddress(),
+            refundAddress: await etherBase.getAddress(),
+          },
+          { allowLockupFailedUpdate: true },
+        );
       });
     });
   });
@@ -713,12 +724,16 @@ describe('Renegotiator', () => {
         ).toHaveBeenCalledTimes(1);
         expect(
           swapNursery.arkNursery.checkChainSwapLockup,
-        ).toHaveBeenCalledWith(arkNode, {
-          txId: transactionId,
-          vout: transactionVout,
-          amount: 100_000,
-          address: lockupAddress,
-        });
+        ).toHaveBeenCalledWith(
+          arkNode,
+          {
+            txId: transactionId,
+            vout: transactionVout,
+            amount: 100_000,
+            address: lockupAddress,
+          },
+          { allowLockupFailedUpdate: true },
+        );
       } finally {
         if (previousArkCurrency) {
           currencies.set('ARK', previousArkCurrency);

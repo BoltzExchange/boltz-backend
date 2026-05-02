@@ -114,6 +114,7 @@ class Renegotiator {
             isTxConfirmed(txInfo)
               ? TransactionStatus.Confirmed
               : TransactionStatus.ZeroConfSafe,
+            { allowLockupFailedUpdate: true },
           );
         } else if (receivingCurrency.provider !== undefined) {
           const nursery = this.swapNursery.ethereumNurseries.find((nursery) =>
@@ -176,6 +177,7 @@ class Renegotiator {
               updatedSwap,
               transaction,
               formatEtherSwapValues(values),
+              { allowLockupFailedUpdate: true },
             );
           } else {
             const values = contracts.erc20Swap.interface.decodeEventLog(
@@ -188,6 +190,7 @@ class Renegotiator {
               updatedSwap,
               transaction,
               formatERC20SwapValues(values),
+              { allowLockupFailedUpdate: true },
             );
           }
         } else if (receivingCurrency.arkNode !== undefined) {
@@ -206,6 +209,7 @@ class Renegotiator {
               amount: swap.receivingData.amount!,
               address: swap.receivingData.lockupAddress,
             },
+            { allowLockupFailedUpdate: true },
           );
         } else {
           throw Errors.CURRENCY_NOT_FOUND(swap.pair);

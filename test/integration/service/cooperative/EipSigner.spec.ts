@@ -11,8 +11,10 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
+import { RefundStatus } from '../../../../lib/db/models/RefundTransaction';
 import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapRepository';
 import CommitmentRepository from '../../../../lib/db/repositories/CommitmentRepository';
+import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
 import Errors from '../../../../lib/service/Errors';
 import EipSigner from '../../../../lib/service/cooperative/EipSigner';
@@ -32,12 +34,21 @@ jest.mock('../../../../lib/db/repositories/SwapRepository', () => ({
 
 jest.mock('../../../../lib/db/repositories/ChainSwapRepository', () => ({
   getChainSwap: jest.fn().mockResolvedValue(null),
+  setRefundSignatureCreated: jest.fn(),
 }));
 
 jest.mock('../../../../lib/db/repositories/CommitmentRepository', () => ({
   getBySwapId: jest.fn().mockResolvedValue(null),
+  getByLockupHash: jest.fn().mockResolvedValue(null),
   markRefunded: jest.fn().mockResolvedValue(undefined),
 }));
+
+jest.mock(
+  '../../../../lib/db/repositories/RefundTransactionRepository',
+  () => ({
+    getTransactionForSwap: jest.fn().mockResolvedValue(null),
+  }),
+);
 
 describe('EipSigner', () => {
   let setup: EthereumSetup;
@@ -127,9 +138,15 @@ describe('EipSigner', () => {
     jest.clearAllMocks();
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
+    SwapRepository.setRefundSignatureCreated = jest.fn();
     ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+    ChainSwapRepository.setRefundSignatureCreated = jest.fn();
     CommitmentRepository.getBySwapId = jest.fn().mockResolvedValue(null);
+    CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue(null);
     CommitmentRepository.markRefunded = jest.fn().mockResolvedValue(undefined);
+    RefundTransactionRepository.getTransactionForSwap = jest
+      .fn()
+      .mockResolvedValue(null);
 
     ethereumManager.contractsForAddress = jest.fn().mockResolvedValue({
       etherSwap,
@@ -241,6 +258,58 @@ describe('EipSigner', () => {
 
     expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(1);
     expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(id);
+    expect(CommitmentRepository.markRefunded).not.toHaveBeenCalled();
+  });
+
+  test('should mark a linked commitment refunded after a swap-id refund', async () => {
+    const zerosPreimageHash = Buffer.alloc(32, 0);
+    const amount = BigInt(10) ** BigInt(17);
+    const timelock = (await setup.provider.getBlockNumber()) + 21;
+    const claimAddress = await setup.etherBase.getAddress();
+
+    const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+      zerosPreimageHash,
+      claimAddress,
+      timelock,
+      { value: amount },
+    );
+    await lockupTx.wait(1);
+
+    const linkedLockupHash = await computeLockupHash(etherSwap, {
+      preimageHash: zerosPreimageHash,
+      amount,
+      claimAddress,
+      refundAddress: claimAddress,
+      timelock: BigInt(timelock),
+    });
+
+    const lockupAddress = await etherSwap.getAddress();
+    const id = 'linked-submarine-swap';
+    SwapRepository.getSwap = jest.fn().mockResolvedValue({
+      id,
+      lockupAddress,
+      orderSide: 1,
+      pair: 'RBTC/BTC',
+      type: SwapType.Submarine,
+      version: SwapVersion.Taproot,
+      timeoutBlockHeight: timelock,
+      preimageHash: getHexString(zerosPreimageHash),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+      onchainAmount: Number(amount / etherDecimals),
+      lockupTransactionId: lockupTx.hash,
+    });
+    CommitmentRepository.getBySwapId = jest.fn().mockResolvedValue({
+      lockupHash: linkedLockupHash,
+      swapId: id,
+    });
+
+    await eipSigner.signSwapRefund(id);
+
+    expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(id);
+    expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+      linkedLockupHash,
+      lockupTx.hash,
+    );
   });
 
   test('should refund chain EtherSwap cooperatively', async () => {
@@ -293,6 +362,65 @@ describe('EipSigner', () => {
 
     expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledTimes(
       1,
+    );
+    expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
+      id,
+    );
+    expect(CommitmentRepository.markRefunded).not.toHaveBeenCalled();
+  });
+
+  test('should mark a linked commitment refunded after a chain-swap-id refund', async () => {
+    const zerosPreimageHash = Buffer.alloc(32, 0);
+    const amount = BigInt(10) ** BigInt(17);
+    const timelock = (await setup.provider.getBlockNumber()) + 21;
+    const claimAddress = await setup.etherBase.getAddress();
+
+    const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+      zerosPreimageHash,
+      claimAddress,
+      timelock,
+      { value: amount },
+    );
+    await lockupTx.wait(1);
+
+    const linkedLockupHash = await computeLockupHash(etherSwap, {
+      preimageHash: zerosPreimageHash,
+      amount,
+      claimAddress,
+      refundAddress: claimAddress,
+      timelock: BigInt(timelock),
+    });
+
+    const lockupAddress = await etherSwap.getAddress();
+    const id = 'linked-chain-swap';
+    ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+      id,
+      type: SwapType.Chain,
+      version: SwapVersion.Taproot,
+      preimageHash: getHexString(zerosPreimageHash),
+      status: SwapUpdateEvent.InvoiceFailedToPay,
+      sendingData: {
+        transactionId: null,
+      },
+      receivingData: {
+        lockupAddress,
+        symbol: 'RBTC',
+        timeoutBlockHeight: timelock,
+        amount: Number(amount / etherDecimals),
+        lockupTransactionId: lockupTx.hash,
+      },
+    });
+    CommitmentRepository.getBySwapId = jest.fn().mockResolvedValue({
+      lockupHash: linkedLockupHash,
+      swapId: id,
+    });
+
+    await eipSigner.signSwapRefund(id);
+
+    expect(CommitmentRepository.getBySwapId).toHaveBeenCalledWith(id);
+    expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+      linkedLockupHash,
+      lockupTx.hash,
     );
     expect(ChainSwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
       id,
@@ -1054,6 +1182,283 @@ describe('EipSigner', () => {
           'invalid refund address signature',
         ),
       );
+    });
+
+    test('should refund linked commitment when the swap is in a failed status', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+
+      CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue({
+        lockupHash: expectedLockupHash,
+        swapId: 'linked-failed-swap',
+      });
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        id: 'linked-failed-swap',
+        orderSide: 1,
+        pair: 'RBTC/BTC',
+        type: SwapType.Submarine,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+      });
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      const signature = await eipSigner.signCommitmentRefund(
+        'RBTC',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+      expect(signature).toBeDefined();
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+        expectedLockupHash,
+        lockupTx.hash,
+      );
+      expect(SwapRepository.setRefundSignatureCreated).toHaveBeenCalledWith(
+        'linked-failed-swap',
+      );
+    });
+
+    test('should mark a linked chain swap refund signature created', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+
+      CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue({
+        lockupHash: expectedLockupHash,
+        swapId: 'linked-failed-chain-swap',
+      });
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        id: 'linked-failed-chain-swap',
+        type: SwapType.Chain,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceFailedToPay,
+        sendingData: {
+          transactionId: null,
+        },
+        receivingData: {
+          symbol: 'RBTC',
+        },
+      });
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      await eipSigner.signCommitmentRefund(
+        'RBTC',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).toHaveBeenCalledWith('linked-failed-chain-swap');
+      expect(SwapRepository.setRefundSignatureCreated).not.toHaveBeenCalled();
+    });
+
+    test('should not touch swap repos when commitment exists but is unlinked', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+
+      CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue({
+        lockupHash: expectedLockupHash,
+        swapId: null,
+      });
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      await eipSigner.signCommitmentRefund(
+        'RBTC',
+        lockupTx.hash,
+        refundAddressSignature,
+      );
+
+      expect(CommitmentRepository.markRefunded).toHaveBeenCalledWith(
+        expectedLockupHash,
+        lockupTx.hash,
+      );
+      expect(SwapRepository.getSwap).not.toHaveBeenCalled();
+      expect(ChainSwapRepository.getChainSwap).not.toHaveBeenCalled();
+      expect(SwapRepository.setRefundSignatureCreated).not.toHaveBeenCalled();
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should reject linked commitment when the swap is not in a failed status', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+
+      CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue({
+        lockupHash: expectedLockupHash,
+        swapId: 'linked-active-swap',
+      });
+      SwapRepository.getSwap = jest.fn().mockResolvedValue({
+        id: 'linked-active-swap',
+        orderSide: 1,
+        pair: 'RBTC/BTC',
+        type: SwapType.Submarine,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.InvoiceSet,
+      });
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund(
+          'RBTC',
+          lockupTx.hash,
+          refundAddressSignature,
+        ),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.StatusNotEligible,
+        ),
+      );
+      expect(CommitmentRepository.markRefunded).not.toHaveBeenCalled();
+    });
+
+    test('should reject linked chain swap when its refund tx is not confirmed', async () => {
+      const amount = BigInt(10) ** BigInt(17);
+      const timelock = (await setup.provider.getBlockNumber()) + 21;
+      const claimAddress = await setup.etherBase.getAddress();
+
+      const lockupTx = await etherSwap['lock(bytes32,address,uint256)'](
+        zerosPreimageHash,
+        claimAddress,
+        timelock,
+        { value: amount },
+      );
+      await lockupTx.wait(1);
+
+      const expectedLockupHash = await computeLockupHash(etherSwap, {
+        preimageHash: zerosPreimageHash,
+        amount,
+        claimAddress,
+        refundAddress: claimAddress,
+        timelock: BigInt(timelock),
+      });
+
+      const id = 'linked-chain-swap-pending-refund';
+      CommitmentRepository.getByLockupHash = jest.fn().mockResolvedValue({
+        lockupHash: expectedLockupHash,
+        swapId: id,
+      });
+      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue({
+        id,
+        type: SwapType.Chain,
+        version: SwapVersion.Taproot,
+        status: SwapUpdateEvent.TransactionRefunded,
+        sendingData: {
+          transactionId: 'sending-tx',
+        },
+        receivingData: {
+          symbol: 'RBTC',
+        },
+      });
+      RefundTransactionRepository.getTransactionForSwap = jest
+        .fn()
+        .mockResolvedValue({
+          status: RefundStatus.Pending,
+        });
+
+      const refundAddressSignature = await signRefundAddressProof(
+        'RBTC',
+        lockupTx.hash,
+      );
+
+      await expect(
+        eipSigner.signCommitmentRefund(
+          'RBTC',
+          lockupTx.hash,
+          refundAddressSignature,
+        ),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+          RefundRejectionReason.RefundNotConfirmed,
+        ),
+      );
+      expect(CommitmentRepository.markRefunded).not.toHaveBeenCalled();
+      expect(
+        ChainSwapRepository.setRefundSignatureCreated,
+      ).not.toHaveBeenCalled();
     });
   });
 });

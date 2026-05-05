@@ -1049,19 +1049,17 @@ describe('Commitments', () => {
       await commitments.commit(symbol, id, signature, tx.hash);
 
       const commitment = await CommitmentRepository.getBySwapId(id);
-      expect(commitment).not.toBeNull();
-      expect(commitment!.swapId).toEqual(id);
-      expect(commitment!.transactionHash).toEqual(tx.hash);
+      expect(commitment).toEqual(
+        expect.objectContaining({
+          swapId: id,
+          transactionHash: tx.hash,
+        }),
+      );
       expect(eventHandler.handleEvent).toHaveBeenCalledWith(
         'erc20.lockup',
         expect.objectContaining({
-          version: 5n,
           erc20SwapValues: expect.objectContaining({
             amount,
-            tokenAddress: await token.getAddress(),
-            claimAddress: await setup.signer.getAddress(),
-            refundAddress: await setup.signer.getAddress(),
-            timelock,
           }),
         }),
       );

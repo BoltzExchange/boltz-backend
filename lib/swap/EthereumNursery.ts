@@ -229,7 +229,7 @@ class EthereumNursery extends TypedEventEmitter<{
     }
 
     const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
-    if (expectedAmount) {
+    if (this.shouldValidateAmount(swap, expectedAmount)) {
       const actualAmountSat = Number(etherSwapValues.amount / etherDecimals);
 
       if (
@@ -384,7 +384,7 @@ class EthereumNursery extends TypedEventEmitter<{
     }
 
     const expectedAmount = this.getSwapExpectedReceivingAmount(swap);
-    if (expectedAmount) {
+    if (this.shouldValidateAmount(swap, expectedAmount)) {
       const actualAmount = erc20Wallet.normalizeTokenAmount(
         erc20SwapValues.amount,
       );
@@ -719,6 +719,15 @@ class EthereumNursery extends TypedEventEmitter<{
     swap.type === SwapType.Submarine
       ? (swap as Swap).expectedAmount
       : (swap as ChainSwapInfo).receivingData.expectedAmount;
+
+  private shouldValidateAmount = (
+    swap: Swap | ChainSwapInfo,
+    expectedAmount: number | null | undefined,
+  ): expectedAmount is number => {
+    // Submarine swaps can be locked up before the invoice is set; amount
+    // validation happens after the invoice populates the expected amount.
+    return Boolean(expectedAmount) || swap.type === SwapType.Chain;
+  };
 
   private shouldHandleClaim = (
     swap: ReverseSwap | ChainSwapInfo,

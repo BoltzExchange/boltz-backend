@@ -132,7 +132,7 @@
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-llms": "^1.12.1"
+    "vitepress-plugin-llms": "^1.12.2"
   },
   "optionalDependencies": {
     "@types/nodemailer": "^8.0.0",

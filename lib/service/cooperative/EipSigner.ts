@@ -129,6 +129,16 @@ class EipSigner {
             lockupTransactionId,
           );
 
+      await EipSigner.setRefundSignatureCreated(swap);
+
+      const linkedCommitment = await CommitmentRepository.getBySwapId(swap.id);
+      if (linkedCommitment !== null) {
+        await CommitmentRepository.markRefunded(
+          linkedCommitment.lockupHash,
+          lockupTransactionId,
+        );
+      }
+
       const sidecarRes = await this.sidecar.signEvmRefund(
         manager.networkDetails.symbol,
         contractAddress,
@@ -139,12 +149,6 @@ class EipSigner {
           : (lockupValues as ERC20SwapValues).tokenAddress,
         lockupValues.timelock,
       );
-
-      if (swap.type === SwapType.Chain) {
-        await ChainSwapRepository.setRefundSignatureCreated(swap.id);
-      } else {
-        await SwapRepository.setRefundSignatureCreated(swap.id);
-      }
 
       return `0x${getHexString(sidecarRes)}`;
     });
@@ -216,9 +220,38 @@ class EipSigner {
         tokenAddress,
       });
 
-      this.logger.debug(
-        `Creating EIP-712 signature for refund of unlinked commitment ${lockupHash}: ${transactionHash}`,
-      );
+      let linkedSwap: Swap | ChainSwapInfo | undefined;
+      const existingCommitment =
+        await CommitmentRepository.getByLockupHash(lockupHash);
+      if (existingCommitment !== null && existingCommitment.swapId !== null) {
+        const { swap, lightningCurrency } = await this.getSwap(
+          existingCommitment.swapId,
+        );
+        linkedSwap = swap;
+        const rejectionReason = await MusigSigner.refundNonEligibilityReason(
+          swap,
+          lightningCurrency,
+        );
+        if (rejectionReason !== undefined) {
+          this.logger.verbose(
+            `Not creating EIP-712 signature for refund of commitment ${lockupHash} linked to ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${rejectionReason}`,
+          );
+          throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(rejectionReason);
+        }
+
+        this.logger.debug(
+          `Creating EIP-712 signature for refund of linked commitment ${lockupHash}: ${transactionHash}`,
+        );
+      } else {
+        this.logger.debug(
+          `Creating EIP-712 signature for refund of unlinked commitment ${lockupHash}: ${transactionHash}`,
+        );
+      }
+
+      if (linkedSwap !== undefined) {
+        await EipSigner.setRefundSignatureCreated(linkedSwap);
+      }
+      await CommitmentRepository.markRefunded(lockupHash, transactionHash);
 
       const sidecarRes = await this.sidecar.signEvmRefund(
         manager.networkDetails.symbol,
@@ -228,10 +261,19 @@ class EipSigner {
         tokenAddress,
         values.timelock,
       );
-      await CommitmentRepository.markRefunded(lockupHash, transactionHash);
 
       return `0x${getHexString(sidecarRes)}`;
     });
+
+  private static setRefundSignatureCreated = async (
+    swap: Swap | ChainSwapInfo,
+  ): Promise<void> => {
+    if (swap.type === SwapType.Chain) {
+      await ChainSwapRepository.setRefundSignatureCreated(swap.id);
+    } else {
+      await SwapRepository.setRefundSignatureCreated(swap.id);
+    }
+  };
 
   private validateRefundAddressSignature = (
     chainSymbol: string,

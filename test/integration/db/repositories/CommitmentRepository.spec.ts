@@ -259,16 +259,19 @@ describe('CommitmentRepository', () => {
       expect(result.swapId).toBeNull();
     });
 
-    test('should throw when commitment is already linked to a swap', async () => {
+    test('should mark existing linked commitment as refunded', async () => {
       const commitment = createCommitment({ swapId: 'linked-swap' });
       await CommitmentRepository.create(commitment);
 
-      await expect(
-        CommitmentRepository.markRefunded(
-          commitment.lockupHash,
-          commitment.transactionHash,
-        ),
-      ).rejects.toThrow('linked commitment cannot be marked as refunded');
+      const newTransactionHash = `0x${randomBytes(32).toString('hex')}`;
+      const result = await CommitmentRepository.markRefunded(
+        commitment.lockupHash,
+        newTransactionHash,
+      );
+
+      expect(result.refunded).toEqual(true);
+      expect(result.swapId).toEqual('linked-swap');
+      expect(result.transactionHash).toEqual(newTransactionHash);
     });
   });
 });

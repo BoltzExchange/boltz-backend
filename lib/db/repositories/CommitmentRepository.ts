@@ -70,10 +70,6 @@ class CommitmentRepository {
         });
 
         if (existing !== null) {
-          if (existing.swapId !== null) {
-            throw new Error('linked commitment cannot be marked as refunded');
-          }
-
           existing.refunded = true;
           existing.transactionHash = transactionHash;
           await existing.save({ transaction });

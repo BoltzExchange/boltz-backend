@@ -15,9 +15,12 @@ import {
   SwapVersion,
 } from '../../../../../lib/consts/Enums';
 import type Database from '../../../../../lib/db/Database';
+import ChainSwap from '../../../../../lib/db/models/ChainSwap';
+import ChainSwapData from '../../../../../lib/db/models/ChainSwapData';
 import Commitment from '../../../../../lib/db/models/Commitment';
 import Pair from '../../../../../lib/db/models/Pair';
 import Swap from '../../../../../lib/db/models/Swap';
+import ChainSwapRepository from '../../../../../lib/db/repositories/ChainSwapRepository';
 import CommitmentRepository from '../../../../../lib/db/repositories/CommitmentRepository';
 import PairRepository from '../../../../../lib/db/repositories/PairRepository';
 import SwapRepository from '../../../../../lib/db/repositories/SwapRepository';
@@ -89,6 +92,11 @@ describe('Commitments', () => {
       base: 'ETH',
       quote: 'BTC',
     });
+    await PairRepository.addPair({
+      id: 'BTC/USDT',
+      base: 'BTC',
+      quote: 'USDT',
+    });
 
     setup = await getSigner();
     const contracts = await getContracts(setup.signer);
@@ -104,6 +112,8 @@ describe('Commitments', () => {
 
     await Commitment.destroy({ truncate: true, cascade: true });
     await Swap.destroy({ truncate: true, cascade: true });
+    await ChainSwapData.destroy({ truncate: true, cascade: true });
+    await ChainSwap.destroy({ truncate: true, cascade: true });
     await Pair.destroy({ truncate: true, cascade: true });
 
     await database.close();
@@ -879,6 +889,48 @@ describe('Commitments', () => {
       };
     };
 
+    const createAmountlessChainSwap = async (
+      lockupAddress: string,
+      receivingSymbol: string,
+      timeoutBlockHeight: number,
+    ) => {
+      const preimage = randomBytes(32);
+      const preimageHash = crypto.sha256(preimage);
+      const id = generateSwapId(SwapVersion.Taproot);
+
+      await ChainSwapRepository.addChainSwap({
+        chainSwap: {
+          id,
+          pair: `BTC/${receivingSymbol}`,
+          orderSide: OrderSide.BUY,
+          preimageHash: getHexString(preimageHash),
+          status: SwapUpdateEvent.SwapCreated,
+          createdRefundSignature: false,
+          fee: 0,
+          acceptZeroConf: false,
+        },
+        sendingData: {
+          swapId: id,
+          symbol: 'BTC',
+          lockupAddress: 'bc1qamountless',
+          expectedAmount: 0,
+          timeoutBlockHeight: timeoutBlockHeight + 200,
+        },
+        receivingData: {
+          swapId: id,
+          symbol: receivingSymbol,
+          lockupAddress,
+          expectedAmount: 0,
+          timeoutBlockHeight,
+        },
+      });
+
+      return {
+        id,
+        preimageHash,
+      };
+    };
+
     test('should create commitment for valid Ether swap', async () => {
       const commitments = createInitializedCommitments();
       const etherSwapAddress = await etherSwap.getAddress();
@@ -945,6 +997,71 @@ describe('Commitments', () => {
             timelock,
             claimAddress: await setup.signer.getAddress(),
             refundAddress: await setup.signer.getAddress(),
+          }),
+        }),
+      );
+    });
+
+    test('should create ERC20 commitment for amountless chain swap', async () => {
+      const symbol = 'USDT';
+      const { provider, wallets } = await createErc20Wallet(symbol);
+      const commitments = createInitializedCommitments(wallets);
+      const erc20SwapAddress = await erc20Swap.getAddress();
+
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+      const { id, preimageHash } = await createAmountlessChainSwap(
+        erc20SwapAddress,
+        symbol,
+        timelock - 100,
+      );
+      const amount = provider.formatTokenAmount(123);
+
+      const approveTx = await token.approve(erc20SwapAddress, amount, {
+        nonce: await getSignerNonce(),
+      });
+      await approveTx.wait(1);
+
+      const tx = await erc20Swap[
+        'lock(bytes32,uint256,address,address,uint256)'
+      ](
+        zeroPreimageHash,
+        amount,
+        await token.getAddress(),
+        await setup.signer.getAddress(),
+        timelock,
+        { nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getErc20SwapDomain(setup.provider, erc20Swap),
+        erc20SwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          tokenAddress: await token.getAddress(),
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(symbol, id, signature, tx.hash);
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).not.toBeNull();
+      expect(commitment!.swapId).toEqual(id);
+      expect(commitment!.transactionHash).toEqual(tx.hash);
+      expect(eventHandler.handleEvent).toHaveBeenCalledWith(
+        'erc20.lockup',
+        expect.objectContaining({
+          version: 5n,
+          erc20SwapValues: expect.objectContaining({
+            amount,
+            tokenAddress: await token.getAddress(),
+            claimAddress: await setup.signer.getAddress(),
+            refundAddress: await setup.signer.getAddress(),
+            timelock,
           }),
         }),
       );

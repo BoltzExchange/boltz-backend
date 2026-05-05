@@ -214,6 +214,7 @@ class Commitments {
         this.checkAcceptedAmount(
           swapAmount,
           Math.floor(Number(event.amount / etherDecimals)),
+          swap.type,
           maxOverpaymentPercentage,
         );
 
@@ -245,6 +246,7 @@ class Commitments {
         this.checkAcceptedAmount(
           swapAmount,
           erc20Wallet.normalizeTokenAmount(event.amount),
+          swap.type,
           maxOverpaymentPercentage,
         );
 
@@ -313,8 +315,16 @@ class Commitments {
   private checkAcceptedAmount = (
     expectedAmount: number,
     actualAmount: number,
+    swapType: SwapType,
     maxOverpaymentPercentage?: number,
   ) => {
+    if (swapType === SwapType.Chain && expectedAmount === 0) {
+      if (actualAmount <= 0) {
+        throw new Error('commitment amount has to be greater than 0');
+      }
+      return;
+    }
+
     if (actualAmount < expectedAmount) {
       throw new Error(
         `insufficient amount: ${actualAmount} < ${expectedAmount}`,

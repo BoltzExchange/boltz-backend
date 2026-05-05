@@ -34,3 +34,15 @@ We operate the following lightning nodes:
 In the following sections we'll describe the available clients, SDKs, and
 libraries for our API, the REST API itself, walk through swap types & states,
 how to craft transactions, handle refunds and more.
+
+## For AI Agents & LLMs
+
+These docs are also published in an LLM-friendly format following the
+[llms.txt](https://llmstxt.org/) convention:
+
+- [`/llms.txt`](/llms.txt): table of contents with a short description of each
+  page, suitable for letting a model decide which page to fetch.
+- [`/llms-full.txt`](/llms-full.txt): the entire documentation concatenated into
+  a single plain-text file, suitable for loading into a model's context.
+- Per-page Markdown sources: append `.md` to any page URL (for example
+  `/api-v2.md` or `/lifecycle.md`) to get the raw Markdown.

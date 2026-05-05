@@ -30,6 +30,8 @@ We operate the following lightning nodes:
 [CLN](https://amboss.space/node/02d96eadea3d780104449aca5c93461ce67c1564e2e1d73225fa67dd3b997a6018)
 |
 [LND](https://amboss.space/node/026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2)
+|
+[Mini](https://amboss.space/node/03e9c5157126b8049ad235bdade8db97a473b5760b34781b8c870bd2ba34dbfcf8)
 
 In the following sections we'll describe the available clients, SDKs, and
 libraries for our API, the REST API itself, walk through swap types & states,

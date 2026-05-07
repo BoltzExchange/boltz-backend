@@ -97,6 +97,11 @@ describe('Commitments', () => {
       base: 'BTC',
       quote: 'USDT',
     });
+    await PairRepository.addPair({
+      id: 'BTC/ETH',
+      base: 'BTC',
+      quote: 'ETH',
+    });
 
     setup = await getSigner();
     const contracts = await getContracts(setup.signer);
@@ -1059,6 +1064,62 @@ describe('Commitments', () => {
         'erc20.lockup',
         expect.objectContaining({
           erc20SwapValues: expect.objectContaining({
+            amount,
+          }),
+        }),
+      );
+    });
+
+    test('should create Ether commitment for amountless chain swap', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+      const { id, preimageHash } = await createAmountlessChainSwap(
+        etherSwapAddress,
+        networks.Ethereum.symbol,
+        timelock - 100,
+      );
+      const amount = 123n * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: amount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).toEqual(
+        expect.objectContaining({
+          swapId: id,
+          transactionHash: tx.hash,
+        }),
+      );
+      expect(eventHandler.handleEvent).toHaveBeenCalledWith(
+        'eth.lockup',
+        expect.objectContaining({
+          etherSwapValues: expect.objectContaining({
             amount,
           }),
         }),

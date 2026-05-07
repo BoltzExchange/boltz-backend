@@ -319,9 +319,6 @@ class Commitments {
     maxOverpaymentPercentage?: number,
   ) => {
     if (swapType === SwapType.Chain && expectedAmount === 0) {
-      if (actualAmount <= 0) {
-        throw new Error('commitment amount has to be greater than 0');
-      }
       return;
     }
 

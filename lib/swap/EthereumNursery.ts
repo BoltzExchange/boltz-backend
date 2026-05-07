@@ -726,7 +726,11 @@ class EthereumNursery extends TypedEventEmitter<{
   ): expectedAmount is number => {
     // Submarine swaps can be locked up before the invoice is set; amount
     // validation happens after the invoice populates the expected amount.
-    return Boolean(expectedAmount) || swap.type === SwapType.Chain;
+    if (typeof expectedAmount !== 'number') {
+      return false;
+    }
+
+    return swap.type === SwapType.Chain || expectedAmount > 0;
   };
 
   private shouldHandleClaim = (

@@ -924,6 +924,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             manager.provider,
             contracts.etherSwap,
             txToClaim!,
+            true,
           ),
           payRes.preimage,
         );
@@ -948,6 +949,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             manager.provider,
             contracts.erc20Swap,
             txToClaim!,
+            true,
           ),
           payRes.preimage,
         );
@@ -2140,6 +2142,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       nursery.ethereumManager!.provider,
       contracts.etherSwap,
       lockupTransactionId!,
+      false,
     );
     const contractTransaction = await contracts.contractHandler.refundEther(
       swap,
@@ -2196,6 +2199,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       nursery.ethereumManager.provider,
       contracts.erc20Swap,
       lockupTransactionId!,
+      false,
     );
     const contractTransaction = await contracts.contractHandler.refundToken(
       swap,

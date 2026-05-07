@@ -121,12 +121,14 @@ class EipSigner {
             manager.provider,
             contracts.etherSwap,
             lockupTransactionId,
+            true,
           )
         : await queryERC20SwapValuesFromLock(
             swap,
             manager.provider,
             contracts.erc20Swap,
             lockupTransactionId,
+            true,
           );
 
       await EipSigner.setRefundSignatureCreated(swap);

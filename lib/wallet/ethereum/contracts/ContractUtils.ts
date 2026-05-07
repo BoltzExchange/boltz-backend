@@ -123,12 +123,13 @@ export const queryEtherSwapValuesFromLock = async (
   provider: Provider,
   etherSwap: EtherSwap,
   lockTransactionHash: string,
+  lockedByUser: boolean,
 ): Promise<EtherSwapValues> =>
   querySwapValuesFromLock(
     provider,
     etherSwap,
     lockTransactionHash,
-    await getIdentifier(swap),
+    await getIdentifier(swap, lockedByUser),
     formatEtherSwapValues,
     undefined,
   );
@@ -138,12 +139,13 @@ export const queryERC20SwapValuesFromLock = async (
   provider: Provider,
   erc20Swap: ERC20Swap,
   lockTransactionHash: string,
+  lockedByUser: boolean,
 ): Promise<ERC20SwapValues> =>
   querySwapValuesFromLock(
     provider,
     erc20Swap,
     lockTransactionHash,
-    await getIdentifier(swap),
+    await getIdentifier(swap, lockedByUser),
     formatERC20SwapValues,
     undefined,
   );
@@ -203,11 +205,15 @@ export const formatERC20SwapValues = (
   };
 };
 
-const getIdentifier = async (swap: AnySwap): Promise<LockupIdentifier> => {
-  // When there is a commitment, we use the lockup hash
-  const commitment = await CommitmentRepository.getBySwapId(swap.id);
-  if (commitment !== null && commitment !== undefined) {
-    return { lockupHash: commitment.lockupHash };
+const getIdentifier = async (
+  swap: AnySwap,
+  lockedByUser: boolean,
+): Promise<LockupIdentifier> => {
+  if (lockedByUser) {
+    const commitment = await CommitmentRepository.getBySwapId(swap.id);
+    if (commitment !== null && commitment !== undefined) {
+      return { lockupHash: commitment.lockupHash };
+    }
   }
 
   return { preimageHash: getHexBuffer(swap.preimageHash) };

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow, bail};
 use async_tungstenite::tokio::connect_async;
 use async_tungstenite::tungstenite::Message;
+use boltz_utils::ensure_rustls_crypto_provider;
 use boltz_utils::ws::{
     SwapUpdateSubscribeRequest, SwapUpdateSubscriptionRequest, SwapUpdateWsRequest,
     SwapUpdateWsResponse,
@@ -8,6 +9,8 @@ use boltz_utils::ws::{
 use futures::StreamExt;
 
 pub async fn subscribe_swap_updates(endpoint: &str, ids: Vec<String>) -> Result<()> {
+    ensure_rustls_crypto_provider();
+
     let (stream, _) = connect_async(endpoint)
         .await
         .with_context(|| format!("failed to connect to {endpoint}"))?;

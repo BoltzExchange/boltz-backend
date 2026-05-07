@@ -48,6 +48,16 @@ type erc20LockupCallback = (args: {
   erc20SwapValues: ERC20SwapValues;
 }) => void;
 
+type ChainLockupSwap = {
+  id: string;
+  type: SwapType.Chain;
+  receivingData: {
+    symbol: string;
+    expectedAmount: number;
+    timeoutBlockHeight: number;
+  };
+};
+
 jest.mock('../../../lib/wallet/providers/EtherWalletProvider', () => {
   return jest.fn().mockImplementation((symbol: string) => ({
     symbol,
@@ -1283,6 +1293,73 @@ describe('EthereumNursery', () => {
     await lockupPromise;
   });
 
+  const expectZeroAmountChainLockupOverpaid = async ({
+    id,
+    symbol,
+    lockupEvent,
+    timeoutBlockHeight,
+    checkLockup,
+  }: {
+    id: string;
+    symbol: string;
+    lockupEvent: 'eth.lockup' | 'erc20.lockup';
+    timeoutBlockHeight: number;
+    checkLockup: (chainSwap: ChainLockupSwap) => Promise<void>;
+  }) => {
+    const chainSwap: ChainLockupSwap = {
+      id,
+      type: SwapType.Chain,
+      receivingData: {
+        symbol,
+        expectedAmount: 0,
+        timeoutBlockHeight,
+      },
+    };
+    const updatedSwap = {
+      ...chainSwap,
+      status: SwapUpdateEvent.TransactionConfirmed,
+    };
+
+    const setUserLockupTransaction = jest.fn().mockResolvedValue(updatedSwap);
+    ChainSwapRepository.setUserLockupTransaction = setUserLockupTransaction;
+
+    const emitSpy = jest.spyOn(nursery, 'emit');
+    await checkLockup(chainSwap);
+
+    expect(setUserLockupTransaction).toHaveBeenCalledWith(
+      chainSwap,
+      exampleTransaction.hash,
+      10,
+      true,
+      undefined,
+      undefined,
+    );
+    expect(emitSpy).toHaveBeenCalledWith('lockup.failed', {
+      swap: updatedSwap,
+      reason: Errors.OVERPAID_AMOUNT(10, 0).message,
+    });
+    expect(emitSpy).not.toHaveBeenCalledWith(lockupEvent, expect.anything());
+
+    emitSpy.mockRestore();
+  };
+
+  test('should reject zero-amount EtherSwap chain lockup as overpaid', async () => {
+    await expectZeroAmountChainLockupOverpaid({
+      id: 'chain-eth-zero-amount',
+      symbol: 'ETH',
+      lockupEvent: 'eth.lockup',
+      timeoutBlockHeight: 11102219,
+      checkLockup: (chainSwap) =>
+        nursery.checkEtherSwapLockup(chainSwap as any, exampleTransaction, {
+          claimAddress: mockAddress,
+          refundAddress: mockAddress,
+          amount: 10n * etherDecimals,
+          preimageHash: examplePreimageHash,
+          timelock: chainSwap.receivingData.timeoutBlockHeight,
+        }),
+    });
+  });
+
   test('should ignore ERC20Swap chain lockup after lockup failed', async () => {
     const chainSwap = {
       id: 'chain-erc20-failed',
@@ -1380,6 +1457,24 @@ describe('EthereumNursery', () => {
       { allowLockupFailedUpdate: true },
     );
     await lockupPromise;
+  });
+
+  test('should reject zero-amount ERC20Swap chain lockup as overpaid', async () => {
+    await expectZeroAmountChainLockupOverpaid({
+      id: 'chain-erc20-zero-amount',
+      symbol: 'USDT',
+      lockupEvent: 'erc20.lockup',
+      timeoutBlockHeight: 11102222,
+      checkLockup: (chainSwap) =>
+        nursery.checkErc20SwapLockup(chainSwap as any, exampleTransaction, {
+          amount: BigInt('1000'),
+          claimAddress: mockAddress,
+          refundAddress: mockAddress,
+          tokenAddress: mockTokenAddress,
+          timelock: chainSwap.receivingData.timeoutBlockHeight,
+          preimageHash: examplePreimageHash,
+        }),
+    });
   });
 
   test('should listen to ERC20Swap claim events', async () => {

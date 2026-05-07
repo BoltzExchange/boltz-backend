@@ -12,6 +12,7 @@ import type ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import { NodeType } from '../../../lib/db/models/ReverseSwap';
 import type { ChainSwapInfo } from '../../../lib/db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../../lib/db/repositories/ChainSwapRepository';
+import RefundTransactionRepository from '../../../lib/db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
@@ -20,6 +21,10 @@ import type NotificationClient from '../../../lib/notifications/NotificationClie
 import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+import {
+  queryERC20SwapValuesFromLock,
+  queryEtherSwapValuesFromLock,
+} from '../../../lib/wallet/ethereum/contracts/ContractUtils';
 
 let mockGetSwapResult: any = null;
 let mockGetChainSwapResult: any = null;
@@ -28,6 +33,11 @@ jest.mock('../../../lib/db/repositories/SwapRepository');
 jest.mock('../../../lib/db/repositories/ReverseSwapRepository');
 jest.mock('../../../lib/db/repositories/ChainSwapRepository');
 jest.mock('../../../lib/db/repositories/WrappedSwapRepository');
+jest.mock('../../../lib/db/repositories/RefundTransactionRepository');
+jest.mock('../../../lib/wallet/ethereum/contracts/ContractUtils', () => ({
+  queryEtherSwapValuesFromLock: jest.fn(),
+  queryERC20SwapValuesFromLock: jest.fn(),
+}));
 
 // Mock all the classes that SwapNursery instantiates
 jest.mock('../../../lib/swap/hooks/TransactionHook', () =>
@@ -1479,6 +1489,113 @@ describe('SwapNursery', () => {
         confirmed: true,
         emitFailure: false,
         refundTransaction: refundTransactionId,
+      });
+    });
+
+    describe('EVM refund', () => {
+      const lockupTxId = '0xservertx';
+
+      const buildEthereumNursery = (extras: Record<string, any> = {}) => ({
+        ethereumManager: {
+          provider: {} as any,
+          address: '0xboltz',
+          networkDetails: { name: 'Ethereum' },
+          hasSymbol: jest.fn().mockReturnValue(true),
+          contractsForAddress: jest.fn().mockResolvedValue({
+            etherSwap: {} as any,
+            erc20Swap: {} as any,
+            contractHandler: {
+              refundEther: jest.fn().mockResolvedValue({
+                hash: '0xrefund',
+                gasPrice: 1n,
+                gasLimit: 1n,
+              }),
+              refundToken: jest.fn().mockResolvedValue({
+                hash: '0xrefund',
+                gasPrice: 1n,
+                gasLimit: 1n,
+              }),
+            },
+          }),
+          ...extras,
+        },
+      });
+
+      const buildChainSwap = () =>
+        ({
+          id: 'chain-swap-id',
+          type: SwapType.Chain,
+          preimageHash: 'aa'.repeat(32),
+          sendingData: {
+            lockupAddress: '0xserverlock',
+            transactionId: lockupTxId,
+          },
+        }) as unknown as ChainSwapInfo;
+
+      beforeEach(() => {
+        (
+          WrappedSwapRepository.setTransactionRefunded as jest.Mock
+        ).mockImplementation(async (swap) => swap);
+        (
+          RefundTransactionRepository.addTransaction as jest.Mock
+        ).mockResolvedValue(undefined);
+        (queryEtherSwapValuesFromLock as jest.Mock)
+          .mockReset()
+          .mockResolvedValue({
+            amount: 1n,
+            claimAddress: '0xclaim',
+            refundAddress: '0xboltz',
+            timelock: 1,
+            preimageHash: Buffer.alloc(32),
+          });
+        (queryERC20SwapValuesFromLock as jest.Mock)
+          .mockReset()
+          .mockResolvedValue({
+            amount: 1n,
+            claimAddress: '0xclaim',
+            refundAddress: '0xboltz',
+            timelock: 1,
+            preimageHash: Buffer.alloc(32),
+            tokenAddress: '0xtoken',
+          });
+      });
+
+      test('refundEther passes lockedByUser: false (regression: chain swap server-side refund must not consult user-side commitment)', async () => {
+        (swapNursery as any).ethereumNurseries = [buildEthereumNursery()];
+        const swap = buildChainSwap();
+
+        await (swapNursery as any).refundEther(swap, 'ETH');
+
+        expect(queryEtherSwapValuesFromLock).toHaveBeenCalledTimes(1);
+        expect(queryEtherSwapValuesFromLock).toHaveBeenCalledWith(
+          swap,
+          expect.anything(),
+          expect.anything(),
+          lockupTxId,
+          false,
+        );
+      });
+
+      test('refundERC20 passes lockedByUser: false (regression: chain swap server-side refund must not consult user-side commitment)', async () => {
+        (swapNursery as any).ethereumNurseries = [buildEthereumNursery()];
+        const erc20Wallet = { walletProvider: {} } as any;
+        swapNursery.currencies = new Map([['USDT', mockCurrency]]);
+        (swapNursery as any).walletManager = {
+          ethereumManagers: [],
+          wallets: new Map([['USDT', erc20Wallet]]),
+        };
+        const swap = buildChainSwap();
+
+        await (swapNursery as any).refundERC20(swap, 'USDT');
+
+        expect(queryERC20SwapValuesFromLock).toHaveBeenCalledTimes(1);
+        expect(queryERC20SwapValuesFromLock).toHaveBeenCalledWith(
+          swap,
+          expect.anything(),
+          expect.anything(),
+          lockupTxId,
+          false,
+        );
       });
     });
 

@@ -486,6 +486,7 @@ class DeferredClaimer extends CoopSignerBase<{
               manager.provider,
               contracts.etherSwap,
               transactionId,
+              true,
             );
           },
           RPC_LOOKUP_CONCURRENCY,
@@ -535,6 +536,7 @@ class DeferredClaimer extends CoopSignerBase<{
               manager.provider,
               contracts.erc20Swap,
               transactionId,
+              true,
             );
           },
           RPC_LOOKUP_CONCURRENCY,

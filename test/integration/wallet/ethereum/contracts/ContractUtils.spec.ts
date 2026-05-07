@@ -155,6 +155,7 @@ describe('ContractUtils', () => {
           setup.provider,
           etherSwap,
           etherSwapLockTransactionHash,
+          true,
         ),
       ).toEqual(etherSwapValues);
 
@@ -168,6 +169,7 @@ describe('ContractUtils', () => {
           setup.provider,
           erc20Swap,
           erc20SwapLockTransactionHash,
+          true,
         ),
       ).toEqual(erc20SwapValues);
 
@@ -186,6 +188,7 @@ describe('ContractUtils', () => {
           setup.provider,
           etherSwap,
           etherSwapLockTransactionHash,
+          true,
         ),
       ).rejects.toEqual(
         Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
@@ -205,6 +208,7 @@ describe('ContractUtils', () => {
           setup.provider,
           etherSwap,
           etherSwapLockTransactionHash,
+          true,
         ),
       ).toEqual(etherSwapValues);
 
@@ -222,6 +226,7 @@ describe('ContractUtils', () => {
           setup.provider,
           erc20Swap,
           erc20SwapLockTransactionHash,
+          true,
         ),
       ).toEqual(erc20SwapValues);
 
@@ -239,10 +244,59 @@ describe('ContractUtils', () => {
           setup.provider,
           etherSwap,
           etherSwapLockTransactionHash,
+          true,
         ),
       ).rejects.toEqual(
         Errors.INVALID_LOCKUP_TRANSACTION(etherSwapLockTransactionHash),
       );
+    });
+  });
+
+  describe('without consulting commitment', () => {
+    test('should not query commitments and match EtherSwap by preimageHash', async () => {
+      expect(
+        await queryEtherSwapValuesFromLock(
+          swap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+          false,
+        ),
+      ).toEqual(etherSwapValues);
+
+      expect(CommitmentRepository.getBySwapId).not.toHaveBeenCalled();
+    });
+
+    test('should not query commitments and match ERC20Swap by preimageHash', async () => {
+      expect(
+        await queryERC20SwapValuesFromLock(
+          swap,
+          setup.provider,
+          erc20Swap,
+          erc20SwapLockTransactionHash,
+          false,
+        ),
+      ).toEqual(erc20SwapValues);
+
+      expect(CommitmentRepository.getBySwapId).not.toHaveBeenCalled();
+    });
+
+    test('should ignore an existing commitment row when lockedByUser is false', async () => {
+      getBySwapIdSpy.mockResolvedValue({
+        lockupHash: '0x' + 'aa'.repeat(32),
+      } as any);
+
+      expect(
+        await queryEtherSwapValuesFromLock(
+          swap,
+          setup.provider,
+          etherSwap,
+          etherSwapLockTransactionHash,
+          false,
+        ),
+      ).toEqual(etherSwapValues);
+
+      expect(CommitmentRepository.getBySwapId).not.toHaveBeenCalled();
     });
   });
 

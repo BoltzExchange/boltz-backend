@@ -1,6 +1,6 @@
 {
   "name": "boltz-backend",
-  "version": "3.12.1",
+  "version": "3.13.0",
   "description": "Backend of Boltz",
   "main": "dist/lib/Boltz.js",
   "scarfSettings": {

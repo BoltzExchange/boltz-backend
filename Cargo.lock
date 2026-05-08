@@ -2037,7 +2037,7 @@ dependencies = [
 
 [[package]]
 name = "boltz-backup"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "anyhow",
  "aws-sdk-s3",
@@ -2057,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "boltz-cache"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "anyhow",
  "boltz-utils",
@@ -2089,7 +2089,7 @@ dependencies = [
 
 [[package]]
 name = "boltz-evm"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "alloy",
  "anyhow",
@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "boltz-utils"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "rustls",
  "serde",
@@ -2117,7 +2117,7 @@ dependencies = [
 
 [[package]]
 name = "boltzr"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2198,7 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "boltzr-cli"
-version = "3.12.1"
+version = "3.13.0"
 dependencies = [
  "alloy",
  "anyhow",

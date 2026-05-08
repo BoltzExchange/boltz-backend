@@ -12,7 +12,7 @@ members = [
 exclude = ["hold"]
 
 [workspace.package]
-version = "3.12.1"
+version = "3.13.0"
 license = "AGPL-3"
 authors = ["michael1011"]
 edition = "2024"

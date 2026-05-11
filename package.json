@@ -70,7 +70,7 @@
     "@opentelemetry/instrumentation-http": "^0.216.0",
     "@opentelemetry/instrumentation-pg": "^0.68.0",
     "@opentelemetry/instrumentation-winston": "^0.60.0",
-    "@opentelemetry/sdk-node": "^0.216.0",
+    "@opentelemetry/sdk-node": "^0.217.0",
     "@pyroscope/nodejs": "^0.4.11",
     "@scure/base": "^2.2.0",
     "@scure/btc-signer": "^2.2.0",

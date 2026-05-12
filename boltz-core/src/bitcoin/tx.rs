@@ -78,17 +78,32 @@ impl From<FeeError> for TxError {
 #[must_use = "ignoring the result discards the constructed transaction"]
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
-    inputs: &[InputDetail],
+    mut inputs: Vec<InputDetail>,
     destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<(Transaction, u64), TxError> {
+    // BIP69: sort inputs by (outpoint.txid asc, outpoint.vout asc).
+    inputs.sort_by(|a, b| {
+        bip69_txid_cmp(
+            a.outpoint.txid.as_byte_array(),
+            b.outpoint.txid.as_byte_array(),
+        )
+        .then(a.outpoint.vout.cmp(&b.outpoint.vout))
+    });
+
     target_fee(fee, |fee, _is_fee_estimation| {
-        construct_raw(secp, inputs, destination, Amount::from_sat(fee))
+        construct_raw(secp, &inputs, destination, Amount::from_sat(fee))
     })
 }
 
+fn bip69_txid_cmp(a: &[u8; 32], b: &[u8; 32]) -> std::cmp::Ordering {
+    // Hash newtypes expose internal bytes; BIP69 compares conventional txid byte order.
+    a.iter().rev().cmp(b.iter().rev())
+}
+
+/// Inputs are expected to be already BIP69-sorted.
 #[must_use = "ignoring the result discards the constructed transaction"]
-pub fn construct_raw<C: Signing + Verification>(
+fn construct_raw<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     inputs: &[InputDetail],
     destination: &Destination<&Address>,
@@ -131,6 +146,13 @@ pub fn construct_raw<C: Signing + Verification>(
                 script_pubkey: outputs.change.script_pubkey(),
             });
 
+            // BIP69: sort outputs by (value asc, scriptPubKey bytes asc).
+            res.sort_by(|a, b| {
+                a.value
+                    .cmp(&b.value)
+                    .then(a.script_pubkey.as_bytes().cmp(b.script_pubkey.as_bytes()))
+            });
+
             res
         }
     };
@@ -161,10 +183,7 @@ pub fn construct_raw<C: Signing + Verification>(
         output,
     };
 
-    let prevouts = inputs
-        .iter()
-        .map(|input| input.tx_out.clone())
-        .collect::<Vec<_>>();
+    let prevouts: Vec<&TxOut> = inputs.iter().map(|input| &input.tx_out).collect();
     let prevouts = Prevouts::All(&prevouts);
 
     let mut sighash_cache = SighashCache::new(tx.clone());
@@ -192,7 +211,9 @@ pub fn construct_raw<C: Signing + Verification>(
                     }
                 };
 
-                script_sig.push_slice(PushBytesBuf::try_from(witness_script.clone().into_bytes())?);
+                script_sig.push_slice(<&bitcoin::script::PushBytes>::try_from(
+                    witness_script.as_bytes(),
+                )?);
 
                 tx_in.script_sig = script_sig;
             }
@@ -602,7 +623,7 @@ mod tests {
         let fee = 1_000;
         let (mut tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -669,7 +690,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -721,7 +742,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -758,7 +779,7 @@ mod tests {
         let fee_rate = 3.0;
         let (mut tx, fee) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -826,7 +847,7 @@ mod tests {
         let fee_rate = 3.0;
         let (tx, fee) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -867,7 +888,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -908,7 +929,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -940,7 +961,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -981,7 +1002,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1013,7 +1034,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1054,7 +1075,7 @@ mod tests {
         let fee = 1_000;
         let (tx, _) = construct_tx(
             &secp,
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1104,7 +1125,7 @@ mod tests {
         let fee_rate = 4.0;
         let (tx, fee) = construct_tx(
             &secp,
-            &inputs,
+            inputs.clone(),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee_rate),
         )
@@ -1145,7 +1166,7 @@ mod tests {
         let fee = 500;
         let (tx, _) = construct_tx(
             &secp,
-            &inputs,
+            inputs.clone(),
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,
@@ -1156,11 +1177,12 @@ mod tests {
 
         assert_eq!(tx.output.len(), outputs.len() + 1);
 
-        assert_eq!(tx.output[0].script_pubkey, outputs[0].0.script_pubkey());
-        assert_eq!(tx.output[0].value, Amount::from_sat(outputs[0].1));
+        // Outputs sorted by BIP69 (amount asc): outputs[1]=12_123, outputs[0]=21_000, change=166_377.
+        assert_eq!(tx.output[0].script_pubkey, outputs[1].0.script_pubkey());
+        assert_eq!(tx.output[0].value, Amount::from_sat(outputs[1].1));
 
-        assert_eq!(tx.output[1].script_pubkey, outputs[1].0.script_pubkey());
-        assert_eq!(tx.output[1].value, Amount::from_sat(outputs[1].1));
+        assert_eq!(tx.output[1].script_pubkey, outputs[0].0.script_pubkey());
+        assert_eq!(tx.output[1].value, Amount::from_sat(outputs[0].1));
 
         assert_eq!(tx.output[2].script_pubkey, change.script_pubkey());
         assert_eq!(
@@ -1172,6 +1194,199 @@ mod tests {
         );
 
         assert_eq!(send_raw_transaction(&node, &tx), tx.compute_txid());
+    }
+
+    #[test]
+    fn test_bip69_input_sort() {
+        let secp = Secp256k1::new();
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+        let destination =
+            Address::from_str("bcrt1p70dqezlrn37f043fmc6m45uzflaqe6678q9ludu8ryr9s5rsn0gs3qh0vd")
+                .unwrap()
+                .assume_checked();
+
+        // BIP69 input examples from transaction
+        // 0a6a357e2f7796444e02638749d9611c008b253fb55f5dc88b739b230ed0c4c3.
+        let bip69_input_vector = [
+            (
+                "0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57",
+                0,
+            ),
+            (
+                "26aa6e6d8b9e49bb0630aac301db6757c02e3619feb4ee0eea81eb1672947024",
+                1,
+            ),
+            (
+                "28e0fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2",
+                0,
+            ),
+            (
+                "381de9b9ae1a94d9c17f6a08ef9d341a5ce29e2e60c36a52d333ff6203e58d5d",
+                1,
+            ),
+            (
+                "3b8b2f8efceb60ba78ca8bba206a137f14cb5ea4035e761ee204302d46b98de2",
+                0,
+            ),
+            (
+                "402b2c02411720bf409eff60d05adad684f135838962823f3614cc657dd7bc0a",
+                1,
+            ),
+            (
+                "54ffff182965ed0957dba1239c27164ace5a73c9b62a660c74b7b7f15ff61e7a",
+                1,
+            ),
+            (
+                "643e5f4e66373a57251fb173151e838ccd27d279aca882997e005016bb53d5aa",
+                0,
+            ),
+            (
+                "6c1d56f31b2de4bfc6aaea28396b333102b1f600da9c6d6149e96ca43f1102b1",
+                1,
+            ),
+            (
+                "7a1de137cbafb5c70405455c49c5104ca3057a1f1243e6563bb9245c9c88c191",
+                0,
+            ),
+            (
+                "7d037ceb2ee0dc03e82f17be7935d238b35d1deabf953a892a4507bfbeeb3ba4",
+                1,
+            ),
+            (
+                "a5e899dddb28776ea9ddac0a502316d53a4a3fca607c72f66c470e0412e34086",
+                0,
+            ),
+            (
+                "b4112b8f900a7ca0c8b0e7c4dfad35c6be5f6be46b3458974988e1cdb2fa61b8",
+                0,
+            ),
+            (
+                "bafd65e3c7f3f9fdfdc1ddb026131b278c3be1af90a4a6ffa78c4658f9ec0c85",
+                0,
+            ),
+            (
+                "de0411a1e97484a2804ff1dbde260ac19de841bebad1880c782941aca883b4e9",
+                1,
+            ),
+            (
+                "f0a130a84912d03c1d284974f563c5949ac13f8342b8112edff52971599e6a45",
+                0,
+            ),
+            (
+                "f320832a9d2e2452af63154bc687493484a0e7745ebd3aaf9ca19eb80834ad60",
+                0,
+            ),
+        ];
+        // BIP69 equal-txid tie-breaker example from transaction
+        // 28204cad1d7fc1d199e8ef4fa22f182de6258a3eaafe1bbe56ebdcacd3069a5f.
+        let bip69_tie_breaker_txid =
+            Txid::from_str("35288d269cee1941eaebb2ea85e32b42cdb2b04284a56d8b14dcc3f5c65d6055")
+                .unwrap();
+
+        let make_input = |txid: Txid, vout: u32| InputDetail {
+            input_type: InputType::Claim([0; 32]),
+            output_type: OutputType::Taproot(None),
+            outpoint: OutPoint::new(txid, vout),
+            tx_out: TxOut {
+                value: Amount::from_sat(50_000),
+                script_pubkey: destination.script_pubkey(),
+            },
+            keys,
+        };
+
+        let expected_order: Vec<_> = bip69_input_vector
+            .iter()
+            .map(|(txid, vout)| OutPoint::new(Txid::from_str(txid).unwrap(), *vout))
+            .collect();
+
+        let inputs = bip69_input_vector
+            .iter()
+            .rev()
+            .map(|(txid, vout)| make_input(Txid::from_str(txid).unwrap(), *vout))
+            .collect();
+
+        let (tx, _) = construct_tx(
+            &secp,
+            inputs,
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(1_000),
+        )
+        .unwrap();
+
+        let actual_order: Vec<_> = tx.input.iter().map(|i| i.previous_output).collect();
+        assert_eq!(actual_order, expected_order);
+
+        let tie_breaker_inputs = vec![
+            make_input(bip69_tie_breaker_txid, 1),
+            make_input(bip69_tie_breaker_txid, 0),
+        ];
+
+        let (tx, _) = construct_tx(
+            &secp,
+            tie_breaker_inputs,
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(1_000),
+        )
+        .unwrap();
+
+        let expected_order = [
+            OutPoint::new(bip69_tie_breaker_txid, 0),
+            OutPoint::new(bip69_tie_breaker_txid, 1),
+        ];
+        let actual_order: Vec<_> = tx.input.iter().map(|i| i.previous_output).collect();
+        assert_eq!(actual_order, expected_order);
+    }
+
+    #[test]
+    fn test_bip69_output_sort() {
+        let secp = Secp256k1::new();
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+
+        let change =
+            Address::from_str("bcrt1p70dqezlrn37f043fmc6m45uzflaqe6678q9ludu8ryr9s5rsn0gs3qh0vd")
+                .unwrap()
+                .assume_checked();
+        let dest_a =
+            Address::from_str("bcrt1ptpycrkuwevk69j9kjnsyynk562mlafc08zh5q69seftaxr6r692sprm2p2")
+                .unwrap()
+                .assume_checked();
+
+        let input = InputDetail {
+            input_type: InputType::Claim([0; 32]),
+            output_type: OutputType::Taproot(None),
+            outpoint: OutPoint::null(),
+            tx_out: TxOut {
+                value: Amount::from_sat(1_000_000),
+                script_pubkey: change.script_pubkey(),
+            },
+            keys,
+        };
+
+        let fee = 1_000u64;
+        let outputs = [(&dest_a, 100_000u64), (&dest_a, 50_000u64)];
+        let (tx, _) = construct_tx(
+            &secp,
+            vec![input.clone()],
+            &Destination::Multiple(crate::utils::Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            FeeTarget::Absolute(fee),
+        )
+        .unwrap();
+
+        let expected_values = [50_000u64, 100_000u64, 1_000_000 - 100_000 - 50_000 - fee];
+        let actual_values: Vec<_> = tx.output.iter().map(|o| o.value.to_sat()).collect();
+        assert_eq!(actual_values, expected_values);
+
+        for window in tx.output.windows(2) {
+            let (a, b) = (&window[0], &window[1]);
+            assert!(
+                a.value < b.value
+                    || (a.value == b.value
+                        && a.script_pubkey.as_bytes() <= b.script_pubkey.as_bytes())
+            );
+        }
     }
 
     #[test]

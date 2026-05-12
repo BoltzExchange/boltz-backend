@@ -48,6 +48,9 @@ export type ArkConfig = {
 
   useLocktimeSeconds?: boolean;
 
+  // Interval in seconds for the periodic vHTLC state rescan
+  rescanInterval?: number;
+
   unilateralDelays?: Delays;
 };
 
@@ -292,6 +295,7 @@ class ArkClient extends BaseClient<
       this.meta,
       this.unaryCall,
       this.unaryNotificationCall,
+      this.config.rescanInterval,
     );
     this.subscription.on('vhtlc.created', (vHtlc) => {
       this.emit('vhtlc.created', vHtlc);

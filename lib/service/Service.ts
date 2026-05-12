@@ -503,6 +503,9 @@ class Service {
 
       endHeight = await manager.provider.getBlockNumber();
       await manager.contractEventHandler.rescan(startHeight);
+    } else if (currency.arkNode) {
+      await currency.arkNode.subscription.rescan();
+      endHeight = await currency.arkNode.getBlockHeight();
     } else {
       throw Errors.NO_CHAIN_FOR_SYMBOL();
     }

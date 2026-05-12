@@ -75,10 +75,12 @@ class AddressMapper {
 }
 
 class ArkSubscription extends TypedEventEmitter<Events> {
+  public static readonly defaultRescanIntervalSeconds = 300;
+
   private static readonly reconnectInterval = 2_500;
-  private static readonly rescanIntervalMinutes = 5;
 
   private readonly subscribedAddresses = new Map<string, string>();
+  private readonly rescanIntervalSeconds: number;
 
   private shouldDisconnect = false;
   private isReconnecting = false;
@@ -93,8 +95,18 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     private readonly metadata: Metadata,
     private readonly unaryCall: (typeof ArkClient.prototype)['unaryCall'],
     private readonly unaryNotificationCall: (typeof ArkClient.prototype)['unaryNotificationCall'],
+    rescanIntervalSeconds?: number,
   ) {
     super();
+
+    if (rescanIntervalSeconds !== undefined && rescanIntervalSeconds < 1) {
+      throw new RangeError(
+        `rescan interval must be at least 1 second (got ${rescanIntervalSeconds})`,
+      );
+    }
+
+    this.rescanIntervalSeconds =
+      rescanIntervalSeconds ?? ArkSubscription.defaultRescanIntervalSeconds;
   }
 
   public connect = async () => {
@@ -108,26 +120,23 @@ class ArkSubscription extends TypedEventEmitter<Events> {
     this.streamVhtlcs();
 
     this.logger.debug(
-      `Rescanning ${this.client.serviceName()} ${this.client.symbol} every ${ArkSubscription.rescanIntervalMinutes} minutes`,
+      `Rescanning ${this.client.serviceName()} ${this.client.symbol} every ${this.rescanIntervalSeconds} seconds`,
     );
-    this.rescanTimer = setInterval(
-      async () => {
-        if (
-          !this.shouldDisconnect &&
-          !this.isReconnecting &&
-          !this.isRescanning
-        ) {
-          try {
-            await this.rescan();
-          } catch (e) {
-            this.logger.error(
-              `Error rescanning ${this.client.serviceName()} ${this.client.symbol}: ${formatError(e)}`,
-            );
-          }
+    this.rescanTimer = setInterval(async () => {
+      if (
+        !this.shouldDisconnect &&
+        !this.isReconnecting &&
+        !this.isRescanning
+      ) {
+        try {
+          await this.rescan();
+        } catch (e) {
+          this.logger.error(
+            `Error rescanning ${this.client.serviceName()} ${this.client.symbol}: ${formatError(e)}`,
+          );
         }
-      },
-      ArkSubscription.rescanIntervalMinutes * 1_000 * 60,
-    );
+      }
+    }, this.rescanIntervalSeconds * 1_000);
   };
 
   public disconnect = () => {

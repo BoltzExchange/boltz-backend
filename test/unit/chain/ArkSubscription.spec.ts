@@ -23,7 +23,7 @@ describe('ArkSubscription', () => {
     symbol: 'ARK',
   } as unknown as ArkClient;
 
-  const createSubscription = () => {
+  const createSubscription = (rescanIntervalSeconds?: number) => {
     const stream = new MockStream();
     const notificationClient = {
       getVtxoNotifications: jest.fn().mockReturnValue(stream),
@@ -40,6 +40,7 @@ describe('ArkSubscription', () => {
       metadata,
       unaryCall as any,
       unaryNotificationCall as any,
+      rescanIntervalSeconds,
     );
 
     return {
@@ -179,6 +180,55 @@ describe('ArkSubscription', () => {
     expect(subscription['subscribedAddresses'].has('address-two')).toEqual(
       false,
     );
+  });
+
+  describe('rescan interval', () => {
+    test('falls back to the default when none is configured', () => {
+      const { subscription } = createSubscription();
+
+      expect((subscription as any).rescanIntervalSeconds).toEqual(
+        ArkSubscription.defaultRescanIntervalSeconds,
+      );
+    });
+
+    test('uses the configured value', () => {
+      const { subscription } = createSubscription(123);
+
+      expect((subscription as any).rescanIntervalSeconds).toEqual(123);
+    });
+
+    test.each([0, -1])(
+      'throws when the configured value is below 1 (%i)',
+      (value) => {
+        expect(() => createSubscription(value)).toThrow(RangeError);
+      },
+    );
+
+    test('accepts the minimum value of 1', () => {
+      const { subscription } = createSubscription(1);
+
+      expect((subscription as any).rescanIntervalSeconds).toEqual(1);
+    });
+
+    test('schedules the periodic rescan timer with the configured interval', async () => {
+      const setIntervalSpy = jest.spyOn(global, 'setInterval');
+      const { subscription } = createSubscription(45);
+
+      await subscription.connect();
+
+      try {
+        expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+        expect(setIntervalSpy).toHaveBeenCalledWith(
+          expect.any(Function),
+          45_000,
+        );
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          'Rescanning ark ARK every 45 seconds',
+        );
+      } finally {
+        subscription.disconnect();
+      }
+    });
   });
 
   test('ignores invalid subscribed addresses during rescan and still emits valid vHTLCs', async () => {

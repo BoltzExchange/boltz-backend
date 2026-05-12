@@ -73,7 +73,7 @@ class SelfPaymentClient
     decoded: DecodedInvoiceSidecar,
     cltvLimit: number,
     payments: LightningPayment[],
-    isSubmarineInvoicePaymentSignerDisabled = false,
+    isSubmarineInvoicePaymentSignerDisabled: boolean,
   ): Promise<{
     isSelf: boolean;
     result: PaymentResponse | undefined;

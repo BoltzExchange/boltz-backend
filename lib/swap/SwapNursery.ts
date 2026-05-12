@@ -1074,8 +1074,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     switch (sendingCurrency.type) {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
-        await this.lockupUtxo(swap, sendingCurrency.chainClient!, wallet);
-        await this.chainSwapSigner.registerForClaim(swap);
+        if (await this.lockupUtxo(swap, sendingCurrency.chainClient!, wallet)) {
+          await this.chainSwapSigner.registerForClaim(swap);
+        }
         break;
 
       case CurrencyType.Ether:
@@ -1390,9 +1391,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     chainClient: IChainClient,
     wallet: Wallet,
     lightningClient?: LightningClient,
-  ) => {
+  ): Promise<boolean> => {
     if (!this.lockupSignerEnabled(swap)) {
-      return;
+      return false;
     }
 
     try {
@@ -1453,6 +1454,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
           vout!,
         ),
       });
+      return true;
     } catch (error) {
       await this.handleSwapSendFailed(
         swap,
@@ -1460,6 +1462,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         error,
         lightningClient,
       );
+      return false;
     }
   };
 

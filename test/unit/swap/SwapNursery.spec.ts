@@ -151,6 +151,7 @@ describe('SwapNursery', () => {
   const mockChainSwapSigner = {
     setAttemptSettle: jest.fn(),
     on: jest.fn(),
+    registerForClaim: jest.fn(),
   } as any;
 
   let swapNursery: SwapNursery;
@@ -307,11 +308,12 @@ describe('SwapNursery', () => {
         };
 
         if (method === 'lockupUtxo') {
-          await (guardedNursery as any)[method](
+          const result = await (guardedNursery as any)[method](
             chainSwap,
             mockChainClient,
             wallet,
           );
+          expect(result).toEqual(false);
         } else {
           await (guardedNursery as any)[method](chainSwap, wallet);
         }
@@ -323,6 +325,28 @@ describe('SwapNursery', () => {
         );
       },
     );
+
+    test('should not register chain swaps for claim when UTXO lockup signer is disabled', async () => {
+      const guardedNursery = await createGuardedNursery(
+        Signer.SIGNER_CHAIN_LOCKUP,
+      );
+      guardedNursery.currencies = new Map([['BTC', mockCurrency]]);
+
+      await (guardedNursery as any).handleChainSwapLockup({
+        id: 'chain-swap-id',
+        type: SwapType.Chain,
+        sendingData: {
+          expectedAmount: 100_000,
+          lockupAddress: 'bcrt1lockup',
+          symbol: 'BTC',
+        },
+      });
+
+      expect(mockChainSwapSigner.registerForClaim).not.toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'signer SIGNER_CHAIN_LOCKUP is disabled',
+      );
+    });
   });
 
   describe('settleReverseSwapInvoice', () => {

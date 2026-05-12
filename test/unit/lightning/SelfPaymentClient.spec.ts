@@ -202,6 +202,7 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
+          false,
         ),
       ).rejects.toThrow('invoice mismatch');
 
@@ -237,6 +238,7 @@ describe('SelfPaymentClient', () => {
             mockDecodedWithCltv as any,
             cltvLimit,
             [],
+            false,
           ),
         ).rejects.toThrow('CLTV limit too small');
 
@@ -263,6 +265,7 @@ describe('SelfPaymentClient', () => {
           } as any,
           100,
           [],
+          false,
         ),
       ).rejects.toThrow('invoice expired');
 
@@ -284,7 +287,13 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          false,
+        ),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -325,7 +334,13 @@ describe('SelfPaymentClient', () => {
       const warnSpy = jest.spyOn(Logger.disabledLogger, 'warn');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          false,
+        ),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -366,7 +381,13 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+        client.handleSelfPayment(
+          mockSwap as any,
+          mockDecoded as any,
+          100,
+          [],
+          false,
+        ),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -390,6 +411,7 @@ describe('SelfPaymentClient', () => {
         mockDecoded as any,
         100,
         [],
+        false,
       );
 
       expect(result).toEqual({
@@ -421,6 +443,7 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
+          false,
         );
 
         expect(result).toEqual({
@@ -467,12 +490,14 @@ describe('SelfPaymentClient', () => {
         mockDecoded as any,
         100,
         [],
+        false,
       );
       const promise2 = client.handleSelfPayment(
         mockSwap as any,
         mockDecoded as any,
         100,
         [],
+        false,
       );
 
       // Verify only first call started

@@ -3,7 +3,7 @@ import AsyncLock from 'async-lock';
 import { createHash } from 'crypto';
 import { Op } from 'sequelize';
 import type Logger from '../Logger';
-import { getHexString } from '../Utils';
+import { getHexBuffer, getHexString } from '../Utils';
 import ArkClient, {
   ArkBlockEventKind,
   type CreatedVHtlc,
@@ -317,23 +317,27 @@ class ArkNursery extends TypedEventEmitter<{
     onUnsubscribe?: UnsubscribeHandler,
   ) => {
     this.logger.debug(
-      `Checking claims for ${ArkClient.symbol} vHTLC in: ${vHtlc.spentBy}`,
+      `Checking claims for ${ArkClient.symbol} vHTLC ${vHtlc.outpoint.txid}:${vHtlc.outpoint.vout} spent by ${vHtlc.spentBy}`,
     );
-    const claimTx = await arkNode.getTx(vHtlc.spentBy);
-    for (const preimage of ArkNursery.extractPreimages(claimTx)) {
-      const preimageHash = createHash('sha256').update(preimage).digest('hex');
 
-      const [reverseSwap, chainSwap] = await Promise.all([
-        ReverseSwapRepository.getReverseSwap({
-          status: {
-            [Op.in]: [
-              SwapUpdateEvent.TransactionMempool,
-              SwapUpdateEvent.TransactionConfirmed,
-            ],
-          },
-          preimageHash,
-        }),
-        ChainSwapRepository.getChainSwap({
+    const [reverseSwap, chainSwap] = await Promise.all([
+      ReverseSwapRepository.getReverseSwap({
+        status: {
+          [Op.in]: [
+            SwapUpdateEvent.TransactionMempool,
+            SwapUpdateEvent.TransactionConfirmed,
+          ],
+        },
+        transactionId: vHtlc.outpoint.txid,
+        transactionVout: vHtlc.outpoint.vout,
+      }),
+      ChainSwapRepository.getChainSwapByData(
+        {
+          symbol: arkNode.symbol,
+          transactionId: vHtlc.outpoint.txid,
+          transactionVout: vHtlc.outpoint.vout,
+        },
+        {
           status: {
             [Op.in]: [
               SwapUpdateEvent.TransactionServerMempool,
@@ -341,42 +345,76 @@ class ArkNursery extends TypedEventEmitter<{
               SwapUpdateEvent.TransactionRefunded,
             ],
           },
-          preimageHash,
-        }),
-      ]);
+        },
+      ),
+    ]);
 
-      const logPreimage = (swap: ReverseSwap | ChainSwapInfo) => {
-        this.logger.debug(
-          `Found preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in ${vHtlc.spentBy}: ${getHexString(preimage)}`,
+    const handleClaim = async (
+      swap: ReverseSwap | ChainSwapInfo,
+      receiverPubkeyHex: string,
+      lockupAddress: string,
+      emit: (preimage: Buffer) => void,
+    ) => {
+      const vhtlcId = ArkClient.createVhtlcId(
+        getHexBuffer(swap.preimageHash),
+        arkNode.pubkey,
+        getHexBuffer(receiverPubkeyHex),
+      );
+      const preimage = await this.fetchClaimPreimage(
+        arkNode,
+        vhtlcId,
+        swap.preimageHash,
+      );
+      if (preimage === undefined) {
+        this.logger.warn(
+          `No matching preimage in spending tx ${vHtlc.spentBy} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
         );
-      };
-
-      if (reverseSwap !== null && reverseSwap !== undefined) {
-        logPreimage(reverseSwap);
-        this.emit('reverseSwap.claimed', {
-          reverseSwap,
-          preimage,
-        });
-        await this.handleUnsubscribe(
-          arkNode,
-          reverseSwap.lockupAddress,
-          onUnsubscribe,
-        );
+        return;
       }
 
-      if (chainSwap !== null && chainSwap !== undefined) {
-        logPreimage(chainSwap);
-        this.emit('chainSwap.claimed', {
-          swap: chainSwap,
-          preimage,
-        });
-        await this.handleUnsubscribe(
-          arkNode,
-          chainSwap.sendingData.lockupAddress,
-          onUnsubscribe,
-        );
+      this.logger.debug(
+        `Found preimage for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in ${vHtlc.spentBy}: ${getHexString(preimage)}`,
+      );
+      emit(preimage);
+      await this.handleUnsubscribe(arkNode, lockupAddress, onUnsubscribe);
+    };
+
+    if (reverseSwap !== null && reverseSwap !== undefined) {
+      await handleClaim(
+        reverseSwap,
+        reverseSwap.claimPublicKey!,
+        reverseSwap.lockupAddress,
+        (preimage) =>
+          this.emit('reverseSwap.claimed', { reverseSwap, preimage }),
+      );
+    }
+
+    if (chainSwap !== null && chainSwap !== undefined) {
+      await handleClaim(
+        chainSwap,
+        chainSwap.sendingData.theirPublicKey!,
+        chainSwap.sendingData.lockupAddress,
+        (preimage) =>
+          this.emit('chainSwap.claimed', { swap: chainSwap, preimage }),
+      );
+    }
+  };
+
+  private fetchClaimPreimage = async (
+    arkNode: ArkClient,
+    vhtlcId: string,
+    preimageHash: string,
+  ): Promise<Buffer | undefined> => {
+    const claimTx = await arkNode.getVhtlcSpendingTx(vhtlcId);
+    for (const preimage of ArkNursery.extractPreimages(claimTx)) {
+      if (
+        createHash('sha256').update(preimage).digest('hex') === preimageHash
+      ) {
+        return preimage;
       }
     }
+
+    return undefined;
   };
 
   private handleUnsubscribe = async (

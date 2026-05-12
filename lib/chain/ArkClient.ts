@@ -638,6 +638,19 @@ class ArkClient extends BaseClient<
     );
   };
 
+  public getVhtlcSpendingTx = async (vhtlcId: string) => {
+    const req: arkrpc.GetVHTLCSpendingTxRequest = {
+      vhtlcId,
+    };
+
+    const res = await this.unaryCall<
+      arkrpc.GetVHTLCSpendingTxRequest,
+      arkrpc.GetVHTLCSpendingTxResponse
+    >('getVhtlcSpendingTx', req);
+
+    return Transaction.fromPSBT(Uint8Array.from(Buffer.from(res.tx, 'base64')));
+  };
+
   private listenBlocks = async (block: { height: number; symbol: string }) => {
     if (block.symbol !== this.chainClient?.symbol) {
       return;

@@ -2,8 +2,7 @@ import { Transaction } from '@scure/btc-signer';
 import { Op } from 'sequelize';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
-import { ArkBlockEventKind } from '../../../lib/chain/ArkClient';
-import type ArkClient from '../../../lib/chain/ArkClient';
+import ArkClient, { ArkBlockEventKind } from '../../../lib/chain/ArkClient';
 import {
   CurrencyType,
   SwapType,
@@ -33,10 +32,17 @@ describe('ArkNursery', () => {
     '741163593eb1fab813e6986dfbb2bd92d91c76f8f5e2f04ca5dc67e8170e1f08',
   );
 
+  const claimTxPreimageHash =
+    '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c';
+  const arkNodePubkey = Buffer.alloc(33, 1);
+  const userPubkey = Buffer.alloc(33, 2);
+
   describe('checkClaims', () => {
     test('should check reverse swap claims', async () => {
       const arkClient = {
-        getTx: jest.fn().mockResolvedValue(claimTx),
+        symbol: 'ARK',
+        pubkey: arkNodePubkey,
+        getVhtlcSpendingTx: jest.fn().mockResolvedValue(claimTx),
         subscription: {
           unsubscribeAddress: jest.fn(),
         },
@@ -45,20 +51,24 @@ describe('ArkNursery', () => {
       const swap = {
         id: 'rev',
         lockupAddress: 'ark_address',
+        preimageHash: claimTxPreimageHash,
+        claimPublicKey: getHexString(userPubkey),
       };
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(swap);
-      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(null);
 
       jest.spyOn(nursery, 'emit');
 
       await nursery['checkClaims'](
         arkClient as unknown as ArkClient,
         {
-          spentBy: 'txid',
+          outpoint: { txid: 'lockup_txid', vout: 1 },
+          spentBy: 'spending_txid',
         } as unknown as any,
       );
 
-      expect(arkClient.getTx).toHaveBeenCalledWith('txid');
       expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
         status: {
           [Op.in]: [
@@ -66,20 +76,33 @@ describe('ArkNursery', () => {
             SwapUpdateEvent.TransactionConfirmed,
           ],
         },
-        preimageHash:
-          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
+        transactionId: 'lockup_txid',
+        transactionVout: 1,
       });
-      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
-        status: {
-          [Op.in]: [
-            SwapUpdateEvent.TransactionServerMempool,
-            SwapUpdateEvent.TransactionServerConfirmed,
-            SwapUpdateEvent.TransactionRefunded,
-          ],
+      expect(ChainSwapRepository.getChainSwapByData).toHaveBeenCalledWith(
+        {
+          symbol: 'ARK',
+          transactionId: 'lockup_txid',
+          transactionVout: 1,
         },
-        preimageHash:
-          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
-      });
+        {
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionServerMempool,
+              SwapUpdateEvent.TransactionServerConfirmed,
+              SwapUpdateEvent.TransactionRefunded,
+            ],
+          },
+        },
+      );
+      expect(arkClient.getVhtlcSpendingTx).toHaveBeenCalledTimes(1);
+      expect(arkClient.getVhtlcSpendingTx).toHaveBeenCalledWith(
+        ArkClient.createVhtlcId(
+          getHexBuffer(claimTxPreimageHash),
+          arkNodePubkey,
+          userPubkey,
+        ),
+      );
       expect(nursery.emit).toHaveBeenCalledWith('reverseSwap.claimed', {
         reverseSwap: swap,
         preimage: claimTxPreimage,
@@ -91,7 +114,9 @@ describe('ArkNursery', () => {
 
     test('should check chain swap claims', async () => {
       const arkClient = {
-        getTx: jest.fn().mockResolvedValue(claimTx),
+        symbol: 'ARK',
+        pubkey: arkNodePubkey,
+        getVhtlcSpendingTx: jest.fn().mockResolvedValue(claimTx),
         subscription: {
           unsubscribeAddress: jest.fn(),
         },
@@ -99,34 +124,51 @@ describe('ArkNursery', () => {
 
       const swap = {
         id: 'chain',
+        preimageHash: claimTxPreimageHash,
         sendingData: {
           lockupAddress: 'ark_sending_address',
+          theirPublicKey: getHexString(userPubkey),
         },
       };
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
-      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(swap);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(swap);
 
       jest.spyOn(nursery, 'emit');
 
       await nursery['checkClaims'](
         arkClient as unknown as ArkClient,
         {
-          spentBy: 'txid',
+          outpoint: { txid: 'lockup_txid', vout: 0 },
+          spentBy: 'spending_txid',
         } as unknown as any,
       );
 
-      expect(arkClient.getTx).toHaveBeenCalledWith('txid');
-      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
-        status: {
-          [Op.in]: [
-            SwapUpdateEvent.TransactionServerMempool,
-            SwapUpdateEvent.TransactionServerConfirmed,
-            SwapUpdateEvent.TransactionRefunded,
-          ],
+      expect(ChainSwapRepository.getChainSwapByData).toHaveBeenCalledWith(
+        {
+          symbol: 'ARK',
+          transactionId: 'lockup_txid',
+          transactionVout: 0,
         },
-        preimageHash:
-          '12882524ddbee7d099e2bf6dc2f32d320dfc0a01939bf2fd2cef181f27f5e26c',
-      });
+        {
+          status: {
+            [Op.in]: [
+              SwapUpdateEvent.TransactionServerMempool,
+              SwapUpdateEvent.TransactionServerConfirmed,
+              SwapUpdateEvent.TransactionRefunded,
+            ],
+          },
+        },
+      );
+      expect(arkClient.getVhtlcSpendingTx).toHaveBeenCalledTimes(1);
+      expect(arkClient.getVhtlcSpendingTx).toHaveBeenCalledWith(
+        ArkClient.createVhtlcId(
+          getHexBuffer(claimTxPreimageHash),
+          arkNodePubkey,
+          userPubkey,
+        ),
+      );
       expect(nursery.emit).toHaveBeenCalledWith('chainSwap.claimed', {
         swap,
         preimage: claimTxPreimage,
@@ -134,6 +176,47 @@ describe('ArkNursery', () => {
       expect(arkClient.subscription.unsubscribeAddress).toHaveBeenCalledWith(
         'ark_sending_address',
       );
+    });
+
+    test('should skip emit and unsubscribe when spending tx has no matching preimage', async () => {
+      const isolatedNursery = new ArkNursery(
+        Logger.disabledLogger,
+        new OverpaymentProtector(Logger.disabledLogger),
+      );
+
+      const arkClient = {
+        symbol: 'ARK',
+        pubkey: arkNodePubkey,
+        getVhtlcSpendingTx: jest.fn().mockResolvedValue(claimTx),
+        subscription: {
+          unsubscribeAddress: jest.fn(),
+        },
+      };
+
+      const swap = {
+        id: 'rev',
+        lockupAddress: 'ark_address',
+        preimageHash: 'aa'.repeat(32),
+        claimPublicKey: getHexString(userPubkey),
+      };
+      ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(swap);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      jest.spyOn(isolatedNursery, 'emit');
+
+      await isolatedNursery['checkClaims'](
+        arkClient as unknown as ArkClient,
+        {
+          outpoint: { txid: 'lockup_txid', vout: 0 },
+          spentBy: 'spending_txid',
+        } as unknown as any,
+      );
+
+      expect(arkClient.getVhtlcSpendingTx).toHaveBeenCalledTimes(1);
+      expect(isolatedNursery.emit).not.toHaveBeenCalled();
+      expect(arkClient.subscription.unsubscribeAddress).not.toHaveBeenCalled();
     });
   });
 
@@ -432,7 +515,8 @@ describe('ArkNursery', () => {
     test('collects spent claims for batched unsubscribe without unsubscribing immediately', async () => {
       const mockArkNode = {
         symbol: 'ARK',
-        getTx: jest.fn().mockResolvedValue(claimTx),
+        pubkey: arkNodePubkey,
+        getVhtlcSpendingTx: jest.fn().mockResolvedValue(claimTx),
         subscription: {
           unsubscribeAddress: jest.fn(),
         },
@@ -441,18 +525,24 @@ describe('ArkNursery', () => {
       const reverseSwap = {
         id: 'rev',
         lockupAddress: 'ark_reverse_address',
+        preimageHash: claimTxPreimageHash,
+        claimPublicKey: getHexString(userPubkey),
       };
       const chainSwap = {
         id: 'chain',
+        preimageHash: claimTxPreimageHash,
         sendingData: {
           lockupAddress: 'ark_chain_address',
+          theirPublicKey: getHexString(userPubkey),
         },
       };
 
       ReverseSwapRepository.getReverseSwap = jest
         .fn()
         .mockResolvedValue(reverseSwap);
-      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(chainSwap);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(chainSwap);
 
       let reverseClaim: any = null;
       let chainClaim: any = null;
@@ -479,7 +569,7 @@ describe('ArkNursery', () => {
         },
       );
 
-      expect(mockArkNode.getTx).toHaveBeenCalledWith('txid');
+      expect(mockArkNode.getVhtlcSpendingTx).toHaveBeenCalled();
       expect(
         mockArkNode.subscription.unsubscribeAddress,
       ).not.toHaveBeenCalled();
@@ -1344,25 +1434,30 @@ describe('ArkNursery', () => {
       );
 
       const arkClient = {
-        getTx: jest.fn().mockResolvedValue(claimTx),
+        symbol: 'ARK',
+        pubkey: arkNodePubkey,
+        getVhtlcSpendingTx: jest.fn().mockResolvedValue(claimTx),
         subscription: {
           unsubscribeAddress: jest.fn(),
         },
       };
 
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(null);
-      ChainSwapRepository.getChainSwap = jest.fn().mockResolvedValue(null);
+      ChainSwapRepository.getChainSwapByData = jest
+        .fn()
+        .mockResolvedValue(null);
 
       jest.spyOn(isolatedNursery, 'emit');
 
       await isolatedNursery['checkClaims'](
         arkClient as unknown as ArkClient,
         {
-          spentBy: 'txid',
+          outpoint: { txid: 'lockup_txid', vout: 0 },
+          spentBy: 'spending_txid',
         } as unknown as any,
       );
 
-      expect(arkClient.getTx).toHaveBeenCalledWith('txid');
+      expect(arkClient.getVhtlcSpendingTx).not.toHaveBeenCalled();
       expect(arkClient.subscription.unsubscribeAddress).not.toHaveBeenCalled();
       expect(isolatedNursery.emit).not.toHaveBeenCalled();
     });

@@ -11,6 +11,7 @@ import ChainTip from './models/ChainTip';
 import ClaimTransaction from './models/ClaimTransaction';
 import Commitment from './models/Commitment';
 import DatabaseVersion from './models/DatabaseVersion';
+import DisabledSigner from './models/DisabledSigner';
 import ExtraFee from './models/ExtraFee';
 import KeyProvider from './models/KeyProvider';
 import LightningPayment from './models/LightningPayment';
@@ -160,6 +161,7 @@ class Database {
     MarkedSwap.load(Database.sequelize);
     KeyProvider.load(Database.sequelize);
     DatabaseVersion.load(Database.sequelize);
+    DisabledSigner.load(Database.sequelize);
     ReverseRoutingHint.load(Database.sequelize);
     PendingLockupTransaction.load(Database.sequelize);
     PendingEthereumTransaction.load(Database.sequelize);

@@ -18,6 +18,8 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
+import { Signer } from '../../../lib/proto/boltzrpc';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -217,6 +219,110 @@ describe('SwapNursery', () => {
 
     mockGetSwapResult = null;
     mockGetChainSwapResult = null;
+  });
+
+  describe('signer lockup guards', () => {
+    const createGuardedNursery = async (signer: Signer) => {
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      signerControlRegistry.init(mockLogger);
+      signerControlRegistry.reset();
+      await signerControlRegistry.disableSigners([signer]);
+
+      return new SwapNursery(
+        mockLogger,
+        {} as any,
+        mockNotifications,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockWalletManager,
+        {} as any,
+        0,
+        mockClaimer,
+        mockChainSwapSigner,
+        {} as any,
+        {} as any,
+        undefined,
+        signerControlRegistry,
+      );
+    };
+
+    test('should report disabled reverse lockup signers without throwing', async () => {
+      const guardedNursery = await createGuardedNursery(
+        Signer.SIGNER_REVERSE_LOCKUP,
+      );
+
+      expect(
+        (guardedNursery as any).lockupSignerEnabled({
+          type: SwapType.ReverseSubmarine,
+        }),
+      ).toEqual(false);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'signer SIGNER_REVERSE_LOCKUP is disabled',
+      );
+    });
+
+    test('should report disabled chain lockup signers without throwing', async () => {
+      const guardedNursery = await createGuardedNursery(
+        Signer.SIGNER_CHAIN_LOCKUP,
+      );
+
+      expect(
+        (guardedNursery as any).lockupSignerEnabled({
+          type: SwapType.Chain,
+        }),
+      ).toEqual(false);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'signer SIGNER_CHAIN_LOCKUP is disabled',
+      );
+    });
+
+    test.each`
+      method
+      ${'lockupUtxo'}
+      ${'lockupVtxo'}
+      ${'lockupEther'}
+      ${'lockupERC20'}
+    `(
+      'should skip $method without failing swap when lockup signer is disabled',
+      async ({ method }) => {
+        const guardedNursery = await createGuardedNursery(
+          Signer.SIGNER_CHAIN_LOCKUP,
+        );
+        const wallet = {
+          symbol: 'BTC',
+          sendToAddress: jest.fn(),
+        };
+        const handleSwapSendFailedSpy = jest
+          .spyOn(guardedNursery as any, 'handleSwapSendFailed')
+          .mockResolvedValue(undefined);
+        const chainSwap = {
+          id: 'chain-swap-id',
+          type: SwapType.Chain,
+          sendingData: {
+            expectedAmount: 100_000,
+            lockupAddress: 'bcrt1lockup',
+            symbol: 'BTC',
+          },
+        };
+
+        if (method === 'lockupUtxo') {
+          await (guardedNursery as any)[method](
+            chainSwap,
+            mockChainClient,
+            wallet,
+          );
+        } else {
+          await (guardedNursery as any)[method](chainSwap, wallet);
+        }
+
+        expect(wallet.sendToAddress).not.toHaveBeenCalled();
+        expect(handleSwapSendFailedSpy).not.toHaveBeenCalled();
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          'signer SIGNER_CHAIN_LOCKUP is disabled',
+        );
+      },
+    );
   });
 
   describe('settleReverseSwapInvoice', () => {

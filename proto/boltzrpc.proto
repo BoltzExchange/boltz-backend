@@ -36,6 +36,10 @@ service Boltz {
   /* Disables safety checks to allow for a cooperative refund for a swap */
   rpc AllowRefund (AllowRefundRequest) returns (AllowRefundResponse);
 
+  rpc DisableSigners (DisableSignersRequest) returns (DisableSignersResponse);
+  rpc EnableSigners (EnableSignersRequest) returns (EnableSignersResponse);
+  rpc GetDisabledSigners (GetDisabledSignersRequest) returns (GetDisabledSignersResponse);
+
   /* Gets funds locked by the server for swaps */
   rpc GetLockedFunds (GetLockedFundsRequest) returns (GetLockedFundsResponse);
 
@@ -69,14 +73,26 @@ service Boltz {
 
   rpc DevHeapDump (DevHeapDumpRequest) returns (DevHeapDumpResponse);
   rpc DevClearSwapUpdateCache (DevClearSwapUpdateCacheRequest) returns (DevClearSwapUpdateCacheResponse);
-
-  rpc DevDisableCooperative (DevDisableCooperativeRequest) returns (DevDisableCooperativeResponse);
 }
 
 enum OutputType {
   BECH32 = 0;
   COMPATIBILITY = 1;
   LEGACY = 2;
+}
+
+enum Signer {
+  SIGNER_UNSPECIFIED = 0;
+  SIGNER_SUBMARINE_REFUND_COOPERATIVE = 1;
+  SIGNER_REVERSE_CLAIM_COOPERATIVE = 2;
+  SIGNER_CHAIN_REFUND_COOPERATIVE = 3;
+  SIGNER_CHAIN_CLAIM_COOPERATIVE = 4;
+  SIGNER_DEFERRED_CLAIM_COOPERATIVE = 5;
+  SIGNER_EVM_REFUND_COOPERATIVE = 6;
+  SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE = 7;
+  SIGNER_REVERSE_LOCKUP = 8;
+  SIGNER_CHAIN_LOCKUP = 9;
+  SIGNER_SUBMARINE_INVOICE_PAYMENT = 10;
 }
 
 message StopRequest {}
@@ -267,6 +283,28 @@ message AllowRefundRequest {
 }
 
 message AllowRefundResponse {}
+
+message DisableSignersRequest {
+  repeated Signer signers = 1;
+}
+
+message DisableSignersResponse {
+  repeated Signer disabled_signers = 1;
+}
+
+message EnableSignersRequest {
+  repeated Signer signers = 1;
+}
+
+message EnableSignersResponse {
+  repeated Signer disabled_signers = 1;
+}
+
+message GetDisabledSignersRequest {}
+
+message GetDisabledSignersResponse {
+  repeated Signer disabled_signers = 1;
+}
 
 message GetLabelRequest {
   string tx_id = 1;
@@ -486,9 +524,3 @@ message DevClearSwapUpdateCacheRequest {
   optional string id = 1;
 }
 message DevClearSwapUpdateCacheResponse {}
-
-message DevDisableCooperativeRequest {
-  bool disabled = 1;
-}
-
-message DevDisableCooperativeResponse {}

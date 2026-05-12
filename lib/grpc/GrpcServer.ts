@@ -39,6 +39,9 @@ class GrpcServer {
       checkTransaction: grpcService.checkTransaction,
       setSwapStatus: grpcService.setSwapStatus,
       allowRefund: grpcService.allowRefund,
+      disableSigners: grpcService.disableSigners,
+      enableSigners: grpcService.enableSigners,
+      getDisabledSigners: grpcService.getDisabledSigners,
       devHeapDump: grpcService.devHeapDump,
       getLockedFunds: grpcService.getLockedFunds,
       getPendingSweeps: grpcService.getPendingSweeps,
@@ -54,7 +57,6 @@ class GrpcServer {
       setReferral: grpcService.setReferral,
       invoiceClnThreshold: grpcService.invoiceClnThreshold,
       devClearSwapUpdateCache: grpcService.devClearSwapUpdateCache,
-      devDisableCooperative: grpcService.devDisableCooperative,
     });
   }
 

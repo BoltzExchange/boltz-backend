@@ -24,7 +24,10 @@ import LndClient from '../lightning/LndClient';
 import type PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../lightning/SelfPaymentClient';
 import ClnClient from '../lightning/cln/ClnClient';
+import { Signer } from '../proto/boltzrpc';
 import { PaymentFailureReason, Payment_PaymentStatus } from '../proto/lnd/rpc';
+import type SignerControlRegistry from '../service/SignerControlRegistry';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type DecodedInvoice from '../sidecar/DecodedInvoice';
 import type Sidecar from '../sidecar/Sidecar';
@@ -92,6 +95,7 @@ class PaymentHandler {
     private readonly timeoutDeltaProvider: TimeoutDeltaProvider,
     private readonly pendingPaymentTracker: PendingPaymentTracker,
     private readonly swapNursery: SwapNursery,
+    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {
     this.selfPaymentClient = new SelfPaymentClient(this.logger, swapNursery);
   }
@@ -139,12 +143,18 @@ class PaymentHandler {
         preferredNode.client,
       );
 
+    const isSubmarineInvoicePaymentSignerDisabled =
+      this.signerControlRegistry?.isDisabled(
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ) ?? false;
+
     try {
       const res = await this.selfPaymentClient.handleSelfPayment(
         swap,
         decoded,
         cltvLimit,
         payments,
+        isSubmarineInvoicePaymentSignerDisabled,
       );
       if (res.isSelf) {
         if (res.result !== undefined) {
@@ -157,6 +167,15 @@ class PaymentHandler {
       const msg = formatError(error);
       this.logPaymentFailure(swap, msg);
       await this.abandonSwap(swap, msg);
+      return undefined;
+    }
+
+    if (isSubmarineInvoicePaymentSignerDisabled && payments.length === 0) {
+      const errorMessage = disabledSignerMessage(
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      );
+      this.logPaymentFailure(swap, errorMessage);
+      await this.abandonSwap(swap, errorMessage);
       return undefined;
     }
 

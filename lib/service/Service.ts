@@ -109,6 +109,7 @@ import Errors from './Errors';
 import EventHandler from './EventHandler';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
+import SignerControlRegistry from './SignerControlRegistry';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
@@ -170,6 +171,7 @@ class Service {
   public readonly transactionFetcher: TransactionFetcher;
 
   public readonly musigSigner: MusigSigner;
+  public readonly signerControlRegistry: SignerControlRegistry;
   public readonly rateProvider: RateProvider;
   public readonly lockupTransactionTracker: LockupTransactionTracker;
 
@@ -234,6 +236,8 @@ class Service {
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
+    this.signerControlRegistry = SignerControlRegistry.getInstance();
+    this.signerControlRegistry.init(this.logger);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -253,6 +257,7 @@ class Service {
       this.sidecar,
       this.balanceCheck,
       overpaymentProtector,
+      this.signerControlRegistry,
     );
     this.walletManager.ethereumManagers.forEach((manager) => {
       manager.commitments.setRefundSignatureLock(
@@ -277,10 +282,13 @@ class Service {
       this.currencies,
       this.walletManager,
       this.swapManager.nursery,
+      this.signerControlRegistry,
     );
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
+    await this.signerControlRegistry.load();
+
     const dbPairSet = new Set<string>();
     const dbPairs = await PairRepository.getPairs();
 

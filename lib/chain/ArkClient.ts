@@ -48,6 +48,9 @@ export type ArkConfig = {
 
   useLocktimeSeconds?: boolean;
 
+  // Interval in seconds for the periodic vHTLC state rescan
+  rescanInterval?: number;
+
   unilateralDelays?: Delays;
 };
 
@@ -292,6 +295,7 @@ class ArkClient extends BaseClient<
       this.meta,
       this.unaryCall,
       this.unaryNotificationCall,
+      this.config.rescanInterval,
     );
     this.subscription.on('vhtlc.created', (vHtlc) => {
       this.emit('vhtlc.created', vHtlc);
@@ -636,6 +640,19 @@ class ArkClient extends BaseClient<
     return Transaction.fromPSBT(
       Uint8Array.from(Buffer.from(res.txs[0], 'base64')),
     );
+  };
+
+  public getVhtlcSpendingTx = async (vhtlcId: string) => {
+    const req: arkrpc.GetVHTLCSpendingTxRequest = {
+      vhtlcId,
+    };
+
+    const res = await this.unaryCall<
+      arkrpc.GetVHTLCSpendingTxRequest,
+      arkrpc.GetVHTLCSpendingTxResponse
+    >('getVhtlcSpendingTx', req);
+
+    return Transaction.fromPSBT(Uint8Array.from(Buffer.from(res.tx, 'base64')));
   };
 
   private listenBlocks = async (block: { height: number; symbol: string }) => {

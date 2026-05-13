@@ -314,12 +314,12 @@ impl SwapManager for Manager {
 
                 let params =
                     boltz_core::wrapper::Params::Bitcoin(boltz_core::wrapper::BitcoinParams {
-                        inputs: &inputs,
+                        inputs,
                         destination: &boltz_core::Destination::Single(&address.try_into()?),
                         fee: fee.into(),
                     });
 
-                Ok(boltz_core::wrapper::construct_tx(&params)?)
+                Ok(boltz_core::wrapper::construct_tx(params)?)
             }
             Type::Elements => {
                 let inputs = inputs
@@ -333,12 +333,12 @@ impl SwapManager for Manager {
                 let params =
                     boltz_core::wrapper::Params::Elements(boltz_core::wrapper::ElementsParams {
                         genesis_hash: client.network().liquid_genesis_hash()?,
-                        inputs: &inputs,
+                        inputs,
                         destination: &boltz_core::Destination::Single(&address.try_into()?),
                         fee: fee.into(),
                     });
 
-                Ok(boltz_core::wrapper::construct_tx(&params)?)
+                Ok(boltz_core::wrapper::construct_tx(params)?)
             }
         }
     }

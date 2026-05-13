@@ -12,7 +12,6 @@ use elements::{
     confidential::{Asset, AssetBlindingFactor, Nonce, Value, ValueBlindingFactor},
     hashes::{Hash, sha256},
     opcodes::all::{OP_PUSHBYTES_0, OP_RETURN},
-    pset::serialize::Serialize,
     script::Builder,
     secp256k1_zkp::{
         Keypair, Message, PublicKey, Secp256k1, SecretKey, Signing, Verification, rand,
@@ -167,10 +166,20 @@ impl From<&UnblindedOutput> for (u64, AssetBlindingFactor, ValueBlindingFactor) 
 pub fn construct_tx<C: Signing + Verification>(
     secp: &Secp256k1<C>,
     genesis_hash: BlockHash,
-    inputs: &[InputDetail],
+    mut inputs: Vec<InputDetail>,
     destination: &Destination<&Address>,
     fee: FeeTarget,
 ) -> Result<(Transaction, u64), TxError> {
+    // BIP69: sort inputs by (outpoint.txid asc, outpoint.vout asc).
+    inputs.sort_by(|a, b| {
+        bip69_txid_cmp(
+            a.outpoint.txid.as_byte_array(),
+            b.outpoint.txid.as_byte_array(),
+        )
+        .then(a.outpoint.vout.cmp(&b.outpoint.vout))
+    });
+    let inputs = inputs.as_slice();
+
     let unblinded = unblind_outputs(secp, inputs)?;
     let asset_id = unblinded.first().ok_or(TxError::EmptyInputs)?.asset();
     if !unblinded.iter().all(|input| input.asset() == asset_id) {
@@ -189,6 +198,11 @@ pub fn construct_tx<C: Signing + Verification>(
             is_fee_estimation,
         )
     })
+}
+
+fn bip69_txid_cmp(a: &[u8; 32], b: &[u8; 32]) -> std::cmp::Ordering {
+    // Hash newtypes expose internal bytes; BIP69 compares conventional txid byte order.
+    a.iter().rev().cmp(b.iter().rev())
 }
 
 // TODO: claim covenant support
@@ -236,10 +250,7 @@ fn construct_raw<C: Signing + Verification>(
         )?,
     };
 
-    let prevouts = inputs
-        .iter()
-        .map(|input| input.tx_out.clone())
-        .collect::<Vec<_>>();
+    let prevouts: Vec<&TxOut> = inputs.iter().map(|input| &input.tx_out).collect();
     let prevouts = Prevouts::All(&prevouts);
 
     let sighash_cache = tx.clone();
@@ -263,7 +274,7 @@ fn construct_raw<C: Signing + Verification>(
                 };
 
                 tx_in.script_sig = script_sig
-                    .push_slice(&witness_script.serialize())
+                    .push_slice(witness_script.as_bytes())
                     .into_script();
             }
             OutputType::Compatibility(witness_script) => {
@@ -416,35 +427,20 @@ fn blind_outputs<C: Signing>(
         }
     };
 
-    let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
-
-    let mut last_to_blind = None;
-    let mut outputs = Vec::new();
-
     if needs_dummy_output {
         input_sum -= DUMMY_BLINDED_OUTPUT;
+    }
 
+    // Collect output intents up front so we can BIP69-sort them by
+    // (amount asc, scriptPubKey bytes asc) before any blinding work. Once
+    // built in sorted order, `last_to_blind` is just the last blinded
+    // entry encountered by the build loop.
+    let mut intents: Vec<(u64, elements::Script, Option<PublicKey>)> = Vec::new();
+
+    if needs_dummy_output {
         let stub_script = Builder::new().push_opcode(OP_RETURN).into_script();
         let blinding_pubkey = Some(SecretKey::new(&mut rand::thread_rng()).public_key(secp));
-
-        let (_, asset_bf, value_bf, output) = create_output(
-            secp,
-            unblinded,
-            (asset_id, asset_bf),
-            &stub_script,
-            blinding_pubkey,
-            DUMMY_BLINDED_OUTPUT,
-            is_fee_estimation,
-            None,
-        )?;
-
-        last_to_blind = Some((
-            outputs.len(),
-            DUMMY_BLINDED_OUTPUT,
-            stub_script,
-            blinding_pubkey,
-        ));
-        outputs.push((input_sum, asset_bf, value_bf, output));
+        intents.push((DUMMY_BLINDED_OUTPUT, stub_script, blinding_pubkey));
     }
 
     match destination {
@@ -452,28 +448,7 @@ fn blind_outputs<C: Signing>(
             let amount = input_sum
                 .checked_sub(fee)
                 .ok_or(TxError::FeeExceedsInputs)?;
-
-            let (blinded, asset_bf, value_bf, output) = create_output(
-                secp,
-                unblinded,
-                (asset_id, asset_bf),
-                &address.script_pubkey(),
-                address.blinding_pubkey,
-                amount,
-                is_fee_estimation,
-                None,
-            )?;
-
-            if blinded {
-                last_to_blind = Some((
-                    outputs.len(),
-                    amount,
-                    address.script_pubkey(),
-                    address.blinding_pubkey,
-                ));
-            }
-
-            outputs.push((amount, asset_bf, value_bf, output));
+            intents.push((amount, address.script_pubkey(), address.blinding_pubkey));
         }
         Destination::Multiple(destination) => {
             let output_sum = destination
@@ -494,52 +469,42 @@ fn blind_outputs<C: Signing>(
             }
 
             for (address, amount) in destination.outputs {
-                let (blinded, asset_bf, value_bf, output) = create_output(
-                    secp,
-                    unblinded,
-                    (asset_id, asset_bf),
-                    &address.script_pubkey(),
-                    address.blinding_pubkey,
-                    *amount,
-                    is_fee_estimation,
-                    None,
-                )?;
-
-                if blinded {
-                    last_to_blind = Some((
-                        outputs.len(),
-                        *amount,
-                        address.script_pubkey(),
-                        address.blinding_pubkey,
-                    ));
-                }
-
-                outputs.push((*amount, asset_bf, value_bf, output));
+                intents.push((*amount, address.script_pubkey(), address.blinding_pubkey));
             }
 
             let sweep_amount = input_sum - fee - output_sum;
-            let (blinded, asset_bf, value_bf, output) = create_output(
-                secp,
-                unblinded,
-                (asset_id, asset_bf),
-                &destination.change.script_pubkey(),
-                destination.change.blinding_pubkey,
+            intents.push((
                 sweep_amount,
-                is_fee_estimation,
-                None,
-            )?;
-
-            if blinded {
-                last_to_blind = Some((
-                    outputs.len(),
-                    sweep_amount,
-                    destination.change.script_pubkey(),
-                    destination.change.blinding_pubkey,
-                ));
-            }
-
-            outputs.push((sweep_amount, asset_bf, value_bf, output));
+                destination.change.script_pubkey(),
+                destination.change.blinding_pubkey,
+            ));
         }
+    }
+
+    intents.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.as_bytes().cmp(b.1.as_bytes())));
+
+    let asset_bf = AssetBlindingFactor::new(&mut rand::thread_rng());
+
+    let mut last_to_blind = None;
+    let mut outputs = Vec::with_capacity(intents.len() + 1);
+
+    for (amount, script, blinding_pubkey) in &intents {
+        let (blinded, asset_bf, value_bf, output) = create_output(
+            secp,
+            unblinded,
+            (asset_id, asset_bf),
+            script,
+            *blinding_pubkey,
+            *amount,
+            is_fee_estimation,
+            None,
+        )?;
+
+        if blinded {
+            last_to_blind = Some((outputs.len(), *amount, script.clone(), *blinding_pubkey));
+        }
+
+        outputs.push((*amount, asset_bf, value_bf, output));
     }
 
     outputs.push((
@@ -687,6 +652,7 @@ pub mod tests {
         utils::Outputs,
     };
     use bitcoin::{Amount, hashes::Hash, key::rand::RngCore};
+    use elements::pset::serialize::Serialize;
     use elements::{
         AddressParams, OutPoint, Script, Txid, hashes::hash160, secp256k1_zkp::PublicKey,
         secp256k1_zkp::XOnlyPublicKey, taproot::TaprootSpendInfo,
@@ -1132,7 +1098,7 @@ pub mod tests {
         let (mut tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1215,7 +1181,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1275,7 +1241,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1310,7 +1276,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1360,7 +1326,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1395,7 +1361,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1445,7 +1411,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1480,7 +1446,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1530,7 +1496,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            std::slice::from_ref(&input),
+            vec![input.clone()],
             &Destination::Single(&destination),
             FeeTarget::Absolute(fee),
         )
@@ -1585,7 +1551,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &inputs,
+            inputs.clone(),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
@@ -1643,7 +1609,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &inputs,
+            inputs.clone(),
             &Destination::Single(&destination),
             FeeTarget::Relative(fee),
         )
@@ -1693,7 +1659,7 @@ pub mod tests {
         let (tx, _) = construct_tx(
             &secp,
             get_genesis_hash(&client),
-            &inputs,
+            inputs.clone(),
             &Destination::Multiple(Outputs {
                 change: &change,
                 outputs: &outputs,
@@ -1709,45 +1675,35 @@ pub mod tests {
             outputs.len() + if dummy_output { 3 } else { 2 }
         );
 
-        assert_eq!(
-            tx.output[if dummy_output { 1 } else { 0 }].script_pubkey,
-            outputs[0].0.script_pubkey()
-        );
-        assert_eq!(
-            output_amount(
-                &secp,
-                &client,
-                outputs[0].0,
-                &tx.output[if dummy_output { 1 } else { 0 }]
-            ),
-            outputs[0].1
-        );
+        // BIP69 sorts non-fee outputs by (amount asc, scriptPubKey bytes asc):
+        // dummy(1) < outputs[1](12_123) < outputs[0](21_000) < change. The fee output
+        // remains last by Elements consensus.
+        let small_idx = if dummy_output { 1 } else { 0 };
+        let large_idx = if dummy_output { 2 } else { 1 };
+        let change_idx = if dummy_output { 3 } else { 2 };
+        let fee_idx = if dummy_output { 4 } else { 3 };
 
         assert_eq!(
-            tx.output[if dummy_output { 2 } else { 1 }].script_pubkey,
+            tx.output[small_idx].script_pubkey,
             outputs[1].0.script_pubkey()
         );
         assert_eq!(
-            output_amount(
-                &secp,
-                &client,
-                outputs[1].0,
-                &tx.output[if dummy_output { 2 } else { 1 }]
-            ),
+            output_amount(&secp, &client, outputs[1].0, &tx.output[small_idx]),
             outputs[1].1
         );
 
         assert_eq!(
-            tx.output[if dummy_output { 3 } else { 2 }].script_pubkey,
-            change.script_pubkey()
+            tx.output[large_idx].script_pubkey,
+            outputs[0].0.script_pubkey()
         );
         assert_eq!(
-            output_amount(
-                &secp,
-                &client,
-                &change,
-                &tx.output[if dummy_output { 3 } else { 2 }]
-            ),
+            output_amount(&secp, &client, outputs[0].0, &tx.output[large_idx]),
+            outputs[0].1
+        );
+
+        assert_eq!(tx.output[change_idx].script_pubkey, change.script_pubkey());
+        assert_eq!(
+            output_amount(&secp, &client, &change, &tx.output[change_idx]),
             (FUNDING_AMOUNT * inputs.len() as u64)
                 - outputs[0].1
                 - outputs[1].1
@@ -1759,11 +1715,8 @@ pub mod tests {
                 }
         );
 
-        assert!(tx.output[if dummy_output { 4 } else { 3 }].is_fee());
-        assert_eq!(
-            tx.output[if dummy_output { 4 } else { 3 }].value,
-            Value::Explicit(fee)
-        );
+        assert!(tx.output[fee_idx].is_fee());
+        assert_eq!(tx.output[fee_idx].value, Value::Explicit(fee));
 
         assert_eq!(send_raw_transaction(&client, &tx), tx.txid());
     }
@@ -1776,7 +1729,7 @@ pub mod tests {
         let result = construct_tx(
             &secp,
             BlockHash::all_zeros(),
-            &[],
+            Vec::new(),
             &Destination::Single(&address),
             FeeTarget::Absolute(0),
         );
@@ -1842,6 +1795,58 @@ pub mod tests {
     }
 
     #[test]
+    fn test_bip69_blind_outputs_sort() {
+        let secp = Secp256k1::new();
+        let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
+
+        let change = Address::from_str("el1qqtc467jwn6epm0868exzkpw30w8snldp54k7s3fgv8wwg88va6sjlk4e0xu9syzwd69tru24xf36a5ansq0fu4h9fauf3sqgh").unwrap();
+        let change = Address::from_script(
+            &change.script_pubkey(),
+            None,
+            &elements::AddressParams::ELEMENTS,
+        )
+        .unwrap();
+        let dest = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();
+        let dest = Address::from_script(
+            &dest.script_pubkey(),
+            None,
+            &elements::AddressParams::ELEMENTS,
+        )
+        .unwrap();
+
+        let unblinded = [UnblindedOutput::Explicit(ExplicitOutput {
+            asset: asset_id,
+            amount: 1_000_000,
+        })];
+
+        let fee = 1_000u64;
+        let outputs = [(&dest, 200_000u64), (&dest, 30_000u64)];
+        let result = blind_outputs(
+            &secp,
+            &unblinded,
+            asset_id,
+            &Destination::Multiple(Outputs {
+                change: &change,
+                outputs: &outputs,
+            }),
+            fee,
+            false,
+        )
+        .unwrap();
+
+        let non_fee: Vec<u64> = result
+            .iter()
+            .take(result.len() - 1)
+            .map(|o| o.value.explicit().unwrap())
+            .collect();
+        let expected_non_fee = [30_000u64, 200_000u64, 1_000_000 - 200_000 - 30_000 - fee];
+        assert_eq!(non_fee, expected_non_fee);
+
+        assert!(result.last().unwrap().is_fee());
+        assert_eq!(result.last().unwrap().value, Value::Explicit(fee));
+    }
+
+    #[test]
     fn test_create_output_fee_estimation() {
         let secp = Secp256k1::new();
         let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
@@ -1875,5 +1880,154 @@ pub mod tests {
         assert_eq!(value_bf_out, ValueBlindingFactor::zero());
         assert_eq!(output.value, Value::Explicit(amount));
         assert_eq!(output.asset, Asset::Explicit(asset_id));
+    }
+
+    #[test]
+    fn test_bip69_input_sort() {
+        let secp = Secp256k1::new();
+        let asset_id = AssetId::from_slice(&[1u8; 32]).unwrap();
+
+        let destination = Address::from_str("el1qqvhpw75zjc2hhvk9g0cgv3e75azcct4sduxdv9rwpzxauwmw46chnlxjjwhk0jw2fny2jpgp8etz8j6wsqd7qk89rmtyucc52").unwrap();
+        let destination =
+            Address::from_script(&destination.script_pubkey(), None, &AddressParams::ELEMENTS)
+                .unwrap();
+
+        // BIP69 input examples from transaction
+        // 0a6a357e2f7796444e02638749d9611c008b253fb55f5dc88b739b230ed0c4c3.
+        let bip69_input_vector = [
+            (
+                "0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57",
+                0,
+            ),
+            (
+                "26aa6e6d8b9e49bb0630aac301db6757c02e3619feb4ee0eea81eb1672947024",
+                1,
+            ),
+            (
+                "28e0fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2",
+                0,
+            ),
+            (
+                "381de9b9ae1a94d9c17f6a08ef9d341a5ce29e2e60c36a52d333ff6203e58d5d",
+                1,
+            ),
+            (
+                "3b8b2f8efceb60ba78ca8bba206a137f14cb5ea4035e761ee204302d46b98de2",
+                0,
+            ),
+            (
+                "402b2c02411720bf409eff60d05adad684f135838962823f3614cc657dd7bc0a",
+                1,
+            ),
+            (
+                "54ffff182965ed0957dba1239c27164ace5a73c9b62a660c74b7b7f15ff61e7a",
+                1,
+            ),
+            (
+                "643e5f4e66373a57251fb173151e838ccd27d279aca882997e005016bb53d5aa",
+                0,
+            ),
+            (
+                "6c1d56f31b2de4bfc6aaea28396b333102b1f600da9c6d6149e96ca43f1102b1",
+                1,
+            ),
+            (
+                "7a1de137cbafb5c70405455c49c5104ca3057a1f1243e6563bb9245c9c88c191",
+                0,
+            ),
+            (
+                "7d037ceb2ee0dc03e82f17be7935d238b35d1deabf953a892a4507bfbeeb3ba4",
+                1,
+            ),
+            (
+                "a5e899dddb28776ea9ddac0a502316d53a4a3fca607c72f66c470e0412e34086",
+                0,
+            ),
+            (
+                "b4112b8f900a7ca0c8b0e7c4dfad35c6be5f6be46b3458974988e1cdb2fa61b8",
+                0,
+            ),
+            (
+                "bafd65e3c7f3f9fdfdc1ddb026131b278c3be1af90a4a6ffa78c4658f9ec0c85",
+                0,
+            ),
+            (
+                "de0411a1e97484a2804ff1dbde260ac19de841bebad1880c782941aca883b4e9",
+                1,
+            ),
+            (
+                "f0a130a84912d03c1d284974f563c5949ac13f8342b8112edff52971599e6a45",
+                0,
+            ),
+            (
+                "f320832a9d2e2452af63154bc687493484a0e7745ebd3aaf9ca19eb80834ad60",
+                0,
+            ),
+        ];
+        // BIP69 equal-txid tie-breaker example from transaction
+        // 28204cad1d7fc1d199e8ef4fa22f182de6258a3eaafe1bbe56ebdcacd3069a5f.
+        let bip69_tie_breaker_txid =
+            Txid::from_str("35288d269cee1941eaebb2ea85e32b42cdb2b04284a56d8b14dcc3f5c65d6055")
+                .unwrap();
+
+        let keys = Keypair::new(&secp, &mut rand::thread_rng());
+        let make_input = |txid: Txid, vout: u32| InputDetail {
+            input_type: InputType::Claim([0; 32]),
+            output_type: OutputType::Taproot(None),
+            outpoint: OutPoint::new(txid, vout),
+            tx_out: TxOut {
+                asset: Asset::Explicit(asset_id),
+                value: Value::Explicit(50_000),
+                script_pubkey: destination.script_pubkey(),
+                nonce: Nonce::Null,
+                witness: TxOutWitness::default(),
+            },
+            blinding_key: None,
+            keys,
+        };
+
+        let expected_order: Vec<_> = bip69_input_vector
+            .iter()
+            .map(|(txid, vout)| OutPoint::new(Txid::from_str(txid).unwrap(), *vout))
+            .collect();
+
+        let inputs = bip69_input_vector
+            .iter()
+            .rev()
+            .map(|(txid, vout)| make_input(Txid::from_str(txid).unwrap(), *vout))
+            .collect();
+
+        let (tx, _) = construct_tx(
+            &secp,
+            BlockHash::all_zeros(),
+            inputs,
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(1_000),
+        )
+        .unwrap();
+
+        let actual_order: Vec<_> = tx.input.iter().map(|i| i.previous_output).collect();
+        assert_eq!(actual_order, expected_order);
+
+        let tie_breaker_inputs = vec![
+            make_input(bip69_tie_breaker_txid, 1),
+            make_input(bip69_tie_breaker_txid, 0),
+        ];
+
+        let (tx, _) = construct_tx(
+            &secp,
+            BlockHash::all_zeros(),
+            tie_breaker_inputs,
+            &Destination::Single(&destination),
+            FeeTarget::Absolute(1_000),
+        )
+        .unwrap();
+
+        let expected_order = [
+            OutPoint::new(bip69_tie_breaker_txid, 0),
+            OutPoint::new(bip69_tie_breaker_txid, 1),
+        ];
+        let actual_order: Vec<_> = tx.input.iter().map(|i| i.previous_output).collect();
+        assert_eq!(actual_order, expected_order);
     }
 }

@@ -69,7 +69,7 @@ impl TryInto<ElementsInputDetail> for InputDetail {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BitcoinParams<'a> {
     /// UTXOs to spend.
-    pub inputs: &'a [BitcoinInputDetail],
+    pub inputs: Vec<BitcoinInputDetail>,
     /// Where to send the funds.
     pub destination: &'a Destination<'a, &'a BitcoinAddress>,
     /// Fee selection.
@@ -82,7 +82,7 @@ pub struct ElementsParams<'a> {
     /// Network-specific Liquid genesis block hash (used in sighash domain separation).
     pub genesis_hash: BlockHash,
     /// UTXOs to spend.
-    pub inputs: &'a [ElementsInputDetail],
+    pub inputs: Vec<ElementsInputDetail>,
     /// Where to send the funds.
     pub destination: &'a Destination<'a, &'a ElementsAddress>,
     /// Fee selection.
@@ -130,7 +130,7 @@ impl Transaction {
 /// and [`elements::construct_tx`](crate::elements::construct_tx) for the
 /// per-chain semantics.
 #[must_use = "ignoring the result discards the constructed transaction"]
-pub fn construct_tx(params: &Params) -> Result<(Transaction, u64), WrapperError> {
+pub fn construct_tx(params: Params) -> Result<(Transaction, u64), WrapperError> {
     match params {
         Params::Bitcoin(params) => {
             let secp = bitcoin::secp256k1::Secp256k1::new();

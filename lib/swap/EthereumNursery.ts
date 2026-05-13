@@ -95,8 +95,6 @@ class EthereumNursery extends TypedEventEmitter<{
       this.emit('lockup.failedToSend', data);
     });
 
-    this.listenBlocks();
-
     this.listenEtherSwap();
     this.listenERC20Swap();
   }
@@ -146,6 +144,8 @@ class EthereumNursery extends TypedEventEmitter<{
         // If the provider can't find the transaction, it is not on the Ethereum chain
       }
     }
+
+    this.listenBlocks();
   };
 
   public listenContractTransaction = (

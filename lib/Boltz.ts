@@ -108,12 +108,35 @@ class Boltz {
     }
 
     registerExitHandler(async () => {
+      const t = (label: string, start: number) =>
+        this.logger.debug(`Shutdown ${label}: ${Date.now() - start}ms`);
+      let t0 = Date.now();
+
+      await Promise.all(
+        this.ethereumManagers.map((manager) => manager.destroy()),
+      );
+      t('evm', t0);
+      t0 = Date.now();
+
       await this.grpcServer.close();
+      t('grpc', t0);
+      t0 = Date.now();
+
       await this.db.close();
+      t('db', t0);
+      t0 = Date.now();
+
       this.redis?.disconnect();
+      t('redis', t0);
+      t0 = Date.now();
 
       await Profiling.stop();
+      t('profiling', t0);
+      t0 = Date.now();
+
       await Tracing.stop();
+      t('tracing', t0);
+      t0 = Date.now();
 
       await this.logger.close();
     });

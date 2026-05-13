@@ -16,7 +16,6 @@ type BlockEvent = {
 class ReconnectingWebSocket
   extends TypedEventEmitter<{
     reconnected: void;
-    block: BlockEvent;
   }>
   implements WebSocketLike
 {
@@ -90,17 +89,19 @@ class ReconnectingWebSocket
       };
 
       this.ws.onmessage = (event) => {
-        this.emitBlock(event);
-
         if (this.onmessage) {
           this.onmessage(event);
         }
       };
 
       this.ws.onerror = (event) => {
-        this.logger.error(
-          `${this.symbol} WebSocket ${this.name} error: ${event?.error?.name}${event?.error?.message ? `: ${event.error.message}` : ''}`,
-        );
+        const msg = `${this.symbol} WebSocket ${this.name} error: ${event?.error?.name}${event?.error?.message ? `: ${event.error.message}` : ''}`;
+
+        if (this.isDestroyed) {
+          this.logger.debug(msg);
+        } else {
+          this.logger.error(msg);
+        }
         if (this.onerror) {
           this.onerror(event);
         }
@@ -140,32 +141,6 @@ class ReconnectingWebSocket
       this.reconnectTimeout = undefined;
       this.connect();
     }, ReconnectingWebSocket.reconnectDelay);
-  };
-
-  private emitBlock = (event: MessageEvent) => {
-    try {
-      const parsed = JSON.parse(event.data);
-      if (parsed.method === 'eth_blockNumber') {
-        return;
-      }
-
-      const data = parsed.params?.result;
-
-      if (data && 'number' in data && 'stateRoot' in data) {
-        const res: BlockEvent = {
-          number: Number(data.number),
-        };
-
-        if ('l1BlockNumber' in data) {
-          res.l1BlockNumber = Number(data.l1BlockNumber);
-        }
-
-        this.emit('block', res);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      // Ignored; there might be other messages coming in
-    }
   };
 }
 
@@ -269,18 +244,18 @@ class WebSocketProvider extends EthersWebSocketProvider {
   }
 
   public async destroy(): Promise<void> {
+    this.ws.close();
+
     try {
-      await this.removeAllListeners();
       await super.destroy();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      // Ignored; fails with Anvil
+      // Anvil sometimes throws here when its socket is already gone.
     }
 
     this.registeredListeners.clear();
     this.registeredOnceListeners.clear();
     this.onceWrappedListeners.clear();
-    this.ws.close();
   }
 
   private reregisterListeners = async (): Promise<void> => {

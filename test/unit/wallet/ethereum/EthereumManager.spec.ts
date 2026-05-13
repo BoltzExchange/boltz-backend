@@ -20,6 +20,7 @@ jest.mock('../../../../lib/wallet/ethereum/InjectedProvider', () => {
     destroy: jest.fn().mockResolvedValue(undefined),
     removeAllListeners: jest.fn().mockResolvedValue(undefined),
     onBlock: jest.fn(),
+    onReconnect: jest.fn(),
     on: jest.fn(),
   }));
 });

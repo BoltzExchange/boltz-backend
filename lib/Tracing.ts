@@ -8,6 +8,7 @@ import { WinstonInstrumentation } from '@opentelemetry/instrumentation-winston';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import process from 'process';
 import packageJson from '../package.json';
 
@@ -25,6 +26,13 @@ class Tracing {
   private sdk?: NodeSDK;
 
   public init = (endpoint: string, network: string) => {
+    const exporter = new OTLPTraceExporter({
+      url: endpoint,
+      concurrencyLimit: 2_000,
+      compression: CompressionAlgorithm.GZIP,
+      timeoutMillis: 1_000,
+    });
+
     this.sdk = new NodeSDK({
       instrumentations,
       resource: resourceFromAttributes({
@@ -32,11 +40,13 @@ class Tracing {
         ['service.version']: packageJson.version,
         ['service.name']: `${packageJson.name}-${network}`,
       }),
-      traceExporter: new OTLPTraceExporter({
-        url: endpoint,
-        concurrencyLimit: 2_000,
-        compression: CompressionAlgorithm.GZIP,
-      }),
+      spanProcessors: [
+        new BatchSpanProcessor(exporter, {
+          exportTimeoutMillis: 1_000,
+        }),
+      ],
+      logRecordProcessors: [],
+      metricReaders: [],
     });
 
     this.sdk.start();

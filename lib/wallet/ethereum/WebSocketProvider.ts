@@ -95,9 +95,13 @@ class ReconnectingWebSocket
       };
 
       this.ws.onerror = (event) => {
-        this.logger.error(
-          `${this.symbol} WebSocket ${this.name} error: ${event?.error?.name}${event?.error?.message ? `: ${event.error.message}` : ''}`,
-        );
+        const msg = `${this.symbol} WebSocket ${this.name} error: ${event?.error?.name}${event?.error?.message ? `: ${event.error.message}` : ''}`;
+
+        if (this.isDestroyed) {
+          this.logger.debug(msg);
+        } else {
+          this.logger.error(msg);
+        }
         if (this.onerror) {
           this.onerror(event);
         }
@@ -240,18 +244,18 @@ class WebSocketProvider extends EthersWebSocketProvider {
   }
 
   public async destroy(): Promise<void> {
+    this.ws.close();
+
     try {
-      await this.removeAllListeners();
       await super.destroy();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      // Ignored; fails with Anvil
+      // Anvil sometimes throws here when its socket is already gone.
     }
 
     this.registeredListeners.clear();
     this.registeredOnceListeners.clear();
     this.onceWrappedListeners.clear();
-    this.ws.close();
   }
 
   private reregisterListeners = async (): Promise<void> => {

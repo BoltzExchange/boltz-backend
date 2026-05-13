@@ -264,8 +264,8 @@ class EthereumManager {
 
   public destroy = async () => {
     this.missedEventsCheckPending = false;
-    await this.provider.removeAllListeners();
     await this.missedEventsCheckPromise;
+    this.contractEventHandler.destroy();
     await this.provider.destroy();
   };
 

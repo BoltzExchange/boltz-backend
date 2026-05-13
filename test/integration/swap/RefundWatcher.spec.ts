@@ -44,8 +44,6 @@ describe('RefundWatcher', () => {
   let evmProvider: InjectedProvider;
 
   beforeAll(async () => {
-    InjectedProvider.allowHttpOnly = true;
-
     setup = await getSigner();
     await fundSignerWallet(setup.signer, setup.etherBase);
     evmProvider = new InjectedProvider(

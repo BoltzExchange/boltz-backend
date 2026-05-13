@@ -16,7 +16,6 @@ type BlockEvent = {
 class ReconnectingWebSocket
   extends TypedEventEmitter<{
     reconnected: void;
-    block: BlockEvent;
   }>
   implements WebSocketLike
 {
@@ -90,8 +89,6 @@ class ReconnectingWebSocket
       };
 
       this.ws.onmessage = (event) => {
-        this.emitBlock(event);
-
         if (this.onmessage) {
           this.onmessage(event);
         }
@@ -140,32 +137,6 @@ class ReconnectingWebSocket
       this.reconnectTimeout = undefined;
       this.connect();
     }, ReconnectingWebSocket.reconnectDelay);
-  };
-
-  private emitBlock = (event: MessageEvent) => {
-    try {
-      const parsed = JSON.parse(event.data);
-      if (parsed.method === 'eth_blockNumber') {
-        return;
-      }
-
-      const data = parsed.params?.result;
-
-      if (data && 'number' in data && 'stateRoot' in data) {
-        const res: BlockEvent = {
-          number: Number(data.number),
-        };
-
-        if ('l1BlockNumber' in data) {
-          res.l1BlockNumber = Number(data.l1BlockNumber);
-        }
-
-        this.emit('block', res);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      // Ignored; there might be other messages coming in
-    }
   };
 }
 

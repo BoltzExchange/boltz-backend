@@ -35,15 +35,18 @@ const bigIntReplacer = (_key: string, value: any) =>
  * and, depending on the configuration, falls back to alternative providers
  */
 class InjectedProvider implements Provider {
-  public static allowHttpOnly = false;
-
   public readonly provider: this;
 
   private providers = new Map<string, AbstractProvider>();
   private network!: Network;
   private destroyed = false;
 
+  private blockListeners = new Set<(block: BlockEvent) => void>();
+  private blockPollTimer: NodeJS.Timeout | undefined;
+  private reconnectCallbacks = new Set<() => void>();
+
   private static readonly requestTimeout = 5000;
+  private static readonly blockPollIntervalMs = 2_500;
 
   constructor(
     private readonly logger: Logger,
@@ -106,15 +109,6 @@ class InjectedProvider implements Provider {
       throw Errors.UNEQUAL_PROVIDER_NETWORKS(networks);
     }
 
-    if (
-      !InjectedProvider.allowHttpOnly &&
-      !Array.from(this.providers.values()).some(
-        (provider) => provider instanceof WebSocketProvider,
-      )
-    ) {
-      throw Errors.NEED_WEBSOCKET_PROVIDER();
-    }
-
     this.network = networks[0];
     this.logger.info(
       `Connected to ${this.providers.size} ${
@@ -144,7 +138,7 @@ class InjectedProvider implements Provider {
         : new JsonRpcProvider(config.endpoint, undefined, {
             staticNetwork: true,
             polling: true,
-            pollingInterval: 2_500,
+            pollingInterval: InjectedProvider.blockPollIntervalMs,
           }),
     );
 
@@ -161,6 +155,21 @@ class InjectedProvider implements Provider {
 
   public async destroy(): Promise<void> {
     this.destroyed = true;
+    if (this.blockPollTimer !== undefined) {
+      clearInterval(this.blockPollTimer);
+      this.blockPollTimer = undefined;
+    }
+    this.blockListeners.clear();
+
+    for (const provider of this.providers.values()) {
+      if (provider instanceof WebSocketProvider) {
+        for (const cb of this.reconnectCallbacks) {
+          provider.ws.off('reconnected', cb);
+        }
+      }
+    }
+    this.reconnectCallbacks.clear();
+
     await Promise.all(
       Array.from(this.providers.values()).map((provider) => provider.destroy()),
     );
@@ -399,13 +408,6 @@ class InjectedProvider implements Provider {
   public onBlock = async (
     listener: (block: BlockEvent) => void,
   ): Promise<this> => {
-    // Start a block listener for subscription to be created
-    await this.on('block', () => {});
-
-    const webSocketProviders = Array.from(this.providers.values()).filter(
-      (provider) => provider instanceof WebSocketProvider,
-    );
-
     const guarded = (block: BlockEvent) => {
       if (this.destroyed || shutdownSignal.aborted) {
         return;
@@ -413,16 +415,66 @@ class InjectedProvider implements Provider {
       listener(block);
     };
 
-    const injected = this.createInjectedListener(
-      guarded,
-      webSocketProviders.length,
-    );
-
-    for (const provider of webSocketProviders) {
-      provider.ws.on('block', injected);
-    }
+    this.blockListeners.add(guarded);
+    this.startBlockPoll();
 
     return this;
+  };
+
+  public onReconnect = (callback: () => void): void => {
+    this.reconnectCallbacks.add(callback);
+    for (const provider of this.providers.values()) {
+      if (provider instanceof WebSocketProvider) {
+        provider.ws.on('reconnected', callback);
+      }
+    }
+  };
+
+  protected getLatestBlock = async (): Promise<BlockEvent> => {
+    return { number: await this.getBlockNumber() };
+  };
+
+  private startBlockPoll = () => {
+    if (this.blockPollTimer !== undefined || this.destroyed) {
+      return;
+    }
+
+    let inFlight = false;
+    const tick = async () => {
+      if (inFlight || this.destroyed) {
+        return;
+      }
+      inFlight = true;
+
+      try {
+        let block: BlockEvent;
+        try {
+          block = await this.getLatestBlock();
+        } catch (error) {
+          this.logger.warn(
+            `${this.networkDetails.name} block poll failed: ${formatError(error)}`,
+          );
+          return;
+        }
+
+        for (const listener of this.blockListeners) {
+          try {
+            listener(block);
+          } catch (error) {
+            this.logger.error(
+              `${this.networkDetails.name} block listener threw: ${formatError(error)}`,
+            );
+          }
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void tick();
+    this.blockPollTimer = setInterval(() => {
+      void tick();
+    }, InjectedProvider.blockPollIntervalMs);
   };
 
   public once = async (

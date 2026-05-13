@@ -163,33 +163,23 @@ class EthereumManager {
       this.logger.silly(`Got new ${this.networkDetails.name} block: ${number}`);
 
       if (number <= lastBlockNumber) {
-        this.logger.debug(
-          `Ignoring stale ${this.networkDetails.name} block notification ${number}; last processed block is ${lastBlockNumber}`,
-        );
         return;
       }
-
-      const gap = number - lastBlockNumber;
-      if (gap > 1) {
-        if (this.missedEventsCheckPromise === undefined) {
-          this.logger.warn(
-            `${this.networkDetails.name} block gap detected: ${gap}; rescanning for missed events`,
-          );
-        } else {
-          this.logger.info(
-            `${this.networkDetails.name} block gap detected while a missed-events rescan is already running: ${gap}`,
-          );
-        }
-
-        this.scheduleMissedEventChecks();
-      }
-
       lastBlockNumber = number;
 
       await Promise.all([
         ChainTipRepository.updateTip(chainTip, number),
         transactionTracker.scanPendingTransactions(),
       ]);
+    });
+
+    this.provider.onReconnect(() => {
+      if (this.missedEventsCheckPromise === undefined) {
+        this.logger.info(
+          `${this.networkDetails.name} WebSocket reconnected; rescanning for missed events`,
+        );
+      }
+      this.scheduleMissedEventChecks();
     });
 
     const wallets = new Map<string, Wallet>();

@@ -2,6 +2,7 @@ import type { ArbitrumConfig } from '../../Config';
 import type Logger from '../../Logger';
 import { type NetworkDetails, networks } from './EvmNetworks';
 import InjectedProvider from './InjectedProvider';
+import type { BlockEvent } from './WebSocketProvider';
 
 class ArbitrumProvider extends InjectedProvider {
   private l1Provider: InjectedProvider;
@@ -30,6 +31,14 @@ class ArbitrumProvider extends InjectedProvider {
 
   public getLocktimeHeight = async (): Promise<number> => {
     return await this.l1Provider.getBlockNumber();
+  };
+
+  protected override getLatestBlock = async (): Promise<BlockEvent> => {
+    const [number, l1BlockNumber] = await Promise.all([
+      this.getBlockNumber(),
+      this.l1Provider.getBlockNumber(),
+    ]);
+    return { number, l1BlockNumber };
   };
 }
 

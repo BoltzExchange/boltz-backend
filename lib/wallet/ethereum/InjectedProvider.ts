@@ -518,7 +518,7 @@ class InjectedProvider implements Provider {
    * Helper utils
    */
 
-  private forwardMethod = async <T = any>(
+  protected forwardMethod = async <T = any>(
     method: string,
     ...args: any[]
   ): Promise<T> => {

@@ -34,11 +34,18 @@ class ArbitrumProvider extends InjectedProvider {
   };
 
   protected override getLatestBlock = async (): Promise<BlockEvent> => {
-    const [number, l1BlockNumber] = await Promise.all([
-      this.getBlockNumber(),
-      this.l1Provider.getBlockNumber(),
-    ]);
-    return { number, l1BlockNumber };
+    const raw = await this.forwardMethod<{
+      number: string;
+      l1BlockNumber?: string;
+    }>('send', 'eth_getBlockByNumber', ['latest', false]);
+
+    return {
+      number: parseInt(raw.number, 16),
+      l1BlockNumber:
+        raw.l1BlockNumber !== undefined
+          ? parseInt(raw.l1BlockNumber, 16)
+          : undefined,
+    };
   };
 }
 

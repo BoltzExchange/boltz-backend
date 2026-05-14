@@ -31,7 +31,7 @@ import {
   queryEtherSwapValuesFromTransaction,
 } from '../../wallet/ethereum/contracts/ContractUtils';
 import Errors from '../Errors';
-import type SignerControlRegistry from '../SignerControlRegistry';
+import SignerControlRegistry from '../SignerControlRegistry';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import MusigSigner from './MusigSigner';
 
@@ -53,13 +53,13 @@ class EipSigner {
     ].join('\n');
 
   private readonly lock = new AsyncLock();
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
 
   constructor(
     private readonly logger: Logger,
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     private readonly sidecar: Sidecar,
-    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {}
 
   public refundSignatureLock = <T>(cb: () => Promise<T>): Promise<T> =>
@@ -68,7 +68,7 @@ class EipSigner {
   public signSwapRefund = async (swapIdOrPreimageHash: string) =>
     this.refundSignatureLock(async () => {
       if (
-        this.signerControlRegistry?.isDisabled(
+        this.signerControlRegistry.isDisabled(
           Signer.SIGNER_EVM_REFUND_COOPERATIVE,
         )
       ) {
@@ -177,7 +177,7 @@ class EipSigner {
   ) =>
     this.refundSignatureLock(async () => {
       if (
-        this.signerControlRegistry?.isDisabled(
+        this.signerControlRegistry.isDisabled(
           Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
         )
       ) {

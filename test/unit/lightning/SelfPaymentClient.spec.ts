@@ -19,6 +19,8 @@ import {
 } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
+import { Signer } from '../../../lib/proto/boltzrpc';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import type SwapNursery from '../../../lib/swap/SwapNursery';
 
@@ -34,9 +36,12 @@ describe('SelfPaymentClient', () => {
 
   let nursery: SwapNursery;
   let client: SelfPaymentClient;
+  const signerControlRegistry = SignerControlRegistry.getInstance();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
     nursery = {
       on: jest.fn(),
       removeListener: jest.fn(),
@@ -87,7 +92,6 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           mockPayments as any,
-          true,
         ),
       ).resolves.toEqual({
         isSelf: false,
@@ -107,15 +111,12 @@ describe('SelfPaymentClient', () => {
 
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
       const emitSpy = jest.spyOn(client, 'emit');
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ]);
 
       await expect(
-        client.handleSelfPayment(
-          mockSwap as any,
-          mockDecoded as any,
-          100,
-          [],
-          true,
-        ),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).rejects.toThrow('signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled');
 
       expect(emitSpy).not.toHaveBeenCalled();
@@ -132,15 +133,12 @@ describe('SelfPaymentClient', () => {
 
       client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
       const emitSpy = jest.spyOn(client, 'emit');
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ]);
 
       await expect(
-        client.handleSelfPayment(
-          mockSwap as any,
-          mockDecoded as any,
-          100,
-          [],
-          true,
-        ),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -159,6 +157,11 @@ describe('SelfPaymentClient', () => {
     `(
       'should return isSelf: false when reverse swap is $reverseSwapValue (signer disabled: $signerDisabled)',
       async ({ reverseSwapValue, signerDisabled }) => {
+        if (signerDisabled) {
+          await signerControlRegistry.disableSigners([
+            Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+          ]);
+        }
         client['getReverseSwap'] = jest
           .fn()
           .mockResolvedValue(reverseSwapValue);
@@ -168,7 +171,6 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
-          signerDisabled,
         );
 
         expect(result).toEqual({
@@ -202,7 +204,6 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
-          false,
         ),
       ).rejects.toThrow('invoice mismatch');
 
@@ -238,7 +239,6 @@ describe('SelfPaymentClient', () => {
             mockDecodedWithCltv as any,
             cltvLimit,
             [],
-            false,
           ),
         ).rejects.toThrow('CLTV limit too small');
 
@@ -265,7 +265,6 @@ describe('SelfPaymentClient', () => {
           } as any,
           100,
           [],
-          false,
         ),
       ).rejects.toThrow('invoice expired');
 
@@ -287,13 +286,7 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(
-          mockSwap as any,
-          mockDecoded as any,
-          100,
-          [],
-          false,
-        ),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -334,13 +327,7 @@ describe('SelfPaymentClient', () => {
       const warnSpy = jest.spyOn(Logger.disabledLogger, 'warn');
 
       await expect(
-        client.handleSelfPayment(
-          mockSwap as any,
-          mockDecoded as any,
-          100,
-          [],
-          false,
-        ),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -381,13 +368,7 @@ describe('SelfPaymentClient', () => {
       const emitSpy = jest.spyOn(client, 'emit');
 
       await expect(
-        client.handleSelfPayment(
-          mockSwap as any,
-          mockDecoded as any,
-          100,
-          [],
-          false,
-        ),
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
       ).resolves.toEqual({
         isSelf: true,
         result: undefined,
@@ -411,7 +392,6 @@ describe('SelfPaymentClient', () => {
         mockDecoded as any,
         100,
         [],
-        false,
       );
 
       expect(result).toEqual({
@@ -443,7 +423,6 @@ describe('SelfPaymentClient', () => {
           mockDecoded as any,
           100,
           [],
-          false,
         );
 
         expect(result).toEqual({
@@ -490,14 +469,12 @@ describe('SelfPaymentClient', () => {
         mockDecoded as any,
         100,
         [],
-        false,
       );
       const promise2 = client.handleSelfPayment(
         mockSwap as any,
         mockDecoded as any,
         100,
         [],
-        false,
       );
 
       // Verify only first call started

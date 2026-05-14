@@ -257,7 +257,6 @@ class Service {
       this.sidecar,
       this.balanceCheck,
       overpaymentProtector,
-      this.signerControlRegistry,
     );
     this.walletManager.ethereumManagers.forEach((manager) => {
       manager.commitments.setRefundSignatureLock(
@@ -282,7 +281,6 @@ class Service {
       this.currencies,
       this.walletManager,
       this.swapManager.nursery,
-      this.signerControlRegistry,
     );
   }
 

@@ -22,6 +22,7 @@ import RefundTransactionRepository from '../db/repositories/RefundTransactionRep
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
 import { Signer } from '../proto/boltzrpc';
+import SignerControlRegistry from '../service/SignerControlRegistry';
 import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
 import LightningNursery from '../swap/LightningNursery';
@@ -73,7 +74,6 @@ class SelfPaymentClient
     decoded: DecodedInvoiceSidecar,
     cltvLimit: number,
     payments: LightningPayment[],
-    isSubmarineInvoicePaymentSignerDisabled: boolean,
   ): Promise<{
     isSelf: boolean;
     result: PaymentResponse | undefined;
@@ -106,7 +106,11 @@ class SelfPaymentClient
         );
 
         if (reverseSwap.status === SwapUpdateEvent.SwapCreated) {
-          if (isSubmarineInvoicePaymentSignerDisabled) {
+          if (
+            SignerControlRegistry.getInstance().isDisabled(
+              Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+            )
+          ) {
             throw new Error(
               disabledSignerMessage(Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT),
             );

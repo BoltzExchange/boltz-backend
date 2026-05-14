@@ -225,8 +225,8 @@ describe('SwapNursery', () => {
   describe('signer lockup guards', () => {
     const createGuardedNursery = async (signer: Signer) => {
       const signerControlRegistry = SignerControlRegistry.getInstance();
-      signerControlRegistry.init(mockLogger);
-      signerControlRegistry.reset();
+      (signerControlRegistry as any)['disabledSigners'].clear();
+      (signerControlRegistry as any)['repository'] = undefined;
       await signerControlRegistry.disableSigners([signer]);
 
       return new SwapNursery(
@@ -243,40 +243,8 @@ describe('SwapNursery', () => {
         mockChainSwapSigner,
         {} as any,
         {} as any,
-        undefined,
-        signerControlRegistry,
       );
     };
-
-    test('should report disabled reverse lockup signers without throwing', async () => {
-      const guardedNursery = await createGuardedNursery(
-        Signer.SIGNER_REVERSE_LOCKUP,
-      );
-
-      expect(
-        (guardedNursery as any).lockupSignerEnabled({
-          type: SwapType.ReverseSubmarine,
-        }),
-      ).toEqual(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'signer SIGNER_REVERSE_LOCKUP is disabled',
-      );
-    });
-
-    test('should report disabled chain lockup signers without throwing', async () => {
-      const guardedNursery = await createGuardedNursery(
-        Signer.SIGNER_CHAIN_LOCKUP,
-      );
-
-      expect(
-        (guardedNursery as any).lockupSignerEnabled({
-          type: SwapType.Chain,
-        }),
-      ).toEqual(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'signer SIGNER_CHAIN_LOCKUP is disabled',
-      );
-    });
 
     test.each`
       method
@@ -285,7 +253,7 @@ describe('SwapNursery', () => {
       ${'lockupEther'}
       ${'lockupERC20'}
     `(
-      'should skip $method without failing swap when lockup signer is disabled',
+      'should fail $method when lockup signer is disabled',
       async ({ method }) => {
         const guardedNursery = await createGuardedNursery(
           Signer.SIGNER_CHAIN_LOCKUP,
@@ -308,21 +276,26 @@ describe('SwapNursery', () => {
         };
 
         if (method === 'lockupUtxo') {
-          const result = await (guardedNursery as any)[method](
+          await (guardedNursery as any)[method](
             chainSwap,
             mockChainClient,
             wallet,
           );
-          expect(result).toEqual(false);
         } else {
           await (guardedNursery as any)[method](chainSwap, wallet);
         }
 
         expect(wallet.sendToAddress).not.toHaveBeenCalled();
-        expect(handleSwapSendFailedSpy).not.toHaveBeenCalled();
-        expect(mockLogger.info).toHaveBeenCalledWith(
-          'signer SIGNER_CHAIN_LOCKUP is disabled',
+        expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
+        expect(handleSwapSendFailedSpy).toHaveBeenCalledWith(
+          chainSwap,
+          wallet.symbol,
+          expect.any(Error),
+          undefined,
         );
+        expect(
+          (handleSwapSendFailedSpy.mock.calls[0][2] as Error).message,
+        ).toEqual('signer SIGNER_CHAIN_LOCKUP is disabled');
       },
     );
 
@@ -331,6 +304,9 @@ describe('SwapNursery', () => {
         Signer.SIGNER_CHAIN_LOCKUP,
       );
       guardedNursery.currencies = new Map([['BTC', mockCurrency]]);
+      const handleSwapSendFailedSpy = jest
+        .spyOn(guardedNursery as any, 'handleSwapSendFailed')
+        .mockResolvedValue(undefined);
 
       await (guardedNursery as any).handleChainSwapLockup({
         id: 'chain-swap-id',
@@ -343,9 +319,7 @@ describe('SwapNursery', () => {
       });
 
       expect(mockChainSwapSigner.registerForClaim).not.toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'signer SIGNER_CHAIN_LOCKUP is disabled',
-      );
+      expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
     });
   });
 

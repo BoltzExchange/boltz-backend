@@ -132,7 +132,6 @@ describe('PaymentHandler', () => {
         }),
     } as any,
     { emit: mockedEmit } as any,
-    signerControlRegistry,
   );
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
@@ -148,10 +147,8 @@ describe('PaymentHandler', () => {
     cltvLimit = 100;
     sendPaymentError = undefined;
     trackPaymentResponse = undefined;
-    signerControlRegistry.reset();
-    await signerControlRegistry.enableSigners([
-      Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
-    ]);
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
     relevantPayments = [];
     (
       handler['selfPaymentClient'].handleSelfPayment as jest.Mock
@@ -196,7 +193,6 @@ describe('PaymentHandler', () => {
       0,
       cltvLimit,
       [],
-      true,
     );
     expect(btcLndClient.sendPayment).not.toHaveBeenCalled();
     expect(swap.update).toHaveBeenCalledTimes(1);
@@ -224,7 +220,6 @@ describe('PaymentHandler', () => {
       0,
       cltvLimit,
       relevantPayments,
-      true,
     );
     expect(btcLndClient.sendPayment).toHaveBeenCalledTimes(1);
     expect(swap.update).not.toHaveBeenCalled();
@@ -416,7 +411,7 @@ describe('PaymentHandler', () => {
       ).toHaveBeenCalledTimes(1);
       expect(
         handler['selfPaymentClient'].handleSelfPayment,
-      ).toHaveBeenCalledWith(swap, 0, cltvLimit, [], false);
+      ).toHaveBeenCalledWith(swap, 0, cltvLimit, []);
       expect(settleInvoiceSpy).toHaveBeenCalledTimes(1);
       expect(settleInvoiceSpy).toHaveBeenCalledWith(swap, mockPaymentResponse);
       expect(btcLndClient.sendPayment).not.toHaveBeenCalled();

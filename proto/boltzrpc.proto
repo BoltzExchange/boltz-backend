@@ -288,17 +288,13 @@ message DisableSignersRequest {
   repeated Signer signers = 1;
 }
 
-message DisableSignersResponse {
-  repeated Signer disabled_signers = 1;
-}
+message DisableSignersResponse {}
 
 message EnableSignersRequest {
   repeated Signer signers = 1;
 }
 
-message EnableSignersResponse {
-  repeated Signer disabled_signers = 1;
-}
+message EnableSignersResponse {}
 
 message GetDisabledSignersRequest {}
 

@@ -1030,30 +1030,16 @@ async fn run_command(cli: Cli) -> Result<()> {
         },
         Commands::Signer { ref command } => match command {
             SignerCommands::Disable { signers } => {
-                let response = get_grpc_client(&cli)
+                get_grpc_client(&cli)
                     .await?
                     .disable_signers(signers.clone())
                     .await?;
-                print_pretty(
-                    &response
-                        .disabled_signers
-                        .into_iter()
-                        .map(grpc::signer_name)
-                        .collect::<Vec<String>>(),
-                )?;
             }
             SignerCommands::Enable { signers } => {
-                let response = get_grpc_client(&cli)
+                get_grpc_client(&cli)
                     .await?
                     .enable_signers(signers.clone())
                     .await?;
-                print_pretty(
-                    &response
-                        .disabled_signers
-                        .into_iter()
-                        .map(grpc::signer_name)
-                        .collect::<Vec<String>>(),
-                )?;
             }
             SignerCommands::ListDisabled {} => {
                 let response = get_grpc_client(&cli).await?.get_disabled_signers().await?;

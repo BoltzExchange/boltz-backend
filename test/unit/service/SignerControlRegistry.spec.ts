@@ -19,7 +19,7 @@ describe('SignerControlRegistry', () => {
 
     registry = SignerControlRegistry.getInstance();
     registry.init(Logger.disabledLogger, mockRepository as any);
-    registry.reset();
+    (registry as any)['disabledSigners'].clear();
   });
 
   test('should disable signers with set semantics', async () => {
@@ -76,10 +76,10 @@ describe('SignerControlRegistry', () => {
     expect(SignerControlRegistry.getInstance()).toBe(registry);
   });
 
-  test('should reset state explicitly', async () => {
+  test('should allow tests to clear singleton state explicitly', async () => {
     await registry.disableSigners([Signer.SIGNER_CHAIN_LOCKUP]);
 
-    registry.reset();
+    (registry as any)['disabledSigners'].clear();
     expect(registry.getDisabledSigners()).toEqual([]);
   });
 
@@ -96,6 +96,23 @@ describe('SignerControlRegistry', () => {
       Signer.SIGNER_REVERSE_LOCKUP,
       Signer.SIGNER_CHAIN_LOCKUP,
     ]);
+  });
+
+  test('should skip unknown persisted disabled signers', async () => {
+    const warnSpy = jest.spyOn(Logger.disabledLogger, 'warn');
+
+    registry.init(Logger.disabledLogger, mockRepository as any);
+    mockRepository.getDisabledSigners.mockResolvedValueOnce([
+      'SIGNER_CHAIN_LOCKUP',
+      'SIGNER_UNKNOWN_TO_THIS_VERSION',
+    ]);
+
+    await registry.load();
+
+    expect(registry.getDisabledSigners()).toEqual([Signer.SIGNER_CHAIN_LOCKUP]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring unknown disabled signer: SIGNER_UNKNOWN_TO_THIS_VERSION',
+    );
   });
 
   test('should persist mutations before changing memory', async () => {

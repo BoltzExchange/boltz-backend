@@ -38,7 +38,7 @@ import {
 } from '../../wallet/ethereum/contracts/ContractUtils';
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
-import type SignerControlRegistry from '../SignerControlRegistry';
+import SignerControlRegistry from '../SignerControlRegistry';
 import type { SwapToClaim } from './CoopSignerBase';
 import CoopSignerBase, {
   cooperativeSignaturesDisabledMessage,
@@ -80,6 +80,7 @@ class DeferredClaimer extends CoopSignerBase<{
     string,
     Map<string, ChainSwapToClaimPreimage>
   >();
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly sweepTriggers: SweepTrigger[];
 
   constructor(
@@ -90,7 +91,6 @@ class DeferredClaimer extends CoopSignerBase<{
     walletManager: WalletManager,
     swapOutputType: SwapOutputType,
     private readonly config: SwapConfig,
-    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {
     super(logger, walletManager, swapOutputType);
 
@@ -294,7 +294,7 @@ class DeferredClaimer extends CoopSignerBase<{
     transactionHash: Buffer;
   }> => {
     if (
-      this.signerControlRegistry?.isDisabled(
+      this.signerControlRegistry.isDisabled(
         Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
       )
     ) {
@@ -329,7 +329,7 @@ class DeferredClaimer extends CoopSignerBase<{
   ) => {
     await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
       if (
-        this.signerControlRegistry?.isDisabled(
+        this.signerControlRegistry.isDisabled(
           Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
         )
       ) {

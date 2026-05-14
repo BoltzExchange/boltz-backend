@@ -1269,7 +1269,7 @@ describe('GrpcService', () => {
             return;
           }
 
-          expect(response?.disabledSigners).toEqual(signers);
+          expect(response).toEqual({});
           resolve();
         });
       });
@@ -1280,8 +1280,7 @@ describe('GrpcService', () => {
 
     test('should enable signers', async () => {
       const toEnable = [boltzrpc.Signer.SIGNER_CHAIN_LOCKUP];
-      const disabledSigners = [boltzrpc.Signer.SIGNER_REVERSE_LOCKUP];
-      mockEnableSigners.mockResolvedValueOnce(disabledSigners);
+      mockEnableSigners.mockResolvedValueOnce([]);
 
       const request = { signers: toEnable };
 
@@ -1292,7 +1291,7 @@ describe('GrpcService', () => {
             return;
           }
 
-          expect(response?.disabledSigners).toEqual(disabledSigners);
+          expect(response).toEqual({});
           resolve();
         });
       });

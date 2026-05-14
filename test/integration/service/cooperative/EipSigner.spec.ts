@@ -132,7 +132,6 @@ describe('EipSigner', () => {
         ethereumManagers: [ethereumManager],
       } as unknown as WalletManager,
       sidecar,
-      signerControlRegistry,
     );
   });
 
@@ -142,11 +141,8 @@ describe('EipSigner', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    signerControlRegistry.reset();
-    await signerControlRegistry.enableSigners([
-      Signer.SIGNER_EVM_REFUND_COOPERATIVE,
-      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
-    ]);
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
     SwapRepository.setRefundSignatureCreated = jest.fn();

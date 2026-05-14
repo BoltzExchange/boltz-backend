@@ -77,7 +77,6 @@ import ServiceErrors from '../service/Errors';
 import InvoiceExpiryHelper from '../service/InvoiceExpiryHelper';
 import type PaymentRequestUtils from '../service/PaymentRequestUtils';
 import Renegotiator from '../service/Renegotiator';
-import type SignerControlRegistry from '../service/SignerControlRegistry';
 import TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import DeferredClaimer from '../service/cooperative/DeferredClaimer';
@@ -216,7 +215,6 @@ class SwapManager {
     private readonly sidecar: Sidecar,
     balanceCheck: BalanceCheck,
     overpaymentProtector: OverpaymentProtector,
-    signerControlRegistry?: SignerControlRegistry,
   ) {
     this.deferredClaimer = new DeferredClaimer(
       this.logger,
@@ -226,7 +224,6 @@ class SwapManager {
       this.walletManager,
       this.swapOutputType,
       swapConfig,
-      signerControlRegistry,
     );
 
     this.chainSwapSigner = new ChainSwapSigner(
@@ -234,14 +231,12 @@ class SwapManager {
       this.currencies,
       this.walletManager,
       this.swapOutputType,
-      signerControlRegistry,
     );
     this.eipSigner = new EipSigner(
       this.logger,
       this.currencies,
       this.walletManager,
       sidecar,
-      signerControlRegistry,
     );
 
     this.nursery = new SwapNursery(
@@ -259,7 +254,6 @@ class SwapManager {
       lockupTransactionTracker,
       overpaymentProtector,
       swapConfig.paymentTimeoutMinutes,
-      signerControlRegistry,
     );
 
     this.renegotiator = new Renegotiator(

@@ -137,7 +137,6 @@ describe('DeferredClaimer', () => {
       batchClaimInterval: '*/15 * * * *',
       cltvDelta: 20,
     },
-    signerControlRegistry,
   );
 
   const createClaimableOutput = async (timeoutBlockHeight?: number) => {
@@ -650,10 +649,8 @@ describe('DeferredClaimer', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    signerControlRegistry.reset();
-    await signerControlRegistry.enableSigners([
-      Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
-    ]);
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
     claimer['swapsToClaim'].get('BTC')?.clear();
     claimer['chainSwapsToClaim'].get('BTC')?.clear();
     claimer['swapsToClaim'].get('ARK')?.clear();

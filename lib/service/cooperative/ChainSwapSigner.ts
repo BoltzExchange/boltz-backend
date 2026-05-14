@@ -18,7 +18,7 @@ import type SwapOutputType from '../../swap/SwapOutputType';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
-import type SignerControlRegistry from '../SignerControlRegistry';
+import SignerControlRegistry from '../SignerControlRegistry';
 import type {
   CooperativeClientDetails,
   CooperativeDetails,
@@ -54,6 +54,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
   ) => Promise<void>;
 
   private readonly lock = new AsyncLock();
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly swapsToClaim = new Map<string, SwapToClaim<ChainSwapInfo>>();
 
   constructor(
@@ -61,7 +62,6 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     private readonly currencies: Map<string, Currency>,
     walletManager: WalletManager,
     swapOutputType: SwapOutputType,
-    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {
     super(logger, walletManager, swapOutputType);
   }
@@ -106,7 +106,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       }
 
       if (
-        this.signerControlRegistry?.isDisabled(
+        this.signerControlRegistry.isDisabled(
           Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
         )
       ) {
@@ -169,7 +169,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       }
 
       if (
-        this.signerControlRegistry?.isDisabled(
+        this.signerControlRegistry.isDisabled(
           Signer.SIGNER_CHAIN_REFUND_COOPERATIVE,
         )
       ) {
@@ -240,7 +240,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
     swap: ChainSwapInfo,
   ): Promise<CooperativeClientDetails> => {
     if (
-      this.signerControlRegistry?.isDisabled(
+      this.signerControlRegistry.isDisabled(
         Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
       )
     ) {
@@ -282,7 +282,7 @@ class ChainSwapSigner extends CoopSignerBase<{ claim: ChainSwapInfo }> {
       ChainSwapSigner.cooperativeBroadcastLock,
       async () => {
         if (
-          this.signerControlRegistry?.isDisabled(
+          this.signerControlRegistry.isDisabled(
             Signer.SIGNER_CHAIN_CLAIM_COOPERATIVE,
           )
         ) {

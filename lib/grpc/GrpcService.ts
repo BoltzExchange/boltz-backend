@@ -8,6 +8,7 @@ import type Logger from '../Logger';
 import { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import {
+  formatError,
   fromOptionalProtoInt,
   fromProtoInt,
   getHexBuffer,
@@ -228,10 +229,8 @@ class GrpcService {
       const { signers } = call.request;
       GrpcService.assertValidSigners(signers);
 
-      return {
-        disabledSigners:
-          await this.service.signerControlRegistry.disableSigners(signers),
-      };
+      await this.service.signerControlRegistry.disableSigners(signers);
+      return {};
     });
   };
 
@@ -243,10 +242,8 @@ class GrpcService {
       const { signers } = call.request;
       GrpcService.assertValidSigners(signers);
 
-      return {
-        disabledSigners:
-          await this.service.signerControlRegistry.enableSigners(signers),
-      };
+      await this.service.signerControlRegistry.enableSigners(signers);
+      return {};
     });
   };
 
@@ -678,7 +675,7 @@ class GrpcService {
   };
 
   private static invalidArgument = (error: unknown) => {
-    const message = error instanceof Error ? error.message : `${error}`;
+    const message = formatError(error);
     return {
       code: status.INVALID_ARGUMENT,
       details: message,

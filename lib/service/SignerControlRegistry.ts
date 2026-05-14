@@ -39,7 +39,11 @@ class SignerControlRegistry {
 
     this.disabledSigners.clear();
     for (const signer of await this.repository.getDisabledSigners()) {
-      this.disabledSigners.add(signerFromName(signer));
+      try {
+        this.disabledSigners.add(signerFromName(signer));
+      } catch {
+        this.logger.warn(`Ignoring unknown disabled signer: ${signer}`);
+      }
     }
   };
 
@@ -76,12 +80,6 @@ class SignerControlRegistry {
 
   public isDisabled = (signer: Signer): boolean =>
     this.disabledSigners.has(signer);
-
-  // Tests use this to clear singleton state between cases.
-  public reset = () => {
-    this.disabledSigners.clear();
-    this.repository = undefined;
-  };
 
   private formatLogMessage = (
     action: 'Disabled' | 'Enabled',

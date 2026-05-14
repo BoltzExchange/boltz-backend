@@ -32,7 +32,7 @@ import SwapNursery from '../../swap/SwapNursery';
 import type { Currency } from '../../wallet/WalletManager';
 import type WalletManager from '../../wallet/WalletManager';
 import Errors from '../Errors';
-import type SignerControlRegistry from '../SignerControlRegistry';
+import SignerControlRegistry from '../SignerControlRegistry';
 import { cooperativeSignaturesDisabledMessage } from './CoopSignerBase';
 import {
   checkArkTransaction,
@@ -59,6 +59,7 @@ class MusigSigner {
     'reverseSwapClaimSignature';
 
   private readonly lock = new AsyncLock();
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly allowedRefunds = new Set<string>();
 
   constructor(
@@ -66,7 +67,6 @@ class MusigSigner {
     private readonly currencies: Map<string, Currency>,
     private readonly walletManager: WalletManager,
     private readonly nursery: SwapNursery,
-    private readonly signerControlRegistry?: SignerControlRegistry,
   ) {}
 
   public allowRefund = async (id: string) => {
@@ -104,7 +104,7 @@ class MusigSigner {
     }
 
     if (
-      this.signerControlRegistry?.isDisabled(
+      this.signerControlRegistry.isDisabled(
         Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
       )
     ) {
@@ -157,7 +157,7 @@ class MusigSigner {
     }
 
     if (
-      this.signerControlRegistry?.isDisabled(
+      this.signerControlRegistry.isDisabled(
         Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
       )
     ) {
@@ -221,7 +221,7 @@ class MusigSigner {
 
         if (
           toSign !== undefined &&
-          this.signerControlRegistry?.isDisabled(
+          this.signerControlRegistry.isDisabled(
             Signer.SIGNER_REVERSE_CLAIM_COOPERATIVE,
           )
         ) {

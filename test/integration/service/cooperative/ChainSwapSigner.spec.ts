@@ -125,7 +125,8 @@ describe('ChainSwapSigner', () => {
 
   beforeEach(() => {
     signerControlRegistry = SignerControlRegistry.getInstance();
-    signerControlRegistry.reset();
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
     signer = new ChainSwapSigner(
       Logger.disabledLogger,
       new Map<string, Currency>([
@@ -134,7 +135,6 @@ describe('ChainSwapSigner', () => {
       ]),
       walletManager,
       new SwapOutputType(OutputType.Bech32),
-      signerControlRegistry,
     );
   });
 
@@ -437,7 +437,6 @@ describe('ChainSwapSigner', () => {
         ]),
         walletManager,
         new SwapOutputType(OutputType.Bech32),
-        signerControlRegistry,
       );
     });
 

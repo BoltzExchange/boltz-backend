@@ -53,11 +53,11 @@ describe('MusigSigner', () => {
     currencies,
     {} as unknown as WalletManager,
     {} as unknown as SwapNursery,
-    signerControlRegistry,
   );
 
   beforeEach(() => {
-    signerControlRegistry.reset();
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
   });
 
   describe('signReverseSwapClaim', () => {
@@ -86,7 +86,6 @@ describe('MusigSigner', () => {
           currencies,
           {} as unknown as WalletManager,
           nursery,
-          signerControlRegistry,
         ),
       };
     };

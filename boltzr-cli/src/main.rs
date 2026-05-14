@@ -2,7 +2,7 @@ use crate::ark::ArkClient;
 use ::serde::Serialize;
 use alloy::signers::local::{MnemonicBuilder, coins_bip39::English};
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use rand::Rng;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -461,13 +461,17 @@ enum SwapCommands {
 enum SignerCommands {
     #[command(about = "Disables one or more signer controls")]
     Disable {
-        #[arg(required = true, num_args = 1.., value_enum)]
+        #[arg(num_args = 1.., value_enum, required_unless_present = "all", conflicts_with = "all")]
         signers: Vec<parsers::Signer>,
+        #[arg(short, long, default_value_t = false)]
+        all: bool,
     },
     #[command(about = "Enables one or more signer controls")]
     Enable {
-        #[arg(required = true, num_args = 1.., value_enum)]
+        #[arg(num_args = 1.., value_enum, required_unless_present = "all", conflicts_with = "all")]
         signers: Vec<parsers::Signer>,
+        #[arg(short, long, default_value_t = false)]
+        all: bool,
     },
     #[command(about = "Lists all disabled signer controls")]
     ListDisabled {},
@@ -1029,17 +1033,24 @@ async fn run_command(cli: Cli) -> Result<()> {
             }
         },
         Commands::Signer { ref command } => match command {
-            SignerCommands::Disable { signers } => {
+            SignerCommands::Disable { signers, all } => {
+                let signers = if *all {
+                    parsers::Signer::value_variants().to_vec()
+                } else {
+                    signers.clone()
+                };
                 get_grpc_client(&cli)
                     .await?
-                    .disable_signers(signers.clone())
+                    .disable_signers(signers)
                     .await?;
             }
-            SignerCommands::Enable { signers } => {
-                get_grpc_client(&cli)
-                    .await?
-                    .enable_signers(signers.clone())
-                    .await?;
+            SignerCommands::Enable { signers, all } => {
+                let signers = if *all {
+                    parsers::Signer::value_variants().to_vec()
+                } else {
+                    signers.clone()
+                };
+                get_grpc_client(&cli).await?.enable_signers(signers).await?;
             }
             SignerCommands::ListDisabled {} => {
                 let response = get_grpc_client(&cli).await?.get_disabled_signers().await?;

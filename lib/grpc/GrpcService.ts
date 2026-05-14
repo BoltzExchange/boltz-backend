@@ -32,10 +32,13 @@ import TransactionLabelRepository from '../db/repositories/TransactionLabelRepos
 import type * as boltzrpc from '../proto/boltzrpc';
 import { LogLevel } from '../proto/boltzrpc';
 import type Service from '../service/Service';
+import SignerControlRegistry from '../service/SignerControlRegistry';
 import { isValidSigner } from '../service/SignerControlUtils';
 import Sidecar from '../sidecar/Sidecar';
 
 class GrpcService {
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
+
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
@@ -229,7 +232,7 @@ class GrpcService {
       const { signers } = call.request;
       GrpcService.assertValidSigners(signers);
 
-      await this.service.signerControlRegistry.disableSigners(signers);
+      await this.signerControlRegistry.disableSigners(signers);
       return {};
     });
   };
@@ -242,7 +245,7 @@ class GrpcService {
       const { signers } = call.request;
       GrpcService.assertValidSigners(signers);
 
-      await this.service.signerControlRegistry.enableSigners(signers);
+      await this.signerControlRegistry.enableSigners(signers);
       return {};
     });
   };
@@ -253,8 +256,7 @@ class GrpcService {
   > = async (_call, callback) => {
     await GrpcService.handleCallback(_call, callback, async () => {
       return {
-        disabledSigners:
-          this.service.signerControlRegistry.getDisabledSigners(),
+        disabledSigners: this.signerControlRegistry.getDisabledSigners(),
       };
     });
   };

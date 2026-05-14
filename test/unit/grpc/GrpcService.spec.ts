@@ -16,6 +16,7 @@ import TransactionLabelRepository from '../../../lib/db/repositories/Transaction
 import GrpcService from '../../../lib/grpc/GrpcService';
 import * as boltzrpc from '../../../lib/proto/boltzrpc';
 import Service from '../../../lib/service/Service';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import type NodeSwitch from '../../../lib/swap/NodeSwitch';
 import type CreationHook from '../../../lib/swap/hooks/CreationHook';
 import type InvoiceCreationHook from '../../../lib/swap/hooks/InvoiceCreationHook';
@@ -41,6 +42,16 @@ const mockDeriveKeys = jest.fn().mockReturnValue(mockDeriveKeysData);
 const mockDisableSigners = jest.fn().mockImplementation((signers) => signers);
 const mockEnableSigners = jest.fn().mockImplementation(() => []);
 const mockGetDisabledSigners = jest.fn().mockReturnValue([]);
+const signerControlRegistry = SignerControlRegistry.getInstance();
+jest
+  .spyOn(signerControlRegistry, 'disableSigners')
+  .mockImplementation((signers) => mockDisableSigners(signers));
+jest
+  .spyOn(signerControlRegistry, 'enableSigners')
+  .mockImplementation((signers) => mockEnableSigners(signers));
+jest
+  .spyOn(signerControlRegistry, 'getDisabledSigners')
+  .mockImplementation(() => mockGetDisabledSigners());
 
 const gewAddressData = 'address';
 const mockGetAddress = jest.fn().mockResolvedValue(gewAddressData);
@@ -137,11 +148,6 @@ jest.mock('../../../lib/service/Service', () => {
           ),
           sweepSymbol: jest.fn().mockResolvedValue(['currency1', 'currency2']),
         },
-      },
-      signerControlRegistry: {
-        disableSigners: mockDisableSigners,
-        enableSigners: mockEnableSigners,
-        getDisabledSigners: mockGetDisabledSigners,
       },
       getInfo: mockGetInfo,
       getBalance: mockGetBalance,

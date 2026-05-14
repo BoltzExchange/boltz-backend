@@ -171,7 +171,6 @@ class Service {
   public readonly transactionFetcher: TransactionFetcher;
 
   public readonly musigSigner: MusigSigner;
-  public readonly signerControlRegistry: SignerControlRegistry;
   public readonly rateProvider: RateProvider;
   public readonly lockupTransactionTracker: LockupTransactionTracker;
 
@@ -236,8 +235,7 @@ class Service {
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
-    this.signerControlRegistry = SignerControlRegistry.getInstance();
-    this.signerControlRegistry.init(this.logger);
+    SignerControlRegistry.getInstance().init(this.logger);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -285,7 +283,7 @@ class Service {
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
-    await this.signerControlRegistry.load();
+    await SignerControlRegistry.getInstance().load();
 
     const dbPairSet = new Set<string>();
     const dbPairs = await PairRepository.getPairs();

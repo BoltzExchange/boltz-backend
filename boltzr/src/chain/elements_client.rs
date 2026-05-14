@@ -1,5 +1,5 @@
 use crate::chain::chain_client::ChainClient;
-use crate::chain::elements::{ZeroConfCheck, ZeroConfTool};
+use crate::chain::elements::{ZeroConfCheck, zero_conf_tool};
 use crate::chain::types::{
     BlockchainInfo, NetworkInfo, RawTransactionVerbose, SignRawTransactionResponse, Type,
     UnspentOutput,
@@ -62,17 +62,20 @@ impl ElementsClient {
             }
         };
 
+        let zero_conf_tool = match config.zero_conf_tool {
+            Some(zero_conf_config) => Some(zero_conf_tool::new(
+                cancellation_token,
+                SYMBOL.to_string(),
+                zero_conf_config,
+            )?),
+            None => None,
+        };
+
         Ok(Self {
             network,
             client,
             lowball_client,
-            zero_conf_tool: config.zero_conf_tool.map(|config| {
-                Arc::new(ZeroConfTool::new(
-                    cancellation_token,
-                    SYMBOL.to_string(),
-                    config,
-                )) as Arc<dyn ZeroConfCheck + Send + Sync>
-            }),
+            zero_conf_tool,
         })
     }
 

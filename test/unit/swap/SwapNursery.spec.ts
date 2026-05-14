@@ -18,6 +18,8 @@ import SwapRepository from '../../../lib/db/repositories/SwapRepository';
 import WrappedSwapRepository from '../../../lib/db/repositories/WrappedSwapRepository';
 import type { LightningClient } from '../../../lib/lightning/LightningClient';
 import type NotificationClient from '../../../lib/notifications/NotificationClient';
+import { Signer } from '../../../lib/proto/boltzrpc';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import Errors from '../../../lib/swap/Errors';
 import SwapNursery from '../../../lib/swap/SwapNursery';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -149,6 +151,7 @@ describe('SwapNursery', () => {
   const mockChainSwapSigner = {
     setAttemptSettle: jest.fn(),
     on: jest.fn(),
+    registerForClaim: jest.fn(),
   } as any;
 
   let swapNursery: SwapNursery;
@@ -217,6 +220,109 @@ describe('SwapNursery', () => {
 
     mockGetSwapResult = null;
     mockGetChainSwapResult = null;
+  });
+
+  describe('signer lockup guards', () => {
+    const createGuardedNursery = async (signer: Signer) => {
+      const signerControlRegistry = SignerControlRegistry.getInstance();
+      (signerControlRegistry as any)['disabledSigners'].clear();
+      (signerControlRegistry as any)['repository'] = undefined;
+      await signerControlRegistry.disableSigners([signer]);
+
+      return new SwapNursery(
+        mockLogger,
+        {} as any,
+        mockNotifications,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockWalletManager,
+        {} as any,
+        0,
+        mockClaimer,
+        mockChainSwapSigner,
+        {} as any,
+        {} as any,
+      );
+    };
+
+    test.each`
+      method
+      ${'lockupUtxo'}
+      ${'lockupVtxo'}
+      ${'lockupEther'}
+      ${'lockupERC20'}
+    `(
+      'should fail $method when lockup signer is disabled',
+      async ({ method }) => {
+        const guardedNursery = await createGuardedNursery(
+          Signer.SIGNER_CHAIN_LOCKUP,
+        );
+        const wallet = {
+          symbol: 'BTC',
+          sendToAddress: jest.fn(),
+        };
+        const handleSwapSendFailedSpy = jest
+          .spyOn(guardedNursery as any, 'handleSwapSendFailed')
+          .mockResolvedValue(undefined);
+        const chainSwap = {
+          id: 'chain-swap-id',
+          type: SwapType.Chain,
+          sendingData: {
+            expectedAmount: 100_000,
+            lockupAddress: 'bcrt1lockup',
+            symbol: 'BTC',
+          },
+        };
+
+        if (method === 'lockupUtxo') {
+          await (guardedNursery as any)[method](
+            chainSwap,
+            mockChainClient,
+            wallet,
+          );
+        } else {
+          await (guardedNursery as any)[method](chainSwap, wallet);
+        }
+
+        expect(wallet.sendToAddress).not.toHaveBeenCalled();
+        expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
+        expect(handleSwapSendFailedSpy).toHaveBeenCalledWith(
+          chainSwap,
+          wallet.symbol,
+          expect.any(Error),
+          undefined,
+        );
+        expect(
+          (handleSwapSendFailedSpy.mock.calls[0][2] as Error).message,
+        ).toEqual(
+          'signer SIGNER_CHAIN_LOCKUP is disabled for Chain Swap chain-swap-id',
+        );
+      },
+    );
+
+    test('should not register chain swaps for claim when UTXO lockup signer is disabled', async () => {
+      const guardedNursery = await createGuardedNursery(
+        Signer.SIGNER_CHAIN_LOCKUP,
+      );
+      guardedNursery.currencies = new Map([['BTC', mockCurrency]]);
+      const handleSwapSendFailedSpy = jest
+        .spyOn(guardedNursery as any, 'handleSwapSendFailed')
+        .mockResolvedValue(undefined);
+
+      await (guardedNursery as any).handleChainSwapLockup({
+        id: 'chain-swap-id',
+        type: SwapType.Chain,
+        sendingData: {
+          expectedAmount: 100_000,
+          lockupAddress: 'bcrt1lockup',
+          symbol: 'BTC',
+        },
+      });
+
+      expect(mockChainSwapSigner.registerForClaim).not.toHaveBeenCalled();
+      expect(handleSwapSendFailedSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('settleReverseSwapInvoice', () => {

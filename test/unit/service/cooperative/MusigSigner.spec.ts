@@ -1,4 +1,5 @@
 import { Transaction as ScureTransaction } from '@scure/btc-signer';
+import { crypto } from 'bitcoinjs-lib';
 import { randomBytes } from 'crypto';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
@@ -9,10 +10,14 @@ import {
   SwapUpdateEvent,
   SwapVersion,
 } from '../../../../lib/consts/Enums';
+import ReverseSwapRepository from '../../../../lib/db/repositories/ReverseSwapRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import WrappedSwapRepository from '../../../../lib/db/repositories/WrappedSwapRepository';
 import type LndClient from '../../../../lib/lightning/LndClient';
 import type ClnClient from '../../../../lib/lightning/cln/ClnClient';
+import { Signer } from '../../../../lib/proto/boltzrpc';
 import Errors from '../../../../lib/service/Errors';
+import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import MusigSigner, {
   RefundRejectionReason,
 } from '../../../../lib/service/cooperative/MusigSigner';
@@ -41,6 +46,7 @@ describe('MusigSigner', () => {
     ['BTC', btcCurrency as Currency],
     [ArkClient.symbol, arkCurrency as unknown as Currency],
   ]);
+  const signerControlRegistry = SignerControlRegistry.getInstance();
 
   const signer = new MusigSigner(
     Logger.disabledLogger,
@@ -48,6 +54,94 @@ describe('MusigSigner', () => {
     {} as unknown as WalletManager,
     {} as unknown as SwapNursery,
   );
+
+  beforeEach(() => {
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
+  });
+
+  describe('signReverseSwapClaim', () => {
+    const preimage = Buffer.alloc(32, 1);
+    const reverseSwap = {
+      id: 'reverse-swap-id',
+      pair: 'BTC/BTC',
+      orderSide: OrderSide.BUY,
+      version: SwapVersion.Taproot,
+      status: SwapUpdateEvent.TransactionMempool,
+      preimageHash: getHexString(crypto.sha256(preimage)),
+    };
+
+    const createSigner = () => {
+      const nursery = {
+        lock: {
+          acquire: jest.fn(async (_lock, callback) => callback()),
+        },
+        settleReverseSwapInvoice: jest.fn().mockResolvedValue(undefined),
+      } as any as SwapNursery;
+
+      return {
+        nursery,
+        signer: new MusigSigner(
+          Logger.disabledLogger,
+          currencies,
+          {} as unknown as WalletManager,
+          nursery,
+        ),
+      };
+    };
+
+    beforeEach(() => {
+      ReverseSwapRepository.getReverseSwap = jest
+        .fn()
+        .mockResolvedValue(reverseSwap);
+      WrappedSwapRepository.setPreimage = jest
+        .fn()
+        .mockResolvedValue(reverseSwap);
+    });
+
+    test('should allow preimage-only settlement when cooperative claims are disabled', async () => {
+      const { nursery, signer } = createSigner();
+
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_REVERSE_CLAIM_COOPERATIVE,
+      ]);
+
+      await expect(
+        signer.signReverseSwapClaim(reverseSwap.id, preimage),
+      ).resolves.toEqual(undefined);
+
+      expect(WrappedSwapRepository.setPreimage).toHaveBeenCalledWith(
+        reverseSwap,
+        preimage,
+      );
+      expect(nursery.settleReverseSwapInvoice).toHaveBeenCalledWith(
+        reverseSwap,
+        preimage,
+      );
+    });
+
+    test('should reject partial signatures when cooperative claims are disabled', async () => {
+      const { signer } = createSigner();
+
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_REVERSE_CLAIM_COOPERATIVE,
+      ]);
+
+      await expect(
+        signer.signReverseSwapClaim(reverseSwap.id, preimage, {
+          theirNonce: Buffer.alloc(66),
+          rawTransaction: Buffer.alloc(0),
+          index: 0,
+        }),
+      ).rejects.toEqual(
+        Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
+          'cooperative signatures are disabled',
+        ),
+      );
+
+      expect(WrappedSwapRepository.setPreimage).not.toHaveBeenCalled();
+    });
+  });
 
   describe('signRefundArk', () => {
     test.each([[null], [undefined]])(
@@ -86,7 +180,9 @@ describe('MusigSigner', () => {
         version: SwapVersion.Taproot,
       });
 
-      signer.setDisableCooperative(true);
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_REFUND_COOPERATIVE,
+      ]);
 
       await expect(
         signer.signRefundArk('asdf', 'transaction', 'checkpoint'),
@@ -95,8 +191,6 @@ describe('MusigSigner', () => {
           'cooperative signatures are disabled',
         ),
       );
-
-      signer.setDisableCooperative(false);
     });
 
     test('should validate eligibility', async () => {

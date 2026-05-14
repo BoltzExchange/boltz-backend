@@ -16,7 +16,9 @@ import ChainSwapRepository from '../../../../lib/db/repositories/ChainSwapReposi
 import CommitmentRepository from '../../../../lib/db/repositories/CommitmentRepository';
 import RefundTransactionRepository from '../../../../lib/db/repositories/RefundTransactionRepository';
 import SwapRepository from '../../../../lib/db/repositories/SwapRepository';
+import { Signer } from '../../../../lib/proto/boltzrpc';
 import Errors from '../../../../lib/service/Errors';
+import SignerControlRegistry from '../../../../lib/service/SignerControlRegistry';
 import EipSigner from '../../../../lib/service/cooperative/EipSigner';
 import { RefundRejectionReason } from '../../../../lib/service/cooperative/MusigSigner';
 import Sidecar from '../../../../lib/sidecar/Sidecar';
@@ -60,6 +62,7 @@ describe('EipSigner', () => {
   let ethereumManager: EthereumManager;
 
   let eipSigner: EipSigner;
+  let signerControlRegistry: SignerControlRegistry;
 
   beforeAll(async () => {
     await startSidecar();
@@ -106,6 +109,8 @@ describe('EipSigner', () => {
       false,
     );
 
+    signerControlRegistry = SignerControlRegistry.getInstance();
+
     eipSigner = new EipSigner(
       Logger.disabledLogger,
       new Map<string, any>([
@@ -134,8 +139,10 @@ describe('EipSigner', () => {
     await Sidecar.stop();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
 
     SwapRepository.getSwap = jest.fn().mockResolvedValue(null);
     SwapRepository.setRefundSignatureCreated = jest.fn();
@@ -210,6 +217,36 @@ describe('EipSigner', () => {
     });
     await expect(eipSigner.signSwapRefund('no signer')).rejects.toEqual(
       'chain currency is not EVM based',
+    );
+  });
+
+  test('should throw when EVM cooperative refunds are disabled', async () => {
+    await signerControlRegistry.disableSigners([
+      Signer.SIGNER_EVM_REFUND_COOPERATIVE,
+    ]);
+
+    await expect(eipSigner.signSwapRefund('disabled')).rejects.toEqual(
+      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        'cooperative signatures are disabled',
+      ),
+    );
+  });
+
+  test('should throw when EVM commitment cooperative refunds are disabled', async () => {
+    await signerControlRegistry.disableSigners([
+      Signer.SIGNER_EVM_COMMITMENT_REFUND_COOPERATIVE,
+    ]);
+
+    await expect(
+      eipSigner.signCommitmentRefund(
+        'RBTC',
+        `0x${randomBytes(32).toString('hex')}`,
+        '0x',
+      ),
+    ).rejects.toEqual(
+      Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_REFUND(
+        'cooperative signatures are disabled',
+      ),
     );
   });
 

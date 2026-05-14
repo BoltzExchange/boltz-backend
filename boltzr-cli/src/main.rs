@@ -146,6 +146,11 @@ enum Commands {
         #[command(subcommand)]
         command: SwapCommands,
     },
+    #[command(about = "Signer control commands")]
+    Signer {
+        #[command(subcommand)]
+        command: SignerCommands,
+    },
     #[command(about = "Rescans the chain of a symbol")]
     Rescan {
         symbol: String,
@@ -166,11 +171,6 @@ enum Commands {
 enum DevCommands {
     #[command(about = "Clears the swap update cache")]
     ClearSwapUpdateCache { id: Option<String> },
-    #[command(about = "Toggles cooperative swap signatures")]
-    ToggleCooperative {
-        #[arg(short, long, default_value_t = false)]
-        disabled: bool,
-    },
     #[command(about = "Dumps the heap of the daemon into a file")]
     HeapDump { path: Option<String> },
     #[command(about = "Sets the log level")]
@@ -455,6 +455,22 @@ enum SwapCommands {
     SetStatus { id: String, status: String },
     #[command(about = "Sweeps all deferred swap claims")]
     Sweep { symbol: Option<String> },
+}
+
+#[derive(Clone, Subcommand)]
+enum SignerCommands {
+    #[command(about = "Disables one or more signer controls")]
+    Disable {
+        #[arg(required = true, num_args = 1.., value_enum)]
+        signers: Vec<parsers::Signer>,
+    },
+    #[command(about = "Enables one or more signer controls")]
+    Enable {
+        #[arg(required = true, num_args = 1.., value_enum)]
+        signers: Vec<parsers::Signer>,
+    },
+    #[command(about = "Lists all disabled signer controls")]
+    ListDisabled {},
 }
 
 #[tokio::main]
@@ -1012,6 +1028,30 @@ async fn run_command(cli: Cli) -> Result<()> {
                 print_pretty(&response.claimed_symbols)?;
             }
         },
+        Commands::Signer { ref command } => match command {
+            SignerCommands::Disable { signers } => {
+                get_grpc_client(&cli)
+                    .await?
+                    .disable_signers(signers.clone())
+                    .await?;
+            }
+            SignerCommands::Enable { signers } => {
+                get_grpc_client(&cli)
+                    .await?
+                    .enable_signers(signers.clone())
+                    .await?;
+            }
+            SignerCommands::ListDisabled {} => {
+                let response = get_grpc_client(&cli).await?.get_disabled_signers().await?;
+                print_pretty(
+                    &response
+                        .disabled_signers
+                        .into_iter()
+                        .map(grpc::signer_name)
+                        .collect::<Vec<String>>(),
+                )?;
+            }
+        },
         Commands::Rescan {
             ref symbol,
             start_height,
@@ -1032,13 +1072,6 @@ async fn run_command(cli: Cli) -> Result<()> {
                 let response = get_grpc_client(&cli)
                     .await?
                     .dev_clear_swap_update_cache(id.clone())
-                    .await?;
-                print_pretty(&response)?;
-            }
-            DevCommands::ToggleCooperative { disabled } => {
-                let response = get_grpc_client(&cli)
-                    .await?
-                    .dev_disable_cooperative(*disabled)
                     .await?;
                 print_pretty(&response)?;
             }

@@ -72,6 +72,11 @@ const mockGetPairs = jest.fn().mockResolvedValue([]);
 const mockAddPair = jest.fn().mockReturnValue(Promise.resolve());
 
 jest.mock('../../../lib/db/repositories/PairRepository');
+jest.mock('../../../lib/db/repositories/DisabledSignerRepository', () => ({
+  getDisabledSigners: jest.fn().mockResolvedValue([]),
+  addSigners: jest.fn().mockResolvedValue(undefined),
+  removeSigners: jest.fn().mockResolvedValue(undefined),
+}));
 
 let mockGetSwapResult: any = undefined;
 const mockGetSwap = jest.fn().mockImplementation(async () => {

@@ -21,6 +21,9 @@ import type Swap from '../db/models/Swap';
 import RefundTransactionRepository from '../db/repositories/RefundTransactionRepository';
 import ReverseSwapRepository from '../db/repositories/ReverseSwapRepository';
 import SwapRepository from '../db/repositories/SwapRepository';
+import { Signer } from '../proto/boltzrpc';
+import SignerControlRegistry from '../service/SignerControlRegistry';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
 import LightningNursery from '../swap/LightningNursery';
 import NodeSwitch from '../swap/NodeSwitch';
@@ -103,6 +106,16 @@ class SelfPaymentClient
         );
 
         if (reverseSwap.status === SwapUpdateEvent.SwapCreated) {
+          if (
+            SignerControlRegistry.getInstance().isDisabled(
+              Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+            )
+          ) {
+            throw new Error(
+              disabledSignerMessage(Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT),
+            );
+          }
+
           // Only check the CLTV limit on the first attempt
           if (cltvLimit <= decoded.minFinalCltv) {
             throw new Error('CLTV limit too small');

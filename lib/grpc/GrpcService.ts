@@ -1,3 +1,4 @@
+import { status } from '@grpc/grpc-js';
 import type { ServerDuplexStream, handleUnaryCall } from '@grpc/grpc-js';
 import type { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import process from 'process';
@@ -7,6 +8,7 @@ import type Logger from '../Logger';
 import { LogLevel as BackendLevel } from '../Logger';
 import { wait } from '../PromiseUtils';
 import {
+  formatError,
   fromOptionalProtoInt,
   fromProtoInt,
   getHexBuffer,
@@ -30,9 +32,13 @@ import TransactionLabelRepository from '../db/repositories/TransactionLabelRepos
 import type * as boltzrpc from '../proto/boltzrpc';
 import { LogLevel } from '../proto/boltzrpc';
 import type Service from '../service/Service';
+import SignerControlRegistry from '../service/SignerControlRegistry';
+import { isValidSigner } from '../service/SignerControlUtils';
 import Sidecar from '../sidecar/Sidecar';
 
 class GrpcService {
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
+
   constructor(
     private readonly logger: Logger,
     private readonly service: Service,
@@ -215,6 +221,43 @@ class GrpcService {
       await this.service.allowRefund(id);
 
       return {};
+    });
+  };
+
+  public disableSigners: handleUnaryCall<
+    boltzrpc.DisableSignersRequest,
+    boltzrpc.DisableSignersResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { signers } = call.request;
+      GrpcService.assertValidSigners(signers);
+
+      await this.signerControlRegistry.disableSigners(signers);
+      return {};
+    });
+  };
+
+  public enableSigners: handleUnaryCall<
+    boltzrpc.EnableSignersRequest,
+    boltzrpc.EnableSignersResponse
+  > = async (call, callback) => {
+    await GrpcService.handleCallback(call, callback, async () => {
+      const { signers } = call.request;
+      GrpcService.assertValidSigners(signers);
+
+      await this.signerControlRegistry.enableSigners(signers);
+      return {};
+    });
+  };
+
+  public getDisabledSigners: handleUnaryCall<
+    boltzrpc.GetDisabledSignersRequest,
+    boltzrpc.GetDisabledSignersResponse
+  > = async (_call, callback) => {
+    await GrpcService.handleCallback(_call, callback, async () => {
+      return {
+        disabledSigners: this.signerControlRegistry.getDisabledSigners(),
+      };
     });
   };
 
@@ -633,26 +676,27 @@ class GrpcService {
     });
   };
 
-  public devDisableCooperative: handleUnaryCall<
-    boltzrpc.DevDisableCooperativeRequest,
-    boltzrpc.DevDisableCooperativeResponse
-  > = async (call, callback) => {
-    await GrpcService.handleCallback(call, callback, async () => {
-      const { disabled } = call.request;
-      this.logger.warn(
-        `${disabled ? 'Dis' : 'En'}abling cooperative swap signatures`,
+  private static invalidArgument = (error: unknown) => {
+    const message = formatError(error);
+    return {
+      code: status.INVALID_ARGUMENT,
+      details: message,
+      message,
+    };
+  };
+
+  private static assertValidSigners = (signers: boltzrpc.Signer[]) => {
+    if (signers.length === 0) {
+      throw GrpcService.invalidArgument(
+        'at least one signer must be specified',
       );
+    }
 
-      for (const signer of [
-        this.service.musigSigner,
-        this.service.swapManager.chainSwapSigner,
-        this.service.swapManager.deferredClaimer,
-      ]) {
-        signer.setDisableCooperative(disabled);
+    for (const signer of signers) {
+      if (!isValidSigner(signer)) {
+        throw GrpcService.invalidArgument(`invalid signer: ${signer}`);
       }
-
-      return {};
-    });
+    }
   };
 
   private static handleCallback = async <R, T>(

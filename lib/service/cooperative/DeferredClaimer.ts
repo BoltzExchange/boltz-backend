@@ -26,6 +26,7 @@ import type { ChainSwapInfo } from '../../db/repositories/ChainSwapRepository';
 import ChainSwapRepository from '../../db/repositories/ChainSwapRepository';
 import CommitmentRepository from '../../db/repositories/CommitmentRepository';
 import SwapRepository from '../../db/repositories/SwapRepository';
+import { Signer } from '../../proto/boltzrpc';
 import type RateProvider from '../../rates/RateProvider';
 import type Sidecar from '../../sidecar/Sidecar';
 import type SwapOutputType from '../../swap/SwapOutputType';
@@ -37,6 +38,7 @@ import {
 } from '../../wallet/ethereum/contracts/ContractUtils';
 import type ERC20WalletProvider from '../../wallet/providers/ERC20WalletProvider';
 import Errors from '../Errors';
+import SignerControlRegistry from '../SignerControlRegistry';
 import type { SwapToClaim } from './CoopSignerBase';
 import CoopSignerBase, {
   cooperativeSignaturesDisabledMessage,
@@ -78,9 +80,8 @@ class DeferredClaimer extends CoopSignerBase<{
     string,
     Map<string, ChainSwapToClaimPreimage>
   >();
+  private readonly signerControlRegistry = SignerControlRegistry.getInstance();
   private readonly sweepTriggers: SweepTrigger[];
-
-  private disableCooperative = false;
 
   constructor(
     logger: Logger,
@@ -124,10 +125,6 @@ class DeferredClaimer extends CoopSignerBase<{
         },
       ),
     ];
-  }
-
-  public setDisableCooperative(disabled: boolean) {
-    this.disableCooperative = disabled;
   }
 
   public init = async () => {
@@ -296,7 +293,11 @@ class DeferredClaimer extends CoopSignerBase<{
     publicKey: Buffer;
     transactionHash: Buffer;
   }> => {
-    if (this.disableCooperative) {
+    if (
+      this.signerControlRegistry.isDisabled(
+        Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
+      )
+    ) {
       throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
         cooperativeSignaturesDisabledMessage,
       );
@@ -327,7 +328,11 @@ class DeferredClaimer extends CoopSignerBase<{
     theirPartialSignature: Buffer,
   ) => {
     await this.lock.acquire(DeferredClaimer.batchClaimLock, async () => {
-      if (this.disableCooperative) {
+      if (
+        this.signerControlRegistry.isDisabled(
+          Signer.SIGNER_DEFERRED_CLAIM_COOPERATIVE,
+        )
+      ) {
         throw Errors.NOT_ELIGIBLE_FOR_COOPERATIVE_CLAIM(
           cooperativeSignaturesDisabledMessage,
         );

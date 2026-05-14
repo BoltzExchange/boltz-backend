@@ -1,0 +1,4 @@
+CREATE TABLE disabled_signers (
+  signer TEXT PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

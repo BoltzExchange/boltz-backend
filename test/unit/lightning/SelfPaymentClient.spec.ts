@@ -19,6 +19,8 @@ import {
 } from '../../../lib/lightning/LightningClient';
 import PendingPaymentTracker from '../../../lib/lightning/PendingPaymentTracker';
 import SelfPaymentClient from '../../../lib/lightning/SelfPaymentClient';
+import { Signer } from '../../../lib/proto/boltzrpc';
+import SignerControlRegistry from '../../../lib/service/SignerControlRegistry';
 import LightningNursery from '../../../lib/swap/LightningNursery';
 import type SwapNursery from '../../../lib/swap/SwapNursery';
 
@@ -34,9 +36,12 @@ describe('SelfPaymentClient', () => {
 
   let nursery: SwapNursery;
   let client: SelfPaymentClient;
+  const signerControlRegistry = SignerControlRegistry.getInstance();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (signerControlRegistry as any)['disabledSigners'].clear();
+    (signerControlRegistry as any)['repository'] = undefined;
     nursery = {
       on: jest.fn(),
       removeListener: jest.fn(),
@@ -96,9 +101,67 @@ describe('SelfPaymentClient', () => {
       expect(getReverseSwapSpy).not.toHaveBeenCalled();
     });
 
-    test.each([[null], [undefined]])(
-      'should return isSelf: false when reverse swap is %s',
-      async (reverseSwapValue) => {
+    test('should block synthetic self lockup when signer is disabled', async () => {
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.SwapCreated,
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+      const emitSpy = jest.spyOn(client, 'emit');
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ]);
+
+      await expect(
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+      ).rejects.toThrow('signer SIGNER_SUBMARINE_INVOICE_PAYMENT is disabled');
+
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+    });
+
+    test('should allow in-progress self payment when signer is disabled', async () => {
+      const mockReverseSwap = {
+        id: 'rev',
+        preimageHash,
+        invoice: mockSwap.invoice,
+        status: SwapUpdateEvent.InvoiceSettled,
+      };
+
+      client['getReverseSwap'] = jest.fn().mockResolvedValue(mockReverseSwap);
+      const emitSpy = jest.spyOn(client, 'emit');
+      await signerControlRegistry.disableSigners([
+        Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+      ]);
+
+      await expect(
+        client.handleSelfPayment(mockSwap as any, mockDecoded as any, 100, []),
+      ).resolves.toEqual({
+        isSelf: true,
+        result: undefined,
+      });
+
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(LightningNursery.cancelReverseInvoices).not.toHaveBeenCalled();
+    });
+
+    test.each`
+      reverseSwapValue | signerDisabled
+      ${null}          | ${false}
+      ${undefined}     | ${false}
+      ${null}          | ${true}
+      ${undefined}     | ${true}
+    `(
+      'should return isSelf: false when reverse swap is $reverseSwapValue (signer disabled: $signerDisabled)',
+      async ({ reverseSwapValue, signerDisabled }) => {
+        if (signerDisabled) {
+          await signerControlRegistry.disableSigners([
+            Signer.SIGNER_SUBMARINE_INVOICE_PAYMENT,
+          ]);
+        }
         client['getReverseSwap'] = jest
           .fn()
           .mockResolvedValue(reverseSwapValue);

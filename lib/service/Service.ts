@@ -109,6 +109,7 @@ import Errors from './Errors';
 import EventHandler from './EventHandler';
 import NodeInfo from './NodeInfo';
 import PaymentRequestUtils from './PaymentRequestUtils';
+import SignerControlRegistry from './SignerControlRegistry';
 import TimeoutDeltaProvider from './TimeoutDeltaProvider';
 import TransactionFetcher from './TransactionFetcher';
 import { calculateTimeoutDate, getCurrency } from './Utils';
@@ -234,6 +235,7 @@ class Service {
     );
 
     this.balanceCheck = new BalanceCheck(this.logger, this.walletManager);
+    SignerControlRegistry.getInstance().init(this.logger);
     this.swapManager = new SwapManager(
       this.logger,
       notifications,
@@ -281,6 +283,8 @@ class Service {
   }
 
   public init = async (configPairs: PairConfig[]): Promise<void> => {
+    await SignerControlRegistry.getInstance().load();
+
     const dbPairSet = new Set<string>();
     const dbPairs = await PairRepository.getPairs();
 

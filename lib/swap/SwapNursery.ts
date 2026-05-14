@@ -63,9 +63,12 @@ import type { LightningClient } from '../lightning/LightningClient';
 import { HtlcState, InvoiceState } from '../lightning/LightningClient';
 import PendingPaymentTracker from '../lightning/PendingPaymentTracker';
 import type NotificationClient from '../notifications/NotificationClient';
+import { Signer } from '../proto/boltzrpc';
 import FeeProvider from '../rates/FeeProvider';
 import type LockupTransactionTracker from '../rates/LockupTransactionTracker';
 import type RateProvider from '../rates/RateProvider';
+import SignerControlRegistry from '../service/SignerControlRegistry';
+import { disabledSignerMessage } from '../service/SignerControlUtils';
 import type TimeoutDeltaProvider from '../service/TimeoutDeltaProvider';
 import type ChainSwapSigner from '../service/cooperative/ChainSwapSigner';
 import type DeferredClaimer from '../service/cooperative/DeferredClaimer';
@@ -1070,7 +1073,6 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       case CurrencyType.BitcoinLike:
       case CurrencyType.Liquid:
         await this.lockupUtxo(swap, sendingCurrency.chainClient!, wallet);
-        await this.chainSwapSigner.registerForClaim(swap);
         break;
 
       case CurrencyType.Ether:
@@ -1362,6 +1364,19 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     }
   };
 
+  private assertLockupSignerEnabled = (swap: ReverseSwap | ChainSwapInfo) => {
+    const signer =
+      swap.type === SwapType.ReverseSubmarine
+        ? Signer.SIGNER_REVERSE_LOCKUP
+        : Signer.SIGNER_CHAIN_LOCKUP;
+
+    if (SignerControlRegistry.getInstance().isDisabled(signer)) {
+      throw new Error(
+        `${disabledSignerMessage(signer)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
+    }
+  };
+
   private lockupUtxo = async (
     swap: ReverseSwap | ChainSwapInfo,
     chainClient: IChainClient,
@@ -1369,6 +1384,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     lightningClient?: LightningClient,
   ) => {
     try {
+      this.assertLockupSignerEnabled(swap);
+
       let feePerVbyte: number;
 
       if (
@@ -1433,6 +1450,11 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         error,
         lightningClient,
       );
+      return;
+    }
+
+    if (swap.type === SwapType.Chain) {
+      await this.chainSwapSigner.registerForClaim(swap as ChainSwapInfo);
     }
   };
 
@@ -1442,6 +1464,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     lightningClient?: LightningClient,
   ) => {
     try {
+      this.assertLockupSignerEnabled(swap);
+
       const lockupAddress =
         swap.type === SwapType.ReverseSubmarine
           ? (swap as ReverseSwap).lockupAddress
@@ -1490,6 +1514,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     lightningClient?: LightningClient,
   ) => {
     try {
+      this.assertLockupSignerEnabled(swap);
+
       const nursery = this.findEthereumNursery(wallet.symbol)!;
       const lockupDetails =
         swap.type === SwapType.ReverseSubmarine
@@ -1558,6 +1584,8 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     lightningClient?: LightningClient,
   ) => {
     try {
+      this.assertLockupSignerEnabled(swap);
+
       const nursery = this.findEthereumNursery(wallet.symbol)!;
       const walletProvider = wallet.walletProvider as ERC20WalletProvider;
 

@@ -420,7 +420,11 @@ class Boltz {
         }
       }
 
-      rescanPromises.push(this.sidecar.rescanChains());
+      rescanPromises.push(
+        this.sidecar.rescanChains().catch((error) => {
+          this.logger.warn(`Chain rescan failed: ${formatError(error)}`);
+        }),
+      );
 
       Array.from(this.currencies.values()).forEach((currency) => {
         if (currency.arkNode) {

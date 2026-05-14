@@ -1371,7 +1371,9 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
         : Signer.SIGNER_CHAIN_LOCKUP;
 
     if (SignerControlRegistry.getInstance().isDisabled(signer)) {
-      throw new Error(disabledSignerMessage(signer));
+      throw new Error(
+        `${disabledSignerMessage(signer)} for ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}`,
+      );
     }
   };
 

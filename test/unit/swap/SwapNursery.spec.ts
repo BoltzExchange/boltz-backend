@@ -295,7 +295,9 @@ describe('SwapNursery', () => {
         );
         expect(
           (handleSwapSendFailedSpy.mock.calls[0][2] as Error).message,
-        ).toEqual('signer SIGNER_CHAIN_LOCKUP is disabled');
+        ).toEqual(
+          'signer SIGNER_CHAIN_LOCKUP is disabled for Chain Swap chain-swap-id',
+        );
       },
     );
 

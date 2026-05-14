@@ -127,30 +127,37 @@ impl WsZeroConfTool {
                 return;
             }
 
-            let connect = async_tungstenite::tokio::connect_async(self.endpoint.as_str());
+            let connect = tokio::time::timeout(
+                reconnect_delay,
+                async_tungstenite::tokio::connect_async(self.endpoint.as_str()),
+            );
             tokio::pin!(connect);
 
             let stream = loop {
                 tokio::select! {
-                    r = &mut connect => match r {
-                        Ok((stream, _resp)) => break stream,
-                        Err(e) => {
-                            error!(
+                    r = &mut connect => {
+                        match r {
+                            Ok(Ok((stream, _resp))) => break stream,
+                            Ok(Err(e)) => error!(
                                 "{} 0-conf WS connect to {} failed: {}",
                                 self.symbol, self.endpoint, e
-                            );
-                            if !self
-                                .sleep_with_deadline_expiry(
-                                    &cancellation_token,
-                                    reconnect_delay,
-                                    &mut deadline_ticker,
-                                )
-                                .await
-                            {
-                                return;
-                            }
-                            continue 'worker;
+                            ),
+                            Err(_) => error!(
+                                "{} 0-conf WS connect to {} timed out after {:?}",
+                                self.symbol, self.endpoint, reconnect_delay
+                            ),
                         }
+                        if !self
+                            .sleep_with_deadline_expiry(
+                                &cancellation_token,
+                                reconnect_delay,
+                                &mut deadline_ticker,
+                            )
+                            .await
+                        {
+                            return;
+                        }
+                        continue 'worker;
                     },
                     _ = deadline_ticker.tick() => {
                         let _ = self.expire_deadlines();
@@ -950,6 +957,53 @@ mod test {
 
         assert!(rx.await.unwrap());
         cancel.cancel();
+    }
+
+    #[tokio::test]
+    async fn test_connect_timeout_drives_reconnect() {
+        tokio::time::pause();
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("ws://{}", listener.local_addr().unwrap());
+
+        let (conn_tx, mut conn_rx) = mpsc::unbounded_channel::<()>();
+        let server_cancel = CancellationToken::new();
+        let server_cancel_inner = server_cancel.clone();
+        tokio::spawn(async move {
+            let mut held = Vec::new();
+            loop {
+                tokio::select! {
+                    r = listener.accept() => match r {
+                        Ok((stream, _)) => {
+                            let _ = conn_tx.send(());
+                            held.push(stream);
+                        }
+                        Err(_) => return,
+                    },
+                    _ = server_cancel_inner.cancelled() => return,
+                }
+            }
+        });
+
+        let cancel = CancellationToken::new();
+        let _tool = make_tool(
+            cancel.clone(),
+            endpoint,
+            Some(60),
+            Duration::from_millis(200),
+        );
+
+        conn_rx.recv().await.expect("first TCP connect");
+
+        tokio::time::advance(Duration::from_millis(500)).await;
+
+        conn_rx
+            .recv()
+            .await
+            .expect("second TCP connect after timeout");
+
+        cancel.cancel();
+        server_cancel.cancel();
     }
 
     #[tokio::test]

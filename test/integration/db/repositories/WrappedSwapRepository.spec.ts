@@ -143,6 +143,56 @@ describe('WrappedSwapRepository', () => {
     });
   });
 
+  describe('setLockupConfirmed', () => {
+    test.each`
+      type         | current                                     | confirmed
+      ${'reverse'} | ${SwapUpdateEvent.TransactionMempool}       | ${SwapUpdateEvent.TransactionConfirmed}
+      ${'chain'}   | ${SwapUpdateEvent.TransactionServerMempool} | ${SwapUpdateEvent.TransactionServerConfirmed}
+    `(
+      'should set $type swap status when current status matches',
+      async ({ type, current, confirmed }) => {
+        const swap =
+          type === 'reverse'
+            ? await createReverseSwap(current)
+            : (await ChainSwapRepository.getChainSwap({
+                id: (await createChainSwap(current)).chainSwap.id,
+              }))!;
+
+        const updated = await WrappedSwapRepository.setLockupConfirmed(swap);
+
+        expect(updated).not.toBeUndefined();
+        expect(updated!.status).toEqual(confirmed);
+      },
+    );
+
+    test.each`
+      type         | current
+      ${'reverse'} | ${SwapUpdateEvent.InvoiceSettled}
+      ${'chain'}   | ${SwapUpdateEvent.TransactionClaimed}
+    `(
+      'should not set $type swap status when current status does not match',
+      async ({ type, current }) => {
+        const swap =
+          type === 'reverse'
+            ? await createReverseSwap(current)
+            : (await ChainSwapRepository.getChainSwap({
+                id: (await createChainSwap(current)).chainSwap.id,
+              }))!;
+
+        const updated = await WrappedSwapRepository.setLockupConfirmed(swap);
+
+        expect(updated).toBeUndefined();
+        expect(
+          type === 'reverse'
+            ? (await (swap as ReverseSwap).reload()).status
+            : (await ChainSwapRepository.getChainSwap({
+                id: swap.id,
+              }))!.status,
+        ).toEqual(current);
+      },
+    );
+  });
+
   describe('setServerLockupTransaction', () => {
     test('should set server lockup transaction for reverse swaps', async () => {
       const swap = await createReverseSwap();

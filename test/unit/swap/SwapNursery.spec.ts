@@ -1194,6 +1194,85 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('server.lockup.confirmed', () => {
+    test('should confirm reverse swap server lockups only from mempool status', async () => {
+      const baseMockReverseSwap = {
+        id: 'test-reverse-swap-id',
+        type: SwapType.ReverseSubmarine,
+        status: SwapUpdateEvent.TransactionMempool,
+      } as ReverseSwap;
+      const updatedReverseSwap = {
+        ...baseMockReverseSwap,
+        status: SwapUpdateEvent.TransactionConfirmed,
+      } as ReverseSwap;
+      const mockTransaction = {};
+
+      (ReverseSwapRepository.getReverseSwap as jest.Mock).mockResolvedValue(
+        baseMockReverseSwap,
+      );
+      (WrappedSwapRepository.setLockupConfirmed as jest.Mock).mockResolvedValue(
+        updatedReverseSwap,
+      );
+
+      await swapNursery.init([mockCurrency]);
+      jest.spyOn(swapNursery, 'emit');
+
+      (swapNursery as any).utxoNursery.emit('server.lockup.confirmed', {
+        swap: baseMockReverseSwap,
+        transaction: mockTransaction,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ReverseSwapRepository.getReverseSwap).toHaveBeenCalledWith({
+        id: baseMockReverseSwap.id,
+      });
+      expect(WrappedSwapRepository.setLockupConfirmed).toHaveBeenCalledWith(
+        baseMockReverseSwap,
+      );
+      expect(swapNursery.emit).toHaveBeenCalledWith('transaction', {
+        confirmed: true,
+        transaction: mockTransaction,
+        swap: updatedReverseSwap,
+      });
+    });
+
+    test('should not emit when confirming a chain server lockup loses the status race', async () => {
+      const baseMockChainSwap = {
+        id: 'test-chain-swap-id',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionServerMempool,
+      } as unknown as ChainSwapInfo;
+      const mockTransaction = {};
+
+      mockGetChainSwapResult = baseMockChainSwap;
+      (WrappedSwapRepository.setLockupConfirmed as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      await swapNursery.init([mockCurrency]);
+      jest.spyOn(swapNursery, 'emit');
+
+      (swapNursery as any).utxoNursery.emit('server.lockup.confirmed', {
+        swap: baseMockChainSwap,
+        transaction: mockTransaction,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: baseMockChainSwap.id,
+      });
+      expect(WrappedSwapRepository.setLockupConfirmed).toHaveBeenCalledWith(
+        baseMockChainSwap,
+      );
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('claimVtxo', () => {
     const mockArkClient = {
       claimVHtlc: jest.fn().mockResolvedValue('ark-claim-tx'),

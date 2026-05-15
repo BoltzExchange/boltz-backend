@@ -451,15 +451,20 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             return;
           }
 
+          const updatedSwap =
+            await WrappedSwapRepository.setLockupConfirmed(swap);
+
+          if (updatedSwap === undefined) {
+            this.logger.debug(
+              `Not acting on confirmed server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it is no longer in mempool status`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             confirmed: true,
             transaction: data.transaction,
-            swap: await WrappedSwapRepository.setStatus(
-              swap,
-              swap.type === SwapType.ReverseSubmarine
-                ? SwapUpdateEvent.TransactionConfirmed
-                : SwapUpdateEvent.TransactionServerConfirmed,
-            ),
+            swap: updatedSwap,
           });
         },
       );

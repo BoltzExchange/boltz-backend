@@ -1,8 +1,9 @@
 import { getHexString } from '../../Utils';
 import { SwapType, SwapUpdateEvent } from '../../consts/Enums';
 import Database from '../Database';
-import type ReverseSwap from '../models/ReverseSwap';
-import type { ChainSwapInfo } from './ChainSwapRepository';
+import ChainSwap from '../models/ChainSwap';
+import ReverseSwap from '../models/ReverseSwap';
+import ChainSwapRepository, { type ChainSwapInfo } from './ChainSwapRepository';
 
 class WrappedSwapRepository {
   public static setStatus = async <T extends ReverseSwap | ChainSwapInfo>(
@@ -22,6 +23,57 @@ class WrappedSwapRepository {
         failureReason: swap.failureReason || failureReason,
       });
       return chainSwap as T;
+    }
+  };
+
+  public static setLockupConfirmed = async <
+    T extends ReverseSwap | ChainSwapInfo,
+  >(
+    swap: T,
+  ): Promise<T | undefined> => {
+    if (swap.type === SwapType.ReverseSubmarine) {
+      const [updatedRows] = await ReverseSwap.update(
+        {
+          status: SwapUpdateEvent.TransactionConfirmed,
+        },
+        {
+          where: {
+            id: swap.id,
+            status: SwapUpdateEvent.TransactionMempool,
+          },
+        },
+      );
+
+      if (updatedRows === 0) {
+        return undefined;
+      }
+
+      return (await ReverseSwap.findOne({
+        where: {
+          id: swap.id,
+        },
+      })) as T;
+    } else {
+      const chainSwap = swap as ChainSwapInfo;
+      const [updatedRows] = await ChainSwap.update(
+        {
+          status: SwapUpdateEvent.TransactionServerConfirmed,
+        },
+        {
+          where: {
+            id: chainSwap.id,
+            status: SwapUpdateEvent.TransactionServerMempool,
+          },
+        },
+      );
+
+      if (updatedRows === 0) {
+        return undefined;
+      }
+
+      return (await ChainSwapRepository.getChainSwap({
+        id: chainSwap.id,
+      })) as T;
     }
   };
 

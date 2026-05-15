@@ -451,6 +451,17 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
             return;
           }
 
+          if (
+            swap.type === SwapType.Chain &&
+            (swap as ChainSwapInfo).preimage !== null &&
+            (swap as ChainSwapInfo).preimage !== undefined
+          ) {
+            this.logger.debug(
+              `Not acting on confirmed server lockup transaction of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} because it is being claimed already`,
+            );
+            return;
+          }
+
           this.emit('transaction', {
             confirmed: true,
             transaction: data.transaction,

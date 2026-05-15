@@ -1194,6 +1194,38 @@ describe('SwapNursery', () => {
     });
   });
 
+  describe('server.lockup.confirmed', () => {
+    test('should not emit when a chain swap is already being claimed', async () => {
+      const chainSwap = {
+        id: 'test-chain-swap-id',
+        type: SwapType.Chain,
+        status: SwapUpdateEvent.TransactionServerMempool,
+        preimage: '00'.repeat(32),
+      } as unknown as ChainSwapInfo;
+
+      mockGetChainSwapResult = chainSwap;
+
+      await swapNursery.init([mockCurrency]);
+      jest.spyOn(swapNursery, 'emit');
+
+      (swapNursery as any).utxoNursery.emit('server.lockup.confirmed', {
+        swap: chainSwap,
+        transaction: {},
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(ChainSwapRepository.getChainSwap).toHaveBeenCalledWith({
+        id: chainSwap.id,
+      });
+      expect(WrappedSwapRepository.setStatus).not.toHaveBeenCalled();
+      expect(swapNursery.emit).not.toHaveBeenCalledWith(
+        'transaction',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('claimVtxo', () => {
     const mockArkClient = {
       claimVHtlc: jest.fn().mockResolvedValue('ark-claim-tx'),

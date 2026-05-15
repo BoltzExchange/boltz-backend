@@ -1,9 +1,10 @@
 use crate::chain::elements::ZeroConfCheck;
+use crate::chain::elements::zero_conf_tool::config::ZeroConfToolConfig;
+use crate::chain::elements::zero_conf_tool::shared::{Decision, ZeroConfResponse, evaluate};
 use crate::chain::utils::Transaction;
 use anyhow::Result;
 use dashmap::DashMap;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::oneshot;
@@ -15,29 +16,6 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_MAX_RETRIES: u64 = 60;
 const DEFAULT_RETRY_DELAY: u64 = 100;
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-pub struct ZeroConfToolConfig {
-    pub endpoint: String,
-    pub interval: Option<u64>,
-    pub max_retries: Option<u64>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-struct ZeroConfResponse {
-    observations: Option<Observations>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Default)]
-struct Observations {
-    bridge: Option<BridgeData>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Default)]
-struct BridgeData {
-    seen: u64,
-    total: u64,
-}
-
 #[derive(Default, Debug)]
 struct TxState {
     retries: u64,
@@ -45,7 +23,7 @@ struct TxState {
 }
 
 #[derive(Clone)]
-pub struct ZeroConfTool {
+pub struct HttpZeroConfTool {
     symbol: String,
     endpoint: String,
     max_retries: u64,
@@ -56,13 +34,13 @@ pub struct ZeroConfTool {
     client: reqwest::Client,
 }
 
-impl ZeroConfTool {
+impl HttpZeroConfTool {
     pub fn new(
         cancellation_token: CancellationToken,
         symbol: String,
         config: ZeroConfToolConfig,
     ) -> Self {
-        let tool = ZeroConfTool {
+        let tool = HttpZeroConfTool {
             symbol,
             client: Client::new(),
             endpoint: config.endpoint,
@@ -120,13 +98,7 @@ impl ZeroConfTool {
                 .json::<ZeroConfResponse>()
                 .await?;
 
-            let bridge = data
-                .observations
-                .unwrap_or_default()
-                .bridge
-                .unwrap_or_default();
-
-            if bridge.seen > 0 && bridge.seen == bridge.total {
+            if evaluate(data.observations) == Decision::Accept {
                 let value = entry.value_mut();
                 for sender in value.senders.drain(..) {
                     let _ = sender.send(true);
@@ -182,7 +154,7 @@ impl ZeroConfTool {
     }
 }
 
-impl ZeroConfCheck for ZeroConfTool {
+impl ZeroConfCheck for HttpZeroConfTool {
     fn check_transaction(&self, transaction: &Transaction) -> oneshot::Receiver<bool> {
         let tx_id = transaction.txid_hex();
         let (tx, rx) = oneshot::channel();
@@ -197,6 +169,7 @@ impl ZeroConfCheck for ZeroConfTool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::chain::elements::zero_conf_tool::shared::{BridgeData, Observations};
     use crate::chain::types::Type;
     use crate::chain::utils::Transaction;
     use rstest::rstest;
@@ -211,10 +184,11 @@ mod test {
             endpoint: "https://example.com".to_string(),
             interval: None,
             max_retries: None,
+            deadline_secs: None,
         };
 
         let cancel = CancellationToken::new();
-        let tool = ZeroConfTool::new(cancel.clone(), "BTC".to_string(), config);
+        let tool = HttpZeroConfTool::new(cancel.clone(), "BTC".to_string(), config);
         assert_eq!(tool.max_retries, DEFAULT_MAX_RETRIES);
         assert_eq!(tool.retry_delay, DEFAULT_RETRY_DELAY);
 
@@ -237,13 +211,14 @@ mod test {
             .await;
 
         let cancel = CancellationToken::new();
-        let tool = ZeroConfTool::new(
+        let tool = HttpZeroConfTool::new(
             cancel.clone(),
             "BTC".to_string(),
             ZeroConfToolConfig {
                 endpoint: mock_server.uri(),
                 interval: None,
                 max_retries: None,
+                deadline_secs: None,
             },
         );
 
@@ -276,13 +251,14 @@ mod test {
             .await;
 
         let cancel = CancellationToken::new();
-        let tool = ZeroConfTool::new(
+        let tool = HttpZeroConfTool::new(
             cancel.clone(),
             "BTC".to_string(),
             ZeroConfToolConfig {
                 endpoint: mock_server.uri(),
                 interval: Some(50),
                 max_retries: Some(3),
+                deadline_secs: None,
             },
         );
 

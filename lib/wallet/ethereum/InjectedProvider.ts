@@ -20,15 +20,20 @@ import { JsonRpcProvider, Transaction } from 'ethers';
 import type { EthereumConfig, ProviderConfig } from '../../Config';
 import { shutdownSignal } from '../../ExitHandler';
 import type Logger from '../../Logger';
+import { racePromise, sleep } from '../../PromiseUtils';
 import Tracing from '../../Tracing';
 import { formatError } from '../../Utils';
 import PendingEthereumTransactionRepository from '../../db/repositories/PendingEthereumTransactionRepository';
 import Errors from './Errors';
+import { isNonceConflictError } from './EthereumUtils';
 import type { NetworkDetails } from './EvmNetworks';
 import WebSocketProvider, { type BlockEvent } from './WebSocketProvider';
 
 const bigIntReplacer = (_key: string, value: any) =>
   typeof value === 'bigint' ? { $bigint: value.toString() } : value;
+
+const broadcastRecoveryDelays = [250, 750, 1_500, 3_000, 5_000, 8_000, 11_500];
+const broadcastTransactionLookupTimeout = 5_000;
 
 /**
  * This provider is a wrapper for the Provider of ethers, but it writes sent transactions to the database
@@ -312,11 +317,67 @@ class InjectedProvider implements Provider {
       return results[0];
     }
 
-    const error = (settled[0] as PromiseRejectedResult).reason;
+    const rejections = settled as PromiseRejectedResult[];
+    const nonceConflict = rejections.find((r) =>
+      isNonceConflictError(r.reason),
+    );
+
+    // Arbitrum (and any RPC fanout) can return "nonce too low" / "already known"
+    // for a transaction that the sequencer has already accepted. Before treating
+    // the broadcast as failed, check whether this exact signed tx is on chain.
+    if (nonceConflict !== undefined) {
+      const onchain = await this.lookupBroadcastedTransactionWithRetry(
+        tx.hash!,
+      );
+      if (onchain !== null) {
+        this.logger.warn(
+          `Broadcast of ${this.networkDetails.name} transaction ${tx.hash} returned a nonce conflict but the transaction is on the chain; treating as success`,
+        );
+        return onchain;
+      }
+    }
+
+    const error = (nonceConflict ?? rejections[0]).reason;
     this.logger.error(
       `Failed to broadcast ${this.networkDetails.name} transaction ${tx.hash}: ${formatError(error)}`,
     );
     throw error;
+  };
+
+  private lookupBroadcastedTransactionWithRetry = async (
+    hash: string,
+  ): Promise<TransactionResponse | null> => {
+    let transaction = await this.lookupBroadcastedTransaction(hash);
+    for (const delay of broadcastRecoveryDelays) {
+      if (transaction !== null) {
+        return transaction;
+      }
+
+      await sleep(delay);
+      transaction = await this.lookupBroadcastedTransaction(hash);
+    }
+
+    return transaction;
+  };
+
+  private lookupBroadcastedTransaction = async (
+    hash: string,
+  ): Promise<TransactionResponse | null> => {
+    const lookups = Array.from(this.providers.values()).map((provider) =>
+      racePromise(
+        provider.getTransaction(hash),
+        (reject) =>
+          reject(new Error(`timed out looking up broadcasted tx ${hash}`)),
+        broadcastTransactionLookupTimeout,
+      ),
+    );
+    const settled = await Promise.allSettled(lookups);
+    for (const res of settled) {
+      if (res.status === 'fulfilled' && res.value !== null) {
+        return res.value;
+      }
+    }
+    return null;
   };
 
   public sendTransaction = async (

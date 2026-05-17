@@ -1,3 +1,4 @@
+import { Wallet } from 'ethers';
 import EventEmitter from 'events';
 import Logger from '../../../../lib/Logger';
 import Errors from '../../../../lib/wallet/ethereum/Errors';
@@ -407,6 +408,259 @@ describe('InjectedProvider', () => {
 
       jest.useRealTimers();
       await provider.destroy();
+    });
+  });
+
+  describe('broadcastTransaction', () => {
+    type BroadcastMock = {
+      broadcastTransaction: jest.Mock;
+      getTransaction: jest.Mock;
+      destroy: jest.Mock;
+    };
+
+    const buildBroadcastProvider = (
+      ...mocks: Array<Partial<BroadcastMock>>
+    ): { provider: InjectedProvider; underlying: BroadcastMock[] } => {
+      const provider = new InjectedProvider(
+        Logger.disabledLogger,
+        networks.Ethereum,
+        { providerEndpoint: 'http://127.0.0.1:0' } as never,
+      );
+
+      for (const real of provider['providers'].values()) {
+        void real.destroy();
+      }
+
+      const underlying: BroadcastMock[] = mocks.map((overrides) => ({
+        broadcastTransaction: jest.fn(),
+        getTransaction: jest.fn(),
+        destroy: jest.fn().mockResolvedValue(undefined),
+        ...overrides,
+      }));
+
+      provider['providers'] = new Map(
+        underlying.map((u, i) => [`mock${i}`, u as any]),
+      );
+      provider['network'] = { chainId: 1n, name: 'mainnet' } as never;
+      return { provider, underlying };
+    };
+
+    let signedTx: string;
+    let txHash: string;
+
+    beforeAll(async () => {
+      const wallet = Wallet.createRandom();
+      signedTx = await wallet.signTransaction({
+        chainId: 1n,
+        nonce: 0,
+        gasLimit: 21_000n,
+        maxFeePerGas: 1_000_000_000n,
+        maxPriorityFeePerGas: 0n,
+        to: wallet.address,
+        value: 1n,
+      });
+      const { Transaction } = await import('ethers');
+      txHash = Transaction.from(signedTx).hash!;
+    });
+
+    test('returns the first fulfilled provider response on the happy path', async () => {
+      const response = { hash: txHash } as never;
+      const { provider, underlying } = buildBroadcastProvider(
+        { broadcastTransaction: jest.fn().mockResolvedValue(response) },
+        {
+          broadcastTransaction: jest
+            .fn()
+            .mockRejectedValue(new Error('nonce too low')),
+        },
+      );
+
+      await expect(provider.broadcastTransaction(signedTx)).resolves.toBe(
+        response,
+      );
+      expect(underlying[0].getTransaction).not.toHaveBeenCalled();
+      expect(underlying[1].getTransaction).not.toHaveBeenCalled();
+    });
+
+    test('recovers when all providers report nonce-too-low but tx is on chain', async () => {
+      const onchain = { hash: txHash, blockNumber: 123 } as never;
+      const { provider, underlying } = buildBroadcastProvider(
+        {
+          broadcastTransaction: jest.fn().mockRejectedValue(
+            Object.assign(new Error('nonce too low'), {
+              code: 'NONCE_EXPIRED',
+            }),
+          ),
+          getTransaction: jest.fn().mockResolvedValue(null),
+        },
+        {
+          broadcastTransaction: jest
+            .fn()
+            .mockRejectedValue(new Error('already known')),
+          getTransaction: jest.fn().mockResolvedValue(onchain),
+        },
+      );
+
+      await expect(provider.broadcastTransaction(signedTx)).resolves.toBe(
+        onchain,
+      );
+      expect(underlying[0].getTransaction).toHaveBeenCalledWith(txHash);
+      expect(underlying[1].getTransaction).toHaveBeenCalledWith(txHash);
+    });
+
+    test('recovers when tx appears after the nonce-conflict lookup is retried', async () => {
+      jest.useFakeTimers();
+      try {
+        const onchain = { hash: txHash, blockNumber: 123 } as never;
+        const { provider, underlying } = buildBroadcastProvider({
+          broadcastTransaction: jest.fn().mockRejectedValue(
+            Object.assign(new Error('nonce too low'), {
+              code: 'NONCE_EXPIRED',
+            }),
+          ),
+          getTransaction: jest
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(onchain),
+        });
+
+        const result = provider.broadcastTransaction(signedTx);
+        await jest.advanceTimersByTimeAsync(250);
+
+        await expect(result).resolves.toBe(onchain);
+        expect(underlying[0].getTransaction).toHaveBeenCalledTimes(2);
+        expect(underlying[0].getTransaction).toHaveBeenCalledWith(txHash);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('ignores lookup errors while another provider later returns the tx', async () => {
+      jest.useFakeTimers();
+      try {
+        const onchain = { hash: txHash, blockNumber: 123 } as never;
+        const { provider, underlying } = buildBroadcastProvider(
+          {
+            broadcastTransaction: jest.fn().mockRejectedValue(
+              Object.assign(new Error('nonce too low'), {
+                code: 'NONCE_EXPIRED',
+              }),
+            ),
+            getTransaction: jest.fn().mockRejectedValue(new Error('down')),
+          },
+          {
+            broadcastTransaction: jest
+              .fn()
+              .mockRejectedValue(new Error('already known')),
+            getTransaction: jest
+              .fn()
+              .mockResolvedValueOnce(null)
+              .mockResolvedValueOnce(onchain),
+          },
+        );
+
+        const result = provider.broadcastTransaction(signedTx);
+        await jest.advanceTimersByTimeAsync(250);
+
+        await expect(result).resolves.toBe(onchain);
+        expect(underlying[0].getTransaction).toHaveBeenCalledTimes(2);
+        expect(underlying[1].getTransaction).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('times out hung lookup providers while another provider returns the tx', async () => {
+      jest.useFakeTimers();
+      try {
+        const onchain = { hash: txHash, blockNumber: 123 } as never;
+        const { provider, underlying } = buildBroadcastProvider(
+          {
+            broadcastTransaction: jest.fn().mockRejectedValue(
+              Object.assign(new Error('nonce too low'), {
+                code: 'NONCE_EXPIRED',
+              }),
+            ),
+            getTransaction: jest.fn().mockReturnValue(new Promise(() => {})),
+          },
+          {
+            broadcastTransaction: jest
+              .fn()
+              .mockRejectedValue(new Error('already known')),
+            getTransaction: jest.fn().mockResolvedValue(onchain),
+          },
+        );
+
+        const result = provider.broadcastTransaction(signedTx);
+        await jest.advanceTimersByTimeAsync(5_000);
+
+        await expect(result).resolves.toBe(onchain);
+        expect(underlying[0].getTransaction).toHaveBeenCalledWith(txHash);
+        expect(underlying[1].getTransaction).toHaveBeenCalledWith(txHash);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('throws the original error after the retry budget when nonce-too-low but tx is not on chain', async () => {
+      jest.useFakeTimers();
+      try {
+        const original = Object.assign(new Error('nonce too low'), {
+          code: 'NONCE_EXPIRED',
+        });
+        const { provider, underlying } = buildBroadcastProvider({
+          broadcastTransaction: jest.fn().mockRejectedValue(original),
+          getTransaction: jest.fn().mockResolvedValue(null),
+        });
+
+        const result = provider.broadcastTransaction(signedTx).catch((e) => e);
+        await jest.advanceTimersByTimeAsync(30_000);
+
+        await expect(result).resolves.toBe(original);
+        expect(underlying[0].getTransaction).toHaveBeenCalledTimes(8);
+        expect(underlying[0].getTransaction).toHaveBeenCalledWith(txHash);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('throws the nonce-conflict rejection (not an unrelated one) after the retry budget', async () => {
+      jest.useFakeTimers();
+      try {
+        const unrelated = new Error('rate limited');
+        const nonceConflict = Object.assign(new Error('nonce too low'), {
+          code: 'NONCE_EXPIRED',
+        });
+        const { provider } = buildBroadcastProvider(
+          {
+            broadcastTransaction: jest.fn().mockRejectedValue(unrelated),
+            getTransaction: jest.fn().mockResolvedValue(null),
+          },
+          {
+            broadcastTransaction: jest.fn().mockRejectedValue(nonceConflict),
+            getTransaction: jest.fn().mockResolvedValue(null),
+          },
+        );
+
+        const result = provider.broadcastTransaction(signedTx).catch((e) => e);
+        await jest.advanceTimersByTimeAsync(30_000);
+
+        await expect(result).resolves.toBe(nonceConflict);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('throws without lookup for unrelated broadcast errors', async () => {
+      const original = new Error('insufficient funds for gas');
+      const { provider, underlying } = buildBroadcastProvider({
+        broadcastTransaction: jest.fn().mockRejectedValue(original),
+        getTransaction: jest.fn(),
+      });
+
+      await expect(provider.broadcastTransaction(signedTx)).rejects.toBe(
+        original,
+      );
+      expect(underlying[0].getTransaction).not.toHaveBeenCalled();
     });
   });
 });

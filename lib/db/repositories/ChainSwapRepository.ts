@@ -246,7 +246,13 @@ class ChainSwapRepository {
     const swaps = await this.getChainSwaps({
       id: data.map((d) => d.swapId),
       status: {
-        [Op.notIn]: FinalChainSwapEvents,
+        // TransactionClaimPending is only set after we received the preimage
+        // from the user's claim of our sending leg, so there is nothing left
+        // to refund - leave the swap to the deferred claimer.
+        [Op.notIn]: [
+          ...FinalChainSwapEvents,
+          SwapUpdateEvent.TransactionClaimPending,
+        ],
       },
     });
 

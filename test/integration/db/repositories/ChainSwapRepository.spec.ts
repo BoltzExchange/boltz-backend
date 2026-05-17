@@ -347,6 +347,7 @@ describe('ChainSwapRepository', () => {
 
   test('should get expirable chain swaps', async () => {
     await createChainSwap(SwapUpdateEvent.TransactionClaimed, 1);
+    await createChainSwap(SwapUpdateEvent.TransactionClaimPending, 1);
     await createChainSwap(SwapUpdateEvent.SwapCreated, 11);
     const expirable = await createChainSwap(SwapUpdateEvent.SwapCreated, 9);
 

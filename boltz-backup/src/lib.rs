@@ -327,7 +327,13 @@ impl Backup {
             .arg("-d")
             .arg(self.db_config.database.clone())
             .stdout(Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .map_err(|err| match err.kind() {
+                std::io::ErrorKind::NotFound => anyhow::anyhow!(
+                    "pg_dump binary not found in PATH; install PostgreSQL client tools or disable the backup section in the config"
+                ),
+                _ => anyhow::Error::new(err).context("failed to spawn pg_dump"),
+            })?;
 
         let stdout = dump_cmd
             .stdout

@@ -56,7 +56,7 @@ Our reference library in TypeScript. Used by e.g.:
 [Boltz Web App](https://github.com/BoltzExchange/boltz-web-app) and
 [Boltz Backend](https://github.com/BoltzExchange/boltz-backend)
 
-Supported currencies: `LN`, `BTC`, `LBTC`, `RBTC`, `TBTC`, `USDT`
+Supported currencies: `LN`, `BTC`, `LBTC`, `RBTC`, `TBTC`, `USDT`, `USDC`
 
 ### [Boltz Rust](https://github.com/SatoshiPortal/boltz-rust) (Rust)
 

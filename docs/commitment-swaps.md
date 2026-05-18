@@ -196,8 +196,10 @@ For Submarine Swaps where you send EVM assets to receive Lightning:
    your tokens.
 
 4. **Create the commitment signature** using EIP-712 with the actual locked
-   amount. The committed amount must not be below the swap amount and may only
-   exceed it within the configured positive-slippage tolerance.
+   amount. For Submarine Swaps, the committed amount must not be below the swap
+   amount and may only exceed it within the configured positive-slippage
+   tolerance. For Chain Swaps, an underpaid commitment can be accepted, but the
+   swap will move to `transaction.lockup.failed` and must be renegotiated.
 
 5. **Submit the commitment**:
 

@@ -32,11 +32,10 @@ describe('ElementsWalletProvider', () => {
       sentTransaction.transactionId,
     );
     const decodedTx = Transaction.fromHex(rawTransaction.hex);
+    const tx = sentTransaction.transaction! as Transaction;
 
     expect(sentTransaction.transactionId).toEqual(rawTransaction.txid);
-    expect(sentTransaction.transactionId).toEqual(
-      sentTransaction.transaction!.getId(),
-    );
+    expect(sentTransaction.transactionId).toEqual(tx.getId());
     expect(sentTransaction.transaction).toEqual(decodedTx);
 
     expect(
@@ -186,7 +185,9 @@ describe('ElementsWalletProvider', () => {
     );
     expect(transaction).toBeDefined();
     expect(
-      transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
+      (transaction as Transaction).ins.every(
+        (vin) => vin.sequence === 0xffffffff - 1,
+      ),
     ).toBeTruthy();
   });
 
@@ -216,7 +217,7 @@ describe('ElementsWalletProvider', () => {
     );
 
     // Two outputs; one to which we are sweeping and one for the fee
-    expect(sentTransaction.transaction!.outs.length).toEqual(2);
+    expect((sentTransaction.transaction as Transaction).outs.length).toEqual(2);
     // The fee output has an empty script
     expect(
       (sentTransaction.transaction as Transaction).outs[1].script.length,

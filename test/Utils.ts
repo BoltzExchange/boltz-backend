@@ -1,13 +1,28 @@
-import type { PsbtTxInput, Transaction } from 'bitcoinjs-lib';
-import { Psbt, address, crypto } from 'bitcoinjs-lib';
-import { Networks, OutputType, Scripts } from 'boltz-core';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { ripemd160 } from '@noble/hashes/legacy.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { randomBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
+import { OutputType, Scripts } from 'boltz-core';
 import type { AddressInfo } from 'net';
 import { createServer } from 'net';
-import { ECPair } from '../lib/ECPairHelper';
+import { addressFromOutputScript } from '../lib/AddressUtils';
 import Logger from '../lib/Logger';
 import { racePromise } from '../lib/PromiseUtils';
 import { getPubkeyHashFunction } from '../lib/Utils';
+import { CurrencyType } from '../lib/consts/Enums';
 import Database from '../lib/db/Database';
+import { regtest as regtestNetwork } from './Networks';
+
+const hash160 = (data: Uint8Array): Uint8Array => ripemd160(sha256(data));
+
+const makeRandomKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey,
+    publicKey: secp256k1.getPublicKey(privateKey, true),
+  };
+};
 
 export const getPostgresDatabase = () => {
   return new Database(Logger.disabledLogger, undefined, {
@@ -44,16 +59,20 @@ export const waitForFunctionToBeTrue = (
 export const generateAddress = (
   outputType: OutputType,
 ): { outputScript: Buffer; address: string } => {
-  const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
+  const keys = makeRandomKeys();
   const encodeFunction = getPubkeyHashFunction(outputType);
 
   const outputScript = encodeFunction(
-    crypto.hash160(Buffer.from(keys.publicKey)),
+    Buffer.from(hash160(keys.publicKey)),
   ) as Buffer;
 
   return {
     outputScript,
-    address: address.fromOutputScript(outputScript, Networks.bitcoinRegtest),
+    address: addressFromOutputScript(
+      CurrencyType.BitcoinLike,
+      outputScript,
+      regtestNetwork,
+    ),
   };
 };
 
@@ -63,34 +82,32 @@ export const constructTransaction = (
   outputAmount = 1,
 ): Transaction => {
   const { outputScript } = generateAddress(OutputType.Bech32);
-  const keys = ECPair.makeRandom({ network: Networks.bitcoinRegtest });
+  const keys = makeRandomKeys();
 
-  const psbt = new Psbt({
-    network: Networks.bitcoinRegtest,
-  });
+  const tx = new Transaction({ allowUnknownInputs: true });
+  const witnessScript = Buffer.from(
+    Scripts.p2wpkhOutput(hash160(keys.publicKey)),
+  );
 
-  psbt.addInput({
-    hash: input,
+  tx.addInput({
+    txid: input,
     index: 0,
     sequence: rbf ? 0xfffffffd : 0xffffffff,
     witnessUtxo: {
-      value: outputAmount + 1,
-      script: Scripts.p2wpkhOutput(crypto.hash160(Buffer.from(keys.publicKey))),
+      amount: BigInt(outputAmount + 1),
+      script: witnessScript,
     },
-  } as any as PsbtTxInput);
-  psbt.addOutput({
-    script: outputScript,
-    value: outputAmount,
   });
 
-  psbt.signInput(0, {
-    publicKey: Buffer.from(keys.publicKey),
-    sign: (hash: Buffer) => Buffer.from(keys.sign(hash)),
-  } as any);
+  tx.addOutput({
+    script: outputScript,
+    amount: BigInt(outputAmount),
+  });
 
-  psbt.finalizeAllInputs();
+  tx.sign(keys.privateKey!);
+  tx.finalize();
 
-  return psbt.extractTransaction();
+  return tx;
 };
 
 export const getPort = () => {

@@ -28,7 +28,7 @@ import type DecodedInvoiceSidecar from '../sidecar/DecodedInvoice';
 import LightningNursery from '../swap/LightningNursery';
 import NodeSwitch from '../swap/NodeSwitch';
 import type SwapNursery from '../swap/SwapNursery';
-import { type WalletBalance } from '../wallet/providers/WalletProviderInterface';
+import type { WalletBalance } from '../wallet/providers/WalletProviderInterface';
 import { satToMsat } from './ChannelUtils';
 import {
   type ChannelInfo,

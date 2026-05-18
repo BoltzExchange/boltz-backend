@@ -1,12 +1,15 @@
-import { crypto } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from 'crypto';
-import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer } from '../../../lib/Utils';
 import ArkClient, { ArkBlockEventKind } from '../../../lib/chain/ArkClient';
 import TransactionLabelRepository from '../../../lib/db/repositories/TransactionLabelRepository';
 import { waitForFunctionToBeTrue } from '../../Utils';
 import { arkClient, bitcoinClient } from '../Nodes';
 import { createVHtlc } from './Utils';
+
+const randomPublicKey = () =>
+  Buffer.from(secp256k1.getPublicKey(randomBytes(32), true));
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
@@ -86,7 +89,7 @@ describe('ArkClient', () => {
     const { vHtlc, timeouts } = await createVHtlc(
       arkClient,
       refundDelay,
-      Buffer.from(ECPair.makeRandom().publicKey),
+      randomPublicKey(),
     );
 
     expect(vHtlc.address.startsWith('tark')).toEqual(true);
@@ -104,7 +107,7 @@ describe('ArkClient', () => {
   });
 
   test('should claim vHTLCs', async () => {
-    const refundPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+    const refundPublicKey = randomPublicKey();
 
     const { vHtlc, preimage } = await createVHtlc(
       arkClient,
@@ -173,8 +176,8 @@ describe('ArkClient', () => {
   // TODO: this throws "2 UNKNOWN: forfeit closure is CLTV locked, 48000 > 1750885681 (block time)"
   // eslint-disable-next-line jest/no-disabled-tests
   test.skip('should refund vHTLCs', async () => {
-    const refundPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
-    const claimPublicKey = Buffer.from(ECPair.makeRandom().publicKey);
+    const refundPublicKey = randomPublicKey();
+    const claimPublicKey = randomPublicKey();
 
     const { vHtlc, preimage } = await createVHtlc(
       arkClient,
@@ -215,7 +218,7 @@ describe('ArkClient', () => {
     const created = await createdPromise;
     const label = 'refund';
     const refundTxId = await arkClient.refundVHtlc(
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       refundPublicKey,
       claimPublicKey,
       {
@@ -237,8 +240,8 @@ describe('ArkClient', () => {
 
   test('should create vHtlc ids', async () => {
     const preimage = randomBytes(32);
-    const preimageHash = crypto.sha256(preimage);
-    const receiverPubkey = Buffer.from(ECPair.makeRandom().publicKey);
+    const preimageHash = Buffer.from(sha256(preimage));
+    const receiverPubkey = randomPublicKey();
 
     const { vHtlc } = await arkClient.createVHtlc(
       preimageHash,

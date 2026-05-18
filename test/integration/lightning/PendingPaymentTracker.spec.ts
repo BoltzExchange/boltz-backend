@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString, minutesToMilliseconds } from '../../../lib/Utils';
@@ -329,8 +329,7 @@ describe('PendingPaymentTracker', () => {
         preimageHash: getHexString(preimageHash),
       });
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
+      // @ts-expect-error - private property override for test
       PendingPaymentTracker['raceTimeout'] = 2;
       await expect(
         tracker.sendPayment(swap, clnClient, getHexString(preimageHash), []),
@@ -554,7 +553,7 @@ describe('PendingPaymentTracker', () => {
       describe('success', () => {
         test('should get success details from LND when the invoice has been paid', async () => {
           const preimage = randomBytes(32);
-          const preimageHash = crypto.sha256(preimage);
+          const preimageHash = Buffer.from(sha256(preimage));
 
           const invoice = await clnClient.addHoldInvoice(1, preimageHash);
           clnClient.on('htlc.accepted', async () => {
@@ -654,7 +653,7 @@ describe('PendingPaymentTracker', () => {
       });
 
       test('should throw error for permanently failed payments', async () => {
-        const preimageHash = crypto.sha256(randomBytes(32));
+        const preimageHash = Buffer.from(sha256(randomBytes(32)));
         const invoice = await clnClient.addHoldInvoice(1, preimageHash);
 
         const swap = await Swap.create({

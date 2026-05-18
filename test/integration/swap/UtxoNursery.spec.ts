@@ -1,5 +1,6 @@
-import type { Transaction } from 'bitcoinjs-lib';
-import { crypto, networks } from 'bitcoinjs-lib';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import type { Transaction } from '@scure/btc-signer';
 import bolt11 from 'bolt11';
 import { OutputType } from 'boltz-core';
 import { randomBytes } from 'crypto';
@@ -8,7 +9,6 @@ import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { networks as liquidNetworks } from 'liquidjs-lib';
 import path from 'path';
 import { parseTransaction, setup } from '../../../lib/Core';
-import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getPairId } from '../../../lib/Utils';
 import {
@@ -37,6 +37,7 @@ import { Action } from '../../../lib/swap/hooks/CreationHook';
 import type TransactionHook from '../../../lib/swap/hooks/TransactionHook';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
+import { regtest as bitcoinRegtest } from '../../Networks';
 import { wait } from '../../Utils';
 import {
   bitcoinClient,
@@ -45,6 +46,14 @@ import {
   elementsClient,
 } from '../Nodes';
 import { sidecar, startSidecar } from '../sidecar/Utils';
+
+const makeKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+};
 
 RefundTransactionRepository.getTransaction = jest.fn().mockResolvedValue(null);
 
@@ -70,7 +79,7 @@ describe('UtxoNursery', () => {
 
   const currencies = [
     {
-      network: networks.regtest,
+      network: bitcoinRegtest,
       chainClient: bitcoinClient,
       lndClients: new Map([[bitcoinLndClient.id, bitcoinLndClient]]),
       symbol: bitcoinClient.symbol,
@@ -236,8 +245,8 @@ describe('UtxoNursery', () => {
   describe('checkChainSwapTransaction', () => {
     const createChainSwap = async (acceptZeroConf = false) => {
       const preimage = randomBytes(32);
-      const claimKeys = ECPair.makeRandom();
-      const refundKeys = ECPair.makeRandom();
+      const claimKeys = makeKeys();
+      const refundKeys = makeKeys();
 
       const created = await swapManager.createChainSwap({
         acceptZeroConf,
@@ -245,7 +254,7 @@ describe('UtxoNursery', () => {
         quoteCurrency: 'BTC',
         orderSide: OrderSide.BUY,
         percentageFee: 100,
-        preimageHash: crypto.sha256(preimage),
+        preimageHash: Buffer.from(sha256(preimage)),
         claimPublicKey: Buffer.from(claimKeys.publicKey),
         refundPublicKey: Buffer.from(refundKeys.publicKey),
         sendingTimeoutBlockDelta: 102,
@@ -430,7 +439,7 @@ describe('UtxoNursery', () => {
         .decode(invoice.paymentRequest)
         .tags.find((tag) => tag.tagName === 'payment_hash')!.data as string;
 
-      const refundKeys = ECPair.makeRandom();
+      const refundKeys = makeKeys();
 
       const created = await swapManager.createSwap({
         version,

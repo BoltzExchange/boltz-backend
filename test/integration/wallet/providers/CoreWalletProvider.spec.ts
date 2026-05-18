@@ -1,12 +1,16 @@
-import ops from '@boltz/bitcoin-ops';
-import { Transaction, address, initEccLib } from 'bitcoinjs-lib';
-import { Networks } from 'boltz-core';
-import * as ecc from 'tiny-secp256k1';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
+import { outputScriptFromAddress } from '../../../../lib/AddressUtils';
 import Logger from '../../../../lib/Logger';
 import { AddressType } from '../../../../lib/chain/ChainClient';
+import { CurrencyType } from '../../../../lib/consts/Enums';
 import CoreWalletProvider from '../../../../lib/wallet/providers/CoreWalletProvider';
 import type { SentTransaction } from '../../../../lib/wallet/providers/WalletProviderInterface';
+import { regtest as bitcoinRegtest } from '../../../Networks';
 import { bitcoinClient, bitcoinLndClient } from '../../Nodes';
+
+const OP_0 = 0x00;
+const OP_1 = 0x51;
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 
@@ -16,7 +20,7 @@ describe('CoreWalletProvider', () => {
   const provider = new CoreWalletProvider(
     Logger.disabledLogger,
     bitcoinClient,
-    Networks.bitcoinRegtest,
+    bitcoinRegtest,
   );
 
   const verifySentTransaction = async (
@@ -30,12 +34,12 @@ describe('CoreWalletProvider', () => {
       sentTransaction.transactionId,
     );
 
+    const sentTx = sentTransaction.transaction! as Transaction;
+
     expect(sentTransaction.transactionId).toEqual(rawTransaction.txid);
-    expect(sentTransaction.transactionId).toEqual(
-      sentTransaction.transaction!.getId(),
-    );
-    expect(sentTransaction.transaction).toEqual(
-      Transaction.fromHex(rawTransaction.hex),
+    expect(sentTransaction.transactionId).toEqual(sentTx.id);
+    expect(sentTx.hex).toEqual(
+      Transaction.fromRaw(hexToBytes(rawTransaction.hex)).hex,
     );
 
     expect(
@@ -48,23 +52,28 @@ describe('CoreWalletProvider', () => {
     const expectedAmount = isSweep
       ? Math.round(amount - sentTransaction.fee!)
       : amount;
-    expect(
-      sentTransaction.transaction!.outs[sentTransaction.vout!].value,
-    ).toEqual(expectedAmount);
+    expect(Number(sentTx.getOutput(sentTransaction.vout!).amount)).toEqual(
+      expectedAmount,
+    );
 
     let outputSum = 0;
 
-    for (const vout of sentTransaction.transaction!.outs) {
-      outputSum += vout.value as number;
+    for (let i = 0; i < sentTx.outputsLength; i++) {
+      outputSum += Number(sentTx.getOutput(i).amount);
     }
 
     let inputSum = 0;
 
     for (const vin of rawTransaction.vin) {
-      const inputTransaction = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(vin.txid),
+      const inputTransaction = Transaction.fromRaw(
+        hexToBytes(await bitcoinClient.getRawTransaction(vin.txid)),
+        {
+          allowUnknownOutputs: true,
+          allowUnknownInputs: true,
+          allowLegacyWitnessUtxo: true,
+        },
       );
-      inputSum += inputTransaction.outs[vin.vout].value;
+      inputSum += Number(inputTransaction.getOutput(vin.vout).amount);
     }
 
     expect(sentTransaction.fee).toEqual(inputSum - outputSum);
@@ -77,7 +86,6 @@ describe('CoreWalletProvider', () => {
   };
 
   beforeAll(async () => {
-    initEccLib(ecc);
     await bitcoinLndClient.connect(false);
   });
 
@@ -103,18 +111,26 @@ describe('CoreWalletProvider', () => {
       const addr = await provider.getAddress('');
       expect(addr.startsWith('bcrt1')).toEqual(true);
       // Taproot => Witness program starts with 1
-      expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
-        ops.OP_1,
-      );
+      expect(
+        outputScriptFromAddress(
+          CurrencyType.BitcoinLike,
+          addr,
+          bitcoinRegtest,
+        )[0],
+      ).toEqual(OP_1);
     });
 
     it('should generate different kinds of addresses', async () => {
       const addr = await provider.getAddress('', AddressType.Bech32);
       expect(addr.startsWith('bcrt1')).toEqual(true);
       // SegWit => Witness program starts with 0
-      expect(address.toOutputScript(addr, Networks.bitcoinRegtest)[0]).toEqual(
-        ops.OP_0,
-      );
+      expect(
+        outputScriptFromAddress(
+          CurrencyType.BitcoinLike,
+          addr,
+          bitcoinRegtest,
+        )[0],
+      ).toEqual(OP_0);
 
       expect(
         (await provider.getAddress('', AddressType.P2shegwit)).startsWith('2'),
@@ -202,9 +218,11 @@ describe('CoreWalletProvider', () => {
       '',
     );
     expect(transaction).toBeDefined();
-    expect(
-      transaction!.ins.every((vin) => vin.sequence === 0xffffffff - 1),
-    ).toBeTruthy();
+    const scureTx = transaction! as Transaction;
+    const inputs = Array.from({ length: scureTx.inputsLength }, (_, i) =>
+      scureTx.getInput(i),
+    );
+    expect(inputs.every((vin) => vin.sequence === 0xffffffff - 1)).toBeTruthy();
   });
 
   it('should sweep the wallet', async () => {

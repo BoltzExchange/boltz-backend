@@ -5,6 +5,9 @@ module.exports = {
     '^.+\\.[tj]s$': [
       '@swc/jest',
       {
+        // @scure/bip39 ships `//# sourceMappingURL=` comments but no .map files,
+        // which trips SWC's input source map resolver
+        inputSourceMap: false,
         jsc: {
           experimental: {
             plugins: [['@swc-contrib/mut-cjs-exports', {}]],

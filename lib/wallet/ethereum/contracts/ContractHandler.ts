@@ -1,10 +1,6 @@
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
-import {
-  type ContractTransactionResponse,
-  type Provider,
-  type Signer,
-} from 'ethers';
+import type { ContractTransactionResponse, Provider, Signer } from 'ethers';
 import { ethereumPrepayMinerFeeGasLimit } from '../../../consts/Consts';
 import { swapTypeToPrettyString } from '../../../consts/Enums';
 import type { AnySwap } from '../../../consts/Types';

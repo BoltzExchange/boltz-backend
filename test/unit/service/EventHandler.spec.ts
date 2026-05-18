@@ -1,4 +1,4 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { Transaction } from '@scure/btc-signer';
 import { OutputType } from 'boltz-core';
 import { EventEmitter } from 'events';
 import { Transaction as LiquidTransaction } from 'liquidjs-lib';
@@ -41,9 +41,12 @@ const chainSwap = {
 
 const mockTransaction = () => {
   const { outputScript } = generateAddress(OutputType.Bech32);
-  const transaction = new Transaction();
+  const transaction = new Transaction({
+    allowUnknownInputs: true,
+    allowUnknownOutputs: true,
+  });
 
-  transaction.addOutput(outputScript, 1);
+  transaction.addOutput({ script: outputScript, amount: 1n });
 
   return transaction;
 };
@@ -58,11 +61,14 @@ describe('EventHandler', () => {
     jest.clearAllMocks();
   });
 
+  const formatBitcoinTx = mockTransaction();
+  const formatLiquidTx = new LiquidTransaction();
+
   test.each`
-    name         | transaction                | expected
-    ${'EVM'}     | ${'0x123'}                 | ${{ id: '0x123' }}
-    ${'Bitcoin'} | ${new Transaction()}       | ${{ id: new Transaction().getId(), hex: new Transaction().toHex() }}
-    ${'Liquid'}  | ${new LiquidTransaction()} | ${{ id: new LiquidTransaction().getId(), hex: new LiquidTransaction().toHex() }}
+    name         | transaction        | expected
+    ${'EVM'}     | ${'0x123'}         | ${{ id: '0x123' }}
+    ${'Bitcoin'} | ${formatBitcoinTx} | ${{ id: formatBitcoinTx.id, hex: formatBitcoinTx.hex }}
+    ${'Liquid'}  | ${formatLiquidTx}  | ${{ id: formatLiquidTx.getId(), hex: formatLiquidTx.toHex() }}
   `('should format $name transaction', ({ transaction, expected }) => {
     expect(EventHandler.formatTransaction(transaction)).toEqual(expected);
   });
@@ -128,8 +134,8 @@ describe('EventHandler', () => {
       expect(status).toEqual({
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
-          id: transaction.getId(),
-          hex: transaction.toHex(),
+          id: transaction.id,
+          hex: transaction.hex,
         },
       });
     });
@@ -245,8 +251,8 @@ describe('EventHandler', () => {
         zeroConfRejected: true,
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
-          id: tx.getId(),
-          hex: tx.toHex(),
+          id: tx.id,
+          hex: tx.hex,
         },
       });
     });
@@ -369,8 +375,8 @@ describe('EventHandler', () => {
       expect(status).toEqual({
         status: SwapUpdateEvent.TransactionMempool,
         transaction: {
-          id: transaction.getId(),
-          hex: transaction.toHex(),
+          id: transaction.id,
+          hex: transaction.hex,
           eta: SwapNursery.reverseSwapMempoolEta,
         },
       });

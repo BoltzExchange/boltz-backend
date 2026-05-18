@@ -1,9 +1,11 @@
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
-import { Transaction, address, crypto } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
 import {
   Musig,
-  Networks,
   OutputType,
   Scripts,
   SwapTreeSerializer,
@@ -14,8 +16,11 @@ import {
   swapTree,
 } from 'boltz-core';
 import { randomBytes } from 'crypto';
-import { hashForWitnessV1, setup, tweakMusig, zkp } from '../../../../lib/Core';
-import { ECPair } from '../../../../lib/ECPairHelper';
+import {
+  addressFromOutputScript,
+  outputScriptFromAddress,
+} from '../../../../lib/AddressUtils';
+import { hashForWitnessV1, setup, tweakMusig } from '../../../../lib/Core';
 import Logger from '../../../../lib/Logger';
 import { getHexString } from '../../../../lib/Utils';
 import {
@@ -43,6 +48,7 @@ import type SwapNursery from '../../../../lib/swap/SwapNursery';
 import type Wallet from '../../../../lib/wallet/Wallet';
 import type { Currency } from '../../../../lib/wallet/WalletManager';
 import type WalletManager from '../../../../lib/wallet/WalletManager';
+import { regtest as bitcoinRegtest } from '../../../Networks';
 import { waitForFunctionToBeTrue } from '../../../Utils';
 import {
   bitcoinClient,
@@ -51,6 +57,14 @@ import {
   clnClient,
 } from '../../Nodes';
 import { sidecar, startSidecar } from '../../sidecar/Utils';
+
+const makeKeys = () => {
+  const privateKey = randomBytes(32);
+  return {
+    privateKey: Buffer.from(privateKey),
+    publicKey: Buffer.from(secp256k1.getPublicKey(privateKey, true)),
+  };
+};
 
 jest.mock('../../../../lib/db/repositories/ChainTipRepository');
 jest.mock('../../../../lib/db/repositories/ReverseSwapRepository');
@@ -164,34 +178,44 @@ describe('MusigSigner', () => {
   });
 
   test('should create refund signature for failed swaps', async () => {
-    const claimKeys = ECPair.makeRandom();
-    const refundKeys = ECPair.makeRandom();
+    const claimKeys = makeKeys();
+    const refundKeys = makeKeys();
     const preimage = randomBytes(32);
 
     const tree = swapTree(
       false,
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       Buffer.from(claimKeys.publicKey),
       Buffer.from(refundKeys.publicKey),
       (await bitcoinClient.getBlockchainInfo()).blocks + 21,
     );
 
-    const musig = new Musig(zkp, refundKeys, randomBytes(32), [
-      Buffer.from(claimKeys.publicKey),
-      Buffer.from(refundKeys.publicKey),
-    ]);
-    const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+    const musig = tweakMusig(
+      CurrencyType.BitcoinLike,
+      Musig.create(refundKeys.privateKey!, [
+        claimKeys.publicKey,
+        refundKeys.publicKey,
+      ]),
+      tree,
+    );
+    const tweakedKey = Buffer.from(musig.aggPubkey);
 
-    const swapOutputScript = Scripts.p2trOutput(tweakedKey);
+    const swapOutputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
 
-    const lockupTx = Transaction.fromHex(
-      await bitcoinClient.getRawTransaction(
-        await bitcoinClient.sendToAddress(
-          address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
-          100_000,
-          undefined,
-          false,
-          '',
+    const lockupTx = Transaction.fromRaw(
+      hexToBytes(
+        await bitcoinClient.getRawTransaction(
+          await bitcoinClient.sendToAddress(
+            addressFromOutputScript(
+              CurrencyType.BitcoinLike,
+              swapOutputScript,
+              bitcoinRegtest,
+            ),
+            100_000,
+            undefined,
+            false,
+            '',
+          ),
         ),
       ),
     );
@@ -202,19 +226,24 @@ describe('MusigSigner', () => {
     const refundTx = constructRefundTransaction(
       [
         {
-          ...swapOutput,
-          keys: refundKeys,
-          cooperative: true,
           type: OutputType.Taproot,
-          txHash: lockupTx.getHash(),
+          vout: swapOutput.vout,
+          script: swapOutput.script!,
+          amount: swapOutput.amount!,
+          cooperative: true,
+          privateKey: refundKeys.privateKey!,
+          transactionId: lockupTx.id,
+          swapTree: tree,
+          internalKey: musig.internalKey,
         },
       ],
-      address.toOutputScript(
+      outputScriptFromAddress(
+        CurrencyType.BitcoinLike,
         await bitcoinClient.getNewAddress(''),
-        Networks.bitcoinRegtest,
+        bitcoinRegtest,
       ),
       0,
-      300,
+      BigInt(300),
       false,
     );
 
@@ -226,7 +255,7 @@ describe('MusigSigner', () => {
       version: SwapVersion.Taproot,
       status: SwapUpdateEvent.InvoiceFailedToPay,
       refundPublicKey: getHexString(Buffer.from(refundKeys.publicKey)),
-      preimageHash: getHexString(crypto.sha256(preimage)),
+      preimageHash: getHexString(Buffer.from(sha256(preimage))),
       invoice: (await bitcoinLndClient2.addInvoice(123)).paymentRequest,
       redeemScript: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
     });
@@ -234,10 +263,14 @@ describe('MusigSigner', () => {
 
     btcWallet.getKeysByIndex = jest.fn().mockReturnValue(claimKeys);
 
+    const withNonce = musig
+      .message(await hashForWitnessV1(btcCurrency, refundTx, 0))
+      .generateNonce();
+
     const boltzPartialSig = await signer.signRefund(
       refundableSwapId,
-      Buffer.from(musig.getPublicNonce()),
-      refundTx.toBuffer(),
+      Buffer.from(withNonce.publicNonce),
+      Buffer.from(refundTx.toBytes(true, true)),
       0,
     );
 
@@ -246,17 +279,19 @@ describe('MusigSigner', () => {
       refundableSwapId,
     );
 
-    musig.aggregateNonces([[claimKeys.publicKey, boltzPartialSig.pubNonce]]);
-    musig.initializeSession(await hashForWitnessV1(btcCurrency, refundTx, 0));
-    musig.signPartial();
-    musig.addPartial(
-      Buffer.from(claimKeys.publicKey),
-      boltzPartialSig.signature,
+    const signed = withNonce
+      .aggregateNonces([[claimKeys.publicKey, boltzPartialSig.pubNonce]])
+      .initializeSession()
+      .addPartial(claimKeys.publicKey, boltzPartialSig.signature)
+      .signPartial();
+
+    refundTx.updateInput(
+      0,
+      { finalScriptWitness: [signed.aggregatePartials()] },
+      true,
     );
 
-    refundTx.setWitness(0, [musig.aggregatePartials()]);
-
-    await bitcoinClient.sendRawTransaction(refundTx.toHex());
+    await bitcoinClient.sendRawTransaction(refundTx.hex);
   });
 
   test('should throw when creating refund signature for onchain currency that is not UTXO based', async () => {
@@ -419,36 +454,44 @@ describe('MusigSigner', () => {
 
   describe('signReverseSwapClaim', () => {
     test('should create claim signature for reverse swaps', async () => {
-      const claimKeys = ECPair.makeRandom();
-      const refundKeys = ECPair.makeRandom();
+      const claimKeys = makeKeys();
+      const refundKeys = makeKeys();
       const preimage = randomBytes(32);
 
       const tree = reverseSwapTree(
         false,
-        crypto.sha256(preimage),
+        Buffer.from(sha256(preimage)),
         Buffer.from(claimKeys.publicKey),
         Buffer.from(refundKeys.publicKey),
         (await bitcoinClient.getBlockchainInfo()).blocks + 21,
       );
 
-      const musig = new Musig(
-        zkp,
-        claimKeys,
-        randomBytes(32),
-        [refundKeys.publicKey, claimKeys.publicKey].map(Buffer.from),
+      const musig = tweakMusig(
+        CurrencyType.BitcoinLike,
+        Musig.create(claimKeys.privateKey!, [
+          refundKeys.publicKey,
+          claimKeys.publicKey,
+        ]),
+        tree,
       );
-      const tweakedKey = tweakMusig(CurrencyType.BitcoinLike, musig, tree);
+      const tweakedKey = Buffer.from(musig.aggPubkey);
 
-      const swapOutputScript = Scripts.p2trOutput(tweakedKey);
+      const swapOutputScript = Buffer.from(Scripts.p2trOutput(tweakedKey));
 
-      const lockupTx = Transaction.fromHex(
-        await bitcoinClient.getRawTransaction(
-          await bitcoinClient.sendToAddress(
-            address.fromOutputScript(swapOutputScript, Networks.bitcoinRegtest),
-            100_000,
-            undefined,
-            false,
-            '',
+      const lockupTx = Transaction.fromRaw(
+        hexToBytes(
+          await bitcoinClient.getRawTransaction(
+            await bitcoinClient.sendToAddress(
+              addressFromOutputScript(
+                CurrencyType.BitcoinLike,
+                swapOutputScript,
+                bitcoinRegtest,
+              ),
+              100_000,
+              undefined,
+              false,
+              '',
+            ),
           ),
         ),
       );
@@ -459,19 +502,24 @@ describe('MusigSigner', () => {
       const claimTx = constructClaimTransaction(
         [
           {
-            ...swapOutput,
-            preimage,
-            keys: refundKeys,
-            cooperative: true,
             type: OutputType.Taproot,
-            txHash: lockupTx.getHash(),
+            vout: swapOutput.vout,
+            script: swapOutput.script!,
+            amount: swapOutput.amount!,
+            preimage,
+            cooperative: true,
+            privateKey: refundKeys.privateKey!,
+            transactionId: lockupTx.id,
+            swapTree: tree,
+            internalKey: musig.internalKey,
           },
         ],
-        address.toOutputScript(
+        outputScriptFromAddress(
+          CurrencyType.BitcoinLike,
           await bitcoinClient.getNewAddress(''),
-          Networks.bitcoinRegtest,
+          bitcoinRegtest,
         ),
-        300,
+        BigInt(300),
         false,
       );
 
@@ -481,7 +529,7 @@ describe('MusigSigner', () => {
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.TransactionConfirmed,
         claimPublicKey: getHexString(Buffer.from(claimKeys.publicKey)),
-        preimageHash: getHexString(crypto.sha256(preimage)),
+        preimageHash: getHexString(Buffer.from(sha256(preimage))),
         redeemScript: JSON.stringify(
           SwapTreeSerializer.serializeSwapTree(tree),
         ),
@@ -490,13 +538,17 @@ describe('MusigSigner', () => {
 
       btcWallet.getKeysByIndex = jest.fn().mockReturnValue(refundKeys);
 
+      const withNonce = musig
+        .message(await hashForWitnessV1(btcCurrency, claimTx, 0))
+        .generateNonce();
+
       const boltzPartialSig = await signer.signReverseSwapClaim(
         'claimable',
         preimage,
         {
           index: 0,
-          rawTransaction: claimTx.toBuffer(),
-          theirNonce: Buffer.from(musig.getPublicNonce()),
+          rawTransaction: Buffer.from(claimTx.toBytes(true, true)),
+          theirNonce: Buffer.from(withNonce.publicNonce),
         },
       );
       expect(boltzPartialSig).toBeDefined();
@@ -511,19 +563,19 @@ describe('MusigSigner', () => {
         preimage,
       );
 
-      musig.aggregateNonces([
-        [refundKeys.publicKey, boltzPartialSig!.pubNonce],
-      ]);
-      musig.initializeSession(await hashForWitnessV1(btcCurrency, claimTx, 0));
-      musig.signPartial();
-      musig.addPartial(
-        Buffer.from(refundKeys.publicKey),
-        boltzPartialSig!.signature,
+      const signed = withNonce
+        .aggregateNonces([[refundKeys.publicKey, boltzPartialSig!.pubNonce]])
+        .initializeSession()
+        .addPartial(refundKeys.publicKey, boltzPartialSig!.signature)
+        .signPartial();
+
+      claimTx.updateInput(
+        0,
+        { finalScriptWitness: [signed.aggregatePartials()] },
+        true,
       );
 
-      claimTx.setWitness(0, [musig.aggregatePartials()]);
-
-      await bitcoinClient.sendRawTransaction(claimTx.toHex());
+      await bitcoinClient.sendRawTransaction(claimTx.hex);
     });
 
     test('should just settle the swap when there is no transaction to sign', async () => {
@@ -532,7 +584,7 @@ describe('MusigSigner', () => {
         id: 'claimable',
         version: SwapVersion.Taproot,
         status: SwapUpdateEvent.TransactionConfirmed,
-        preimageHash: getHexString(crypto.sha256(preimage)),
+        preimageHash: getHexString(Buffer.from(sha256(preimage))),
       } as Swap;
 
       ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue(swap);
@@ -622,7 +674,7 @@ describe('MusigSigner', () => {
         ReverseSwapRepository.getReverseSwap = jest.fn().mockResolvedValue({
           version: SwapVersion.Taproot,
           status: SwapUpdateEvent.TransactionConfirmed,
-          preimageHash: getHexString(crypto.sha256(preimage)),
+          preimageHash: getHexString(Buffer.from(sha256(preimage))),
         });
 
         await expect(

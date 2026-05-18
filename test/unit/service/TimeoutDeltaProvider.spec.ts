@@ -1,6 +1,7 @@
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { randomBytes } from '@noble/hashes/utils.js';
 import { existsSync, unlinkSync } from 'fs';
 import type { ConfigType } from '../../../lib/Config';
-import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString } from '../../../lib/Utils';
 import ArkClient from '../../../lib/chain/ArkClient';
@@ -204,7 +205,7 @@ describe('TimeoutDeltaProvider', () => {
       amountMsat: 10_000_000,
       type: InvoiceType.Bolt11,
       features: new Set<InvoiceFeature>(),
-      payee: ECPair.makeRandom().publicKey,
+      payee: Buffer.from(secp256k1.getPublicKey(randomBytes(32), true)),
       ...overrides,
     }) as unknown as DecodedInvoice;
 

@@ -1,4 +1,4 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { Transaction } from '@scure/btc-signer';
 import { randomBytes } from 'crypto';
 import Logger from '../../../lib/Logger';
 import { getHexString } from '../../../lib/Utils';
@@ -228,13 +228,13 @@ describe('SwapInfos', () => {
           pair: 'L-BTC/BTC',
           orderSide: OrderSide.BUY,
           type: SwapType.Submarine,
-          lockupTransactionId: transaction.getId(),
+          lockupTransactionId: transaction.id,
           status: SwapUpdateEvent.TransactionZeroConfRejected,
         } as unknown as Swap;
 
         service.getTransaction = jest
           .fn()
-          .mockResolvedValue({ hex: transaction.toHex() });
+          .mockResolvedValue({ hex: transaction.hex });
         service.currencies = new Map<string, any>([
           ['BTC', { type: CurrencyType.BitcoinLike }],
         ]);
@@ -248,7 +248,7 @@ describe('SwapInfos', () => {
         expect(service.getTransaction).toHaveBeenCalledTimes(1);
         expect(service.getTransaction).toHaveBeenCalledWith(
           'BTC',
-          transaction.getId(),
+          transaction.id,
         );
       });
 
@@ -364,13 +364,13 @@ describe('SwapInfos', () => {
         RefundTransactionRepository.getTransactionForSwap = jest
           .fn()
           .mockResolvedValue({
-            id: transaction.getId(),
+            id: transaction.id,
             symbol: 'BTC',
             isFinal: true,
           });
         service.getTransaction = jest
           .fn()
-          .mockResolvedValue({ hex: transaction.toHex() });
+          .mockResolvedValue({ hex: transaction.hex });
         service.currencies = new Map<string, any>([
           ['BTC', { type: CurrencyType.BitcoinLike }],
         ]);
@@ -386,8 +386,8 @@ describe('SwapInfos', () => {
           status: swap.status,
           failureReason: swap.failureReason,
           transaction: {
-            id: transaction.getId(),
-            hex: transaction.toHex(),
+            id: transaction.id,
+            hex: transaction.hex,
             confirmed: true,
           },
         });
@@ -403,13 +403,13 @@ describe('SwapInfos', () => {
           status: SwapUpdateEvent.TransactionZeroConfRejected,
           receivingData: {
             symbol: 'BTC',
-            transactionId: transaction.getId(),
+            transactionId: transaction.id,
           },
         } as unknown as ChainSwapInfo;
 
         service.getTransaction = jest
           .fn()
-          .mockResolvedValue({ hex: transaction.toHex() });
+          .mockResolvedValue({ hex: transaction.hex });
 
         await expect(swapInfos['handleSwapStatus'](swap)).resolves.toEqual({
           zeroConfRejected: true,
@@ -420,7 +420,7 @@ describe('SwapInfos', () => {
         expect(service.getTransaction).toHaveBeenCalledTimes(1);
         expect(service.getTransaction).toHaveBeenCalledWith(
           'BTC',
-          transaction.getId(),
+          transaction.id,
         );
       });
 

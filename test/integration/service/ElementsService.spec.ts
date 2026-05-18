@@ -1,7 +1,6 @@
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
+import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { Transaction, networks } from 'liquidjs-lib';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
 import type { UnblindedOutput } from '../../../lib/Core';
 import { setup } from '../../../lib/Core';
 import Logger from '../../../lib/Logger';
@@ -9,6 +8,7 @@ import { getHexBuffer } from '../../../lib/Utils';
 import ElementsClient from '../../../lib/chain/ElementsClient';
 import ElementsService from '../../../lib/service/ElementsService';
 import Errors from '../../../lib/service/Errors';
+import { slip77FromSeed } from '../../../lib/wallet/Slip77';
 import type Wallet from '../../../lib/wallet/Wallet';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import type { Currency } from '../../../lib/wallet/WalletManager';
@@ -18,8 +18,6 @@ import { bitcoinClient, elementsClient } from '../Nodes';
 
 jest.mock('../../../lib/db/repositories/ChainTipRepository');
 
-const slip77 = SLIP77Factory(ecc);
-
 describe('ElementsService', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
@@ -28,7 +26,7 @@ describe('ElementsService', () => {
       elementsClient,
       networks.regtest,
     ),
-    slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+    slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
     networks.regtest,
   );
 
@@ -97,7 +95,7 @@ describe('ElementsService', () => {
         elementsClient,
         networks.regtest,
       ),
-      slip77.fromSeed(mnemonicToSeedSync(generateMnemonic())),
+      slip77FromSeed(mnemonicToSeedSync(generateMnemonic(wordlist))),
       networks.regtest,
     );
 

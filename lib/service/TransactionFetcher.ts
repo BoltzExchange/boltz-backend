@@ -1,12 +1,8 @@
-import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from '@scure/btc-signer';
 import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import { Op } from 'sequelize';
-import {
-  getChainCurrency,
-  getHexString,
-  reverseBuffer,
-  splitPairId,
-} from '../Utils';
+import { TxView } from '../TxView';
+import { getChainCurrency, splitPairId } from '../Utils';
 import type ChainSwapData from '../db/models/ChainSwapData';
 import type ReverseSwap from '../db/models/ReverseSwap';
 import type Swap from '../db/models/Swap';
@@ -144,9 +140,9 @@ class TransactionFetcher {
     chainSwapsSpent: ChainSwapInfo[];
     reverseSwapsClaimed: ReverseSwap[];
   }> => {
-    const inputs = transaction.ins.map((input) => ({
+    const inputs = TxView.of(transaction).inputs.map((input) => ({
       transactionVout: input.index,
-      transactionId: getHexString(reverseBuffer(input.hash)),
+      transactionId: input.txid,
     }));
 
     if (inputs.length === 0) {
@@ -187,15 +183,18 @@ class TransactionFetcher {
     swapLockups: Swap[];
     chainSwapLockups: ChainSwapInfo[];
   }> => {
-    const outputAddresses =
-      wallet !== undefined
-        ? transaction.outs
-            // Filter Liquid fee outputs
-            .filter((out) => out.script.length > 0)
-            .flatMap((out) => Object.values(wallet.encodeAddress(out.script)))
-            // The wallet returns empty strings for addresses it cannot encode
-            .filter((addr) => addr !== '')
-        : [];
+    const outputAddresses: string[] = [];
+    if (wallet !== undefined) {
+      for (const out of TxView.of(transaction).outputs) {
+        if (out.script.length === 0) {
+          continue;
+        }
+        const addr = wallet.encodeAddress(out.script);
+        if (addr !== '') {
+          outputAddresses.push(addr);
+        }
+      }
+    }
 
     if (outputAddresses.length === 0) {
       return {

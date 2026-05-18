@@ -1,4 +1,4 @@
-import type { Transaction } from 'bitcoinjs-lib';
+import type { Transaction } from '@scure/btc-signer';
 import type { SwapTreeSerializer } from 'boltz-core';
 import { OutputType } from 'boltz-core';
 import type { Provider } from 'ethers';
@@ -9,6 +9,7 @@ import type { ConfigType, SwapConfig } from '../Config';
 import { parseTransaction } from '../Core';
 import type { LogLevel } from '../Logger';
 import type Logger from '../Logger';
+import { TxView } from '../TxView';
 import {
   calculateEthereumTransactionFeeWithReceipt,
   calculateLiquidTransactionFee,
@@ -557,15 +558,15 @@ class Service {
         const tx = parseTransaction(
           currency.type,
           await currency.chainClient!.getRawTransaction(transactionId),
-        );
+        ) as Transaction;
         const absolute = await calculateUtxoTransactionFee(
           currency.chainClient!,
-          tx as Transaction,
+          tx,
         );
 
         return {
           absolute,
-          satPerVbyte: absolute / tx.virtualSize(),
+          satPerVbyte: absolute / TxView.of(tx).vsize(),
         };
       }
 
@@ -578,7 +579,7 @@ class Service {
 
         return {
           absolute,
-          satPerVbyte: absolute / tx.virtualSize(true),
+          satPerVbyte: absolute / TxView.of(tx).vsize(true),
         };
       }
 
@@ -978,7 +979,7 @@ class Service {
       this.logger.debug(
         `Broadcasting ${symbol} transaction related to Swaps (${relevantSwapIds.join(
           ', ',
-        )}): ${transaction.getId()}`,
+        )}): ${TxView.of(transaction).id}`,
       );
     }
 

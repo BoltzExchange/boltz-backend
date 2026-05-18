@@ -1,4 +1,6 @@
-import { Transaction, crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction as ScureTransaction } from '@scure/btc-signer';
 import { OutputType, Scripts } from 'boltz-core';
 import { randomBytes } from 'crypto';
 import type {
@@ -12,6 +14,7 @@ import { confidential } from 'liquidjs-lib';
 import os from 'os';
 import path from 'path';
 import packageJson from '../package.json';
+import { TxView } from './TxView';
 import commitHash from './Version';
 import type { IChainClient } from './chain/ChainClient';
 import { etherDecimals } from './consts/Consts';
@@ -240,8 +243,14 @@ export const getHexBuffer = (input: string): Buffer => {
  *
  * @returns a hex encoded string
  */
-export const getHexString = (input: Buffer): string => {
-  return input.toString('hex');
+export const getHexString = (input: Uint8Array | string): string => {
+  if (typeof input === 'string') {
+    return input;
+  }
+
+  return Buffer.isBuffer(input)
+    ? input.toString('hex')
+    : Buffer.from(input).toString('hex');
 };
 
 /**
@@ -373,13 +382,19 @@ export const getPubkeyHashFunction = (
       throw TAPROOT_NOT_SUPPORTED;
 
     case OutputType.Bech32:
-      return p2wpkhOutput;
+      return (hash: Buffer) => Buffer.from(p2wpkhOutput(hash));
 
     case OutputType.Compatibility:
-      return p2shP2wpkhOutput;
+      return (hash: Buffer) => {
+        const r = p2shP2wpkhOutput(hash);
+        return {
+          redeemScript: Buffer.from(r.redeemScript),
+          outputScript: Buffer.from(r.outputScript),
+        };
+      };
 
     case OutputType.Legacy:
-      return p2pkhOutput;
+      return (hash: Buffer) => Buffer.from(p2pkhOutput(hash));
   }
 };
 
@@ -391,13 +406,13 @@ export const getScriptHashFunction = (
       throw TAPROOT_NOT_SUPPORTED;
 
     case OutputType.Bech32:
-      return p2wshOutput;
+      return (script: Buffer) => Buffer.from(p2wshOutput(script));
 
     case OutputType.Compatibility:
-      return p2shP2wshOutput;
+      return (script: Buffer) => Buffer.from(p2shP2wshOutput(script));
 
     case OutputType.Legacy:
-      return p2shOutput;
+      return (script: Buffer) => Buffer.from(p2shOutput(script));
   }
 };
 
@@ -419,23 +434,6 @@ export const reverseBuffer = (input: Buffer): Buffer => {
  */
 export const transactionHashToId = (transactionHash: Buffer): string => {
   return getHexString(reverseBuffer(transactionHash));
-};
-
-/**
- * Detects whether the transactions signals RBF explicitly
- *
- * @param transaction the transactions to scan
- */
-export const transactionSignalsRbfExplicitly = (
-  transaction: Transaction | LiquidTransaction,
-): boolean => {
-  for (const input of transaction.ins) {
-    if (input.sequence < 0xffffffff - 1) {
-      return true;
-    }
-  }
-
-  return false;
 };
 
 export const getSendingReceivingCurrency = (
@@ -545,25 +543,33 @@ export const getUnixTime = (): number => {
  */
 export const calculateUtxoTransactionFee = async (
   chainClient: IChainClient,
-  transaction: Transaction,
+  transaction: ScureTransaction,
 ): Promise<number> => {
-  let fee = 0n;
+  const view = TxView.of(transaction);
 
-  for (const input of transaction.ins) {
-    const inputId = transactionHashToId(input.hash);
-    const rawInputTransaction = await chainClient.getRawTransaction(inputId);
-    const inputTransaction = Transaction.fromHex(rawInputTransaction);
+  const inputAmounts = await Promise.all(
+    view.inputs.map(async (input) => {
+      const rawInputTransaction = await chainClient.getRawTransaction(
+        input.txid,
+      );
+      const inputTransaction = ScureTransaction.fromRaw(
+        hexToBytes(rawInputTransaction),
+        {
+          allowUnknownOutputs: true,
+          allowUnknownInputs: true,
+          allowLegacyWitnessUtxo: true,
+        },
+      );
+      return inputTransaction.getOutput(input.index).amount!;
+    }),
+  );
 
-    const spentOutput = inputTransaction.outs[input.index];
-
-    fee += BigInt(spentOutput.value);
-  }
-
-  transaction.outs.forEach((output) => {
-    fee -= BigInt(output.value);
-  });
-
-  return Number(fee);
+  const totalIn = inputAmounts.reduce((sum, amt) => sum + amt, 0n);
+  const totalOut = view.outputs.reduce(
+    (sum, out) => sum + (out.amount ?? 0n),
+    0n,
+  );
+  return Number(totalIn - totalOut);
 };
 
 export const calculateLiquidTransactionFee = (
@@ -603,7 +609,7 @@ export const calculateEthereumTransactionFeeWithReceipt = (
  * @returns hex encoded hash
  */
 export const hashString = (input: string): string => {
-  return getHexString(crypto.sha256(Buffer.from(input, 'utf-8')));
+  return getHexString(sha256(Buffer.from(input, 'utf-8')));
 };
 
 export const createApiCredential = (): string => {

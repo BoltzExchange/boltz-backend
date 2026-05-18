@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
 import { randomBytes } from 'crypto';
@@ -27,7 +27,7 @@ describe('ContractUtils', () => {
   let erc20Swap: ERC20Swap;
 
   const preimage = randomBytes(32);
-  const preimageHash = crypto.sha256(preimage);
+  const preimageHash = Buffer.from(sha256(preimage));
 
   const swap = {
     id: 'test-swap-id',

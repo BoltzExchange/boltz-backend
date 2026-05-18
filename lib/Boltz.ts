@@ -1,6 +1,5 @@
 import Tracing from './Tracing';
-import { Networks } from 'boltz-core';
-import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
+import { Networks as LiquidNetworks } from 'boltz-core/liquid';
 import type { Arguments } from 'yargs';
 import type { ConfigType, TokenConfig } from './Config';
 import Config from './Config';
@@ -15,6 +14,7 @@ import Api from './api/Api';
 import ArkClient from './chain/ArkClient';
 import ChainClient, { type IChainClient } from './chain/ChainClient';
 import ElementsWrapper from './chain/ElementsWrapper';
+import { resolveBitcoinNetwork } from './consts/BitcoinNetworks';
 import { CurrencyType } from './consts/Enums';
 import type { BlockchainInfo, NetworkInfo } from './consts/Types';
 import Database from './db/Database';
@@ -564,6 +564,14 @@ class Boltz {
 
     this.config.currencies.forEach((currency) => {
       try {
+        const network = resolveBitcoinNetwork(currency.network);
+        if (network === undefined) {
+          this.logger.error(
+            `Unknown network "${currency.network}" for currency ${currency.symbol}; skipping`,
+          );
+          return;
+        }
+
         const chainClient = new ChainClient(
           this.logger,
           this.sidecar,
@@ -574,9 +582,9 @@ class Boltz {
 
         result.set(currency.symbol, {
           chainClient,
+          network,
           symbol: currency.symbol,
           type: CurrencyType.BitcoinLike,
-          network: Networks[currency.network],
           lndClients: new Map(), // Populated in start()
           clnClient:
             currency.cln !== undefined

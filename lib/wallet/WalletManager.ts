@@ -1,18 +1,19 @@
-import type { BIP32Interface } from 'bip32';
-import BIP32Factory from 'bip32';
-import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
-import type { Network } from 'bitcoinjs-lib';
+import { HDKey } from '@scure/bip32';
+import {
+  generateMnemonic,
+  mnemonicToSeedSync,
+  validateMnemonic,
+} from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import fs from 'fs';
 import type { Network as LiquidNetwork } from 'liquidjs-lib/src/networks';
-import type { Slip77Interface } from 'slip77';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
 import type { CurrencyConfig } from '../Config';
 import type Logger from '../Logger';
 import { splitDerivationPath } from '../Utils';
 import type ArkClient from '../chain/ArkClient';
 import type { IChainClient } from '../chain/ChainClient';
 import type { IElementsClient } from '../chain/ElementsClient';
+import type { BitcoinNetwork } from '../consts/BitcoinNetworks';
 import { CurrencyType } from '../consts/Enums';
 import type { KeyProviderType } from '../db/models/KeyProvider';
 import KeyRepository from '../db/repositories/KeyRepository';
@@ -20,6 +21,8 @@ import type LndClient from '../lightning/LndClient';
 import type ClnClient from '../lightning/cln/ClnClient';
 import type NotificationClient from '../notifications/NotificationClient';
 import Errors from './Errors';
+import type { Slip77Node } from './Slip77';
+import { slip77FromSeed } from './Slip77';
 import Wallet from './Wallet';
 import WalletLiquid from './WalletLiquid';
 import type EthereumManager from './ethereum/EthereumManager';
@@ -45,7 +48,7 @@ type Currency = {
   requiredConfirmations?: number;
 
   // Needed for UTXO based coins
-  network?: Network;
+  network?: BitcoinNetwork | LiquidNetwork;
   lndClients: Map<string, LndClient>;
   clnClient?: ClnClient;
   chainClient?: IChainClient;
@@ -89,9 +92,6 @@ const getLightningClientById = (
   return undefined;
 };
 
-const bip32 = BIP32Factory(ecc);
-const slip77 = SLIP77Factory(ecc);
-
 /**
  * WalletManager creates wallets instances that generate keys derived from the seed and
  * interact with the wallet of LND to send and receive onchain coins
@@ -102,8 +102,8 @@ class WalletManager {
   private readonly mnemonic: string;
   private readonly mnemonicEvm: string;
 
-  private readonly slip77: Slip77Interface;
-  private readonly masterNode: BIP32Interface;
+  private readonly slip77: Slip77Node;
+  private readonly masterNode: HDKey;
 
   private readonly derivationPath = 'm/0';
 
@@ -240,8 +240,8 @@ class WalletManager {
   private static deriveFromMnemonic = (mnemonic: string) => {
     const seed = mnemonicToSeedSync(mnemonic);
     return {
-      slip77: slip77.fromSeed(seed),
-      masterNode: bip32.fromSeed(seed),
+      slip77: slip77FromSeed(seed),
+      masterNode: HDKey.fromMasterSeed(seed),
     };
   };
 
@@ -249,11 +249,14 @@ class WalletManager {
     if (!fs.existsSync(filename)) {
       this.logger.info(`Generated new mnemonic: ${filename}`);
 
-      fs.writeFileSync(filename, generateMnemonic());
+      fs.writeFileSync(filename, generateMnemonic(wordlist), {
+        mode: 0o600,
+        flag: 'wx',
+      });
     }
 
     const mnemonic = fs.readFileSync(filename, 'utf-8').trim();
-    if (!validateMnemonic(mnemonic)) {
+    if (!validateMnemonic(mnemonic, wordlist)) {
       throw Errors.INVALID_MNEMONIC(mnemonic);
     }
 

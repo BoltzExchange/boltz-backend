@@ -1,13 +1,16 @@
+import { secp256k1 } from '@noble/curves/secp256k1.js';
 import AsyncLock from 'async-lock';
-import { address } from 'bitcoinjs-lib';
 import bolt11 from 'bolt11';
-import { Networks, OutputType } from 'boltz-core';
-import { Networks as LiquidNetworks } from 'boltz-core/dist/lib/liquid';
+import { OutputType } from 'boltz-core';
+import { Networks as LiquidNetworks } from 'boltz-core/liquid';
 import { randomBytes } from 'crypto';
 import { address as addressLiquid } from 'liquidjs-lib';
 import { Op, type Sequelize } from 'sequelize';
+import {
+  addressFromOutputScript,
+  outputScriptFromAddress,
+} from '../../../lib/AddressUtils';
 import { setup } from '../../../lib/Core';
-import { ECPair } from '../../../lib/ECPairHelper';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer, getHexString, getUnixTime } from '../../../lib/Utils';
 import ArkClient from '../../../lib/chain/ArkClient';
@@ -45,6 +48,7 @@ import Wallet from '../../../lib/wallet/Wallet';
 import type { Currency } from '../../../lib/wallet/WalletManager';
 import WalletManager from '../../../lib/wallet/WalletManager';
 import { networks } from '../../../lib/wallet/ethereum/EvmNetworks';
+import { regtest as bitcoinRegtest } from '../../Networks';
 import { raceCall } from '../../Utils';
 
 Database.sequelize = {
@@ -106,11 +110,13 @@ jest.mock('../../../lib/rates/RateProvider', () => {
 
 const MockedRateProvider = <jest.Mock<RateProvider>>(<any>RateProvider);
 
-const keys = ECPair.fromPrivateKey(
-  getHexBuffer(
-    '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
-  ),
+const keysPrivateKey = getHexBuffer(
+  '4c2a3023e0e6804b459dbd50bb028f0cf69dd128ef670e5c5284af7ce6db3d9e',
 );
+const keys = {
+  privateKey: keysPrivateKey,
+  publicKey: Buffer.from(secp256k1.getPublicKey(keysPrivateKey, true)),
+};
 const mockGetNewKeysResult = {
   index: 21,
   keys: {
@@ -122,13 +128,21 @@ const mockGetNewKeysResult = {
 const mockGetNewKeys = jest.fn().mockReturnValue(mockGetNewKeysResult);
 
 const mockDecodeAddress = jest.fn().mockImplementation((toDecode: string) => {
-  return address.toOutputScript(toDecode, Networks.bitcoinRegtest);
+  return outputScriptFromAddress(
+    CurrencyType.BitcoinLike,
+    toDecode,
+    bitcoinRegtest,
+  );
 });
 
 const mockEncodeAddress = jest
   .fn()
   .mockImplementation((outputScript: Buffer) => {
-    return address.fromOutputScript(outputScript, Networks.bitcoinRegtest);
+    return addressFromOutputScript(
+      CurrencyType.BitcoinLike,
+      outputScript,
+      bitcoinRegtest,
+    );
   });
 
 jest.mock('../../../lib/wallet/Wallet', () => {
@@ -145,7 +159,6 @@ const MockedWallet = <jest.Mock<Wallet>>(<any>Wallet);
 
 const mockWallets = new Map<string, Wallet>([
   ['BTC', new MockedWallet()],
-  ['LTC', new MockedWallet()],
   [
     'L-BTC',
     {
@@ -392,20 +405,9 @@ describe('SwapManager', () => {
   const btcCurrency = {
     symbol: 'BTC',
     type: CurrencyType.BitcoinLike,
-    network: Networks.bitcoinRegtest,
+    network: bitcoinRegtest,
     chainClient: new MockedChainClient(),
     lndClients: new Map([[btcLndClient.id, btcLndClient]]),
-  } as any as Currency;
-
-  const ltcLndClient = new MockedLndClient();
-  (ltcLndClient as any).id = 'lnd-ltc';
-  (ltcLndClient as any).type = NodeType.LND;
-  const ltcCurrency = {
-    symbol: 'LTC',
-    type: CurrencyType.BitcoinLike,
-    network: Networks.litecoinRegtest,
-    chainClient: new MockedChainClient(),
-    lndClients: new Map([[ltcLndClient.id, ltcLndClient]]),
   } as any as Currency;
 
   const lbtcCurrency = {
@@ -473,7 +475,6 @@ describe('SwapManager', () => {
     );
 
     manager['currencies'].set(btcCurrency.symbol, btcCurrency);
-    manager['currencies'].set(ltcCurrency.symbol, ltcCurrency);
     manager['currencies'].set(rbtcCurrency.symbol, rbtcCurrency);
     manager['currencies'].set(lbtcCurrency.symbol, lbtcCurrency);
 
@@ -490,8 +491,7 @@ describe('SwapManager', () => {
       getExpiry: jest.fn().mockReturnValue(3600),
     } as any;
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
+    // @ts-expect-error - private property access for test
     manager['reverseRoutingHints'] = {
       getHints: jest.fn().mockReturnValue({
         invoiceMemo: 'mock',
@@ -560,26 +560,13 @@ describe('SwapManager', () => {
           symbol: 'BTC',
         },
       },
-      {
-        chainSwap: {
-          id: 'chain2',
-          status: SwapUpdateEvent.TransactionMempool,
-        },
-        sendingData: {
-          symbol: 'LTC',
-        },
-        receivingData: {
-          symbol: 'BTC',
-        },
-      },
     ];
 
-    await manager.init([btcCurrency, ltcCurrency], []);
+    await manager.init([btcCurrency], []);
 
-    expect(manager.currencies.size).toEqual(4);
+    expect(manager.currencies.size).toEqual(3);
 
     expect(manager.currencies.get('BTC')).toEqual(btcCurrency);
-    expect(manager.currencies.get('LTC')).toEqual(ltcCurrency);
 
     expect(mockGetReverseSwaps).toHaveBeenCalledTimes(1);
     expect(mockGetReverseSwaps).toHaveBeenCalledWith({
@@ -735,7 +722,7 @@ describe('SwapManager', () => {
       },
     ];
 
-    await manager.init([btcCurrency, ltcCurrency, arkCurrency], []);
+    await manager.init([btcCurrency, arkCurrency], []);
 
     expect(arkSubscription.subscribeAddresses).toHaveBeenCalledTimes(1);
     expect(arkSubscription.subscribeAddresses).toHaveBeenCalledWith([
@@ -895,7 +882,7 @@ describe('SwapManager', () => {
     );
     const invoiceEncode = bolt11.encode({
       payeeNodeKey: getHexString(
-        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+        Buffer.from(secp256k1.getPublicKey(invoiceSignKeys, true)),
       ),
       satoshis: 200,
       tags: [
@@ -1119,7 +1106,7 @@ describe('SwapManager', () => {
     );
     const invoiceEncode = bolt11.encode({
       payeeNodeKey: getHexString(
-        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+        Buffer.from(secp256k1.getPublicKey(invoiceSignKeys, true)),
       ),
       satoshis: 200,
       tags: [
@@ -1262,7 +1249,7 @@ describe('SwapManager', () => {
     );
     const invoiceEncode = bolt11.encode({
       payeeNodeKey: getHexString(
-        Buffer.from(ECPair.fromPrivateKey(invoiceSignKeys).publicKey),
+        Buffer.from(secp256k1.getPublicKey(invoiceSignKeys, true)),
       ),
       satoshis: 200,
       tags: [
@@ -1298,7 +1285,7 @@ describe('SwapManager', () => {
   test('should create Reverse Swaps', async () => {
     manager['recreateFilters'] = jest.fn().mockImplementation();
     manager['recreateSubscriptions'] = jest.fn().mockImplementation();
-    await manager.init([btcCurrency, ltcCurrency], []);
+    await manager.init([btcCurrency], []);
 
     const preimageHash = getHexBuffer(
       '6b0d0275c597a18cfcc23261a62e095e2ba12ac5c866823d2926912806a5b10a',
@@ -1738,10 +1725,10 @@ describe('SwapManager', () => {
   test('it should get currencies', () => {
     const getCurrencies = manager['getCurrencies'];
 
-    expect(getCurrencies('LTC', 'BTC', OrderSide.BUY)).toEqual({
+    expect(getCurrencies('L-BTC', 'BTC', OrderSide.BUY)).toEqual({
       sendingCurrency: {
-        ...ltcCurrency,
-        wallet: mockWallets.get('LTC'),
+        ...lbtcCurrency,
+        wallet: mockWallets.get('L-BTC'),
       },
       receivingCurrency: {
         ...btcCurrency,
@@ -1749,14 +1736,14 @@ describe('SwapManager', () => {
       },
     });
 
-    expect(getCurrencies('LTC', 'BTC', OrderSide.SELL)).toEqual({
+    expect(getCurrencies('L-BTC', 'BTC', OrderSide.SELL)).toEqual({
       sendingCurrency: {
         ...btcCurrency,
         wallet: mockWallets.get('BTC'),
       },
       receivingCurrency: {
-        ...ltcCurrency,
-        wallet: mockWallets.get('LTC'),
+        ...lbtcCurrency,
+        wallet: mockWallets.get('L-BTC'),
       },
     });
   });

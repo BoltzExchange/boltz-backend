@@ -1,7 +1,6 @@
-import type { Transaction } from 'bitcoinjs-lib';
 import type { Musig } from 'boltz-core';
 import { SwapTreeSerializer } from 'boltz-core';
-import type { Transaction as LiquidTransaction } from 'liquidjs-lib/src/transaction';
+import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
 import type { ClaimDetails, LiquidClaimDetails } from '../../Core';
 import {
   calculateTransactionFee,
@@ -13,6 +12,8 @@ import {
   tweakMusig,
 } from '../../Core';
 import type Logger from '../../Logger';
+import type { ConstructedTransaction } from '../../TxView';
+import { TxView } from '../../TxView';
 import { getHexBuffer } from '../../Utils';
 import type { IChainClient } from '../../chain/ChainClient';
 import { SwapType, swapTypeToPrettyString } from '../../consts/Enums';
@@ -32,9 +33,9 @@ export const cooperativeSignaturesDisabledMessage =
   'cooperative signatures are disabled';
 
 type CooperativeDetails = {
-  musig: Musig;
+  musig: Musig.MusigWithNonce;
   sweepAddress: string;
-  transaction: Transaction | LiquidTransaction;
+  transaction: ConstructedTransaction;
 };
 
 type SwapToClaim<T> = {
@@ -77,31 +78,44 @@ abstract class CoopSignerBase<
       : (toClaim.swap as ChainSwapInfo).receivingData;
 
     const ourKeys = wallet.getKeysByIndex(details.keyIndex!);
+    const transaction = constructClaimTransaction(
+      wallet,
+      [
+        await this.constructClaimDetails(
+          chainCurrency.chainClient!,
+          wallet,
+          toClaim.swap,
+        ),
+      ] as ClaimDetails[] | LiquidClaimDetails[],
+      address,
+      await chainCurrency.chainClient!.estimateFee(),
+    );
+    const transactionHash = await hashForWitnessV1(
+      chainCurrency,
+      transaction,
+      0,
+    );
+    const swapTree = isSubmarine
+      ? (details as Swap).redeemScript!
+      : (details as ChainSwapData).swapTree!;
+    const musig = tweakMusig(
+      chainCurrency.type,
+      createMusig(ourKeys, getHexBuffer(details.theirPublicKey!)),
+      SwapTreeSerializer.deserializeSwapTree(swapTree),
+    )
+      .message(transactionHash)
+      .generateNonce();
+
     toClaim.cooperative = {
       sweepAddress: address,
-      musig: createMusig(ourKeys, getHexBuffer(details.theirPublicKey!)),
-      transaction: constructClaimTransaction(
-        wallet,
-        [
-          await this.constructClaimDetails(
-            chainCurrency.chainClient!,
-            wallet,
-            toClaim.swap,
-          ),
-        ] as ClaimDetails[] | LiquidClaimDetails[],
-        address,
-        await chainCurrency.chainClient!.estimateFee(),
-      ),
+      musig,
+      transaction,
     };
 
     return {
       publicKey: ourKeys.publicKey,
-      pubNonce: Buffer.from(toClaim.cooperative.musig.getPublicNonce()),
-      transactionHash: await hashForWitnessV1(
-        chainCurrency,
-        toClaim.cooperative.transaction,
-        0,
-      ),
+      pubNonce: Buffer.from(musig.publicNonce),
+      transactionHash,
     };
   };
 
@@ -135,11 +149,11 @@ abstract class CoopSignerBase<
 
   protected broadcastCooperativeTransaction = async <
     T extends Swap | ChainSwapInfo,
-    J extends Transaction | LiquidTransaction,
+    J extends ConstructedTransaction,
   >(
     swap: T,
     chainCurrency: Currency,
-    musig: Musig,
+    musig: Musig.MusigWithNonce,
     transaction: J,
     theirPubNonce: Buffer,
     theirPartialSignature: Buffer,
@@ -152,34 +166,32 @@ abstract class CoopSignerBase<
       ? (swap as Swap)
       : (swap as ChainSwapInfo).receivingData;
 
-    const swapTree = isSubmarine
-      ? (details as Swap).redeemScript!
-      : (details as ChainSwapData).swapTree!;
-    tweakMusig(
-      chainCurrency.type,
-      musig,
-      SwapTreeSerializer.deserializeSwapTree(swapTree),
-    );
-
     const theirPublicKey = getHexBuffer(details.theirPublicKey!);
-    musig.aggregateNonces([[theirPublicKey, theirPubNonce]]);
-    musig.initializeSession(
-      await hashForWitnessV1(chainCurrency, transaction, 0),
-    );
-    if (!musig.verifyPartial(theirPublicKey, theirPartialSignature)) {
+    const session = musig
+      .aggregateNonces([[theirPublicKey, theirPubNonce]])
+      .initializeSession();
+    if (!session.verifyPartial(theirPublicKey, theirPartialSignature)) {
       throw Errors.INVALID_PARTIAL_SIGNATURE();
     }
+    const witness = session
+      .addPartial(theirPublicKey, theirPartialSignature)
+      .signPartial()
+      .aggregatePartials();
 
-    musig.addPartial(theirPublicKey, theirPartialSignature);
-    musig.signPartial();
+    if (TxView.isScure(transaction)) {
+      transaction.updateInput(0, { finalScriptWitness: [witness] }, true);
+    } else {
+      (transaction as LiquidTransaction).ins[0].witness = [
+        Buffer.from(witness),
+      ];
+    }
 
-    transaction.ins[0].witness = [musig.aggregatePartials()];
-
+    const txId = TxView.of(transaction).id;
     this.logger.info(
-      `Broadcasting cooperative ${chainCurrency.symbol} claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${transaction.getId()}`,
+      `Broadcasting cooperative ${chainCurrency.symbol} claim of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${txId}`,
     );
     await chainCurrency.chainClient!.sendRawTransaction(
-      transaction.toHex(),
+      TxView.of(transaction).hex,
       true,
     );
 

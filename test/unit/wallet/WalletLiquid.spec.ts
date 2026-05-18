@@ -1,19 +1,21 @@
-import ops from '@boltz/bitcoin-ops';
-import { mnemonicToSeedSync } from 'bip39';
-import { crypto } from 'bitcoinjs-lib';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { ripemd160 } from '@noble/hashes/legacy.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { mnemonicToSeedSync } from '@scure/bip39';
+import { OP } from '@scure/btc-signer/script.js';
 import { Scripts } from 'boltz-core';
-import Networks from 'boltz-core/dist/lib/liquid/consts/Networks';
+import { Networks } from 'boltz-core/liquid';
 import { address } from 'liquidjs-lib';
-import { SLIP77Factory } from 'slip77';
-import * as ecc from 'tiny-secp256k1';
 import Logger from '../../../lib/Logger';
 import { getHexBuffer } from '../../../lib/Utils';
+import { slip77FromSeed } from '../../../lib/wallet/Slip77';
 import WalletLiquid from '../../../lib/wallet/WalletLiquid';
 import type WalletProviderInterface from '../../../lib/wallet/providers/WalletProviderInterface';
 
+const hash160 = (data: Uint8Array): Uint8Array => ripemd160(sha256(data));
+const toXOnly = (publicKey: Uint8Array): Uint8Array =>
+  publicKey.subarray(1, 33);
+
 describe('WalletLiquid', () => {
-  const slip77 = SLIP77Factory(ecc);
   const mnemonic =
     'test test test test test test test test test test test junk';
 
@@ -24,7 +26,7 @@ describe('WalletLiquid', () => {
   const wallet = new WalletLiquid(
     Logger.disabledLogger,
     provider,
-    slip77.fromSeed(mnemonicToSeedSync(mnemonic)),
+    slip77FromSeed(mnemonicToSeedSync(mnemonic)),
     Networks.liquidRegtest,
   );
   wallet.initKeyProvider('', {} as any);
@@ -47,16 +49,16 @@ describe('WalletLiquid', () => {
 
   test.each`
     name        | shouldBlind | outputScript
-    ${'P2PKH'}  | ${false}    | ${Scripts.p2pkhOutput(crypto.hash160(publicKey))}
-    ${'P2PKH'}  | ${true}     | ${Scripts.p2pkhOutput(crypto.hash160(publicKey))}
-    ${'P2SH'}   | ${false}    | ${Scripts.p2shOutput(publicKey)}
-    ${'P2SH'}   | ${true}     | ${Scripts.p2shOutput(publicKey)}
-    ${'P2WPKH'} | ${false}    | ${Scripts.p2wpkhOutput(crypto.hash160(publicKey))}
-    ${'P2WPKH'} | ${true}     | ${Scripts.p2wpkhOutput(crypto.hash160(publicKey))}
-    ${'P2WSH'}  | ${false}    | ${Scripts.p2wshOutput(publicKey)}
-    ${'P2WSH'}  | ${true}     | ${Scripts.p2wshOutput(publicKey)}
-    ${'P2TR'}   | ${false}    | ${Scripts.p2trOutput(toXOnly(publicKey))}
-    ${'P2TR'}   | ${true}     | ${Scripts.p2trOutput(toXOnly(publicKey))}
+    ${'P2PKH'}  | ${false}    | ${Buffer.from(Scripts.p2pkhOutput(hash160(publicKey)))}
+    ${'P2PKH'}  | ${true}     | ${Buffer.from(Scripts.p2pkhOutput(hash160(publicKey)))}
+    ${'P2SH'}   | ${false}    | ${Buffer.from(Scripts.p2shOutput(publicKey))}
+    ${'P2SH'}   | ${true}     | ${Buffer.from(Scripts.p2shOutput(publicKey))}
+    ${'P2WPKH'} | ${false}    | ${Buffer.from(Scripts.p2wpkhOutput(hash160(publicKey)))}
+    ${'P2WPKH'} | ${true}     | ${Buffer.from(Scripts.p2wpkhOutput(hash160(publicKey)))}
+    ${'P2WSH'}  | ${false}    | ${Buffer.from(Scripts.p2wshOutput(publicKey))}
+    ${'P2WSH'}  | ${true}     | ${Buffer.from(Scripts.p2wshOutput(publicKey))}
+    ${'P2TR'}   | ${false}    | ${Buffer.from(Scripts.p2trOutput(toXOnly(publicKey)))}
+    ${'P2TR'}   | ${true}     | ${Buffer.from(Scripts.p2trOutput(toXOnly(publicKey)))}
   `(
     'should encode $name address (confidential: $shouldBlind)',
     ({ outputScript, shouldBlind }) => {
@@ -70,13 +72,15 @@ describe('WalletLiquid', () => {
   });
 
   test('should return empty string as address for scripts that cannot be encoded', () => {
-    const outputScript = Buffer.from([ops.OP_RETURN, 1, 2, 3]);
+    const outputScript = Buffer.from([OP.RETURN, 1, 2, 3]);
     expect(wallet.encodeAddress(outputScript, true)).toEqual('');
     expect(wallet.encodeAddress(outputScript, false)).toEqual('');
   });
 
   test('should blind by default', () => {
-    const res = wallet.encodeAddress(Scripts.p2trOutput(toXOnly(publicKey)));
+    const res = wallet.encodeAddress(
+      Buffer.from(Scripts.p2trOutput(toXOnly(publicKey))),
+    );
     expect(res.startsWith(Networks.liquidRegtest.blech32)).toEqual(true);
   });
 });

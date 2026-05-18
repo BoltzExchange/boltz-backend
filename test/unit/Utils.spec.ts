@@ -1,6 +1,8 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
 import { OutputType, Scripts } from 'boltz-core';
 import os from 'os';
+import { TxView } from '../../lib/TxView';
 import * as utils from '../../lib/Utils';
 import {
   TAPROOT_NOT_SUPPORTED,
@@ -29,11 +31,17 @@ describe('Utils', () => {
   };
 
   const sampleTransactions = [
-    Transaction.fromHex(
-      '01000000017fa897c3556271c34cb28c03c196c2d912093264c9d293cb4980a2635474467d010000000f5355540b6f93598893578893588851ffffffff01501e0000000000001976a914aa2482ce71d219018ef334f6cc551ee88abd920888ac00000000',
+    Transaction.fromRaw(
+      hexToBytes(
+        '01000000017fa897c3556271c34cb28c03c196c2d912093264c9d293cb4980a2635474467d010000000f5355540b6f93598893578893588851ffffffff01501e0000000000001976a914aa2482ce71d219018ef334f6cc551ee88abd920888ac00000000',
+      ),
+      { allowUnknownInputs: true, allowUnknownOutputs: true },
     ),
-    Transaction.fromHex(
-      '010000000001010dabcc426e9f5f57c1000e1560d06ebd21f510c74fe2d0c30fe8eefcabaf31f50200000000fdffffff02a086010000000000160014897ab9fb4e4bf920af9047b5a1896b4689a65bff0e52090000000000160014b3330dbbb43be7a4e2df367f58cf76c74f68141602483045022100ef83bcabb40debd4e13c0eda6b918b940b404344f41253a42c51fc76319ca64502205a1ad86d0bb92f25de75a6b37edf7118863ba9b7c438473ecde07765dedbb9ed012103df1535396d6f4c68458ef3ae86a32e5484e89d7bfc94cabd6c0c09ceaab0b2ab00000000',
+    Transaction.fromRaw(
+      hexToBytes(
+        '010000000001010dabcc426e9f5f57c1000e1560d06ebd21f510c74fe2d0c30fe8eefcabaf31f50200000000fdffffff02a086010000000000160014897ab9fb4e4bf920af9047b5a1896b4689a65bff0e52090000000000160014b3330dbbb43be7a4e2df367f58cf76c74f68141602483045022100ef83bcabb40debd4e13c0eda6b918b940b404344f41253a42c51fc76319ca64502205a1ad86d0bb92f25de75a6b37edf7118863ba9b7c438473ecde07765dedbb9ed012103df1535396d6f4c68458ef3ae86a32e5484e89d7bfc94cabd6c0c09ceaab0b2ab00000000',
+      ),
+      { allowUnknownInputs: true, allowUnknownOutputs: true },
     ),
   ];
 
@@ -126,26 +134,14 @@ describe('Utils', () => {
       '9788d1d096dfb41c429a5e76bf2c6e6eb6e3b9aa57feecae3b33c57b4f6fea62';
 
     expect(
-      utils.transactionSignalsRbfExplicitly(
-        constructTransaction(true, inputHash),
-      ),
+      TxView.of(constructTransaction(true, inputHash)).signalsRbfExplicitly(),
     ).toBeTruthy();
     expect(
-      utils.transactionSignalsRbfExplicitly(
-        constructTransaction(false, inputHash),
-      ),
+      TxView.of(constructTransaction(false, inputHash)).signalsRbfExplicitly(),
     ).toBeFalsy();
 
-    expect(
-      utils.transactionSignalsRbfExplicitly(
-        Transaction.fromHex(sampleTransactions[0].toHex()),
-      ),
-    ).toBeFalsy();
-    expect(
-      utils.transactionSignalsRbfExplicitly(
-        Transaction.fromHex(sampleTransactions[1].toHex()),
-      ),
-    ).toBeTruthy();
+    expect(TxView.of(sampleTransactions[0]).signalsRbfExplicitly()).toBe(false);
+    expect(TxView.of(sampleTransactions[1]).signalsRbfExplicitly()).toBe(true);
   });
 
   test('should generate ids', () => {
@@ -403,7 +399,17 @@ describe('Utils', () => {
   `(
     'should get public key hash function for type $outputType',
     ({ outputType, expectedFunc }) => {
-      expect(getPubkeyHashFunction(outputType)).toEqual(expectedFunc);
+      const input = Buffer.alloc(20, 1);
+      const fn = getPubkeyHashFunction(outputType) as (
+        hash: Buffer,
+      ) => Buffer | { redeemScript: Buffer; outputScript: Buffer };
+      const actual = fn(input);
+      const expected = expectedFunc(input);
+      if (Buffer.isBuffer(actual) && expected instanceof Uint8Array) {
+        expect(actual).toEqual(Buffer.from(expected));
+      } else {
+        expect(actual).toEqual(expected);
+      }
     },
   );
 
@@ -421,7 +427,9 @@ describe('Utils', () => {
   `(
     'should get script hash function for type $outputType',
     ({ outputType, expectedFunc }) => {
-      expect(getScriptHashFunction(outputType)).toEqual(expectedFunc);
+      const input = Buffer.alloc(32, 1);
+      const actual = getScriptHashFunction(outputType)(input);
+      expect(actual).toEqual(Buffer.from(expectedFunc(input)));
     },
   );
 

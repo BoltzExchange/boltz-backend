@@ -1,5 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js';
 import { Transaction } from '@scure/btc-signer';
-import { crypto } from 'bitcoinjs-lib';
 import type { Types } from 'boltz-core';
 import {
   createMusig,
@@ -7,6 +7,7 @@ import {
   parseTransaction,
   tweakMusig,
 } from '../../Core';
+import { TxView } from '../../TxView';
 import { getHexString } from '../../Utils';
 import type Wallet from '../../wallet/Wallet';
 import type { Currency } from '../../wallet/WalletManager';
@@ -18,7 +19,7 @@ export const isPreimageValid = (
   preimage: Buffer,
 ) =>
   preimage.length === 32 &&
-  getHexString(crypto.sha256(preimage)) === swap.preimageHash;
+  getHexString(sha256(preimage)) === swap.preimageHash;
 
 export const createPartialSignature = async (
   currency: Currency,
@@ -31,23 +32,29 @@ export const createPartialSignature = async (
   vin: number,
 ): Promise<PartialSignature> => {
   const tx = parseTransaction(currency.type, rawTransaction);
-  if (vin < 0 || tx.ins.length <= vin) {
+  if (vin < 0 || TxView.of(tx).inputs.length <= vin) {
     throw Errors.INVALID_VIN();
   }
 
   const ourKeys = wallet.getKeysByIndex(keyIndex);
-
-  const musig = createMusig(ourKeys, theirPublicKey);
-  tweakMusig(currency.type, musig, swapTree);
-
-  musig.aggregateNonces([[theirPublicKey, theirNonce]]);
-
   const hash = await hashForWitnessV1(currency, tx, vin);
-  musig.initializeSession(hash);
+
+  const withNonce = tweakMusig(
+    currency.type,
+    createMusig(ourKeys, theirPublicKey),
+    swapTree,
+  )
+    .message(hash)
+    .generateNonce();
+
+  const signed = withNonce
+    .aggregateNonces([[theirPublicKey, theirNonce]])
+    .initializeSession()
+    .signPartial();
 
   return {
-    signature: Buffer.from(musig.signPartial()),
-    pubNonce: Buffer.from(musig.getPublicNonce()),
+    signature: Buffer.from(signed.ourPartialSignature),
+    pubNonce: Buffer.from(withNonce.publicNonce),
   };
 };
 

@@ -1,6 +1,6 @@
-import { crypto } from 'bitcoinjs-lib';
+import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from 'crypto';
-import { ECPair } from '../../../lib/ECPairHelper';
 import { getHexBuffer, getHexString, getSwapMemo } from '../../../lib/Utils';
 import { SwapType, SwapVersion } from '../../../lib/consts/Enums';
 import type { DecodedInvoice } from '../../../lib/lightning/LightningClient';
@@ -8,6 +8,15 @@ import PaymentRequestUtils from '../../../lib/service/PaymentRequestUtils';
 import Errors from '../../../lib/swap/Errors';
 import ReverseRoutingHints from '../../../lib/swap/ReverseRoutingHints';
 import type { Currency } from '../../../lib/wallet/WalletManager';
+
+const makeKeys = () => {
+  const priv = randomBytes(32);
+  return {
+    privateKey: Buffer.from(priv),
+    publicKey: Buffer.from(secp256k1.getPublicKey(priv, true)),
+    signSchnorr: (msg: Uint8Array) => Buffer.from(schnorr.sign(msg, priv)),
+  };
+};
 
 describe('ReverseRoutingHints', () => {
   const sendingCurrency = {
@@ -96,9 +105,9 @@ describe('ReverseRoutingHints', () => {
         const amount = 100_000;
         const address =
           'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
-        const keys = ECPair.makeRandom();
+        const keys = makeKeys();
         const signature = Buffer.from(
-          keys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
+          keys.signSchnorr(sha256(Buffer.from(address, 'utf-8'))),
         );
 
         expect(
@@ -175,9 +184,9 @@ describe('ReverseRoutingHints', () => {
         const amount = 100_000;
         const address =
           'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
-        const keys = ECPair.makeRandom();
+        const keys = makeKeys();
         const signature = Buffer.from(
-          keys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
+          keys.signSchnorr(sha256(Buffer.from(address, 'utf-8'))),
         );
 
         expect(
@@ -215,7 +224,7 @@ describe('ReverseRoutingHints', () => {
     test('should throw for invalid addresses', () => {
       const amount = 100_000;
       const address = 'invalid';
-      const keys = ECPair.makeRandom();
+      const keys = makeKeys();
 
       expect(() =>
         hints.getHints(sendingCurrency, {
@@ -232,11 +241,9 @@ describe('ReverseRoutingHints', () => {
       const amount = 100_000;
       const address =
         'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
-      const keys = ECPair.makeRandom();
+      const keys = makeKeys();
       const signature = Buffer.from(
-        keys.signSchnorr(
-          crypto.sha256(Buffer.from('not the address', 'utf-8')),
-        ),
+        keys.signSchnorr(sha256(Buffer.from('not the address', 'utf-8'))),
       );
 
       expect(() =>
@@ -252,14 +259,14 @@ describe('ReverseRoutingHints', () => {
   });
 
   describe('BOLT12', () => {
-    const signingKeys = ECPair.makeRandom();
+    const signingKeys = makeKeys();
     const amount = 100_000;
     const address =
       'bcrt1pq6cwjynamw58jvwyg7lt2m62mqhq07kjuulz0an8wgjf9wufx3nsje7hve';
 
     test('should add magic routing hint', () => {
       const signature = Buffer.from(
-        signingKeys.signSchnorr(crypto.sha256(Buffer.from(address, 'utf-8'))),
+        signingKeys.signSchnorr(sha256(Buffer.from(address, 'utf-8'))),
       );
 
       const res = hints.getHints(sendingCurrency, {
@@ -291,7 +298,7 @@ describe('ReverseRoutingHints', () => {
     test('should throw for invalid address signatures', () => {
       const signature = Buffer.from(
         signingKeys.signSchnorr(
-          crypto.sha256(Buffer.from('not the address', 'utf-8')),
+          sha256(Buffer.from('not the address', 'utf-8')),
         ),
       );
 

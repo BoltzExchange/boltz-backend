@@ -1,8 +1,12 @@
+import type { Transaction } from '@scure/btc-signer';
 import AsyncLock from 'async-lock';
-import type { Transaction } from 'bitcoinjs-lib';
+import type { Types } from 'boltz-core';
 import { OutputType, SwapTreeSerializer } from 'boltz-core';
 import type { ContractTransactionResponse } from 'ethers';
-import type { Transaction as LiquidTransaction } from 'liquidjs-lib';
+import type {
+  Transaction as LiquidTransaction,
+  TxOutput as LiquidTxOutput,
+} from 'liquidjs-lib';
 import { Op } from 'sequelize';
 import type {
   ClaimDetails,
@@ -20,6 +24,7 @@ import {
 } from '../Core';
 import type Logger from '../Logger';
 import { racePromise } from '../PromiseUtils';
+import { TxView } from '../TxView';
 import {
   calculateEthereumTransactionFee,
   formatError,
@@ -253,7 +258,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       async ({ swap, transaction, reason }) => {
         await this.lock.acquire(SwapNursery.swapLock, async () => {
           this.logger.warn(
-            `Rejected 0-conf lockup transaction (${transaction.getId()}:${
+            `Rejected 0-conf lockup transaction (${TxView.of(transaction).id}:${
               swap.lockupTransactionVout
             }) of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id}: ${reason}`,
           );
@@ -676,7 +681,7 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       async ({ swap, transaction, reason }) => {
         await this.lock.acquire(SwapNursery.chainSwapLock, async () => {
           this.logger.warn(
-            `Rejected 0-conf lockup transaction (${transaction.getId()}:${
+            `Rejected 0-conf lockup transaction (${TxView.of(transaction).id}:${
               swap.receivingData.transactionVout
             }) of ${swapTypeToPrettyString(swap.type)} Swap ${swap.chainSwap.id}: ${reason}`,
           );
@@ -1715,10 +1720,10 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       claimTransaction,
     );
 
-    await chainClient.sendRawTransaction(claimTransaction.toHex(), true);
+    await chainClient.sendRawTransaction(TxView.of(claimTransaction).hex, true);
 
     this.logger.info(
-      `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${claimTransaction.getId()}`,
+      `Claimed ${wallet.symbol} of ${swapTypeToPrettyString(swap.type)} Swap ${swap.id} in: ${TxView.of(claimTransaction).id}`,
     );
 
     this.emit('claim', {
@@ -2033,33 +2038,57 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
       rawLockupTransaction,
     );
 
-    const lockupOutput = lockupTransaction.outs[sendingData.transactionVout!];
-    const refundDetails = {
-      ...lockupOutput,
-      vout: sendingData.transactionVout,
-      txHash: lockupTransaction.getHash(),
-      keys: wallet.getKeysByIndex(sendingData.keyIndex!),
-    } as RefundDetails | LiquidRefundDetails;
+    const isLiquid = chainClient.currencyType === CurrencyType.Liquid;
+    const vout = sendingData.transactionVout!;
+    const liquidOut = isLiquid
+      ? ((lockupTransaction as LiquidTransaction).outs[vout] as LiquidTxOutput)
+      : undefined;
+    const lockupScript = liquidOut
+      ? liquidOut.script
+      : Buffer.from((lockupTransaction as Transaction).getOutput(vout).script!);
+    const keys = wallet.getKeysByIndex(sendingData.keyIndex!);
+    const baseDetails = {
+      ...(liquidOut
+        ? {
+            asset: liquidOut.asset,
+            value: liquidOut.value,
+            nonce: liquidOut.nonce,
+            rangeProof: liquidOut.rangeProof,
+            surjectionProof: liquidOut.surjectionProof,
+          }
+        : {
+            amount: (lockupTransaction as Transaction).getOutput(vout).amount!,
+          }),
+      vout,
+      script: lockupScript,
+      transactionId: TxView.of(lockupTransaction).id,
+      privateKey: keys.privateKey!,
+    };
 
+    let refundDetails: RefundDetails | LiquidRefundDetails;
     switch (swap.version) {
       case SwapVersion.Taproot: {
-        refundDetails.type = OutputType.Taproot;
-        refundDetails.cooperative = false;
-        refundDetails.swapTree = SwapTreeSerializer.deserializeSwapTree(
-          sendingData.redeemScript!,
-        );
-        refundDetails.internalKey = createMusig(
-          refundDetails.keys,
-          getHexBuffer(sendingData.theirPublicKey!),
-        ).getAggregatedPublicKey();
+        refundDetails = {
+          ...baseDetails,
+          type: OutputType.Taproot,
+          cooperative: false,
+          swapTree: SwapTreeSerializer.deserializeSwapTree(
+            sendingData.redeemScript!,
+          ) as Types.SwapTree,
+          internalKey: Buffer.from(
+            createMusig(keys, getHexBuffer(sendingData.theirPublicKey!))
+              .aggPubkey,
+          ),
+        } as RefundDetails | LiquidRefundDetails;
         break;
       }
 
       default: {
-        refundDetails.type = LegacyReverseSwapOutputType;
-        refundDetails.redeemScript = getHexBuffer(
-          (swap as ReverseSwap).redeemScript!,
-        );
+        refundDetails = {
+          ...baseDetails,
+          type: LegacyReverseSwapOutputType,
+          redeemScript: getHexBuffer((swap as ReverseSwap).redeemScript!),
+        } as RefundDetails | LiquidRefundDetails;
         break;
       }
     }
@@ -2079,16 +2108,19 @@ class SwapNursery extends TypedEventEmitter<SwapNurseryEvents> {
     await RefundTransactionRepository.addTransaction({
       swapId: swap.id,
       symbol: chainCurrency.symbol,
-      id: refundTransaction.getId(),
+      id: TxView.of(refundTransaction).id,
       vin: 0,
     });
 
-    await chainClient.sendRawTransaction(refundTransaction.toHex(), true);
+    await chainClient.sendRawTransaction(
+      TxView.of(refundTransaction).hex,
+      true,
+    );
 
     this.logger.info(
       `Broadcast ${chainClient.symbol} refund of ${swapTypeToPrettyString(swap.type)} Swap ${
         swap.id
-      } in: ${refundTransaction.getId()}`,
+      } in: ${TxView.of(refundTransaction).id}`,
     );
 
     this.emit('refund', {

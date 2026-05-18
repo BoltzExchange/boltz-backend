@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from 'crypto';
 import type ArkClient from '../../../lib/chain/ArkClient';
 
@@ -11,7 +11,7 @@ export const createVHtlc = async (
   const preimage = randomBytes(32);
 
   const { vHtlc, timeouts } = await arkClient.createVHtlc(
-    crypto.sha256(preimage),
+    Buffer.from(sha256(preimage)),
     refundDelay,
     claimPublicKey,
     refundPublicKey,

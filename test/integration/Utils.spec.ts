@@ -1,4 +1,5 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { hexToBytes } from '@noble/hashes/utils.js';
+import { Transaction } from '@scure/btc-signer';
 import { Transaction as TransactionLiquid } from 'liquidjs-lib';
 import {
   calculateEthereumTransactionFee,
@@ -40,10 +41,12 @@ describe('Utils', () => {
       '',
     );
 
-    const tx = Transaction.fromHex(await bitcoinClient.getRawTransaction(txId));
+    const tx = Transaction.fromRaw(
+      hexToBytes(await bitcoinClient.getRawTransaction(txId)),
+    );
 
     // Leave some buffer for core not doing *exactly* the sat/vbyte we told it to
-    const expectedFee = tx.virtualSize() * satPerVbyte;
+    const expectedFee = tx.vsize * satPerVbyte;
     await expect(
       calculateUtxoTransactionFee(bitcoinClient, tx),
     ).resolves.toBeGreaterThanOrEqual(expectedFee - 5);

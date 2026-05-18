@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`AddressUtils liquid encodes a confidential P2TR (el1p…) when a blindingKey is supplied 1`] = `"el1pqfumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqte3uqgrs5sz8truaq7f0lzgedfuxajqwzj6gul2swe9hydneqtmvlxkk8qkszglwgx"`;
+
+exports[`AddressUtils liquid encodes a confidential P2WPKH (el1q…) when a blindingKey is supplied 1`] = `"el1qqfumuen7l8wthtz45p3ftn58pvrs9xlumvkuu2xet8egzkcklqtes0tcn6mer9cae599smsajp0jtjawuvxck8z0dwe7efq4h"`;

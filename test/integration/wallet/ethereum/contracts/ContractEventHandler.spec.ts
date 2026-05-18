@@ -1,4 +1,4 @@
-import { crypto } from 'bitcoinjs-lib';
+import { sha256 } from '@noble/hashes/sha2.js';
 import type { ERC20 } from 'boltz-core/typechain/ERC20';
 import type { ERC20Swap } from 'boltz-core/typechain/ERC20Swap';
 import type { EtherSwap } from 'boltz-core/typechain/EtherSwap';
@@ -72,7 +72,7 @@ describe('ContractEventHandler', () => {
 
   test('should listen to EtherSwap lockup events', async () => {
     const tx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       await setup.etherBase.getAddress(),
       timelock,
       {
@@ -92,7 +92,7 @@ describe('ContractEventHandler', () => {
           expect(etherSwapValues).toEqual({
             amount,
             timelock,
-            preimageHash: crypto.sha256(preimage),
+            preimageHash: Buffer.from(sha256(preimage)),
             refundAddress: await setup.signer.getAddress(),
             claimAddress: await setup.etherBase.getAddress(),
           });
@@ -125,7 +125,7 @@ describe('ContractEventHandler', () => {
         }) => {
           expect(version).toEqual(contractsVersion);
           expect(transactionHash).toEqual(tx.hash);
-          expect(eventPreimageHash).toEqual(crypto.sha256(preimage));
+          expect(eventPreimageHash).toEqual(Buffer.from(sha256(preimage)));
           expect(eventPreimage).toEqual(preimage);
           resolve();
         },
@@ -141,7 +141,7 @@ describe('ContractEventHandler', () => {
     const tx = await contracts.erc20Swap[
       'lock(bytes32,uint256,address,address,uint256)'
     ](
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       amount,
       await contracts.token.getAddress(),
       await setup.etherBase.getAddress(),
@@ -160,7 +160,7 @@ describe('ContractEventHandler', () => {
           expect(erc20SwapValues).toEqual({
             amount,
             timelock,
-            preimageHash: crypto.sha256(preimage),
+            preimageHash: Buffer.from(sha256(preimage)),
             refundAddress: await setup.signer.getAddress(),
             claimAddress: await setup.etherBase.getAddress(),
             tokenAddress: await contracts.token.getAddress(),
@@ -194,7 +194,7 @@ describe('ContractEventHandler', () => {
         }) => {
           expect(version).toEqual(contractsVersion);
           expect(transactionHash).toEqual(tx.hash);
-          expect(eventPreimageHash).toEqual(crypto.sha256(preimage));
+          expect(eventPreimageHash).toEqual(Buffer.from(sha256(preimage)));
           expect(eventPreimage).toEqual(preimage);
           resolve();
         },
@@ -218,7 +218,7 @@ describe('ContractEventHandler', () => {
           expect(etherSwapValues).toEqual({
             amount,
             timelock,
-            preimageHash: crypto.sha256(preimage),
+            preimageHash: Buffer.from(sha256(preimage)),
             refundAddress: await setup.signer.getAddress(),
             claimAddress: await setup.etherBase.getAddress(),
           });
@@ -238,7 +238,7 @@ describe('ContractEventHandler', () => {
         }) => {
           expect(version).toEqual(contractsVersion);
           expect(transactionHash).toEqual(transactions.etherSwap.claim);
-          expect(eventPreimageHash).toEqual(crypto.sha256(preimage));
+          expect(eventPreimageHash).toEqual(Buffer.from(sha256(preimage)));
           expect(eventPreimage).toEqual(preimage);
           resolve();
         },
@@ -261,7 +261,7 @@ describe('ContractEventHandler', () => {
           expect(erc20SwapValues).toEqual({
             amount,
             timelock,
-            preimageHash: crypto.sha256(preimage),
+            preimageHash: Buffer.from(sha256(preimage)),
             refundAddress: await setup.signer.getAddress(),
             claimAddress: await setup.etherBase.getAddress(),
             tokenAddress: await contracts.token.getAddress(),
@@ -282,7 +282,7 @@ describe('ContractEventHandler', () => {
         }) => {
           expect(version).toEqual(contractsVersion);
           expect(transactionHash).toEqual(transactions.erc20Swap.claim);
-          expect(eventPreimageHash).toEqual(crypto.sha256(preimage));
+          expect(eventPreimageHash).toEqual(Buffer.from(sha256(preimage)));
           expect(eventPreimage).toEqual(preimage);
           resolve();
         },
@@ -308,7 +308,7 @@ describe('ContractEventHandler', () => {
             expect(etherSwapValues).toEqual({
               amount,
               timelock,
-              preimageHash: crypto.sha256(preimage),
+              preimageHash: Buffer.from(sha256(preimage)),
               refundAddress: await setup.signer.getAddress(),
               claimAddress: await setup.etherBase.getAddress(),
             });
@@ -340,7 +340,7 @@ describe('ContractEventHandler', () => {
     const preimage = randomBytes(32);
 
     const lockupTx = await contracts.etherSwap['lock(bytes32,address,uint256)'](
-      crypto.sha256(preimage),
+      Buffer.from(sha256(preimage)),
       await setup.etherBase.getAddress(),
       timelock,
       {
@@ -360,7 +360,7 @@ describe('ContractEventHandler', () => {
       contractEventHandler.once('eth.claim', async (args) => {
         expect(args.version).toEqual(contractsVersion);
         expect(args.transactionHash).toEqual(claimTx.hash);
-        expect(args.preimageHash).toEqual(crypto.sha256(preimage));
+        expect(args.preimageHash).toEqual(Buffer.from(sha256(preimage)));
         expect(args.preimage).toEqual(preimage);
         resolve();
       });

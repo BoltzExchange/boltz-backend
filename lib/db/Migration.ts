@@ -1,8 +1,9 @@
 import { Transaction as EthersTransaction } from 'ethers';
 import type { Sequelize, Transaction as SequelizeTransaction } from 'sequelize';
 import { DataTypes, Op, QueryTypes } from 'sequelize';
-import { getBlindingKey, toOutputScript } from '../../lib/Core';
+import { getBlindingKey } from '../../lib/Core';
 import ElementsClient from '../../lib/chain/ElementsClient';
+import { outputScriptFromAddress } from '../AddressUtils';
 import { SelfPaymentNodeId } from '../BaseClient';
 import type Logger from '../Logger';
 import { formatError, getHexBuffer } from '../Utils';
@@ -50,7 +51,11 @@ export const decodeBip21 = (
   const address = url.pathname;
   return {
     symbol,
-    scriptPubkey: toOutputScript(currency.type, address, currency.network!),
+    scriptPubkey: outputScriptFromAddress(
+      currency.type,
+      address,
+      currency.network!,
+    ),
     blindingKey: getBlindingKey(currency.type, address),
     params: url.search.replace('?', ''),
   };

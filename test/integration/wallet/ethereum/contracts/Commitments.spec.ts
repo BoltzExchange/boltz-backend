@@ -898,6 +898,13 @@ describe('Commitments', () => {
       lockupAddress: string,
       receivingSymbol: string,
       timeoutBlockHeight: number,
+    ) => createChainSwap(lockupAddress, receivingSymbol, 0, timeoutBlockHeight);
+
+    const createChainSwap = async (
+      lockupAddress: string,
+      receivingSymbol: string,
+      expectedAmount: number,
+      timeoutBlockHeight: number,
     ) => {
       const preimage = randomBytes(32);
       const preimageHash = crypto.sha256(preimage);
@@ -925,7 +932,7 @@ describe('Commitments', () => {
           swapId: id,
           symbol: receivingSymbol,
           lockupAddress,
-          expectedAmount: 0,
+          expectedAmount,
           timeoutBlockHeight,
         },
       });
@@ -1124,6 +1131,177 @@ describe('Commitments', () => {
           }),
         }),
       );
+    });
+
+    test('should create Ether commitment for underpaid chain swap', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 37_540;
+      const actualAmount = 37_535;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+      const { id, preimageHash } = await createChainSwap(
+        etherSwapAddress,
+        networks.Ethereum.symbol,
+        expectedAmount,
+        timelock - 100,
+      );
+      const amount = BigInt(actualAmount) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: amount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(
+        networks.Ethereum.symbol,
+        id,
+        signature,
+        tx.hash,
+      );
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).toEqual(
+        expect.objectContaining({
+          swapId: id,
+          transactionHash: tx.hash,
+        }),
+      );
+      expect(eventHandler.handleEvent).toHaveBeenCalledWith(
+        'eth.lockup',
+        expect.objectContaining({
+          etherSwapValues: expect.objectContaining({
+            amount,
+            timelock,
+            claimAddress: await setup.signer.getAddress(),
+            refundAddress: await setup.signer.getAddress(),
+          }),
+        }),
+      );
+    });
+
+    test('should create ERC20 commitment for underpaid chain swap', async () => {
+      const symbol = 'USDT';
+      const { provider, wallets } = await createErc20Wallet(symbol);
+      const commitments = createInitializedCommitments(wallets);
+      const erc20SwapAddress = await erc20Swap.getAddress();
+
+      const expectedAmount = 37_540;
+      const actualAmount = 37_535;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+      const { id, preimageHash } = await createChainSwap(
+        erc20SwapAddress,
+        symbol,
+        expectedAmount,
+        timelock - 100,
+      );
+      const amount = provider.formatTokenAmount(actualAmount);
+
+      const approveTx = await token.approve(erc20SwapAddress, amount, {
+        nonce: await getSignerNonce(),
+      });
+      await approveTx.wait(1);
+
+      const tx = await erc20Swap[
+        'lock(bytes32,uint256,address,address,uint256)'
+      ](
+        zeroPreimageHash,
+        amount,
+        await token.getAddress(),
+        await setup.signer.getAddress(),
+        timelock,
+        { nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getErc20SwapDomain(setup.provider, erc20Swap),
+        erc20SwapCommitTypes,
+        {
+          preimageHash,
+          amount,
+          tokenAddress: await token.getAddress(),
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await commitments.commit(symbol, id, signature, tx.hash);
+
+      const commitment = await CommitmentRepository.getBySwapId(id);
+      expect(commitment).toEqual(
+        expect.objectContaining({
+          swapId: id,
+          transactionHash: tx.hash,
+        }),
+      );
+      expect(eventHandler.handleEvent).toHaveBeenCalledWith(
+        'erc20.lockup',
+        expect.objectContaining({
+          erc20SwapValues: expect.objectContaining({
+            amount,
+            tokenAddress: await token.getAddress(),
+            timelock,
+            claimAddress: await setup.signer.getAddress(),
+            refundAddress: await setup.signer.getAddress(),
+          }),
+        }),
+      );
+    });
+
+    test('should throw when chain swap lockup amount is unacceptable overpay', async () => {
+      const commitments = createInitializedCommitments();
+      const etherSwapAddress = await etherSwap.getAddress();
+
+      const expectedAmount = 100;
+      const timelock = (await setup.provider.getBlockNumber()) + 1000;
+      const { id, preimageHash } = await createChainSwap(
+        etherSwapAddress,
+        networks.Ethereum.symbol,
+        expectedAmount,
+        timelock - 100,
+      );
+      const overpaidAmount = BigInt(expectedAmount + 10_001) * etherDecimals;
+
+      const tx = await etherSwap['lock(bytes32,address,uint256)'](
+        zeroPreimageHash,
+        await setup.signer.getAddress(),
+        timelock,
+        { value: overpaidAmount, nonce: await getSignerNonce() },
+      );
+      await tx.wait(1);
+
+      const signature = await setup.signer.signTypedData(
+        await getEtherSwapDomain(setup.provider, etherSwap),
+        etherSwapCommitTypes,
+        {
+          preimageHash,
+          amount: overpaidAmount,
+          claimAddress: await setup.signer.getAddress(),
+          refundAddress: await setup.signer.getAddress(),
+          timelock,
+        },
+      );
+
+      await expect(
+        commitments.commit(networks.Ethereum.symbol, id, signature, tx.hash),
+      ).rejects.toThrow('overpaid amount:');
     });
 
     test('should reject Ether commitment when onchain claimAddress differs', async () => {

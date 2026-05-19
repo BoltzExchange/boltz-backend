@@ -323,6 +323,13 @@ class Commitments {
     }
 
     if (actualAmount < expectedAmount) {
+      if (swapType === SwapType.Chain) {
+        // Chain swap underpayments are accepted as commitments so the lockup
+        // transaction can be recorded and then fail through the normal nursery
+        // path, which puts the swap into renegotiation
+        return;
+      }
+
       throw new Error(
         `insufficient amount: ${actualAmount} < ${expectedAmount}`,
       );

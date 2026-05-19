@@ -63,6 +63,41 @@ const loadBoltzClient = (
   }
 };
 
+const mkTempDir = () =>
+  fs.mkdtempSync(path.join(os.tmpdir(), 'boltz-grpcserver-test-'));
+
+const rmDir = (dir: string) => {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true });
+  }
+};
+
+// Generating RSA keypairs via node-forge is ~1.5s each, and each gRPC
+// server start materializes CA + server + client certs. Generate them once
+// in beforeAll and reuse across tests that only need a working SSL handshake
+const populateCerts = (dir: string) => {
+  const caCert = getCertificate(
+    Logger.disabledLogger,
+    GrpcServer.certificateSubject,
+    dir,
+    CertificatePrefix.CA,
+  );
+  getCertificate(
+    Logger.disabledLogger,
+    GrpcServer.certificateSubject,
+    dir,
+    CertificatePrefix.Server,
+    caCert,
+  );
+  getCertificate(
+    Logger.disabledLogger,
+    GrpcServer.certificateSubject,
+    dir,
+    CertificatePrefix.Client,
+    caCert,
+  );
+};
+
 describe('GrpcServer', () => {
   const grpcService = {
     getInfo: jest
@@ -75,23 +110,20 @@ describe('GrpcServer', () => {
   } as unknown as GrpcService;
 
   let certsDir: string;
-
-  const cleanup = () => {
-    if (fs.existsSync(certsDir)) {
-      fs.rmSync(certsDir, { recursive: true });
-    }
-  };
+  let invalidCertsDir: string;
 
   beforeAll(() => {
-    certsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'boltz-grpcserver-test-'));
-  });
+    certsDir = mkTempDir();
+    populateCerts(certsDir);
 
-  beforeEach(() => {
-    cleanup();
-  });
+    // Separate dir with a different CA so its client cert is rejected by the server
+    invalidCertsDir = mkTempDir();
+    populateCerts(invalidCertsDir);
+  }, 30_000);
 
   afterAll(() => {
-    cleanup();
+    rmDir(certsDir);
+    rmDir(invalidCertsDir);
   });
 
   test('should create insecure server', async () => {
@@ -155,7 +187,7 @@ describe('GrpcServer', () => {
 
   test('should not regenerate existing certificates', async () => {
     const port = await getPort();
-    let server = new GrpcServer(
+    const server = new GrpcServer(
       Logger.disabledLogger,
       {
         port,
@@ -164,29 +196,15 @@ describe('GrpcServer', () => {
       },
       grpcService,
     );
+
+    const preServerPem = fs.readFileSync(path.join(certsDir, 'server.pem'));
     await server.listen();
     await server.close();
 
-    const preRestartServerPem = fs.readFileSync(
-      path.join(certsDir, 'server.pem'),
+    expect(fs.readFileSync(path.join(certsDir, 'server.pem'))).toEqual(
+      preServerPem,
     );
-
-    server = new GrpcServer(
-      Logger.disabledLogger,
-      {
-        port,
-        host: '127.0.0.1',
-        certificates: certsDir,
-      },
-      grpcService,
-    );
-    await server.listen();
-    await server.close();
-
-    expect(preRestartServerPem).toEqual(
-      fs.readFileSync(path.join(certsDir, 'server.pem')),
-    );
-  }, 10_000);
+  });
 
   test('should not allow clients with invalid certificates', async () => {
     const port = await getPort();
@@ -201,23 +219,7 @@ describe('GrpcServer', () => {
     );
     await server.listen();
 
-    // Create an invalid client certificate
-    cleanup();
-    const caCert = getCertificate(
-      Logger.disabledLogger,
-      GrpcServer.certificateSubject,
-      certsDir,
-      CertificatePrefix.CA,
-    );
-    getCertificate(
-      Logger.disabledLogger,
-      GrpcServer.certificateSubject,
-      certsDir,
-      CertificatePrefix.Client,
-      caCert,
-    );
-
-    const client = loadBoltzClient('127.0.0.1', port, certsDir);
+    const client = loadBoltzClient('127.0.0.1', port, invalidCertsDir);
 
     await expect(
       promisifyCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse>(
@@ -229,7 +231,7 @@ describe('GrpcServer', () => {
 
     client.close();
     await server.close();
-  }, 10_000);
+  });
 
   test('should throw when trying to bind to impossible port', async () => {
     const server = new GrpcServer(
@@ -261,7 +263,9 @@ describe('GrpcServer', () => {
 
     // Have something else use the port
     const collisionServer = createServer();
-    collisionServer.listen(port, host, () => {});
+    await new Promise<void>((resolve) => {
+      collisionServer.listen(port, host, () => resolve());
+    });
 
     await expect(server.listen()).rejects.toEqual(expect.anything());
 
@@ -271,5 +275,5 @@ describe('GrpcServer', () => {
         resolve();
       });
     });
-  }, 10_000);
+  });
 });
